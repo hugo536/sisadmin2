@@ -1,105 +1,65 @@
 <?php
 declare(strict_types=1);
 
-class AuthController extends Controlador
+class Router
 {
-    public function index(): void
+    public function dispatch(): void
     {
-        if (!empty($_SESSION['usuario']['id'])) {
-            header('Location: ?ruta=dashboard/index');
-            exit;
+        $ruta = trim((string)($_GET['ruta'] ?? 'login/index'));
+        if ($ruta === '') $ruta = 'login/index';
+
+        if (str_contains($ruta, '..')) {
+            $this->render_not_found(); return;
         }
 
-        $error = $_GET['error'] ?? null;
-        $this->render('auth/login', ['error' => $error]);
+        $partes = array_values(array_filter(explode('/', $ruta)));
+        $modulo = $partes[0] ?? 'login';
+        $accion = $partes[1] ?? 'index';
+
+        $controlador_clase = ucfirst($modulo) . 'Controller';
+
+        // Alias: login/* -> AuthController
+        if ($controlador_clase === 'LoginController') {
+            $controlador_clase = 'AuthController';
+        }
+
+        $archivo = $this->resolver_controlador_archivo($controlador_clase);
+        if (!$archivo) { $this->render_not_found(); return; }
+
+        require_once $archivo;
+
+        if (!class_exists($controlador_clase)) {
+            $this->render_server_error(); return;
+        }
+
+        $controlador = new $controlador_clase();
+
+        if (!method_exists($controlador, $accion)) {
+            $this->render_not_found(); return;
+        }
+
+        $controlador->{$accion}();
     }
 
-    public function authenticate(): void
+    private function resolver_controlador_archivo(string $controlador_clase): ?string
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo "Método no permitido";
-            return;
-        }
-
-        $usuario = trim((string)($_POST['usuario'] ?? ''));
-        $clave   = (string)($_POST['clave'] ?? ''); // <-- IMPORTANTE: name="clave" en la vista
-
-        if ($usuario === '' || $clave === '') {
-            $this->bitacora(1, 'LOGIN_FAIL', "Campos vacíos (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales requeridas');
-            exit;
-        }
-
-        $model = new UsuarioModel();
-        $row = $model->buscar_por_usuario($usuario);
-
-        if (!$row) {
-            $this->bitacora(1, 'LOGIN_FAIL', "Usuario no existe (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales inválidas');
-            exit;
-        }
-
-        $estado = (int)($row['estado'] ?? 0);
-        if ($estado !== 1) {
-            $this->bitacora((int)$row['id'], 'LOGIN_DENIED', "Estado={$estado} (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Usuario no habilitado');
-            exit;
-        }
-
-        $hash = (string)($row['clave'] ?? '');
-        if ($hash === '' || !password_verify($clave, $hash)) {
-            $this->bitacora((int)$row['id'], 'LOGIN_FAIL', "Password inválido (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales inválidas');
-            exit;
-        }
-
-        // Sesión segura
-        session_regenerate_id(true);
-        $_SESSION['usuario'] = [
-            'id'     => (int)$row['id'],
-            'usuario'=> (string)$row['usuario'],
-            'id_rol' => (int)$row['id_rol'],
+        $candidatos = [
+            BASE_PATH . '/app/controllers/' . $controlador_clase . '.php',
+            BASE_PATH . '/app/controladores/' . $controlador_clase . '.php',
         ];
-        $_SESSION['ultimo_acceso'] = time();
-
-        // ultimo_login
-        $model->actualizar_ultimo_login((int)$row['id']);
-
-        // bitácora OK
-        $this->bitacora((int)$row['id'], 'LOGIN_OK', "Login exitoso (usuario={$usuario})");
-
-        header('Location: ?ruta=dashboard/index');
-        exit;
+        foreach ($candidatos as $f) if (is_file($f)) return $f;
+        return null;
     }
 
-    public function logout(): void
+    private function render_not_found(): void
     {
-        $id = (int)($_SESSION['usuario']['id'] ?? 1);
-        $this->bitacora($id, 'LOGOUT', 'Cierre de sesión');
-
-        $_SESSION = [];
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"], $params["secure"], $params["httponly"]
-            );
-        }
-        session_destroy();
-
-        header('Location: ?ruta=login/index');
-        exit;
+        http_response_code(404);
+        echo '404 - Recurso no encontrado.';
     }
 
-    private function bitacora(int $createdBy, string $evento, string $descripcion): void
+    private function render_server_error(): void
     {
-        try {
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-            $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-            $model = new UsuarioModel();
-            $model->insertar_bitacora($createdBy, $evento, $descripcion, $ip, $ua);
-        } catch (Throwable $e) {
-            // no romper flujo por bitácora
-        }
+        http_response_code(500);
+        echo '500 - Error interno del servidor.';
     }
 }

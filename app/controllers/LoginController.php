@@ -1,112 +1,142 @@
 <?php
 declare(strict_types=1);
 
+require_once BASE_PATH . '/app/models/UsuarioModel.php';
+
 class LoginController extends Controlador
 {
+    private UsuarioModel $usuarioModel;
+
+    public function __construct()
+    {
+        $this->usuarioModel = new UsuarioModel();
+    }
+
     public function index(): void
     {
-        // Si ya está logueado, manda a dashboard (o donde tengas)
-        if (!empty($_SESSION['usuario']['id'])) {
-            header('Location: ?ruta=dashboard/index');
+        if ($this->usuario_autenticado()) {
+            header('Location: ?ruta=login/bienvenido');
             exit;
         }
 
-        $this->render('auth/login', [
-            'error' => $_GET['error'] ?? null
-        ]);
+        $this->render('auth/login');
+    }
+
+    public function login(): void
+    {
+        $this->index();
     }
 
     public function authenticate(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            echo "Método no permitido";
+            echo 'Método no permitido.';
             return;
         }
 
-        $usuario = trim((string)($_POST['usuario'] ?? ''));
-        $clave   = (string)($_POST['clave'] ?? '');
+        $usuarioIngresado = trim((string) ($_POST['usuario'] ?? ''));
+        $claveIngresada = (string) ($_POST['password'] ?? '');
 
-        if ($usuario === '' || $clave === '') {
-            $this->registrarBitacora(1, 'LOGIN_FAIL', "Campos vacíos (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=1');
-            exit;
+        if ($usuarioIngresado === '' || $claveIngresada === '') {
+            $this->registrar_evento(1, 'login_fallido', 'Intento con campos vacíos. usuario=' . $usuarioIngresado);
+            $this->render('auth/login', ['error' => 'Usuario y contraseña son obligatorios.']);
+            return;
         }
 
-        $model = new UsuarioModel();
-        $row = $model->buscar_por_usuario($usuario);
+        $usuario = $this->usuarioModel->buscar_por_usuario($usuarioIngresado);
 
-        // Usuario no existe
-        if (!$row) {
-            $this->registrarBitacora(1, 'LOGIN_FAIL', "Usuario no existe (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=1');
-            exit;
+        if ($usuario === null) {
+            $this->registrar_evento(1, 'login_fallido', 'Usuario no existe. usuario=' . $usuarioIngresado);
+            $this->render('auth/login', ['error' => 'Credenciales inválidas.']);
+            return;
         }
 
-        // Validar estado (1=activo, 0=inactivo, 2=bloqueado)
-        $estado = (int)($row['estado'] ?? 0);
-        if ($estado !== 1) {
-            $this->registrarBitacora((int)$row['id'], 'LOGIN_DENIED', "Estado={$estado} (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=2');
-            exit;
+        if (strtolower((string) $usuario['estado']) !== 'activo') {
+            $this->registrar_evento((int) $usuario['id'], 'login_fallido', 'Usuario inactivo.');
+            $this->render('auth/login', ['error' => 'Usuario inactivo.']);
+            return;
         }
 
-        // Verificar contraseña contra usuarios.clave
-        $hash = (string)($row['clave'] ?? '');
-        if ($hash === '' || !password_verify($clave, $hash)) {
-            $this->registrarBitacora((int)$row['id'], 'LOGIN_FAIL', "Password inválido (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=1');
-            exit;
+        if (!password_verify($claveIngresada, (string) $usuario['clave'])) {
+            $this->registrar_evento((int) $usuario['id'], 'login_fallido', 'Contraseña incorrecta.');
+            $this->render('auth/login', ['error' => 'Credenciales inválidas.']);
+            return;
         }
 
-        // ✅ Login OK: endurecer sesión
         session_regenerate_id(true);
-
-        $_SESSION['usuario'] = [
-            'id'     => (int)$row['id'],
-            'usuario'=> (string)$row['usuario'],
-            'id_rol' => (int)$row['id_rol'],
+        $_SESSION['auth'] = [
+            'id' => (int) $usuario['id'],
+            'usuario' => (string) $usuario['usuario'],
+            'rol' => (int) $usuario['id_rol'],
         ];
-        $_SESSION['ultimo_acceso'] = time();
 
-        // Actualizar ultimo_login
-        $model->actualizar_ultimo_login((int)$row['id']);
+        $this->usuarioModel->actualizar_ultimo_login((int) $usuario['id']);
+        $this->registrar_evento((int) $usuario['id'], 'login_exitoso', 'Inicio de sesión correcto.');
 
-        // Bitácora
-        $this->registrarBitacora((int)$row['id'], 'LOGIN_OK', "Login exitoso (usuario={$usuario})");
-
-        // Redirigir a dashboard (crea un placeholder si aún no existe)
-        header('Location: ?ruta=dashboard/index');
+        header('Location: ?ruta=login/bienvenido');
         exit;
     }
 
     public function logout(): void
     {
-        $id = (int)($_SESSION['usuario']['id'] ?? 1);
-        $this->registrarBitacora($id, 'LOGOUT', 'Cierre de sesión');
+        $auth = $_SESSION['auth'] ?? null;
+
+        if (is_array($auth) && isset($auth['id'])) {
+            $this->registrar_evento((int) $auth['id'], 'logout', 'Cierre de sesión.');
+        }
 
         $_SESSION = [];
-        if (ini_get("session.use_cookies")) {
+
+        if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"], $params["secure"], $params["httponly"]
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                (bool) $params['secure'],
+                (bool) $params['httponly']
             );
         }
+
         session_destroy();
 
         header('Location: ?ruta=login/index');
         exit;
     }
 
-    private function registrarBitacora(int $createdBy, string $evento, string $descripcion): void
+    public function bienvenido(): void
     {
-        try {
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-            $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-            $model = new UsuarioModel();
-            $model->insertar_bitacora($createdBy, $evento, $descripcion, $ip, $ua);
-        } catch (Throwable $e) {
-            // No rompas el login por falla de bitácora
+        if (!$this->usuario_autenticado()) {
+            header('Location: ?ruta=login/index');
+            exit;
         }
+
+        $usuario = $_SESSION['auth']['usuario'] ?? 'usuario';
+        echo '<h1>Bienvenido, ' . htmlspecialchars((string) $usuario, ENT_QUOTES, 'UTF-8') . '</h1>';
+        echo '<p><a href="?ruta=login/logout">Cerrar sesión</a></p>';
+    }
+
+    private function registrar_evento(int $createdBy, string $evento, string $descripcion): void
+    {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        $userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+
+        $this->usuarioModel->registrar_evento_seguridad(
+            $createdBy,
+            $evento,
+            $descripcion,
+            $ip,
+            $userAgent
+        );
+    }
+
+    private function usuario_autenticado(): bool
+    {
+        return isset($_SESSION['auth'])
+            && is_array($_SESSION['auth'])
+            && isset($_SESSION['auth']['id'], $_SESSION['auth']['usuario'], $_SESSION['auth']['rol']);
     }
 }

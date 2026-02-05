@@ -6,15 +6,15 @@
 
   form.addEventListener('submit', function (event) {
     const usuario = document.getElementById('usuario');
-    const password = document.getElementById('password');
+    const clave = document.getElementById('clave');
 
-    if (!usuario || !password) {
+    if (!usuario || !clave) {
       return;
     }
 
-    if (usuario.value.trim() === '' || password.value.trim() === '') {
+    if (usuario.value.trim() === '' || clave.value.trim() === '') {
       event.preventDefault();
-      alert('Usuario y contraseña son obligatorios.');
+      alert('Usuario y clave son obligatorios.');
     }
   });
 })();

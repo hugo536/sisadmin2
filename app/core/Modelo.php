@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/config/Conexion.php';
 
-abstract class Modelo
+class Modelo
 {
-    protected function get_pdo(): PDO
+    protected function db(): PDO
     {
         return Conexion::get();
     }

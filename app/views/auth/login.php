@@ -11,7 +11,7 @@
   </div>
 
   <div style="margin-bottom: 8px;">
-    <label for="clave">Contraseña</label><br>
+    <label for="clave">Clave</label><br>
     <input id="clave" name="clave" type="password" autocomplete="current-password" required>
   </div>
 
