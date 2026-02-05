@@ -5,8 +5,12 @@ class UsuarioModel extends Modelo
 {
     public function buscar_por_usuario(string $usuario): ?array
     {
-        $sql = 'SELECT id, usuario, clave, id_rol, estado FROM usuarios WHERE usuario = :usuario LIMIT 1';
-        $stmt = $this->get_pdo()->prepare($sql);
+        $sql = 'SELECT id, usuario, clave, id_rol, estado
+                FROM usuarios
+                WHERE usuario = :usuario
+                  AND deleted_at IS NULL
+                LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute(['usuario' => $usuario]);
 
         $resultado = $stmt->fetch();
@@ -16,7 +20,7 @@ class UsuarioModel extends Modelo
     public function actualizar_ultimo_login(int $id): void
     {
         $sql = 'UPDATE usuarios SET ultimo_login = NOW() WHERE id = :id';
-        $stmt = $this->get_pdo()->prepare($sql);
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $id]);
     }
 
@@ -30,7 +34,7 @@ class UsuarioModel extends Modelo
         $sql = 'INSERT INTO bitacora_seguridad (created_by, evento, descripcion, ip_address, user_agent, created_at)
                 VALUES (:created_by, :evento, :descripcion, :ip_address, :user_agent, NOW())';
 
-        $stmt = $this->get_pdo()->prepare($sql);
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'created_by' => $created_by,
             'evento' => $evento,

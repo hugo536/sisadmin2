@@ -23,6 +23,8 @@ class AuthController extends Controlador
             $mensaje_error = 'Usuario inactivo o bloqueado.';
         } elseif ($codigo_error === 'required') {
             $mensaje_error = 'Usuario y clave son obligatorios.';
+        } elseif ($codigo_error === 'expired') {
+            $mensaje_error = 'La sesión expiró por inactividad. Inicia sesión nuevamente.';
         }
 
         $this->render('auth/login', ['error' => $mensaje_error]);
@@ -100,6 +102,7 @@ class AuthController extends Controlador
         $_SESSION['usuario'] = (string) $usuario['usuario'];
         $_SESSION['id_rol'] = (int) $usuario['id_rol'];
         $_SESSION['ultimo_acceso'] = time();
+        unset($_SESSION['permisos']);
 
         $this->usuario_model->actualizar_ultimo_login($id_usuario);
         $this->usuario_model->insertar_bitacora(
@@ -126,6 +129,7 @@ class AuthController extends Controlador
             $this->obtener_user_agent()
         );
 
+        unset($_SESSION['permisos']);
         $_SESSION = [];
 
         if (ini_get('session.use_cookies')) {
