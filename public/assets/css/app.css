@@ -135,3 +135,57 @@ body {
     .sidebar { transform: translateX(-100%); }
     .sidebar.active { transform: translateX(0); }
 }
+/* Login split layout + temas */
+body.login-page {
+    --login-bg: #f7f9fc;
+    --login-card-bg: #ffffff;
+    --login-text: #1f2937;
+    --login-accent: #2563eb;
+    background: var(--login-bg);
+    color: var(--login-text);
+}
+
+body.login-page.theme-dark {
+    --login-bg: #0f172a;
+    --login-card-bg: #111827;
+    --login-text: #e5e7eb;
+    --login-accent: #7c3aed;
+}
+
+body.login-page.theme-blue {
+    --login-bg: #eef4ff;
+    --login-card-bg: #ffffff;
+    --login-text: #1e3a8a;
+    --login-accent: #1d4ed8;
+}
+
+.login-split {
+    background: linear-gradient(145deg, #2563eb 0%, #7c3aed 100%);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+}
+
+body.login-page.theme-dark .login-split {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+}
+
+body.login-page.theme-blue .login-split {
+    background: linear-gradient(145deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+.login-brand-wrap { max-width: 460px; }
+.login-company-logo { max-height: 90px; width: auto; }
+.login-form-side { background: var(--login-bg); }
+.login-card {
+    max-width: 480px;
+    border-radius: 16px;
+    border: 0;
+    background: var(--login-card-bg);
+    color: var(--login-text);
+}
+body.login-page .btn-primary {
+    background-color: var(--login-accent);
+    border-color: var(--login-accent);
+}
