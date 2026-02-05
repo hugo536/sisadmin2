@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="<?php echo e(asset_url('css/login.css')); ?>">
 <link rel="stylesheet" href="assets/css/login.css">
 
 <div class="dashboard-shell">
@@ -7,6 +8,7 @@
   <p class="dashboard-meta">Este es un panel base para continuar con los módulos del sistema.</p>
 
   <div class="dashboard-actions">
+    <a href="<?php echo e(route_url('auth/logout')); ?>">Cerrar sesión</a>
     <a href="?ruta=auth/logout">Cerrar sesión</a>
   </div>
 </div>

@@ -24,3 +24,31 @@ if (!function_exists('json_response')) {
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }
+
+if (!function_exists('base_url')) {
+    function base_url(): string
+    {
+        $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $dir = str_replace('\\', '/', dirname($scriptName));
+
+        if ($dir === '/' || $dir === '.' || $dir === '\\') {
+            return '';
+        }
+
+        return rtrim($dir, '/');
+    }
+}
+
+if (!function_exists('asset_url')) {
+    function asset_url(string $path): string
+    {
+        return base_url() . '/assets/' . ltrim($path, '/');
+    }
+}
+
+if (!function_exists('route_url')) {
+    function route_url(string $ruta): string
+    {
+        return base_url() . '/?ruta=' . ltrim($ruta, '/');
+    }
+}
