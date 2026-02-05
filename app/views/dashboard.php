@@ -1,4 +1,5 @@
 <link rel="stylesheet" href="<?php echo e(asset_url('css/login.css')); ?>">
+<link rel="stylesheet" href="assets/css/login.css">
 
 <div class="dashboard-shell">
   <h1>Dashboard</h1>
@@ -8,5 +9,6 @@
 
   <div class="dashboard-actions">
     <a href="<?php echo e(route_url('auth/logout')); ?>">Cerrar sesión</a>
+    <a href="?ruta=auth/logout">Cerrar sesión</a>
   </div>
 </div>
