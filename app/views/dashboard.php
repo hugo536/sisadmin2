@@ -1,0 +1,12 @@
+<link rel="stylesheet" href="assets/css/login.css">
+
+<div class="dashboard-shell">
+  <h1>Dashboard</h1>
+  <p class="dashboard-meta">Bienvenido, <strong><?php echo e($usuario ?? 'Usuario'); ?></strong>.</p>
+  <p class="dashboard-meta">Rol actual: <?php echo (int) ($idRol ?? 0); ?></p>
+  <p class="dashboard-meta">Este es un panel base para continuar con los módulos del sistema.</p>
+
+  <div class="dashboard-actions">
+    <a href="?ruta=auth/logout">Cerrar sesión</a>
+  </div>
+</div>
