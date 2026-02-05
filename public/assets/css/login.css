@@ -1,218 +1,106 @@
 :root {
-  /* Paleta de colores unificada */
-  --bg: #0f172a;
-  --panel: #ffffff;
-  --text: #0f172a;
-  --text-light: #e2e8f0;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-dark: #1e293b;
-  
-  --danger: #b91c1c;
-  --danger-bg: #fee2e2;
-  --danger-border: #fecaca;
+  --login-bg: #f1f5f9;
+  --login-card: #ffffff;
+  --login-border: #e2e8f0;
+  --login-primary: #2563eb;
+  --login-primary-hover: #1d4ed8;
+  --login-text: #0f172a;
+  --login-muted: #64748b;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  /* Fondo oscuro con gradiente */
-  background: radial-gradient(circle at top left, #1e293b, var(--bg));
   min-height: 100vh;
-  color: var(--text);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  background: var(--login-bg);
+  display: grid;
+  place-items: center;
+  color: var(--login-text);
 }
-
-/* --- Layout Principal --- */
 
 .login-shell {
-  max-width: 980px;
-  min-height: 88vh;
-  margin: 0 auto;
+  width: min(1020px, 94vw);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: center;
-  padding: 32px 24px;
+  gap: 1.5rem;
+  align-items: stretch;
 }
 
-/* --- Sección de Bienvenida (Izquierda) --- */
+.login-welcome,
+.login-panel {
+  border-radius: 16px;
+}
 
 .login-welcome {
-  color: var(--text-light);
-  padding: 28px;
+  background: linear-gradient(145deg, #0f172a, #1e293b);
+  color: #e2e8f0;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
 }
 
-.login-welcome .badge {
-  display: inline-block;
-  background: rgba(148, 163, 184, 0.2);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 13px;
-  margin-bottom: 12px;
+.login-panel {
+  background: var(--login-card);
+  border: 1px solid var(--login-border);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, .08);
+  padding: 2rem;
 }
 
-.login-welcome h1 {
-  margin: 14px 0 8px;
-  font-size: 44px;
-  line-height: 1.1;
+.subtitle,
+.login-welcome p,
+.login-welcome small {
+  color: var(--login-muted);
 }
 
 .login-welcome p,
-.login-welcome li {
+.login-welcome small {
   color: #cbd5e1;
-  line-height: 1.6;
 }
 
-/* --- Panel de Login (Derecha) --- */
-
-.login-panel {
-  background: var(--panel);
-  border-radius: 16px;
-  box-shadow: 0 18px 45px rgba(2, 6, 23, 0.35);
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.login-panel h2 {
-  margin: 0 0 8px;
-  font-size: 32px;
-}
-
-.subtitle {
-  margin: 0 0 24px;
-  color: var(--muted);
-  font-size: 16px;
-}
-
-/* --- Alertas --- */
-
-.alert {
-  background: var(--danger-bg);
-  border: 1px solid var(--danger-border);
-  color: var(--danger);
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 18px;
-  font-size: 14px;
-}
-
-/* --- Formularios --- */
-
-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--text);
-}
+label { display: block; margin: .9rem 0 .35rem; font-weight: 600; }
 
 input {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 16px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  margin-bottom: 16px;
-  transition: all 0.2s ease;
-  background: #fff;
+  padding: .68rem .72rem;
 }
 
 input:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.35);
-  border-color: var(--primary);
+  outline: 2px solid rgba(37, 99, 235, 0.2);
+  border-color: var(--login-primary);
 }
 
-/* Contenedor de Password con botón de ver */
-.password-wrap {
-  position: relative;
-}
-
-.password-wrap input {
-  padding-right: 50px;
-}
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 3rem; }
 
 .toggle-password {
   position: absolute;
-  right: 8px;
-  top: 36px; /* Ajustado para alinearse con el input si hay label */
+  right: .6rem;
+  top: 50%;
+  transform: translateY(-50%);
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--login-muted);
   cursor: pointer;
-  padding: 4px;
-  font-size: 14px;
 }
-/* Si el botón está dentro del input sin label, usa top: 8px */
 
 .submit-btn {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 1rem;
   border: 0;
   border-radius: 10px;
-  background: var(--primary);
+  background: var(--login-primary);
   color: #fff;
-  font-size: 16px;
+  padding: .75rem;
   font-weight: 700;
-  padding: 12px;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
-.submit-btn:hover {
-  background: var(--primary-hover);
-}
-
-/* --- Estilos del Dashboard (Extra) --- */
-
-.dashboard-shell {
-  max-width: 920px;
-  margin: 36px auto;
-  padding: 28px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2);
-}
-
-.dashboard-meta {
-  color: var(--muted);
-}
-
-.dashboard-actions a {
-  display: inline-block;
-  margin-top: 20px;
-  text-decoration: none;
-  color: #fff;
-  background: #ef4444;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-/* --- Responsive --- */
+.submit-btn:hover { background: var(--login-primary-hover); }
 
 @media (max-width: 900px) {
-  .login-shell {
-    grid-template-columns: 1fr;
-    min-height: auto;
-    padding-top: 40px;
-  }
-
-  .login-welcome {
-    text-align: center;
-    padding: 0 0 24px 0;
-  }
-
-  .login-welcome h1 {
-    font-size: 36px;
-  }
+  .login-shell { grid-template-columns: 1fr; }
 }
