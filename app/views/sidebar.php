@@ -1,7 +1,17 @@
 <?php
 declare(strict_types=1);
 
-$ruta_actual = (string) ($ruta_actual ?? ($_GET['ruta'] ?? 'dashboard/index'));
+$ruta_actual = (string) ($ruta_actual ?? ($_GET['ruta'] ?? 'dashboard'));
+$usuarioNombre = trim((string) ($_SESSION['usuario_nombre'] ?? ''));
+$rolNombre = trim((string) ($_SESSION['rol_nombre'] ?? ''));
+
+if ($usuarioNombre == '') {
+    $usuarioNombre = 'Invitado';
+}
+
+if ($rolNombre == '') {
+    $rolNombre = 'Invitado';
+}
 
 if (!function_exists('ruta_esta_disponible')) {
     function ruta_esta_disponible(string $ruta): bool
@@ -24,116 +34,95 @@ if (!function_exists('ruta_esta_disponible')) {
     }
 }
 
-$menuConfig = [
-    [
-        'tipo' => 'link',
-        'label' => 'Dashboard',
-        'ruta' => 'dashboard/index',
-        'slug' => null,
-    ],
-    [
-        'tipo' => 'dropdown',
-        'label' => 'Inventario',
-        'items' => [
-            ['label' => 'Stock', 'ruta' => 'inventario_stock/index', 'slug' => 'inventario_stock.ver'],
-            ['label' => 'Movimientos', 'ruta' => 'inventario_movimientos/index', 'slug' => 'inventario_movimientos.ver'],
-        ],
-    ],
-    [
-        'tipo' => 'dropdown',
-        'label' => 'Maestros',
-        'items' => [
-            ['label' => 'Ítems', 'ruta' => 'items/index', 'slug' => 'items.ver'],
-            ['label' => 'Terceros', 'ruta' => 'terceros/index', 'slug' => 'terceros.ver'],
-            ['label' => 'Categorías', 'ruta' => 'categorias/index', 'slug' => 'categorias.ver'],
-        ],
-    ],
-    [
-        'tipo' => 'section',
-        'label' => 'Sistema',
-    ],
-    [
-        'tipo' => 'link',
-        'label' => 'Usuarios',
-        'ruta' => 'usuarios/index',
-        'slug' => 'usuarios.ver',
-    ],
-    [
-        'tipo' => 'dropdown',
-        'label' => 'Configuración',
-        'items' => [
-            ['label' => 'Datos Empresa', 'ruta' => 'config/empresa', 'slug' => null],
-            ['label' => 'Bitácora', 'ruta' => 'bitacora/index', 'slug' => 'bitacora.ver'],
-            ['label' => 'Roles y Permisos', 'ruta' => 'roles/index', 'slug' => 'roles.ver'],
-        ],
-    ],
-];
+if (!function_exists('sidebar_item_url')) {
+    function sidebar_item_url(string $ruta): string
+    {
+        if (ruta_esta_disponible($ruta)) {
+            return route_url($ruta);
+        }
+
+        return route_url('construccion') . '&destino=' . rawurlencode($ruta);
+    }
+}
+
+if (!function_exists('sidebar_es_activa')) {
+    function sidebar_es_activa(string $rutaActual, string $rutaMenu): bool
+    {
+        return $rutaActual === $rutaMenu || str_starts_with($rutaActual, $rutaMenu . '/');
+    }
+}
 ?>
 <aside class="sidebar" aria-label="Navegación principal">
-  <div class="sidebar-brand">SISADMIN2</div>
+  <div class="sidebar-brand">
+    <div class="sidebar-logo">SISADMIN2</div>
+    <div class="sidebar-profile">
+      <strong><?php echo e($usuarioNombre); ?></strong>
+      <small><?php echo e($rolNombre); ?></small>
+    </div>
+  </div>
+
   <nav class="sidebar-nav">
-    <?php foreach ($menuConfig as $nodo): ?>
-      <?php if ($nodo['tipo'] === 'section'): ?>
-        <div class="sidebar-section"><?php echo e($nodo['label']); ?></div>
-        <?php continue; ?>
-      <?php endif; ?>
+    <?php if (tiene_permiso('dashboard.ver')): ?>
+      <a href="<?php echo e(sidebar_item_url('dashboard')); ?>" class="sidebar-link<?php echo sidebar_es_activa($ruta_actual, 'dashboard') ? ' active' : ''; ?>">
+        Dashboard
+      </a>
+    <?php endif; ?>
 
-      <?php if ($nodo['tipo'] === 'link'): ?>
-        <?php
-        $slug = $nodo['slug'];
-        if ($slug !== null && !tiene_permiso($slug)) {
-            continue;
-        }
-        $ruta = (string) $nodo['ruta'];
-        $disponible = ruta_esta_disponible($ruta);
-        $url = $disponible
-            ? route_url($ruta)
-            : route_url('construccion/index') . '&destino=' . rawurlencode($ruta);
-        $activo = $ruta_actual === $ruta;
-        ?>
-        <a href="<?php echo e($url); ?>" class="sidebar-link<?php echo $activo ? ' active' : ''; ?>">
-          <span><?php echo e($nodo['label']); ?></span>
-        </a>
-        <?php continue; ?>
-      <?php endif; ?>
-
-      <?php
-      $itemsVisibles = [];
-      foreach ($nodo['items'] as $item) {
-          if ($item['slug'] === null || tiene_permiso((string) $item['slug'])) {
-              $itemsVisibles[] = $item;
-          }
-      }
-      if ($itemsVisibles === []) {
-          continue;
-      }
-
-      $abierto = false;
-      foreach ($itemsVisibles as $itemVisible) {
-          if ($ruta_actual === $itemVisible['ruta']) {
-              $abierto = true;
-              break;
-          }
-      }
-      ?>
-      <details class="sidebar-dropdown"<?php echo $abierto ? ' open' : ''; ?>>
-        <summary><?php echo e($nodo['label']); ?></summary>
+    <?php if (tiene_permiso('inventario.ver')): ?>
+      <details class="sidebar-dropdown"<?php echo (sidebar_es_activa($ruta_actual, 'inventario_stock') || sidebar_es_activa($ruta_actual, 'inventario_movimientos')) ? ' open' : ''; ?>>
+        <summary>Inventario</summary>
         <div class="sidebar-submenu">
-          <?php foreach ($itemsVisibles as $item): ?>
-            <?php
-            $ruta = (string) $item['ruta'];
-            $disponible = ruta_esta_disponible($ruta);
-            $url = $disponible
-                ? route_url($ruta)
-                : route_url('construccion/index') . '&destino=' . rawurlencode($ruta);
-            $activo = $ruta_actual === $ruta;
-            ?>
-            <a href="<?php echo e($url); ?>" class="sidebar-sublink<?php echo $activo ? ' active' : ''; ?>">
-              <?php echo e($item['label']); ?>
-            </a>
-          <?php endforeach; ?>
+          <?php if (tiene_permiso('inventario_stock.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('inventario_stock')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'inventario_stock') ? ' active' : ''; ?>">Stock</a>
+          <?php endif; ?>
+
+          <?php if (tiene_permiso('inventario_movimientos.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('inventario_movimientos')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'inventario_movimientos') ? ' active' : ''; ?>">Movimientos</a>
+          <?php endif; ?>
         </div>
       </details>
-    <?php endforeach; ?>
+    <?php endif; ?>
+
+    <?php if (tiene_permiso('maestros.ver')): ?>
+      <details class="sidebar-dropdown"<?php echo (sidebar_es_activa($ruta_actual, 'items') || sidebar_es_activa($ruta_actual, 'terceros')) ? ' open' : ''; ?>>
+        <summary>Maestros</summary>
+        <div class="sidebar-submenu">
+          <?php if (tiene_permiso('items.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('items')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'items') ? ' active' : ''; ?>">Ítems</a>
+          <?php endif; ?>
+
+          <?php if (tiene_permiso('terceros.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('terceros')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'terceros') ? ' active' : ''; ?>">Terceros</a>
+          <?php endif; ?>
+        </div>
+      </details>
+    <?php endif; ?>
+
+    <div class="sidebar-section">Sistema</div>
+
+    <?php if (tiene_permiso('usuarios.ver')): ?>
+      <a href="<?php echo e(sidebar_item_url('usuarios')); ?>" class="sidebar-link<?php echo sidebar_es_activa($ruta_actual, 'usuarios') ? ' active' : ''; ?>">
+        Usuarios
+      </a>
+    <?php endif; ?>
+
+    <?php if (tiene_permiso('configuracion.ver')): ?>
+      <details class="sidebar-dropdown"<?php echo (sidebar_es_activa($ruta_actual, 'configuracion/empresa') || sidebar_es_activa($ruta_actual, 'bitacora') || sidebar_es_activa($ruta_actual, 'roles')) ? ' open' : ''; ?>>
+        <summary>Configuración</summary>
+        <div class="sidebar-submenu">
+          <?php if (tiene_permiso('configuracion.empresa.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('configuracion/empresa')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'configuracion/empresa') ? ' active' : ''; ?>">Datos Empresa</a>
+          <?php endif; ?>
+
+          <?php if (tiene_permiso('bitacora.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('bitacora')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'bitacora') ? ' active' : ''; ?>">Bitácora</a>
+          <?php endif; ?>
+
+          <?php if (tiene_permiso('roles.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('roles')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'roles') ? ' active' : ''; ?>">Roles y Permisos</a>
+          <?php endif; ?>
+        </div>
+      </details>
+    <?php endif; ?>
   </nav>
 </aside>

@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --login-bg: #f1f5f9;
+  --login-bg: radial-gradient(circle at top, #e2e8f0 0%, #f1f5f9 55%, #e2e8f0 100%);
   --login-card: #ffffff;
   --login-border: #e2e8f0;
   --login-primary: #2563eb;
@@ -13,72 +15,67 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   background: var(--login-bg);
   display: grid;
   place-items: center;
   color: var(--login-text);
+  padding: 1rem;
 }
 
 .login-shell {
-  width: min(1020px, 94vw);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  align-items: stretch;
-}
-
-.login-welcome,
-.login-panel {
-  border-radius: 16px;
-}
-
-.login-welcome {
-  background: linear-gradient(145deg, #0f172a, #1e293b);
-  color: #e2e8f0;
-  padding: 2rem;
-  display: flex;
-  align-items: center;
+  width: min(100%, 460px);
 }
 
 .login-panel {
   background: var(--login-card);
   border: 1px solid var(--login-border);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, .08);
+  border-radius: 18px;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, .12);
   padding: 2rem;
 }
 
-.subtitle,
-.login-welcome p,
-.login-welcome small {
+.login-panel h1 {
+  margin-bottom: .35rem;
+}
+
+.subtitle {
   color: var(--login-muted);
+  margin-bottom: 1.2rem;
 }
 
-.login-welcome p,
-.login-welcome small {
-  color: #cbd5e1;
+label {
+  display: block;
+  margin: .95rem 0 .4rem;
+  font-weight: 600;
 }
-
-label { display: block; margin: .9rem 0 .35rem; font-weight: 600; }
 
 input {
   width: 100%;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: .68rem .72rem;
+  border-radius: 12px;
+  padding: .92rem .9rem;
+  font-size: 1rem;
+  transition: border-color .2s ease, box-shadow .2s ease;
 }
 
 input:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.2);
+  outline: none;
   border-color: var(--login-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
-.password-wrap { position: relative; }
-.password-wrap input { padding-right: 3rem; }
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 3rem;
+}
 
 .toggle-password {
   position: absolute;
-  right: .6rem;
+  right: .65rem;
   top: 50%;
   transform: translateY(-50%);
   border: 0;
@@ -89,18 +86,19 @@ input:focus {
 
 .submit-btn {
   width: 100%;
-  margin-top: 1rem;
+  margin-top: 1.2rem;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--login-primary);
   color: #fff;
-  padding: .75rem;
+  padding: .9rem;
   font-weight: 700;
+  font-size: .98rem;
   cursor: pointer;
+  transition: background-color .2s ease, transform .15s ease;
 }
 
-.submit-btn:hover { background: var(--login-primary-hover); }
-
-@media (max-width: 900px) {
-  .login-shell { grid-template-columns: 1fr; }
+.submit-btn:hover {
+  background: var(--login-primary-hover);
+  transform: translateY(-1px);
 }
