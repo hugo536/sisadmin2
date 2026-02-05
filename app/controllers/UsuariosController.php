@@ -25,28 +25,32 @@ class UsuariosController extends Controlador
             try {
                 if ($accion === 'crear') {
                     require_permiso('usuarios.crear');
+                    $nombreCompleto = trim((string) ($_POST['nombre_completo'] ?? ''));
                     $usuario = trim((string) ($_POST['usuario'] ?? ''));
+                    $email = trim((string) ($_POST['email'] ?? ''));
                     $clave = (string) ($_POST['clave'] ?? '');
                     $idRol = (int) ($_POST['id_rol'] ?? 0);
 
-                    if ($usuario === '' || $clave === '' || $idRol <= 0) {
-                        throw new RuntimeException('Complete usuario, clave y rol.');
+                    if ($nombreCompleto === '' || $usuario === '' || $email === '' || $clave === '' || $idRol <= 0) {
+                        throw new RuntimeException('Complete nombre, usuario, email, clave y rol.');
                     }
 
-                    $this->usuarioModel->crear($usuario, $clave, $idRol);
+                    $this->usuarioModel->crear($nombreCompleto, $usuario, $email, $clave, $idRol);
                     $flash = ['tipo' => 'success', 'texto' => 'Usuario creado correctamente.'];
                 }
 
                 if ($accion === 'editar') {
                     require_permiso('usuarios.editar');
                     $id = (int) ($_POST['id'] ?? 0);
+                    $nombreCompleto = trim((string) ($_POST['nombre_completo'] ?? ''));
                     $usuario = trim((string) ($_POST['usuario'] ?? ''));
+                    $email = trim((string) ($_POST['email'] ?? ''));
                     $idRol = (int) ($_POST['id_rol'] ?? 0);
                     $clave = trim((string) ($_POST['clave'] ?? ''));
-                    if ($id <= 0 || $usuario === '' || $idRol <= 0) {
+                    if ($id <= 0 || $nombreCompleto === '' || $usuario === '' || $email === '' || $idRol <= 0) {
                         throw new RuntimeException('Datos inválidos para editar.');
                     }
-                    $this->usuarioModel->actualizar($id, $usuario, $idRol, $clave !== '' ? $clave : null);
+                    $this->usuarioModel->actualizar($id, $nombreCompleto, $usuario, $email, $idRol, $clave !== '' ? $clave : null);
                     $flash = ['tipo' => 'success', 'texto' => 'Usuario actualizado correctamente.'];
                 }
 

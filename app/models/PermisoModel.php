@@ -7,15 +7,10 @@ class PermisoModel extends Modelo
     {
         $sql = 'SELECT pd.slug
                 FROM roles_permisos rp
-                INNER JOIN permisos_def pd ON pd.id = rp.id_permiso_def
+                INNER JOIN permisos_def pd ON pd.id = rp.id_permiso
                 INNER JOIN roles r ON r.id = rp.id_rol
                 WHERE rp.id_rol = :id_rol
-                  AND rp.estado = 1
-                  AND rp.deleted_at IS NULL
-                  AND pd.estado = 1
-                  AND pd.deleted_at IS NULL
-                  AND r.estado = 1
-                  AND r.deleted_at IS NULL';
+                  AND r.estado = 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_rol' => $idRol]);
         $slugs = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -25,9 +20,8 @@ class PermisoModel extends Modelo
 
     public function listar_agrupados_modulo(): array
     {
-        $sql = 'SELECT id, slug, nombre, modulo, estado
+        $sql = 'SELECT id, slug, nombre, modulo
                 FROM permisos_def
-                WHERE deleted_at IS NULL
                 ORDER BY modulo, nombre';
         $rows = $this->db()->query($sql)->fetchAll();
         $grupos = [];
@@ -42,9 +36,8 @@ class PermisoModel extends Modelo
 
     public function listar_activos(): array
     {
-        $sql = 'SELECT id, slug, nombre, modulo, estado
+        $sql = 'SELECT id, slug, nombre, modulo
                 FROM permisos_def
-                WHERE deleted_at IS NULL
                 ORDER BY modulo, nombre';
         return $this->db()->query($sql)->fetchAll();
     }

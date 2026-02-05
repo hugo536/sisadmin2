@@ -5,10 +5,9 @@ class UsuarioModel extends Modelo
 {
     public function buscar_por_usuario(string $usuario): ?array
     {
-        $sql = 'SELECT id, usuario, clave, id_rol, estado
+        $sql = 'SELECT id, nombre_completo, usuario, email, clave, id_rol, estado
                 FROM usuarios
                 WHERE usuario = :usuario
-                  AND deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['usuario' => $usuario]);
@@ -19,10 +18,9 @@ class UsuarioModel extends Modelo
 
     public function listar_activos(): array
     {
-        $sql = 'SELECT u.id, u.usuario, u.id_rol, u.estado, u.ultimo_login, r.nombre AS rol
+        $sql = 'SELECT u.id, u.nombre_completo, u.usuario, u.email, u.id_rol, u.estado, u.ultimo_login, r.nombre AS rol
                 FROM usuarios u
                 LEFT JOIN roles r ON r.id = u.id_rol
-                WHERE u.deleted_at IS NULL
                 ORDER BY u.id DESC';
 
         return $this->db()->query($sql)->fetchAll();
@@ -30,10 +28,9 @@ class UsuarioModel extends Modelo
 
     public function obtener_por_id(int $id): ?array
     {
-        $sql = 'SELECT id, usuario, id_rol, estado
+        $sql = 'SELECT id, nombre_completo, usuario, email, id_rol, estado
                 FROM usuarios
                 WHERE id = :id
-                  AND deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $id]);
@@ -42,43 +39,53 @@ class UsuarioModel extends Modelo
         return is_array($row) ? $row : null;
     }
 
-    public function crear(string $usuario, string $clave, int $idRol): bool
+    public function crear(string $nombreCompleto, string $usuario, string $email, string $clave, int $idRol): bool
     {
-        $sql = 'INSERT INTO usuarios (usuario, clave, id_rol, estado, ultimo_login, deleted_at)
-                VALUES (:usuario, :clave, :id_rol, 1, NULL, NULL)';
+        $sql = 'INSERT INTO usuarios (nombre_completo, usuario, email, clave, id_rol, estado, ultimo_login, created_at, updated_at)
+                VALUES (:nombre_completo, :usuario, :email, :clave, :id_rol, 1, NULL, NOW(), NOW())';
         $stmt = $this->db()->prepare($sql);
 
         return $stmt->execute([
+            'nombre_completo' => $nombreCompleto,
             'usuario' => $usuario,
+            'email' => $email,
             'clave' => password_hash($clave, PASSWORD_DEFAULT),
             'id_rol' => $idRol,
         ]);
     }
 
-    public function actualizar(int $id, string $usuario, int $idRol, ?string $clave = null): bool
+    public function actualizar(int $id, string $nombreCompleto, string $usuario, string $email, int $idRol, ?string $clave = null): bool
     {
         if ($clave !== null && $clave !== '') {
             $sql = 'UPDATE usuarios
-                    SET usuario = :usuario,
+                    SET nombre_completo = :nombre_completo,
+                        usuario = :usuario,
+                        email = :email,
                         id_rol = :id_rol,
-                        clave = :clave
-                    WHERE id = :id
-                      AND deleted_at IS NULL';
+                        clave = :clave,
+                        updated_at = NOW()
+                    WHERE id = :id';
             $params = [
                 'id' => $id,
+                'nombre_completo' => $nombreCompleto,
                 'usuario' => $usuario,
+                'email' => $email,
                 'id_rol' => $idRol,
                 'clave' => password_hash($clave, PASSWORD_DEFAULT),
             ];
         } else {
             $sql = 'UPDATE usuarios
-                    SET usuario = :usuario,
-                        id_rol = :id_rol
-                    WHERE id = :id
-                      AND deleted_at IS NULL';
+                    SET nombre_completo = :nombre_completo,
+                        usuario = :usuario,
+                        email = :email,
+                        id_rol = :id_rol,
+                        updated_at = NOW()
+                    WHERE id = :id';
             $params = [
                 'id' => $id,
+                'nombre_completo' => $nombreCompleto,
                 'usuario' => $usuario,
+                'email' => $email,
                 'id_rol' => $idRol,
             ];
         }
@@ -89,22 +96,22 @@ class UsuarioModel extends Modelo
     public function cambiar_estado(int $id, int $estado): bool
     {
         $sql = 'UPDATE usuarios
-                SET estado = :estado
-                WHERE id = :id
-                  AND deleted_at IS NULL';
+                SET estado = :estado,
+                    updated_at = NOW()
+                WHERE id = :id';
 
         return $this->db()->prepare($sql)->execute(['id' => $id, 'estado' => $estado]);
     }
 
     public function listar_roles_activos(): array
     {
-        $sql = 'SELECT id, nombre FROM roles WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre';
+        $sql = 'SELECT id, nombre FROM roles WHERE estado = 1 ORDER BY nombre';
         return $this->db()->query($sql)->fetchAll();
     }
 
     public function actualizar_ultimo_login(int $id): void
     {
-        $this->db()->prepare('UPDATE usuarios SET ultimo_login = NOW() WHERE id = :id')->execute(['id' => $id]);
+        $this->db()->prepare('UPDATE usuarios SET ultimo_login = NOW(), updated_at = NOW() WHERE id = :id')->execute(['id' => $id]);
     }
 
     public function insertar_bitacora(int $createdBy, string $evento, string $descripcion, string $ip, string $userAgent): void

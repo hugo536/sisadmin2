@@ -5,10 +5,8 @@ class ConfigModel extends Modelo
 {
     public function obtener_config_activa(): ?array
     {
-        $sql = 'SELECT id, razon_social, ruc, direccion, telefono, email, logo_path, tema, moneda
+        $sql = 'SELECT id, nombre_empresa, ruc, direccion, telefono, email, ruta_logo, moneda, impuesto, slogan, color_sistema
                 FROM configuracion
-                WHERE estado = 1
-                  AND deleted_at IS NULL
                 ORDER BY id DESC
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
@@ -18,47 +16,45 @@ class ConfigModel extends Modelo
         return is_array($row) ? $row : null;
     }
 
-    public function guardar_config(array $data, int $userId): void
+    public function guardar_config(array $data): void
     {
         $actual = $this->obtener_config_activa();
 
         if ($actual !== null) {
             $sql = 'UPDATE configuracion
-                    SET razon_social = :razon_social,
+                    SET nombre_empresa = :nombre_empresa,
                         ruc = :ruc,
                         direccion = :direccion,
                         telefono = :telefono,
                         email = :email,
-                        logo_path = :logo_path,
-                        tema = :tema,
+                        ruta_logo = :ruta_logo,
                         moneda = :moneda,
-                        updated_at = NOW(),
-                        updated_by = :updated_by
+                        impuesto = :impuesto,
+                        slogan = :slogan,
+                        color_sistema = :color_sistema
                     WHERE id = :id';
             $params = [
                 'id' => (int) $actual['id'],
-                'updated_by' => $userId,
             ];
         } else {
             $sql = 'INSERT INTO configuracion
-                    (razon_social, ruc, direccion, telefono, email, logo_path, tema, moneda, estado, created_at, created_by, updated_at, updated_by, deleted_at)
+                    (nombre_empresa, ruc, direccion, telefono, email, ruta_logo, moneda, impuesto, slogan, color_sistema)
                     VALUES
-                    (:razon_social, :ruc, :direccion, :telefono, :email, :logo_path, :tema, :moneda, 1, NOW(), :created_by, NOW(), :updated_by, NULL)';
-            $params = [
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ];
+                    (:nombre_empresa, :ruc, :direccion, :telefono, :email, :ruta_logo, :moneda, :impuesto, :slogan, :color_sistema)';
+            $params = [];
         }
 
         $params = array_merge($params, [
-            'razon_social' => $data['razon_social'],
+            'nombre_empresa' => $data['nombre_empresa'],
             'ruc' => $data['ruc'],
             'direccion' => $data['direccion'],
             'telefono' => $data['telefono'],
             'email' => $data['email'],
-            'logo_path' => $data['logo_path'],
-            'tema' => $data['tema'],
+            'ruta_logo' => $data['ruta_logo'],
             'moneda' => $data['moneda'],
+            'impuesto' => $data['impuesto'],
+            'slogan' => $data['slogan'],
+            'color_sistema' => $data['color_sistema'],
         ]);
 
         $this->db()->prepare($sql)->execute($params);

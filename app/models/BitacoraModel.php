@@ -9,7 +9,7 @@ class BitacoraModel extends Modelo
                        COALESCE(u.usuario, "Sistema") AS usuario
                 FROM bitacora_seguridad b
                 LEFT JOIN usuarios u ON u.id = b.created_by
-                WHERE b.deleted_at IS NULL';
+                WHERE 1=1';
         $params = [];
 
         if (!empty($filtros['usuario'])) {
@@ -31,6 +31,6 @@ class BitacoraModel extends Modelo
 
     public function usuarios_para_filtro(): array
     {
-        return $this->db()->query('SELECT id, usuario FROM usuarios WHERE deleted_at IS NULL ORDER BY usuario')->fetchAll();
+        return $this->db()->query('SELECT id, usuario FROM usuarios ORDER BY usuario')->fetchAll();
     }
 }
