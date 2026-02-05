@@ -1,21 +1,46 @@
-<h1>Login</h1>
+<?php
+$error = isset($error) ? (string) $error : '';
+?>
+<link rel="stylesheet" href="<?php echo e(asset_url('css/login.css')); ?>">
 
-<?php if (!empty($error)): ?>
-  <p style="color: #b91c1c;"><?php echo htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8'); ?></p>
-<?php endif; ?>
+<div class="login-shell">
+  <section class="login-welcome" aria-label="Bienvenida">
+    <div class="welcome-overlay"></div>
+    <div class="welcome-content">
+      <span class="brand-mark">✶</span>
+      <h1>Hola, SISADMIN2</h1>
+      <p>
+        Administra tu sistema de forma segura y rápida.
+        Centraliza accesos, controla sesiones y trabaja con un entorno profesional.
+      </p>
+      <small>© <?php echo date('Y'); ?> SISADMIN2. Todos los derechos reservados.</small>
+    </div>
+  </section>
 
-<form id="login-form" method="post" action="?ruta=login/authenticate" novalidate>
-  <div style="margin-bottom: 8px;">
-    <label for="usuario">Usuario</label><br>
-    <input id="usuario" name="usuario" type="text" autocomplete="username" required>
-  </div>
+  <section class="login-panel" aria-label="Formulario de acceso">
+    <div class="panel-brand">SISADMIN2</div>
+    <h2>Bienvenido de nuevo</h2>
+    <p class="subtitle">Ingresa tus credenciales para continuar.</p>
 
-  <div style="margin-bottom: 8px;">
-    <label for="clave">Clave</label><br>
-    <input id="clave" name="clave" type="password" autocomplete="current-password" required>
-  </div>
+    <?php if ($error !== ''): ?>
+      <div class="alert" role="alert"><?php echo e($error); ?></div>
+    <?php endif; ?>
 
-  <button type="submit">Ingresar</button>
-</form>
+    <form id="login-form" method="post" action="<?php echo e(route_url('login/authenticate')); ?>" novalidate>
+      <label for="usuario">Usuario</label>
+      <input id="usuario" name="usuario" type="text" autocomplete="username" required>
 
-<script src="assets/js/login.js"></script>
+      <label for="clave">Contraseña</label>
+      <div class="password-wrap">
+        <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+        <button id="toggle-password" type="button" class="toggle-password" aria-label="Mostrar contraseña" aria-pressed="false">
+          Ver
+        </button>
+      </div>
+
+      <button type="submit" class="submit-btn">Iniciar sesión</button>
+    </form>
+  </section>
+</div>
+
+<script src="<?php echo e(asset_url('js/app.js/login.js')); ?>"></script>
