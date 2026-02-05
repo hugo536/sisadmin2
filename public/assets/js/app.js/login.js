@@ -12,10 +12,7 @@
         text: mensaje,
         confirmButtonText: 'Entendido',
       });
-      return;
     }
-
-    window.alert(mensaje);
   }
 
   if (togglePassword && clave) {
