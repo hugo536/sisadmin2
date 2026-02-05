@@ -36,7 +36,7 @@ class LoginController extends Controlador
         }
 
         $usuarioIngresado = trim((string) ($_POST['usuario'] ?? ''));
-        $claveIngresada = (string) ($_POST['password'] ?? '');
+        $claveIngresada = (string) ($_POST['clave'] ?? '');
 
         if ($usuarioIngresado === '' || $claveIngresada === '') {
             $this->registrar_evento(1, 'login_fallido', 'Intento con campos vacíos. usuario=' . $usuarioIngresado);
