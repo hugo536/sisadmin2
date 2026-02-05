@@ -6,24 +6,21 @@ require_once BASE_PATH . '/app/models/DashboardModel.php';
 
 class DashboardController extends Controlador
 {
-    private DashboardModel $dashboard_model;
+    private DashboardModel $dashboardModel;
 
     public function __construct()
     {
-        $this->dashboard_model = new DashboardModel();
+        $this->dashboardModel = new DashboardModel();
     }
 
     public function index(): void
     {
         AuthMiddleware::handle();
-
-        $totales = $this->dashboard_model->obtener_totales();
-        $movimientos = $this->dashboard_model->obtener_movimientos_recientes(10);
+        require_permiso('dashboard.ver');
 
         $this->render('dashboard', [
-            'totales' => $totales,
-            'movimientos' => $movimientos,
-            'usuario' => (string) ($_SESSION['usuario'] ?? ''),
+            'totales' => $this->dashboardModel->obtener_totales(),
+            'eventos' => $this->dashboardModel->obtener_ultimos_eventos(10),
             'ruta_actual' => 'dashboard/index',
         ]);
     }

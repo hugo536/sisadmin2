@@ -5,44 +5,52 @@ class ConfigModel extends Modelo
 {
     public function obtener_config_activa(): ?array
     {
-        // Se usan alias para que coincidan con lo que espera el Controlador y la Vista
-        $sql = 'SELECT id, 
-                       nombre_empresa as razon_social, 
-                       ruc, 
-                       direccion, 
-                       telefono, 
-                       email, 
-                       ruta_logo as logo_path, 
-                       color_sistema as tema, 
-                       moneda
+        $sql = 'SELECT id, razon_social, ruc, direccion, telefono, email, logo_path, tema, moneda
                 FROM configuracion
-                WHERE id = 1'; 
-
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY id DESC
+                LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
+        $row = $stmt->fetch();
 
-        $fila = $stmt->fetch();
-        return is_array($fila) ? $fila : null;
+        return is_array($row) ? $row : null;
     }
 
     public function guardar_config(array $data, int $userId): void
     {
-        // Actualizamos usando los nombres reales de las columnas en tu tabla 'configuracion'
-        $sql = 'UPDATE configuracion
-                SET nombre_empresa = :razon_social,
-                    ruc = :ruc,
-                    direccion = :direccion,
-                    telefono = :telefono,
-                    email = :email,
-                    ruta_logo = :logo_path,
-                    color_sistema = :tema,
-                    moneda = :moneda,
-                    updated_at = NOW(),
-                    updated_by = :updated_by
-                WHERE id = 1';
+        $actual = $this->obtener_config_activa();
 
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
+        if ($actual !== null) {
+            $sql = 'UPDATE configuracion
+                    SET razon_social = :razon_social,
+                        ruc = :ruc,
+                        direccion = :direccion,
+                        telefono = :telefono,
+                        email = :email,
+                        logo_path = :logo_path,
+                        tema = :tema,
+                        moneda = :moneda,
+                        updated_at = NOW(),
+                        updated_by = :updated_by
+                    WHERE id = :id';
+            $params = [
+                'id' => (int) $actual['id'],
+                'updated_by' => $userId,
+            ];
+        } else {
+            $sql = 'INSERT INTO configuracion
+                    (razon_social, ruc, direccion, telefono, email, logo_path, tema, moneda, estado, created_at, created_by, updated_at, updated_by, deleted_at)
+                    VALUES
+                    (:razon_social, :ruc, :direccion, :telefono, :email, :logo_path, :tema, :moneda, 1, NOW(), :created_by, NOW(), :updated_by, NULL)';
+            $params = [
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ];
+        }
+
+        $params = array_merge($params, [
             'razon_social' => $data['razon_social'],
             'ruc' => $data['ruc'],
             'direccion' => $data['direccion'],
@@ -51,22 +59,16 @@ class ConfigModel extends Modelo
             'logo_path' => $data['logo_path'],
             'tema' => $data['tema'],
             'moneda' => $data['moneda'],
-            'updated_by' => $userId
         ]);
+
+        $this->db()->prepare($sql)->execute($params);
     }
 
-    public function registrar_bitacora(
-        int $createdBy,
-        string $evento,
-        string $descripcion,
-        string $ip,
-        string $userAgent
-    ): void {
+    public function registrar_bitacora(int $createdBy, string $evento, string $descripcion, string $ip, string $userAgent): void
+    {
         $sql = 'INSERT INTO bitacora_seguridad (created_by, evento, descripcion, ip_address, user_agent, created_at)
                 VALUES (:created_by, :evento, :descripcion, :ip_address, :user_agent, NOW())';
-
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
+        $this->db()->prepare($sql)->execute([
             'created_by' => $createdBy,
             'evento' => $evento,
             'descripcion' => $descripcion,

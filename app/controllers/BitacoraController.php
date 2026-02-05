@@ -16,9 +16,17 @@ class BitacoraController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
+        require_permiso('bitacora.ver');
+
+        $filtros = [
+            'usuario' => (string) ($_GET['usuario'] ?? ''),
+            'evento' => trim((string) ($_GET['evento'] ?? '')),
+        ];
 
         $this->render('bitacora', [
-            'logs' => $this->bitacoraModel->listar(),
+            'logs' => $this->bitacoraModel->listar($filtros),
+            'usuariosFiltro' => $this->bitacoraModel->usuarios_para_filtro(),
+            'filtros' => $filtros,
             'ruta_actual' => 'bitacora/index',
         ]);
     }
