@@ -46,6 +46,9 @@ $menu = [
         ['label' => 'Movimientos', 'ruta' => 'inventario_movimientos/index', 'slug' => 'inventario_movimientos.ver'],
         ['label' => 'Lotes', 'ruta' => 'inventario_lotes/index', 'slug' => 'inventario_lotes.ver'],
     ],
+    'Configuración' => [
+        ['label' => 'Empresa', 'ruta' => 'config/empresa', 'slug' => null],
+    ],
 ];
 ?>
 <!doctype html>

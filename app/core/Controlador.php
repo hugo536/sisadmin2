@@ -13,7 +13,7 @@ abstract class Controlador
         $vista_archivo = BASE_PATH . '/app/views/' . $vista_normalizada . '.php';
 
         if (!is_file($vista_archivo)) {
-            throw new RuntimeException('Vista no encontrada.');
+            throw new RuntimeException('Vista no encontrada: ' . $vista_normalizada);
         }
 
         extract($data, EXTR_SKIP);
