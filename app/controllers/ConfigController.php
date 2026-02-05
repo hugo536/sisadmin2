@@ -8,6 +8,7 @@ class ConfigController extends Controlador
 {
     private const MAX_LOGO_SIZE = 2097152;
     private const EXTENSIONES_PERMITIDAS = ['png', 'jpg', 'jpeg', 'webp'];
+    private const MIME_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp'];
 
     private ConfigModel $configModel;
 
@@ -19,38 +20,34 @@ class ConfigController extends Controlador
     public function empresa(): void
     {
         AuthMiddleware::handle();
+        require_permiso('config.empresa.ver');
 
-        $mensaje = '';
-        $error = '';
-
+        $flash = ['tipo' => '', 'texto' => ''];
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            [$mensaje, $error] = $this->guardar_empresa();
+            try {
+                $this->guardar();
+                $flash = ['tipo' => 'success', 'texto' => 'Configuración actualizada correctamente.'];
+            } catch (Throwable $e) {
+                $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
+            }
         }
 
-        $config = $this->configModel->obtener_config_activa();
-
         $this->render('config/empresa', [
-            'config' => $config,
-            'mensaje' => $mensaje,
-            'error' => $error,
+            'config' => $this->configModel->obtener_config_activa(),
+            'flash' => $flash,
             'ruta_actual' => 'config/empresa',
         ]);
     }
 
-    private function guardar_empresa(): array
+    private function guardar(): void
     {
         $userId = (int) ($_SESSION['id'] ?? 0);
+        $actual = $this->configModel->obtener_config_activa();
 
-        $configActual = $this->configModel->obtener_config_activa();
-        $logoPath = (string) ($configActual['logo_path'] ?? '');
-
-        $nuevaRutaLogo = $this->procesar_logo();
-        if ($nuevaRutaLogo === null && isset($_FILES['logo']) && (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            return ['', 'No se pudo procesar el logo. Verifica extensión permitida (png/jpg/jpeg/webp) y tamaño máximo de 2MB.'];
-        }
-
-        if (is_string($nuevaRutaLogo)) {
-            $logoPath = $nuevaRutaLogo;
+        $logoPath = (string) ($actual['logo_path'] ?? '');
+        $nuevoLogo = $this->procesarLogo();
+        if ($nuevoLogo !== null) {
+            $logoPath = $nuevoLogo;
         }
 
         $data = [
@@ -69,64 +66,62 @@ class ConfigController extends Controlador
             $userId,
             'CONFIG_EMPRESA_UPDATE',
             'Actualización datos empresa',
-            $this->obtener_ip(),
-            $this->obtener_user_agent()
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
+            (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown')
         );
-
-        return ['Configuración de empresa actualizada correctamente.', ''];
     }
 
-    private function procesar_logo(): ?string
+    private function procesarLogo(): ?string
     {
         if (!isset($_FILES['logo']) || !is_array($_FILES['logo'])) {
             return null;
         }
 
-        $archivo = $_FILES['logo'];
-        $error = (int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE);
-
+        $file = $_FILES['logo'];
+        $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($error === UPLOAD_ERR_NO_FILE) {
             return null;
         }
-
         if ($error !== UPLOAD_ERR_OK) {
-            return null;
+            throw new RuntimeException('Error al subir el logo.');
         }
 
-        $size = (int) ($archivo['size'] ?? 0);
+        $size = (int) ($file['size'] ?? 0);
         if ($size <= 0 || $size > self::MAX_LOGO_SIZE) {
-            return null;
+            throw new RuntimeException('Logo inválido: tamaño máximo 2MB.');
         }
 
-        $nombreOriginal = (string) ($archivo['name'] ?? '');
-        $extension = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
-        if (!in_array($extension, self::EXTENSIONES_PERMITIDAS, true)) {
-            return null;
+        $name = (string) ($file['name'] ?? '');
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (!in_array($ext, self::EXTENSIONES_PERMITIDAS, true)) {
+            throw new RuntimeException('Formato de logo no permitido.');
         }
 
-        $directorioRelativo = 'assets/img/empresa';
-        $directorioAbsoluto = BASE_PATH . '/public/' . $directorioRelativo;
-        if (!is_dir($directorioAbsoluto) && !mkdir($directorioAbsoluto, 0775, true) && !is_dir($directorioAbsoluto)) {
-            return null;
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = $finfo ? (string) finfo_file($finfo, (string) $file['tmp_name']) : '';
+        if ($finfo) {
+            finfo_close($finfo);
+        }
+        if (!in_array($mime, self::MIME_PERMITIDOS, true)) {
+            throw new RuntimeException('El archivo no es una imagen válida.');
         }
 
-        $nombreFinal = 'logo_empresa.' . $extension;
-        $rutaAbsoluta = $directorioAbsoluto . '/' . $nombreFinal;
-
-        if (!move_uploaded_file((string) $archivo['tmp_name'], $rutaAbsoluta)) {
-            return null;
+        $relativeDir = 'assets/img/empresa';
+        $absoluteDir = BASE_PATH . '/public/' . $relativeDir;
+        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0775, true) && !is_dir($absoluteDir)) {
+            throw new RuntimeException('No se pudo crear carpeta de logo.');
         }
 
-        return $directorioRelativo . '/' . $nombreFinal;
-    }
+        foreach (glob($absoluteDir . '/logo_empresa.*') ?: [] as $old) {
+            @unlink($old);
+        }
 
-    private function obtener_ip(): string
-    {
-        return (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-    }
+        $filename = 'logo_empresa.' . $ext;
+        $absolutePath = $absoluteDir . '/' . $filename;
+        if (!move_uploaded_file((string) $file['tmp_name'], $absolutePath)) {
+            throw new RuntimeException('No se pudo guardar el logo.');
+        }
 
-    private function obtener_user_agent(): string
-    {
-        return (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+        return $relativeDir . '/' . $filename;
     }
 }

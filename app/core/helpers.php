@@ -39,11 +39,24 @@ if (!function_exists('tiene_permiso')) {
 
         if (!isset($_SESSION['permisos']) || !is_array($_SESSION['permisos'])) {
             require_once BASE_PATH . '/app/models/PermisoModel.php';
-            $permiso_model = new PermisoModel();
-            $_SESSION['permisos'] = $permiso_model->obtener_slugs_por_rol($id_rol);
+            $permisoModel = new PermisoModel();
+            $_SESSION['permisos'] = $permisoModel->obtener_slugs_por_rol($id_rol);
         }
 
         return in_array($slug, $_SESSION['permisos'], true);
+    }
+}
+
+if (!function_exists('require_permiso')) {
+    function require_permiso(string $slug): void
+    {
+        if (tiene_permiso($slug)) {
+            return;
+        }
+
+        http_response_code(403);
+        require_once BASE_PATH . '/app/views/403.php';
+        exit;
     }
 }
 
