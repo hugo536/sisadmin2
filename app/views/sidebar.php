@@ -24,11 +24,32 @@ if (!function_exists('ruta_esta_disponible')) {
         }
 
         $controlador = ucfirst($modulo) . 'Controller';
+
+        // =========================================================
+        // MAPEO DE ALIAS (Igual que en el Router)
+        // Agregamos esto para que el sidebar sepa encontrar el archivo real
+        // =========================================================
+        if ($controlador === 'ConfiguracionController') {
+            $controlador = 'ConfigController';
+        }
+        if ($controlador === 'LoginController') {
+            $controlador = 'AuthController';
+        }
+        // =========================================================
+
+        // Buscamos el archivo (intentando ser compatible con la lógica del Router)
         $archivo = BASE_PATH . '/app/controllers/' . $controlador . '.php';
+        
+        // Si no está en controllers, probamos controladores (por consistencia)
+        if (!is_file($archivo)) {
+            $archivo = BASE_PATH . '/app/controladores/' . $controlador . '.php';
+        }
+
         if (!is_file($archivo)) {
             return false;
         }
 
+        // Importante: usar require_once para no redeclarar si ya se cargó
         require_once $archivo;
         return class_exists($controlador) && method_exists($controlador, $accion);
     }
@@ -106,12 +127,12 @@ if (!function_exists('sidebar_es_activa')) {
       </a>
     <?php endif; ?>
 
-    <?php if (tiene_permiso('configuracion.ver')): ?>
-      <details class="sidebar-dropdown"<?php echo (sidebar_es_activa($ruta_actual, 'configuracion/empresa') || sidebar_es_activa($ruta_actual, 'bitacora') || sidebar_es_activa($ruta_actual, 'roles')) ? ' open' : ''; ?>>
+    <?php if (tiene_permiso('config.ver') || tiene_permiso('configuracion.ver')): ?>
+      <details class="sidebar-dropdown"<?php echo (sidebar_es_activa($ruta_actual, 'config/empresa') || sidebar_es_activa($ruta_actual, 'bitacora') || sidebar_es_activa($ruta_actual, 'roles')) ? ' open' : ''; ?>>
         <summary>Configuración</summary>
         <div class="sidebar-submenu">
-          <?php if (tiene_permiso('configuracion.empresa.ver')): ?>
-            <a href="<?php echo e(sidebar_item_url('configuracion/empresa')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'configuracion/empresa') ? ' active' : ''; ?>">Datos Empresa</a>
+          <?php if (tiene_permiso('config.ver') || tiene_permiso('configuracion.empresa.ver')): ?>
+            <a href="<?php echo e(sidebar_item_url('config/empresa')); ?>" class="sidebar-sublink<?php echo sidebar_es_activa($ruta_actual, 'config/empresa') ? ' active' : ''; ?>">Datos Empresa</a>
           <?php endif; ?>
 
           <?php if (tiene_permiso('bitacora.ver')): ?>

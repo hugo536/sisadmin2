@@ -5,12 +5,18 @@ class ConfigModel extends Modelo
 {
     public function obtener_config_activa(): ?array
     {
-        $sql = 'SELECT *
+        // Se usan alias para que coincidan con lo que espera el Controlador y la Vista
+        $sql = 'SELECT id, 
+                       nombre_empresa as razon_social, 
+                       ruc, 
+                       direccion, 
+                       telefono, 
+                       email, 
+                       ruta_logo as logo_path, 
+                       color_sistema as tema, 
+                       moneda
                 FROM configuracion
-                WHERE deleted_at IS NULL
-                  AND estado = 1
-                ORDER BY id DESC
-                LIMIT 1';
+                WHERE id = 1'; 
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
@@ -21,43 +27,19 @@ class ConfigModel extends Modelo
 
     public function guardar_config(array $data, int $userId): void
     {
-        $actual = $this->obtener_config_activa();
-
-        if ($actual !== null) {
-            $sql = 'UPDATE configuracion
-                    SET razon_social = :razon_social,
-                        ruc = :ruc,
-                        direccion = :direccion,
-                        telefono = :telefono,
-                        email = :email,
-                        logo_path = :logo_path,
-                        tema = :tema,
-                        moneda = :moneda,
-                        updated_at = NOW(),
-                        updated_by = :updated_by
-                    WHERE id = :id';
-
-            $stmt = $this->db()->prepare($sql);
-            $stmt->execute([
-                'razon_social' => $data['razon_social'],
-                'ruc' => $data['ruc'],
-                'direccion' => $data['direccion'],
-                'telefono' => $data['telefono'],
-                'email' => $data['email'],
-                'logo_path' => $data['logo_path'],
-                'tema' => $data['tema'],
-                'moneda' => $data['moneda'],
-                'updated_by' => $userId,
-                'id' => (int) $actual['id'],
-            ]);
-
-            return;
-        }
-
-        $sql = 'INSERT INTO configuracion
-                (razon_social, ruc, direccion, telefono, email, logo_path, tema, moneda, estado, created_at, created_by)
-                VALUES
-                (:razon_social, :ruc, :direccion, :telefono, :email, :logo_path, :tema, :moneda, 1, NOW(), :created_by)';
+        // Actualizamos usando los nombres reales de las columnas en tu tabla 'configuracion'
+        $sql = 'UPDATE configuracion
+                SET nombre_empresa = :razon_social,
+                    ruc = :ruc,
+                    direccion = :direccion,
+                    telefono = :telefono,
+                    email = :email,
+                    ruta_logo = :logo_path,
+                    color_sistema = :tema,
+                    moneda = :moneda,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = 1';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
@@ -69,7 +51,7 @@ class ConfigModel extends Modelo
             'logo_path' => $data['logo_path'],
             'tema' => $data['tema'],
             'moneda' => $data['moneda'],
-            'created_by' => $userId,
+            'updated_by' => $userId
         ]);
     }
 

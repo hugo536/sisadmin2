@@ -1,30 +1,31 @@
 <?php
 declare(strict_types=1);
 
-abstract class Controlador
+class Controlador
 {
-    protected function render(string $vista, array $data = []): void
+    /**
+     * Renderiza una vista dentro del layout principal.
+     * * @param string $rutaVista Nombre del archivo en views (sin .php)
+     * @param array $datos Datos a pasar a la vista (['usuarios' => $...])
+     */
+    protected function render(string $rutaVista, array $datos = []): void
     {
-        if (str_contains($vista, '..')) {
-            throw new InvalidArgumentException('Vista inválida.');
+        // 1. Extraer los datos para que sean variables ($usuarios, $mensaje, etc.)
+        extract($datos);
+
+        // 2. Definir la ruta real del archivo de la vista
+        $archivoVista = BASE_PATH . '/app/views/' . $rutaVista . '.php';
+
+        // 3. Verificar si existe la vista
+        if (is_readable($archivoVista)) {
+            // Pasamos la ruta de la vista al layout usando la variable $vista
+            $vista = $archivoVista;
+            
+            // 4. Cargar el Layout Principal (que a su vez cargará $vista)
+            require_once BASE_PATH . '/app/views/layout.php';
+        } else {
+            // Error amigable si no encuentra el archivo
+            die("Error: No se encontró la vista en: " . $archivoVista);
         }
-
-        $vista_normalizada = trim($vista, '/');
-        $vista_archivo = BASE_PATH . '/app/views/' . $vista_normalizada . '.php';
-
-        if (!is_file($vista_archivo)) {
-            throw new RuntimeException('Vista no encontrada: ' . $vista_normalizada);
-        }
-
-        extract($data, EXTR_SKIP);
-
-        $layout_archivo = BASE_PATH . '/app/views/layout.php';
-        if (is_file($layout_archivo)) {
-            $contenido_vista = $vista_archivo;
-            require $layout_archivo;
-            return;
-        }
-
-        require $vista_archivo;
     }
 }
