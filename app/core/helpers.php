@@ -25,6 +25,28 @@ if (!function_exists('json_response')) {
     }
 }
 
+if (!function_exists('tiene_permiso')) {
+    function tiene_permiso(string $slug): bool
+    {
+        if (!isset($_SESSION['id_rol'])) {
+            return false;
+        }
+
+        $id_rol = (int) $_SESSION['id_rol'];
+        if ($id_rol === 1) {
+            return true;
+        }
+
+        if (!isset($_SESSION['permisos']) || !is_array($_SESSION['permisos'])) {
+            require_once BASE_PATH . '/app/models/PermisoModel.php';
+            $permiso_model = new PermisoModel();
+            $_SESSION['permisos'] = $permiso_model->obtener_slugs_por_rol($id_rol);
+        }
+
+        return in_array($slug, $_SESSION['permisos'], true);
+    }
+}
+
 if (!function_exists('base_url')) {
     function base_url(): string
     {
