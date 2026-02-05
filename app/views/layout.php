@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SISADMIN</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
@@ -14,15 +15,6 @@
     <?php require BASE_PATH . '/app/views/sidebar.php'; ?>
 
     <main class="main-content">
-        <header class="top-bar">
-            <button class="btn btn-sm btn-outline-secondary d-md-none" id="toggleSidebar" type="button">
-                <i class="fas fa-bars"></i>
-            </button>
-            <div class="user-info ms-auto">
-                <span><?php echo e((string) ($_SESSION['usuario'] ?? 'Usuario')); ?></span>
-            </div>
-        </header>
-
         <div class="p-4">
             <?php if (isset($vista) && is_file($vista)) {
                 require $vista;
@@ -34,6 +26,48 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
+<?php if (($ruta_actual ?? '') === 'usuarios/index'): ?>
+<script>
+window.USUARIOS_FLASH = {
+    tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
+    texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
+    accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Usuario creado') !== false ? 'crear' : ''; ?>'
+};
+</script>
+<script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
+<?php endif; ?>
+<script>
+(function () {
+    var logoutLink = document.getElementById('logoutLink');
+    if (!logoutLink) {
+        return;
+    }
+
+    logoutLink.classList.add('bg-danger', 'text-white', 'rounded');
+    if (!logoutLink.querySelector('.bi-box-arrow-right')) {
+        logoutLink.insertAdjacentHTML('afterbegin', '<i class="bi bi-box-arrow-right me-2"></i>');
+    }
+
+    var logoutClone = logoutLink.cloneNode(true);
+    logoutLink.parentNode.replaceChild(logoutClone, logoutLink);
+
+    logoutClone.addEventListener('click', function (e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Cerrar sesión',
+            text: '¿Deseas cerrar sesión?',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cerrar sesión',
+            cancelButtonText: 'Cancelar'
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                window.location.href = '?ruta=login/logout';
+            }
+        });
+    });
+})();
+</script>
 <?php if (!empty($flash['texto'])): ?>
 <script>
 Swal.fire({icon:'<?php echo e($flash['tipo'] === 'error' ? 'error' : 'success'); ?>',text:'<?php echo e($flash['texto']); ?>',confirmButtonText:'Aceptar'});
