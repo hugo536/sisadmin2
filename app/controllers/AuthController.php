@@ -27,7 +27,7 @@ class AuthController extends Controlador
             $mensaje_error = 'La sesión expiró por inactividad. Inicia sesión nuevamente.';
         }
 
-        $this->render('auth/login', ['error' => $mensaje_error]);
+        $this->render('login', ['error' => $mensaje_error]);
     }
 
     public function authenticate(): void

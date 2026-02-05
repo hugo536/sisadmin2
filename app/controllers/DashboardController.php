@@ -20,7 +20,7 @@ class DashboardController extends Controlador
         $totales = $this->dashboard_model->obtener_totales();
         $movimientos = $this->dashboard_model->obtener_movimientos_recientes(10);
 
-        $this->render('dashboard/index', [
+        $this->render('dashboard', [
             'totales' => $totales,
             'movimientos' => $movimientos,
             'usuario' => (string) ($_SESSION['usuario'] ?? ''),

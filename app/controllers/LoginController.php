@@ -19,7 +19,7 @@ class LoginController extends Controlador
             exit;
         }
 
-        $this->render('auth/login');
+        $this->render('login');
     }
 
     public function login(): void
@@ -40,7 +40,7 @@ class LoginController extends Controlador
 
         if ($usuarioIngresado === '' || $claveIngresada === '') {
             $this->registrar_evento(1, 'login_fallido', 'Intento con campos vacíos. usuario=' . $usuarioIngresado);
-            $this->render('auth/login', ['error' => 'Usuario y contraseña son obligatorios.']);
+            $this->render('login', ['error' => 'Usuario y contraseña son obligatorios.']);
             return;
         }
 
@@ -48,19 +48,19 @@ class LoginController extends Controlador
 
         if ($usuario === null) {
             $this->registrar_evento(1, 'login_fallido', 'Usuario no existe. usuario=' . $usuarioIngresado);
-            $this->render('auth/login', ['error' => 'Credenciales inválidas.']);
+            $this->render('login', ['error' => 'Credenciales inválidas.']);
             return;
         }
 
         if (strtolower((string) $usuario['estado']) !== 'activo') {
             $this->registrar_evento((int) $usuario['id'], 'login_fallido', 'Usuario inactivo.');
-            $this->render('auth/login', ['error' => 'Usuario inactivo.']);
+            $this->render('login', ['error' => 'Usuario inactivo.']);
             return;
         }
 
         if (!password_verify($claveIngresada, (string) $usuario['clave'])) {
             $this->registrar_evento((int) $usuario['id'], 'login_fallido', 'Contraseña incorrecta.');
-            $this->render('auth/login', ['error' => 'Credenciales inválidas.']);
+            $this->render('login', ['error' => 'Credenciales inválidas.']);
             return;
         }
 
