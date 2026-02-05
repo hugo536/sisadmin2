@@ -189,3 +189,33 @@ body.login-page .btn-primary {
     background-color: var(--login-accent);
     border-color: var(--login-accent);
 }
+
+
+.login-card .form-label {
+    font-weight: 600;
+    color: var(--login-text);
+}
+
+.login-card .form-control,
+.login-card .btn {
+    min-height: 46px;
+}
+
+.login-password-group {
+    align-items: stretch;
+}
+
+.login-password-group #clave {
+    border-right: 0;
+}
+
+.login-password-group #toggle-password {
+    min-width: 110px;
+    font-weight: 600;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.login-card .btn-primary {
+    font-weight: 600;
+}

@@ -1,10 +1,10 @@
 <?php
 $config = is_array($config ?? null) ? $config : [];
-$temaActual = strtolower((string) ($config['tema'] ?? 'light'));
+$temaActual = strtolower((string) ($config['color_sistema'] ?? 'light'));
 if (!in_array($temaActual, ['light', 'dark', 'blue'], true)) {
     $temaActual = 'light';
 }
-$logoActual = (string) ($config['logo_path'] ?? '');
+$logoActual = (string) ($config['ruta_logo'] ?? '');
 ?>
 <div class="container-fluid">
     <h1 class="h3 mb-1">Configuración de Empresa</h1>
@@ -13,7 +13,7 @@ $logoActual = (string) ($config['logo_path'] ?? '');
     <div class="card">
         <div class="card-body">
             <form method="post" enctype="multipart/form-data" class="row g-3">
-                <div class="col-md-6"><label class="form-label">Razón social</label><input name="nombre_empresa" class="form-control" value="<?php echo e((string) ($config['razon_social'] ?? '')); ?>"></div>
+                <div class="col-md-6"><label class="form-label">Razón social</label><input name="nombre_empresa" class="form-control" value="<?php echo e((string) ($config['nombre_empresa'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">RUC</label><input name="ruc" class="form-control" value="<?php echo e((string) ($config['ruc'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Dirección</label><input name="direccion" class="form-control" value="<?php echo e((string) ($config['direccion'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Teléfono</label><input name="telefono" class="form-control" value="<?php echo e((string) ($config['telefono'] ?? '')); ?>"></div>
