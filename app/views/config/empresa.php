@@ -6,18 +6,20 @@
     <div class="card">
         <div class="card-body">
             <form method="post" enctype="multipart/form-data" class="row g-3">
-                <div class="col-md-6"><label class="form-label">Razón social</label><input name="razon_social" class="form-control" value="<?php echo e((string) ($config['razon_social'] ?? '')); ?>"></div>
+                <div class="col-md-6"><label class="form-label">Nombre empresa</label><input name="nombre_empresa" class="form-control" value="<?php echo e((string) ($config['nombre_empresa'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">RUC</label><input name="ruc" class="form-control" value="<?php echo e((string) ($config['ruc'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Dirección</label><input name="direccion" class="form-control" value="<?php echo e((string) ($config['direccion'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Teléfono</label><input name="telefono" class="form-control" value="<?php echo e((string) ($config['telefono'] ?? '')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Email</label><input name="email" type="email" class="form-control" value="<?php echo e((string) ($config['email'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">Tema</label><input name="tema" class="form-control" value="<?php echo e((string) ($config['tema'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">Moneda</label><input name="moneda" class="form-control" value="<?php echo e((string) ($config['moneda'] ?? '')); ?>"></div>
+                <div class="col-md-3"><label class="form-label">Moneda</label><input name="moneda" class="form-control" value="<?php echo e((string) ($config['moneda'] ?? 'PEN')); ?>"></div>
+                <div class="col-md-3"><label class="form-label">Impuesto (%)</label><input name="impuesto" type="number" step="0.01" class="form-control" value="<?php echo e((string) ($config['impuesto'] ?? '0')); ?>"></div>
+                <div class="col-md-6"><label class="form-label">Slogan</label><input name="slogan" class="form-control" value="<?php echo e((string) ($config['slogan'] ?? '')); ?>"></div>
+                <div class="col-md-6"><label class="form-label">Color sistema</label><input name="color_sistema" type="color" class="form-control form-control-color" value="<?php echo e((string) ($config['color_sistema'] ?? '#0d6efd')); ?>"></div>
                 <div class="col-md-6"><label class="form-label">Logo (png/jpg/jpeg/webp, máx. 2MB)</label><input name="logo" type="file" class="form-control" accept=".png,.jpg,.jpeg,.webp"></div>
                 <div class="col-12">
                     <div class="mb-2">Logo actual:</div>
-                    <?php if (!empty($config['logo_path'])): ?>
-                        <img src="<?php echo e(base_url() . '/' . $config['logo_path']); ?>" alt="Logo empresa" style="max-height:70px">
+                    <?php if (!empty($config['ruta_logo'])): ?>
+                        <img src="<?php echo e(base_url() . '/' . $config['ruta_logo']); ?>" alt="Logo empresa" style="max-height:70px">
                     <?php else: ?>
                         <span class="text-muted">Sin logo cargado.</span>
                     <?php endif; ?>

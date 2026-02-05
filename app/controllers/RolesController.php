@@ -28,12 +28,12 @@ class RolesController extends Controlador
             try {
                 if ($accion === 'crear') {
                     require_permiso('roles.crear');
-                    $this->rolModel->crear(trim((string) ($_POST['nombre'] ?? '')));
+                    $this->rolModel->crear(trim((string) ($_POST['nombre'] ?? '')), trim((string) ($_POST['descripcion'] ?? '')));
                     $flash = ['tipo' => 'success', 'texto' => 'Rol creado correctamente.'];
                 }
                 if ($accion === 'editar') {
                     require_permiso('roles.editar');
-                    $this->rolModel->actualizar((int) $_POST['id'], trim((string) $_POST['nombre']), (int) $_POST['estado']);
+                    $this->rolModel->actualizar((int) $_POST['id'], trim((string) $_POST['nombre']), (int) $_POST['estado'], trim((string) ($_POST['descripcion'] ?? '')));
                     $flash = ['tipo' => 'success', 'texto' => 'Rol actualizado correctamente.'];
                 }
                 if ($accion === 'permisos') {

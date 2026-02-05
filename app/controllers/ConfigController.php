@@ -44,24 +44,26 @@ class ConfigController extends Controlador
         $userId = (int) ($_SESSION['id'] ?? 0);
         $actual = $this->configModel->obtener_config_activa();
 
-        $logoPath = (string) ($actual['logo_path'] ?? '');
+        $logoPath = (string) ($actual['ruta_logo'] ?? '');
         $nuevoLogo = $this->procesarLogo();
         if ($nuevoLogo !== null) {
             $logoPath = $nuevoLogo;
         }
 
         $data = [
-            'razon_social' => trim((string) ($_POST['razon_social'] ?? '')),
+            'nombre_empresa' => trim((string) ($_POST['nombre_empresa'] ?? '')),
             'ruc' => trim((string) ($_POST['ruc'] ?? '')),
             'direccion' => trim((string) ($_POST['direccion'] ?? '')),
             'telefono' => trim((string) ($_POST['telefono'] ?? '')),
             'email' => trim((string) ($_POST['email'] ?? '')),
-            'tema' => trim((string) ($_POST['tema'] ?? '')),
             'moneda' => trim((string) ($_POST['moneda'] ?? '')),
-            'logo_path' => $logoPath,
+            'impuesto' => (float) ($_POST['impuesto'] ?? 0),
+            'slogan' => trim((string) ($_POST['slogan'] ?? '')),
+            'color_sistema' => trim((string) ($_POST['color_sistema'] ?? '#0d6efd')),
+            'ruta_logo' => $logoPath,
         ];
 
-        $this->configModel->guardar_config($data, $userId);
+        $this->configModel->guardar_config($data);
         $this->configModel->registrar_bitacora(
             $userId,
             'CONFIG_EMPRESA_UPDATE',

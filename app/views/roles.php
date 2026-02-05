@@ -4,21 +4,25 @@
 
     <div class="card mb-3"><div class="card-header">Crear rol</div><div class="card-body">
         <form method="post" class="row g-2"><input type="hidden" name="accion" value="crear">
-            <div class="col-md-6"><input name="nombre" class="form-control" placeholder="Nombre de rol" required></div>
+            <div class="col-md-4"><input name="nombre" class="form-control" placeholder="Nombre de rol" required></div>
+            <div class="col-md-5"><input name="descripcion" class="form-control" placeholder="Descripción"></div>
             <div class="col-md-3"><button class="btn btn-primary">Crear</button></div>
         </form>
     </div></div>
 
     <div class="card"><div class="card-header">Listado y permisos</div><div class="card-body table-responsive">
-        <table class="table align-middle"><thead><tr><th>Rol</th><th>Estado</th><th>Editar</th><th>Permisos</th></tr></thead><tbody>
+        <table class="table align-middle"><thead><tr><th>Rol</th><th>Slug</th><th>Descripción</th><th>Estado</th><th>Editar</th><th>Permisos</th></tr></thead><tbody>
         <?php foreach ($roles as $rol): ?>
             <tr>
                 <td><?php echo e((string) $rol['nombre']); ?></td>
+                <td><?php echo e((string) ($rol['slug'] ?? '')); ?></td>
+                <td><?php echo e((string) ($rol['descripcion'] ?? '')); ?></td>
                 <td><?php echo (int) $rol['estado'] === 1 ? 'Activo' : 'Inactivo'; ?></td>
                 <td>
                     <form method="post" class="d-flex gap-1">
                         <input type="hidden" name="accion" value="editar"><input type="hidden" name="id" value="<?php echo (int) $rol['id']; ?>">
                         <input name="nombre" class="form-control form-control-sm" value="<?php echo e((string) $rol['nombre']); ?>">
+                        <input name="descripcion" class="form-control form-control-sm" value="<?php echo e((string) ($rol['descripcion'] ?? '')); ?>">
                         <select name="estado" class="form-select form-select-sm"><option value="1" <?php echo (int) $rol['estado']===1?'selected':''; ?>>Activo</option><option value="0" <?php echo (int) $rol['estado']===0?'selected':''; ?>>Inactivo</option></select>
                         <button class="btn btn-sm btn-outline-primary">Guardar</button>
                     </form>

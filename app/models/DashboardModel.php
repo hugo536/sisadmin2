@@ -17,7 +17,6 @@ class DashboardModel extends Modelo
         $sql = 'SELECT b.created_at, b.evento, COALESCE(u.usuario, "Sistema") AS usuario
                 FROM bitacora_seguridad b
                 LEFT JOIN usuarios u ON u.id = b.created_by
-                WHERE b.deleted_at IS NULL
                 ORDER BY b.created_at DESC
                 LIMIT :limite';
         $stmt = $this->db()->prepare($sql);
@@ -30,7 +29,7 @@ class DashboardModel extends Modelo
 
     private function contar_activos(string $tabla): int
     {
-        $sql = 'SELECT COUNT(*) FROM ' . $tabla . ' WHERE estado = 1 AND deleted_at IS NULL';
+        $sql = 'SELECT COUNT(*) FROM ' . $tabla . ' WHERE estado = 1';
         return (int) $this->db()->query($sql)->fetchColumn();
     }
 }
