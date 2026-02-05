@@ -19,7 +19,7 @@
     togglePassword.addEventListener('click', function () {
       const isPassword = clave.getAttribute('type') === 'password';
       clave.setAttribute('type', isPassword ? 'text' : 'password');
-      togglePassword.textContent = isPassword ? 'Ocultar' : 'Ver';
+      togglePassword.textContent = isPassword ? 'Ocultar' : 'Mostrar';
       togglePassword.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
       togglePassword.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
     });

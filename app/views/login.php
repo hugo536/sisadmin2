@@ -1,12 +1,12 @@
 <?php
 $error = isset($error) ? (string) $error : '';
 $configEmpresa = is_array($configEmpresa ?? null) ? $configEmpresa : [];
-$empresa = trim((string) ($configEmpresa['razon_social'] ?? '')) ?: 'SISADMIN2';
-$tema = strtolower(trim((string) ($configEmpresa['tema'] ?? 'light')));
+$empresa = trim((string) ($configEmpresa['nombre_empresa'] ?? '')) ?: 'SISADMIN2';
+$tema = strtolower(trim((string) ($configEmpresa['color_sistema'] ?? 'light')));
 if (!in_array($tema, ['light', 'dark', 'blue'], true)) {
     $tema = 'light';
 }
-$logoPath = trim((string) ($configEmpresa['logo_path'] ?? ''));
+$logoPath = trim((string) ($configEmpresa['ruta_logo'] ?? ''));
 $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
 ?>
 <!DOCTYPE html>
@@ -45,9 +45,9 @@ $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
 
                         <div class="mb-4">
                             <label for="clave" class="form-label">Contraseña</label>
-                            <div class="input-group">
+                            <div class="input-group login-password-group">
                                 <input id="clave" name="clave" type="password" class="form-control" autocomplete="current-password" required>
-                                <button id="toggle-password" class="btn btn-outline-secondary" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Ver</button>
+                                <button id="toggle-password" class="btn btn-outline-secondary" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
                             </div>
                         </div>
 
