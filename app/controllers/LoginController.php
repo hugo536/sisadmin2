@@ -1,17 +1,19 @@
 <?php
 declare(strict_types=1);
 
-class AuthController extends Controlador
+class LoginController extends Controlador
 {
     public function index(): void
     {
+        // Si ya está logueado, manda a dashboard (o donde tengas)
         if (!empty($_SESSION['usuario']['id'])) {
             header('Location: ?ruta=dashboard/index');
             exit;
         }
 
-        $error = $_GET['error'] ?? null;
-        $this->render('auth/login', ['error' => $error]);
+        $this->render('auth/login', [
+            'error' => $_GET['error'] ?? null
+        ]);
     }
 
     public function authenticate(): void
@@ -23,39 +25,43 @@ class AuthController extends Controlador
         }
 
         $usuario = trim((string)($_POST['usuario'] ?? ''));
-        $clave   = (string)($_POST['clave'] ?? ''); // <-- IMPORTANTE: name="clave" en la vista
+        $clave   = (string)($_POST['clave'] ?? '');
 
         if ($usuario === '' || $clave === '') {
-            $this->bitacora(1, 'LOGIN_FAIL', "Campos vacíos (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales requeridas');
+            $this->registrarBitacora(1, 'LOGIN_FAIL', "Campos vacíos (usuario={$usuario})");
+            header('Location: ?ruta=login/index&error=1');
             exit;
         }
 
         $model = new UsuarioModel();
         $row = $model->buscar_por_usuario($usuario);
 
+        // Usuario no existe
         if (!$row) {
-            $this->bitacora(1, 'LOGIN_FAIL', "Usuario no existe (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales inválidas');
+            $this->registrarBitacora(1, 'LOGIN_FAIL', "Usuario no existe (usuario={$usuario})");
+            header('Location: ?ruta=login/index&error=1');
             exit;
         }
 
+        // Validar estado (1=activo, 0=inactivo, 2=bloqueado)
         $estado = (int)($row['estado'] ?? 0);
         if ($estado !== 1) {
-            $this->bitacora((int)$row['id'], 'LOGIN_DENIED', "Estado={$estado} (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Usuario no habilitado');
+            $this->registrarBitacora((int)$row['id'], 'LOGIN_DENIED', "Estado={$estado} (usuario={$usuario})");
+            header('Location: ?ruta=login/index&error=2');
             exit;
         }
 
+        // Verificar contraseña contra usuarios.clave
         $hash = (string)($row['clave'] ?? '');
         if ($hash === '' || !password_verify($clave, $hash)) {
-            $this->bitacora((int)$row['id'], 'LOGIN_FAIL', "Password inválido (usuario={$usuario})");
-            header('Location: ?ruta=login/index&error=Credenciales inválidas');
+            $this->registrarBitacora((int)$row['id'], 'LOGIN_FAIL', "Password inválido (usuario={$usuario})");
+            header('Location: ?ruta=login/index&error=1');
             exit;
         }
 
-        // Sesión segura
+        // ✅ Login OK: endurecer sesión
         session_regenerate_id(true);
+
         $_SESSION['usuario'] = [
             'id'     => (int)$row['id'],
             'usuario'=> (string)$row['usuario'],
@@ -63,12 +69,13 @@ class AuthController extends Controlador
         ];
         $_SESSION['ultimo_acceso'] = time();
 
-        // ultimo_login
+        // Actualizar ultimo_login
         $model->actualizar_ultimo_login((int)$row['id']);
 
-        // bitácora OK
-        $this->bitacora((int)$row['id'], 'LOGIN_OK', "Login exitoso (usuario={$usuario})");
+        // Bitácora
+        $this->registrarBitacora((int)$row['id'], 'LOGIN_OK', "Login exitoso (usuario={$usuario})");
 
+        // Redirigir a dashboard (crea un placeholder si aún no existe)
         header('Location: ?ruta=dashboard/index');
         exit;
     }
@@ -76,7 +83,7 @@ class AuthController extends Controlador
     public function logout(): void
     {
         $id = (int)($_SESSION['usuario']['id'] ?? 1);
-        $this->bitacora($id, 'LOGOUT', 'Cierre de sesión');
+        $this->registrarBitacora($id, 'LOGOUT', 'Cierre de sesión');
 
         $_SESSION = [];
         if (ini_get("session.use_cookies")) {
@@ -91,7 +98,7 @@ class AuthController extends Controlador
         exit;
     }
 
-    private function bitacora(int $createdBy, string $evento, string $descripcion): void
+    private function registrarBitacora(int $createdBy, string $evento, string $descripcion): void
     {
         try {
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -99,7 +106,7 @@ class AuthController extends Controlador
             $model = new UsuarioModel();
             $model->insertar_bitacora($createdBy, $evento, $descripcion, $ip, $ua);
         } catch (Throwable $e) {
-            // no romper flujo por bitácora
+            // No rompas el login por falla de bitácora
         }
     }
 }
