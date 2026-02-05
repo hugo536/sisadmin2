@@ -5,7 +5,14 @@ class DashboardController extends Controlador
 {
     public function index(): void
     {
-        echo "<h1>Dashboard</h1>";
-        echo "<pre>"; print_r($_SESSION); echo "</pre>";
+        if (!isset($_SESSION['id'], $_SESSION['usuario'])) {
+            header('Location: ?ruta=login/index');
+            exit;
+        }
+
+        $this->render('dashboard', [
+            'usuario' => (string) $_SESSION['usuario'],
+            'idRol' => (int) ($_SESSION['id_rol'] ?? 0),
+        ]);
     }
 }

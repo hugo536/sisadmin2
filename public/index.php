@@ -32,6 +32,17 @@ if (file_exists($helpers)) {
     require_once $helpers;
 }
 
+// Core base classes
+$modeloBase = BASE_PATH . '/app/core/Modelo.php';
+if (file_exists($modeloBase)) {
+    require_once $modeloBase;
+}
+
+$controladorBase = BASE_PATH . '/app/core/Controlador.php';
+if (file_exists($controladorBase)) {
+    require_once $controladorBase;
+}
+
 // =====================================================
 // ROUTING
 // =====================================================

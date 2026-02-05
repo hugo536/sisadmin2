@@ -5,7 +5,7 @@
   <title>SISADMIN2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="font-family: Arial; padding: 24px;">
+<body>
   <?php if (isset($contenido_vista) && is_file($contenido_vista)): ?>
     <?php require $contenido_vista; ?>
   <?php else: ?>
