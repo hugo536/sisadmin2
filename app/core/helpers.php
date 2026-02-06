@@ -37,13 +37,26 @@ if (!function_exists('tiene_permiso')) {
             return true;
         }
 
-        if (!isset($_SESSION['permisos']) || !is_array($_SESSION['permisos'])) {
-            require_once BASE_PATH . '/app/models/PermisoModel.php';
-            $permisoModel = new PermisoModel();
-            $_SESSION['permisos'] = $permisoModel->obtener_slugs_por_rol($id_rol);
-        }
+        require_once BASE_PATH . '/app/config/Conexion.php';
+        $db = Conexion::get();
+        $sql = 'SELECT 1
+                FROM roles_permisos rp
+                INNER JOIN permisos_def pd ON pd.id = rp.id_permiso
+                INNER JOIN roles r ON r.id = rp.id_rol
+                WHERE rp.id_rol = :id_rol
+                  AND pd.slug = :slug
+                  AND rp.deleted_at IS NULL
+                  AND pd.deleted_at IS NULL
+                  AND r.estado = 1
+                  AND r.deleted_at IS NULL
+                LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_rol' => $id_rol,
+            'slug' => $slug,
+        ]);
 
-        return in_array($slug, $_SESSION['permisos'], true);
+        return (bool) $stmt->fetchColumn();
     }
 }
 
