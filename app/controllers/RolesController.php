@@ -22,19 +22,30 @@ class RolesController extends Controlador
         require_permiso('roles.ver');
 
         $flash = ['tipo' => '', 'texto' => ''];
+        $userId = (int) ($_SESSION['id'] ?? 0);
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
             try {
                 if ($accion === 'crear') {
                     require_permiso('roles.crear');
-                    $this->rolModel->crear(trim((string) ($_POST['nombre'] ?? '')), trim((string) ($_POST['descripcion'] ?? '')));
+                    $this->rolModel->crear(trim((string) ($_POST['nombre'] ?? '')), $userId);
                     $flash = ['tipo' => 'success', 'texto' => 'Rol creado correctamente.'];
                 }
                 if ($accion === 'editar') {
                     require_permiso('roles.editar');
-                    $this->rolModel->actualizar((int) $_POST['id'], trim((string) $_POST['nombre']), (int) $_POST['estado'], trim((string) ($_POST['descripcion'] ?? '')));
+                    $this->rolModel->actualizar((int) $_POST['id'], trim((string) $_POST['nombre']), (int) $_POST['estado'], $userId);
                     $flash = ['tipo' => 'success', 'texto' => 'Rol actualizado correctamente.'];
+                }
+                if ($accion === 'toggle') {
+                    require_permiso('roles.editar');
+                    $this->rolModel->cambiar_estado((int) $_POST['id'], (int) $_POST['estado'], $userId);
+                    $flash = ['tipo' => 'success', 'texto' => 'Estado del rol actualizado.'];
+                }
+                if ($accion === 'eliminar') {
+                    require_permiso('roles.eliminar');
+                    $this->rolModel->eliminar_logico((int) $_POST['id'], $userId);
+                    $flash = ['tipo' => 'success', 'texto' => 'Rol eliminado correctamente.'];
                 }
                 if ($accion === 'permisos') {
                     require_permiso('roles.permisos');

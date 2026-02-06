@@ -21,6 +21,8 @@ class BitacoraController extends Controlador
         $filtros = [
             'usuario' => (string) ($_GET['usuario'] ?? ''),
             'evento' => trim((string) ($_GET['evento'] ?? '')),
+            'fecha_inicio' => (string) ($_GET['fecha_inicio'] ?? ''),
+            'fecha_fin' => (string) ($_GET['fecha_fin'] ?? ''),
         ];
 
         $this->render('bitacora', [

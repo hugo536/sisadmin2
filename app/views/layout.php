@@ -68,6 +68,17 @@ window.USUARIOS_FLASH = {
     });
 })();
 </script>
+
+<?php if (($ruta_actual ?? '') === 'roles/index'): ?>
+<script src="<?php echo e(asset_url('js/roles.js')); ?>"></script>
+<?php endif; ?>
+<?php if (($ruta_actual ?? '') === 'permisos/index'): ?>
+<script src="<?php echo e(asset_url('js/permisos.js')); ?>"></script>
+<?php endif; ?>
+<?php if (($ruta_actual ?? '') === 'config/empresa'): ?>
+<script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
+<?php endif; ?>
+
 <?php if (!empty($flash['texto'])): ?>
 <script>
 Swal.fire({icon:'<?php echo e($flash['tipo'] === 'error' ? 'error' : 'success'); ?>',text:'<?php echo e($flash['texto']); ?>',confirmButtonText:'Aceptar'});

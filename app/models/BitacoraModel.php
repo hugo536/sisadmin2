@@ -22,6 +22,16 @@ class BitacoraModel extends Modelo
             $params['evento'] = '%' . $filtros['evento'] . '%';
         }
 
+        if (!empty($filtros['fecha_inicio'])) {
+            $sql .= ' AND DATE(b.created_at) >= :fecha_inicio';
+            $params['fecha_inicio'] = $filtros['fecha_inicio'];
+        }
+
+        if (!empty($filtros['fecha_fin'])) {
+            $sql .= ' AND DATE(b.created_at) <= :fecha_fin';
+            $params['fecha_fin'] = $filtros['fecha_fin'];
+        }
+
         $sql .= ' ORDER BY b.created_at DESC';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
