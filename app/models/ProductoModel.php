@@ -50,25 +50,33 @@ class ProductoModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
-    public function crear(array $data): int
+    public function crear(array $data, int $userId): int
     {
+        $payload = $this->mapPayload($data);
+
+        if ($payload['sku'] === '') {
+            $payload['sku'] = $this->generarSku();
+        }
+
+        $payload['created_by'] = $userId;
+        $payload['updated_by'] = $userId;
+
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, marca,
                                   unidad_base, controla_stock, stock_minimo, precio_venta,
-                                  costo_referencial, estado)
+                                  costo_referencial, estado, created_by, updated_by)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :marca,
                         :unidad_base, :controla_stock, :stock_minimo, :precio_venta,
-                        :costo_referencial, :estado)';
+                        :costo_referencial, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->mapPayload($data));
+        $stmt->execute($payload);
 
         return (int) $this->db()->lastInsertId();
     }
 
-    public function actualizar(int $id, array $data): bool
+    public function actualizar(int $id, array $data, int $userId): bool
     {
         $sql = 'UPDATE items
-                SET sku = :sku,
-                    nombre = :nombre,
+                SET nombre = :nombre,
                     descripcion = :descripcion,
                     tipo_item = :tipo_item,
                     id_categoria = :id_categoria,
@@ -78,23 +86,29 @@ class ProductoModel extends Modelo
                     stock_minimo = :stock_minimo,
                     precio_venta = :precio_venta,
                     costo_referencial = :costo_referencial,
-                    estado = :estado
+                    estado = :estado,
+                    updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
         $payload = $this->mapPayload($data);
         $payload['id'] = $id;
+        $payload['updated_by'] = $userId;
 
         return $this->db()->prepare($sql)->execute($payload);
     }
 
-    public function eliminar(int $id): bool
+    public function eliminar(int $id, int $userId): bool
     {
         $sql = 'UPDATE items
                 SET estado = 0,
-                    deleted_at = NOW()
+                    deleted_at = NOW(),
+                    updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
-        return $this->db()->prepare($sql)->execute(['id' => $id]);
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'updated_by' => $userId,
+        ]);
     }
 
     public function datatable(): array
@@ -141,5 +155,14 @@ class ProductoModel extends Modelo
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
+    }
+
+    private function generarSku(): string
+    {
+        do {
+            $sku = 'SKU-' . strtoupper(bin2hex(random_bytes(4)));
+        } while ($this->skuExiste($sku));
+
+        return $sku;
     }
 }

@@ -179,3 +179,39 @@ tr[data-estado="0"] .avatar-circle {
     background-color: #e2e8f0 !important;
     color: var(--secondary-color) !important;
 }
+
+@media (max-width: 768px) {
+    .table-responsive { overflow-x: visible; }
+
+    .table-pro thead { display: none; }
+    .table-pro tbody tr {
+        display: block;
+        margin: 0 1rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+    .table-pro tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .table-pro tbody td:last-child { border-bottom: none; }
+    .table-pro tbody td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        min-width: 110px;
+    }
+    .table-pro tbody td.text-end,
+    .table-pro tbody td.text-center {
+        text-align: left !important;
+        justify-content: space-between;
+    }
+}
