@@ -13,33 +13,42 @@ class Controlador
         $archivoVista = BASE_PATH . '/app/views/' . $rutaVista . '.php';
 
         if (!is_readable($archivoVista)) {
-            die("Error: No se encontró la vista en: " . $archivoVista);
+            die('Error: No se encontró la vista en: ' . $archivoVista);
         }
 
-        if ($rutaVista === 'login') {
-            $configEmpresa = null;
-            $configModelPath = BASE_PATH . '/app/models/ConfigModel.php';
-            if (is_readable($configModelPath)) {
-                require_once $configModelPath;
-                try {
-                    $configEmpresa = (new ConfigModel())->obtener_config_activa();
-                } catch (Throwable $e) {
-                    $configEmpresa = null;
-                }
-            }
+        $configEmpresa = $this->obtenerConfigEmpresa();
 
+        if ($rutaVista === 'login') {
             extract(array_merge($datos, ['configEmpresa' => $configEmpresa]));
             require $archivoVista;
             return;
         }
 
-        // 1. Extraer los datos para que sean variables ($usuarios, $mensaje, etc.)
-        extract($datos);
-
-        // Pasamos la ruta de la vista al layout usando la variable $vista
+        extract(array_merge($datos, ['configEmpresa' => $configEmpresa]));
         $vista = $archivoVista;
 
-        // 4. Cargar el Layout Principal (que a su vez cargará $vista)
         require_once BASE_PATH . '/app/views/layout.php';
+    }
+
+    private function obtenerConfigEmpresa(): array
+    {
+        if (isset($_SESSION['config_empresa']) && is_array($_SESSION['config_empresa'])) {
+            return $_SESSION['config_empresa'];
+        }
+
+        $empresaModelPath = BASE_PATH . '/app/models/EmpresaModel.php';
+        if (!is_readable($empresaModelPath)) {
+            return [];
+        }
+
+        require_once $empresaModelPath;
+
+        try {
+            $configEmpresa = (new EmpresaModel())->obtenerConfigActiva();
+            $_SESSION['config_empresa'] = $configEmpresa;
+            return $configEmpresa;
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 }

@@ -1,7 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  /* Tus variables originales */
   --login-bg: #f8fafc;
   --login-card: #ffffff;
   --login-border: #e2e8f0;
@@ -9,44 +6,59 @@
   --login-primary-hover: #1d4ed8;
   --login-text: #0f172a;
   --login-muted: #64748b;
-  --brand-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  --login-brand-gradient: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
 }
 
-* { box-sizing: border-box; }
+body[data-theme="dark"] {
+  --login-bg: #0b1120;
+  --login-card: #111827;
+  --login-border: #374151;
+  --login-primary: #7c3aed;
+  --login-primary-hover: #6d28d9;
+  --login-text: #e5e7eb;
+  --login-muted: #9ca3af;
+  --login-brand-gradient: linear-gradient(145deg, #111827 0%, #1f2937 100%);
+}
+
+body[data-theme="blue"] {
+  --login-bg: #eef4ff;
+  --login-card: #ffffff;
+  --login-border: #cbd5e1;
+  --login-primary: #1d4ed8;
+  --login-primary-hover: #1e40af;
+  --login-text: #0f172a;
+  --login-muted: #64748b;
+  --login-brand-gradient: linear-gradient(145deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--login-bg);
   color: var(--login-text);
 }
 
-/* Contenedor Principal */
-.login-container {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-}
+.login-container { min-height: 100vh; display: flex; }
 
-/* Lado Izquierdo (Branding) - Oculto en móvil */
 .login-brand-side {
   display: none;
-  width: 50%;
-  background: var(--brand-gradient);
+  flex: 1;
+  background: var(--login-brand-gradient);
   color: white;
-  flex-direction: column;
-  justify-content: center;
-  padding: 4rem;
+  padding: 3rem;
   position: relative;
 }
 
-.brand-content h1 { font-size: 2.5rem; margin: 0 0 1rem; }
-.brand-content p { font-size: 1.1rem; opacity: 0.8; line-height: 1.6; }
-.brand-logo { max-height: 60px; margin-bottom: 2rem; background: white; padding: 10px; border-radius: 8px; }
+.brand-content { max-width: 460px; }
+.brand-logo { height: 80px; margin-bottom: 1.5rem; background: white; padding: 10px; border-radius: 8px; }
+.brand-content h1 { font-size: 2rem; margin-bottom: .5rem; }
+.brand-content p { opacity: 0.9; margin-bottom: 1.25rem; }
 .brand-footer { position: absolute; bottom: 2rem; font-size: 0.85rem; opacity: 0.5; }
 
-/* Lado Derecho (Formulario) */
+.company-data { display: grid; gap: .5rem; font-size: .92rem; }
+.company-data span { display: flex; gap: .5rem; align-items: center; opacity: .95; }
+
 .login-form-side {
   flex: 1;
   display: flex;
@@ -60,14 +72,12 @@ body {
   width: 100%;
   max-width: 420px;
   background: var(--login-card);
-  /* En móvil mantenemos tu estilo de tarjeta */
   border: 1px solid var(--login-border);
   border-radius: 24px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   padding: 2.5rem;
 }
 
-/* Header visible solo en móvil */
 .mobile-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem; }
 .mobile-header img { height: 40px; margin-bottom: 0.5rem; }
 .mobile-header h2 { font-size: 1.25rem; margin: 0; color: var(--login-primary); }
@@ -75,7 +85,6 @@ body {
 .header-text h3 { margin: 0 0 0.5rem; font-size: 1.5rem; font-weight: 700; color: var(--login-text); }
 .subtitle { color: var(--login-muted); margin: 0 0 2rem; font-size: 0.95rem; }
 
-/* Inputs y Labels */
 .form-group { margin-bottom: 1.25rem; }
 label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: var(--login-text); }
 
@@ -85,11 +94,16 @@ input {
   width: 100%;
   border: 1px solid var(--login-border);
   border-radius: 12px;
-  padding: 0.85rem 1rem 0.85rem 2.5rem; /* Espacio para icono izq */
+  padding: 0.85rem 1rem 0.85rem 2.5rem;
   font-size: 0.95rem;
   font-family: inherit;
   transition: all 0.2s ease;
   background: #f8fafc;
+  color: var(--login-text);
+}
+
+body[data-theme="dark"] input {
+  background: #1f2937;
 }
 
 input:focus {
@@ -98,8 +112,10 @@ input:focus {
   border-color: var(--login-primary);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
+body[data-theme="dark"] input:focus {
+  background: #111827;
+}
 
-/* Iconos dentro del input */
 .input-icon {
   position: absolute;
   left: 1rem;
@@ -128,7 +144,6 @@ input:focus {
 
 .toggle-password:hover { color: var(--login-primary); }
 
-/* Botón */
 .submit-btn {
   width: 100%;
   margin-top: 1.5rem;
@@ -151,19 +166,18 @@ input:focus {
 
 .submit-btn:active { transform: translateY(0); }
 
-/* RESPONSIVE: MODO ESCRITORIO */
 @media (min-width: 1024px) {
-  .login-brand-side { display: flex; } /* Aparece el lado izquierdo */
-  
+  .login-brand-side { display: flex; }
+
   .login-panel {
-    box-shadow: none; /* Quitamos sombra para que se integre limpio */
+    box-shadow: none;
     border: none;
     background: transparent;
     padding: 0;
     max-width: 380px;
   }
-  
-  .mobile-header { display: none; } /* Ocultamos logo duplicado en form */
-  
-  input { background: #fff; } /* Fondo blanco en inputs desktop */
+
+  .mobile-header { display: none; }
+
+  input { background: #fff; }
 }

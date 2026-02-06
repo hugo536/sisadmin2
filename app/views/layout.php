@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
 </head>
-<body>
+<?php $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light')); ?>
+<body data-theme="<?php echo e($temaSistema); ?>">
 <div class="app-container">
     <?php require BASE_PATH . '/app/views/sidebar.php'; ?>
 
@@ -42,7 +43,7 @@ window.USUARIOS_FLASH = {
 <?php if (($ruta_actual ?? '') === 'permisos/index'): ?>
 <script src="<?php echo e(asset_url('js/permisos.js')); ?>"></script>
 <?php endif; ?>
-<?php if (($ruta_actual ?? '') === 'config/empresa'): ?>
+<?php if (in_array(($ruta_actual ?? ''), ['config/empresa', 'empresa/empresa'], true)): ?>
 <script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
 <?php endif; ?>
 

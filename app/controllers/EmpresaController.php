@@ -2,29 +2,27 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ConfigModel.php';
+require_once BASE_PATH . '/app/models/EmpresaModel.php';
 
-class ConfigController extends Controlador
+class EmpresaController extends Controlador
 {
     private const MAX_LOGO_SIZE = 2097152; // 2MB
     private const MIME_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp'];
-    private ConfigModel $configModel;
+    private EmpresaModel $empresaModel;
 
     public function __construct()
     {
-        $this->configModel = new ConfigModel();
+        $this->empresaModel = new EmpresaModel();
     }
 
     public function empresa(): void
     {
         AuthMiddleware::handle();
-        // require_permiso('config.ver'); // Descomentar si usas sistema de permisos
 
         $flash = ['tipo' => '', 'texto' => ''];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             try {
-                // require_permiso('config.editar'); // Descomentar si usas sistema de permisos
                 $this->procesarGuardado();
                 $flash = ['tipo' => 'success', 'texto' => 'Configuración actualizada correctamente.'];
             } catch (Throwable $e) {
@@ -33,26 +31,23 @@ class ConfigController extends Controlador
         }
 
         $this->render('config/empresa', [
-            'config' => $this->configModel->obtener(),
+            'config' => $this->empresaModel->obtener(),
             'flash' => $flash,
-            'ruta_actual' => 'config/empresa',
+            'ruta_actual' => 'empresa/empresa',
         ]);
     }
 
     private function procesarGuardado(): void
     {
         $userId = (int) ($_SESSION['id'] ?? 0);
-        $actual = $this->configModel->obtener();
+        $actual = $this->empresaModel->obtener();
 
-        // Validaciones simples
         if (empty(trim($_POST['razon_social'] ?? ''))) {
             throw new RuntimeException('La razón social es obligatoria.');
         }
 
-        // Procesar subida de logo
         $nuevoLogo = $this->subirLogo((string)($actual['ruta_logo'] ?? ''));
-        
-        // MAPEO: Vista (POST) -> Base de Datos
+
         $datos = [
             'nombre_empresa' => trim((string) ($_POST['razon_social'] ?? '')),
             'ruc'            => preg_replace('/[^0-9]/', '', (string)($_POST['ruc'] ?? '')),
@@ -63,17 +58,17 @@ class ConfigController extends Controlador
             'impuesto'       => (float) ($_POST['impuesto'] ?? 18),
             'slogan'         => trim((string) ($_POST['slogan'] ?? '')),
             'color_sistema'  => trim((string) ($_POST['tema'] ?? 'light')),
-            'ruta_logo'      => $nuevoLogo // Si es null, el modelo lo ignora
+            'ruta_logo'      => $nuevoLogo,
         ];
 
-        $this->configModel->guardar($datos, $userId);
+        $this->empresaModel->guardar($datos, $userId);
 
-        // Actualizar sesión para reflejar cambios inmediatos (opcional)
-        $_SESSION['config_empresa'] = $this->configModel->obtener();
+        $_SESSION['config_empresa'] = $this->empresaModel->obtenerConfigActiva();
 
-        // Bitácora
-        $this->configModel->registrar_bitacora(
-            $userId, 'CONFIG_UPDATE', 'Actualización datos empresa',
+        $this->empresaModel->registrar_bitacora(
+            $userId,
+            'CONFIG_UPDATE',
+            'Actualización datos empresa',
             (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
             (string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown')
         );
@@ -107,12 +102,11 @@ class ConfigController extends Controlador
         }
 
         $filename = 'logo_' . uniqid() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
-        
+
         if (!move_uploaded_file($file['tmp_name'], $absoluteDir . '/' . $filename)) {
             throw new RuntimeException('Error al guardar el archivo en el servidor.');
         }
 
-        // Borrar anterior
         if (!empty($logoAnterior)) {
             $pathAnterior = BASE_PATH . '/public/' . $logoAnterior;
             if (file_exists($pathAnterior) && is_file($pathAnterior)) {
