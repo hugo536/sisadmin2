@@ -109,6 +109,33 @@
         </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="productoSearch" placeholder="Buscar ítem...">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="productoFiltroTipo">
+                        <option value="">Todos los tipos</option>
+                        <option value="PRODUCTO">Producto</option>
+                        <option value="SERVICIO">Servicio</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="productoFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -126,7 +153,9 @@
                     </thead>
                     <tbody>
                         <?php foreach ($items as $item): ?>
-                            <tr data-estado="<?php echo (int) $item['estado']; ?>">
+                            <tr data-estado="<?php echo (int) $item['estado']; ?>"
+                                data-tipo="<?php echo e($item['tipo_item']); ?>"
+                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
@@ -174,6 +203,13 @@
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="productosPaginationInfo">Cargando...</small>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0 justify-content-end" id="productosPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>
