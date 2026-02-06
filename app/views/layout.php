@@ -60,14 +60,11 @@ window.ROLES_FLASH = {
 <?php if (in_array(($ruta_actual ?? ''), ['config/empresa', 'empresa/empresa'], true)): ?>
 <script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
 <?php endif; ?>
-<?php if (in_array(($ruta_actual ?? ''), ['terceros/clientes'], true)): ?>
-<script src="<?php echo e(asset_url('js/clientes.js')); ?>"></script>
-<?php endif; ?>
 <?php if (in_array(($ruta_actual ?? ''), ['items'], true)): ?>
 <script src="<?php echo e(asset_url('js/productos.js')); ?>"></script>
 <?php endif; ?>
-<?php if (in_array(($ruta_actual ?? ''), ['terceros/proveedores'], true)): ?>
-<script src="<?php echo e(asset_url('js/proveedores.js')); ?>"></script>
+<?php if (in_array(($ruta_actual ?? ''), ['terceros'], true)): ?>
+<script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto'])): ?>

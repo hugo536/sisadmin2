@@ -16,6 +16,7 @@ class ProductoController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
+        require_permiso('items.ver');
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
             json_response($this->productoModel->datatable());
@@ -26,32 +27,47 @@ class ProductoController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
+            $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
                 if ($accion === 'crear') {
-                    $data = $this->validarProducto($_POST);
-                    if ($this->productoModel->skuExiste($data['sku'])) {
+                    require_permiso('items.crear');
+                    $data = $this->validarProducto($_POST, false);
+                    if ($data['sku'] !== '' && $this->productoModel->skuExiste($data['sku'])) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
                     }
-                    $nuevoId = $this->productoModel->crear($data);
+                    $nuevoId = $this->productoModel->crear($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Producto creado correctamente.', 'id' => $nuevoId];
                     $flash = ['tipo' => 'success', 'texto' => 'Producto creado correctamente.'];
                 }
 
                 if ($accion === 'editar') {
+                    require_permiso('items.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    $data = $this->validarProducto($_POST);
-                    if ($this->productoModel->skuExiste($data['sku'], $id)) {
-                        throw new RuntimeException('El SKU ya se encuentra registrado.');
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID inválido.');
                     }
-                    $this->productoModel->actualizar($id, $data);
+                    $data = $this->validarProducto($_POST, true);
+                    $actual = $this->productoModel->obtener($id);
+                    if ($actual === []) {
+                        throw new RuntimeException('El ítem no existe.');
+                    }
+                    $skuIngresado = trim((string) ($data['sku'] ?? ''));
+                    if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '')) {
+                        throw new RuntimeException('El SKU es inmutable y no puede modificarse.');
+                    }
+                    $this->productoModel->actualizar($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Producto actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Producto actualizado correctamente.'];
                 }
 
                 if ($accion === 'eliminar') {
+                    require_permiso('items.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    $this->productoModel->eliminar($id);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID inválido.');
+                    }
+                    $this->productoModel->eliminar($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Producto eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Producto eliminado correctamente.'];
                 }
@@ -76,14 +92,17 @@ class ProductoController extends Controlador
         ]);
     }
 
-    private function validarProducto(array $data): array
+    private function validarProducto(array $data, bool $esEdicion): array
     {
-        $sku = trim((string) ($data['sku'] ?? ''));
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = trim((string) ($data['tipo_item'] ?? ''));
 
-        if ($sku === '' || $nombre === '' || $tipo === '') {
-            throw new RuntimeException('SKU, nombre y tipo de ítem son obligatorios.');
+        if ($nombre === '' || $tipo === '') {
+            throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
+        }
+
+        if (!$esEdicion) {
+            return $data;
         }
 
         return $data;

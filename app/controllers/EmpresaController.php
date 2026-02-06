@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/EmpresaModel.php';
+require_once BASE_PATH . '/app/core/UploadHelper.php';
 
 class EmpresaController extends Controlador
 {
@@ -18,11 +19,13 @@ class EmpresaController extends Controlador
     public function empresa(): void
     {
         AuthMiddleware::handle();
+        require_permiso('config.ver');
 
         $flash = ['tipo' => '', 'texto' => ''];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             try {
+                require_permiso('config.editar');
                 $this->procesarGuardado();
                 $flash = ['tipo' => 'success', 'texto' => 'Configuración actualizada correctamente.'];
             } catch (Throwable $e) {
@@ -46,7 +49,13 @@ class EmpresaController extends Controlador
             throw new RuntimeException('La razón social es obligatoria.');
         }
 
-        $nuevoLogo = $this->subirLogo((string)($actual['ruta_logo'] ?? ''));
+        $nuevoLogo = UploadHelper::subirImagen(
+            'logo',
+            'uploads/config',
+            self::MAX_LOGO_SIZE,
+            self::MIME_PERMITIDOS,
+            (string) ($actual['ruta_logo'] ?? '')
+        );
 
         $datos = [
             'nombre_empresa' => trim((string) ($_POST['razon_social'] ?? '')),
@@ -74,46 +83,4 @@ class EmpresaController extends Controlador
         );
     }
 
-    private function subirLogo(string $logoAnterior): ?string
-    {
-        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] === UPLOAD_ERR_NO_FILE) {
-            return null;
-        }
-
-        $file = $_FILES['logo'];
-
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Error en la subida del archivo.');
-        }
-        if ($file['size'] > self::MAX_LOGO_SIZE) {
-            throw new RuntimeException('El logo excede los 2MB permitidos.');
-        }
-
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        if (!in_array($finfo->file($file['tmp_name']), self::MIME_PERMITIDOS, true)) {
-            throw new RuntimeException('Formato de imagen no válido (solo JPG, PNG, WEBP).');
-        }
-
-        $relativeDir = 'uploads/config';
-        $absoluteDir = BASE_PATH . '/public/' . $relativeDir;
-
-        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0755, true)) {
-            throw new RuntimeException('No se pudo crear el directorio de subida.');
-        }
-
-        $filename = 'logo_' . uniqid() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
-
-        if (!move_uploaded_file($file['tmp_name'], $absoluteDir . '/' . $filename)) {
-            throw new RuntimeException('Error al guardar el archivo en el servidor.');
-        }
-
-        if (!empty($logoAnterior)) {
-            $pathAnterior = BASE_PATH . '/public/' . $logoAnterior;
-            if (file_exists($pathAnterior) && is_file($pathAnterior)) {
-                @unlink($pathAnterior);
-            }
-        }
-
-        return $relativeDir . '/' . $filename;
-    }
 }
