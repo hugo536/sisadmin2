@@ -1,23 +1,18 @@
-/* Importar fuente si no está en el layout principal */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .sidebar {
-    width: 260px; /* Un poco más angosto, más elegante */
-    /* EL MISMO DEGRADADO DEL LOGIN */
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-    color: #e2e8f0;
+    width: 260px;
+    background: var(--sidebar-gradient);
+    color: var(--sidebar-text);
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid var(--sidebar-border);
     font-family: 'Inter', system-ui, sans-serif;
-    z-index: 1030; /* Por encima de contenido normal de BS */
+    z-index: 1030;
     transition: width 0.3s ease;
 }
 
-/* --- CABECERA Y PERFIL --- */
-.sidebar-header {
-    padding: 1.5rem 1rem 1rem;
-}
+.sidebar-header { padding: 1.5rem 1rem 1rem; }
 
 .sidebar-logo {
     font-size: 1.25rem;
@@ -31,8 +26,8 @@
 }
 
 .user-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--sidebar-card-bg);
+    border: 1px solid var(--sidebar-card-border);
     border-radius: 12px;
     padding: 0.75rem;
     display: flex;
@@ -43,7 +38,7 @@
 .user-avatar {
     width: 36px;
     height: 36px;
-    background: #3b82f6;
+    background: var(--primary-color);
     color: white;
     border-radius: 8px;
     display: flex;
@@ -53,39 +48,21 @@
     font-size: 1rem;
 }
 
-.user-info {
-    overflow: hidden;
-}
+.user-info { overflow: hidden; }
+.user-name { font-size: 0.9rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 0.7rem; color: var(--sidebar-muted); text-transform: uppercase; font-weight: 500; }
 
-.user-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.user-role {
-    font-size: 0.7rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    font-weight: 500;
-}
-
-/* --- NAVEGACIÓN --- */
 .sidebar-nav {
     padding: 0 0.75rem;
     overflow-y: auto;
-    /* Scrollbar fino y elegante */
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    scrollbar-color: var(--sidebar-scroll) transparent;
 }
 
 .nav-label {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #64748b;
+    color: var(--sidebar-muted);
     font-weight: 700;
     margin: 1.25rem 0 0.5rem 0.5rem;
     letter-spacing: 0.05em;
@@ -96,7 +73,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    color: #cbd5e1;
+    color: var(--sidebar-text);
     text-decoration: none;
     border-radius: 8px;
     font-size: 0.92rem;
@@ -105,47 +82,36 @@
     margin-bottom: 2px;
 }
 
-/* Iconos */
 .sidebar-link i {
     font-size: 1.1rem;
-    color: #94a3b8;
+    color: var(--sidebar-icon);
     transition: color 0.2s;
 }
 
-/* Hover State */
 .sidebar-link:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--sidebar-hover-bg);
     color: #fff;
     transform: translateX(3px);
 }
 .sidebar-link:hover i { color: #fff; }
 
-/* Active State (Estilo "Glow") */
 .sidebar-link.active {
-    background: rgba(37, 99, 235, 0.15); /* Azul muy sutil */
-    color: #60a5fa; /* Azul claro texto */
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-color);
     font-weight: 600;
-    border-left: 3px solid #3b82f6; /* Borde izquierdo indicador */
-    border-radius: 4px 8px 8px 4px; /* Ajuste para el borde izquierdo */
+    border-left: 3px solid var(--primary-color);
+    border-radius: 4px 8px 8px 4px;
 }
 
-.sidebar-link.active i {
-    color: #60a5fa;
-}
+.sidebar-link.active i { color: var(--sidebar-active-color); }
 
-/* --- FOOTER --- */
 .sidebar-footer {
     padding: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(15, 23, 42, 0.4); /* Un poco más oscuro */
+    border-top: 1px solid var(--sidebar-border);
+    background: var(--sidebar-footer-bg);
 }
 
-.logout-link {
-    color: #ef4444; /* Rojo suave */
-}
-.logout-link:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
-}
+.logout-link { color: #ef4444; }
+.logout-link:hover { background: rgba(239, 68, 68, 0.12); color: #f87171; }
 .logout-link i { color: #ef4444; }
 .logout-link:hover i { color: #f87171; }

@@ -30,8 +30,8 @@ class Router
         if ($controlador_clase === 'LoginController') {
             $controlador_clase = 'AuthController';
         }
-        if ($controlador_clase === 'ConfiguracionController') {
-            $controlador_clase = 'ConfigController';
+        if ($controlador_clase === 'ConfiguracionController' || $controlador_clase === 'ConfigController') {
+            $controlador_clase = 'EmpresaController';
         }
 
         // =========================================================

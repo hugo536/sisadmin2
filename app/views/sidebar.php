@@ -59,7 +59,7 @@ $activo = static fn(string $ruta) => str_starts_with($rutaActual, $ruta) ? ' act
 
         <div class="nav-label">Sistema</div>
         <?php if (tiene_permiso('config.empresa.ver')): ?>
-        <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
+        <a class="sidebar-link<?php echo $activo('empresa/empresa') . $activo('config/empresa'); ?>" href="<?php echo e(route_url('empresa/empresa')); ?>">
             <i class="bi bi-building-gear"></i> <span>Empresa</span>
         </a>
         <?php endif; ?>

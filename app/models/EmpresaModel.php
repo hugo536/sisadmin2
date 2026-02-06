@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-class ConfigModel extends Modelo
+class EmpresaModel extends Modelo
 {
     public function obtener(): array
     {
-        $sql = 'SELECT id, nombre_empresa, ruc, direccion, telefono, email, 
+        $sql = 'SELECT id, nombre_empresa, ruc, direccion, telefono, email,
                        ruta_logo, moneda, impuesto, slogan, color_sistema
                 FROM configuracion
                 WHERE id = 1
@@ -17,9 +17,29 @@ class ConfigModel extends Modelo
         return $row ?: [];
     }
 
+    public function obtenerConfigActiva(): array
+    {
+        $config = $this->obtener();
+
+        if ($config === []) {
+            return [
+                'razon_social' => 'SISADMIN2',
+                'logo_path' => '',
+                'color_sistema' => 'light',
+                'nombre_empresa' => 'SISADMIN2',
+                'ruta_logo' => '',
+            ];
+        }
+
+        return array_merge($config, [
+            'razon_social' => (string) ($config['nombre_empresa'] ?? 'SISADMIN2'),
+            'logo_path' => (string) ($config['ruta_logo'] ?? ''),
+            'color_sistema' => strtolower((string) ($config['color_sistema'] ?? 'light')),
+        ]);
+    }
+
     public function guardar(array $data, int $userId): bool
     {
-        // Preparar payload
         $payload = [
             'nombre_empresa' => trim((string) ($data['nombre_empresa'] ?? '')),
             'ruc'            => trim((string) ($data['ruc'] ?? '')),
@@ -30,10 +50,9 @@ class ConfigModel extends Modelo
             'impuesto'       => (float) ($data['impuesto'] ?? 18.00),
             'slogan'         => trim((string) ($data['slogan'] ?? '')),
             'color_sistema'  => trim((string) ($data['color_sistema'] ?? 'light')),
-            'updated_by'     => $userId
+            'updated_by'     => $userId,
         ];
 
-        // SQL Update
         $sql = 'UPDATE configuracion
                 SET nombre_empresa = :nombre_empresa,
                     ruc = :ruc,
@@ -47,7 +66,6 @@ class ConfigModel extends Modelo
                     updated_at = NOW(),
                     updated_by = :updated_by';
 
-        // Solo actualizamos logo si viene uno nuevo
         if (!empty($data['ruta_logo'])) {
             $sql .= ', ruta_logo = :ruta_logo';
             $payload['ruta_logo'] = trim((string) $data['ruta_logo']);

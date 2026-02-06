@@ -1,10 +1,10 @@
 <?php
-// Mantenemos tu lógica de PHP intacta
 $error = isset($error) ? (string) $error : '';
 $configEmpresa = is_array($configEmpresa ?? null) ? $configEmpresa : [];
 $empresa = trim((string) ($configEmpresa['razon_social'] ?? '')) ?: 'SISADMIN2';
 $logoPath = trim((string) ($configEmpresa['logo_path'] ?? ''));
 $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
+$temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -15,7 +15,7 @@ $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?php echo asset_url('css/login.css'); ?>">
 </head>
-<body>
+<body data-theme="<?php echo e($temaSistema); ?>">
 
 <div class="login-container">
     <div class="login-brand-side">
@@ -25,6 +25,13 @@ $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
             <?php endif; ?>
             <h1><?php echo htmlspecialchars($empresa); ?></h1>
             <p>Plataforma de Gestión Empresarial</p>
+
+            <div class="company-data">
+                <?php if (!empty($configEmpresa['ruc'])): ?><span><i class="bi bi-upc-scan"></i> RUC: <?php echo e((string) $configEmpresa['ruc']); ?></span><?php endif; ?>
+                <?php if (!empty($configEmpresa['telefono'])): ?><span><i class="bi bi-telephone"></i> <?php echo e((string) $configEmpresa['telefono']); ?></span><?php endif; ?>
+                <?php if (!empty($configEmpresa['email'])): ?><span><i class="bi bi-envelope"></i> <?php echo e((string) $configEmpresa['email']); ?></span><?php endif; ?>
+                <?php if (!empty($configEmpresa['direccion'])): ?><span><i class="bi bi-geo-alt"></i> <?php echo e((string) $configEmpresa['direccion']); ?></span><?php endif; ?>
+            </div>
         </div>
         <div class="brand-footer">
             &copy; <?php echo date('Y'); ?> Todos los derechos reservados.
