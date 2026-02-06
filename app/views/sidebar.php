@@ -100,33 +100,29 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
             </a>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('config.ver') || tiene_permiso('bitacora.ver') || tiene_permiso('roles.ver')): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['config', 'bitacora', 'roles']); ?>" data-bs-toggle="collapse" href="#menuConfiguracion" role="button" aria-expanded="false" aria-controls="menuConfiguracion">
+        <?php if (tiene_permiso('bitacora.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('bitacora'); ?>" href="<?php echo e(route_url('bitacora')); ?>">
+                <i class="bi bi-journal-text"></i> <span>Bitácora</span>
+            </a>
+        <?php endif; ?>
+
+        <?php if (tiene_permiso('roles.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('roles'); ?>" href="<?php echo e(route_url('roles')); ?>">
+                <i class="bi bi-shield-lock"></i> <span>Roles y Permisos</span>
+            </a>
+        <?php endif; ?>
+
+        <?php if (tiene_permiso('config.ver')): ?>
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['config']); ?>" data-bs-toggle="collapse" href="#menuConfiguracion" role="button" aria-expanded="false" aria-controls="menuConfiguracion">
                 <i class="bi bi-gear"></i> <span>Configuración</span>
                 <span class="ms-auto"><i class="bi bi-chevron-down small"></i></span>
             </a>
-            <div class="collapse<?php echo $grupoActivo(['config', 'bitacora', 'roles']); ?>" id="menuConfiguracion">
+            <div class="collapse<?php echo $grupoActivo(['config']); ?>" id="menuConfiguracion">
                 <ul class="nav flex-column ps-3">
                     <?php if (tiene_permiso('config.ver')): ?>
                         <li class="nav-item">
                             <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
                                 <span>Datos Empresa</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                    
-                    <?php if (tiene_permiso('bitacora.ver')): ?>
-                        <li class="nav-item">
-                            <a class="sidebar-link<?php echo $activo('bitacora'); ?>" href="<?php echo e(route_url('bitacora')); ?>">
-                                <span>Bitácora</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-
-                    <?php if (tiene_permiso('roles.ver')): ?>
-                        <li class="nav-item">
-                            <a class="sidebar-link<?php echo $activo('roles'); ?>" href="<?php echo e(route_url('roles')); ?>">
-                                <span>Roles y Permisos</span>
                             </a>
                         </li>
                     <?php endif; ?>
