@@ -69,8 +69,15 @@
                             data-search="<?php echo e(mb_strtolower($tercero['tipo_documento'].' '.$tercero['numero_documento'].' '.$tercero['nombre_completo'].' '.($tercero['direccion'] ?? '').' '.($tercero['telefono'] ?? '').' '.($tercero['email'] ?? ''))); ?>">
                             <td class="ps-4 fw-semibold" data-label="Documento"><?php echo e($tercero['tipo_documento']); ?> - <?php echo e($tercero['numero_documento']); ?></td>
                             <td data-label="Tercero">
-                                <div class="fw-bold text-dark"><?php echo e($tercero['nombre_completo']); ?></div>
-                                <div class="small text-muted"><?php echo e($tercero['direccion'] ?? ''); ?></div>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width:40px; height:40px; border-radius:50%;">
+                                        <?php echo strtoupper(substr((string) $tercero['nombre_completo'], 0, 1)); ?>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark"><?php echo e($tercero['nombre_completo']); ?></div>
+                                        <div class="small text-muted"><?php echo e($tercero['direccion'] ?? ''); ?></div>
+                                    </div>
+                                </div>
                             </td>
                             <td data-label="Roles">
                                 <?php if ($roles === []): ?>
@@ -87,13 +94,22 @@
                             </td>
                             <td class="text-center" data-label="Estado">
                                 <?php if ((int) $tercero['estado'] === 1): ?>
-                                    <span class="badge-status status-active">Activo</span>
+                                    <span class="badge-status status-active" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Activo</span>
                                 <?php else: ?>
-                                    <span class="badge-status status-inactive">Inactivo</span>
+                                    <span class="badge-status status-inactive" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Inactivo</span>
                                 <?php endif; ?>
                             </td>
                             <td class="text-end pe-4" data-label="Acciones">
                                 <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                        <input class="form-check-input switch-estado-tercero" type="checkbox" role="switch"
+                                               style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                               data-id="<?php echo (int) $tercero['id']; ?>"
+                                               <?php echo (int) $tercero['estado'] === 1 ? 'checked' : ''; ?>>
+                                    </div>
+
+                                    <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
                                             data-tipo-persona="<?php echo e($tercero['tipo_persona'] ?? 'NATURAL'); ?>"

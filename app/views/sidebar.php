@@ -71,23 +71,23 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
             </div>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('items.ver')): // PLURAL: Coincide con el slug de la BD ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['item', 'terceros', 'categorias']); // SINGULAR: Coincide con el controlador ?>" 
+        <?php if (tiene_permiso('items.ver')): ?>
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['items', 'terceros', 'categorias']); ?>" 
             data-bs-toggle="collapse" href="#menuMaestros" role="button" aria-expanded="false" aria-controls="menuMaestros">
                 <i class="bi bi-collection"></i> <span>Maestros</span>
                 <span class="ms-auto"><i class="bi bi-chevron-down small"></i></span>
             </a>
-            <div class="collapse<?php echo $grupoActivo(['item', 'tercero', 'categorias']); ?>" id="menuMaestros">
+            <div class="collapse<?php echo $grupoActivo(['items', 'terceros', 'categorias']); ?>" id="menuMaestros">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('item'); ?>" 
-                        href="<?php echo route_url('item'); ?>">
+                        <a class="sidebar-link<?php echo $activo('items'); ?>" 
+                        href="<?php echo route_url('items'); ?>">
                             <span>Ítems / Productos</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('tercero'); ?>" 
-                        href="<?php echo route_url('tercero'); ?>">
+                        <a class="sidebar-link<?php echo $activo('terceros'); ?>" 
+                        href="<?php echo route_url('terceros'); ?>">
                             <span>Terceros</span>
                         </a>
                     </li>

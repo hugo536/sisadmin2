@@ -105,11 +105,32 @@
             if (el) el.addEventListener('input', () => { currentPage = 1; updateTable(); });
         });
 
+        window.updateItemsTable = updateTable;
         updateTable();
+    }
+
+    function initStatusSwitch() {
+        document.querySelectorAll('.switch-estado-item').forEach(switchInput => {
+            switchInput.addEventListener('change', function () {
+                const itemId = this.getAttribute('data-id');
+                const nuevoEstado = this.checked ? 1 : 0;
+                const fila = this.closest('tr');
+                const badge = document.getElementById(`badge_status_item_${itemId}`);
+
+                if (fila) fila.setAttribute('data-estado', nuevoEstado);
+                if (badge) {
+                    badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                    badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
+                }
+
+                if (window.updateItemsTable) window.updateItemsTable();
+            });
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         initModalManager();
         initTableManager();
+        initStatusSwitch();
     });
 })();

@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/ItemModel.php';
 
-class ItemController extends Controlador
+class ItemsController extends Controlador
 {
     private ItemModel $itemModel; // Cambiado de productoModel a itemModel
 
@@ -17,7 +17,7 @@ class ItemController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
-        require_permiso('item.ver');
+        require_permiso('items.ver');
 
         // Manejo de DataTable (AJAX)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
@@ -34,7 +34,7 @@ class ItemController extends Controlador
             try {
                 // --- ACCIÓN: CREAR ---
                 if ($accion === 'crear') {
-                    require_permiso('item.crear');
+                    require_permiso('items.crear');
                     $data = $this->validarItem($_POST, false);
                     
                     if ($data['sku'] !== '' && $this->itemModel->skuExiste($data['sku'])) {
@@ -48,7 +48,7 @@ class ItemController extends Controlador
 
                 // --- ACCIÓN: EDITAR ---
                 if ($accion === 'editar') {
-                    require_permiso('item.editar');
+                    require_permiso('items.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
@@ -69,7 +69,7 @@ class ItemController extends Controlador
 
                 // --- ACCIÓN: ELIMINAR ---
                 if ($accion === 'eliminar') {
-                    require_permiso('item.eliminar');
+                    require_permiso('items.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
@@ -92,10 +92,10 @@ class ItemController extends Controlador
         }
 
         // Renderizado de la vista
-        $this->render('item', [ // Si renombras tu vista a 'item', cambia esto también
-            'item' => $this->itemModel->listar(),
+        $this->render('items', [
+            'items' => $this->itemModel->listar(),
             'flash' => $flash,
-            'ruta_actual' => 'item', 
+            'ruta_actual' => 'items', 
         ]);
     }
 

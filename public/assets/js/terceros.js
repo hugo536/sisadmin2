@@ -104,11 +104,32 @@
         if (filtroRol) filtroRol.addEventListener('change', onFilterChange);
         if (filtroEstado) filtroEstado.addEventListener('change', onFilterChange);
 
+        window.updateTercerosTable = updateTable;
         updateTable();
+    }
+
+    function initStatusSwitch() {
+        document.querySelectorAll('.switch-estado-tercero').forEach(switchInput => {
+            switchInput.addEventListener('change', function () {
+                const terceroId = this.getAttribute('data-id');
+                const nuevoEstado = this.checked ? 1 : 0;
+                const fila = this.closest('tr');
+                const badge = document.getElementById(`badge_status_tercero_${terceroId}`);
+
+                if (fila) fila.setAttribute('data-estado', nuevoEstado);
+                if (badge) {
+                    badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                    badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
+                }
+
+                if (window.updateTercerosTable) window.updateTercerosTable();
+            });
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         initTooltips();
         initTableManager();
+        initStatusSwitch();
     });
 })();
