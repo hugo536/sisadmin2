@@ -22,8 +22,8 @@
                     <input type="hidden" name="accion" value="crear">
                     <div class="col-md-3">
                         <div class="form-floating">
-                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU" required>
-                            <label for="newSku">SKU</label>
+                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
+                            <label for="newSku">SKU (opcional)</label>
                         </div>
                     </div>
                     <div class="col-md-5">
@@ -156,22 +156,22 @@
                             <tr data-estado="<?php echo (int) $item['estado']; ?>"
                                 data-tipo="<?php echo e($item['tipo_item']); ?>"
                                 data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
-                                <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
-                                <td>
+                                <td class="ps-4 fw-semibold" data-label="SKU"><?php echo e($item['sku']); ?></td>
+                                <td data-label="Nombre">
                                     <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
-                                <td><span class="badge bg-light text-dark border"><?php echo e($item['tipo_item']); ?></span></td>
-                                <td><?php echo e(number_format((float) $item['precio_venta'], 4)); ?></td>
-                                <td><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
-                                <td class="text-center">
+                                <td data-label="Tipo"><span class="badge bg-light text-dark border"><?php echo e($item['tipo_item']); ?></span></td>
+                                <td data-label="Precio"><?php echo e(number_format((float) $item['precio_venta'], 4)); ?></td>
+                                <td data-label="Stock mínimo"><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
+                                <td class="text-center" data-label="Estado">
                                     <?php if ((int) $item['estado'] === 1): ?>
                                         <span class="badge-status status-active">Activo</span>
                                     <?php else: ?>
                                         <span class="badge-status status-inactive">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-end pe-4">
+                                <td class="text-end pe-4" data-label="Acciones">
                                     <div class="d-flex align-items-center justify-content-end gap-2">
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarProducto"
                                             data-id="<?php echo (int) $item['id']; ?>"
@@ -227,8 +227,8 @@
                     <input type="hidden" name="accion" value="editar">
                     <input type="hidden" name="id" id="editId">
                     <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editSku" name="sku" required>
-                        <label for="editSku">SKU</label>
+                        <input class="form-control" id="editSku" name="sku" readonly>
+                        <label for="editSku">SKU (inmutable)</label>
                     </div>
                     <div class="col-md-8 form-floating">
                         <input class="form-control" id="editNombre" name="nombre" required>
