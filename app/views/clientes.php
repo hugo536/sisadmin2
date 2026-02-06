@@ -81,6 +81,34 @@
         </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="clienteSearch" placeholder="Buscar cliente...">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="clienteFiltroDoc">
+                        <option value="">Todos los documentos</option>
+                        <option value="DNI">DNI</option>
+                        <option value="RUC">RUC</option>
+                        <option value="PASAPORTE">Pasaporte</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="clienteFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -96,7 +124,9 @@
                     </thead>
                     <tbody>
                         <?php foreach ($clientes as $cliente): ?>
-                            <tr data-estado="<?php echo (int) $cliente['estado']; ?>">
+                            <tr data-estado="<?php echo (int) $cliente['estado']; ?>"
+                                data-tipo="<?php echo e($cliente['tipo_documento']); ?>"
+                                data-search="<?php echo e(mb_strtolower($cliente['tipo_documento'].' '.$cliente['numero_documento'].' '.$cliente['nombre_completo'].' '.($cliente['direccion'] ?? '').' '.($cliente['telefono'] ?? '').' '.($cliente['email'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($cliente['tipo_documento']); ?> - <?php echo e($cliente['numero_documento']); ?></td>
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e($cliente['nombre_completo']); ?></div>
@@ -139,6 +169,13 @@
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="clientesPaginationInfo">Cargando...</small>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0 justify-content-end" id="clientesPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>

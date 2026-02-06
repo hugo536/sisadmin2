@@ -80,6 +80,34 @@
         </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="proveedorSearch" placeholder="Buscar proveedor...">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="proveedorFiltroDoc">
+                        <option value="">Todos los documentos</option>
+                        <option value="DNI">DNI</option>
+                        <option value="RUC">RUC</option>
+                        <option value="PASAPORTE">Pasaporte</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="proveedorFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -95,7 +123,9 @@
                     </thead>
                     <tbody>
                         <?php foreach ($proveedores as $proveedor): ?>
-                            <tr data-estado="<?php echo (int) $proveedor['estado']; ?>">
+                            <tr data-estado="<?php echo (int) $proveedor['estado']; ?>"
+                                data-tipo="<?php echo e($proveedor['tipo_documento']); ?>"
+                                data-search="<?php echo e(mb_strtolower($proveedor['tipo_documento'].' '.$proveedor['numero_documento'].' '.$proveedor['nombre_completo'].' '.($proveedor['direccion'] ?? '').' '.($proveedor['telefono'] ?? '').' '.($proveedor['email'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($proveedor['tipo_documento']); ?> - <?php echo e($proveedor['numero_documento']); ?></td>
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e($proveedor['nombre_completo']); ?></div>
@@ -138,6 +168,13 @@
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="proveedoresPaginationInfo">Cargando...</small>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0 justify-content-end" id="proveedoresPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/modelos/ClienteModel.php';
+require_once BASE_PATH . '/app/models/ClienteModel.php';
 
 class ClienteController extends Controlador
 {
@@ -58,7 +58,7 @@ class ClienteController extends Controlador
             }
         }
 
-        $this->renderVista('clientes', [
+        $this->render('clientes', [
             'clientes' => $this->clienteModel->listar(),
             'flash' => $flash,
             'ruta_actual' => 'terceros/clientes',
@@ -78,40 +78,4 @@ class ClienteController extends Controlador
         return $data;
     }
 
-    private function renderVista(string $rutaVista, array $datos = []): void
-    {
-        $archivoVista = BASE_PATH . '/app/vistas/' . $rutaVista . '.php';
-
-        if (!is_readable($archivoVista)) {
-            die('Error: No se encontró la vista en: ' . $archivoVista);
-        }
-
-        $configEmpresa = $this->obtenerConfigEmpresa();
-        extract(array_merge($datos, ['configEmpresa' => $configEmpresa]));
-        $vista = $archivoVista;
-
-        require BASE_PATH . '/app/views/layout.php';
-    }
-
-    private function obtenerConfigEmpresa(): array
-    {
-        if (isset($_SESSION['config_empresa']) && is_array($_SESSION['config_empresa'])) {
-            return $_SESSION['config_empresa'];
-        }
-
-        $empresaModelPath = BASE_PATH . '/app/models/EmpresaModel.php';
-        if (!is_readable($empresaModelPath)) {
-            return [];
-        }
-
-        require_once $empresaModelPath;
-
-        try {
-            $configEmpresa = (new EmpresaModel())->obtenerConfigActiva();
-            $_SESSION['config_empresa'] = $configEmpresa;
-            return $configEmpresa;
-        } catch (Throwable $e) {
-            return [];
-        }
-    }
 }
