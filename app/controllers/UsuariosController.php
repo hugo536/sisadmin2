@@ -2,15 +2,17 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/UsuarioModel.php';
+require_once BASE_PATH . '/app/models/UsuariosModel.php'; // ✅ Bien: Archivo físico
 
 class UsuariosController extends Controlador
 {
-    private UsuarioModel $usuarioModel;
+    // 👇 CAMBIO AQUÍ: Nombre de la clase en Plural
+    private UsuariosModel $usuarioModel;
 
     public function __construct()
     {
-        $this->usuarioModel = new UsuarioModel();
+        // 👇 CAMBIO AQUÍ: Instancia en Plural
+        $this->usuarioModel = new UsuariosModel();
     }
 
     public function index(): void

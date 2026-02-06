@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/models/UsuarioModel.php';
+require_once BASE_PATH . '/app/models/UsuariosModel.php';
 
 class AuthController extends Controlador
 {
-    private UsuarioModel $usuario_model;
+    private UsuariosModel $usuario_model;
 
     public function __construct()
     {
-        $this->usuario_model = new UsuarioModel();
+        $this->usuario_model = new UsuariosModel();
     }
 
     public function index(): void

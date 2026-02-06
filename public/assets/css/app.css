@@ -219,3 +219,140 @@ body.login-page .btn-primary {
 .login-card .btn-primary {
     font-weight: 600;
 }
+
+/* --- ESTILOS GENERALES Y VARS (Reutilizando Sidebar) --- */
+:root {
+    --primary-color: #2563eb;
+    --sidebar-gradient: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); /* MISMO QUE SIDEBAR */
+}
+
+/* --- TABLA PRO (Header igual al Sidebar) --- */
+.table-pro thead {
+    background: var(--sidebar-gradient);
+}
+
+.table-pro thead th {
+    color: #e2e8f0; /* Texto claro */
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem 0.75rem;
+    border-bottom: none;
+}
+
+/* Bordes redondeados para la cabecera */
+.table-pro thead th:first-child { border-top-left-radius: 8px; }
+.table-pro thead th:last-child { border-top-right-radius: 8px; }
+
+/* Cuerpo de la tabla */
+.table-pro tbody td {
+    padding: 1rem 0.75rem;
+    color: #334155;
+    font-size: 0.95rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* Avatar circular en tabla */
+.avatar-circle {
+    width: 38px;
+    height: 38px;
+    background-color: #e0e7ff;
+    color: #4338ca;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+/* Badges Modernos */
+.bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; }
+.bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; }
+
+/* Inputs Floating más bonitos */
+.form-floating > .form-control {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+.form-floating > .form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+/* Botones de acción en tabla */
+.btn-group .btn {
+    border: 1px solid #f1f5f9;
+    margin-left: -1px;
+}
+.btn-group .btn:hover {
+    background-color: #f8fafc;
+    z-index: 2;
+}
+
+/* Animación de entrada */
+.fade-in { animation: fadeIn 0.5s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+tr[data-estado="0"] td {
+    color: #94a3b8; /* Texto grisáceo */
+}
+tr[data-estado="0"] .avatar-circle {
+    background-color: #e2e8f0 !important; /* Avatar gris */
+    color: #64748b !important;
+}
+
+/* --- ESTILO PRO PARA LA TABLA --- */
+.table-pro {
+    border-collapse: separate; 
+    border-spacing: 0;
+    width: 100%;
+}
+
+.table-pro thead th {
+    /* El mismo degradado que tu Sidebar */
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    color: #e2e8f0; /* Texto claro grisáceo/blanco */
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    padding: 1rem;
+    border: none;
+    vertical-align: middle;
+}
+
+/* Redondear esquinas superiores del encabezado */
+.table-pro thead th:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 0;
+}
+.table-pro thead th:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 0;
+}
+
+/* Ajuste para el cuerpo de la tabla */
+.table-pro tbody td {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 1rem 1rem;
+    vertical-align: middle;
+    background-color: #ffffff;
+}
+
+/* Hover suave en las filas */
+.table-pro tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+/* Badges de Estado */
+.badge-status {
+    padding: 0.5em 0.8em;
+    border-radius: 30px;
+    font-size: 0.75em;
+    font-weight: 600;
+    display: inline-block;
+}
+.status-active { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.status-inactive { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }

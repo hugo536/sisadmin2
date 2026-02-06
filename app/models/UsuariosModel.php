@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-class UsuarioModel extends Modelo
+class UsuariosModel extends Modelo
 {
     public function buscar_por_usuario(string $usuario): ?array
     {
