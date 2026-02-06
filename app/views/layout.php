@@ -9,8 +9,12 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
+    <?php
+    $baseUrl = base_url();
+    $baseUrl = $baseUrl === '' ? '/' : rtrim($baseUrl, '/') . '/';
+    ?>
     <script>
-        window.BASE_URL = "<?= constant('URL_BASE') ?? 'http://localhost/sisadmin2/public/' ?>";
+        window.BASE_URL = "<?php echo e($baseUrl); ?>";
     </script>
 </head>
 <?php $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light')); ?>
