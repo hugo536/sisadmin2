@@ -63,13 +63,25 @@ class RolesController extends Controlador
                     require_permiso('roles.editar'); 
                     
                     $idRol = (int) ($_POST['id_rol'] ?? 0);
+                    if ($idRol === (int) ($_SESSION['id_rol'] ?? 0)) {
+                        $mensaje = 'Por seguridad, no puedes editar tu propio rol asignado';
+                        if (function_exists('es_ajax') && es_ajax()) {
+                            json_response(['ok' => false, 'mensaje' => $mensaje], 400);
+                            return;
+                        }
+                        $flash = ['tipo' => 'error', 'texto' => $mensaje];
+                        $accion = '';
+                    }
+
                     // Convertimos a enteros para seguridad
                     $permisos = array_map('intval', $_POST['permisos'] ?? []);
                     
-                    $this->rolModel->guardar_permisos($idRol, $permisos);
+                    if ($accion === 'permisos') {
+                        $this->rolModel->guardar_permisos($idRol, $permisos);
+                    }
                     
                     // Importante: Si edito mis propios permisos, forzar recarga en el próximo request
-                    if ($idRol === (int)($_SESSION['id_rol'] ?? 0)) {
+                    if ($accion === 'permisos' && $idRol === (int)($_SESSION['id_rol'] ?? 0)) {
                         unset($_SESSION['permisos']); 
                     }
                     

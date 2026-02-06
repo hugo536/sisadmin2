@@ -3,6 +3,23 @@ declare(strict_types=1);
 
 // Iniciar sesión si no está iniciada
 if (session_status() === PHP_SESSION_NONE) {
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $host = preg_replace('/:\\d+$/', '', $host);
+    $cookieParams = [
+        'lifetime' => 1800,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ];
+
+    if ($host !== '') {
+        $cookieParams['domain'] = $host;
+    }
+
+    session_set_cookie_params($cookieParams);
     session_start();
 }
 

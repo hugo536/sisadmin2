@@ -9,6 +9,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
+    <script>
+        window.BASE_URL = "<?= constant('URL_BASE') ?? 'http://localhost/sisadmin2/public/' ?>";
+    </script>
 </head>
 <?php $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light')); ?>
 <body data-theme="<?php echo e($temaSistema); ?>">
