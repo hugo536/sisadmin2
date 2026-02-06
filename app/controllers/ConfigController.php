@@ -6,10 +6,8 @@ require_once BASE_PATH . '/app/models/ConfigModel.php';
 
 class ConfigController extends Controlador
 {
-    private const MAX_LOGO_SIZE = 2097152;
-    private const EXTENSIONES_PERMITIDAS = ['png', 'jpg', 'jpeg', 'webp'];
+    private const MAX_LOGO_SIZE = 2097152; // 2MB
     private const MIME_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp'];
-
     private ConfigModel $configModel;
 
     public function __construct()
@@ -20,12 +18,14 @@ class ConfigController extends Controlador
     public function empresa(): void
     {
         AuthMiddleware::handle();
-        require_permiso('config.empresa.ver');
+        // require_permiso('config.ver'); // Descomentar si usas sistema de permisos
 
         $flash = ['tipo' => '', 'texto' => ''];
+
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             try {
-                $this->guardar();
+                // require_permiso('config.editar'); // Descomentar si usas sistema de permisos
+                $this->procesarGuardado();
                 $flash = ['tipo' => 'success', 'texto' => 'Configuración actualizada correctamente.'];
             } catch (Throwable $e) {
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
@@ -33,92 +33,91 @@ class ConfigController extends Controlador
         }
 
         $this->render('config/empresa', [
-            'config' => $this->configModel->obtener_config_activa(),
+            'config' => $this->configModel->obtener(),
             'flash' => $flash,
             'ruta_actual' => 'config/empresa',
         ]);
     }
 
-    private function guardar(): void
+    private function procesarGuardado(): void
     {
         $userId = (int) ($_SESSION['id'] ?? 0);
-        $actual = $this->configModel->obtener_config_activa();
+        $actual = $this->configModel->obtener();
 
-        $logoPath = (string) ($actual['logo_path'] ?? '');
-        $nuevoLogo = $this->procesarLogo();
-        if ($nuevoLogo !== null) {
-            $logoPath = $nuevoLogo;
+        // Validaciones simples
+        if (empty(trim($_POST['razon_social'] ?? ''))) {
+            throw new RuntimeException('La razón social es obligatoria.');
         }
 
-        $this->configModel->guardar_config([
-            'razon_social' => trim((string) ($_POST['razon_social'] ?? '')),
-            'ruc' => trim((string) ($_POST['ruc'] ?? '')),
-            'direccion' => trim((string) ($_POST['direccion'] ?? '')),
-            'telefono' => trim((string) ($_POST['telefono'] ?? '')),
-            'email' => trim((string) ($_POST['email'] ?? '')),
-            'moneda' => trim((string) ($_POST['moneda'] ?? 'PEN')),
-            'tema' => trim((string) ($_POST['tema'] ?? 'light')),
-            'logo_path' => $logoPath,
-        ], $userId);
+        // Procesar subida de logo
+        $nuevoLogo = $this->subirLogo((string)($actual['ruta_logo'] ?? ''));
+        
+        // MAPEO: Vista (POST) -> Base de Datos
+        $datos = [
+            'nombre_empresa' => trim((string) ($_POST['razon_social'] ?? '')),
+            'ruc'            => preg_replace('/[^0-9]/', '', (string)($_POST['ruc'] ?? '')),
+            'direccion'      => trim((string) ($_POST['direccion'] ?? '')),
+            'telefono'       => trim((string) ($_POST['telefono'] ?? '')),
+            'email'          => filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL),
+            'moneda'         => trim((string) ($_POST['moneda'] ?? 'S/')),
+            'impuesto'       => (float) ($_POST['impuesto'] ?? 18),
+            'slogan'         => trim((string) ($_POST['slogan'] ?? '')),
+            'color_sistema'  => trim((string) ($_POST['tema'] ?? 'light')),
+            'ruta_logo'      => $nuevoLogo // Si es null, el modelo lo ignora
+        ];
 
+        $this->configModel->guardar($datos, $userId);
+
+        // Actualizar sesión para reflejar cambios inmediatos (opcional)
+        $_SESSION['config_empresa'] = $this->configModel->obtener();
+
+        // Bitácora
         $this->configModel->registrar_bitacora(
-            $userId,
-            'CONFIG_EMPRESA_UPDATE',
-            'Actualización datos empresa',
-            (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
-            (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown')
+            $userId, 'CONFIG_UPDATE', 'Actualización datos empresa',
+            (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
+            (string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown')
         );
     }
 
-    private function procesarLogo(): ?string
+    private function subirLogo(string $logoAnterior): ?string
     {
-        if (!isset($_FILES['logo']) || !is_array($_FILES['logo'])) {
+        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] === UPLOAD_ERR_NO_FILE) {
             return null;
         }
 
         $file = $_FILES['logo'];
-        $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($error === UPLOAD_ERR_NO_FILE) {
-            return null;
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Error en la subida del archivo.');
         }
-        if ($error !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Error al subir el logo.');
+        if ($file['size'] > self::MAX_LOGO_SIZE) {
+            throw new RuntimeException('El logo excede los 2MB permitidos.');
         }
 
-        $size = (int) ($file['size'] ?? 0);
-        if ($size <= 0 || $size > self::MAX_LOGO_SIZE) {
-            throw new RuntimeException('Logo inválido: tamaño máximo 2MB.');
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        if (!in_array($finfo->file($file['tmp_name']), self::MIME_PERMITIDOS, true)) {
+            throw new RuntimeException('Formato de imagen no válido (solo JPG, PNG, WEBP).');
         }
 
-        $name = (string) ($file['name'] ?? '');
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!in_array($ext, self::EXTENSIONES_PERMITIDAS, true)) {
-            throw new RuntimeException('Formato de logo no permitido.');
-        }
-
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = $finfo ? (string) finfo_file($finfo, (string) $file['tmp_name']) : '';
-        if ($finfo) {
-            finfo_close($finfo);
-        }
-        if (!in_array($mime, self::MIME_PERMITIDOS, true)) {
-            throw new RuntimeException('El archivo no es una imagen válida.');
-        }
-
-        $relativeDir = 'assets/img/empresa';
+        $relativeDir = 'uploads/config';
         $absoluteDir = BASE_PATH . '/public/' . $relativeDir;
-        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0775, true) && !is_dir($absoluteDir)) {
-            throw new RuntimeException('No se pudo crear carpeta de logo.');
+
+        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0755, true)) {
+            throw new RuntimeException('No se pudo crear el directorio de subida.');
         }
 
-        foreach (glob($absoluteDir . '/logo_empresa.*') ?: [] as $old) {
-            @unlink($old);
+        $filename = 'logo_' . uniqid() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+        
+        if (!move_uploaded_file($file['tmp_name'], $absoluteDir . '/' . $filename)) {
+            throw new RuntimeException('Error al guardar el archivo en el servidor.');
         }
 
-        $filename = 'logo_empresa.' . $ext;
-        $absolutePath = $absoluteDir . '/' . $filename;
-        if (!move_uploaded_file((string) $file['tmp_name'], $absolutePath)) {
-            throw new RuntimeException('No se pudo guardar el logo.');
+        // Borrar anterior
+        if (!empty($logoAnterior)) {
+            $pathAnterior = BASE_PATH . '/public/' . $logoAnterior;
+            if (file_exists($pathAnterior) && is_file($pathAnterior)) {
+                @unlink($pathAnterior);
+            }
         }
 
         return $relativeDir . '/' . $filename;

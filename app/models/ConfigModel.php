@@ -3,66 +3,59 @@ declare(strict_types=1);
 
 class ConfigModel extends Modelo
 {
-    public function obtener_config_activa(): ?array
+    public function obtener(): array
     {
-        $sql = 'SELECT id, razon_social, ruc, direccion, telefono, email, logo_path, moneda, tema, estado
+        $sql = 'SELECT id, nombre_empresa, ruc, direccion, telefono, email, 
+                       ruta_logo, moneda, impuesto, slogan, color_sistema
                 FROM configuracion
-                WHERE deleted_at IS NULL
-                ORDER BY id DESC
+                WHERE id = 1
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
-        $row = $stmt->fetch();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return is_array($row) ? $row : null;
+        return $row ?: [];
     }
 
-    public function guardar_config(array $data, int $userId): void
+    public function guardar(array $data, int $userId): bool
     {
-        $actual = $this->obtener_config_activa();
-
-        $tema = strtolower(trim((string) ($data['tema'] ?? 'light')));
-        if (!in_array($tema, ['light', 'dark', 'blue'], true)) {
-            $tema = 'light';
-        }
-
+        // Preparar payload
         $payload = [
-            'razon_social' => trim((string) ($data['razon_social'] ?? '')),
-            'ruc' => trim((string) ($data['ruc'] ?? '')),
-            'direccion' => trim((string) ($data['direccion'] ?? '')),
-            'telefono' => trim((string) ($data['telefono'] ?? '')),
-            'email' => trim((string) ($data['email'] ?? '')),
-            'logo_path' => trim((string) ($data['logo_path'] ?? '')),
-            'moneda' => trim((string) ($data['moneda'] ?? 'PEN')),
-            'tema' => $tema,
+            'nombre_empresa' => trim((string) ($data['nombre_empresa'] ?? '')),
+            'ruc'            => trim((string) ($data['ruc'] ?? '')),
+            'direccion'      => trim((string) ($data['direccion'] ?? '')),
+            'telefono'       => trim((string) ($data['telefono'] ?? '')),
+            'email'          => trim((string) ($data['email'] ?? '')),
+            'moneda'         => trim((string) ($data['moneda'] ?? 'S/')),
+            'impuesto'       => (float) ($data['impuesto'] ?? 18.00),
+            'slogan'         => trim((string) ($data['slogan'] ?? '')),
+            'color_sistema'  => trim((string) ($data['color_sistema'] ?? 'light')),
+            'updated_by'     => $userId
         ];
 
-        if ($actual !== null) {
-            $sql = 'UPDATE configuracion
-                    SET razon_social = :razon_social,
-                        ruc = :ruc,
-                        direccion = :direccion,
-                        telefono = :telefono,
-                        email = :email,
-                        logo_path = :logo_path,
-                        moneda = :moneda,
-                        tema = :tema,
-                        estado = 1,
-                        updated_at = NOW(),
-                        updated_by = :updated_by,
-                        deleted_at = NULL
-                    WHERE id = :id';
-            $payload['id'] = (int) $actual['id'];
-            $payload['updated_by'] = $userId;
-        } else {
-            $sql = 'INSERT INTO configuracion
-                    (razon_social, ruc, direccion, telefono, email, logo_path, moneda, tema, estado, created_at, created_by, deleted_at)
-                    VALUES
-                    (:razon_social, :ruc, :direccion, :telefono, :email, :logo_path, :moneda, :tema, 1, NOW(), :created_by, NULL)';
-            $payload['created_by'] = $userId;
+        // SQL Update
+        $sql = 'UPDATE configuracion
+                SET nombre_empresa = :nombre_empresa,
+                    ruc = :ruc,
+                    direccion = :direccion,
+                    telefono = :telefono,
+                    email = :email,
+                    moneda = :moneda,
+                    impuesto = :impuesto,
+                    slogan = :slogan,
+                    color_sistema = :color_sistema,
+                    updated_at = NOW(),
+                    updated_by = :updated_by';
+
+        // Solo actualizamos logo si viene uno nuevo
+        if (!empty($data['ruta_logo'])) {
+            $sql .= ', ruta_logo = :ruta_logo';
+            $payload['ruta_logo'] = trim((string) $data['ruta_logo']);
         }
 
-        $this->db()->prepare($sql)->execute($payload);
+        $sql .= ' WHERE id = 1';
+
+        return $this->db()->prepare($sql)->execute($payload);
     }
 
     public function registrar_bitacora(int $createdBy, string $evento, string $descripcion, string $ip, string $userAgent): void
@@ -70,11 +63,11 @@ class ConfigModel extends Modelo
         $sql = 'INSERT INTO bitacora_seguridad (created_by, evento, descripcion, ip_address, user_agent, created_at)
                 VALUES (:created_by, :evento, :descripcion, :ip_address, :user_agent, NOW())';
         $this->db()->prepare($sql)->execute([
-            'created_by' => $createdBy,
-            'evento' => $evento,
+            'created_by'  => $createdBy,
+            'evento'      => $evento,
             'descripcion' => $descripcion,
-            'ip_address' => $ip,
-            'user_agent' => $userAgent,
+            'ip_address'  => $ip,
+            'user_agent'  => $userAgent,
         ]);
     }
 }
