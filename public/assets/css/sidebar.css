@@ -52,11 +52,33 @@
 .user-name { font-size: 0.9rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-role { font-size: 0.7rem; color: var(--sidebar-muted); text-transform: uppercase; font-weight: 500; }
 
+/* Estilo suave para el scroll del sidebar */
 .sidebar-nav {
-    padding: 0 0.75rem;
+    /* Mantenemos tus estilos base */
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--sidebar-scroll) transparent;
+    scrollbar-width: thin; /* Para Firefox: hace la barra finita */
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* Color barra / fondo */
+    scroll-behavior: smooth; /* Hace que el deslizar sea suave nativamente */
+}
+
+/* Para Chrome, Edge, Safari (Webkit) */
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px; /* Ancho muy fino */
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent; /* Fondo invisible */
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2); /* Color semitransparente */
+    border-radius: 20px; /* Bordes totalmente redondos */
+    border: 2px solid transparent; /* Truco para dar 'aire' alrededor */
+    background-clip: content-box;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.5); /* Se ilumina al pasar el mouse */
 }
 
 .nav-label {

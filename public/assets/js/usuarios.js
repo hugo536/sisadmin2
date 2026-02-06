@@ -1,6 +1,6 @@
 (function () {
     // --- 1. CONFIGURACIÓN GENERAL ---
-    const ROWS_PER_PAGE = 5; // <--- CÁMBIALO AQUÍ SI QUIERES MÁS FILAS
+    const ROWS_PER_PAGE = 5; 
     let currentPage = 1;
 
     // Configuración compartida para SweetAlert
@@ -31,7 +31,6 @@
     }
 
     // --- 3. GESTOR DE TABLA (FILTROS + PAGINACIÓN) ---
-    // Esta función encapsula toda la lógica de visualización de datos
     function initTableManager() {
         const searchInput = document.getElementById('usuarioSearch');
         const filtroRol = document.getElementById('filtroRol');
@@ -39,14 +38,11 @@
         const paginationControls = document.getElementById('paginationControls');
         const paginationInfo = document.getElementById('paginationInfo');
         
-        // Guardamos TODAS las filas originales al cargar la página
         const allRows = Array.from(document.querySelectorAll('#usuariosTable tbody tr')); 
 
-        // Si no hay tabla, no hacemos nada
         if (allRows.length === 0) return;
 
-        // --- FUNCIÓN PRINCIPAL: FILTRA Y PAGINA ---
-        window.updateTable = function() { // La hacemos accesible globalmente por si el switch la necesita
+        window.updateTable = function() {
             // A. FILTRADO
             const texto = (searchInput ? searchInput.value : '').toLowerCase().trim();
             const rolSeleccionado = (filtroRol ? filtroRol.value : '');
@@ -68,30 +64,24 @@
             const totalRows = visibleRows.length;
             const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
 
-            // Ajuste de seguridad para la página actual
             if (currentPage > totalPages) currentPage = 1;
             if (currentPage < 1) currentPage = 1;
             if (totalPages === 0) currentPage = 1;
 
-            // C. RENDERIZADO (OCULTAR/MOSTRAR)
-            // 1. Ocultar todo primero
+            // C. RENDERIZADO
             allRows.forEach(row => row.style.display = 'none');
 
-            // 2. Calcular rango a mostrar
             const start = (currentPage - 1) * ROWS_PER_PAGE;
             const end = start + ROWS_PER_PAGE;
             
-            // 3. Mostrar solo el slice correspondiente
             const rowsToShow = visibleRows.slice(start, end);
             rowsToShow.forEach(row => row.style.display = '');
 
-            // D. ACTUALIZAR UI DE CONTROLES
+            // D. ACTUALIZAR UI
             updatePaginationUI(start, end, totalRows, totalPages);
         };
 
-        // --- FUNCIONES AUXILIARES DE UI ---
         function updatePaginationUI(start, end, totalRows, totalPages) {
-            // Texto informativo
             if (paginationInfo) {
                 if (totalRows === 0) {
                     paginationInfo.textContent = 'Sin resultados';
@@ -100,8 +90,6 @@
                     paginationInfo.textContent = `Mostrando ${start + 1}-${realEnd} de ${totalRows} usuarios`;
                 }
             }
-
-            // Botones de paginación
             if (paginationControls) {
                 renderPaginationControls(totalPages);
             }
@@ -109,10 +97,8 @@
 
         function renderPaginationControls(totalPages) {
             paginationControls.innerHTML = '';
-            
-            if (totalPages <= 1) return; // No mostrar si solo hay 1 página
+            if (totalPages <= 1) return; 
 
-            // Función helper para crear items
             const createItem = (text, page, isActive = false, isDisabled = false) => {
                 const li = document.createElement('li');
                 li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
@@ -126,21 +112,15 @@
                 return li;
             };
 
-            // Botón Anterior
             paginationControls.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
-
-            // Botones Numéricos
             for (let i = 1; i <= totalPages; i++) {
                 paginationControls.appendChild(createItem(i, i, i === currentPage));
             }
-
-            // Botón Siguiente
             paginationControls.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
         }
 
-        // --- LISTENERS DE FILTROS ---
         const onFilterChange = () => { 
-            currentPage = 1; // Resetear a página 1 al filtrar
+            currentPage = 1; 
             window.updateTable(); 
         };
 
@@ -148,7 +128,6 @@
         if (filtroRol) filtroRol.addEventListener('change', onFilterChange);
         if (filtroEstado) filtroEstado.addEventListener('change', onFilterChange);
 
-        // Inicializar tabla
         window.updateTable();
     }
 
@@ -159,16 +138,13 @@
                 const idUsuario = this.getAttribute('data-id');
                 const nuevoEstado = this.checked ? 1 : 0;
                 
-                // Referencias DOM
                 const fila = this.closest('tr');
                 const label = this.nextElementSibling;
                 const badge = document.getElementById(`badge_status_${idUsuario}`);
 
-                // A) Actualizar atributos y texto visual
                 if (fila) fila.setAttribute('data-estado', nuevoEstado);
                 if (label) label.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
 
-                // B) Actualizar Badge
                 if (badge) {
                     if (nuevoEstado === 1) {
                         badge.textContent = 'Activo';
@@ -179,15 +155,8 @@
                     }
                 }
 
-                // C) Feedback
                 Toast.fire({ icon: 'success', title: `Usuario ${nuevoEstado === 1 ? 'activado' : 'desactivado'}` });
-
-                // D) RE-RENDERIZAR TABLA
-                // Esto es vital: si tienes un filtro "Activos" y desactivas uno,
-                // debe desaparecer de la lista inmediatamente.
                 if (window.updateTable) window.updateTable();
-
-                // E) AQUÍ FETCH AL BACKEND...
             });
         });
     }
@@ -216,17 +185,27 @@
     function handleCreateFlash() {
         if (!window.USUARIOS_FLASH || window.USUARIOS_FLASH.tipo !== 'success' || window.USUARIOS_FLASH.accion !== 'crear') return;
 
-        const collapseElement = document.getElementById('crearUsuarioCollapse');
+        // Limpiar formulario y cerrar modal si la creación fue exitosa
         const createForm = document.getElementById('formCrearUsuario');
+        const modalElement = document.getElementById('modalCrearUsuario');
 
         if (createForm) createForm.reset();
-        if (collapseElement) {
-            const collapseInstance = bootstrap.Collapse.getOrCreateInstance(collapseElement, { toggle: false });
-            collapseInstance.hide();
+        if (modalElement) {
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+            modalInstance.hide();
         }
     }
 
-    // --- 6. GLOBALES (Para onclick HTML) ---
+    // --- 6. GLOBALES (Aquí agregamos las funciones onclick) ---
+    
+    // NUEVA FUNCIÓN: Abrir Modal Crear
+    window.abrirModalCrear = function() {
+        const form = document.getElementById('formCrearUsuario');
+        if(form) form.reset(); // Limpia los campos anteriores
+        const modal = new bootstrap.Modal(document.getElementById('modalCrearUsuario'));
+        modal.show();
+    };
+
     window.editarUsuario = function (id, nombreCompleto, usuario, email, idRol) {
         document.getElementById('editId').value = id;
         document.getElementById('editNombreCompleto').value = nombreCompleto;
@@ -241,7 +220,7 @@
     // --- INICIALIZACIÓN ---
     document.addEventListener('DOMContentLoaded', function() {
         initTooltips();
-        initTableManager(); // Aquí arranca la tabla, los filtros y la paginación
+        initTableManager(); 
         initStatusSwitch();
         bindDeleteForms();
         handleCreateFlash();

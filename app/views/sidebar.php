@@ -18,7 +18,7 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
     $rutas,
     static fn(bool $carry, string $ruta): bool => $carry || str_starts_with($rutaActual, $ruta),
     false
-) ? ' active' : ' collapsed'; // Bootstrap requiere 'collapsed' cuando está cerrado
+) ? ' active' : ' collapsed';
 
 // Datos de Usuario
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
@@ -26,7 +26,7 @@ $userInitial = strtoupper(substr($usuarioNombre, 0, 1));
 $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id_rol'] ?? 0)));
 ?>
 
-<aside class="sidebar position-fixed top-0 start-0 h-100">
+<aside class="sidebar position-fixed top-0 start-0 h-100 d-flex flex-column">
     <div class="sidebar-header">
         <div class="sidebar-logo">
             <i class="bi bi-box-seam-fill text-primary"></i> SISADMIN2
@@ -41,7 +41,7 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
         </div>
     </div>
 
-    <nav class="sidebar-nav flex-grow-1">
+    <nav class="sidebar-nav flex-grow-1 overflow-auto pb-5" id="sidebarNav">
         <div class="nav-label">Principal</div>
 
         <a class="sidebar-link<?php echo $activo('dashboard'); ?>" href="<?php echo e(route_url('dashboard')); ?>">
@@ -131,9 +131,24 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
         <?php endif; ?>
     </nav>
 
-    <div class="sidebar-footer">
+    <div class="sidebar-footer mt-auto">
         <a id="logoutLink" class="sidebar-link logout-link text-danger" href="<?php echo e(route_url('login/logout')); ?>">
             <i class="bi bi-box-arrow-left"></i> <span>Cerrar sesión</span>
         </a>
     </div>
 </aside>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Seleccionar todos los elementos colapsables del sidebar
+    const collapses = document.querySelectorAll('.sidebar .collapse');
+    
+    collapses.forEach(collapse => {
+        // Cuando un menú termina de abrirse (evento de Bootstrap)
+        collapse.addEventListener('shown.bs.collapse', function () {
+            // Hacer scroll suave hacia este elemento
+            this.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+});
+</script>
