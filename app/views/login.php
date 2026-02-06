@@ -2,8 +2,8 @@
 // Mantenemos tu lógica de PHP intacta
 $error = isset($error) ? (string) $error : '';
 $configEmpresa = is_array($configEmpresa ?? null) ? $configEmpresa : [];
-$empresa = trim((string) ($configEmpresa['nombre_empresa'] ?? '')) ?: 'SISADMIN2';
-$logoPath = trim((string) ($configEmpresa['ruta_logo'] ?? ''));
+$empresa = trim((string) ($configEmpresa['razon_social'] ?? '')) ?: 'SISADMIN2';
+$logoPath = trim((string) ($configEmpresa['logo_path'] ?? ''));
 $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
 ?>
 <!DOCTYPE html>

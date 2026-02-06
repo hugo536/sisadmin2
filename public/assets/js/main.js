@@ -1,6 +1,8 @@
 (function () {
   var logoutLink = document.getElementById('logoutLink');
   if (logoutLink) {
+    logoutLink.classList.add('bg-danger', 'text-white', 'rounded');
+
     logoutLink.addEventListener('click', function (e) {
       e.preventDefault();
       Swal.fire({

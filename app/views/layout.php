@@ -36,39 +36,6 @@ window.USUARIOS_FLASH = {
 </script>
 <script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
 <?php endif; ?>
-<script>
-(function () {
-    var logoutLink = document.getElementById('logoutLink');
-    if (!logoutLink) {
-        return;
-    }
-
-    logoutLink.classList.add('bg-danger', 'text-white', 'rounded');
-    if (!logoutLink.querySelector('.bi-box-arrow-right')) {
-        logoutLink.insertAdjacentHTML('afterbegin', '<i class="bi bi-box-arrow-right me-2"></i>');
-    }
-
-    var logoutClone = logoutLink.cloneNode(true);
-    logoutLink.parentNode.replaceChild(logoutClone, logoutLink);
-
-    logoutClone.addEventListener('click', function (e) {
-        e.preventDefault();
-        Swal.fire({
-            icon: 'warning',
-            title: 'Cerrar sesión',
-            text: '¿Deseas cerrar sesión?',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, cerrar sesión',
-            cancelButtonText: 'Cancelar'
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                window.location.href = '?ruta=login/logout';
-            }
-        });
-    });
-})();
-</script>
-
 <?php if (($ruta_actual ?? '') === 'roles/index'): ?>
 <script src="<?php echo e(asset_url('js/roles.js')); ?>"></script>
 <?php endif; ?>

@@ -66,7 +66,7 @@ $activo = static fn(string $ruta) => str_starts_with($rutaActual, $ruta) ? ' act
     </nav>
 
     <div class="sidebar-footer">
-        <a class="sidebar-link logout-link" href="<?php echo e(route_url('login/logout')); ?>">
+        <a id="logoutLink" class="sidebar-link logout-link" href="<?php echo e(route_url('login/logout')); ?>">
             <i class="bi bi-box-arrow-left"></i> <span>Cerrar sesión</span>
         </a>
     </div>
