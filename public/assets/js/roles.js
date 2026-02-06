@@ -94,10 +94,24 @@
         });
     }
 
+    function handleCreateFlash() {
+        if (!window.ROLES_FLASH || window.ROLES_FLASH.tipo !== 'success' || window.ROLES_FLASH.accion !== 'crear') return;
+
+        const collapseElement = document.getElementById('crearRolCollapse');
+        const createForm = document.getElementById('formCrearRol');
+
+        if (createForm) createForm.reset();
+        if (collapseElement) {
+            const collapseInstance = bootstrap.Collapse.getOrCreateInstance(collapseElement, { toggle: false });
+            collapseInstance.hide();
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initTooltips();
         initTable();
         bindConfirmations();
         bindEditModal();
+        handleCreateFlash();
     });
 })();

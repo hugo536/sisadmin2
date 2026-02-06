@@ -44,7 +44,14 @@ window.USUARIOS_FLASH = {
 </script>
 <script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
 <?php endif; ?>
-<?php if (($ruta_actual ?? '') === 'roles/index'): ?>
+<?php if (in_array(($ruta_actual ?? ''), ['roles/index', 'roles'], true)): ?>
+<script>
+window.ROLES_FLASH = {
+    tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
+    texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
+    accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Rol creado') !== false ? 'crear' : ''; ?>'
+};
+</script>
 <script src="<?php echo e(asset_url('js/roles.js')); ?>"></script>
 <?php endif; ?>
 <?php if (($ruta_actual ?? '') === 'permisos/index'): ?>
