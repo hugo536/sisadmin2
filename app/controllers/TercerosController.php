@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/TerceroModel.php';
 
-class TerceroController extends Controlador
+class TercerosController extends Controlador
 {
     private TerceroModel $terceroModel;
 
@@ -75,7 +75,7 @@ class TerceroController extends Controlador
         $this->render('terceros', [
             'terceros' => $this->terceroModel->listar(),
             'flash' => $flash,
-            'ruta_actual' => 'tercero',
+            'ruta_actual' => 'terceros',
         ]);
     }
 
