@@ -27,6 +27,7 @@ class UsuariosController extends Controlador
             try {
                 if ($accion === 'crear') {
                     require_permiso('usuarios.crear');
+                    $creadoPor = (int) ($_SESSION['id'] ?? 1);
                     $nombreCompleto = trim((string) ($_POST['nombre_completo'] ?? ''));
                     $usuario = trim((string) ($_POST['usuario'] ?? ''));
                     $email = trim((string) ($_POST['email'] ?? ''));
@@ -37,7 +38,7 @@ class UsuariosController extends Controlador
                         throw new RuntimeException('Complete nombre, usuario, email, clave y rol.');
                     }
 
-                    $this->usuarioModel->crear($nombreCompleto, $usuario, $email, $clave, $idRol);
+                    $this->usuarioModel->crear($nombreCompleto, $usuario, $email, $clave, $idRol, $creadoPor);
                     $flash = ['tipo' => 'success', 'texto' => 'Usuario creado correctamente.'];
                 }
 
