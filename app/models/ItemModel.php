@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-class ProductoModel extends Modelo
+class ItemModel extends Modelo
 {
     public function listar(): array
     {
@@ -146,7 +146,7 @@ class ProductoModel extends Modelo
             'nombre' => trim((string) ($data['nombre'] ?? '')),
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
             'tipo_item' => trim((string) ($data['tipo_item'] ?? '')),
-            'id_categoria' => $data['id_categoria'] !== '' ? $data['id_categoria'] : null,
+            'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? $data['id_categoria'] : null,
             'marca' => trim((string) ($data['marca'] ?? '')),
             'unidad_base' => trim((string) ($data['unidad_base'] ?? 'UND')),
             'controla_stock' => !empty($data['controla_stock']) ? 1 : 0,

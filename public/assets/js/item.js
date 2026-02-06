@@ -2,113 +2,114 @@
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
 
-    function initTooltips() {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
+    // --- 1. Gestión del Modal de Edición ---
+    function initModalManager() {
+        const modalEdit = document.getElementById('modalEditarItem');
+        if (!modalEdit) return;
+
+        modalEdit.addEventListener('show.bs.modal', function (event) {
+            const btn = event.relatedTarget;
+            if (!btn) return;
+
+            // Mapeo de datos del botón al formulario
+            const fields = {
+                'editId': 'data-id',
+                'editSku': 'data-sku',
+                'editNombre': 'data-nombre',
+                'editDescripcion': 'data-descripcion',
+                'editTipo': 'data-tipo',
+                'editMarca': 'data-marca',
+                'editPrecio': 'data-precio',
+                'editEstado': 'data-estado'
+            };
+
+            for (let id in fields) {
+                const el = document.getElementById(id);
+                if (el) el.value = btn.getAttribute(fields[id]) || '';
+            }
+
+            // Checkbox especial
+            const checkStock = document.getElementById('editControlaStock');
+            if (checkStock) {
+                checkStock.checked = btn.getAttribute('data-controla-stock') === '1';
+            }
         });
     }
 
+    // --- 2. Gestión de Tabla (Búsqueda, Filtros, Paginación) ---
     function initTableManager() {
-        const searchInput = document.getElementById('productoSearch');
-        const filtroTipo = document.getElementById('productoFiltroTipo');
-        const filtroEstado = document.getElementById('productoFiltroEstado');
-        const paginationControls = document.getElementById('productosPaginationControls');
-        const paginationInfo = document.getElementById('productosPaginationInfo');
-        const allRows = Array.from(document.querySelectorAll('#productosTable tbody tr'));
+        const searchInput = document.getElementById('itemSearch');
+        const filtroTipo = document.getElementById('itemFiltroTipo');
+        const filtroEstado = document.getElementById('itemFiltroEstado');
+        const paginationControls = document.getElementById('itemsPaginationControls');
+        const paginationInfo = document.getElementById('itemsPaginationInfo');
+        const allRows = Array.from(document.querySelectorAll('#itemsTable tbody tr'));
 
-        if (allRows.length === 0) {
-            if (paginationInfo) paginationInfo.textContent = 'Sin resultados';
-            return;
-        }
+        if (allRows.length === 0) return;
 
         const updateTable = function () {
             const texto = (searchInput ? searchInput.value : '').toLowerCase().trim();
-            const tipoSeleccionado = (filtroTipo ? filtroTipo.value : '');
-            const estadoSeleccionado = (filtroEstado ? filtroEstado.value : '');
+            const tipo = (filtroTipo ? filtroTipo.value : '');
+            const estado = (filtroEstado ? filtroEstado.value : '');
 
             const visibleRows = allRows.filter(row => {
-                const dataSearch = row.getAttribute('data-search') || '';
-                const dataTipo = row.getAttribute('data-tipo') || '';
-                const dataEstado = row.getAttribute('data-estado') || '';
+                const rowSearch = row.getAttribute('data-search') || '';
+                const rowTipo = row.getAttribute('data-tipo') || '';
+                const rowEstado = row.getAttribute('data-estado') || '';
 
-                const coincideTexto = dataSearch.includes(texto);
-                const coincideTipo = tipoSeleccionado === '' || dataTipo === tipoSeleccionado;
-                const coincideEstado = estadoSeleccionado === '' || dataEstado === estadoSeleccionado;
-
-                return coincideTexto && coincideTipo && coincideEstado;
+                return rowSearch.includes(texto) &&
+                       (tipo === '' || rowTipo === tipo) &&
+                       (estado === '' || rowEstado === estado);
             });
 
             const totalRows = visibleRows.length;
             const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE) || 1;
 
             if (currentPage > totalPages) currentPage = 1;
-            if (currentPage < 1) currentPage = 1;
 
             allRows.forEach(row => row.style.display = 'none');
-
             const start = (currentPage - 1) * ROWS_PER_PAGE;
-            const end = start + ROWS_PER_PAGE;
-            visibleRows.slice(start, end).forEach(row => row.style.display = '');
+            visibleRows.slice(start, start + ROWS_PER_PAGE).forEach(row => row.style.display = '');
 
-            updatePaginationUI(start, end, totalRows, totalPages);
+            // Actualizar UI
+            if (paginationInfo) {
+                const end = Math.min(start + ROWS_PER_PAGE, totalRows);
+                paginationInfo.textContent = totalRows > 0 ? `Mostrando ${start + 1}-${end} de ${totalRows} ítems` : 'Sin resultados';
+            }
+
+            renderPagination(totalPages);
         };
 
-        function updatePaginationUI(start, end, totalRows, totalPages) {
-            if (paginationInfo) {
-                if (totalRows === 0) {
-                    paginationInfo.textContent = 'Sin resultados';
-                } else {
-                    const realEnd = Math.min(end, totalRows);
-                    paginationInfo.textContent = `Mostrando ${start + 1}-${realEnd} de ${totalRows} ítems`;
-                }
-            }
-
-            if (paginationControls) {
-                renderPaginationControls(totalPages);
-            }
-        }
-
-        function renderPaginationControls(totalPages) {
+        function renderPagination(totalPages) {
+            if (!paginationControls) return;
             paginationControls.innerHTML = '';
             if (totalPages <= 1) return;
 
-            const createItem = (text, page, isActive = false, isDisabled = false) => {
+            const addBtn = (label, page, active = false, disabled = false) => {
                 const li = document.createElement('li');
-                li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#" onclick="return false;">${text}</a>`;
-                li.onclick = () => {
-                    if (!isActive && !isDisabled) {
-                        currentPage = page;
-                        updateTable();
-                    }
+                li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#">${label}</a>`;
+                li.onclick = (e) => {
+                    e.preventDefault();
+                    if (!active && !disabled) { currentPage = page; updateTable(); }
                 };
-                return li;
+                paginationControls.appendChild(li);
             };
 
-            paginationControls.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
-
-            for (let i = 1; i <= totalPages; i++) {
-                paginationControls.appendChild(createItem(i, i, i === currentPage));
-            }
-
-            paginationControls.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
+            addBtn('«', currentPage - 1, false, currentPage === 1);
+            for (let i = 1; i <= totalPages; i++) addBtn(i, i, i === currentPage);
+            addBtn('»', currentPage + 1, false, currentPage === totalPages);
         }
 
-        const onFilterChange = () => {
-            currentPage = 1;
-            updateTable();
-        };
-
-        if (searchInput) searchInput.addEventListener('input', onFilterChange);
-        if (filtroTipo) filtroTipo.addEventListener('change', onFilterChange);
-        if (filtroEstado) filtroEstado.addEventListener('change', onFilterChange);
+        [searchInput, filtroTipo, filtroEstado].forEach(el => {
+            if (el) el.addEventListener('input', () => { currentPage = 1; updateTable(); });
+        });
 
         updateTable();
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        initTooltips();
+    document.addEventListener('DOMContentLoaded', () => {
+        initModalManager();
         initTableManager();
     });
 })();

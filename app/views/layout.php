@@ -61,7 +61,7 @@ window.ROLES_FLASH = {
 <script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
 <?php endif; ?>
 <?php if (in_array(($ruta_actual ?? ''), ['items'], true)): ?>
-<script src="<?php echo e(asset_url('js/productos.js')); ?>"></script>
+<script src="<?php echo e(asset_url('js/item.js')); ?>"></script>
 <?php endif; ?>
 <?php if (in_array(($ruta_actual ?? ''), ['terceros'], true)): ?>
 <script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>

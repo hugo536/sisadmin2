@@ -75,7 +75,7 @@ class TerceroController extends Controlador
         $this->render('terceros', [
             'terceros' => $this->terceroModel->listar(),
             'flash' => $flash,
-            'ruta_actual' => 'terceros',
+            'ruta_actual' => 'tercero',
         ]);
     }
 

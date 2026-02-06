@@ -2,24 +2,26 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ProductoModel.php';
+require_once BASE_PATH . '/app/models/ItemModel.php';
 
-class ProductoController extends Controlador
+class ItemController extends Controlador
 {
-    private ProductoModel $productoModel;
+    private ItemModel $itemModel; // Cambiado de productoModel a itemModel
 
     public function __construct()
     {
-        $this->productoModel = new ProductoModel();
+        // IMPORTANTE: Aquí instanciamos ItemModel, no ProductoModel
+        $this->itemModel = new ItemModel(); 
     }
 
     public function index(): void
     {
         AuthMiddleware::handle();
-        require_permiso('items.ver');
+        require_permiso('item.ver');
 
+        // Manejo de DataTable (AJAX)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
-            json_response($this->productoModel->datatable());
+            json_response($this->itemModel->datatable());
             return;
         }
 
@@ -30,46 +32,50 @@ class ProductoController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                // --- ACCIÓN: CREAR ---
                 if ($accion === 'crear') {
-                    require_permiso('items.crear');
-                    $data = $this->validarProducto($_POST, false);
-                    if ($data['sku'] !== '' && $this->productoModel->skuExiste($data['sku'])) {
+                    require_permiso('item.crear');
+                    $data = $this->validarItem($_POST, false);
+                    
+                    if ($data['sku'] !== '' && $this->itemModel->skuExiste($data['sku'])) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
                     }
-                    $nuevoId = $this->productoModel->crear($data, $userId);
-                    $respuesta = ['ok' => true, 'mensaje' => 'Producto creado correctamente.', 'id' => $nuevoId];
-                    $flash = ['tipo' => 'success', 'texto' => 'Producto creado correctamente.'];
+                    
+                    $nuevoId = $this->itemModel->crear($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Ítem creado correctamente.', 'id' => $nuevoId];
+                    $flash = ['tipo' => 'success', 'texto' => 'Ítem creado correctamente.'];
                 }
 
+                // --- ACCIÓN: EDITAR ---
                 if ($accion === 'editar') {
-                    require_permiso('items.editar');
+                    require_permiso('item.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID inválido.');
-                    }
-                    $data = $this->validarProducto($_POST, true);
-                    $actual = $this->productoModel->obtener($id);
-                    if ($actual === []) {
-                        throw new RuntimeException('El ítem no existe.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+
+                    $data = $this->validarItem($_POST, true);
+                    $actual = $this->itemModel->obtener($id);
+                    
+                    if ($actual === []) throw new RuntimeException('El ítem no existe.');
+
                     $skuIngresado = trim((string) ($data['sku'] ?? ''));
                     if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '')) {
                         throw new RuntimeException('El SKU es inmutable y no puede modificarse.');
                     }
-                    $this->productoModel->actualizar($id, $data, $userId);
-                    $respuesta = ['ok' => true, 'mensaje' => 'Producto actualizado correctamente.'];
-                    $flash = ['tipo' => 'success', 'texto' => 'Producto actualizado correctamente.'];
+
+                    $this->itemModel->actualizar($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Ítem actualizado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Ítem actualizado correctamente.'];
                 }
 
+                // --- ACCIÓN: ELIMINAR ---
                 if ($accion === 'eliminar') {
-                    require_permiso('items.eliminar');
+                    require_permiso('item.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID inválido.');
-                    }
-                    $this->productoModel->eliminar($id, $userId);
-                    $respuesta = ['ok' => true, 'mensaje' => 'Producto eliminado correctamente.'];
-                    $flash = ['tipo' => 'success', 'texto' => 'Producto eliminado correctamente.'];
+                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+
+                    $this->itemModel->eliminar($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Ítem eliminado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Ítem eliminado correctamente.'];
                 }
 
                 if (isset($respuesta) && es_ajax()) {
@@ -85,14 +91,15 @@ class ProductoController extends Controlador
             }
         }
 
-        $this->render('productos', [
-            'items' => $this->productoModel->listar(),
+        // Renderizado de la vista
+        $this->render('item', [ // Si renombras tu vista a 'item', cambia esto también
+            'item' => $this->itemModel->listar(),
             'flash' => $flash,
-            'ruta_actual' => 'items',
+            'ruta_actual' => 'item', 
         ]);
     }
 
-    private function validarProducto(array $data, bool $esEdicion): array
+    private function validarItem(array $data, bool $esEdicion): array
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = trim((string) ($data['tipo_item'] ?? ''));
@@ -101,11 +108,6 @@ class ProductoController extends Controlador
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
         }
 
-        if (!$esEdicion) {
-            return $data;
-        }
-
         return $data;
     }
-
 }
