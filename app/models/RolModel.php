@@ -5,42 +5,85 @@ class RolModel extends Modelo
 {
     public function listar(): array
     {
-        $sql = 'SELECT id, nombre, slug, descripcion, estado FROM roles ORDER BY id DESC';
+        $sql = 'SELECT id, nombre, estado, created_at
+                FROM roles
+                WHERE deleted_at IS NULL
+                ORDER BY id DESC';
         return $this->db()->query($sql)->fetchAll();
     }
 
-    public function crear(string $nombre, string $descripcion = ''): bool
+    public function crear(string $nombre, int $createdBy): bool
     {
-        $slug = $this->slugify($nombre);
-        return $this->db()->prepare('INSERT INTO roles (nombre, slug, descripcion, estado) VALUES (:nombre, :slug, :descripcion, 1)')
-            ->execute(['nombre' => $nombre, 'slug' => $slug, 'descripcion' => $descripcion]);
-    }
-
-    public function actualizar(int $id, string $nombre, int $estado, string $descripcion = ''): bool
-    {
-        $sql = 'UPDATE roles SET nombre = :nombre, slug = :slug, descripcion = :descripcion, estado = :estado WHERE id = :id';
+        $sql = 'INSERT INTO roles (nombre, estado, created_at, created_by)
+                VALUES (:nombre, 1, NOW(), :created_by)';
         return $this->db()->prepare($sql)->execute([
-            'id' => $id,
             'nombre' => $nombre,
-            'slug' => $this->slugify($nombre),
-            'descripcion' => $descripcion,
-            'estado' => $estado,
+            'created_by' => $createdBy,
         ]);
     }
 
-    public function obtener_por_id(int $id): ?array
+    public function actualizar(int $id, string $nombre, int $estado, int $updatedBy): bool
     {
-        $stmt = $this->db()->prepare('SELECT id, nombre, slug, descripcion, estado FROM roles WHERE id = :id LIMIT 1');
-        $stmt->execute(['id' => $id]);
-        $row = $stmt->fetch();
-        return is_array($row) ? $row : null;
+        $sql = 'UPDATE roles
+                SET nombre = :nombre,
+                    estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'nombre' => $nombre,
+            'estado' => $estado,
+            'updated_by' => $updatedBy,
+        ]);
+    }
+
+    public function cambiar_estado(int $id, int $estado, int $updatedBy): bool
+    {
+        $sql = 'UPDATE roles
+                SET estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'estado' => $estado,
+            'updated_by' => $updatedBy,
+        ]);
+    }
+
+    public function eliminar_logico(int $id, int $updatedBy): bool
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+        try {
+            $db->prepare('UPDATE roles
+                          SET deleted_at = NOW(), estado = 0, updated_at = NOW(), updated_by = :updated_by
+                          WHERE id = :id AND deleted_at IS NULL')
+                ->execute(['id' => $id, 'updated_by' => $updatedBy]);
+
+            $db->prepare('UPDATE roles_permisos
+                          SET estado = 0, deleted_at = NOW()
+                          WHERE id_rol = :id_rol AND deleted_at IS NULL')
+                ->execute(['id_rol' => $id]);
+
+            $db->commit();
+            return true;
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 
     public function permisos_por_rol(int $idRol): array
     {
-        $sql = 'SELECT rp.id_permiso
+        $sql = 'SELECT rp.id_permiso_def
                 FROM roles_permisos rp
-                WHERE rp.id_rol = :id_rol';
+                WHERE rp.id_rol = :id_rol
+                  AND rp.estado = 1
+                  AND rp.deleted_at IS NULL';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_rol' => $idRol]);
 
@@ -52,25 +95,48 @@ class RolModel extends Modelo
         $db = $this->db();
         $db->beginTransaction();
         try {
-            $db->prepare('DELETE FROM roles_permisos WHERE id_rol = :id_rol')->execute(['id_rol' => $idRol]);
+            $existentesStmt = $db->prepare('SELECT id, id_permiso_def FROM roles_permisos WHERE id_rol = :id_rol');
+            $existentesStmt->execute(['id_rol' => $idRol]);
+            $existentes = $existentesStmt->fetchAll();
 
-            $insert = $db->prepare('INSERT INTO roles_permisos (id_rol, id_permiso) VALUES (:id_rol, :id_permiso)');
-            foreach ($permisosIds as $idPermiso) {
-                $insert->execute([
-                    'id_rol' => $idRol,
-                    'id_permiso' => (int) $idPermiso,
-                ]);
+            $mapExistentes = [];
+            foreach ($existentes as $row) {
+                $mapExistentes[(int) $row['id_permiso_def']] = (int) $row['id'];
             }
+
+            $activar = array_values(array_unique(array_map('intval', $permisosIds)));
+            $activarSet = array_flip($activar);
+
+            $activarStmt = $db->prepare('UPDATE roles_permisos
+                                         SET estado = 1, deleted_at = NULL
+                                         WHERE id = :id');
+            $desactivarStmt = $db->prepare('UPDATE roles_permisos
+                                            SET estado = 0, deleted_at = NOW()
+                                            WHERE id = :id');
+            $insertStmt = $db->prepare('INSERT INTO roles_permisos (id_rol, id_permiso_def, estado, deleted_at)
+                                        VALUES (:id_rol, :id_permiso_def, 1, NULL)');
+
+            foreach ($mapExistentes as $idPermiso => $idRelacion) {
+                if (isset($activarSet[$idPermiso])) {
+                    $activarStmt->execute(['id' => $idRelacion]);
+                } else {
+                    $desactivarStmt->execute(['id' => $idRelacion]);
+                }
+            }
+
+            foreach ($activar as $idPermiso) {
+                if (!isset($mapExistentes[$idPermiso])) {
+                    $insertStmt->execute([
+                        'id_rol' => $idRol,
+                        'id_permiso_def' => $idPermiso,
+                    ]);
+                }
+            }
+
             $db->commit();
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
         }
-    }
-
-    private function slugify(string $valor): string
-    {
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $valor) ?? ''));
-        return trim($slug, '-') !== '' ? trim($slug, '-') : 'rol';
     }
 }

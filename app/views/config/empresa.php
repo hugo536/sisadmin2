@@ -1,42 +1,69 @@
 <?php
 $config = is_array($config ?? null) ? $config : [];
-$temaActual = strtolower((string) ($config['color_sistema'] ?? 'light'));
+$temaActual = strtolower((string) ($config['tema'] ?? 'light'));
 if (!in_array($temaActual, ['light', 'dark', 'blue'], true)) {
     $temaActual = 'light';
 }
-$logoActual = (string) ($config['ruta_logo'] ?? '');
+$logoActual = (string) ($config['logo_path'] ?? '');
 ?>
-<div class="container-fluid">
-    <h1 class="h3 mb-1">Configuración de Empresa</h1>
-    <p class="text-muted">Administra la información principal de la empresa.</p>
+<div class="container-fluid p-4">
+    <div class="mb-4 fade-in">
+        <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+            <i class="bi bi-building me-2 text-primary"></i> Configuración de Empresa
+        </h1>
+        <p class="text-muted small mb-0 ms-1">Datos corporativos, identidad visual y tema.</p>
+    </div>
 
-    <div class="card">
-        <div class="card-body">
-            <form method="post" enctype="multipart/form-data" class="row g-3">
-                <div class="col-md-6"><label class="form-label">Razón social</label><input name="nombre_empresa" class="form-control" value="<?php echo e((string) ($config['nombre_empresa'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">RUC</label><input name="ruc" class="form-control" value="<?php echo e((string) ($config['ruc'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">Dirección</label><input name="direccion" class="form-control" value="<?php echo e((string) ($config['direccion'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">Teléfono</label><input name="telefono" class="form-control" value="<?php echo e((string) ($config['telefono'] ?? '')); ?>"></div>
-                <div class="col-md-6"><label class="form-label">Email</label><input name="email" type="email" class="form-control" value="<?php echo e((string) ($config['email'] ?? '')); ?>"></div>
-                <div class="col-md-3"><label class="form-label">Moneda</label><input name="moneda" class="form-control" value="<?php echo e((string) ($config['moneda'] ?? 'PEN')); ?>"></div>
-                <div class="col-md-3">
-                    <label class="form-label">Tema</label>
-                    <select name="color_sistema" class="form-select">
-                        <option value="light" <?php echo $temaActual === 'light' ? 'selected' : ''; ?>>Light</option>
-                        <option value="dark" <?php echo $temaActual === 'dark' ? 'selected' : ''; ?>>Dark</option>
-                        <option value="blue" <?php echo $temaActual === 'blue' ? 'selected' : ''; ?>>Blue</option>
-                    </select>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 bg-light">
+            <form method="post" enctype="multipart/form-data" class="row g-3" id="empresaForm">
+                <div class="col-md-6 form-floating">
+                    <input name="razon_social" id="razonSocial" class="form-control" placeholder="Razón social" value="<?php echo e((string) ($config['razon_social'] ?? '')); ?>">
+                    <label for="razonSocial">Razón social</label>
                 </div>
-                <div class="col-md-6"><label class="form-label">Logo (png/jpg/jpeg/webp, máx. 2MB)</label><input name="logo" type="file" class="form-control" accept=".png,.jpg,.jpeg,.webp"></div>
-                <div class="col-12">
-                    <div class="mb-2">Logo actual:</div>
+                <div class="col-md-6 form-floating">
+                    <input name="ruc" id="ruc" class="form-control" placeholder="RUC" value="<?php echo e((string) ($config['ruc'] ?? '')); ?>">
+                    <label for="ruc">RUC</label>
+                </div>
+                <div class="col-md-6 form-floating">
+                    <input name="direccion" id="direccion" class="form-control" placeholder="Dirección" value="<?php echo e((string) ($config['direccion'] ?? '')); ?>">
+                    <label for="direccion">Dirección</label>
+                </div>
+                <div class="col-md-3 form-floating">
+                    <input name="telefono" id="telefono" class="form-control" placeholder="Teléfono" value="<?php echo e((string) ($config['telefono'] ?? '')); ?>">
+                    <label for="telefono">Teléfono</label>
+                </div>
+                <div class="col-md-3 form-floating">
+                    <input name="email" id="email" type="email" class="form-control" placeholder="Correo" value="<?php echo e((string) ($config['email'] ?? '')); ?>">
+                    <label for="email">Email</label>
+                </div>
+                <div class="col-md-3 form-floating">
+                    <input name="moneda" id="moneda" class="form-control" placeholder="Moneda" value="<?php echo e((string) ($config['moneda'] ?? 'PEN')); ?>">
+                    <label for="moneda">Moneda</label>
+                </div>
+                <div class="col-md-3 form-floating">
+                    <select name="tema" id="tema" class="form-select">
+                        <option value="light" <?php echo $temaActual === 'light' ? 'selected' : ''; ?>>light</option>
+                        <option value="dark" <?php echo $temaActual === 'dark' ? 'selected' : ''; ?>>dark</option>
+                        <option value="blue" <?php echo $temaActual === 'blue' ? 'selected' : ''; ?>>blue</option>
+                    </select>
+                    <label for="tema">Tema</label>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Logo (png/jpg/jpeg/webp, máx. 2MB)</label>
+                    <input name="logo" type="file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+                </div>
+                <div class="col-md-6">
+                    <div class="small text-muted mb-2">Logo actual:</div>
                     <?php if (!empty($logoActual)): ?>
                         <img src="<?php echo e(base_url() . '/' . ltrim($logoActual, '/')); ?>" alt="Logo empresa" style="max-height:70px">
                     <?php else: ?>
                         <span class="text-muted">Sin logo cargado.</span>
                     <?php endif; ?>
                 </div>
-                <div class="col-12"><button class="btn btn-primary">Guardar configuración</button></div>
+                <div class="col-12 mt-2">
+                    <button class="btn btn-primary px-4" type="submit"><i class="bi bi-save me-2"></i>Guardar cambios</button>
+                </div>
             </form>
         </div>
     </div>
