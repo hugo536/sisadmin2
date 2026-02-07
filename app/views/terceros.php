@@ -228,7 +228,6 @@
                                     <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
                                     <label for="crearNumeroDoc">Número <span class="text-danger">*</span></label>
                                 </div>
-                                <button class="btn btn-outline-secondary" type="button" id="crearConsultarDocBtn">Consultar SUNAT/RENIEC</button>
                             </div>
                             <div class="invalid-feedback">Ingrese un número válido.</div>
                         </div>
