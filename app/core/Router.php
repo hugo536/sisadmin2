@@ -20,6 +20,9 @@ class Router
         $modulo = $partes[0] ?? 'login';
         $accion = $partes[1] ?? 'index';
 
+        if ($modulo === '') $modulo = 'login';
+        if ($accion === '') $accion = 'index';
+
         // Lógica original de nombre de clase
         $controlador_original = ucfirst($modulo) . 'Controller';
         $controlador_clase = $controlador_original;
