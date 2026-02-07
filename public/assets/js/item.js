@@ -30,7 +30,12 @@
                 'editDescripcion': 'data-descripcion',
                 'editTipo': 'data-tipo',
                 'editMarca': 'data-marca',
+                'editUnidad': 'data-unidad',
+                'editMoneda': 'data-moneda',
+                'editImpuesto': 'data-impuesto',
                 'editPrecio': 'data-precio',
+                'editStockMinimo': 'data-stock-minimo',
+                'editCosto': 'data-costo',
                 'editEstado': 'data-estado'
             };
 
@@ -42,6 +47,21 @@
             const checkStock = document.getElementById('editControlaStock');
             if (checkStock) {
                 checkStock.checked = btn.getAttribute('data-controla-stock') === '1';
+            }
+
+            const checkDecimales = document.getElementById('editPermiteDecimales');
+            if (checkDecimales) {
+                checkDecimales.checked = btn.getAttribute('data-permite-decimales') === '1';
+            }
+
+            const checkLote = document.getElementById('editRequiereLote');
+            if (checkLote) {
+                checkLote.checked = btn.getAttribute('data-requiere-lote') === '1';
+            }
+
+            const checkVenc = document.getElementById('editRequiereVencimiento');
+            if (checkVenc) {
+                checkVenc.checked = btn.getAttribute('data-requiere-vencimiento') === '1';
             }
         });
     }

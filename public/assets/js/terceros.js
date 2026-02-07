@@ -116,14 +116,91 @@
                 const fila = this.closest('tr');
                 const badge = document.getElementById(`badge_status_tercero_${terceroId}`);
 
-                if (fila) fila.setAttribute('data-estado', nuevoEstado);
-                if (badge) {
-                    badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
-                    badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
-                }
+                const formData = new FormData();
+                formData.append('accion', 'toggle_estado');
+                formData.append('id', terceroId);
+                formData.append('estado', nuevoEstado);
 
-                if (window.updateTercerosTable) window.updateTercerosTable();
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.ok) {
+                            throw new Error(data.mensaje || 'No se pudo actualizar el estado.');
+                        }
+                        if (fila) fila.setAttribute('data-estado', nuevoEstado);
+                        if (badge) {
+                            badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                            badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
+                        }
+                        if (window.updateTercerosTable) window.updateTercerosTable();
+                    })
+                    .catch(() => {
+                        this.checked = !this.checked;
+                        if (window.updateTercerosTable) window.updateTercerosTable();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'No se pudo actualizar el estado del tercero.'
+                        });
+                    });
             });
+        });
+    }
+
+    function initDocumentoValidation() {
+        const campos = [
+            {
+                tipo: document.getElementById('crearTipoDoc'),
+                numero: document.getElementById('crearNumeroDoc'),
+                excludeId: null
+            },
+            {
+                tipo: document.getElementById('editTipoDoc'),
+                numero: document.getElementById('editNumeroDoc'),
+                excludeId: () => document.getElementById('editTerceroId')?.value || null
+            }
+        ];
+
+        const validar = (tipoEl, numeroEl, excludeId) => {
+            if (!tipoEl || !numeroEl) return;
+            const tipo = tipoEl.value;
+            const numero = numeroEl.value.trim();
+            if (tipo === '' || numero === '') return;
+
+            const formData = new FormData();
+            formData.append('accion', 'validar_documento');
+            formData.append('tipo_documento', tipo);
+            formData.append('numero_documento', numero);
+            if (excludeId) formData.append('exclude_id', excludeId);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.existe) {
+                        numeroEl.setCustomValidity('El documento ya se encuentra registrado.');
+                    } else {
+                        numeroEl.setCustomValidity('');
+                    }
+                    numeroEl.reportValidity();
+                })
+                .catch(() => {
+                    numeroEl.setCustomValidity('');
+                });
+        };
+
+        campos.forEach(({ tipo, numero, excludeId }) => {
+            if (!tipo || !numero) return;
+            const handler = () => validar(tipo, numero, typeof excludeId === 'function' ? excludeId() : excludeId);
+            tipo.addEventListener('change', handler);
+            numero.addEventListener('blur', handler);
         });
     }
 
@@ -131,5 +208,6 @@
         initTooltips();
         initTableManager();
         initStatusSwitch();
+        initDocumentoValidation();
     });
 })();
