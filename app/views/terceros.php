@@ -124,7 +124,6 @@
                                             data-departamento="<?php echo e($tercero['departamento'] ?? ''); ?>"
                                             data-provincia="<?php echo e($tercero['provincia'] ?? ''); ?>"
                                             data-distrito="<?php echo e($tercero['distrito'] ?? ''); ?>"
-                                            data-rubro-sector="<?php echo e($tercero['rubro_sector'] ?? ''); ?>"
                                             data-observaciones="<?php echo e($tercero['observaciones'] ?? ''); ?>"
                                             data-condicion-pago="<?php echo e($tercero['condicion_pago'] ?? ''); ?>"
                                             data-dias-credito="<?php echo e((string) ($tercero['dias_credito'] ?? '')); ?>"
@@ -179,6 +178,26 @@
                 <input type="hidden" name="accion" value="crear">
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <div class="col-12">
+                            <div class="border rounded-3 p-3 bg-light">
+                                <label class="form-label fw-semibold mb-2">Roles <span class="text-danger">*</span></label>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="crearEsCliente" name="es_cliente" value="1">
+                                        <label class="form-check-label" for="crearEsCliente">Cliente</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1">
+                                        <label class="form-check-label" for="crearEsProveedor">Proveedor</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1">
+                                        <label class="form-check-label" for="crearEsEmpleado">Empleado</label>
+                                    </div>
+                                </div>
+                                <div class="invalid-feedback d-none" id="crearRolesFeedback">Seleccione al menos un rol.</div>
+                            </div>
+                        </div>
                         <div class="col-md-4">
                             <div class="form-floating">
                                 <select class="form-select" name="tipo_persona" id="crearTipoPersona" required>
@@ -186,7 +205,7 @@
                                     <option value="NATURAL">Natural</option>
                                     <option value="JURIDICA">Jurídica</option>
                                 </select>
-                                <label for="crearTipoPersona">Tipo de persona</label>
+                                <label for="crearTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
                                 <div class="invalid-feedback">Seleccione el tipo de persona.</div>
                             </div>
                         </div>
@@ -196,34 +215,28 @@
                                     <option value="" selected>Seleccionar...</option>
                                     <option value="DNI">DNI</option>
                                     <option value="RUC">RUC</option>
+                                    <option value="CE">CE</option>
                                     <option value="PASAPORTE">Pasaporte</option>
                                 </select>
-                                <label for="crearTipoDoc">Tipo documento</label>
+                                <label for="crearTipoDoc">Tipo documento <span class="text-danger">*</span></label>
                                 <div class="invalid-feedback">Seleccione el tipo de documento.</div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
-                                <label for="crearNumeroDoc">Número</label>
-                                <div class="invalid-feedback">Ingrese un número válido.</div>
+                            <div class="input-group">
+                                <div class="form-floating flex-grow-1">
+                                    <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
+                                    <label for="crearNumeroDoc">Número <span class="text-danger">*</span></label>
+                                </div>
+                                <button class="btn btn-outline-secondary" type="button" id="crearConsultarDocBtn">Consultar SUNAT/RENIEC</button>
                             </div>
+                            <div class="invalid-feedback">Ingrese un número válido.</div>
                         </div>
                         <div class="col-md-8">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="nombre_completo" id="crearNombre" placeholder="Nombre" required>
-                                <label for="crearNombre" id="crearNombreLabel">Nombre completo</label>
+                                <label for="crearNombre" id="crearNombreLabel">Nombre completo <span class="text-danger">*</span></label>
                                 <div class="invalid-feedback">Ingrese el nombre o razón social.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <select class="form-select" name="estado" id="crearEstado">
-                                    <option value="1" selected>Activo</option>
-                                    <option value="0">Inactivo</option>
-                                    <option value="2">Bloqueado</option>
-                                </select>
-                                <label for="crearEstado">Estado</label>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -244,19 +257,6 @@
                                 <input type="email" class="form-control" name="email" id="crearEmail" placeholder="Correo">
                                 <label for="crearEmail">Email</label>
                                 <div class="invalid-feedback">Ingrese un email válido.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <select class="form-select" name="rubro_sector" id="crearRubroSector">
-                                    <option value="">Seleccionar...</option>
-                                    <option value="Bebidas">Bebidas</option>
-                                    <option value="Distribucion">Distribución</option>
-                                    <option value="Retail">Retail</option>
-                                    <option value="Servicios">Servicios</option>
-                                    <option value="Otros">Otros</option>
-                                </select>
-                                <label for="crearRubroSector">Rubro / sector</label>
                             </div>
                         </div>
                         <div class="col-md-8">
@@ -282,34 +282,47 @@
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Roles</label>
-                            <div class="d-flex flex-wrap gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="crearEsCliente" name="es_cliente" value="1">
-                                    <label class="form-check-label" for="crearEsCliente">Cliente</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1">
-                                    <label class="form-check-label" for="crearEsProveedor">Proveedor</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1">
-                                    <label class="form-check-label" for="crearEsEmpleado">Empleado</label>
-                                </div>
-                            </div>
-                            <div class="invalid-feedback d-none" id="crearRolesFeedback">Seleccione al menos un rol.</div>
-                        </div>
-
-                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago"><label for="crearCondicionPago">Condición de pago</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito" value="0"><label for="crearDiasCredito">Días de crédito</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="number" step="0.01" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.00"><label for="crearLimiteCredito">Límite de crédito</label></div></div>
-
-                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Observaciones</h6></div>
-                        <div class="col-12">
                             <div class="form-floating">
                                 <textarea class="form-control" name="observaciones" id="crearObservaciones" style="height: 90px" placeholder="Observaciones"></textarea>
                                 <label for="crearObservaciones">Observaciones</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <select class="form-select" name="estado" id="crearEstado">
+                                    <option value="1" selected>Activo</option>
+                                    <option value="0">Inactivo</option>
+                                    <option value="2">Bloqueado</option>
+                                </select>
+                                <label for="crearEstado">Estado</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 comercial-fields" id="crearComercialFields">
+                            <hr class="my-2">
+                            <h6 class="fw-bold">Datos Comerciales</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago">
+                                        <label for="crearCondicionPago">Condición de pago <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese la condición de pago.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito">
+                                        <label for="crearDiasCredito">Días de crédito <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese los días de crédito.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="number" step="0.01" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito">
+                                        <label for="crearLimiteCredito">Límite de crédito <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese el límite de crédito.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -317,11 +330,45 @@
                             <hr class="my-2">
                             <h6 class="fw-bold">Datos Laborales</h6>
                             <div class="row g-3">
-                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo"><label for="crearCargo">Cargo</label></div></div>
-                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="area" id="crearArea" placeholder="Área"><label for="crearArea">Área</label></div></div>
-                                <div class="col-md-4"><div class="form-floating"><input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso"><label for="crearFechaIngreso">Fecha de ingreso</label></div></div>
-                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral"><label for="crearEstadoLaboral">Estado laboral</label></div></div>
-                                <div class="col-md-4"><div class="form-floating"><input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="Sueldo básico"><label for="crearSueldoBasico">Sueldo básico</label></div></div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo">
+                                        <label for="crearCargo">Cargo <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese el cargo.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="area" id="crearArea" placeholder="Área">
+                                        <label for="crearArea">Área <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese el área.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso">
+                                        <label for="crearFechaIngreso">Fecha de ingreso <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Seleccione la fecha de ingreso.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="estado_laboral" id="crearEstadoLaboral">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="activo">Activo</option>
+                                            <option value="suspendido">Suspendido</option>
+                                            <option value="cesado">Cesado</option>
+                                        </select>
+                                        <label for="crearEstadoLaboral">Estado laboral <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Seleccione el estado laboral.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="Sueldo básico">
+                                        <label for="crearSueldoBasico">Sueldo básico</label>
+                                    </div>
+                                </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="regimen_pensionario" id="crearRegimenPensionario">
@@ -368,7 +415,7 @@
                             <option value="NATURAL">Natural</option>
                             <option value="JURIDICA">Jurídica</option>
                         </select>
-                        <label for="editTipoPersona">Tipo de persona</label>
+                        <label for="editTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
                         <div class="invalid-feedback">Seleccione el tipo de persona.</div>
                     </div>
                     <div class="col-md-4 form-floating">
@@ -376,21 +423,22 @@
                             <option value="" selected>Seleccionar...</option>
                             <option value="DNI">DNI</option>
                             <option value="RUC">RUC</option>
+                            <option value="CE">CE</option>
                             <option value="PASAPORTE">Pasaporte</option>
                         </select>
-                        <label for="editTipoDoc">Tipo documento</label>
+                        <label for="editTipoDoc">Tipo documento <span class="text-danger">*</span></label>
                         <div class="invalid-feedback">Seleccione el tipo de documento.</div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-floating">
                             <input class="form-control" id="editNumeroDoc" name="numero_documento" required>
-                            <label for="editNumeroDoc">Número</label>
+                            <label for="editNumeroDoc">Número <span class="text-danger">*</span></label>
                             <div class="invalid-feedback">Ingrese un número válido.</div>
                         </div>
                     </div>
                     <div class="col-md-8 form-floating">
                         <input class="form-control" id="editNombre" name="nombre_completo" required>
-                        <label for="editNombre" id="editNombreLabel">Nombre completo</label>
+                        <label for="editNombre" id="editNombreLabel">Nombre completo <span class="text-danger">*</span></label>
                         <div class="invalid-feedback">Ingrese el nombre o razón social.</div>
                     </div>
                     <div class="col-md-4 form-floating">
@@ -415,17 +463,6 @@
                         <label for="editEmail">Email</label>
                         <div class="invalid-feedback">Ingrese un email válido.</div>
                     </div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" name="rubro_sector" id="editRubroSector">
-                            <option value="">Seleccionar...</option>
-                            <option value="Bebidas">Bebidas</option>
-                            <option value="Distribucion">Distribución</option>
-                            <option value="Retail">Retail</option>
-                            <option value="Servicios">Servicios</option>
-                            <option value="Otros">Otros</option>
-                        </select>
-                        <label for="editRubroSector">Rubro / sector</label>
-                    </div>
                     <div class="col-md-8">
                         <div class="row g-2">
                             <div class="col-md-4">
@@ -449,7 +486,7 @@
                         </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-semibold">Roles</label>
+                        <label class="form-label fw-semibold">Roles <span class="text-danger">*</span></label>
                         <div class="d-flex flex-wrap gap-3">
                             <div class="form-check"><input class="form-check-input" type="checkbox" id="editEsCliente" name="es_cliente" value="1"><label class="form-check-label" for="editEsCliente">Cliente</label></div>
                             <div class="form-check"><input class="form-check-input" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1"><label class="form-check-label" for="editEsProveedor">Proveedor</label></div>
@@ -457,10 +494,27 @@
                         </div>
                         <div class="invalid-feedback d-none" id="editRolesFeedback">Seleccione al menos un rol.</div>
                     </div>
-                    <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editCondicionPago" name="condicion_pago"><label for="editCondicionPago">Condición de pago</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editDiasCredito" name="dias_credito" type="number"><label for="editDiasCredito">Días de crédito</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.01"><label for="editLimiteCredito">Límite de crédito</label></div>
+                    <div class="col-12 comercial-fields" id="editComercialFields">
+                        <hr class="my-2">
+                        <h6 class="fw-bold">Datos Comerciales</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editCondicionPago" name="condicion_pago">
+                                <label for="editCondicionPago">Condición de pago <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Ingrese la condición de pago.</div>
+                            </div>
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editDiasCredito" name="dias_credito" type="number">
+                                <label for="editDiasCredito">Días de crédito <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Ingrese los días de crédito.</div>
+                            </div>
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.01">
+                                <label for="editLimiteCredito">Límite de crédito <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Ingrese el límite de crédito.</div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Observaciones</h6></div>
                     <div class="col-12">
@@ -474,10 +528,31 @@
                         <hr class="my-2">
                         <h6 class="fw-bold">Datos Laborales</h6>
                         <div class="row g-3">
-                            <div class="col-md-4 form-floating"><input class="form-control" id="editCargo" name="cargo"><label for="editCargo">Cargo</label></div>
-                            <div class="col-md-4 form-floating"><input class="form-control" id="editArea" name="area"><label for="editArea">Área</label></div>
-                            <div class="col-md-4 form-floating"><input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date"><label for="editFechaIngreso">Fecha de ingreso</label></div>
-                            <div class="col-md-4 form-floating"><input class="form-control" id="editEstadoLaboral" name="estado_laboral"><label for="editEstadoLaboral">Estado laboral</label></div>
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editCargo" name="cargo">
+                                <label for="editCargo">Cargo <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Ingrese el cargo.</div>
+                            </div>
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editArea" name="area">
+                                <label for="editArea">Área <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Ingrese el área.</div>
+                            </div>
+                            <div class="col-md-4 form-floating">
+                                <input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date">
+                                <label for="editFechaIngreso">Fecha de ingreso <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Seleccione la fecha de ingreso.</div>
+                            </div>
+                            <div class="col-md-4 form-floating">
+                                <select class="form-select" name="estado_laboral" id="editEstadoLaboral">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="activo">Activo</option>
+                                    <option value="suspendido">Suspendido</option>
+                                    <option value="cesado">Cesado</option>
+                                </select>
+                                <label for="editEstadoLaboral">Estado laboral <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Seleccione el estado laboral.</div>
+                            </div>
                             <div class="col-md-4 form-floating"><input class="form-control" id="editSueldoBasico" name="sueldo_basico" type="number" step="0.01"><label for="editSueldoBasico">Sueldo básico</label></div>
                             <div class="col-md-4">
                                 <div class="form-floating">

@@ -172,9 +172,6 @@ class TercerosController extends Controlador
             if (strlen($numeroDigits) !== 11) {
                 throw new RuntimeException('El RUC debe tener 11 dígitos.');
             }
-            if (!preg_match('/^(10|20)/', $numeroDigits)) {
-                throw new RuntimeException('El RUC debe iniciar con 10 o 20.');
-            }
             $numero = $numeroDigits;
         }
 
