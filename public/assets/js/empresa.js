@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputLogo = document.getElementById('inputLogo');
     const previewLogo = document.getElementById('previewLogo');
     const noLogo = document.getElementById('noLogo');
+    const sidebarLogo = document.getElementById('sidebarCompanyLogo');
+    const sidebarName = document.getElementById('sidebarCompanyName');
 
     // 1. Previsualización de Imagen
     if (inputLogo) {
@@ -45,7 +47,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 confirmButtonColor: '#0d6efd'
             }).then(result => {
                 if (result.isConfirmed) {
-                    form.submit();
+                    const formData = new FormData(form);
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (!data.ok) {
+                                throw new Error(data.mensaje || 'No se pudo actualizar.');
+                            }
+                            if (sidebarName && data.config?.nombre_empresa) {
+                                sidebarName.textContent = data.config.nombre_empresa;
+                            }
+                            if (sidebarLogo && data.config?.ruta_logo) {
+                                sidebarLogo.src = `${window.BASE_URL || ''}${data.config.ruta_logo.startsWith('/') ? '' : '/'}${data.config.ruta_logo}`;
+                                sidebarLogo.classList.remove('d-none');
+                            }
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Guardado!',
+                                text: data.mensaje || 'Configuración actualizada correctamente.'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'No se pudo actualizar la configuración.'
+                            });
+                        });
                 }
             });
         });

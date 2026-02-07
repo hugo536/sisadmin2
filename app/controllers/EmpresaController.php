@@ -28,8 +28,21 @@ class EmpresaController extends Controlador
                 require_permiso('config.editar');
                 $this->procesarGuardado();
                 $flash = ['tipo' => 'success', 'texto' => 'Configuración actualizada correctamente.'];
+
+                if (es_ajax()) {
+                    json_response([
+                        'ok' => true,
+                        'mensaje' => 'Configuración actualizada correctamente.',
+                        'config' => $this->empresaModel->obtenerConfigActiva(),
+                    ]);
+                    return;
+                }
             } catch (Throwable $e) {
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
+                if (es_ajax()) {
+                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+                    return;
+                }
             }
         }
 
@@ -66,7 +79,7 @@ class EmpresaController extends Controlador
             'moneda'         => trim((string) ($_POST['moneda'] ?? 'S/')),
             'impuesto'       => (float) ($_POST['impuesto'] ?? 18),
             'slogan'         => trim((string) ($_POST['slogan'] ?? '')),
-            'color_sistema'  => trim((string) ($_POST['tema'] ?? 'light')),
+            'color_sistema'  => trim((string) ($_POST['color_sistema'] ?? $_POST['tema'] ?? 'light')),
             'ruta_logo'      => $nuevoLogo,
         ];
 
