@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* =========================
+   SIDEBAR BASE
+   ========================= */
 .sidebar {
     width: 260px;
     background: var(--sidebar-gradient);
@@ -12,19 +15,99 @@
     transition: width 0.3s ease;
 }
 
-.sidebar-header { padding: 1.5rem 1rem 1rem; }
+/* Header spacing */
+.sidebar-header { padding: 1.25rem 1rem 1rem; }
 
-.sidebar-logo {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 1.5rem;
+/* =========================
+   BRAND HEADER (PULIDO)
+   Reemplaza el viejo .sidebar-logo visualmente
+   (si aún existe en HTML, no pasa nada, pero ya no lo uses)
+   ========================= */
+.sidebar-brand {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.25rem 0.25rem 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.brand-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 10px 18px rgba(0,0,0,0.18);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: center;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+}
+
+.brand-logo {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+    display: block;
+}
+
+.brand-fallback {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.95);
     letter-spacing: -0.02em;
 }
 
+.brand-meta { min-width: 0; }
+
+.brand-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+
+    /* clamp 2 líneas (se ve pro en sidebar angosto) */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.brand-sub { margin-top: 0.35rem; }
+
+.brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.80);
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.10);
+}
+
+/* (Opcional) compatibilidad: si tu HTML aún usa .sidebar-logo */
+.sidebar-logo {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    letter-spacing: -0.02em;
+    opacity: 0.85;
+}
+
+/* =========================
+   USER CARD
+   ========================= */
 .user-card {
     background: var(--sidebar-card-bg);
     border: 1px solid var(--sidebar-card-border);
@@ -40,68 +123,78 @@
     height: 36px;
     background: var(--primary-color);
     color: white;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.18);
 }
 
-.user-info { overflow: hidden; }
-.user-name { font-size: 0.9rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-role { font-size: 0.7rem; color: var(--sidebar-muted); text-transform: uppercase; font-weight: 500; }
+.user-info { overflow: hidden; min-width: 0; }
+.user-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.user-role {
+    font-size: 0.7rem;
+    color: var(--sidebar-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
 
-/* Estilo suave para el scroll del sidebar */
+/* =========================
+   NAV / SCROLL (suave + fino)
+   ========================= */
 .sidebar-nav {
-    /* Mantenemos tus estilos base */
     overflow-y: auto;
-    scrollbar-width: thin; /* Para Firefox: hace la barra finita */
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* Color barra / fondo */
-    scroll-behavior: smooth; /* Hace que el deslizar sea suave nativamente */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    scroll-behavior: smooth;
+    padding: 0.25rem 0.25rem 0.75rem;
 }
 
-/* Para Chrome, Edge, Safari (Webkit) */
-.sidebar-nav::-webkit-scrollbar {
-    width: 6px; /* Ancho muy fino */
-}
-
-.sidebar-nav::-webkit-scrollbar-track {
-    background: transparent; /* Fondo invisible */
-}
-
+/* Webkit scrollbar */
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
 .sidebar-nav::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2); /* Color semitransparente */
-    border-radius: 20px; /* Bordes totalmente redondos */
-    border: 2px solid transparent; /* Truco para dar 'aire' alrededor */
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    border: 2px solid transparent;
     background-clip: content-box;
 }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.5); }
 
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.5); /* Se ilumina al pasar el mouse */
-}
-
+/* Labels */
 .nav-label {
     font-size: 0.7rem;
     text-transform: uppercase;
     color: var(--sidebar-muted);
-    font-weight: 700;
-    margin: 1.25rem 0 0.5rem 0.5rem;
-    letter-spacing: 0.05em;
+    font-weight: 800;
+    margin: 1.1rem 0 0.55rem 0.65rem;
+    letter-spacing: 0.08em;
 }
 
+/* Links */
 .sidebar-link {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.85rem;
     color: var(--sidebar-text);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 0.92rem;
     font-weight: 500;
     transition: all 0.2s ease;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
+    position: relative;
 }
 
 .sidebar-link i {
@@ -110,6 +203,7 @@
     transition: color 0.2s;
 }
 
+/* Hover */
 .sidebar-link:hover {
     background: var(--sidebar-hover-bg);
     color: #fff;
@@ -117,23 +211,44 @@
 }
 .sidebar-link:hover i { color: #fff; }
 
+/* Active (más “enterprise”: menos borde izquierdo agresivo, más glow) */
 .sidebar-link.active {
     background: var(--sidebar-active-bg);
     color: var(--sidebar-active-color);
-    font-weight: 600;
+    font-weight: 650;
     border-left: 3px solid var(--primary-color);
-    border-radius: 4px 8px 8px 4px;
+    border-radius: 6px 10px 10px 6px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
 }
-
 .sidebar-link.active i { color: var(--sidebar-active-color); }
 
+/* Submenu UL spacing */
+.sidebar-nav .nav.flex-column.ps-3 {
+    padding-left: 0.75rem !important;
+    margin-top: 0.25rem;
+}
+
+/* =========================
+   FOOTER
+   ========================= */
 .sidebar-footer {
     padding: 1rem;
     border-top: 1px solid var(--sidebar-border);
     background: var(--sidebar-footer-bg);
 }
 
+/* Logout */
 .logout-link { color: #ef4444; }
 .logout-link:hover { background: rgba(239, 68, 68, 0.12); color: #f87171; }
 .logout-link i { color: #ef4444; }
 .logout-link:hover i { color: #f87171; }
+
+/* =========================
+   (Opcional) Mejoras de legibilidad en pantallas muy angostas
+   ========================= */
+@media (max-width: 420px) {
+    .sidebar { width: 240px; }
+    .sidebar-brand { grid-template-columns: 40px 1fr; }
+    .brand-icon { width: 40px; height: 40px; border-radius: 12px; }
+    .brand-name { font-size: 0.92rem; }
+}

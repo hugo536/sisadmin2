@@ -138,25 +138,31 @@
                 const idUsuario = this.getAttribute('data-id');
                 const nuevoEstado = this.checked ? 1 : 0;
                 
-                const fila = this.closest('tr');
-                const label = this.nextElementSibling;
-                const badge = document.getElementById(`badge_status_${idUsuario}`);
+                // Formulario oculto para enviar POST
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+                
+                // Inputs
+                const inputAccion = document.createElement('input');
+                inputAccion.name = 'accion';
+                inputAccion.value = 'estado';
+                
+                const inputId = document.createElement('input');
+                inputId.name = 'id';
+                inputId.value = idUsuario;
 
-                if (fila) fila.setAttribute('data-estado', nuevoEstado);
-                if (label) label.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                const inputEstado = document.createElement('input');
+                inputEstado.name = 'estado';
+                inputEstado.value = nuevoEstado;
 
-                if (badge) {
-                    if (nuevoEstado === 1) {
-                        badge.textContent = 'Activo';
-                        badge.className = 'badge-status status-active';
-                    } else {
-                        badge.textContent = 'Inactivo';
-                        badge.className = 'badge-status status-inactive';
-                    }
-                }
+                form.appendChild(inputAccion);
+                form.appendChild(inputId);
+                form.appendChild(inputEstado);
+                document.body.appendChild(form);
 
-                Toast.fire({ icon: 'success', title: `Usuario ${nuevoEstado === 1 ? 'activado' : 'desactivado'}` });
-                if (window.updateTable) window.updateTable();
+                // Enviamos (la página recargará y mostrará el flash del backend)
+                form.submit();
             });
         });
     }
@@ -169,7 +175,7 @@
                 e.preventDefault();
                 swalBootstrap.fire({
                     title: '¿Eliminar usuario?',
-                    text: 'Esta acción desactivará el usuario permanentemente.',
+                    text: 'Esta acción eliminará al usuario del sistema.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, eliminar',
@@ -183,17 +189,11 @@
     }
 
     function handleCreateFlash() {
-        if (!window.USUARIOS_FLASH || window.USUARIOS_FLASH.tipo !== 'success' || window.USUARIOS_FLASH.accion !== 'crear') return;
-
-        // Limpiar formulario y cerrar modal si la creación fue exitosa
-        const createForm = document.getElementById('formCrearUsuario');
-        const modalElement = document.getElementById('modalCrearUsuario');
-
-        if (createForm) createForm.reset();
-        if (modalElement) {
-            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
-            modalInstance.hide();
-        }
+        // En este diseño, el backend hace el render, así que 
+        // el modal se cerrará automáticamente al recargar la página.
+        // Si quisieras limpiarlo manualmente:
+        // const form = document.getElementById('formCrearUsuario');
+        // if(form) form.reset();
     }
 
     // --- 6. GLOBALES (Aquí agregamos las funciones onclick) ---

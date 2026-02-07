@@ -3,14 +3,12 @@ declare(strict_types=1);
 
 class UsuariosModel extends Modelo
 {
-    /**
-     * Busca un usuario por su nombre de usuario (login).
-     */
     public function buscar_por_usuario(string $usuario): ?array
     {
         $sql = 'SELECT id, nombre_completo, usuario, email, clave, id_rol, estado
                 FROM usuarios
                 WHERE usuario = :usuario
+                  AND deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['usuario' => $usuario]);
@@ -19,27 +17,31 @@ class UsuariosModel extends Modelo
         return is_array($row) ? $row : null;
     }
 
-    /**
-     * Lista todos los usuarios con su nombre de rol.
-     */
+    // Nuevo auxiliar para validar duplicados
+    public function existe_usuario(string $usuario): bool
+    {
+        $sql = 'SELECT 1 FROM usuarios WHERE usuario = :usuario AND deleted_at IS NULL LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['usuario' => $usuario]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function listar_activos(): array
     {
         $sql = 'SELECT u.id, u.nombre_completo, u.usuario, u.email, u.id_rol, u.estado, u.ultimo_login, r.nombre AS rol
                 FROM usuarios u
                 LEFT JOIN roles r ON r.id = u.id_rol
+                WHERE u.deleted_at IS NULL
                 ORDER BY u.id DESC';
 
         return $this->db()->query($sql)->fetchAll();
     }
 
-    /**
-     * Obtiene los datos de un usuario por su ID.
-     */
     public function obtener_por_id(int $id): ?array
     {
         $sql = 'SELECT id, nombre_completo, usuario, email, id_rol, estado
                 FROM usuarios
-                WHERE id = :id
+                WHERE id = :id AND deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $id]);
@@ -48,13 +50,8 @@ class UsuariosModel extends Modelo
         return is_array($row) ? $row : null;
     }
 
-    /**
-     * Crea un nuevo usuario en la base de datos.
-     * Se incluye 'created_by' para cumplir con la FK fk_usuarios_created.
-     */
     public function crear(string $nombre, string $usuario, string $email, string $clave, int $idRol, int $createdBy): bool
     {
-        // Encriptar clave
         $hash = password_hash($clave, PASSWORD_BCRYPT);
 
         $sql = "INSERT INTO usuarios (nombre_completo, usuario, email, clave, id_rol, created_by, created_at, estado) 
@@ -70,11 +67,16 @@ class UsuariosModel extends Modelo
         ]);
     }
 
-    /**
-     * Actualiza la información de un usuario existente.
-     */
     public function actualizar(int $id, string $nombreCompleto, string $usuario, string $email, int $idRol, ?string $clave = null): bool
     {
+        $params = [
+            'id' => $id,
+            'nombre_completo' => $nombreCompleto,
+            'usuario' => $usuario,
+            'email' => $email,
+            'id_rol' => $idRol,
+        ];
+
         if ($clave !== null && $clave !== '') {
             $sql = 'UPDATE usuarios
                     SET nombre_completo = :nombre_completo,
@@ -83,15 +85,8 @@ class UsuariosModel extends Modelo
                         id_rol = :id_rol,
                         clave = :clave,
                         updated_at = NOW()
-                    WHERE id = :id';
-            $params = [
-                'id' => $id,
-                'nombre_completo' => $nombreCompleto,
-                'usuario' => $usuario,
-                'email' => $email,
-                'id_rol' => $idRol,
-                'clave' => password_hash($clave, PASSWORD_BCRYPT),
-            ];
+                    WHERE id = :id AND deleted_at IS NULL';
+            $params['clave'] = password_hash($clave, PASSWORD_BCRYPT);
         } else {
             $sql = 'UPDATE usuarios
                     SET nombre_completo = :nombre_completo,
@@ -99,52 +94,45 @@ class UsuariosModel extends Modelo
                         email = :email,
                         id_rol = :id_rol,
                         updated_at = NOW()
-                    WHERE id = :id';
-            $params = [
-                'id' => $id,
-                'nombre_completo' => $nombreCompleto,
-                'usuario' => $usuario,
-                'email' => $email,
-                'id_rol' => $idRol,
-            ];
+                    WHERE id = :id AND deleted_at IS NULL';
         }
 
         return $this->db()->prepare($sql)->execute($params);
     }
 
-    /**
-     * Cambia el estado (Activo/Inactivo) de un usuario.
-     */
     public function cambiar_estado(int $id, int $estado): bool
     {
         $sql = 'UPDATE usuarios
                 SET estado = :estado,
                     updated_at = NOW()
-                WHERE id = :id';
+                WHERE id = :id AND deleted_at IS NULL';
 
         return $this->db()->prepare($sql)->execute(['id' => $id, 'estado' => $estado]);
     }
 
-    /**
-     * Lista los roles que están marcados como activos.
-     */
+    // NUEVO MÉTODO PARA ELIMINADO LÓGICO
+    public function eliminar(int $id, int $deletedBy): bool
+    {
+        $sql = 'UPDATE usuarios
+                SET estado = 0,
+                    deleted_at = NOW(),
+                    updated_by = :deletedBy
+                WHERE id = :id';
+        
+        return $this->db()->prepare($sql)->execute(['id' => $id, 'deletedBy' => $deletedBy]);
+    }
+
     public function listar_roles_activos(): array
     {
-        $sql = 'SELECT id, nombre FROM roles WHERE estado = 1 ORDER BY nombre';
+        $sql = 'SELECT id, nombre FROM roles WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre';
         return $this->db()->query($sql)->fetchAll();
     }
 
-    /**
-     * Registra la fecha y hora del último acceso exitoso.
-     */
     public function actualizar_ultimo_login(int $id): void
     {
-        $this->db()->prepare('UPDATE usuarios SET ultimo_login = NOW(), updated_at = NOW() WHERE id = :id')->execute(['id' => $id]);
+        $this->db()->prepare('UPDATE usuarios SET ultimo_login = NOW() WHERE id = :id')->execute(['id' => $id]);
     }
 
-    /**
-     * Inserta un registro en la bitácora de seguridad.
-     */
     public function insertar_bitacora(int $createdBy, string $evento, string $descripcion, string $ip, string $userAgent): void
     {
         $sql = 'INSERT INTO bitacora_seguridad (created_by, evento, descripcion, ip_address, user_agent, created_at)

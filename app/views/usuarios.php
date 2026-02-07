@@ -1,4 +1,9 @@
-<?php $usuarios = $usuarios ?? []; $roles = $roles ?? []; ?>
+<?php 
+$usuarios = $usuarios ?? []; 
+$roles = $roles ?? []; 
+// Recuperamos el ID del usuario actual enviado desde el controlador
+$currentUserId = $current_user_id ?? 0; 
+?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -55,6 +60,13 @@
                     </thead>
                     <tbody>
                     <?php foreach ($usuarios as $u): ?>
+                        <?php 
+                            // Lógica de Protección Visual
+                            $esAdmin = strtolower($u['usuario']) === 'admin';
+                            $esMismoUsuario = (int)$u['id'] === $currentUserId;
+                            // Si es admin o es el mismo usuario, es "intocable"
+                            $esIntocable = $esAdmin || $esMismoUsuario;
+                        ?>
                         <tr data-search="<?php echo e(mb_strtolower($u['nombre_completo'].' '.$u['usuario'].' '.$u['email'])); ?>" 
                             data-rol="<?php echo e($u['rol']); ?>" 
                             data-estado="<?php echo (int)$u['estado']; ?>">
@@ -65,8 +77,17 @@
                                         <?php echo strtoupper(substr($u['usuario'], 0, 1)); ?>
                                     </div>
                                     <div>
-                                        <div class="fw-bold text-dark">
+                                        <div class="fw-bold text-dark d-flex align-items-center">
                                             <?php echo e($u['nombre_completo']); ?>
+                                            
+                                            <!-- Badges informativos -->
+                                            <?php if ($esAdmin): ?>
+                                                <i class="bi bi-patch-check-fill text-warning ms-1" data-bs-toggle="tooltip" title="Super Admin"></i>
+                                            <?php endif; ?>
+                                            
+                                            <?php if ($esMismoUsuario): ?>
+                                                <span class="badge bg-info text-white ms-2" style="font-size: 0.65em; padding: 0.3em 0.5em;">TÚ</span>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="small text-muted"><?php echo e($u['email']); ?></div>
                                     </div>
@@ -89,29 +110,44 @@
 
                             <td class="text-end pe-4">
                                 <div class="d-flex align-items-center justify-content-end gap-2">
-                                    <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                    
+                                    <!-- Switch de Estado -->
+                                    <div class="form-check form-switch pt-1" 
+                                         data-bs-toggle="tooltip" 
+                                         title="<?php echo $esIntocable ? 'No puedes desactivar este usuario' : 'Cambiar estado'; ?>">
                                         <input class="form-check-input switch-estado" type="checkbox" role="switch" 
                                                style="cursor: pointer; width: 2.5em; height: 1.25em;"
                                                data-id="<?php echo $u['id']; ?>"
-                                               <?php echo (int)$u['estado'] === 1 ? 'checked' : ''; ?>>
+                                               <?php echo (int)$u['estado'] === 1 ? 'checked' : ''; ?>
+                                               <?php echo $esIntocable ? 'disabled' : ''; ?>>
                                     </div>
 
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
+                                    <!-- Botón Editar (Siempre disponible) -->
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" 
                                             onclick="editarUsuario(<?php echo (int) $u['id']; ?>,'<?php echo e($u['nombre_completo']); ?>','<?php echo e($u['usuario']); ?>','<?php echo e($u['email']); ?>',<?php echo (int) $u['id_rol']; ?>)" 
                                             data-bs-toggle="tooltip" title="Editar">
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
                                     
-                                    <form method="post" class="delete-form d-inline m-0">
-                                        <input type="hidden" name="accion" value="eliminar">
-                                        <input type="hidden" name="id" value="<?php echo (int) $u['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" 
-                                                data-bs-toggle="tooltip" title="Eliminar">
-                                            <i class="bi bi-trash fs-5"></i>
+                                    <!-- Botón Eliminar (Protegido) -->
+                                    <?php if (!$esIntocable): ?>
+                                        <form method="post" class="delete-form d-inline m-0">
+                                            <input type="hidden" name="accion" value="eliminar">
+                                            <input type="hidden" name="id" value="<?php echo (int) $u['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" 
+                                                    data-bs-toggle="tooltip" title="Eliminar">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <!-- Placeholder visual para usuarios protegidos -->
+                                        <button class="btn btn-sm btn-light text-muted border-0 bg-transparent" disabled 
+                                                data-bs-toggle="tooltip" title="Acción no permitida (Protegido)">
+                                            <i class="bi bi-shield-lock fs-5"></i>
                                         </button>
-                                    </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -131,6 +167,7 @@
     </div>
 </div>
 
+<!-- MODAL CREAR -->
 <div class="modal fade" id="modalCrearUsuario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -187,6 +224,7 @@
     </div>
 </div>
 
+<!-- MODAL EDITAR -->
 <div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -232,3 +270,6 @@
         </div>
     </div>
 </div>
+
+<!-- Vinculamos el JS externo -->
+<script src="<?php echo asset_url('js/usuarios.js'); ?>"></script>
