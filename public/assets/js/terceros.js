@@ -25,11 +25,26 @@
         });
     }
 
+    function getFeedbackElement(input) {
+        if (!input) return null;
+        const floatingFeedback = input.closest('.form-floating')?.querySelector('.invalid-feedback');
+        if (floatingFeedback) return floatingFeedback;
+        const inputGroup = input.closest('.input-group');
+        if (inputGroup && inputGroup.nextElementSibling?.classList.contains('invalid-feedback')) {
+            return inputGroup.nextElementSibling;
+        }
+        const parentFeedback = input.parentElement?.querySelector('.invalid-feedback');
+        if (parentFeedback) return parentFeedback;
+        if (input.nextElementSibling?.classList.contains('invalid-feedback')) return input.nextElementSibling;
+        return null;
+    }
+
     function setInvalid(input, message) {
         if (!input) return;
         input.classList.add('is-invalid');
-        if (message && input.nextElementSibling?.classList.contains('invalid-feedback')) {
-            input.nextElementSibling.textContent = message;
+        const feedback = getFeedbackElement(input);
+        if (message && feedback) {
+            feedback.textContent = message;
         }
     }
 
@@ -69,9 +84,6 @@
             if (digits.length !== 11) {
                 return 'El RUC debe tener 11 dígitos.';
             }
-            if (!/^(10|20)/.test(digits)) {
-                return 'El RUC debe iniciar con 10 o 20.';
-            }
             return null;
         }
         if (tipo === 'DNI') {
@@ -89,7 +101,19 @@
     function updateNombreLabel(tipoPersonaEl, labelEl) {
         if (!tipoPersonaEl || !labelEl) return;
         const tipo = tipoPersonaEl.value;
-        labelEl.textContent = tipo === 'JURIDICA' ? 'Razón social' : 'Nombre completo';
+        labelEl.innerHTML = (tipo === 'JURIDICA' ? 'Razón social' : 'Nombre completo') + ' <span class="text-danger">*</span>';
+    }
+
+    function resetFields(containerEl) {
+        if (!containerEl) return;
+        containerEl.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.type === 'checkbox') {
+                el.checked = false;
+            } else {
+                el.value = '';
+            }
+            el.classList.remove('is-invalid');
+        });
     }
 
     function toggleLaboralFields(checkboxEl, containerEl) {
@@ -97,14 +121,16 @@
         const show = checkboxEl.checked;
         containerEl.style.display = show ? '' : 'none';
         if (!show) {
-            containerEl.querySelectorAll('input, select, textarea').forEach(el => {
-                if (el.type === 'checkbox') {
-                    el.checked = false;
-                } else {
-                    el.value = '';
-                }
-                el.classList.remove('is-invalid');
-            });
+            resetFields(containerEl);
+        }
+    }
+
+    function toggleComercialFields(clienteEl, proveedorEl, containerEl) {
+        if (!containerEl) return;
+        const show = Boolean(clienteEl?.checked || proveedorEl?.checked);
+        containerEl.style.display = show ? '' : 'none';
+        if (!show) {
+            resetFields(containerEl);
         }
     }
 
@@ -159,7 +185,7 @@
         }
     }
 
-    function validateForm(form, rolesFeedbackId) {
+    function validateForm(form, rolesFeedbackId, showErrors = true) {
         let valid = true;
         const tipoPersona = form.querySelector('[name="tipo_persona"]');
         const tipoDoc = form.querySelector('[name="tipo_documento"]');
@@ -167,40 +193,52 @@
         const nombre = form.querySelector('[name="nombre_completo"]');
         const telefono = form.querySelector('[name="telefono"]');
         const email = form.querySelector('[name="email"]');
+        const condicionPago = form.querySelector('[name="condicion_pago"]');
+        const diasCredito = form.querySelector('[name="dias_credito"]');
+        const limiteCredito = form.querySelector('[name="limite_credito"]');
+        const cargo = form.querySelector('[name="cargo"]');
+        const area = form.querySelector('[name="area"]');
+        const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
+        const estadoLaboral = form.querySelector('[name="estado_laboral"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, telefono, email].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, telefono, email, condicionPago, diasCredito, limiteCredito, cargo, area, fechaIngreso, estadoLaboral].forEach(clearInvalid);
 
         if (!tipoPersona?.value) {
-            setInvalid(tipoPersona, 'Seleccione el tipo de persona.');
+            if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.');
             valid = false;
         }
 
         if (!tipoDoc?.value) {
-            setInvalid(tipoDoc, 'Seleccione el tipo de documento.');
+            if (showErrors) setInvalid(tipoDoc, 'Seleccione el tipo de documento.');
             valid = false;
         }
 
         const numero = (numeroDoc?.value || '').trim();
         const documentoError = getDocumentoError(tipoDoc?.value || '', numero);
         if (documentoError) {
-            setInvalid(numeroDoc, documentoError);
+            if (numeroDoc) numeroDoc.setCustomValidity(documentoError);
+            if (showErrors) setInvalid(numeroDoc, documentoError);
             valid = false;
-        } else if (numeroDoc) {
+        } else if (numeroDoc && !numeroDoc.validity?.customError) {
             numeroDoc.setCustomValidity('');
+        }
+        if (numeroDoc?.validity?.customError) {
+            if (showErrors) setInvalid(numeroDoc, numeroDoc.validationMessage);
+            valid = false;
         }
 
         if (!nombre?.value.trim()) {
-            setInvalid(nombre, 'Ingrese el nombre o razón social.');
+            if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.');
             valid = false;
         }
 
         if (!isValidEmail(email?.value || '')) {
-            setInvalid(email, 'Ingrese un email válido.');
+            if (showErrors) setInvalid(email, 'Ingrese un email válido.');
             valid = false;
         }
 
         if (!isPeruPhone(telefono?.value || '')) {
-            setInvalid(telefono, 'Ingrese un teléfono peruano válido.');
+            if (showErrors) setInvalid(telefono, 'Ingrese un teléfono peruano válido.');
             valid = false;
         }
 
@@ -208,15 +246,61 @@
         const hasRole = Array.from(roles).some(el => el.checked);
         const rolesFeedback = rolesFeedbackId ? document.getElementById(rolesFeedbackId) : null;
         if (!hasRole) {
-            rolesFeedback?.classList.remove('d-none');
-            rolesFeedback?.classList.add('d-block');
+            if (showErrors) {
+                rolesFeedback?.classList.remove('d-none');
+                rolesFeedback?.classList.add('d-block');
+            }
             valid = false;
         } else {
             rolesFeedback?.classList.add('d-none');
             rolesFeedback?.classList.remove('d-block');
         }
 
+        const esCliente = form.querySelector('[name="es_cliente"]')?.checked;
+        const esProveedor = form.querySelector('[name="es_proveedor"]')?.checked;
+        const esEmpleado = form.querySelector('[name="es_empleado"]')?.checked;
+
+        if (esCliente || esProveedor) {
+            if (!((condicionPago?.value || '').trim())) {
+                if (showErrors) setInvalid(condicionPago, 'Ingrese la condición de pago.');
+                valid = false;
+            }
+            if (!((diasCredito?.value ?? '').toString().trim())) {
+                if (showErrors) setInvalid(diasCredito, 'Ingrese los días de crédito.');
+                valid = false;
+            }
+            if (!((limiteCredito?.value ?? '').toString().trim())) {
+                if (showErrors) setInvalid(limiteCredito, 'Ingrese el límite de crédito.');
+                valid = false;
+            }
+        }
+
+        if (esEmpleado) {
+            if (!((cargo?.value || '').trim())) {
+                if (showErrors) setInvalid(cargo, 'Ingrese el cargo.');
+                valid = false;
+            }
+            if (!((area?.value || '').trim())) {
+                if (showErrors) setInvalid(area, 'Ingrese el área.');
+                valid = false;
+            }
+            if (!((fechaIngreso?.value || '').trim())) {
+                if (showErrors) setInvalid(fechaIngreso, 'Seleccione la fecha de ingreso.');
+                valid = false;
+            }
+            if (!((estadoLaboral?.value || '').trim())) {
+                if (showErrors) setInvalid(estadoLaboral, 'Seleccione el estado laboral.');
+                valid = false;
+            }
+        }
+
         return valid;
+    }
+
+    function updateSubmitState(form, submitButton, rolesFeedbackId, showErrors = true) {
+        if (!form) return;
+        const valid = validateForm(form, rolesFeedbackId, showErrors);
+        if (submitButton) submitButton.disabled = !valid;
     }
 
     function submitForm(form, submitButton, rolesFeedbackId) {
@@ -224,7 +308,8 @@
         form.addEventListener('submit', (event) => {
             event.preventDefault();
 
-            if (!validateForm(form, rolesFeedbackId)) {
+            if (!validateForm(form, rolesFeedbackId, true)) {
+                updateSubmitState(form, submitButton, rolesFeedbackId, true);
                 return;
             }
 
@@ -244,7 +329,8 @@
                 }
 
                 const formData = new FormData(form);
-                fetch(window.location.href, {
+                const targetUrl = form.getAttribute('action') || window.location.href;
+                fetch(targetUrl, {
                     method: 'POST',
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData
@@ -255,6 +341,10 @@
                             throw new Error(data.mensaje || 'No se pudo guardar.');
                         }
                         Swal.fire('Guardado', data.mensaje || 'Registro guardado.', 'success').then(() => {
+                            const modalEl = form.closest('.modal');
+                            if (modalEl) {
+                                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                            }
                             window.location.reload();
                         });
                     })
@@ -283,7 +373,13 @@
             }
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
             updateNombreLabel(document.getElementById('crearTipoPersona'), document.getElementById('crearNombreLabel'));
+            toggleComercialFields(
+                document.getElementById('crearEsCliente'),
+                document.getElementById('crearEsProveedor'),
+                document.getElementById('crearComercialFields')
+            );
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'));
+            updateSubmitState(form, document.getElementById('crearGuardarBtn'), 'crearRolesFeedback', false);
         });
     }
 
@@ -306,7 +402,6 @@
                 'editDireccion': 'data-direccion',
                 'editTelefono': 'data-telefono',
                 'editEmail': 'data-email',
-                'editRubroSector': 'data-rubro-sector',
                 'editObservaciones': 'data-observaciones',
                 'editCondicionPago': 'data-condicion-pago',
                 'editDiasCredito': 'data-dias-credito',
@@ -323,6 +418,14 @@
             for (let id in fields) {
                 const el = document.getElementById(id);
                 if (el) el.value = button.getAttribute(fields[id]) || '';
+            }
+
+            const estadoLaboral = document.getElementById('editEstadoLaboral');
+            if (estadoLaboral && estadoLaboral.value) {
+                const normalized = estadoLaboral.value.toLowerCase();
+                if (estadoLaboral.querySelector(`option[value="${normalized}"]`)) {
+                    estadoLaboral.value = normalized;
+                }
             }
 
             const essalud = document.getElementById('editEssalud');
@@ -352,7 +455,13 @@
 
             document.getElementById('editRolesFeedback')?.classList.add('d-none');
             updateNombreLabel(document.getElementById('editTipoPersona'), document.getElementById('editNombreLabel'));
+            toggleComercialFields(
+                document.getElementById('editEsCliente'),
+                document.getElementById('editEsProveedor'),
+                document.getElementById('editComercialFields')
+            );
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'));
+            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback', false);
         });
     }
 
@@ -370,12 +479,51 @@
         const editTipoPersona = document.getElementById('editTipoPersona');
         const crearEsEmpleado = document.getElementById('crearEsEmpleado');
         const editEsEmpleado = document.getElementById('editEsEmpleado');
+        const crearEsCliente = document.getElementById('crearEsCliente');
+        const crearEsProveedor = document.getElementById('crearEsProveedor');
+        const editEsCliente = document.getElementById('editEsCliente');
+        const editEsProveedor = document.getElementById('editEsProveedor');
 
-        createTipoPersona?.addEventListener('change', () => updateNombreLabel(createTipoPersona, document.getElementById('crearNombreLabel')));
-        editTipoPersona?.addEventListener('change', () => updateNombreLabel(editTipoPersona, document.getElementById('editNombreLabel')));
+        createTipoPersona?.addEventListener('change', () => {
+            updateNombreLabel(createTipoPersona, document.getElementById('crearNombreLabel'));
+            updateSubmitState(document.getElementById('formCrearTercero'), document.getElementById('crearGuardarBtn'), 'crearRolesFeedback');
+        });
+        editTipoPersona?.addEventListener('change', () => {
+            updateNombreLabel(editTipoPersona, document.getElementById('editNombreLabel'));
+            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback');
+        });
 
-        crearEsEmpleado?.addEventListener('change', () => toggleLaboralFields(crearEsEmpleado, document.getElementById('crearLaboralFields')));
-        editEsEmpleado?.addEventListener('change', () => toggleLaboralFields(editEsEmpleado, document.getElementById('editLaboralFields')));
+        crearEsEmpleado?.addEventListener('change', () => {
+            toggleLaboralFields(crearEsEmpleado, document.getElementById('crearLaboralFields'));
+            updateSubmitState(document.getElementById('formCrearTercero'), document.getElementById('crearGuardarBtn'), 'crearRolesFeedback');
+        });
+        editEsEmpleado?.addEventListener('change', () => {
+            toggleLaboralFields(editEsEmpleado, document.getElementById('editLaboralFields'));
+            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback');
+        });
+
+        const handleComercialToggle = (clienteEl, proveedorEl, formId, submitId, rolesFeedbackId, containerId) => {
+            toggleComercialFields(clienteEl, proveedorEl, document.getElementById(containerId));
+            updateSubmitState(document.getElementById(formId), document.getElementById(submitId), rolesFeedbackId);
+        };
+
+        crearEsCliente?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
+        crearEsProveedor?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
+        editEsCliente?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
+        editEsProveedor?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
+    }
+
+    function bindFormRealtimeValidation(form, submitButton, rolesFeedbackId) {
+        if (!form) return;
+        const fields = Array.from(form.querySelectorAll('input, select, textarea'));
+        fields.forEach(field => {
+            const eventType = field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio' ? 'change' : 'input';
+            field.addEventListener(eventType, () => updateSubmitState(form, submitButton, rolesFeedbackId, true));
+            if (eventType !== 'change') {
+                field.addEventListener('change', () => updateSubmitState(form, submitButton, rolesFeedbackId, true));
+            }
+        });
+        updateSubmitState(form, submitButton, rolesFeedbackId, false);
     }
 
     function initTableManager() {
@@ -581,10 +729,12 @@
 
         const crearGuardarBtn = document.getElementById('crearGuardarBtn');
         if (crearGuardarBtn) crearGuardarBtn.setAttribute('data-original-text', crearGuardarBtn.innerHTML);
+        bindFormRealtimeValidation(document.getElementById('formCrearTercero'), crearGuardarBtn, 'crearRolesFeedback');
         submitForm(document.getElementById('formCrearTercero'), crearGuardarBtn, 'crearRolesFeedback');
 
         const editGuardarBtn = document.getElementById('editGuardarBtn');
         if (editGuardarBtn) editGuardarBtn.setAttribute('data-original-text', editGuardarBtn.innerHTML);
+        bindFormRealtimeValidation(document.getElementById('formEditarTercero'), editGuardarBtn, 'editRolesFeedback');
         submitForm(document.getElementById('formEditarTercero'), editGuardarBtn, 'editRolesFeedback');
     });
 })();
