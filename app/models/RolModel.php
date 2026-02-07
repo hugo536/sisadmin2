@@ -20,11 +20,15 @@ class RolModel extends Modelo
      */
     public function crear(string $nombre, int $createdBy): bool
     {
-        $sql = 'INSERT INTO roles (nombre, estado, created_at, created_by) 
-                VALUES (:nombre, 1, NOW(), :created_by)';
+        $slugBase = $this->slugify($nombre);
+        $slug = $this->slugDisponible($slugBase);
+
+        $sql = 'INSERT INTO roles (nombre, slug, estado, created_at, created_by) 
+                VALUES (:nombre, :slug, 1, NOW(), :created_by)';
         
         return $this->db()->prepare($sql)->execute([
             'nombre'     => $nombre,
+            'slug'       => $slug,
             'created_by' => $createdBy,
         ]);
     }
@@ -34,8 +38,12 @@ class RolModel extends Modelo
      */
     public function actualizar(int $id, string $nombre, int $estado, int $updatedBy): bool
     {
+        $slugBase = $this->slugify($nombre);
+        $slug = $this->slugDisponible($slugBase, $id);
+
         $sql = 'UPDATE roles 
                 SET nombre = :nombre, 
+                    slug = :slug,
                     estado = :estado, 
                     updated_at = NOW(), 
                     updated_by = :updated_by 
@@ -45,6 +53,7 @@ class RolModel extends Modelo
         return $this->db()->prepare($sql)->execute([
             'id'         => $id,
             'nombre'     => $nombre,
+            'slug'       => $slug,
             'estado'     => $estado,
             'updated_by' => $updatedBy,
         ]);
@@ -123,7 +132,7 @@ class RolModel extends Modelo
 
     /**
      * Sincroniza los permisos del rol (Estrategia Upsert/Restore).
-     * Corrige el uso de PK compuesta (id_rol, id_permiso) en lugar de ID autoincremental.
+     * La unicidad se basa en la combinación (id_rol, id_permiso).
      */
     public function guardar_permisos(int $idRol, array $permisosIds, int $usuarioAuditId = 1): void
     {
@@ -189,6 +198,50 @@ class RolModel extends Modelo
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
+        }
+    }
+
+    private function slugify(string $nombre): string
+    {
+        $slug = mb_strtolower(trim($nombre));
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $slug);
+            if ($converted !== false) {
+                $slug = $converted;
+            }
+        }
+        $slug = preg_replace('/[^a-z0-9]+/i', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? $slug : 'rol';
+    }
+
+    private function slugDisponible(string $base, ?int $ignoreId = null): string
+    {
+        $db = $this->db();
+        $slug = $base;
+        $suffix = 1;
+
+        while (true) {
+            $sql = 'SELECT id FROM roles WHERE slug = :slug';
+            $params = ['slug' => $slug];
+
+            if ($ignoreId !== null) {
+                $sql .= ' AND id <> :ignore_id';
+                $params['ignore_id'] = $ignoreId;
+            }
+
+            $sql .= ' LIMIT 1';
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+
+            if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+                return $slug;
+            }
+
+            $slug = $base . '-' . $suffix;
+            $suffix++;
         }
     }
 }
