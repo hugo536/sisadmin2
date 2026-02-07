@@ -29,7 +29,12 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
 <aside class="sidebar position-fixed top-0 start-0 h-100">
     <div class="sidebar-header">
         <div class="sidebar-logo">
-            <i class="bi bi-box-seam-fill text-primary"></i> SISADMIN2
+            <?php if (!empty($configEmpresa['logo_path'])): ?>
+                <img id="sidebarCompanyLogo" src="<?php echo e(base_url() . '/' . ltrim((string) $configEmpresa['logo_path'], '/')); ?>" alt="Logo" class="me-2" style="width: 28px; height: 28px; object-fit: contain;">
+            <?php else: ?>
+                <i class="bi bi-box-seam-fill text-primary"></i>
+            <?php endif; ?>
+            <span id="sidebarCompanyName"><?php echo htmlspecialchars((string) ($configEmpresa['razon_social'] ?? 'SISADMIN2')); ?></span>
         </div>
 
         <div class="user-card">
@@ -49,13 +54,13 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
         </a>
 
         <?php if (tiene_permiso('items.ver')): ?>
-            <a class="sidebar-link<?php echo $activo('item'); ?>" href="<?php echo route_url('item'); ?>">
+            <a class="sidebar-link<?php echo $activo('items'); ?>" href="<?php echo route_url('items'); ?>">
                 <i class="bi bi-box-seam"></i> <span>Ítems / Productos</span>
             </a>
         <?php endif; ?>
 
         <?php if (tiene_permiso('items.ver')): // Ajusta el permiso si tienes 'terceros.ver' ?>
-            <a class="sidebar-link<?php echo $activo('tercero'); ?>" href="<?php echo route_url('tercero'); ?>">
+            <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo route_url('terceros'); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
         <?php endif; ?>

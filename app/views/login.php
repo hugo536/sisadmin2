@@ -5,6 +5,9 @@ $empresa = trim((string) ($configEmpresa['razon_social'] ?? '')) ?: 'SISADMIN';
 $logoPath = trim((string) ($configEmpresa['logo_path'] ?? ''));
 $logoUrl = $logoPath !== '' ? base_url() . '/' . ltrim($logoPath, '/') : '';
 $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'));
+$esHex = (bool) preg_match('/^#([a-f0-9]{6})$/i', $temaSistema);
+$temaLogin = $esHex ? 'custom' : $temaSistema;
+$loginStyle = $esHex ? "--primary: {$temaSistema}; --primary-hover: {$temaSistema};" : '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -15,7 +18,7 @@ $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'))
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?php echo asset_url('css/login.css'); ?>">
 </head>
-<body data-theme="<?php echo e($temaSistema); ?>">
+<body data-theme="<?php echo e($temaLogin); ?>" style="<?php echo e($loginStyle); ?>">
 
 <div class="login-wrapper">
     <div class="brand-panel">

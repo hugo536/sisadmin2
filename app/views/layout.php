@@ -17,8 +17,13 @@
         window.BASE_URL = "<?php echo e($baseUrl); ?>";
     </script>
 </head>
-<?php $temaSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light')); ?>
-<body data-theme="<?php echo e($temaSistema); ?>">
+<?php
+$colorSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'));
+$esHex = (bool) preg_match('/^#([a-f0-9]{6})$/i', $colorSistema);
+$temaSistema = $esHex ? 'custom' : $colorSistema;
+$bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colorSistema};" : '';
+?>
+<body data-theme="<?php echo e($temaSistema); ?>" style="<?php echo e($bodyStyle); ?>">
 <div class="app-container">
     <?php require BASE_PATH . '/app/views/sidebar.php'; ?>
 

@@ -25,6 +25,30 @@ class TercerosController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                if (es_ajax() && $accion === 'validar_documento') {
+                    require_permiso('terceros.crear');
+                    $tipoDoc = trim((string) ($_POST['tipo_documento'] ?? ''));
+                    $numeroDoc = trim((string) ($_POST['numero_documento'] ?? ''));
+                    $excludeId = isset($_POST['exclude_id']) ? (int) $_POST['exclude_id'] : null;
+                    $existe = $tipoDoc !== '' && $numeroDoc !== ''
+                        ? $this->terceroModel->documentoExiste($tipoDoc, $numeroDoc, $excludeId)
+                        : false;
+                    json_response(['ok' => true, 'existe' => $existe]);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'toggle_estado') {
+                    require_permiso('terceros.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    $estado = (int) ($_POST['estado'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID inválido.');
+                    }
+                    $this->terceroModel->actualizarEstado($id, $estado, $userId);
+                    json_response(['ok' => true, 'mensaje' => 'Estado actualizado.']);
+                    return;
+                }
+
                 if ($accion === 'crear') {
                     require_permiso('terceros.crear');
                     $data = $this->validarTercero($_POST);
@@ -82,7 +106,7 @@ class TercerosController extends Controlador
     private function validarTercero(array $data): array
     {
         $tipo = trim((string) ($data['tipo_documento'] ?? ''));
-        $numero = trim((string) ($data['numero_documento'] ?? ''));
+        $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($data['numero_documento'] ?? '')));
         $nombre = trim((string) ($data['nombre_completo'] ?? ''));
         $roles = [
             !empty($data['es_cliente']),
@@ -97,6 +121,8 @@ class TercerosController extends Controlador
         if (!in_array(true, $roles, true)) {
             throw new RuntimeException('Seleccione al menos un rol para el tercero.');
         }
+
+        $data['numero_documento'] = $numero;
 
         return $data;
     }

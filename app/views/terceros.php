@@ -119,6 +119,13 @@
                                             data-direccion="<?php echo e($tercero['direccion'] ?? ''); ?>"
                                             data-telefono="<?php echo e($tercero['telefono'] ?? ''); ?>"
                                             data-email="<?php echo e($tercero['email'] ?? ''); ?>"
+                                            data-condicion-pago="<?php echo e($tercero['condicion_pago'] ?? ''); ?>"
+                                            data-dias-credito="<?php echo e((string) ($tercero['dias_credito'] ?? '')); ?>"
+                                            data-limite-credito="<?php echo e((string) ($tercero['limite_credito'] ?? '')); ?>"
+                                            data-cargo="<?php echo e($tercero['cargo'] ?? ''); ?>"
+                                            data-area="<?php echo e($tercero['area'] ?? ''); ?>"
+                                            data-fecha-ingreso="<?php echo e($tercero['fecha_ingreso'] ?? ''); ?>"
+                                            data-estado-laboral="<?php echo e($tercero['estado_laboral'] ?? ''); ?>"
                                             data-estado="<?php echo (int) $tercero['estado']; ?>"
                                             data-es-cliente="<?php echo (int) $tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
@@ -242,6 +249,56 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-12">
+                            <hr class="my-2">
+                            <h6 class="fw-bold">Datos Comerciales</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago">
+                                <label for="crearCondicionPago">Condición de pago</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito" value="0">
+                                <label for="crearDiasCredito">Días de crédito</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="number" step="0.0001" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.0000">
+                                <label for="crearLimiteCredito">Límite de crédito</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <hr class="my-2">
+                            <h6 class="fw-bold">Datos Laborales</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo">
+                                <label for="crearCargo">Cargo</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="area" id="crearArea" placeholder="Área">
+                                <label for="crearArea">Área</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso">
+                                <label for="crearFechaIngreso">Fecha de ingreso</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral">
+                                <label for="crearEstadoLaboral">Estado laboral</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -326,6 +383,42 @@
                             </div>
                         </div>
                     </div>
+                    <div class="col-12">
+                        <hr class="my-2">
+                        <h6 class="fw-bold">Datos Comerciales</h6>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editCondicionPago" name="condicion_pago">
+                        <label for="editCondicionPago">Condición de pago</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editDiasCredito" name="dias_credito" type="number">
+                        <label for="editDiasCredito">Días de crédito</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.0001">
+                        <label for="editLimiteCredito">Límite de crédito</label>
+                    </div>
+                    <div class="col-12">
+                        <hr class="my-2">
+                        <h6 class="fw-bold">Datos Laborales</h6>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editCargo" name="cargo">
+                        <label for="editCargo">Cargo</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editArea" name="area">
+                        <label for="editArea">Área</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date">
+                        <label for="editFechaIngreso">Fecha de ingreso</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editEstadoLaboral" name="estado_laboral">
+                        <label for="editEstadoLaboral">Estado laboral</label>
+                    </div>
                     <div class="col-12 d-flex justify-content-end">
                         <button class="btn btn-primary" type="submit">
                             <i class="bi bi-save me-2"></i>Actualizar
@@ -356,6 +449,13 @@
         document.getElementById('editDireccion').value = button.getAttribute('data-direccion') || '';
         document.getElementById('editTelefono').value = button.getAttribute('data-telefono') || '';
         document.getElementById('editEmail').value = button.getAttribute('data-email') || '';
+        document.getElementById('editCondicionPago').value = button.getAttribute('data-condicion-pago') || '';
+        document.getElementById('editDiasCredito').value = button.getAttribute('data-dias-credito') || '0';
+        document.getElementById('editLimiteCredito').value = button.getAttribute('data-limite-credito') || '0.0000';
+        document.getElementById('editCargo').value = button.getAttribute('data-cargo') || '';
+        document.getElementById('editArea').value = button.getAttribute('data-area') || '';
+        document.getElementById('editFechaIngreso').value = button.getAttribute('data-fecha-ingreso') || '';
+        document.getElementById('editEstadoLaboral').value = button.getAttribute('data-estado-laboral') || '';
         document.getElementById('editEstado').value = button.getAttribute('data-estado') || '1';
         document.getElementById('editEsCliente').checked = (button.getAttribute('data-es-cliente') || '0') === '1';
         document.getElementById('editEsProveedor').checked = (button.getAttribute('data-es-proveedor') || '0') === '1';

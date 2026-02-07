@@ -6,8 +6,9 @@ class ItemModel extends Modelo
     public function listar(): array
     {
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
-                       unidad_base, controla_stock, stock_minimo, precio_venta,
-                       costo_referencial, estado
+                       unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                       controla_stock, stock_minimo, precio_venta, costo_referencial,
+                       moneda, impuesto, estado
                 FROM items
                 WHERE deleted_at IS NULL
                 ORDER BY id DESC';
@@ -20,8 +21,9 @@ class ItemModel extends Modelo
     public function obtener(int $id): array
     {
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
-                       unidad_base, controla_stock, stock_minimo, precio_venta,
-                       costo_referencial, estado
+                       unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                       controla_stock, stock_minimo, precio_venta, costo_referencial,
+                       moneda, impuesto, estado
                 FROM items
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -35,7 +37,7 @@ class ItemModel extends Modelo
 
     public function skuExiste(string $sku, ?int $excludeId = null): bool
     {
-        $sql = 'SELECT 1 FROM items WHERE sku = :sku AND deleted_at IS NULL';
+        $sql = 'SELECT 1 FROM items WHERE sku = :sku';
         $params = ['sku' => $sku];
 
         if ($excludeId !== null) {
@@ -62,11 +64,13 @@ class ItemModel extends Modelo
         $payload['updated_by'] = $userId;
 
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, marca,
-                                  unidad_base, controla_stock, stock_minimo, precio_venta,
-                                  costo_referencial, estado, created_by, updated_by)
+                                  unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                                  controla_stock, stock_minimo, precio_venta, costo_referencial,
+                                  moneda, impuesto, estado, created_by, updated_by)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :marca,
-                        :unidad_base, :controla_stock, :stock_minimo, :precio_venta,
-                        :costo_referencial, :estado, :created_by, :updated_by)';
+                        :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
+                        :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
+                        :moneda, :impuesto, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($payload);
 
@@ -82,10 +86,15 @@ class ItemModel extends Modelo
                     id_categoria = :id_categoria,
                     marca = :marca,
                     unidad_base = :unidad_base,
+                    permite_decimales = :permite_decimales,
+                    requiere_lote = :requiere_lote,
+                    requiere_vencimiento = :requiere_vencimiento,
                     controla_stock = :controla_stock,
                     stock_minimo = :stock_minimo,
                     precio_venta = :precio_venta,
                     costo_referencial = :costo_referencial,
+                    moneda = :moneda,
+                    impuesto = :impuesto,
                     estado = :estado,
                     updated_by = :updated_by
                 WHERE id = :id
@@ -102,12 +111,14 @@ class ItemModel extends Modelo
         $sql = 'UPDATE items
                 SET estado = 0,
                     deleted_at = NOW(),
-                    updated_by = :updated_by
+                    updated_by = :updated_by,
+                    deleted_by = :deleted_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
         return $this->db()->prepare($sql)->execute([
             'id' => $id,
             'updated_by' => $userId,
+            'deleted_by' => $userId,
         ]);
     }
 
@@ -124,10 +135,15 @@ class ItemModel extends Modelo
                 'id_categoria' => $item['id_categoria'] !== null ? (int) $item['id_categoria'] : null,
                 'marca' => (string) ($item['marca'] ?? ''),
                 'unidad_base' => (string) ($item['unidad_base'] ?? ''),
+                'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
+                'requiere_lote' => (int) ($item['requiere_lote'] ?? 0),
+                'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
                 'controla_stock' => (int) ($item['controla_stock'] ?? 0),
                 'stock_minimo' => (float) ($item['stock_minimo'] ?? 0),
                 'precio_venta' => (float) ($item['precio_venta'] ?? 0),
                 'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
+                'moneda' => (string) ($item['moneda'] ?? ''),
+                'impuesto' => (float) ($item['impuesto'] ?? 0),
                 'estado' => (int) ($item['estado'] ?? 1),
             ];
         }, $items);
@@ -149,10 +165,15 @@ class ItemModel extends Modelo
             'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? $data['id_categoria'] : null,
             'marca' => trim((string) ($data['marca'] ?? '')),
             'unidad_base' => trim((string) ($data['unidad_base'] ?? 'UND')),
+            'permite_decimales' => !empty($data['permite_decimales']) ? 1 : 0,
+            'requiere_lote' => !empty($data['requiere_lote']) ? 1 : 0,
+            'requiere_vencimiento' => !empty($data['requiere_vencimiento']) ? 1 : 0,
             'controla_stock' => !empty($data['controla_stock']) ? 1 : 0,
             'stock_minimo' => (float) ($data['stock_minimo'] ?? 0),
             'precio_venta' => (float) ($data['precio_venta'] ?? 0),
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),
+            'moneda' => trim((string) ($data['moneda'] ?? 'PEN')),
+            'impuesto' => (float) ($data['impuesto'] ?? 0),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
     }
