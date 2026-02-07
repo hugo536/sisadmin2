@@ -7,14 +7,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light d-flex align-items-center" style="min-height:100vh;">
-<div class="container">
-    <div class="card shadow-sm mx-auto" style="max-width:560px;">
-        <div class="card-body p-4 text-center">
-            <h1 class="h3 mb-3">403 - No autorizado</h1>
-            <p class="text-muted">No tienes permisos para acceder a este módulo.</p>
-            <a class="btn btn-primary" href="<?php echo e(route_url('dashboard/index')); ?>">Volver al dashboard</a>
-        </div>
-    </div>
+<div class="container text-center mt-5">
+    <h1 class="text-danger">403 - Acceso Denegado</h1>
+    <p>No tienes permisos para ver esta sección.</p>
+    
+    <?php if (isset($_GET['ruta'])): ?>
+        <small class="text-muted">Ruta bloqueada: <?php echo htmlspecialchars($_GET['ruta']); ?></small>
+    <?php endif; ?>
+    
+    <pre class="text-start bg-light p-3 mt-3 border">
+        Permisos actuales en sesión:
+        <?php print_r($_SESSION['permisos'] ?? 'VACÍO'); ?>
+    </pre>
 </div>
 </body>
 </html>

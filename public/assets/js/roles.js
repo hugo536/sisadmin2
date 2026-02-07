@@ -1,21 +1,108 @@
 /**
  * public/assets/js/roles.js
  * Gestión de Roles y Permisos (Cliente)
+ * V5 - Fix: Error de estilos (Null Style) corregido
  */
 
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
-    // =========================================================
-    // CONFIGURACIÓN Y CONSTANTES
-    // =========================================================
-    const BASE_URL = (document.querySelector('base') || {}).href || window.location.origin; // Ajustar según tu <base> tag si existe
     const TABLE_ID = 'rolesTable';
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
+    const MY_ROLE_ID = (typeof window.MY_ROLE_ID !== 'undefined') ? parseInt(window.MY_ROLE_ID) : 0;
 
     // =========================================================
-    // 1. GESTIÓN DE TABLA (Buscador + Paginación)
+    // 1. LÓGICA DE CASCADA (VER -> HIJOS) Y BLOQUEO DE ROL
+    // =========================================================
+    
+    // Función A: Controla la cascada dentro de un módulo
+    function updateModuleCascade(masterCheckbox) {
+        const container = masterCheckbox.closest('.accordion-body');
+        if (!container) return;
+
+        const siblings = container.querySelectorAll('input[type="checkbox"].permiso-check');
+        const isChecked = masterCheckbox.checked;
+        const isMasterDisabled = masterCheckbox.disabled; 
+
+        siblings.forEach(chk => {
+            if (chk === masterCheckbox) return;
+
+            // CORRECCIÓN AQUÍ: Usamos .closest('.form-check') en lugar de label
+            const wrapper = chk.closest('.form-check'); 
+
+            if (isChecked && !isMasterDisabled) {
+                chk.disabled = false;
+                if(wrapper) wrapper.style.opacity = '1';
+            } else {
+                chk.disabled = true;
+                chk.checked = false; 
+                if(wrapper) wrapper.style.opacity = '0.5';
+            }
+        });
+    }
+
+    // Función B: Controla el bloqueo total según el Switch del Rol
+    function updateRoleMatrixState(switchRol) {
+        const rowMain = switchRol.closest('tr.role-row-main');
+        if (!rowMain) return; // Validación extra
+        
+        const rolId = rowMain.dataset.roleId;
+        const rowDetail = document.querySelector(`tr.role-row-detail[data-detail-for="${rolId}"]`);
+        
+        if (!rowDetail) return;
+
+        const allCheckboxes = rowDetail.querySelectorAll('input[type="checkbox"].permiso-check');
+        const isRoleActive = switchRol.checked;
+
+        allCheckboxes.forEach(chk => {
+            // CORRECCIÓN AQUÍ TAMBIÉN
+            const wrapper = chk.closest('.form-check');
+
+            if (isRoleActive) {
+                const slug = chk.dataset.slug || '';
+                
+                if (slug.endsWith('.ver')) {
+                    chk.disabled = false;
+                    if(wrapper) wrapper.style.opacity = '1';
+                    // Disparamos la actualización para sus hijos
+                    updateModuleCascade(chk);
+                }
+            } else {
+                // Rol inactivo -> Todo deshabilitado
+                chk.disabled = true;
+                if(wrapper) wrapper.style.opacity = '0.5';
+            }
+        });
+    }
+
+    // Inicializar listeners de Cascada
+    function initCascadeListeners() {
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('permiso-check')) {
+                const slug = e.target.dataset.slug || '';
+                if (slug.endsWith('.ver')) {
+                    updateModuleCascade(e.target);
+                }
+            }
+            if (e.target.classList.contains('switch-estado-rol')) {
+                updateRoleMatrixState(e.target);
+            }
+        });
+
+        // Ejecución inicial
+        document.querySelectorAll('input[data-slug$=".ver"]').forEach(chk => {
+            updateModuleCascade(chk);
+        });
+
+        document.querySelectorAll('.switch-estado-rol').forEach(sw => {
+            updateRoleMatrixState(sw);
+        });
+    }
+
+
+    // =========================================================
+    // 2. GESTIÓN DE TABLA (Renderizado y Filtros)
     // =========================================================
     const table = document.getElementById(TABLE_ID);
     const searchInput = document.getElementById('rolesSearch');
@@ -25,239 +112,161 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function initTable() {
         if (!table) return;
-
-        // Selección robusta: Solo filas principales, ignorando detalles
         const mainRows = Array.from(table.querySelectorAll('.role-row-main'));
 
         function renderTable() {
             const searchText = (searchInput?.value || '').toLowerCase().trim();
             const statusValue = (statusFilter?.value || '').toString();
 
-            // Filtrado
             const filteredRows = mainRows.filter(row => {
                 const searchData = (row.dataset.search || '').toLowerCase();
                 const statusData = (row.dataset.estado || '').toString();
-                
-                const matchText = !searchText || searchData.includes(searchText);
-                const matchStatus = !statusValue || statusData === statusValue;
-
-                return matchText && matchStatus;
+                return (!searchText || searchData.includes(searchText)) &&
+                       (!statusValue || statusData === statusValue);
             });
 
-            // Paginación
             const totalItems = filteredRows.length;
             const totalPages = Math.ceil(totalItems / ROWS_PER_PAGE) || 1;
-
             if (currentPage > totalPages) currentPage = 1;
-
+            
             const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
             const endIndex = startIndex + ROWS_PER_PAGE;
             const visibleRows = filteredRows.slice(startIndex, endIndex);
 
-            // Renderizado DOM
-            // 1. Ocultar todo
             mainRows.forEach(row => {
                 row.style.display = 'none';
-                if (row.nextElementSibling && row.nextElementSibling.classList.contains('role-row-detail')) {
-                    row.nextElementSibling.style.display = 'none';
+                const detailRow = row.nextElementSibling;
+                if (detailRow?.classList.contains('role-row-detail')) {
+                    detailRow.style.display = 'none';
                 }
             });
 
-            // 2. Mostrar filtrados de la página actual
             visibleRows.forEach(row => {
                 row.style.display = '';
-                // Si el detalle estaba abierto (clase bootstrap show), o lógica simple: 
-                // En este diseño el detalle siempre está en el DOM, solo controlamos visibilidad de la fila TR
-                if (row.nextElementSibling && row.nextElementSibling.classList.contains('role-row-detail')) {
-                    row.nextElementSibling.style.display = '';
+                const detailRow = row.nextElementSibling;
+                if (detailRow?.classList.contains('role-row-detail')) {
+                    detailRow.style.display = '';
                 }
             });
 
-            // 3. Actualizar Info
             if (paginationInfo) {
                 paginationInfo.textContent = totalItems > 0 
                     ? `Mostrando ${startIndex + 1} a ${Math.min(endIndex, totalItems)} de ${totalItems} roles`
                     : 'No se encontraron roles';
             }
-
-            // 4. Actualizar Paginador
             renderPaginationControls(totalPages);
+            
+            setTimeout(() => {
+                initCascadeListeners(); 
+            }, 50);
         }
 
         function renderPaginationControls(totalPages) {
             if (!paginationControls) return;
             paginationControls.innerHTML = '';
-
             if (totalPages <= 1) return;
 
-            // Botón Anterior
-            const prevLi = document.createElement('li');
-            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-            prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
-            prevLi.onclick = (e) => { e.preventDefault(); if(currentPage > 1) { currentPage--; renderTable(); }};
-            paginationControls.appendChild(prevLi);
-
-            // Números
-            for (let i = 1; i <= totalPages; i++) {
+            const createLi = (text, page, isActive, isDisabled) => {
                 const li = document.createElement('li');
-                li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-                li.onclick = (e) => { e.preventDefault(); currentPage = i; renderTable(); };
-                paginationControls.appendChild(li);
-            }
+                li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#">${text}</a>`;
+                li.onclick = (e) => { 
+                    e.preventDefault(); 
+                    if (!isDisabled && !isActive) { currentPage = page; renderTable(); }
+                };
+                return li;
+            };
 
-            // Botón Siguiente
-            const nextLi = document.createElement('li');
-            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-            nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
-            nextLi.onclick = (e) => { e.preventDefault(); if(currentPage < totalPages) { currentPage++; renderTable(); }};
-            paginationControls.appendChild(nextLi);
+            paginationControls.appendChild(createLi('«', currentPage - 1, false, currentPage === 1));
+            for (let i = 1; i <= totalPages; i++) {
+                paginationControls.appendChild(createLi(i, i, i === currentPage, false));
+            }
+            paginationControls.appendChild(createLi('»', currentPage + 1, false, currentPage === totalPages));
         }
 
-        // Listeners
         searchInput?.addEventListener('input', () => { currentPage = 1; renderTable(); });
         statusFilter?.addEventListener('change', () => { currentPage = 1; renderTable(); });
-
-        // Inicializar
         renderTable();
     }
 
     // =========================================================
-    // 2. CREAR ROL (AJAX)
+    // 3. LOGICA ANTISUICIDIO (Switch)
     // =========================================================
-    const formCrear = document.getElementById('formCrearRol');
-    if (formCrear) {
-        formCrear.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-
-            submitAction(formData, () => {
-                // Éxito
-                const modalEl = document.getElementById('modalCrearRol');
-                const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                modalInstance?.hide();
-                this.reset();
-                Swal.fire('Creado', 'El rol ha sido creado correctamente.', 'success')
-                    .then(() => window.location.reload()); // Recargar para ver cambios
-            });
-        });
-    }
-
-    // =========================================================
-    // 3. EDITAR ROL (Modal + AJAX)
-    // =========================================================
-    // Delegación de eventos para botones de editar
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-editar-rol');
-        if (btn) {
-            const id = btn.dataset.id;
-            const nombre = btn.dataset.nombre;
-            const estado = btn.dataset.estado;
-
-            document.getElementById('editRolId').value = id;
-            document.getElementById('editRolNombre').value = nombre;
-            document.getElementById('editRolEstado').value = estado;
-
-            new bootstrap.Modal(document.getElementById('modalEditarRol')).show();
-        }
-    });
-
-    const formEditar = document.getElementById('formEditarRol');
-    if (formEditar) {
-        formEditar.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-
-            submitAction(formData, () => {
-                const modalEl = document.getElementById('modalEditarRol');
-                bootstrap.Modal.getInstance(modalEl)?.hide();
-                Swal.fire('Actualizado', 'Rol actualizado correctamente.', 'success')
-                    .then(() => window.location.reload());
-            });
-        });
-    }
-
-    // =========================================================
-    // 4. TOGGLE ESTADO (Switch)
-    // =========================================================
-    document.addEventListener('change', function (e) {
+    document.addEventListener('click', function(e) {
         if (e.target.classList.contains('switch-estado-rol')) {
             const checkbox = e.target;
-            const id = checkbox.dataset.id;
-            const newState = checkbox.checked ? 1 : 0;
+            const rolId = parseInt(checkbox.dataset.id);
 
-            const formData = new FormData();
-            formData.append('accion', 'toggle');
-            formData.append('id', id);
-            formData.append('estado', newState);
+            if (rolId === MY_ROLE_ID) {
+                e.preventDefault(); 
+                e.stopPropagation();
+                // Fix visual + Recálculo de estado matriz
+                setTimeout(() => { 
+                    checkbox.checked = true; 
+                    updateRoleMatrixState(checkbox); 
+                }, 10); 
 
-            // Enviar sin confirmación (acción rápida) o con toast
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.ok) {
-                    // Actualizar dataset para el filtro
-                    const row = checkbox.closest('tr');
-                    if(row) row.dataset.estado = newState;
-                    
-                    // Toast notificación
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
-                    Toast.fire({
-                        icon: 'success',
-                        title: newState ? 'Rol activado' : 'Rol desactivado'
-                    });
-                    
-                    // Actualizar badge visualmente (opcional, ya que el switch ya cambió)
-                    const badge = row.querySelector('.badge-status');
-                    if (badge) {
-                        badge.className = `badge-status ${newState ? 'status-active' : 'status-inactive'}`;
-                        badge.textContent = newState ? 'Activo' : 'Inactivo';
-                    }
-
-                } else {
-                    checkbox.checked = !checkbox.checked; // Revertir
-                    Swal.fire('Error', data.mensaje, 'error');
-                }
-            })
-            .catch(err => {
-                checkbox.checked = !checkbox.checked;
-                console.error(err);
-                Swal.fire('Error', 'Error de conexión', 'error');
-            });
+                Swal.fire({
+                    icon: 'warning', title: 'Acción Bloqueada',
+                    text: 'Por seguridad, no puedes desactivar tu propio rol.',
+                    confirmButtonText: 'Entendido'
+                });
+                return false;
+            }
         }
     });
 
     // =========================================================
-    // 5. GUARDAR PERMISOS (AJAX)
+    // 4. GUARDAR TODO (Permisos + Switch Estado)
     // =========================================================
     document.querySelectorAll('.permiso-form').forEach(form => {
         form.addEventListener('submit', function (e) {
             e.preventDefault();
+            const rolId = parseInt(this.querySelector('input[name="id_rol"]').value);
+
+            if (rolId === MY_ROLE_ID) {
+                Swal.fire('Acción Protegida', 'No puedes editar los permisos de tu propio rol.', 'error');
+                return;
+            }
             
-            // Confirmación suave
+            const allDisabled = this.querySelectorAll('input:disabled');
+            allDisabled.forEach(i => i.disabled = false);
+
+            const formData = new FormData(this);
+
+            allDisabled.forEach(i => i.disabled = true);
+
+            const parentRow = document.querySelector(`tr.role-row-main[data-role-id="${rolId}"]`);
+            if (parentRow) {
+                const switchEstado = parentRow.querySelector('.switch-estado-rol');
+                if (switchEstado) {
+                    formData.append('estado_rol', switchEstado.checked ? 1 : 0);
+                }
+            }
+
             Swal.fire({
                 title: '¿Guardar cambios?',
-                text: "Se actualizarán los permisos para este rol.",
+                text: "Se actualizarán los permisos y el estado del rol.",
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Sí, guardar',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const formData = new FormData(this);
-                    
                     submitAction(formData, () => {
-                        Swal.fire('Guardado', 'Permisos asignados correctamente.', 'success');
-                        // No es necesario recargar, el estado visual ya está en los switches
+                        Swal.fire('Guardado', 'Rol y permisos actualizados.', 'success');
+                        
+                        if (parentRow) {
+                            const newState = formData.get('estado_rol');
+                            parentRow.dataset.estado = newState;
+                            const badge = parentRow.querySelector('.badge-status');
+                            if (badge) {
+                                badge.className = `badge-status ${newState == 1 ? 'status-active' : 'status-inactive'}`;
+                                badge.textContent = newState == 1 ? 'Activo' : 'Inactivo';
+                            }
+                            const switchEl = parentRow.querySelector('.switch-estado-rol');
+                            if(switchEl) updateRoleMatrixState(switchEl);
+                        }
                     });
                 }
             });
@@ -265,73 +274,82 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =========================================================
-    // 6. ELIMINAR ROL
+    // 5. OTROS FORMULARIOS
     // =========================================================
+    const formCrear = document.getElementById('formCrearRol');
+    if (formCrear) {
+        formCrear.addEventListener('submit', function (e) {
+            e.preventDefault();
+            submitAction(new FormData(this), () => {
+                document.querySelector('#modalCrearRol .btn-close').click();
+                this.reset();
+                Swal.fire('Creado', 'Rol creado.', 'success').then(() => window.location.reload());
+            });
+        });
+    }
+
+    const formEditar = document.getElementById('formEditarRol');
+    if (formEditar) {
+        formEditar.addEventListener('submit', function (e) {
+            e.preventDefault();
+            submitAction(new FormData(this), () => {
+                document.querySelector('#modalEditarRol .btn-close').click();
+                Swal.fire('Actualizado', 'Rol actualizado.', 'success').then(() => window.location.reload());
+            });
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-editar-rol');
+        if (btn) {
+            document.getElementById('editRolId').value = btn.dataset.id;
+            document.getElementById('editRolNombre').value = btn.dataset.nombre;
+            document.getElementById('editRolEstado').value = btn.dataset.estado;
+            new bootstrap.Modal(document.getElementById('modalEditarRol')).show();
+        }
+    });
+
     document.addEventListener('submit', function (e) {
         if (e.target.classList.contains('delete-form')) {
             e.preventDefault();
-            const form = e.target;
-            
+            const rolId = parseInt(new FormData(e.target).get('id'));
+            if (rolId === MY_ROLE_ID) {
+                Swal.fire('Error', 'No puedes eliminar tu propio rol.', 'error');
+                return;
+            }
             Swal.fire({
                 title: '¿Eliminar rol?',
-                text: "Esta acción no se puede deshacer y podría afectar a usuarios asignados.",
+                text: "Irreversible.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
+                confirmButtonText: 'Eliminar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const formData = new FormData(form);
-                    submitAction(formData, () => {
-                        Swal.fire('Eliminado', 'El rol ha sido eliminado.', 'success')
-                            .then(() => window.location.reload());
+                    submitAction(new FormData(e.target), () => {
+                        Swal.fire('Eliminado', 'Rol eliminado.', 'success').then(() => window.location.reload());
                     });
                 }
             });
         }
     });
 
-    // =========================================================
-    // UTILS: Helper Fetch
-    // =========================================================
     function submitAction(formData, onSuccess) {
-        // Mostrar loading si se desea
-        
         fetch(window.location.href, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+            method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(response => {
-            if (!response.ok) throw new Error('Error en la respuesta del servidor');
-            return response.json();
-        })
+        .then(res => res.json())
         .then(data => {
-            if (data.ok) {
-                if (onSuccess) onSuccess(data);
-            } else {
-                Swal.fire('Error', data.mensaje || 'Ocurrió un error desconocido', 'error');
-            }
+            if (data.ok) onSuccess(data);
+            else Swal.fire('Error', data.mensaje, 'error');
         })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error de sistema', 'No se pudo procesar la solicitud. Revise la consola.', 'error');
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Error', 'Error de conexión', 'error');
         });
     }
 
-    // =========================================================
-    // INICIALIZACIÓN
-    // =========================================================
     initTable();
-    
-    // Tooltips bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-
+    initCascadeListeners();
+    [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).map(el => new bootstrap.Tooltip(el));
 });

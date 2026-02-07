@@ -220,13 +220,14 @@ foreach ($permisos as $permiso) {
                                                                             ?>
                                                                             <div class="col-12 col-md-6 col-lg-4">
                                                                                 <div class="form-check form-switch bg-white border rounded-2 p-2 h-100 d-flex align-items-center shadow-sm">
-                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0"
-                                                                                           type="checkbox"
-                                                                                           role="switch"
-                                                                                           name="permisos[]"
-                                                                                           value="<?php echo $permId; ?>"
-                                                                                           style="width: 2.5em; height: 1.25em; cursor: pointer;"
-                                                                                           <?php echo $checked ? 'checked' : ''; ?>>
+                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0 permiso-check"
+                                                                                        type="checkbox"
+                                                                                        role="switch"
+                                                                                        name="permisos[]"
+                                                                                        value="<?php echo $permId; ?>"
+                                                                                        data-slug="<?php echo e($permSlug); ?>"
+                                                                                        style="width: 2.5em; height: 1.25em; cursor: pointer;"
+                                                                                        <?php echo $checked ? 'checked' : ''; ?>>
                                                                                     
                                                                                     <div class="lh-1">
                                                                                         <span class="d-block fw-medium text-dark mb-1"><?php echo e($permNom); ?></span>
@@ -397,5 +398,8 @@ foreach ($permisos as $permiso) {
         </div>
     </div>
 </div>
-
+<script>
+    // Variable global para que JS sepa quién soy yo
+    window.MY_ROLE_ID = <?php echo (int)($_SESSION['id_rol'] ?? 0); ?>;
+</script>
 <script src="<?php echo asset_url('js/roles.js'); ?>"></script>

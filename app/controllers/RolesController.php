@@ -43,7 +43,7 @@ class RolesController extends Controlador
                         $httpCode = 200;
                         break;
 
-                    case 'editar':
+                    case 'editar': // Edición de nombre solamente
                         require_permiso('roles.editar');
                         $id = (int)($_POST['id'] ?? 0);
                         $nombre = trim($_POST['nombre'] ?? '');
@@ -51,7 +51,7 @@ class RolesController extends Controlador
 
                         if (empty($nombre)) throw new Exception("El nombre es obligatorio.");
                         
-                        // Regla de seguridad: No desactivar el rol propio
+                        // Regla de seguridad: No desactivar el rol propio desde modal editar
                         if ($estado === 0 && $id === (int)($_SESSION['id_rol'] ?? 0)) {
                             throw new Exception("Por seguridad, no puedes desactivar tu propio rol actual.");
                         }
@@ -88,7 +88,7 @@ class RolesController extends Controlador
                         $httpCode = 200;
                         break;
 
-                    case 'permisos': // Guardar asignación de permisos
+                    case 'permisos': // Guardar asignación de permisos Y Estado (Switch)
                         require_permiso('roles.editar');
                         $idRol = (int)($_POST['id_rol'] ?? 0);
                         
@@ -96,16 +96,25 @@ class RolesController extends Controlador
                         $permisos = isset($_POST['permisos']) && is_array($_POST['permisos']) 
                                     ? array_map('intval', $_POST['permisos']) 
                                     : [];
+                        
+                        // Capturamos el estado del switch si viene en el form (gracias al JS actualizado)
+                        $nuevoEstado = isset($_POST['estado_rol']) ? (int)$_POST['estado_rol'] : null;
 
                         // Regla 3.4 Manual: Prevención de Auto-Bloqueo
+                        // BLOQUEO TOTAL: No se pueden editar permisos ni estado del rol propio.
                         if ($idRol === (int)($_SESSION['id_rol'] ?? 0)) {
-                            throw new Exception("Por seguridad, no puedes editar los permisos de tu propio rol.");
+                            throw new Exception("Protección Anti-Lockout: Por seguridad, no puedes modificar los permisos ni el estado de tu propio rol.");
                         }
 
-                        // Guardar (Auditoría: $userId)
+                        // 1. Guardar Permisos (Auditoría: $userId)
                         $this->rolModel->guardar_permisos($idRol, $permisos, $userId);
                         
-                        $response = ['ok' => true, 'mensaje' => 'Permisos actualizados correctamente.'];
+                        // 2. Guardar Estado (Si vino en el request)
+                        if ($nuevoEstado !== null) {
+                            $this->rolModel->cambiar_estado($idRol, $nuevoEstado, $userId);
+                        }
+                        
+                        $response = ['ok' => true, 'mensaje' => 'Configuración guardada correctamente.'];
                         $httpCode = 200;
                         break;
                 }
@@ -122,8 +131,7 @@ class RolesController extends Controlador
                 echo json_encode($response);
                 exit;
             } else {
-                // Fallback para POST tradicional (recargar página)
-                // Se podría implementar redirección con $_SESSION['flash'] si fuera necesario
+                // Fallback para POST tradicional
                 header('Location: ' . BASE_URL . '/roles');
                 exit;
             }
