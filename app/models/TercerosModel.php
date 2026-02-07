@@ -8,10 +8,11 @@ class TercerosModel extends Modelo
         // CORREGIDO: Hacemos LEFT JOIN con terceros_empleados para traer los datos si es empleado
         // y seleccionamos los campos específicos de cliente/proveedor
         $sql = 'SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
-                       t.cliente_condicion_pago, t.cliente_dias_credito, t.cliente_limite_credito,
-                       t.proveedor_condicion_pago, t.proveedor_dias_credito, t.proveedor_forma_pago,
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico
+                       t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
+                       t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
+                       t.condicion_pago, t.dias_credito, t.limite_credito,
+                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico,
+                       te.regimen_pensionario, te.essalud
                 FROM terceros t
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
                 WHERE t.deleted_at IS NULL
@@ -25,10 +26,11 @@ class TercerosModel extends Modelo
     public function obtener(int $id): array
     {
         $sql = 'SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
-                       t.cliente_condicion_pago, t.cliente_dias_credito, t.cliente_limite_credito,
-                       t.proveedor_condicion_pago, t.proveedor_dias_credito, t.proveedor_forma_pago,
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico
+                       t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
+                       t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
+                       t.condicion_pago, t.dias_credito, t.limite_credito,
+                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico,
+                       te.regimen_pensionario, te.essalud
                 FROM terceros t
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
                 WHERE t.id = :id
@@ -62,15 +64,17 @@ class TercerosModel extends Modelo
                             direccion = :direccion,
                             telefono = :telefono,
                             email = :email,
+                            departamento = :departamento,
+                            provincia = :provincia,
+                            distrito = :distrito,
+                            rubro_sector = :rubro_sector,
+                            observaciones = :observaciones,
                             es_cliente = :es_cliente,
                             es_proveedor = :es_proveedor,
                             es_empleado = :es_empleado,
-                            cliente_condicion_pago = :cliente_condicion_pago,
-                            cliente_dias_credito = :cliente_dias_credito,
-                            cliente_limite_credito = :cliente_limite_credito,
-                            proveedor_condicion_pago = :proveedor_condicion_pago,
-                            proveedor_dias_credito = :proveedor_dias_credito,
-                            proveedor_forma_pago = :proveedor_forma_pago,
+                            condicion_pago = :condicion_pago,
+                            dias_credito = :dias_credito,
+                            limite_credito = :limite_credito,
                             estado = :estado,
                             updated_by = :updated_by,
                             deleted_at = NULL
@@ -79,25 +83,43 @@ class TercerosModel extends Modelo
                 $params = $payload; // Copiamos payload
                 $params['id'] = $idTercero;
                 // Quitamos datos de empleados del array para este insert/update
-                unset($params['cargo'], $params['area'], $params['fecha_ingreso'], $params['estado_laboral'], $params['sueldo_basico'], $params['tipo_documento'], $params['numero_documento']);
+                unset(
+                    $params['cargo'],
+                    $params['area'],
+                    $params['fecha_ingreso'],
+                    $params['estado_laboral'],
+                    $params['sueldo_basico'],
+                    $params['regimen_pensionario'],
+                    $params['essalud'],
+                    $params['tipo_documento'],
+                    $params['numero_documento']
+                );
                 
                 $this->db()->prepare($sql)->execute($params);
 
             } else {
                 // Insertar nuevo Tercero
                 $sql = 'INSERT INTO terceros (tipo_persona, tipo_documento, numero_documento, nombre_completo,
-                                              direccion, telefono, email, es_cliente, es_proveedor, es_empleado,
-                                              cliente_condicion_pago, cliente_dias_credito, cliente_limite_credito,
-                                              proveedor_condicion_pago, proveedor_dias_credito, proveedor_forma_pago,
+                                              direccion, telefono, email, departamento, provincia, distrito,
+                                              rubro_sector, observaciones, es_cliente, es_proveedor, es_empleado,
+                                              condicion_pago, dias_credito, limite_credito,
                                               estado, created_by, updated_by)
                         VALUES (:tipo_persona, :tipo_documento, :numero_documento, :nombre_completo,
-                                :direccion, :telefono, :email, :es_cliente, :es_proveedor, :es_empleado,
-                                :cliente_condicion_pago, :cliente_dias_credito, :cliente_limite_credito,
-                                :proveedor_condicion_pago, :proveedor_dias_credito, :proveedor_forma_pago,
+                                :direccion, :telefono, :email, :departamento, :provincia, :distrito,
+                                :rubro_sector, :observaciones, :es_cliente, :es_proveedor, :es_empleado,
+                                :condicion_pago, :dias_credito, :limite_credito,
                                 :estado, :created_by, :updated_by)';
                 
                 $params = $payload;
-                unset($params['cargo'], $params['area'], $params['fecha_ingreso'], $params['estado_laboral'], $params['sueldo_basico']);
+                unset(
+                    $params['cargo'],
+                    $params['area'],
+                    $params['fecha_ingreso'],
+                    $params['estado_laboral'],
+                    $params['sueldo_basico'],
+                    $params['regimen_pensionario'],
+                    $params['essalud']
+                );
                 $params['created_by'] = $userId;
                 $params['updated_by'] = $userId;
                 
@@ -136,15 +158,17 @@ class TercerosModel extends Modelo
                         direccion = :direccion,
                         telefono = :telefono,
                         email = :email,
+                        departamento = :departamento,
+                        provincia = :provincia,
+                        distrito = :distrito,
+                        rubro_sector = :rubro_sector,
+                        observaciones = :observaciones,
                         es_cliente = :es_cliente,
                         es_proveedor = :es_proveedor,
                         es_empleado = :es_empleado,
-                        cliente_condicion_pago = :cliente_condicion_pago,
-                        cliente_dias_credito = :cliente_dias_credito,
-                        cliente_limite_credito = :cliente_limite_credito,
-                        proveedor_condicion_pago = :proveedor_condicion_pago,
-                        proveedor_dias_credito = :proveedor_dias_credito,
-                        proveedor_forma_pago = :proveedor_forma_pago,
+                        condicion_pago = :condicion_pago,
+                        dias_credito = :dias_credito,
+                        limite_credito = :limite_credito,
                         estado = :estado,
                         updated_by = :updated_by
                     WHERE id = :id
@@ -153,7 +177,15 @@ class TercerosModel extends Modelo
             $params = $payload;
             $params['id'] = $id;
             // Quitamos campos de empleado para este update
-            unset($params['cargo'], $params['area'], $params['fecha_ingreso'], $params['estado_laboral'], $params['sueldo_basico']);
+            unset(
+                $params['cargo'],
+                $params['area'],
+                $params['fecha_ingreso'],
+                $params['estado_laboral'],
+                $params['sueldo_basico'],
+                $params['regimen_pensionario'],
+                $params['essalud']
+            );
 
             $this->db()->prepare($sql)->execute($params);
 
@@ -175,14 +207,16 @@ class TercerosModel extends Modelo
     private function guardarEmpleado(int $idTercero, array $data, int $userId): void
     {
         // Usamos ON DUPLICATE KEY UPDATE para manejar insert o update automáticamente
-        $sql = 'INSERT INTO terceros_empleados (id_tercero, cargo, area, fecha_ingreso, estado_laboral, sueldo_basico, updated_by, updated_at)
-                VALUES (:id_tercero, :cargo, :area, :fecha_ingreso, :estado_laboral, :sueldo_basico, :updated_by, NOW())
+        $sql = 'INSERT INTO terceros_empleados (id_tercero, cargo, area, fecha_ingreso, estado_laboral, sueldo_basico, regimen_pensionario, essalud, updated_by, updated_at)
+                VALUES (:id_tercero, :cargo, :area, :fecha_ingreso, :estado_laboral, :sueldo_basico, :regimen_pensionario, :essalud, :updated_by, NOW())
                 ON DUPLICATE KEY UPDATE
                     cargo = VALUES(cargo),
                     area = VALUES(area),
                     fecha_ingreso = VALUES(fecha_ingreso),
                     estado_laboral = VALUES(estado_laboral),
                     sueldo_basico = VALUES(sueldo_basico),
+                    regimen_pensionario = VALUES(regimen_pensionario),
+                    essalud = VALUES(essalud),
                     updated_by = VALUES(updated_by),
                     updated_at = NOW()';
         
@@ -193,6 +227,8 @@ class TercerosModel extends Modelo
             'fecha_ingreso' => !empty($data['fecha_ingreso']) ? $data['fecha_ingreso'] : null,
             'estado_laboral' => $data['estado_laboral'] ?? 'activo',
             'sueldo_basico' => $data['sueldo_basico'] ?? 0.00,
+            'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
+            'essalud' => !empty($data['essalud']) ? 1 : 0,
             'updated_by' => $userId
         ]);
     }
@@ -277,18 +313,18 @@ class TercerosModel extends Modelo
             'direccion' => trim((string) ($data['direccion'] ?? '')),
             'telefono' => trim((string) ($data['telefono'] ?? '')),
             'email' => trim((string) ($data['email'] ?? '')),
+            'departamento' => trim((string) ($data['departamento'] ?? '')),
+            'provincia' => trim((string) ($data['provincia'] ?? '')),
+            'distrito' => trim((string) ($data['distrito'] ?? '')),
+            'rubro_sector' => trim((string) ($data['rubro_sector'] ?? '')),
+            'observaciones' => trim((string) ($data['observaciones'] ?? '')),
             'es_cliente' => !empty($data['es_cliente']) ? 1 : 0,
             'es_proveedor' => !empty($data['es_proveedor']) ? 1 : 0,
             'es_empleado' => !empty($data['es_empleado']) ? 1 : 0,
             
-            // CORREGIDO: Mapeo a las columnas con prefijos correctos de la BD
-            'cliente_condicion_pago' => trim((string) ($data['cliente_condicion_pago'] ?? '')),
-            'cliente_dias_credito' => (int) ($data['cliente_dias_credito'] ?? 0),
-            'cliente_limite_credito' => (float) ($data['cliente_limite_credito'] ?? 0),
-            
-            'proveedor_condicion_pago' => trim((string) ($data['proveedor_condicion_pago'] ?? '')),
-            'proveedor_dias_credito' => (int) ($data['proveedor_dias_credito'] ?? 0),
-            'proveedor_forma_pago' => trim((string) ($data['proveedor_forma_pago'] ?? '')),
+            'condicion_pago' => trim((string) ($data['condicion_pago'] ?? '')),
+            'dias_credito' => (int) ($data['dias_credito'] ?? 0),
+            'limite_credito' => (float) ($data['limite_credito'] ?? 0),
 
             // Campos para la tabla empleados (se separarán luego)
             'cargo' => trim((string) ($data['cargo'] ?? '')),
@@ -296,6 +332,8 @@ class TercerosModel extends Modelo
             'fecha_ingreso' => trim((string) ($data['fecha_ingreso'] ?? '')),
             'estado_laboral' => trim((string) ($data['estado_laboral'] ?? 'activo')),
             'sueldo_basico' => (float) ($data['sueldo_basico'] ?? 0),
+            'regimen_pensionario' => trim((string) ($data['regimen_pensionario'] ?? '')),
+            'essalud' => !empty($data['essalud']) ? 1 : 0,
             
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];

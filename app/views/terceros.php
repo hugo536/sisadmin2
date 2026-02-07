@@ -7,13 +7,11 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
-        <!-- BOTÓN QUE ABRE EL MODAL -->
         <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
             <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
         </button>
     </div>
 
-    <!-- Filtros -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
@@ -35,6 +33,7 @@
                     <select class="form-select bg-light" id="terceroFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activo</option>
+                        <option value="2">Bloqueado</option>
                         <option value="0">Inactivo</option>
                     </select>
                 </div>
@@ -42,7 +41,6 @@
         </div>
     </div>
 
-    <!-- Tabla -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -97,13 +95,14 @@
                             <td class="text-center" data-label="Estado">
                                 <?php if ((int) $tercero['estado'] === 1): ?>
                                     <span class="badge-status status-active" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Activo</span>
+                                <?php elseif ((int) $tercero['estado'] === 2): ?>
+                                    <span class="badge-status status-inactive" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Bloqueado</span>
                                 <?php else: ?>
                                     <span class="badge-status status-inactive" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Inactivo</span>
                                 <?php endif; ?>
                             </td>
                             <td class="text-end pe-4" data-label="Acciones">
                                 <div class="d-flex align-items-center justify-content-end gap-2">
-                                    <!-- Switch de Estado Rápido -->
                                     <div class="form-check form-switch pt-1" title="Cambiar estado">
                                         <input class="form-check-input switch-estado-tercero" type="checkbox" role="switch"
                                                style="cursor: pointer; width: 2.5em; height: 1.25em;"
@@ -122,6 +121,11 @@
                                             data-direccion="<?php echo e($tercero['direccion'] ?? ''); ?>"
                                             data-telefono="<?php echo e($tercero['telefono'] ?? ''); ?>"
                                             data-email="<?php echo e($tercero['email'] ?? ''); ?>"
+                                            data-departamento="<?php echo e($tercero['departamento'] ?? ''); ?>"
+                                            data-provincia="<?php echo e($tercero['provincia'] ?? ''); ?>"
+                                            data-distrito="<?php echo e($tercero['distrito'] ?? ''); ?>"
+                                            data-rubro-sector="<?php echo e($tercero['rubro_sector'] ?? ''); ?>"
+                                            data-observaciones="<?php echo e($tercero['observaciones'] ?? ''); ?>"
                                             data-condicion-pago="<?php echo e($tercero['condicion_pago'] ?? ''); ?>"
                                             data-dias-credito="<?php echo e((string) ($tercero['dias_credito'] ?? '')); ?>"
                                             data-limite-credito="<?php echo e((string) ($tercero['limite_credito'] ?? '')); ?>"
@@ -129,6 +133,9 @@
                                             data-area="<?php echo e($tercero['area'] ?? ''); ?>"
                                             data-fecha-ingreso="<?php echo e($tercero['fecha_ingreso'] ?? ''); ?>"
                                             data-estado-laboral="<?php echo e($tercero['estado_laboral'] ?? ''); ?>"
+                                            data-sueldo-basico="<?php echo e((string) ($tercero['sueldo_basico'] ?? '')); ?>"
+                                            data-regimen-pensionario="<?php echo e($tercero['regimen_pensionario'] ?? ''); ?>"
+                                            data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
                                             data-estado="<?php echo (int) $tercero['estado']; ?>"
                                             data-es-cliente="<?php echo (int) $tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
@@ -161,7 +168,6 @@
     </div>
 </div>
 
-<!-- Modal CREAR -->
 <div class="modal fade" id="modalCrearTercero" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
@@ -169,17 +175,19 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i>Nuevo Tercero</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="formCrearTercero" method="POST">
+            <form id="formCrearTercero" method="POST" novalidate>
                 <input type="hidden" name="accion" value="crear">
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="form-floating">
                                 <select class="form-select" name="tipo_persona" id="crearTipoPersona" required>
+                                    <option value="" selected>Seleccionar...</option>
                                     <option value="NATURAL">Natural</option>
                                     <option value="JURIDICA">Jurídica</option>
                                 </select>
                                 <label for="crearTipoPersona">Tipo de persona</label>
+                                <div class="invalid-feedback">Seleccione el tipo de persona.</div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -191,18 +199,24 @@
                                     <option value="PASAPORTE">Pasaporte</option>
                                 </select>
                                 <label for="crearTipoDoc">Tipo documento</label>
+                                <div class="invalid-feedback">Seleccione el tipo de documento.</div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
-                                <label for="crearNumeroDoc">Número</label>
+                            <div class="input-group">
+                                <div class="form-floating flex-grow-1">
+                                    <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
+                                    <label for="crearNumeroDoc">Número</label>
+                                    <div class="invalid-feedback">Ingrese un número válido.</div>
+                                </div>
+                                <button class="btn btn-outline-primary" type="button" id="crearConsultarSunat">Consultar</button>
                             </div>
                         </div>
                         <div class="col-md-8">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="nombre_completo" id="crearNombre" placeholder="Nombre" required>
-                                <label for="crearNombre">Nombre completo</label>
+                                <label for="crearNombre" id="crearNombreLabel">Nombre completo</label>
+                                <div class="invalid-feedback">Ingrese el nombre o razón social.</div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -210,6 +224,7 @@
                                 <select class="form-select" name="estado" id="crearEstado">
                                     <option value="1" selected>Activo</option>
                                     <option value="0">Inactivo</option>
+                                    <option value="2">Bloqueado</option>
                                 </select>
                                 <label for="crearEstado">Estado</label>
                             </div>
@@ -224,54 +239,121 @@
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="telefono" id="crearTelefono" placeholder="Teléfono">
                                 <label for="crearTelefono">Teléfono</label>
+                                <div class="invalid-feedback">Ingrese un teléfono peruano válido.</div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-floating">
                                 <input type="email" class="form-control" name="email" id="crearEmail" placeholder="Correo">
                                 <label for="crearEmail">Email</label>
+                                <div class="invalid-feedback">Ingrese un email válido.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-floating">
+                                <select class="form-select" name="rubro_sector" id="crearRubroSector">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Bebidas">Bebidas</option>
+                                    <option value="Distribucion">Distribución</option>
+                                    <option value="Retail">Retail</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Otros">Otros</option>
+                                </select>
+                                <label for="crearRubroSector">Rubro / sector</label>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="departamento" id="crearDepartamento"></select>
+                                        <label for="crearDepartamento">Departamento</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="provincia" id="crearProvincia"></select>
+                                        <label for="crearProvincia">Provincia</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="distrito" id="crearDistrito"></select>
+                                        <label for="crearDistrito">Distrito</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold">Roles</label>
                             <div class="d-flex flex-wrap gap-3">
-                                <div class="form-check form-switch">
+                                <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="crearEsCliente" name="es_cliente" value="1">
                                     <label class="form-check-label" for="crearEsCliente">Cliente</label>
                                 </div>
-                                <div class="form-check form-switch">
+                                <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1">
                                     <label class="form-check-label" for="crearEsProveedor">Proveedor</label>
                                 </div>
-                                <div class="form-check form-switch">
+                                <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1">
                                     <label class="form-check-label" for="crearEsEmpleado">Empleado</label>
                                 </div>
                             </div>
+                            <div class="invalid-feedback d-none" id="crearRolesFeedback">Seleccione al menos un rol.</div>
                         </div>
-                        <!-- Campos adicionales: Comerciales y Laborales -->
+
                         <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
                         <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago"><label for="crearCondicionPago">Condición de pago</label></div></div>
                         <div class="col-md-4"><div class="form-floating"><input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito" value="0"><label for="crearDiasCredito">Días de crédito</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="number" step="0.0001" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.0000"><label for="crearLimiteCredito">Límite de crédito</label></div></div>
-                        
-                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Laborales</h6></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo"><label for="crearCargo">Cargo</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="area" id="crearArea" placeholder="Área"><label for="crearArea">Área</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso"><label for="crearFechaIngreso">Fecha de ingreso</label></div></div>
-                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral"><label for="crearEstadoLaboral">Estado laboral</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="number" step="0.01" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.00"><label for="crearLimiteCredito">Límite de crédito</label></div></div>
+
+                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Observaciones</h6></div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <textarea class="form-control" name="observaciones" id="crearObservaciones" style="height: 90px" placeholder="Observaciones"></textarea>
+                                <label for="crearObservaciones">Observaciones</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 laboral-fields" id="crearLaboralFields">
+                            <hr class="my-2">
+                            <h6 class="fw-bold">Datos Laborales</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo"><label for="crearCargo">Cargo</label></div></div>
+                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="area" id="crearArea" placeholder="Área"><label for="crearArea">Área</label></div></div>
+                                <div class="col-md-4"><div class="form-floating"><input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso"><label for="crearFechaIngreso">Fecha de ingreso</label></div></div>
+                                <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral"><label for="crearEstadoLaboral">Estado laboral</label></div></div>
+                                <div class="col-md-4"><div class="form-floating"><input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="Sueldo básico"><label for="crearSueldoBasico">Sueldo básico</label></div></div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="regimen_pensionario" id="crearRegimenPensionario">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="AFP">AFP</option>
+                                            <option value="ONP">ONP</option>
+                                        </select>
+                                        <label for="crearRegimenPensionario">Régimen pensionario</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-center">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="crearEssalud" name="essalud" value="1">
+                                        <label class="form-check-label" for="crearEssalud">Afiliado a ESSALUD</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-link text-secondary text-decoration-none" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold" id="crearGuardarBtn"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal EDITAR -->
 <div class="modal fade" id="modalEditarTercero" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
@@ -280,36 +362,48 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <form method="post" id="formEditarTercero" class="row g-3">
+                <form method="post" id="formEditarTercero" class="row g-3" novalidate>
                     <input type="hidden" name="accion" value="editar">
                     <input type="hidden" name="id" id="editTerceroId">
                     <div class="col-md-4 form-floating">
                         <select class="form-select" name="tipo_persona" id="editTipoPersona" required>
+                            <option value="" selected>Seleccionar...</option>
                             <option value="NATURAL">Natural</option>
                             <option value="JURIDICA">Jurídica</option>
                         </select>
                         <label for="editTipoPersona">Tipo de persona</label>
+                        <div class="invalid-feedback">Seleccione el tipo de persona.</div>
                     </div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipoDoc" name="tipo_documento" required>
+                            <option value="" selected>Seleccionar...</option>
                             <option value="DNI">DNI</option>
                             <option value="RUC">RUC</option>
                             <option value="PASAPORTE">Pasaporte</option>
                         </select>
                         <label for="editTipoDoc">Tipo documento</label>
+                        <div class="invalid-feedback">Seleccione el tipo de documento.</div>
                     </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editNumeroDoc" name="numero_documento" required>
-                        <label for="editNumeroDoc">Número</label>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <div class="form-floating flex-grow-1">
+                                <input class="form-control" id="editNumeroDoc" name="numero_documento" required>
+                                <label for="editNumeroDoc">Número</label>
+                                <div class="invalid-feedback">Ingrese un número válido.</div>
+                            </div>
+                            <button class="btn btn-outline-primary" type="button" id="editConsultarSunat">Consultar</button>
+                        </div>
                     </div>
                     <div class="col-md-8 form-floating">
                         <input class="form-control" id="editNombre" name="nombre_completo" required>
-                        <label for="editNombre">Nombre completo</label>
+                        <label for="editNombre" id="editNombreLabel">Nombre completo</label>
+                        <div class="invalid-feedback">Ingrese el nombre o razón social.</div>
                     </div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editEstado" name="estado">
                             <option value="1">Activo</option>
                             <option value="0">Inactivo</option>
+                            <option value="2">Bloqueado</option>
                         </select>
                         <label for="editEstado">Estado</label>
                     </div>
@@ -320,33 +414,98 @@
                     <div class="col-md-3 form-floating">
                         <input class="form-control" id="editTelefono" name="telefono">
                         <label for="editTelefono">Teléfono</label>
+                        <div class="invalid-feedback">Ingrese un teléfono peruano válido.</div>
                     </div>
                     <div class="col-md-3 form-floating">
                         <input class="form-control" id="editEmail" name="email" type="email">
                         <label for="editEmail">Email</label>
+                        <div class="invalid-feedback">Ingrese un email válido.</div>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" name="rubro_sector" id="editRubroSector">
+                            <option value="">Seleccionar...</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Distribucion">Distribución</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                        <label for="editRubroSector">Rubro / sector</label>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" name="departamento" id="editDepartamento"></select>
+                                    <label for="editDepartamento">Departamento</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" name="provincia" id="editProvincia"></select>
+                                    <label for="editProvincia">Provincia</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" name="distrito" id="editDistrito"></select>
+                                    <label for="editDistrito">Distrito</label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold">Roles</label>
                         <div class="d-flex flex-wrap gap-3">
-                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsCliente" name="es_cliente" value="1"><label class="form-check-label" for="editEsCliente">Cliente</label></div>
-                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1"><label class="form-check-label" for="editEsProveedor">Proveedor</label></div>
-                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1"><label class="form-check-label" for="editEsEmpleado">Empleado</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="editEsCliente" name="es_cliente" value="1"><label class="form-check-label" for="editEsCliente">Cliente</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1"><label class="form-check-label" for="editEsProveedor">Proveedor</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1"><label class="form-check-label" for="editEsEmpleado">Empleado</label></div>
                         </div>
+                        <div class="invalid-feedback d-none" id="editRolesFeedback">Seleccione al menos un rol.</div>
                     </div>
-                    <!-- Campos adicionales EDITAR -->
                     <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editCondicionPago" name="condicion_pago"><label for="editCondicionPago">Condición de pago</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editDiasCredito" name="dias_credito" type="number"><label for="editDiasCredito">Días de crédito</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.0001"><label for="editLimiteCredito">Límite de crédito</label></div>
-                    
-                    <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Laborales</h6></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editCargo" name="cargo"><label for="editCargo">Cargo</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editArea" name="area"><label for="editArea">Área</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date"><label for="editFechaIngreso">Fecha de ingreso</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editEstadoLaboral" name="estado_laboral"><label for="editEstadoLaboral">Estado laboral</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.01"><label for="editLimiteCredito">Límite de crédito</label></div>
+
+                    <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Observaciones</h6></div>
+                    <div class="col-12">
+                        <div class="form-floating">
+                            <textarea class="form-control" name="observaciones" id="editObservaciones" style="height: 90px"></textarea>
+                            <label for="editObservaciones">Observaciones</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12 laboral-fields" id="editLaboralFields">
+                        <hr class="my-2">
+                        <h6 class="fw-bold">Datos Laborales</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4 form-floating"><input class="form-control" id="editCargo" name="cargo"><label for="editCargo">Cargo</label></div>
+                            <div class="col-md-4 form-floating"><input class="form-control" id="editArea" name="area"><label for="editArea">Área</label></div>
+                            <div class="col-md-4 form-floating"><input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date"><label for="editFechaIngreso">Fecha de ingreso</label></div>
+                            <div class="col-md-4 form-floating"><input class="form-control" id="editEstadoLaboral" name="estado_laboral"><label for="editEstadoLaboral">Estado laboral</label></div>
+                            <div class="col-md-4 form-floating"><input class="form-control" id="editSueldoBasico" name="sueldo_basico" type="number" step="0.01"><label for="editSueldoBasico">Sueldo básico</label></div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" name="regimen_pensionario" id="editRegimenPensionario">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="AFP">AFP</option>
+                                        <option value="ONP">ONP</option>
+                                    </select>
+                                    <label for="editRegimenPensionario">Régimen pensionario</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-center">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="editEssalud" name="essalud" value="1">
+                                    <label class="form-check-label" for="editEssalud">Afiliado a ESSALUD</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="col-12 d-flex justify-content-end">
-                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-2"></i>Actualizar</button>
+                        <button class="btn btn-primary" type="submit" id="editGuardarBtn"><i class="bi bi-save me-2"></i>Actualizar</button>
                     </div>
                 </form>
             </div>

@@ -99,6 +99,34 @@ class TercerosController extends Controlador
                     json_response($respuesta);
                     return;
                 }
+
+                // --- ACCIÓN: CONSULTAR SUNAT ---
+                if (es_ajax() && $accion === 'consultar_sunat') {
+                    require_permiso('terceros.crear');
+                    $ruc = preg_replace('/\\D/', '', (string) ($_POST['ruc'] ?? ''));
+                    if (strlen($ruc) !== 11) {
+                        throw new RuntimeException('RUC inválido.');
+                    }
+
+                    $simulados = [
+                        '20123456789' => [
+                            'razon_social' => 'Embotelladora Andina S.A.',
+                            'direccion' => 'Av. Principal 123, Lima',
+                        ],
+                        '20567890123' => [
+                            'razon_social' => 'Distribuciones del Sur SAC',
+                            'direccion' => 'Jr. Los Olivos 456, Arequipa',
+                        ],
+                    ];
+
+                    $respuestaSunat = $simulados[$ruc] ?? [
+                        'razon_social' => 'Empresa ' . $ruc,
+                        'direccion' => 'Dirección no registrada',
+                    ];
+
+                    json_response(['ok' => true] + $respuestaSunat);
+                    return;
+                }
             } catch (Throwable $e) {
                 if (es_ajax()) {
                     json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
@@ -117,10 +145,13 @@ class TercerosController extends Controlador
 
     private function validarTercero(array $data): array
     {
+        $tipoPersona = trim((string) ($data['tipo_persona'] ?? ''));
         $tipo = trim((string) ($data['tipo_documento'] ?? ''));
         // Solo eliminamos espacios al inicio/final, permitimos guiones si es pasaporte, pero mejor sanitizar solo alfanuméricos para DNI/RUC
         $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($data['numero_documento'] ?? '')));
         $nombre = trim((string) ($data['nombre_completo'] ?? ''));
+        $telefono = trim((string) ($data['telefono'] ?? ''));
+        $email = trim((string) ($data['email'] ?? ''));
         
         $roles = [
             !empty($data['es_cliente']),
@@ -128,8 +159,28 @@ class TercerosController extends Controlador
             !empty($data['es_empleado']),
         ];
 
-        if ($tipo === '' || $numero === '' || $nombre === '') {
-            throw new RuntimeException('Tipo de documento, número y nombre completo son obligatorios.');
+        if ($tipoPersona === '' || $tipo === '' || $numero === '' || $nombre === '') {
+            throw new RuntimeException('Tipo de persona, tipo de documento, número y nombre son obligatorios.');
+        }
+
+        if ($tipo === 'RUC' && strlen(preg_replace('/\\D/', '', $numero)) !== 11) {
+            throw new RuntimeException('El RUC debe tener 11 dígitos.');
+        }
+
+        if ($tipo === 'DNI' && strlen(preg_replace('/\\D/', '', $numero)) !== 8) {
+            throw new RuntimeException('El DNI debe tener 8 dígitos.');
+        }
+
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('El email no tiene un formato válido.');
+        }
+
+        if ($telefono !== '') {
+            $telefonoDigits = preg_replace('/\\D/', '', $telefono);
+            $telefonoValido = preg_match('/^9\\d{8}$/', $telefonoDigits) === 1 || preg_match('/^51\\d{9}$/', $telefonoDigits) === 1;
+            if (!$telefonoValido) {
+                throw new RuntimeException('El teléfono no tiene un formato válido.');
+            }
         }
 
         if (!in_array(true, $roles, true)) {
