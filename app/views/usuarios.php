@@ -5,16 +5,27 @@ $roles = $roles ?? [];
 $currentUserId = $current_user_id ?? 0; 
 ?>
 <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
-        <div>
-            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-people-fill me-2 text-primary"></i> Usuarios
+    <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
+
+        <!-- Título -->
+        <div class="flex-grow-1">
+            <h1 class="h4 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-people-fill me-2 text-primary fs-5"></i>
+                <span>Usuarios</span>
             </h1>
-            <p class="text-muted small mb-0 ms-1">Administración de cuentas y permisos de acceso.</p>
+            <p class="text-muted small mb-0 ms-1">
+                Administración de cuentas y permisos de acceso.
+            </p>
         </div>
-        <button class="btn btn-primary shadow-sm" type="button" onclick="abrirModalCrear()">
-            <i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario
+
+        <!-- Acción -->
+        <button class="btn btn-primary shadow-sm btn-new-user flex-shrink-0"
+                type="button"
+                onclick="abrirModalCrear()">
+            <i class="bi bi-person-plus-fill me-0 me-sm-2"></i>
+            <span class="d-none d-sm-inline">Nuevo Usuario</span>
         </button>
+
     </div>
 
     <div class="card border-0 shadow-sm mb-3">

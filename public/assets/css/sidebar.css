@@ -1,254 +1,292 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ==========================================================================
+   SIDEBAR CORE (Desktop + Mobile Offcanvas) — LISTO PARA COPIAR
+   - Compatible con tu layout: .main-content { margin-left: var(--sidebar-width); }
+   - NO usa body.has-sidebar (evita doble offset)
+   - Inspiración: AdminLTE / Metronic / Material Drawer
+   ========================================================================== */
 
-/* =========================
-   SIDEBAR BASE
-   ========================= */
-.sidebar {
-    width: 260px;
-    background: var(--sidebar-gradient);
-    color: var(--sidebar-text);
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--sidebar-border);
-    font-family: 'Inter', system-ui, sans-serif;
-    z-index: 1030;
-    transition: width 0.3s ease;
+:root{
+  --sidebar-width: 280px;
+
+  --sidebar-bg: #0f172a;            /* slate-900 */
+  --sidebar-bg-soft: #111827;       /* gray-900 */
+  --sidebar-border: rgba(255,255,255,.08);
+
+  --sidebar-text: #e5e7eb;          /* gray-200 */
+  --sidebar-text-muted: #9ca3af;    /* gray-400 */
+
+  --sidebar-hover: rgba(255,255,255,.06);
+  --sidebar-active: #2563eb;        /* blue-600 */
+  --sidebar-active-bg: rgba(37,99,235,.18);
 }
 
-/* Header spacing */
-.sidebar-header { padding: 1.25rem 1rem 1rem; }
+/* ==========================================================================
+   SIDEBAR CONTAINER (DESKTOP)
+   ========================================================================== */
 
-/* =========================
-   BRAND HEADER (PULIDO)
-   Reemplaza el viejo .sidebar-logo visualmente
-   (si aún existe en HTML, no pasa nada, pero ya no lo uses)
-   ========================= */
-.sidebar-brand {
-    display: grid;
-    grid-template-columns: 44px 1fr;
-    gap: 0.75rem;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding: 0.25rem 0.25rem 0.9rem;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+.sidebar{
+  width: var(--sidebar-width);
+  background: linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-soft));
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-border);
+  z-index: 1040; /* debajo del offcanvas backdrop (generalmente 1045/1050) */
 }
 
-.brand-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 10px 18px rgba(0,0,0,0.18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    backdrop-filter: blur(6px);
+/* Solo estética para desktop fijo */
+.sidebar.sidebar-desktop{
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
 }
 
-.brand-logo {
-    width: 80%;
-    height: 80%;
-    object-fit: contain;
-    display: block;
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+
+.sidebar-header{
+  padding: 1rem;
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
-.brand-fallback {
-    font-weight: 800;
-    font-size: 1.05rem;
-    color: rgba(255,255,255,0.95);
-    letter-spacing: -0.02em;
+.sidebar-brand{
+  display: flex;
+  gap: .75rem;
+  align-items: center;
 }
 
-.brand-meta { min-width: 0; }
-
-.brand-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-
-    /* clamp 2 líneas (se ve pro en sidebar angosto) */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+.brand-icon{
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
 }
 
-.brand-sub { margin-top: 0.35rem; }
-
-.brand-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: rgba(255,255,255,0.80);
-    padding: 0.18rem 0.55rem;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.10);
+.brand-logo{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-/* (Opcional) compatibilidad: si tu HTML aún usa .sidebar-logo */
-.sidebar-logo {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    letter-spacing: -0.02em;
-    opacity: 0.85;
+.brand-fallback{
+  font-weight: 700;
+  font-size: 1.25rem;
 }
 
-/* =========================
+.brand-meta{
+  min-width: 0;
+}
+
+.brand-name{
+  font-weight: 600;
+  font-size: .95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-sub{
+  font-size: .7rem;
+  color: var(--sidebar-text-muted);
+}
+
+.brand-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.10);
+  color: var(--sidebar-text-muted);
+}
+
+/* ==========================================================================
    USER CARD
-   ========================= */
-.user-card {
-    background: var(--sidebar-card-bg);
-    border: 1px solid var(--sidebar-card-border);
-    border-radius: 12px;
-    padding: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+   ========================================================================== */
+
+.user-card{
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  margin-top: .75rem;
+  padding: .6rem .6rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
 }
 
-.user-avatar {
-    width: 36px;
-    height: 36px;
-    background: var(--primary-color);
-    color: white;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1rem;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+.user-avatar{
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--sidebar-active);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: .02em;
 }
 
-.user-info { overflow: hidden; min-width: 0; }
-.user-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.user-role {
-    font-size: 0.7rem;
-    color: var(--sidebar-muted);
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+.user-info{
+  min-width: 0;
 }
 
-/* =========================
-   NAV / SCROLL (suave + fino)
-   ========================= */
-.sidebar-nav {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-    scroll-behavior: smooth;
-    padding: 0.25rem 0.25rem 0.75rem;
+.user-name{
+  font-size: .85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Webkit scrollbar */
-.sidebar-nav::-webkit-scrollbar { width: 6px; }
-.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-.sidebar-nav::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 20px;
-    border: 2px solid transparent;
-    background-clip: content-box;
+.user-role{
+  font-size: .72rem;
+  color: var(--sidebar-text-muted);
+  margin-top: 2px;
 }
-.sidebar-nav::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.5); }
+
+/* ==========================================================================
+   NAV
+   ========================================================================== */
+
+.sidebar-nav{
+  overflow-y: auto;
+  padding: .75rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar{
+  width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.18);
+  border-radius: 6px;
+}
 
 /* Labels */
-.nav-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: var(--sidebar-muted);
-    font-weight: 800;
-    margin: 1.1rem 0 0.55rem 0.65rem;
-    letter-spacing: 0.08em;
+.nav-label{
+  padding: .6rem 1.25rem;
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--sidebar-text-muted);
 }
 
-/* Links */
-.sidebar-link {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 0.85rem;
-    color: var(--sidebar-text);
-    text-decoration: none;
-    border-radius: 10px;
-    font-size: 0.92rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    margin-bottom: 4px;
-    position: relative;
+/* ==========================================================================
+   LINKS
+   ========================================================================== */
+
+.sidebar-link{
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .55rem 1.25rem;
+  color: var(--sidebar-text);
+  font-size: .86rem;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background .15s ease, color .15s ease, transform .15s ease;
 }
 
-.sidebar-link i {
-    font-size: 1.1rem;
-    color: var(--sidebar-icon);
-    transition: color 0.2s;
+.sidebar-link i{
+  font-size: 1rem;
+  opacity: .85;
 }
 
-/* Hover */
-.sidebar-link:hover {
-    background: var(--sidebar-hover-bg);
-    color: #fff;
-    transform: translateX(3px);
-}
-.sidebar-link:hover i { color: #fff; }
-
-/* Active (más “enterprise”: menos borde izquierdo agresivo, más glow) */
-.sidebar-link.active {
-    background: var(--sidebar-active-bg);
-    color: var(--sidebar-active-color);
-    font-weight: 650;
-    border-left: 3px solid var(--primary-color);
-    border-radius: 6px 10px 10px 6px;
-    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-.sidebar-link.active i { color: var(--sidebar-active-color); }
-
-/* Submenu UL spacing */
-.sidebar-nav .nav.flex-column.ps-3 {
-    padding-left: 0.75rem !important;
-    margin-top: 0.25rem;
+.sidebar-link:hover{
+  background: var(--sidebar-hover);
+  color: #fff;
 }
 
-/* =========================
+.sidebar-link.active{
+  background: var(--sidebar-active-bg);
+  border-left-color: var(--sidebar-active);
+  color: #fff;
+}
+
+/* ==========================================================================
+   COLLAPSE / DROPDOWN
+   ========================================================================== */
+
+.sidebar-link .chevron{
+  margin-left: auto;
+  transition: transform .2s ease;
+}
+
+.sidebar-link.collapsed .chevron{
+  transform: rotate(0deg);
+}
+
+.sidebar-link:not(.collapsed) .chevron{
+  transform: rotate(180deg);
+}
+
+.collapse .sidebar-link{
+  padding-left: 2.25rem;
+  font-size: .82rem;
+}
+
+/* ==========================================================================
    FOOTER
-   ========================= */
-.sidebar-footer {
-    padding: 1rem;
-    border-top: 1px solid var(--sidebar-border);
-    background: var(--sidebar-footer-bg);
+   ========================================================================== */
+
+.sidebar-footer{
+  padding: .75rem 0;
+  border-top: 1px solid var(--sidebar-border);
+  margin-top: auto;
 }
 
-/* Logout */
-.logout-link { color: #ef4444; }
-.logout-link:hover { background: rgba(239, 68, 68, 0.12); color: #f87171; }
-.logout-link i { color: #ef4444; }
-.logout-link:hover i { color: #f87171; }
+.logout-link{
+  color: #ef4444;
+}
 
-/* =========================
-   (Opcional) Mejoras de legibilidad en pantallas muy angostas
-   ========================= */
-@media (max-width: 420px) {
-    .sidebar { width: 240px; }
-    .sidebar-brand { grid-template-columns: 40px 1fr; }
-    .brand-icon { width: 40px; height: 40px; border-radius: 12px; }
-    .brand-name { font-size: 0.92rem; }
+.logout-link:hover{
+  background: rgba(239,68,68,.15);
+  color: #fff;
+}
+
+/* ==========================================================================
+   OFFCANVAS (MOBILE)
+   ========================================================================== */
+
+.sidebar-offcanvas{
+  width: var(--sidebar-width);
+  background: linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-soft));
+  color: var(--sidebar-text);
+}
+
+.sidebar-offcanvas .offcanvas-header{
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.sidebar-offcanvas .offcanvas-title{
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.sidebar-offcanvas .offcanvas-body{
+  padding: 0;
+}
+
+/* ==========================================================================
+   MOBILE TWEAKS
+   ========================================================================== */
+
+@media (max-width: 991.98px){
+  .sidebar.sidebar-desktop{
+    box-shadow: none;
+  }
+}
+
+/* ==========================================================================
+   SMALL ANIMATION HELPERS (opcional)
+   ========================================================================== */
+
+.fade-in{
+  animation: fadeInUp .25s ease-out;
+}
+@keyframes fadeInUp{
+  from{ opacity: 0; transform: translateY(4px); }
+  to  { opacity: 1; transform: translateY(0); }
 }

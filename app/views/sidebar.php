@@ -1,39 +1,44 @@
 <?php
 // =====================================================================================
-// SIDEBAR (LISTO PARA COPIAR)
-// - Header empresa pulido (logo como app-icon + nombre clamp)
-// - Persistencia de scroll (no se resetea al navegar)
-// - Chevron rota cuando el collapse está abierto
-// - Mantiene tu lógica de permisos y rutas
+// sidebar.php (Bootstrap Offcanvas Responsive) — LISTO PARA COPIAR (CORREGIDO)
+// - Desktop (>= lg): Sidebar fijo
+// - Mobile (< lg): Sidebar OFFCANVAS
+// - NO incluye el botón toggle mobile (muévelo a tu topbar/layout)
+// - Sin IDs duplicados (se quitaron sidebarCompanyLogo/sidebarCompanyName)
+// - Persistencia de scroll: Desktop sí / Mobile opcional (por defecto NO persiste)
+// - Cierra offcanvas al hacer click en link real (no en toggles collapse)
 // =====================================================================================
 
+// -----------------------------
 // Lógica de rutas y estado activo
+// -----------------------------
 $rutaActual = (string) ($ruta_actual ?? (string) ($_GET['ruta'] ?? 'dashboard'));
 
-// Helper para marcar enlace activo
 $activo = static fn(string $ruta): string =>
     (str_starts_with($rutaActual, $ruta) || $rutaActual === $ruta . '/index') ? ' active' : '';
 
-// Helper para marcar grupo (dropdown) activo
 $grupoActivo = static fn(array $rutas): string => array_reduce(
     $rutas,
     static fn(bool $carry, string $ruta): bool => $carry || str_starts_with($rutaActual, $ruta),
     false
 ) ? ' show' : '';
 
-// Helper para clase del link padre del grupo
 $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
     $rutas,
     static fn(bool $carry, string $ruta): bool => $carry || str_starts_with($rutaActual, $ruta),
     false
 ) ? ' active' : ' collapsed';
 
-// Datos de Usuario
+// -----------------------------
+// Usuario
+// -----------------------------
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
-$userInitial = strtoupper(substr($usuarioNombre, 0, 1));
-$userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id_rol'] ?? 0)));
+$userInitial   = strtoupper(substr($usuarioNombre, 0, 1));
+$userRole      = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id_rol'] ?? 0)));
 
-// Evitar error si no llega la configuración
+// -----------------------------
+// Empresa
+// -----------------------------
 $configEmpresa = is_array($configEmpresa ?? null) ? $configEmpresa : [];
 
 $empresaNombre = (string) ($configEmpresa['razon_social'] ?? 'SISADMIN2');
@@ -43,18 +48,30 @@ $logoUrl = '';
 if (!empty($configEmpresa['logo_path'])) {
     $logoUrl = base_url() . '/' . ltrim((string) $configEmpresa['logo_path'], '/');
 }
+
+/**
+ * Renderiza el contenido interno (header + nav + footer)
+ * Nota: $navId se usa para persistencia de scroll independiente (desktop/mobile).
+ */
+function renderSidebarInner(
+    string $navId,
+    string $empresaNombre,
+    string $logoUrl,
+    string $userInitial,
+    string $usuarioNombre,
+    string $userRole,
+    callable $activo,
+    callable $grupoActivo,
+    callable $linkGrupoActivo
+): void {
 ?>
-
-<aside class="sidebar position-fixed top-0 start-0 h-100" id="appSidebar">
-
     <div class="sidebar-header">
 
-        <!-- BRAND (Pulido) -->
+        <!-- BRAND -->
         <div class="sidebar-brand" aria-label="Empresa">
             <div class="brand-icon">
                 <?php if ($logoUrl !== ''): ?>
                     <img
-                        id="sidebarCompanyLogo"
                         src="<?php echo e($logoUrl); ?>"
                         alt="Logo Empresa"
                         class="brand-logo"
@@ -68,7 +85,7 @@ if (!empty($configEmpresa['logo_path'])) {
             </div>
 
             <div class="brand-meta">
-                <div class="brand-name" id="sidebarCompanyName" title="<?php echo htmlspecialchars($empresaNombre); ?>">
+                <div class="brand-name" title="<?php echo htmlspecialchars($empresaNombre); ?>">
                     <?php echo htmlspecialchars($empresaNombre); ?>
                 </div>
                 <div class="brand-sub">
@@ -88,8 +105,8 @@ if (!empty($configEmpresa['logo_path'])) {
 
     </div>
 
-    <!-- NAV (contenedor con scroll) -->
-    <nav class="sidebar-nav flex-grow-1" id="sidebarNavScroll" aria-label="Navegación principal">
+    <!-- NAV -->
+    <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
 
         <div class="nav-label">Principal</div>
 
@@ -142,7 +159,7 @@ if (!empty($configEmpresa['logo_path'])) {
             </div>
         <?php endif; ?>
 
-        <div class="nav-label">Sistema</div>
+        <div class="nav-label mt-3">Sistema</div>
 
         <?php if (tiene_permiso('usuarios.ver')): ?>
             <a class="sidebar-link<?php echo $activo('usuarios'); ?>" href="<?php echo e(route_url('usuarios')); ?>">
@@ -192,72 +209,108 @@ if (!empty($configEmpresa['logo_path'])) {
             <i class="bi bi-box-arrow-left"></i> <span>Cerrar sesión</span>
         </a>
     </div>
+<?php
+}
+?>
+
+<!-- =========================================================
+     DESKTOP SIDEBAR (>= lg): fijo
+========================================================= -->
+<aside class="sidebar sidebar-desktop position-fixed top-0 start-0 h-100 d-none d-lg-flex flex-column" id="appSidebarDesktop">
+    <?php
+      renderSidebarInner(
+        'sidebarNavScrollDesktop',
+        $empresaNombre,
+        $logoUrl,
+        $userInitial,
+        $usuarioNombre,
+        $userRole,
+        $activo,
+        $grupoActivo,
+        $linkGrupoActivo
+      );
+    ?>
 </aside>
 
-<!-- Persistencia de scroll del sidebar + rotación del chevron según estado -->
+<!-- =========================================================
+     MOBILE SIDEBAR (< lg): OFFCANVAS
+========================================================= -->
+<div class="offcanvas offcanvas-start d-lg-none sidebar-offcanvas" tabindex="-1" id="appSidebarOffcanvas" aria-labelledby="appSidebarOffcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="appSidebarOffcanvasLabel"><?php echo htmlspecialchars($empresaNombre); ?></h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+
+  <div class="offcanvas-body p-0 d-flex flex-column">
+    <?php
+      renderSidebarInner(
+        'sidebarNavScrollMobile',
+        $empresaNombre,
+        $logoUrl,
+        $userInitial,
+        $usuarioNombre,
+        $userRole,
+        $activo,
+        $grupoActivo,
+        $linkGrupoActivo
+      );
+    ?>
+  </div>
+</div>
+
 <script>
 (function () {
-  const nav = document.getElementById('sidebarNavScroll');
-  const sidebar = document.getElementById('appSidebar');
-  if (!nav || !sidebar) return;
+  // =========================================================
+  // Scroll persist (Desktop)
+  // =========================================================
+  function setupScrollPersistence(navId, storageKey) {
+    const nav = document.getElementById(navId);
+    if (!nav) return;
 
-  // ====== 1) Persistencia de scroll (tu lógica) ======
-  const KEY = 'erp.sidebar.scrollTop';
-
-  const saved = sessionStorage.getItem(KEY);
-  if (saved !== null) {
-    const y = parseInt(saved, 10);
-    if (!Number.isNaN(y)) nav.scrollTop = y;
-  }
-
-  let ticking = false;
-  nav.addEventListener('scroll', function () {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => {
-      sessionStorage.setItem(KEY, String(nav.scrollTop));
-      ticking = false;
-    });
-  }, { passive: true });
-
-  sidebar.addEventListener('click', function (e) {
-    const a = e.target.closest('a.sidebar-link');
-    if (!a) return;
-    sessionStorage.setItem(KEY, String(nav.scrollTop));
-  });
-
-  // ====== 2) AUTO-SCROLL AL ABRIR UN COLLAPSE ======
-  function ensureVisibleInsideNav(el) {
-    if (!el) return;
-
-    const navRect = nav.getBoundingClientRect();
-    const elRect  = el.getBoundingClientRect();
-
-    // margen visual para que no quede pegado al borde
-    const padding = 12;
-
-    // Si el elemento queda cortado por abajo, bajamos
-    if (elRect.bottom > navRect.bottom - padding) {
-      const delta = elRect.bottom - navRect.bottom + padding;
-      nav.scrollTop += delta;
+    const saved = sessionStorage.getItem(storageKey);
+    if (saved !== null) {
+      const y = parseInt(saved, 10);
+      if (!Number.isNaN(y)) nav.scrollTop = y;
     }
 
-    // Si quedara cortado por arriba (menos común), subimos
-    if (elRect.top < navRect.top + padding) {
-      const delta = (navRect.top + padding) - elRect.top;
-      nav.scrollTop -= delta;
-    }
+    let ticking = false;
+    nav.addEventListener('scroll', function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        sessionStorage.setItem(storageKey, String(nav.scrollTop));
+        ticking = false;
+      });
+    }, { passive: true });
+
+    nav.addEventListener('click', function (e) {
+      const a = e.target.closest('a.sidebar-link');
+      if (!a) return;
+      sessionStorage.setItem(storageKey, String(nav.scrollTop));
+    });
   }
 
-  // Cuando se abre un collapse, hacemos que su último item sea visible
-  sidebar.querySelectorAll('.collapse').forEach((col) => {
-    col.addEventListener('shown.bs.collapse', function () {
-      // Elegimos el último link dentro del submenu para garantizar que se vea todo
-      const lastLink = col.querySelector('a.sidebar-link:last-of-type') || col;
-      // Espera 1 frame por si Bootstrap aún está terminando el layout
-      requestAnimationFrame(() => ensureVisibleInsideNav(lastLink));
-    });
-  });
+  setupScrollPersistence('sidebarNavScrollDesktop', 'erp.sidebar.desktop.scrollTop');
 
+  // =========================================================
+  // Mobile UX: cerrar el offcanvas al click en link real
+  // =========================================================
+  const offcanvasEl = document.getElementById('appSidebarOffcanvas');
+  if (offcanvasEl && window.bootstrap && bootstrap.Offcanvas) {
+    const oc = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+
+    offcanvasEl.addEventListener('click', function (e) {
+      const a = e.target.closest('a.sidebar-link');
+      if (!a) return;
+
+      const href = a.getAttribute('href') || '';
+      const isToggle = a.getAttribute('data-bs-toggle') === 'collapse';
+      const isHashMenu = href.startsWith('#menu');
+
+      if (isToggle || isHashMenu) return;
+
+      oc.hide();
+    });
+  }
 })();
 </script>

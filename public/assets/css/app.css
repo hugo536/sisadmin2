@@ -1,217 +1,369 @@
+/* ==========================================================================
+   CSS GLOBAL (LIMPIO, SIN REDUNDANCIAS) — LISTO PARA COPIAR
+   - Variables de tema (default/dark/blue)
+   - Layout base (app-container/main-content) + fix sidebar offcanvas mobile
+   - Componentes: card, botones, forms, badges, avatar
+   - Tabla PRO + responsive en modo CARD (UN SOLO breakpoint: <= 991.98px)
+   ========================================================================== */
+
+/* =======================
+   THEME TOKENS
+   ======================= */
 :root {
-    --primary-color: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary-color: #64748b;
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary-color: #64748b;
 
-    --bg-body: #f1f5f9;
-    --bg-card: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #94a3b8;
+  --bg-body: #f1f5f9;
+  --bg-card: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #94a3b8;
 
-    --sidebar-width: 280px;
-    --sidebar-gradient: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-    --sidebar-text: #cbd5e1;
-    --sidebar-muted: #94a3b8;
-    --sidebar-icon: #94a3b8;
-    --sidebar-border: rgba(255, 255, 255, 0.08);
-    --sidebar-card-bg: rgba(255, 255, 255, 0.05);
-    --sidebar-card-border: rgba(255, 255, 255, 0.12);
-    --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
-    --sidebar-active-bg: rgba(37, 99, 235, 0.18);
-    --sidebar-active-color: #93c5fd;
-    --sidebar-footer-bg: rgba(15, 23, 42, 0.4);
-    --sidebar-scroll: rgba(255,255,255,0.2);
+  --sidebar-width: 280px;
+  --sidebar-gradient: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --sidebar-text: #cbd5e1;
+  --sidebar-muted: #94a3b8;
+  --sidebar-icon: #94a3b8;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-card-border: rgba(255, 255, 255, 0.12);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: rgba(37, 99, 235, 0.18);
+  --sidebar-active-color: #93c5fd;
+  --sidebar-footer-bg: rgba(15, 23, 42, 0.4);
+  --sidebar-scroll: rgba(255, 255, 255, 0.2);
 
-    --table-head-bg: var(--sidebar-gradient);
-    --table-head-color: #e2e8f0;
+  --table-head-bg: var(--sidebar-gradient);
+  --table-head-color: #e2e8f0;
 
-    --success-bg: #dcfce7;
-    --success-text: #166534;
-    --success-border: #bbf7d0;
-    --danger-bg: #fee2e2;
-    --danger-text: #991b1b;
-    --danger-border: #fecaca;
+  --success-bg: #dcfce7;
+  --success-text: #166534;
+  --success-border: #bbf7d0;
+  --danger-bg: #fee2e2;
+  --danger-text: #991b1b;
+  --danger-border: #fecaca;
 }
 
 body[data-theme="dark"] {
-    --primary-color: #7c3aed;
-    --primary-hover: #6d28d9;
-    --bg-body: #0b1120;
-    --bg-card: #111827;
-    --text-main: #e5e7eb;
-    --text-muted: #9ca3af;
+  --primary-color: #7c3aed;
+  --primary-hover: #6d28d9;
+  --bg-body: #0b1120;
+  --bg-card: #111827;
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
 
-    --sidebar-gradient: linear-gradient(180deg, #111827 0%, #030712 100%);
-    --sidebar-text: #d1d5db;
-    --sidebar-muted: #9ca3af;
-    --sidebar-icon: #9ca3af;
-    --sidebar-border: rgba(255, 255, 255, 0.12);
-    --sidebar-card-bg: rgba(255, 255, 255, 0.03);
-    --sidebar-card-border: rgba(255, 255, 255, 0.1);
-    --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-    --sidebar-active-bg: rgba(124, 58, 237, 0.25);
-    --sidebar-active-color: #ddd6fe;
-    --sidebar-footer-bg: rgba(3, 7, 18, 0.55);
+  --sidebar-gradient: linear-gradient(180deg, #111827 0%, #030712 100%);
+  --sidebar-text: #d1d5db;
+  --sidebar-muted: #9ca3af;
+  --sidebar-icon: #9ca3af;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.03);
+  --sidebar-card-border: rgba(255, 255, 255, 0.1);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: rgba(124, 58, 237, 0.25);
+  --sidebar-active-color: #ddd6fe;
+  --sidebar-footer-bg: rgba(3, 7, 18, 0.55);
 
-    --table-head-bg: linear-gradient(180deg, #1f2937 0%, #111827 100%);
-    --table-head-color: #f3f4f6;
+  --table-head-bg: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  --table-head-color: #f3f4f6;
 }
 
 body[data-theme="blue"] {
-    --primary-color: #1d4ed8;
-    --primary-hover: #1e40af;
-    --bg-body: #eef4ff;
-    --bg-card: #ffffff;
-    --text-main: #172554;
-    --text-muted: #64748b;
+  --primary-color: #1d4ed8;
+  --primary-hover: #1e40af;
+  --bg-body: #eef4ff;
+  --bg-card: #ffffff;
+  --text-main: #172554;
+  --text-muted: #64748b;
 
-    --sidebar-gradient: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
-    --sidebar-text: #dbeafe;
-    --sidebar-muted: #bfdbfe;
-    --sidebar-icon: #bfdbfe;
-    --sidebar-border: rgba(255, 255, 255, 0.14);
-    --sidebar-card-bg: rgba(255, 255, 255, 0.08);
-    --sidebar-card-border: rgba(255, 255, 255, 0.2);
-    --sidebar-hover-bg: rgba(255, 255, 255, 0.14);
-    --sidebar-active-bg: rgba(147, 197, 253, 0.25);
-    --sidebar-active-color: #eff6ff;
-    --sidebar-footer-bg: rgba(30, 58, 138, 0.45);
+  --sidebar-gradient: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  --sidebar-text: #dbeafe;
+  --sidebar-muted: #bfdbfe;
+  --sidebar-icon: #bfdbfe;
+  --sidebar-border: rgba(255, 255, 255, 0.14);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-card-border: rgba(255, 255, 255, 0.2);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-active-bg: rgba(147, 197, 253, 0.25);
+  --sidebar-active-color: #eff6ff;
+  --sidebar-footer-bg: rgba(30, 58, 138, 0.45);
 
-    --table-head-bg: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
-    --table-head-color: #eff6ff;
+  --table-head-bg: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  --table-head-color: #eff6ff;
 }
 
+/* =======================
+   BASE
+   ======================= */
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: var(--bg-body);
-    color: var(--text-main);
-    margin: 0;
-    overflow-x: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  margin: 0;
+  overflow-x: hidden;
 }
 
-.app-container { display: flex; min-height: 100vh; }
-.main-content { flex: 1; display: flex; flex-direction: column; margin-left: var(--sidebar-width); transition: margin-left 0.3s ease; }
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
 
+/* Desktop: deja espacio para sidebar fijo */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.3s ease;
+}
+
+/* Mobile/Tablet: sidebar es offcanvas, NO se reserva espacio */
+@media (max-width: 991.98px) {
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* =======================
+   CARDS
+   ======================= */
 .card {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    background: var(--bg-card);
-    margin-bottom: 20px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  background: var(--bg-card);
+  margin-bottom: 20px;
 }
 
 .card-header {
-    background: transparent;
-    border-bottom: 1px solid #f1f5f9;
-    padding: 1.25rem;
-    font-weight: 600;
-    color: var(--primary-color);
+  background: transparent;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-color);
 }
 
+/* =======================
+   BUTTONS
+   ======================= */
 .btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: #fff;
-    font-weight: 600;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+  font-weight: 600;
 }
-.btn-primary:hover { background-color: var(--primary-hover); border-color: var(--primary-hover); }
 
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+/* =======================
+   FORMS
+   ======================= */
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+/* =======================
+   BADGES
+   ======================= */
 .badge-status {
-    padding: 0.35em 0.8em;
-    border-radius: 30px;
-    font-size: 0.75em;
-    font-weight: 600;
-    display: inline-block;
+  padding: 0.35em 0.8em;
+  border-radius: 30px;
+  font-size: 0.75em;
+  font-weight: 600;
+  display: inline-block;
 }
-.status-active { background-color: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
-.status-inactive { background-color: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
 
+.status-active {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.status-inactive {
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+/* =======================
+   AVATAR
+   ======================= */
 .avatar-circle {
-    width: 38px;
-    height: 38px;
-    background-color: #e0e7ff;
-    color: #4338ca;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.9rem;
+  width: 38px;
+  height: 38px;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
-.table-responsive { border-radius: 12px; overflow: hidden; background: #fff; }
-.table-pro { width: 100%; border-collapse: separate; border-spacing: 0; }
+/* =======================
+   TABLE PRO (DESKTOP)
+   ======================= */
+.table-responsive {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.table-pro {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
 
 .table-pro thead th {
-    background: var(--table-head-bg);
-    color: var(--table-head-color);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
-    padding: 1rem;
-    border: none;
-    vertical-align: middle;
+  background: var(--table-head-bg);
+  color: var(--table-head-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  padding: 1rem;
+  border: none;
+  vertical-align: middle;
 }
 
 .table-pro thead th:first-child { border-top-left-radius: 10px; }
-.table-pro thead th:last-child { border-top-right-radius: 10px; }
+.table-pro thead th:last-child  { border-top-right-radius: 10px; }
 
 .table-pro tbody td {
-    padding: 1rem;
-    color: #334155;
-    font-size: 0.95rem;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-    background-color: #ffffff;
+  padding: 1rem;
+  color: #334155;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  background-color: #ffffff;
 }
 
-.table-pro tbody tr:hover td { background-color: #f8fafc; }
+.table-pro tbody tr:hover td {
+  background-color: #f8fafc;
+}
 
-tr[data-estado="0"] td { color: var(--text-muted); }
+tr[data-estado="0"] td {
+  color: var(--text-muted);
+}
+
 tr[data-estado="0"] .avatar-circle {
-    background-color: #e2e8f0 !important;
-    color: var(--secondary-color) !important;
+  background-color: #e2e8f0 !important;
+  color: var(--secondary-color) !important;
 }
 
-@media (max-width: 768px) {
-    .table-responsive { overflow-x: visible; }
+/* ==========================================================================
+   TABLAS RESPONSIVE – MODO CARD (ENTERPRISE)
+   Breakpoint único alineado con Bootstrap: <= 991.98px
+   ========================================================================== */
+@media (max-width: 991.98px) {
 
-    .table-pro thead { display: none; }
-    .table-pro tbody tr {
-        display: block;
-        margin: 0 1rem 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-    }
-    .table-pro tbody td {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #f1f5f9;
-    }
-    .table-pro tbody td:last-child { border-bottom: none; }
-    .table-pro tbody td::before {
-        content: attr(data-label);
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #64748b;
-        min-width: 110px;
-    }
-    .table-pro tbody td.text-end,
-    .table-pro tbody td.text-center {
-        text-align: left !important;
-        justify-content: space-between;
-    }
+  /* El wrapper controla el ancho real */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 12px;
+    background: transparent;
+    margin: 0 auto; 
+    border-radius: 12px;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  /* Ocultar cabecera */
+  .table-pro thead {
+    display: none;
+  }
+
+  /* Cada fila como card: ancho completo */
+  .table-pro tbody tr {
+    display: block;
+    width: 100%;
+    margin: 0 0 1rem 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  /* Celdas como label/value */
+  .table-pro tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    box-sizing: border-box;
+  }
+
+  .table-pro tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .table-pro tbody td::before {
+    content: attr(data-label);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    flex: 0 0 auto;
+    min-width: 120px;
+  }
+
+  /* Acciones/controles no deben estirarse */
+  .table-pro tbody td .btn,
+  .table-pro tbody td .btn-group,
+  .table-pro tbody td .acciones,
+  .table-pro tbody td .actions,
+  .table-pro tbody td input,
+  .table-pro tbody td select {
+    flex: 0 0 auto;
+  }
+}
+
+.btn-new-user{
+  border-radius: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: .6rem .9rem;
+}
+
+@media (max-width: 575.98px){
+  .btn-new-user{
+    padding: .55rem .65rem;
+  }
+}
+
+/* =========================================================
+   Cards de tablas centradas en mobile (UX enterprise)
+   ========================================================= */
+@media (max-width: 991.98px) {
+
+  .table-pro tbody tr {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 560px;     /* controla el ancho visual */
+  }
+
+}
+@media (max-width: 575.98px) {
+  .table-pro tbody tr {
+    max-width: 520px;
+  }
+}
+@media (max-width: 991.98px){
+  .table-responsive{
+    max-width: 560px;
+    margin: 0 auto;
+  }
 }

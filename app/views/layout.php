@@ -28,7 +28,7 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
     <?php require BASE_PATH . '/app/views/sidebar.php'; ?>
 
     <main class="main-content">
-        <div class="p-4">
+        <div class="p-3 p-lg-4">
             <?php if (isset($vista) && is_file($vista)) {
                 require $vista;
             } ?>
@@ -39,6 +39,7 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
+<script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
 <?php if (($ruta_actual ?? '') === 'usuarios/index'): ?>
 <script>
 window.USUARIOS_FLASH = {
