@@ -132,7 +132,7 @@ class RolModel extends Modelo
 
     /**
      * Sincroniza los permisos del rol (Estrategia Upsert/Restore).
-     * Corrige el uso de PK compuesta (id_rol, id_permiso) en lugar de ID autoincremental.
+     * La unicidad se basa en la combinación (id_rol, id_permiso).
      */
     public function guardar_permisos(int $idRol, array $permisosIds, int $usuarioAuditId = 1): void
     {
@@ -203,8 +203,18 @@ class RolModel extends Modelo
 
     private function slugify(string $nombre): string
     {
+        $slug = mb_strtolower(trim($nombre));
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $slug);
+            if ($converted !== false) {
+                $slug = $converted;
+            }
+        }
+        $slug = preg_replace('/[^a-z0-9]+/i', '-', $slug) ?? '';
+
         $slug = mb_strtolower($nombre);
         $slug = preg_replace('/[^a-z0-9]+/u', '-', $slug) ?? '';
+
         $slug = trim($slug, '-');
 
         return $slug !== '' ? $slug : 'rol';
