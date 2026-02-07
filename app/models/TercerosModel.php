@@ -5,14 +5,11 @@ class TercerosModel extends Modelo
 {
     public function listar(): array
     {
-        // CORREGIDO: Hacemos LEFT JOIN con terceros_empleados para traer los datos si es empleado
-        // y seleccionamos los campos específicos de cliente/proveedor
         $sql = 'SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
-                       t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
-                       t.condicion_pago, t.dias_credito, t.limite_credito,
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico,
-                       te.regimen_pensionario, te.essalud
+                    t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
+                    t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
+                    t.condicion_pago, t.dias_credito, t.limite_credito,
+                    te.cargo, te.area, te.fecha_ingreso, te.estado_laboral
                 FROM terceros t
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
                 WHERE t.deleted_at IS NULL
@@ -26,15 +23,14 @@ class TercerosModel extends Modelo
     public function obtener(int $id): array
     {
         $sql = 'SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
-                       t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
-                       t.condicion_pago, t.dias_credito, t.limite_credito,
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, te.sueldo_basico,
-                       te.regimen_pensionario, te.essalud
+                    t.direccion, t.telefono, t.email, t.departamento, t.provincia, t.distrito,
+                    t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
+                    t.condicion_pago, t.dias_credito, t.limite_credito,
+                    te.cargo, te.area, te.fecha_ingreso, te.estado_laboral
                 FROM terceros t
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
                 WHERE t.id = :id
-                  AND t.deleted_at IS NULL
+                AND t.deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $id]);
