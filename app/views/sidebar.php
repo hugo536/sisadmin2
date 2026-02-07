@@ -24,6 +24,9 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
 $userInitial = strtoupper(substr($usuarioNombre, 0, 1));
 $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id_rol'] ?? 0)));
+
+// Evitar error si no llega la configuración
+$configEmpresa = $configEmpresa ?? [];
 ?>
 
 <aside class="sidebar position-fixed top-0 start-0 h-100">
@@ -53,18 +56,21 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
             <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
         </a>
 
+        <!-- ÍTEMS / PRODUCTOS (Nivel Principal) -->
         <?php if (tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('items'); ?>" href="<?php echo route_url('items'); ?>">
                 <i class="bi bi-box-seam"></i> <span>Ítems / Productos</span>
             </a>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('items.ver')): // Ajusta el permiso si tienes 'terceros.ver' ?>
+        <!-- TERCEROS (Nivel Principal) -->
+        <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo route_url('terceros'); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
         <?php endif; ?>
 
+        <!-- SECCIÓN OPERACIONES (INVENTARIO) -->
         <?php if (tiene_permiso('inventario.ver')): ?>
             <div class="nav-label mt-3">Operaciones</div>
             

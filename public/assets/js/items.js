@@ -8,7 +8,6 @@
         if (!modalCreate) return;
 
         modalCreate.addEventListener('show.bs.modal', function () {
-            // Limpiar formulario al abrir para que no queden datos viejos
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
         });
@@ -44,24 +43,19 @@
                 if (el) el.value = btn.getAttribute(fields[id]) || '';
             }
 
-            const checkStock = document.getElementById('editControlaStock');
-            if (checkStock) {
-                checkStock.checked = btn.getAttribute('data-controla-stock') === '1';
-            }
+            // Mapeo de Switches
+            const checks = {
+                'editControlaStock': 'data-controla-stock',
+                'editPermiteDecimales': 'data-permite-decimales',
+                'editRequiereLote': 'data-requiere-lote',
+                'editRequiereVencimiento': 'data-requiere-vencimiento'
+            };
 
-            const checkDecimales = document.getElementById('editPermiteDecimales');
-            if (checkDecimales) {
-                checkDecimales.checked = btn.getAttribute('data-permite-decimales') === '1';
-            }
-
-            const checkLote = document.getElementById('editRequiereLote');
-            if (checkLote) {
-                checkLote.checked = btn.getAttribute('data-requiere-lote') === '1';
-            }
-
-            const checkVenc = document.getElementById('editRequiereVencimiento');
-            if (checkVenc) {
-                checkVenc.checked = btn.getAttribute('data-requiere-vencimiento') === '1';
+            for (let id in checks) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.checked = btn.getAttribute(checks[id]) === '1';
+                }
             }
         });
     }
@@ -133,8 +127,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initCreateModal(); // Iniciar gestor de modal crear
-        initEditModal();   // Iniciar gestor de modal editar
-        initTableManager(); // Iniciar tabla
+        initCreateModal(); 
+        initEditModal(); 
+        initTableManager(); 
     });
 })();

@@ -2,15 +2,18 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/TerceroModel.php';
+// CAMBIO: Apunta al archivo en plural
+require_once BASE_PATH . '/app/models/TercerosModel.php';
 
 class TercerosController extends Controlador
 {
-    private TerceroModel $terceroModel;
+    // CAMBIO: Propiedad en plural
+    private TercerosModel $tercerosModel;
 
     public function __construct()
     {
-        $this->terceroModel = new TerceroModel();
+        // CAMBIO: Instancia la clase en plural
+        $this->tercerosModel = new TercerosModel();
     }
 
     public function index(): void
@@ -25,60 +28,69 @@ class TercerosController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                // Validación AJAX de documento duplicado
                 if (es_ajax() && $accion === 'validar_documento') {
                     require_permiso('terceros.crear');
                     $tipoDoc = trim((string) ($_POST['tipo_documento'] ?? ''));
                     $numeroDoc = trim((string) ($_POST['numero_documento'] ?? ''));
                     $excludeId = isset($_POST['exclude_id']) ? (int) $_POST['exclude_id'] : null;
+                    
                     $existe = $tipoDoc !== '' && $numeroDoc !== ''
-                        ? $this->terceroModel->documentoExiste($tipoDoc, $numeroDoc, $excludeId)
+                        ? $this->tercerosModel->documentoExiste($tipoDoc, $numeroDoc, $excludeId)
                         : false;
+                    
                     json_response(['ok' => true, 'existe' => $existe]);
                     return;
                 }
 
+                // Cambio de estado AJAX (Switch)
                 if (es_ajax() && $accion === 'toggle_estado') {
                     require_permiso('terceros.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     $estado = (int) ($_POST['estado'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID inválido.');
-                    }
-                    $this->terceroModel->actualizarEstado($id, $estado, $userId);
+                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    
+                    $this->tercerosModel->actualizarEstado($id, $estado, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Estado actualizado.']);
                     return;
                 }
 
+                // --- ACCIÓN: CREAR ---
                 if ($accion === 'crear') {
                     require_permiso('terceros.crear');
                     $data = $this->validarTercero($_POST);
-                    $id = $this->terceroModel->crear($data, $userId);
+                    // Verificación extra en el backend
+                    if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
+                        throw new RuntimeException('El documento ya se encuentra registrado.');
+                    }
+                    $id = $this->tercerosModel->crear($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero registrado correctamente.', 'id' => $id];
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero registrado correctamente.'];
                 }
 
+                // --- ACCIÓN: EDITAR ---
                 if ($accion === 'editar') {
                     require_permiso('terceros.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    
                     $data = $this->validarTercero($_POST);
-                    if ($this->terceroModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
+                    if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
                         throw new RuntimeException('El documento ya se encuentra registrado.');
                     }
-                    $this->terceroModel->actualizar($id, $data, $userId);
+                    
+                    $this->tercerosModel->actualizar($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero actualizado correctamente.'];
                 }
 
+                // --- ACCIÓN: ELIMINAR ---
                 if ($accion === 'eliminar') {
                     require_permiso('terceros.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID inválido.');
-                    }
-                    $this->terceroModel->eliminar($id, $userId);
+                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    
+                    $this->tercerosModel->eliminar($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero eliminado correctamente.'];
                 }
@@ -97,17 +109,19 @@ class TercerosController extends Controlador
         }
 
         $this->render('terceros', [
-            'terceros' => $this->terceroModel->listar(),
+            'terceros' => $this->tercerosModel->listar(),
             'flash' => $flash,
-            'ruta_actual' => 'terceros',
+            'ruta_actual' => 'tercero', // Mantenemos singular si así está en tu sidebar
         ]);
     }
 
     private function validarTercero(array $data): array
     {
         $tipo = trim((string) ($data['tipo_documento'] ?? ''));
+        // Solo eliminamos espacios al inicio/final, permitimos guiones si es pasaporte, pero mejor sanitizar solo alfanuméricos para DNI/RUC
         $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($data['numero_documento'] ?? '')));
         $nombre = trim((string) ($data['nombre_completo'] ?? ''));
+        
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
@@ -122,7 +136,7 @@ class TercerosController extends Controlador
             throw new RuntimeException('Seleccione al menos un rol para el tercero.');
         }
 
-        $data['numero_documento'] = $numero;
+        $data['numero_documento'] = $numero; // Guardamos el limpio
 
         return $data;
     }

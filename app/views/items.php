@@ -166,83 +166,38 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca">
-                            <label for="newMarca">Marca</label>
-                        </div>
+                        <div class="form-floating"><input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca"><label for="newMarca">Marca</label></div>
                     </div>
                     <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newUnidad" name="unidad_base" value="UND">
-                            <label for="newUnidad">Unidad base</label>
-                        </div>
+                        <div class="form-floating"><input type="text" class="form-control" id="newUnidad" name="unidad_base" value="UND"><label for="newUnidad">Unidad base</label></div>
                     </div>
                     <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newMoneda" name="moneda" value="PEN">
-                            <label for="newMoneda">Moneda</label>
-                        </div>
+                        <div class="form-floating"><input type="text" class="form-control" id="newMoneda" name="moneda" value="PEN"><label for="newMoneda">Moneda</label></div>
                     </div>
                     <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000">
-                            <label for="newStockMin">Stock mín.</label>
-                        </div>
+                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000">
-                            <label for="newPrecio">Precio venta</label>
-                        </div>
+                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000"><label for="newPrecio">Precio venta</label></div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000">
-                            <label for="newCosto">Costo referencial</label>
-                        </div>
+                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000"><label for="newCosto">Costo referencial</label></div>
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="0.0000">
-                            <label for="newImpuesto">Impuesto (%)</label>
-                        </div>
+                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="0.0000"><label for="newImpuesto">Impuesto (%)</label></div>
                     </div>
                     <div class="col-md-12">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
-                            <label for="newDescripcion">Descripción</label>
-                        </div>
+                        <div class="form-floating"><input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción"><label for="newDescripcion">Descripción</label></div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="newCategoria" name="id_categoria" placeholder="Categoría">
-                            <label for="newCategoria">ID Categoría</label>
-                        </div>
+                        <div class="form-floating"><input type="number" class="form-control" id="newCategoria" name="id_categoria" placeholder="Categoría"><label for="newCategoria">ID Categoría</label></div>
                     </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
-                            <label class="form-check-label ms-2" for="newControlaStock">Controla stock</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1">
-                            <label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1">
-                            <label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1">
-                            <label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label>
-                        </div>
-                    </div>
+                    
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
+                    
                     <div class="col-md-4">
                         <div class="form-floating">
                             <select class="form-select" id="newEstado" name="estado">
@@ -254,9 +209,7 @@
                     </div>
                     <div class="col-12 d-flex justify-content-end pt-3">
                         <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary px-4" type="submit">
-                            <i class="bi bi-save me-2"></i>Guardar
-                        </button>
+                        <button class="btn btn-primary px-4" type="submit"><i class="bi bi-save me-2"></i>Guardar</button>
                     </div>
                 </form>
             </div>
@@ -275,18 +228,9 @@
                 <form method="post" id="formEditarItem" class="row g-3">
                     <input type="hidden" name="accion" value="editar">
                     <input type="hidden" name="id" id="editId">
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editSku" name="sku" readonly>
-                        <label for="editSku">SKU (inmutable)</label>
-                    </div>
-                    <div class="col-md-8 form-floating">
-                        <input class="form-control" id="editNombre" name="nombre" required>
-                        <label for="editNombre">Nombre</label>
-                    </div>
-                    <div class="col-md-12 form-floating">
-                        <input class="form-control" id="editDescripcion" name="descripcion">
-                        <label for="editDescripcion">Descripción</label>
-                    </div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editSku" name="sku" readonly><label for="editSku">SKU (inmutable)</label></div>
+                    <div class="col-md-8 form-floating"><input class="form-control" id="editNombre" name="nombre" required><label for="editNombre">Nombre</label></div>
+                    <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
                             <option value="INSUMO">Insumo</option>
@@ -300,73 +244,25 @@
                         </select>
                         <label for="editTipo">Tipo</label>
                     </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editMarca" name="marca">
-                        <label for="editMarca">Marca</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editUnidad" name="unidad_base">
-                        <label for="editUnidad">Unidad base</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editMoneda" name="moneda">
-                        <label for="editMoneda">Moneda</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001">
-                        <label for="editImpuesto">Impuesto (%)</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001">
-                        <label for="editPrecio">Precio</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001">
-                        <label for="editStockMinimo">Stock mín.</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001">
-                        <label for="editCosto">Costo referencial</label>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
-                            <label class="form-check-label ms-2" for="editControlaStock">Controla stock</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1">
-                            <label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1">
-                            <label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <div class="form-check form-switch ps-5">
-                            <input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1">
-                            <label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="editEstado" name="estado">
-                            <option value="1">Activo</option>
-                            <option value="0">Inactivo</option>
-                        </select>
-                        <label for="editEstado">Estado</label>
-                    </div>
-                    <div class="col-12 d-flex justify-content-end pt-3">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary px-4" type="submit">Actualizar</button>
-                    </div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editMarca" name="marca"><label for="editMarca">Marca</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editUnidad" name="unidad_base"><label for="editUnidad">Unidad base</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editMoneda" name="moneda"><label for="editMoneda">Moneda</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001"><label for="editImpuesto">Impuesto (%)</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001"><label for="editPrecio">Precio</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001"><label for="editStockMinimo">Stock mín.</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001"><label for="editCosto">Costo referencial</label></div>
+                    
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
+                    
+                    <div class="col-md-4 form-floating"><select class="form-select" id="editEstado" name="estado"><option value="1">Activo</option><option value="0">Inactivo</option></select><label for="editEstado">Estado</label></div>
+                    <div class="col-12 d-flex justify-content-end pt-3"><button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary px-4" type="submit">Actualizar</button></div>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<script src="<?php echo asset_url('js/item.js'); ?>"></script>
+<script src="<?php echo asset_url('js/items.js'); ?>"></script>

@@ -2,16 +2,18 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ItemModel.php';
+// CAMBIO: Apunta al archivo en plural
+require_once BASE_PATH . '/app/models/ItemsModel.php';
 
 class ItemsController extends Controlador
 {
-    private ItemModel $itemModel; // Cambiado de productoModel a itemModel
+    // CAMBIO: Propiedad en plural
+    private ItemsModel $itemsModel;
 
     public function __construct()
     {
-        // IMPORTANTE: Aquí instanciamos ItemModel, no ProductoModel
-        $this->itemModel = new ItemModel(); 
+        // CAMBIO: Instancia la clase en plural
+        $this->itemsModel = new ItemsModel(); 
     }
 
     public function index(): void
@@ -19,9 +21,8 @@ class ItemsController extends Controlador
         AuthMiddleware::handle();
         require_permiso('items.ver');
 
-        // Manejo de DataTable (AJAX)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
-            json_response($this->itemModel->datatable());
+            json_response($this->itemsModel->datatable());
             return;
         }
 
@@ -32,28 +33,26 @@ class ItemsController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
-                // --- ACCIÓN: CREAR ---
                 if ($accion === 'crear') {
                     require_permiso('items.crear');
                     $data = $this->validarItem($_POST, false);
                     
-                    if ($data['sku'] !== '' && $this->itemModel->skuExiste($data['sku'])) {
+                    if ($data['sku'] !== '' && $this->itemsModel->skuExiste($data['sku'])) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
                     }
                     
-                    $nuevoId = $this->itemModel->crear($data, $userId);
+                    $nuevoId = $this->itemsModel->crear($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem creado correctamente.', 'id' => $nuevoId];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem creado correctamente.'];
                 }
 
-                // --- ACCIÓN: EDITAR ---
                 if ($accion === 'editar') {
                     require_permiso('items.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
                     $data = $this->validarItem($_POST, true);
-                    $actual = $this->itemModel->obtener($id);
+                    $actual = $this->itemsModel->obtener($id);
                     
                     if ($actual === []) throw new RuntimeException('El ítem no existe.');
 
@@ -62,18 +61,17 @@ class ItemsController extends Controlador
                         throw new RuntimeException('El SKU es inmutable y no puede modificarse.');
                     }
 
-                    $this->itemModel->actualizar($id, $data, $userId);
+                    $this->itemsModel->actualizar($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem actualizado correctamente.'];
                 }
 
-                // --- ACCIÓN: ELIMINAR ---
                 if ($accion === 'eliminar') {
                     require_permiso('items.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
-                    $this->itemModel->eliminar($id, $userId);
+                    $this->itemsModel->eliminar($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem eliminado correctamente.'];
                 }
@@ -91,9 +89,8 @@ class ItemsController extends Controlador
             }
         }
 
-        // Renderizado de la vista
         $this->render('items', [
-            'items' => $this->itemModel->listar(),
+            'items' => $this->itemsModel->listar(),
             'flash' => $flash,
             'ruta_actual' => 'items', 
         ]);

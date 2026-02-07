@@ -9,21 +9,84 @@
         });
     }
 
+    // --- 0. Gestión Modal CREAR (Limpiar form) ---
+    function initCreateModal() {
+        const modalCreate = document.getElementById('modalCrearTercero');
+        if (!modalCreate) return;
+
+        modalCreate.addEventListener('show.bs.modal', function () {
+            const form = document.getElementById('formCrearTercero');
+            if (form) form.reset();
+        });
+    }
+
+    // --- 1. Gestión Modal EDITAR (Cargar datos) ---
+    function initEditModal() {
+        const modalEdit = document.getElementById('modalEditarTercero');
+        if (!modalEdit) return;
+
+        modalEdit.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+
+            const fields = {
+                'editTerceroId': 'data-id',
+                'editTipoPersona': 'data-tipo-persona',
+                'editTipoDoc': 'data-tipo-doc',
+                'editNumeroDoc': 'data-numero-doc',
+                'editNombre': 'data-nombre',
+                'editDireccion': 'data-direccion',
+                'editTelefono': 'data-telefono',
+                'editEmail': 'data-email',
+                'editCondicionPago': 'data-condicion-pago',
+                'editDiasCredito': 'data-dias-credito',
+                'editLimiteCredito': 'data-limite-credito',
+                'editCargo': 'data-cargo',
+                'editArea': 'data-area',
+                'editFechaIngreso': 'data-fecha-ingreso',
+                'editEstadoLaboral': 'data-estado-laboral',
+                'editEstado': 'data-estado'
+            };
+
+            for (let id in fields) {
+                const el = document.getElementById(id);
+                if (el) el.value = button.getAttribute(fields[id]) || '';
+            }
+
+            // Defaults si vienen vacíos
+            if (!document.getElementById('editTipoPersona').value) document.getElementById('editTipoPersona').value = 'NATURAL';
+            if (!document.getElementById('editTipoDoc').value) document.getElementById('editTipoDoc').value = 'DNI';
+            if (!document.getElementById('editEstado').value) document.getElementById('editEstado').value = '1';
+
+            // Checkboxes
+            const checks = {
+                'editEsCliente': 'data-es-cliente',
+                'editEsProveedor': 'data-es-proveedor',
+                'editEsEmpleado': 'data-es-empleado'
+            };
+
+            for (let id in checks) {
+                const el = document.getElementById(id);
+                if (el) el.checked = button.getAttribute(checks[id]) === '1';
+            }
+        });
+    }
+
+    // --- 2. Tabla ---
     function initTableManager() {
         const searchInput = document.getElementById('terceroSearch');
         const filtroRol = document.getElementById('terceroFiltroRol');
         const filtroEstado = document.getElementById('terceroFiltroEstado');
         const paginationControls = document.getElementById('tercerosPaginationControls');
         const paginationInfo = document.getElementById('tercerosPaginationInfo');
-        const allRows = Array.from(document.querySelectorAll('#tercerosTable tbody tr'));
+        
+        const table = document.getElementById('tercerosTable');
+        if (!table) return;
 
-        if (allRows.length === 0) {
-            if (paginationInfo) paginationInfo.textContent = 'Sin resultados';
-            return;
-        }
+        const allRows = Array.from(table.querySelectorAll('tbody tr'));
 
         const updateTable = function () {
-            const texto = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            const texto = (searchInput?.value || '').toLowerCase().trim();
             const rolSeleccionado = (filtroRol ? filtroRol.value : '');
             const estadoSeleccionado = (filtroEstado ? filtroEstado.value : '');
 
@@ -51,10 +114,6 @@
             const end = start + ROWS_PER_PAGE;
             visibleRows.slice(start, end).forEach(row => row.style.display = '');
 
-            updatePaginationUI(start, end, totalRows, totalPages);
-        };
-
-        function updatePaginationUI(start, end, totalRows, totalPages) {
             if (paginationInfo) {
                 if (totalRows === 0) {
                     paginationInfo.textContent = 'Sin resultados';
@@ -63,13 +122,11 @@
                     paginationInfo.textContent = `Mostrando ${start + 1}-${realEnd} de ${totalRows} terceros`;
                 }
             }
+            renderPagination(totalPages);
+        };
 
-            if (paginationControls) {
-                renderPaginationControls(totalPages);
-            }
-        }
-
-        function renderPaginationControls(totalPages) {
+        function renderPagination(totalPages) {
+            if (!paginationControls) return;
             paginationControls.innerHTML = '';
             if (totalPages <= 1) return;
 
@@ -77,7 +134,8 @@
                 const li = document.createElement('li');
                 li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
                 li.innerHTML = `<a class="page-link" href="#" onclick="return false;">${text}</a>`;
-                li.onclick = () => {
+                li.onclick = (e) => {
+                    e.preventDefault();
                     if (!isActive && !isDisabled) {
                         currentPage = page;
                         updateTable();
@@ -87,27 +145,21 @@
             };
 
             paginationControls.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
-
             for (let i = 1; i <= totalPages; i++) {
                 paginationControls.appendChild(createItem(i, i, i === currentPage));
             }
-
             paginationControls.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
         }
 
-        const onFilterChange = () => {
-            currentPage = 1;
-            updateTable();
-        };
-
-        if (searchInput) searchInput.addEventListener('input', onFilterChange);
-        if (filtroRol) filtroRol.addEventListener('change', onFilterChange);
-        if (filtroEstado) filtroEstado.addEventListener('change', onFilterChange);
+        if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; updateTable(); });
+        if (filtroRol) filtroRol.addEventListener('change', () => { currentPage = 1; updateTable(); });
+        if (filtroEstado) filtroEstado.addEventListener('change', () => { currentPage = 1; updateTable(); });
 
         window.updateTercerosTable = updateTable;
         updateTable();
     }
 
+    // --- 3. Switch Estado (AJAX) ---
     function initStatusSwitch() {
         document.querySelectorAll('.switch-estado-tercero').forEach(switchInput => {
             switchInput.addEventListener('change', function () {
@@ -128,9 +180,7 @@
                 })
                     .then(response => response.json())
                     .then(data => {
-                        if (!data.ok) {
-                            throw new Error(data.mensaje || 'No se pudo actualizar el estado.');
-                        }
+                        if (!data.ok) throw new Error(data.mensaje);
                         if (fila) fila.setAttribute('data-estado', nuevoEstado);
                         if (badge) {
                             badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
@@ -138,34 +188,23 @@
                         }
                         if (window.updateTercerosTable) window.updateTercerosTable();
                     })
-                    .catch(() => {
-                        this.checked = !this.checked;
-                        if (window.updateTercerosTable) window.updateTercerosTable();
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'No se pudo actualizar el estado del tercero.'
-                        });
+                    .catch(err => {
+                        console.error(err);
+                        this.checked = !this.checked; // Revertir
+                        // Aquí podrías usar Swal.fire para mostrar error
                     });
             });
         });
     }
 
+    // --- 4. Validación Documento ---
     function initDocumentoValidation() {
         const campos = [
-            {
-                tipo: document.getElementById('crearTipoDoc'),
-                numero: document.getElementById('crearNumeroDoc'),
-                excludeId: null
-            },
-            {
-                tipo: document.getElementById('editTipoDoc'),
-                numero: document.getElementById('editNumeroDoc'),
-                excludeId: () => document.getElementById('editTerceroId')?.value || null
-            }
+            { tipo: 'crearTipoDoc', numero: 'crearNumeroDoc', excludeId: null },
+            { tipo: 'editTipoDoc', numero: 'editNumeroDoc', excludeId: () => document.getElementById('editTerceroId')?.value || null }
         ];
 
-        const validar = (tipoEl, numeroEl, excludeId) => {
+        const validar = (tipoEl, numeroEl, excludeIdVal) => {
             if (!tipoEl || !numeroEl) return;
             const tipo = tipoEl.value;
             const numero = numeroEl.value.trim();
@@ -175,37 +214,42 @@
             formData.append('accion', 'validar_documento');
             formData.append('tipo_documento', tipo);
             formData.append('numero_documento', numero);
-            if (excludeId) formData.append('exclude_id', excludeId);
+            if (excludeIdVal) formData.append('exclude_id', excludeIdVal);
 
             fetch(window.location.href, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: formData
             })
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     if (data.existe) {
                         numeroEl.setCustomValidity('El documento ya se encuentra registrado.');
+                        numeroEl.classList.add('is-invalid'); // Visual feedback
                     } else {
                         numeroEl.setCustomValidity('');
+                        numeroEl.classList.remove('is-invalid');
                     }
                     numeroEl.reportValidity();
                 })
-                .catch(() => {
-                    numeroEl.setCustomValidity('');
-                });
+                .catch(console.error);
         };
 
-        campos.forEach(({ tipo, numero, excludeId }) => {
-            if (!tipo || !numero) return;
-            const handler = () => validar(tipo, numero, typeof excludeId === 'function' ? excludeId() : excludeId);
-            tipo.addEventListener('change', handler);
-            numero.addEventListener('blur', handler);
+        campos.forEach(c => {
+            const tEl = document.getElementById(c.tipo);
+            const nEl = document.getElementById(c.numero);
+            if(tEl && nEl) {
+                const handler = () => validar(tEl, nEl, typeof c.excludeId === 'function' ? c.excludeId() : c.excludeId);
+                tEl.addEventListener('change', handler);
+                nEl.addEventListener('blur', handler);
+            }
         });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         initTooltips();
+        initCreateModal();
+        initEditModal();
         initTableManager();
         initStatusSwitch();
         initDocumentoValidation();

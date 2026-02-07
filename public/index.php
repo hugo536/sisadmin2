@@ -1,21 +1,25 @@
 <?php
 declare(strict_types=1);
 
-// Iniciar sesión si no está iniciada
+// =====================================================
+// 1. CONFIGURACIÓN DE SESIÓN
+// =====================================================
 if (session_status() === PHP_SESSION_NONE) {
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+    
     $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
-    $host = preg_replace('/:\\d+$/', '', $host);
+    $host = preg_replace('/:\d+$/', '', $host);
+    
     $cookieParams = [
-        'lifetime' => 1800,
+        'lifetime' => 28800,
         'path' => '/',
         'secure' => $isSecure,
         'httponly' => true,
         'samesite' => 'Strict',
     ];
 
-    if ($host !== '') {
+    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false) {
         $cookieParams['domain'] = $host;
     }
 
@@ -24,36 +28,45 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // =====================================================
-// CONSTANTES Y CONFIGURACIÓN
+// 2. CONSTANTES Y ENTORNO
 // =====================================================
-// Asume que index.php está en /public. Si está en raíz, usa __DIR__
+
 define('BASE_PATH', dirname(__DIR__)); 
 
-// 1. Cargar Composer (Autoload)
 $autoload = BASE_PATH . '/vendor/autoload.php';
 if (!file_exists($autoload)) {
     http_response_code(500);
-    die("Error crítico: Falta vendor/autoload.php. Ejecuta 'composer install'.");
+    die("<h3>Error Crítico</h3><p>Falta el archivo <code>vendor/autoload.php</code>. Ejecuta <code>composer install</code>.</p>");
 }
 require $autoload;
 
-// 2. Cargar Variables de Entorno (.env)
 if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
     $dotenv = \Dotenv\Dotenv::createImmutable(BASE_PATH);
     $dotenv->safeLoad();
 }
 
-// 3. Cargar Helpers (Funciones globales no son clases, requieren include manual)
+// FORZAR MODO DESARROLLO (Para ver errores si algo falla ahora)
+// Cuando termines todo, puedes cambiar esto a 'production'
+$env = 'development'; 
+
+if ($env === 'development') {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    error_reporting(0);
+}
+
+// =====================================================
+// 3. CARGA DEL NÚCLEO (CORE)
+// =====================================================
+
 $helpers = BASE_PATH . '/app/core/helpers.php';
 if (file_exists($helpers)) {
     require_once $helpers;
 }
 
-// =====================================================
-// CARGA DEL NÚCLEO (CORE)
-// =====================================================
-// NOTA: Si configuras PSR-4 en composer.json, estos requires no son necesarios.
-// Los dejo por si aún no has configurado el autoload para 'app/core'.
 $coreFiles = [
     BASE_PATH . '/app/core/Modelo.php',
     BASE_PATH . '/app/core/Controlador.php',
@@ -67,17 +80,15 @@ foreach ($coreFiles as $file) {
 }
 
 // =====================================================
-// EJECUCIÓN (DISPATCH)
+// 4. EJECUCIÓN (DISPATCH)
 // =====================================================
 try {
-    // Verificamos que la clase Router exista (cargada por require o composer)
     if (!class_exists('Router')) {
-        throw new Exception("La clase 'Router' no se encuentra. Verifica el namespace o el archivo.");
+        throw new Exception("La clase 'Router' no se encuentra.");
     }
 
     $router = new Router();
 
-    // Estandarizamos a 'dispatch'. Asegúrate que tu Router.php tenga este método.
     if (!method_exists($router, 'dispatch')) {
         throw new Exception("El Router no tiene el método 'dispatch()'.");
     }
@@ -85,17 +96,18 @@ try {
     $router->dispatch();
 
 } catch (Throwable $e) {
-    // En producción, aquí deberías registrar el log y mostrar un mensaje genérico.
     http_response_code(500);
     
-    // Solo mostrar detalles en entorno de desarrollo
-    if (($_ENV['APP_ENV'] ?? 'production') === 'development') {
-        echo "<div style='background:#f8d7da; color:#721c24; padding:20px; border:1px solid #f5c6cb; font-family:sans-serif;'>";
-        echo "<strong>Error del Sistema:</strong> " . htmlspecialchars($e->getMessage());
-        echo "<br><small>En: " . $e->getFile() . " línea " . $e->getLine() . "</small>";
+    if ($env === 'development') {
+        echo "<div style='font-family: monospace; background:#fff3cd; color:#856404; padding:20px; border:1px solid #ffeeba; margin: 20px;'>";
+        echo "<h3 style='margin-top:0;'>⚠️ Error del Sistema</h3>";
+        echo "<p><strong>Mensaje:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p><strong>Archivo:</strong> " . $e->getFile() . " (Línea " . $e->getLine() . ")</p>";
+        echo "<hr><pre>" . $e->getTraceAsString() . "</pre>";
         echo "</div>";
     } else {
-        echo "Ocurrió un error interno en el servidor.";
+        echo "<h1>500 - Error Interno</h1>";
+        echo "<p>Ocurrió un problema inesperado.</p>";
     }
     exit;
 }

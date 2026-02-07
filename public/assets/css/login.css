@@ -7,7 +7,7 @@
   --text-muted: #6b7280;
   --border-color: #e5e7eb;
   --input-bg: #f9fafb;
-  --brand-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); /* Azul corporativo profundo */
+  --brand-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
 }
 
 /* Tema Oscuro */
@@ -30,7 +30,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-main);
   height: 100vh;
-  overflow: hidden; /* Evita scroll innecesario */
+  overflow: hidden;
 }
 
 .login-wrapper {
@@ -48,10 +48,10 @@ body {
   color: white;
   padding: 4rem;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: space-between; /* fallback */
 }
 
-/* Patrón de fondo sutil para profesionalismo */
+/* Patrón de fondo sutil */
 .brand-panel::before {
   content: '';
   position: absolute;
@@ -67,22 +67,39 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  /* IMPORTANT: ahora el footer se ancla abajo con margin-top:auto */
+}
+
+/* =========================================================
+   NUEVO: BLOQUE SUPERIOR CENTRADO (logo + badge + textos)
+   Mantiene brand-info + copyright abajo (sin moverse)
+   ========================================================= */
+.brand-header,
+.brand-text {
+  /* Por compatibilidad con tu HTML actual (sin wrapper extra) */
+  align-self: center;
+  text-align: center;
 }
 
 .brand-header {
   display: flex;
+  flex-direction: column;       /* logo arriba, badge debajo */
   align-items: center;
-  gap: 1rem;
+  gap: 0.9rem;
+  margin-top: auto;             /* empuja este bloque hacia el centro */
 }
 
-/* SOLUCIÓN AL LOGO: Sin fondo blanco, tamaño ajustado */
+.brand-text {
+  margin-top: 1.2rem;
+  margin-bottom: auto;          /* balancea para centrar verticalmente */
+}
+
+/* SOLUCIÓN AL LOGO */
 .brand-logo {
-  max-height: 70px; /* Tamaño controlado */
+  max-height: 110px;            /* un poco más grande para protagonismo */
   width: auto;
   object-fit: contain;
-  /* Si tu logo es negro y no se ve en fondo azul, descomenta la siguiente línea: */
-  /* filter: brightness(0) invert(1); */ 
+  /* filter: brightness(0) invert(1); */
 }
 
 .badge-system {
@@ -111,11 +128,13 @@ body {
   font-size: 1.25rem;
   color: rgba(255,255,255,0.85);
   font-weight: 300;
-  max-width: 80%;
+  max-width: 520px;            /* más controlado que 80% */
+  margin: 0 auto;              /* centrado */
 }
 
+/* --- BLOQUE INFERIOR (SE QUEDA ABAJO) --- */
 .brand-info {
-  margin-top: auto;
+  margin-top: auto;             /* asegura que siga abajo */
   padding-bottom: 2rem;
   display: flex;
   flex-direction: column;
@@ -218,6 +237,9 @@ body {
   transition: color 0.2s;
 }
 
+/* Nota: tu HTML tiene el icon ANTES del input, así que este selector no aplica.
+   Lo dejo por si cambias el orden en el futuro.
+*/
 .form-input:focus + .input-icon { color: var(--primary); }
 
 .toggle-pass {
@@ -274,9 +296,9 @@ body {
 }
 
 @media (max-width: 1023px) {
-  .form-card { 
-    box-shadow: none; 
-    background: transparent; 
+  .form-card {
+    box-shadow: none;
+    background: transparent;
     padding: 1rem;
   }
   .mobile-brand { display: block; }

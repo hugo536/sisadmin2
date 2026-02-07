@@ -1,14 +1,15 @@
 <?php
 declare(strict_types=1);
 
-class ItemModel extends Modelo
+class ItemsModel extends Modelo
 {
     public function listar(): array
     {
+        // CORREGIDO: Usamos un alias (AS impuesto) para evitar errores en la vista
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        controla_stock, stock_minimo, precio_venta, costo_referencial,
-                       moneda, impuesto, estado
+                       moneda, impuesto_porcentaje AS impuesto, estado
                 FROM items
                 WHERE deleted_at IS NULL
                 ORDER BY id DESC';
@@ -20,10 +21,11 @@ class ItemModel extends Modelo
 
     public function obtener(int $id): array
     {
+        // CORREGIDO: Usamos un alias aquí también
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        controla_stock, stock_minimo, precio_venta, costo_referencial,
-                       moneda, impuesto, estado
+                       moneda, impuesto_porcentaje AS impuesto, estado
                 FROM items
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -37,7 +39,7 @@ class ItemModel extends Modelo
 
     public function skuExiste(string $sku, ?int $excludeId = null): bool
     {
-        $sql = 'SELECT 1 FROM items WHERE sku = :sku';
+        $sql = 'SELECT 1 FROM items WHERE sku = :sku AND deleted_at IS NULL';
         $params = ['sku' => $sku];
 
         if ($excludeId !== null) {
@@ -63,14 +65,15 @@ class ItemModel extends Modelo
         $payload['created_by'] = $userId;
         $payload['updated_by'] = $userId;
 
+        // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, marca,
-                                  unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                                  controla_stock, stock_minimo, precio_venta, costo_referencial,
-                                  moneda, impuesto, estado, created_by, updated_by)
+                                   unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                                   controla_stock, stock_minimo, precio_venta, costo_referencial,
+                                   moneda, impuesto_porcentaje, estado, created_by, updated_by)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
                         :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
-                        :moneda, :impuesto, :estado, :created_by, :updated_by)';
+                        :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($payload);
 
@@ -79,6 +82,7 @@ class ItemModel extends Modelo
 
     public function actualizar(int $id, array $data, int $userId): bool
     {
+        // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'UPDATE items
                 SET nombre = :nombre,
                     descripcion = :descripcion,
@@ -94,11 +98,12 @@ class ItemModel extends Modelo
                     precio_venta = :precio_venta,
                     costo_referencial = :costo_referencial,
                     moneda = :moneda,
-                    impuesto = :impuesto,
+                    impuesto_porcentaje = :impuesto_porcentaje,
                     estado = :estado,
                     updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
+        
         $payload = $this->mapPayload($data);
         $payload['id'] = $id;
         $payload['updated_by'] = $userId;
@@ -111,14 +116,12 @@ class ItemModel extends Modelo
         $sql = 'UPDATE items
                 SET estado = 0,
                     deleted_at = NOW(),
-                    updated_by = :updated_by,
-                    deleted_by = :deleted_by
+                    updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
         return $this->db()->prepare($sql)->execute([
             'id' => $id,
             'updated_by' => $userId,
-            'deleted_by' => $userId,
         ]);
     }
 
@@ -143,6 +146,7 @@ class ItemModel extends Modelo
                 'precio_venta' => (float) ($item['precio_venta'] ?? 0),
                 'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
                 'moneda' => (string) ($item['moneda'] ?? ''),
+                // Aquí usamos 'impuesto' porque en el SELECT usamos "AS impuesto"
                 'impuesto' => (float) ($item['impuesto'] ?? 0),
                 'estado' => (int) ($item['estado'] ?? 1),
             ];
@@ -173,7 +177,8 @@ class ItemModel extends Modelo
             'precio_venta' => (float) ($data['precio_venta'] ?? 0),
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),
             'moneda' => trim((string) ($data['moneda'] ?? 'PEN')),
-            'impuesto' => (float) ($data['impuesto'] ?? 0),
+            // CORREGIDO: Mapeamos el input 'impuesto' a la clave de BD 'impuesto_porcentaje'
+            'impuesto_porcentaje' => (float) ($data['impuesto'] ?? 0),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
     }

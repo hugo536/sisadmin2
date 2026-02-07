@@ -7,11 +7,13 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
-        <button class="btn btn-primary shadow-sm" type="button" onclick="abrirModalCrearTercero()">
+        <!-- BOTÓN QUE ABRE EL MODAL -->
+        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
             <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
         </button>
     </div>
 
+    <!-- Filtros -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
@@ -40,6 +42,7 @@
         </div>
     </div>
 
+    <!-- Tabla -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -61,7 +64,6 @@
                             if ((int) $tercero['es_cliente'] === 1) $roles[] = 'CLIENTE';
                             if ((int) $tercero['es_proveedor'] === 1) $roles[] = 'PROVEEDOR';
                             if ((int) $tercero['es_empleado'] === 1) $roles[] = 'EMPLEADO';
-                            $rolesTexto = implode(', ', $roles);
                             $rolesFiltro = implode('|', $roles);
                         ?>
                         <tr data-estado="<?php echo (int) $tercero['estado']; ?>"
@@ -101,6 +103,7 @@
                             </td>
                             <td class="text-end pe-4" data-label="Acciones">
                                 <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <!-- Switch de Estado Rápido -->
                                     <div class="form-check form-switch pt-1" title="Cambiar estado">
                                         <input class="form-check-input switch-estado-tercero" type="checkbox" role="switch"
                                                style="cursor: pointer; width: 2.5em; height: 1.25em;"
@@ -133,7 +136,7 @@
                                             title="Editar">
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
-                                    <form method="post" class="delete-form d-inline m-0">
+                                    <form method="post" class="delete-form d-inline m-0" onsubmit="return confirm('¿Eliminar este tercero?');">
                                         <input type="hidden" name="accion" value="eliminar">
                                         <input type="hidden" name="id" value="<?php echo (int) $tercero['id']; ?>">
                                         <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">
@@ -158,19 +161,16 @@
     </div>
 </div>
 
+<!-- Modal CREAR -->
 <div class="modal fade" id="modalCrearTercero" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-person-plus me-2"></i>Nuevo Tercero
-                </h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i>Nuevo Tercero</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-
             <form id="formCrearTercero" method="POST">
                 <input type="hidden" name="accion" value="crear">
-
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -249,70 +249,29 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <hr class="my-2">
-                            <h6 class="fw-bold">Datos Comerciales</h6>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago">
-                                <label for="crearCondicionPago">Condición de pago</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito" value="0">
-                                <label for="crearDiasCredito">Días de crédito</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="number" step="0.0001" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.0000">
-                                <label for="crearLimiteCredito">Límite de crédito</label>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <hr class="my-2">
-                            <h6 class="fw-bold">Datos Laborales</h6>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo">
-                                <label for="crearCargo">Cargo</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="area" id="crearArea" placeholder="Área">
-                                <label for="crearArea">Área</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso">
-                                <label for="crearFechaIngreso">Fecha de ingreso</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral">
-                                <label for="crearEstadoLaboral">Estado laboral</label>
-                            </div>
-                        </div>
+                        <!-- Campos adicionales: Comerciales y Laborales -->
+                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago"><label for="crearCondicionPago">Condición de pago</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito" value="0"><label for="crearDiasCredito">Días de crédito</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="number" step="0.0001" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito" value="0.0000"><label for="crearLimiteCredito">Límite de crédito</label></div></div>
+                        
+                        <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Laborales</h6></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Cargo"><label for="crearCargo">Cargo</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="area" id="crearArea" placeholder="Área"><label for="crearArea">Área</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso"><label for="crearFechaIngreso">Fecha de ingreso</label></div></div>
+                        <div class="col-md-4"><div class="form-floating"><input type="text" class="form-control" name="estado_laboral" id="crearEstadoLaboral" placeholder="Estado laboral"><label for="crearEstadoLaboral">Estado laboral</label></div></div>
                     </div>
                 </div>
-
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-link text-secondary text-decoration-none" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold">
-                        <i class="bi bi-save me-2"></i>Guardar Tercero
-                    </button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Modal EDITAR -->
 <div class="modal fade" id="modalEditarTercero" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
@@ -369,60 +328,25 @@
                     <div class="col-12">
                         <label class="form-label fw-semibold">Roles</label>
                         <div class="d-flex flex-wrap gap-3">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="editEsCliente" name="es_cliente" value="1">
-                                <label class="form-check-label" for="editEsCliente">Cliente</label>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1">
-                                <label class="form-check-label" for="editEsProveedor">Proveedor</label>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1">
-                                <label class="form-check-label" for="editEsEmpleado">Empleado</label>
-                            </div>
+                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsCliente" name="es_cliente" value="1"><label class="form-check-label" for="editEsCliente">Cliente</label></div>
+                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1"><label class="form-check-label" for="editEsProveedor">Proveedor</label></div>
+                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1"><label class="form-check-label" for="editEsEmpleado">Empleado</label></div>
                         </div>
                     </div>
-                    <div class="col-12">
-                        <hr class="my-2">
-                        <h6 class="fw-bold">Datos Comerciales</h6>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editCondicionPago" name="condicion_pago">
-                        <label for="editCondicionPago">Condición de pago</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editDiasCredito" name="dias_credito" type="number">
-                        <label for="editDiasCredito">Días de crédito</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.0001">
-                        <label for="editLimiteCredito">Límite de crédito</label>
-                    </div>
-                    <div class="col-12">
-                        <hr class="my-2">
-                        <h6 class="fw-bold">Datos Laborales</h6>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editCargo" name="cargo">
-                        <label for="editCargo">Cargo</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editArea" name="area">
-                        <label for="editArea">Área</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date">
-                        <label for="editFechaIngreso">Fecha de ingreso</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <input class="form-control" id="editEstadoLaboral" name="estado_laboral">
-                        <label for="editEstadoLaboral">Estado laboral</label>
-                    </div>
+                    <!-- Campos adicionales EDITAR -->
+                    <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Comerciales</h6></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editCondicionPago" name="condicion_pago"><label for="editCondicionPago">Condición de pago</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editDiasCredito" name="dias_credito" type="number"><label for="editDiasCredito">Días de crédito</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.0001"><label for="editLimiteCredito">Límite de crédito</label></div>
+                    
+                    <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Datos Laborales</h6></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editCargo" name="cargo"><label for="editCargo">Cargo</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editArea" name="area"><label for="editArea">Área</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editFechaIngreso" name="fecha_ingreso" type="date"><label for="editFechaIngreso">Fecha de ingreso</label></div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editEstadoLaboral" name="estado_laboral"><label for="editEstadoLaboral">Estado laboral</label></div>
+
                     <div class="col-12 d-flex justify-content-end">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="bi bi-save me-2"></i>Actualizar
-                        </button>
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-2"></i>Actualizar</button>
                     </div>
                 </form>
             </div>
@@ -430,35 +354,4 @@
     </div>
 </div>
 
-<script>
-    function abrirModalCrearTercero() {
-        const modal = new bootstrap.Modal(document.getElementById('modalCrearTercero'));
-        modal.show();
-    }
-
-    document.getElementById('modalEditarTercero').addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        if (!button) {
-            return;
-        }
-        document.getElementById('editTerceroId').value = button.getAttribute('data-id') || '';
-        document.getElementById('editTipoPersona').value = button.getAttribute('data-tipo-persona') || 'NATURAL';
-        document.getElementById('editTipoDoc').value = button.getAttribute('data-tipo-doc') || 'DNI';
-        document.getElementById('editNumeroDoc').value = button.getAttribute('data-numero-doc') || '';
-        document.getElementById('editNombre').value = button.getAttribute('data-nombre') || '';
-        document.getElementById('editDireccion').value = button.getAttribute('data-direccion') || '';
-        document.getElementById('editTelefono').value = button.getAttribute('data-telefono') || '';
-        document.getElementById('editEmail').value = button.getAttribute('data-email') || '';
-        document.getElementById('editCondicionPago').value = button.getAttribute('data-condicion-pago') || '';
-        document.getElementById('editDiasCredito').value = button.getAttribute('data-dias-credito') || '0';
-        document.getElementById('editLimiteCredito').value = button.getAttribute('data-limite-credito') || '0.0000';
-        document.getElementById('editCargo').value = button.getAttribute('data-cargo') || '';
-        document.getElementById('editArea').value = button.getAttribute('data-area') || '';
-        document.getElementById('editFechaIngreso').value = button.getAttribute('data-fecha-ingreso') || '';
-        document.getElementById('editEstadoLaboral').value = button.getAttribute('data-estado-laboral') || '';
-        document.getElementById('editEstado').value = button.getAttribute('data-estado') || '1';
-        document.getElementById('editEsCliente').checked = (button.getAttribute('data-es-cliente') || '0') === '1';
-        document.getElementById('editEsProveedor').checked = (button.getAttribute('data-es-proveedor') || '0') === '1';
-        document.getElementById('editEsEmpleado').checked = (button.getAttribute('data-es-empleado') || '0') === '1';
-    });
-</script>
+<script src="<?php echo asset_url('js/terceros.js'); ?>"></script>
