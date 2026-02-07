@@ -56,6 +56,36 @@
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
 
+    function getDocumentoError(tipo, numero) {
+        const valor = (numero || '').trim();
+        if (!valor) {
+            return 'Ingrese el número de documento.';
+        }
+        if (tipo === 'RUC') {
+            if (!/^\d+$/.test(valor)) {
+                return 'El RUC debe contener solo números.';
+            }
+            const digits = sanitizeDigits(valor);
+            if (digits.length !== 11) {
+                return 'El RUC debe tener 11 dígitos.';
+            }
+            if (!/^(10|20)/.test(digits)) {
+                return 'El RUC debe iniciar con 10 o 20.';
+            }
+            return null;
+        }
+        if (tipo === 'DNI') {
+            if (!/^\d+$/.test(valor)) {
+                return 'El DNI debe contener solo números.';
+            }
+            const digits = sanitizeDigits(valor);
+            if (digits.length !== 8) {
+                return 'El DNI debe tener 8 dígitos.';
+            }
+        }
+        return null;
+    }
+
     function updateNombreLabel(tipoPersonaEl, labelEl) {
         if (!tipoPersonaEl || !labelEl) return;
         const tipo = tipoPersonaEl.value;
@@ -151,15 +181,12 @@
         }
 
         const numero = (numeroDoc?.value || '').trim();
-        if (!numero) {
-            setInvalid(numeroDoc, 'Ingrese el número de documento.');
+        const documentoError = getDocumentoError(tipoDoc?.value || '', numero);
+        if (documentoError) {
+            setInvalid(numeroDoc, documentoError);
             valid = false;
-        } else if (tipoDoc?.value === 'RUC' && sanitizeDigits(numero).length !== 11) {
-            setInvalid(numeroDoc, 'El RUC debe tener 11 dígitos.');
-            valid = false;
-        } else if (tipoDoc?.value === 'DNI' && sanitizeDigits(numero).length !== 8) {
-            setInvalid(numeroDoc, 'El DNI debe tener 8 dígitos.');
-            valid = false;
+        } else if (numeroDoc) {
+            numeroDoc.setCustomValidity('');
         }
 
         if (!nombre?.value.trim()) {
@@ -351,65 +378,6 @@
         editEsEmpleado?.addEventListener('change', () => toggleLaboralFields(editEsEmpleado, document.getElementById('editLaboralFields')));
     }
 
-    function initSunatLookup() {
-        const attach = (buttonId, tipoDocId, numeroId, nombreId, direccionId, tipoPersonaId) => {
-            const button = document.getElementById(buttonId);
-            if (!button) return;
-
-            button.addEventListener('click', () => {
-                const tipoDoc = document.getElementById(tipoDocId)?.value || '';
-                const numero = document.getElementById(numeroId)?.value || '';
-                if (tipoDoc !== 'RUC') {
-                    Swal.fire('Aviso', 'La consulta SUNAT aplica solo para RUC.', 'info');
-                    return;
-                }
-
-                const ruc = sanitizeDigits(numero);
-                if (ruc.length !== 11) {
-                    Swal.fire('Aviso', 'Ingrese un RUC válido de 11 dígitos.', 'warning');
-                    return;
-                }
-
-                button.disabled = true;
-                button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-                const formData = new FormData();
-                formData.append('accion', 'consultar_sunat');
-                formData.append('ruc', ruc);
-
-                fetch(window.location.href, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: formData
-                })
-                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                    .then(({ ok, data }) => {
-                        if (!ok || !data.ok) {
-                            throw new Error(data.mensaje || 'No se pudo consultar SUNAT.');
-                        }
-                        const nombreEl = document.getElementById(nombreId);
-                        const direccionEl = document.getElementById(direccionId);
-                        const tipoPersonaEl = document.getElementById(tipoPersonaId);
-                        if (nombreEl) nombreEl.value = data.razon_social || '';
-                        if (direccionEl) direccionEl.value = data.direccion || '';
-                        if (tipoPersonaEl) tipoPersonaEl.value = 'JURIDICA';
-                        updateNombreLabel(tipoPersonaEl, document.querySelector(`#${nombreId} + label`));
-                        Swal.fire('Consulta exitosa', 'Datos actualizados desde SUNAT.', 'success');
-                    })
-                    .catch(err => {
-                        Swal.fire('Error', err.message, 'error');
-                    })
-                    .finally(() => {
-                        button.disabled = false;
-                        button.textContent = 'Consultar';
-                    });
-            });
-        };
-
-        attach('crearConsultarSunat', 'crearTipoDoc', 'crearNumeroDoc', 'crearNombre', 'crearDireccion', 'crearTipoPersona');
-        attach('editConsultarSunat', 'editTipoDoc', 'editNumeroDoc', 'editNombre', 'editDireccion', 'editTipoPersona');
-    }
-
     function initTableManager() {
         const searchInput = document.getElementById('terceroSearch');
         const filtroRol = document.getElementById('terceroFiltroRol');
@@ -545,6 +513,13 @@
             const numero = numeroEl.value.trim();
             if (tipo === '' || numero === '') return;
 
+            const errorMensaje = getDocumentoError(tipo, numero);
+            if (errorMensaje) {
+                numeroEl.setCustomValidity(errorMensaje);
+                numeroEl.classList.add('is-invalid');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('accion', 'validar_documento');
             formData.append('tipo_documento', tipo);
@@ -574,7 +549,21 @@
             const nEl = document.getElementById(c.numero);
             if (tEl && nEl) {
                 const handler = () => validar(tEl, nEl, typeof c.excludeId === 'function' ? c.excludeId() : c.excludeId);
-                tEl.addEventListener('change', handler);
+                const localHandler = () => {
+                    const errorMensaje = getDocumentoError(tEl.value, nEl.value);
+                    if (errorMensaje) {
+                        nEl.setCustomValidity(errorMensaje);
+                        nEl.classList.add('is-invalid');
+                    } else {
+                        nEl.setCustomValidity('');
+                        nEl.classList.remove('is-invalid');
+                    }
+                };
+                tEl.addEventListener('change', () => {
+                    localHandler();
+                    handler();
+                });
+                nEl.addEventListener('input', localHandler);
                 nEl.addEventListener('blur', handler);
             }
         });
@@ -586,7 +575,6 @@
         initEditModal();
         initUbigeo();
         initDynamicFields();
-        initSunatLookup();
         initTableManager();
         initStatusSwitch();
         initDocumentoValidation();

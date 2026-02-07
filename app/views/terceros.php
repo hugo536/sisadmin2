@@ -203,13 +203,10 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="input-group">
-                                <div class="form-floating flex-grow-1">
-                                    <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
-                                    <label for="crearNumeroDoc">Número</label>
-                                    <div class="invalid-feedback">Ingrese un número válido.</div>
-                                </div>
-                                <button class="btn btn-outline-primary" type="button" id="crearConsultarSunat">Consultar</button>
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
+                                <label for="crearNumeroDoc">Número</label>
+                                <div class="invalid-feedback">Ingrese un número válido.</div>
                             </div>
                         </div>
                         <div class="col-md-8">
@@ -385,13 +382,10 @@
                         <div class="invalid-feedback">Seleccione el tipo de documento.</div>
                     </div>
                     <div class="col-md-4">
-                        <div class="input-group">
-                            <div class="form-floating flex-grow-1">
-                                <input class="form-control" id="editNumeroDoc" name="numero_documento" required>
-                                <label for="editNumeroDoc">Número</label>
-                                <div class="invalid-feedback">Ingrese un número válido.</div>
-                            </div>
-                            <button class="btn btn-outline-primary" type="button" id="editConsultarSunat">Consultar</button>
+                        <div class="form-floating">
+                            <input class="form-control" id="editNumeroDoc" name="numero_documento" required>
+                            <label for="editNumeroDoc">Número</label>
+                            <div class="invalid-feedback">Ingrese un número válido.</div>
                         </div>
                     </div>
                     <div class="col-md-8 form-floating">
