@@ -3,17 +3,19 @@ declare(strict_types=1);
 
 class Router
 {
-    // 🔴 IMPORTANTE: Cambia esto a TRUE para ver qué está fallando.
-    // Cuando arregles el error, cámbialo a FALSE.
+    // Cambiar a true solo si necesitas depurar rutas fallidas
     private bool $debug = false;
 
     public function dispatch(): void
     {
+        // Normalización de ruta: 'modulo/accion'
         $ruta = trim((string)($_GET['ruta'] ?? 'login/index'));
         if ($ruta === '') $ruta = 'login/index';
 
+        // Seguridad básica: evitar Directory Traversal
         if (str_contains($ruta, '..')) {
-            $this->render_not_found(); return;
+            $this->render_not_found();
+            return;
         }
 
         $partes = array_values(array_filter(explode('/', $ruta)));
@@ -23,93 +25,80 @@ class Router
         if ($modulo === '') $modulo = 'login';
         if ($accion === '') $accion = 'index';
 
-        // Lógica original de nombre de clase
-        $controlador_original = ucfirst($modulo) . 'Controller';
-        $controlador_clase = $controlador_original;
+        // Convención: 'roles' -> 'RolesController'
+        $controlador_clase_base = ucfirst($modulo) . 'Controller';
+        
+        // Mapeo de Alias (Si tus archivos o clases no siguen la convención exacta)
+        $mapa_alias = [
+            'LoginController'         => 'AuthController', // alias -> real
+            'ConfiguracionController' => 'EmpresaController',
+            'ConfigController'        => 'EmpresaController'
+        ];
 
-        // =========================================================
-        // MAPEO DE ALIAS
-        // =========================================================
-        if ($controlador_clase === 'LoginController') {
-            $controlador_clase = 'AuthController';
-        }
-        if ($controlador_clase === 'ConfiguracionController' || $controlador_clase === 'ConfigController') {
-            $controlador_clase = 'EmpresaController';
-        }
+        $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
 
-        // =========================================================
-        // 🕵️ ZONA DE DEPURACIÓN (DEBUGGER)
-        // =========================================================
-        if ($this->debug) {
-            echo "<div style='background:white; color:black; font-family:monospace; padding:20px; border:4px solid red; z-index:99999; position:relative;'>";
-            echo "<h3>=== 🐞 MODO DEPURACIÓN ACTIVO ===</h3>";
-            echo "<p><strong>Ruta solicitada URL:</strong> " . htmlspecialchars($ruta) . "</p>";
-            echo "<p><strong>Controlador Original:</strong> " . $controlador_original . "</p>";
-            echo "<p><strong>Controlador Final (Alias):</strong> <span style='color:blue'>" . $controlador_clase . "</span></p>";
-            echo "<hr>";
-            echo "<p><strong>Buscando archivo en estas rutas:</strong></p><ul>";
-            
-            $rutas_prueba = [
-                BASE_PATH . '/app/controllers/' . $controlador_clase . '.php',
-                BASE_PATH . '/app/controladores/' . $controlador_clase . '.php',
-            ];
-            
-            foreach ($rutas_prueba as $r) {
-                $existe = is_file($r) ? "<span style='color:green; font-weight:bold;'>ENCONTRADO ✅</span>" : "<span style='color:red;'>NO EXISTE ❌</span>";
-                echo "<li>" . $r . " -> " . $existe . "</li>";
-            }
-            echo "</ul>";
-            echo "<p><em>Nota: Verifica que las mayúsculas/minúsculas de las carpetas coincidan exactamente en Windows/Linux.</em></p>";
-            
-            // Si quieres ver si continúa o detenerlo aquí:
-             die("<hr>Fin del reporte de depuración. Corrige la ruta o el nombre del archivo.");
-        }
-        // =========================================================
-
+        // Búsqueda del archivo
         $archivo = $this->resolver_controlador_archivo($controlador_clase);
         
-        if (!$archivo) { 
-            // Si llegamos aquí sin debug, es un 404 real
-            $this->render_not_found(); 
-            return; 
+        if (!$archivo) {
+            if ($this->debug) {
+                die("<h3>Debug Router:</h3><p>No se encontró el archivo para <strong>$controlador_clase</strong>.</p>");
+            }
+            $this->render_not_found();
+            return;
         }
 
         require_once $archivo;
 
+        // Instancia y Ejecución
         if (!class_exists($controlador_clase)) {
-            $this->render_server_error("El archivo existe, pero la clase <strong>$controlador_clase</strong> no está definida dentro de él."); 
+            $this->render_server_error("La clase <strong>$controlador_clase</strong> no está definida en el archivo.");
             return;
         }
 
         $controlador = new $controlador_clase();
 
         if (!method_exists($controlador, $accion)) {
-            $this->render_server_error("El controlador existe, pero el método (función) <strong>$accion()</strong> no se encuentra."); 
+            if ($this->debug) {
+                die("<h3>Debug Router:</h3><p>Método <strong>$accion()</strong> no encontrado en $controlador_clase.</p>");
+            }
+            // Opción: render_not_found() si prefieres 404 en vez de error 500
+            $this->render_not_found(); 
             return;
         }
 
+        // Ejecutar acción
         $controlador->{$accion}();
     }
 
-    private function resolver_controlador_archivo(string $controlador_clase): ?string
+    private function resolver_controlador_archivo(string $clase): ?string
     {
-        $candidatos = [
-            BASE_PATH . '/app/controllers/' . $controlador_clase . '.php',
-            BASE_PATH . '/app/controladores/' . $controlador_clase . '.php',
+        // Rutas posibles (inglés/español por si acaso)
+        $rutas_posibles = [
+            BASE_PATH . '/app/controllers/' . $clase . '.php',
+            BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
-        foreach ($candidatos as $f) if (is_file($f)) return $f;
+
+        foreach ($rutas_posibles as $ruta) {
+            if (is_file($ruta)) return $ruta;
+        }
         return null;
     }
 
     private function render_not_found(): void
     {
         http_response_code(404);
-        echo '404 - Recurso no encontrado (Desde Router Debug).';
+        // Puedes requerir una vista 404 bonita aquí
+        if (is_file(BASE_PATH . '/app/views/404.php')) {
+            require BASE_PATH . '/app/views/404.php';
+        } else {
+            echo "<h1>404 Not Found</h1><p>La página solicitada no existe.</p>";
+        }
     }
 
     private function render_server_error(string $msg = ''): void
     {
         http_response_code(500);
-        echo "500 - Error de configuración: " . $msg;
+        echo "<h1>500 Server Error</h1><p>$msg</p>";
     }
 }

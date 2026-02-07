@@ -13,103 +13,138 @@ class RolesController extends Controlador
     public function __construct()
     {
         $this->rolModel = new RolModel();
-        // Asumo que tienes este modelo, si no, te lo paso después
-        $this->permisoModel = new PermisoModel(); 
+        $this->permisoModel = new PermisoModel();
     }
 
     public function index(): void
     {
+        // 1. Autenticación y Autorización Base
         AuthMiddleware::handle();
         require_permiso('roles.ver');
 
-        $flash = ['tipo' => '', 'texto' => ''];
-        $userId = (int) ($_SESSION['id'] ?? 0);
+        $userId = (int)($_SESSION['id'] ?? 0);
+        $esAjax = function_exists('es_ajax') && es_ajax();
 
-        // --- MANEJO DE POST (ACCIONES) ---
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $accion = (string) ($_POST['accion'] ?? '');
-            
+        // 2. Procesar Acciones (POST)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $accion = $_POST['accion'] ?? '';
+            $response = ['ok' => false, 'mensaje' => 'Acción no reconocida'];
+            $httpCode = 400;
+
             try {
-                if ($accion === 'crear') {
-                    require_permiso('roles.crear');
-                    $this->rolModel->crear(trim((string) ($_POST['nombre'] ?? '')), $userId);
-                    $flash = ['tipo' => 'success', 'texto' => 'Rol creado correctamente.'];
-                }
+                switch ($accion) {
+                    case 'crear':
+                        require_permiso('roles.crear');
+                        $nombre = trim($_POST['nombre'] ?? '');
+                        if (empty($nombre)) throw new Exception("El nombre del rol es obligatorio.");
+                        
+                        $this->rolModel->crear($nombre, $userId);
+                        $response = ['ok' => true, 'mensaje' => 'Rol creado correctamente.'];
+                        $httpCode = 200;
+                        break;
 
-                if ($accion === 'editar') {
-                    require_permiso('roles.editar');
-                    // Validamos que 'estado' venga en el POST, sino asumimos activo (1) o lo que corresponda
-                    $estado = isset($_POST['estado']) ? (int) $_POST['estado'] : 1;
-                    $this->rolModel->actualizar((int) $_POST['id'], trim((string) $_POST['nombre']), $estado, $userId);
-                    $flash = ['tipo' => 'success', 'texto' => 'Rol actualizado correctamente.'];
-                }
+                    case 'editar':
+                        require_permiso('roles.editar');
+                        $id = (int)($_POST['id'] ?? 0);
+                        $nombre = trim($_POST['nombre'] ?? '');
+                        $estado = isset($_POST['estado']) ? (int)$_POST['estado'] : 1;
 
-                if ($accion === 'toggle') {
-                    require_permiso('roles.editar');
-                    $this->rolModel->cambiar_estado((int) $_POST['id'], (int) $_POST['estado'], $userId);
-                    // No seteamos flash aquí porque esto suele venir de una petición AJAX (JS)
-                    // pero si es form normal, está bien dejarlo.
-                    $flash = ['tipo' => 'success', 'texto' => 'Estado del rol actualizado.'];
-                }
-
-                if ($accion === 'eliminar') {
-                    require_permiso('roles.eliminar'); // Asegúrate que este permiso exista en BD
-                    $this->rolModel->eliminar_logico((int) $_POST['id'], $userId);
-                    $flash = ['tipo' => 'success', 'texto' => 'Rol eliminado correctamente.'];
-                }
-
-                if ($accion === 'permisos') {
-                    // CORRECCIÓN: Usamos 'roles.editar' porque 'roles.permisos' no existía en tu SQL
-                    require_permiso('roles.editar'); 
-                    
-                    $idRol = (int) ($_POST['id_rol'] ?? 0);
-                    if ($idRol === (int) ($_SESSION['id_rol'] ?? 0)) {
-                        $mensaje = 'Por seguridad, no puedes editar tu propio rol asignado';
-                        if (function_exists('es_ajax') && es_ajax()) {
-                            json_response(['ok' => false, 'mensaje' => $mensaje], 400);
-                            return;
+                        if (empty($nombre)) throw new Exception("El nombre es obligatorio.");
+                        
+                        // Regla de seguridad: No desactivar el rol propio
+                        if ($estado === 0 && $id === (int)($_SESSION['id_rol'] ?? 0)) {
+                            throw new Exception("Por seguridad, no puedes desactivar tu propio rol actual.");
                         }
-                        $flash = ['tipo' => 'error', 'texto' => $mensaje];
-                        $accion = '';
-                    }
 
-                    // Convertimos a enteros para seguridad
-                    $permisos = array_map('intval', $_POST['permisos'] ?? []);
-                    
-                    if ($accion === 'permisos') {
-                        $this->rolModel->guardar_permisos($idRol, $permisos);
-                    }
-                    
-                    // Importante: Si edito mis propios permisos, forzar recarga en el próximo request
-                    if ($accion === 'permisos' && $idRol === (int)($_SESSION['id_rol'] ?? 0)) {
-                        unset($_SESSION['permisos']); 
-                    }
-                    
-                    $flash = ['tipo' => 'success', 'texto' => 'Permisos asignados correctamente.'];
+                        $this->rolModel->actualizar($id, $nombre, $estado, $userId);
+                        $response = ['ok' => true, 'mensaje' => 'Rol actualizado correctamente.'];
+                        $httpCode = 200;
+                        break;
+
+                    case 'toggle': // Cambio rápido de estado desde lista
+                        require_permiso('roles.editar');
+                        $id = (int)($_POST['id'] ?? 0);
+                        $estado = (int)($_POST['estado'] ?? 0);
+
+                        if ($id === (int)($_SESSION['id_rol'] ?? 0)) {
+                            throw new Exception("No puedes cambiar el estado de tu propio rol.");
+                        }
+
+                        $this->rolModel->cambiar_estado($id, $estado, $userId);
+                        $response = ['ok' => true, 'mensaje' => 'Estado actualizado.'];
+                        $httpCode = 200;
+                        break;
+
+                    case 'eliminar':
+                        require_permiso('roles.eliminar');
+                        $id = (int)($_POST['id'] ?? 0);
+
+                        // Reglas de protección críticas
+                        if ($id === 1) throw new Exception("El rol Super Admin es inmutable.");
+                        if ($id === (int)($_SESSION['id_rol'] ?? 0)) throw new Exception("No puedes eliminar tu propio rol.");
+
+                        $this->rolModel->eliminar_logico($id, $userId);
+                        $response = ['ok' => true, 'mensaje' => 'Rol eliminado correctamente.'];
+                        $httpCode = 200;
+                        break;
+
+                    case 'permisos': // Guardar asignación de permisos
+                        require_permiso('roles.editar');
+                        $idRol = (int)($_POST['id_rol'] ?? 0);
+                        
+                        // Validar y limpiar array de permisos
+                        $permisos = isset($_POST['permisos']) && is_array($_POST['permisos']) 
+                                    ? array_map('intval', $_POST['permisos']) 
+                                    : [];
+
+                        // Regla 3.4 Manual: Prevención de Auto-Bloqueo
+                        if ($idRol === (int)($_SESSION['id_rol'] ?? 0)) {
+                            throw new Exception("Por seguridad, no puedes editar los permisos de tu propio rol.");
+                        }
+
+                        // Guardar (Auditoría: $userId)
+                        $this->rolModel->guardar_permisos($idRol, $permisos, $userId);
+                        
+                        $response = ['ok' => true, 'mensaje' => 'Permisos actualizados correctamente.'];
+                        $httpCode = 200;
+                        break;
                 }
 
             } catch (Throwable $e) {
-                // En producción, loguear el error real y mostrar mensaje genérico
-                $flash = ['tipo' => 'error', 'texto' => 'Error: ' . $e->getMessage()];
+                $response = ['ok' => false, 'mensaje' => $e->getMessage()];
+                $httpCode = 400;
+            }
+
+            // Retorno JSON si es AJAX (Estándar Frontend)
+            if ($esAjax) {
+                header('Content-Type: application/json');
+                http_response_code($httpCode);
+                echo json_encode($response);
+                exit;
+            } else {
+                // Fallback para POST tradicional (recargar página)
+                // Se podría implementar redirección con $_SESSION['flash'] si fuera necesario
+                header('Location: ' . BASE_URL . '/roles');
+                exit;
             }
         }
 
-        // --- PREPARAR DATOS PARA LA VISTA ---
+        // 3. Renderizado de Vista (GET)
         $roles = $this->rolModel->listar();
-        
-        // Agregamos los IDs de permisos actuales para poder marcar los checkboxes en la vista
-        foreach ($roles as &$rol) {
-            $rol['permisos_ids'] = $this->rolModel->permisos_por_rol((int) $rol['id']);
-        }
-        unset($rol); // Romper referencia
 
-        // Renderizar vista
+        // Inyectar permisos actuales a cada rol (para pintar los checkboxes)
+        foreach ($roles as &$rol) {
+            $rol['permisos_ids'] = $this->rolModel->permisos_por_rol((int)$rol['id']);
+        }
+        unset($rol);
+
+        // Obtener catálogo completo de permisos activos
+        $permisosActivos = $this->permisoModel->listar_activos();
+
         $this->render('roles', [
             'roles' => $roles,
-            'permisos' => $this->permisoModel->listar_activos(), // Necesitamos lista de TODOS los permisos disponibles
-            'flash' => $flash,
-            // CORRECCIÓN: Ruta sin /index para que coincida con sidebar
-            'ruta_actual' => 'roles', 
+            'permisos' => $permisosActivos,
+            'ruta_actual' => 'roles'
         ]);
     }
 }

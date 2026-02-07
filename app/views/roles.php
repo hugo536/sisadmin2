@@ -1,77 +1,60 @@
 <?php
-// roles/index.php (o app/views/roles.php)
+// app/views/roles.php
 
-// -------------------------------
-// Data defensiva
-// -------------------------------
 $roles = $roles ?? [];
 $permisos = $permisos ?? [];
 
-// Permisos por módulo (para asignación por rol)
+// Permisos agrupados por módulo
 $permisosPorModulo = [];
 foreach ($permisos as $permiso) {
     $modulo = (string)($permiso['modulo'] ?? 'General');
     $permisosPorModulo[$modulo][] = $permiso;
 }
-
-// Permisos agrupados (para TAB “Permisos”)
-$permisosAgrupados = [];
-foreach ($permisos as $permiso) {
-    $modulo = (string)($permiso['modulo'] ?? 'General');
-    $permisosAgrupados[$modulo][] = $permiso;
-}
 ?>
 
 <div class="container-fluid p-4">
 
-    <!-- HEADER (estilo Usuarios) -->
     <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
         <div class="flex-grow-1">
             <h1 class="h4 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-shield-lock me-2 text-primary fs-5"></i>
+                <i class="bi bi-shield-lock-fill me-2 text-primary fs-5"></i>
                 <span>Roles y Permisos</span>
             </h1>
             <p class="text-muted small mb-0 ms-1">
-                Administración de roles, asignación granular y catálogo de permisos del sistema.
+                Gestión de perfiles de acceso y matriz de seguridad (RBAC).
             </p>
         </div>
 
-        <!-- Acción principal: crear rol (solo aplica a Roles) -->
         <button class="btn btn-primary shadow-sm btn-new-user flex-shrink-0"
                 type="button"
                 data-bs-toggle="modal"
                 data-bs-target="#modalCrearRol">
-            <i class="bi bi-plus-circle me-0 me-sm-2"></i>
+            <i class="bi bi-shield-plus me-0 me-sm-2"></i>
             <span class="d-none d-sm-inline">Nuevo Rol</span>
         </button>
     </div>
 
-    <!-- TABS -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-2 p-sm-3">
             <ul class="nav nav-pills gap-2" id="rolesPermisosTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-semibold"
+                    <button class="nav-link active fw-bold"
                             id="tab-roles"
                             data-bs-toggle="pill"
                             data-bs-target="#pane-roles"
                             type="button"
-                            role="tab"
-                            aria-controls="pane-roles"
-                            aria-selected="true">
-                        <i class="bi bi-shield-check me-1"></i> Roles
+                            role="tab">
+                        <i class="bi bi-person-badge me-1"></i> Roles
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-semibold"
+                    <button class="nav-link fw-bold"
                             id="tab-permisos"
                             data-bs-toggle="pill"
                             data-bs-target="#pane-permisos"
                             type="button"
-                            role="tab"
-                            aria-controls="pane-permisos"
-                            aria-selected="false">
-                        <i class="bi bi-key me-1"></i> Permisos
+                            role="tab">
+                        <i class="bi bi-key me-1"></i> Catálogo de Permisos
                     </button>
                 </li>
             </ul>
@@ -80,12 +63,8 @@ foreach ($permisos as $permiso) {
 
     <div class="tab-content">
 
-        <!-- =========================================================
-             TAB 1: ROLES
-        ========================================================== -->
-        <div class="tab-pane fade show active" id="pane-roles" role="tabpanel" aria-labelledby="tab-roles">
+        <div class="tab-pane fade show active" id="pane-roles" role="tabpanel">
 
-            <!-- FILTROS (estilo Usuarios) -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body p-3">
                     <div class="row g-2 align-items-center">
@@ -111,7 +90,6 @@ foreach ($permisos as $permiso) {
                 </div>
             </div>
 
-            <!-- TABLA ROLES -->
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -120,7 +98,7 @@ foreach ($permisos as $permiso) {
                             <tr>
                                 <th class="ps-4">Rol</th>
                                 <th class="text-center">Estado</th>
-                                <th>Creado</th>
+                                <th>Última Actualización</th>
                                 <th class="text-end pe-4">Acciones</th>
                             </tr>
                             </thead>
@@ -131,23 +109,26 @@ foreach ($permisos as $permiso) {
                                 $rolId = (int)($rol['id'] ?? 0);
                                 $rolNombre = (string)($rol['nombre'] ?? '');
                                 $rolEstado = (int)($rol['estado'] ?? 0);
-                                $rolCreated = (string)($rol['created_at'] ?? '-');
-
-                                // Para filtros JS
-                                $dataSearch = strtolower($rolNombre);
+                                $rolUpdated = (string)($rol['updated_at'] ?? $rol['created_at'] ?? '-');
+                                $dataSearch = mb_strtolower($rolNombre);
                                 ?>
 
-                                <!-- ROW PRINCIPAL -->
                                 <tr class="role-row-main"
                                     data-role-id="<?php echo $rolId; ?>"
                                     data-search="<?php echo e($dataSearch); ?>"
                                     data-estado="<?php echo $rolEstado; ?>">
+                                    
                                     <td class="ps-4">
-                                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
-                                            <span><?php echo e($rolNombre); ?></span>
-                                            <span class="badge bg-light text-dark border"><?php echo $rolId; ?></span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" 
+                                                 style="width:40px; height:40px; border-radius:50%;">
+                                                <i class="bi bi-shield-fill"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark"><?php echo e($rolNombre); ?></div>
+                                                <div class="small text-muted">ID: <?php echo $rolId; ?></div>
+                                            </div>
                                         </div>
-                                        <div class="small text-muted">Gestión de permisos por rol</div>
                                     </td>
 
                                     <td class="text-center">
@@ -159,98 +140,99 @@ foreach ($permisos as $permiso) {
                                     </td>
 
                                     <td class="text-muted small">
-                                        <i class="bi bi-clock me-1"></i><?php echo e($rolCreated); ?>
+                                        <i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?>
                                     </td>
 
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
+                                            
+                                            <div class="form-check form-switch pt-1" data-bs-toggle="tooltip" title="Cambiar estado">
+                                                <input class="form-check-input switch-estado-rol" 
+                                                       type="checkbox" 
+                                                       role="switch"
+                                                       style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                       data-id="<?php echo $rolId; ?>"
+                                                       <?php echo $rolEstado === 1 ? 'checked' : ''; ?>>
+                                            </div>
 
-                                            <!-- Editar -->
+                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
                                             <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-rol"
                                                     data-id="<?php echo $rolId; ?>"
                                                     data-nombre="<?php echo e($rolNombre); ?>"
                                                     data-estado="<?php echo $rolEstado; ?>"
                                                     data-bs-toggle="tooltip"
-                                                    title="Editar">
+                                                    title="Editar Nombre">
                                                 <i class="bi bi-pencil-square fs-5"></i>
                                             </button>
 
-                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
-
-                                            <!-- Toggle -->
-                                            <form method="post" class="toggle-form d-inline m-0">
-                                                <input type="hidden" name="accion" value="toggle">
-                                                <input type="hidden" name="id" value="<?php echo $rolId; ?>">
-                                                <input type="hidden" name="estado" value="<?php echo $rolEstado === 1 ? 0 : 1; ?>">
-                                                <button type="submit"
-                                                        class="btn btn-sm btn-light text-secondary border-0 bg-transparent"
-                                                        data-bs-toggle="tooltip"
-                                                        title="Activar/Desactivar">
-                                                    <i class="bi <?php echo $rolEstado === 1 ? 'bi-toggle-on' : 'bi-toggle-off'; ?> fs-5"></i>
-                                                </button>
-                                            </form>
-
-                                            <!-- Eliminar -->
                                             <form method="post" class="delete-form d-inline m-0">
                                                 <input type="hidden" name="accion" value="eliminar">
                                                 <input type="hidden" name="id" value="<?php echo $rolId; ?>">
                                                 <button type="submit"
                                                         class="btn btn-sm btn-light text-danger border-0 bg-transparent"
                                                         data-bs-toggle="tooltip"
-                                                        title="Eliminar">
+                                                        title="Eliminar Rol">
                                                     <i class="bi bi-trash fs-5"></i>
                                                 </button>
                                             </form>
-
                                         </div>
                                     </td>
                                 </tr>
 
-                                <!-- ROW DETALLE (permisos por módulo) -->
-                                <tr class="role-row-detail" data-detail-for="<?php echo $rolId; ?>">
-                                    <td colspan="4" class="bg-light-subtle p-0 border-0">
-                                        <div class="px-3 py-2">
+                                <tr class="role-row-detail bg-light-subtle" data-detail-for="<?php echo $rolId; ?>">
+                                    <td colspan="4" class="p-0 border-0">
+                                        <div class="px-3 py-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-bold text-primary mb-0">
+                                                    <i class="bi bi-sliders me-2"></i>Permisos asignados a: <span class="text-dark"><?php echo e($rolNombre); ?></span>
+                                                </h6>
+                                            </div>
 
                                             <form method="post" class="permiso-form">
                                                 <input type="hidden" name="accion" value="permisos">
                                                 <input type="hidden" name="id_rol" value="<?php echo $rolId; ?>">
 
-                                                <div class="accordion" id="acordeonRol<?php echo $rolId; ?>">
+                                                <div class="accordion shadow-sm rounded-3 overflow-hidden" id="acordeonRol<?php echo $rolId; ?>">
                                                     <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
-                                                        <div class="accordion-item border-0 mb-1 rounded-3 overflow-hidden shadow-sm">
+                                                        <div class="accordion-item border-0 border-bottom">
                                                             <h2 class="accordion-header" id="heading<?php echo $rolId . $idx; ?>">
-                                                                <button class="accordion-button collapsed py-2 bg-white"
+                                                                <button class="accordion-button collapsed py-2 bg-white fw-semibold"
                                                                         type="button"
                                                                         data-bs-toggle="collapse"
                                                                         data-bs-target="#collapse<?php echo $rolId . $idx; ?>">
-                                                                    <span class="fw-semibold small text-uppercase">Módulo: <?php echo e((string)$modulo); ?></span>
+                                                                    <span class="text-uppercase small ls-1"><?php echo e((string)$modulo); ?></span>
+                                                                    <span class="badge bg-light text-secondary ms-2 border"><?php echo count($items); ?></span>
                                                                 </button>
                                                             </h2>
 
                                                             <div id="collapse<?php echo $rolId . $idx; ?>"
                                                                  class="accordion-collapse collapse"
                                                                  data-bs-parent="#acordeonRol<?php echo $rolId; ?>">
-                                                                <div class="accordion-body py-2 bg-white">
+                                                                <div class="accordion-body bg-light bg-opacity-50">
                                                                     <div class="row g-2">
                                                                         <?php foreach ($items as $permiso): ?>
                                                                             <?php
                                                                             $permId   = (int)($permiso['id'] ?? 0);
                                                                             $permNom  = (string)($permiso['nombre'] ?? '');
                                                                             $permSlug = (string)($permiso['slug'] ?? '');
-
-                                                                            // En tu controlador normalmente ya llega: $rol['permisos_ids']
-                                                                            $checked = in_array($permId, ($rol['permisos_ids'] ?? []), true);
+                                                                            $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
                                                                             ?>
                                                                             <div class="col-12 col-md-6 col-lg-4">
-                                                                                <label class="form-check border rounded-2 px-2 py-2 bg-light d-block h-100">
-                                                                                    <input class="form-check-input me-2"
+                                                                                <div class="form-check form-switch bg-white border rounded-2 p-2 h-100 d-flex align-items-center shadow-sm">
+                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0"
                                                                                            type="checkbox"
+                                                                                           role="switch"
                                                                                            name="permisos[]"
                                                                                            value="<?php echo $permId; ?>"
+                                                                                           style="width: 2.5em; height: 1.25em; cursor: pointer;"
                                                                                            <?php echo $checked ? 'checked' : ''; ?>>
-                                                                                    <span class="small fw-medium"><?php echo e($permNom); ?></span>
-                                                                                    <div class="text-muted x-small ps-4"><?php echo e($permSlug); ?></div>
-                                                                                </label>
+                                                                                    
+                                                                                    <div class="lh-1">
+                                                                                        <span class="d-block fw-medium text-dark mb-1"><?php echo e($permNom); ?></span>
+                                                                                        <code class="text-muted small" style="font-size: 0.75em;"><?php echo e($permSlug); ?></code>
+                                                                                    </div>
+                                                                                </div>
                                                                             </div>
                                                                         <?php endforeach; ?>
                                                                     </div>
@@ -260,13 +242,12 @@ foreach ($permisos as $permiso) {
                                                     <?php endforeach; ?>
                                                 </div>
 
-                                                <div class="text-end mt-2 mb-2">
-                                                    <button class="btn btn-primary btn-sm px-3 shadow-sm">
-                                                        <i class="bi bi-save me-1"></i> Guardar permisos
+                                                <div class="d-flex justify-content-end mt-3">
+                                                    <button class="btn btn-primary px-4 fw-bold shadow-sm">
+                                                        <i class="bi bi-check-circle-fill me-2"></i>Guardar Permisos
                                                     </button>
                                                 </div>
                                             </form>
-
                                         </div>
                                     </td>
                                 </tr>
@@ -277,9 +258,8 @@ foreach ($permisos as $permiso) {
                         </table>
                     </div>
 
-                    <!-- Footer (si luego activas paginación con ERPTable) -->
                     <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                        <small class="text-muted" id="rolesPaginationInfo"> </small>
+                        <small class="text-muted" id="rolesPaginationInfo"></small>
                         <nav aria-label="Page navigation">
                             <ul class="pagination pagination-sm mb-0 justify-content-end" id="rolesPaginationControls"></ul>
                         </nav>
@@ -289,12 +269,8 @@ foreach ($permisos as $permiso) {
 
         </div>
 
-        <!-- =========================================================
-             TAB 2: PERMISOS
-        ========================================================== -->
-        <div class="tab-pane fade" id="pane-permisos" role="tabpanel" aria-labelledby="tab-permisos">
+        <div class="tab-pane fade" id="pane-permisos" role="tabpanel">
 
-            <!-- Buscador permisos -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body p-3">
                     <div class="input-group">
@@ -304,7 +280,7 @@ foreach ($permisos as $permiso) {
                         <input type="search"
                                id="permisoSearch"
                                class="form-control bg-light border-start-0 ps-0"
-                               placeholder="Buscar por slug, nombre o módulo...">
+                               placeholder="Filtrar catálogo...">
                     </div>
                 </div>
             </div>
@@ -316,34 +292,35 @@ foreach ($permisos as $permiso) {
                             <thead>
                             <tr>
                                 <th class="ps-4">Módulo</th>
-                                <th>Slug</th>
-                                <th>Nombre</th>
+                                <th>Slug Técnico</th>
+                                <th>Descripción</th>
                                 <th class="text-center">Estado</th>
                             </tr>
                             </thead>
                             <tbody>
-                            <?php foreach ($permisosAgrupados as $modulo => $plist): ?>
+                            <?php foreach ($permisosPorModulo as $modulo => $plist): ?>
                                 <?php foreach ($plist as $permiso): ?>
                                     <?php
-                                    $mod = (string)$modulo;
+                                    $mod  = (string)$modulo;
                                     $slug = (string)($permiso['slug'] ?? '');
                                     $nom  = (string)($permiso['nombre'] ?? '');
                                     $est  = (int)($permiso['estado'] ?? 0);
-
-                                    $search = strtolower($mod . ' ' . $slug . ' ' . $nom);
+                                    $search = mb_strtolower($mod . ' ' . $slug . ' ' . $nom);
                                     ?>
                                     <tr data-search="<?php echo e($search); ?>">
                                         <td class="ps-4">
-                                            <span class="badge rounded-pill text-bg-light border">
+                                            <span class="badge bg-light text-dark border">
                                                 <?php echo e($mod); ?>
                                             </span>
                                         </td>
-                                        <td><code><?php echo e($slug); ?></code></td>
+                                        <td><code class="text-primary"><?php echo e($slug); ?></code></td>
                                         <td><?php echo e($nom); ?></td>
                                         <td class="text-center">
-                                            <span class="badge-status <?php echo $est === 1 ? 'status-active' : 'status-inactive'; ?>">
-                                                <?php echo $est === 1 ? 'Activo' : 'Inactivo'; ?>
-                                            </span>
+                                            <?php if ($est === 1): ?>
+                                                <span class="badge-status status-active">Activo</span>
+                                            <?php else: ?>
+                                                <span class="badge-status status-inactive">Inactivo</span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -351,15 +328,6 @@ foreach ($permisos as $permiso) {
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- (Opcional) footer permisos si luego paginaras -->
-                    <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                        <small class="text-muted" id="permisosPaginationInfo"></small>
-                        <nav aria-label="Page navigation">
-                            <ul class="pagination pagination-sm mb-0 justify-content-end" id="permisosPaginationControls"></ul>
-                        </nav>
-                    </div>
-
                 </div>
             </div>
 
@@ -368,13 +336,12 @@ foreach ($permisos as $permiso) {
     </div>
 </div>
 
-<!-- MODAL CREAR ROL -->
 <div class="modal fade" id="modalCrearRol" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-shield-plus me-2"></i>Registrar nuevo rol
+                    <i class="bi bi-shield-plus me-2"></i>Nuevo Rol
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -385,8 +352,8 @@ foreach ($permisos as $permiso) {
                         <input name="nombre" id="rolNombre" class="form-control" placeholder="Nombre del rol" required>
                         <label for="rolNombre">Nombre del rol</label>
                     </div>
-                    <div class="col-12 d-flex justify-content-end pt-2">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="col-12 d-flex justify-content-end pt-3">
+                        <button type="button" class="btn btn-link text-secondary text-decoration-none me-2" data-bs-dismiss="modal">Cancelar</button>
                         <button class="btn btn-primary px-4 fw-bold" type="submit">
                             <i class="bi bi-save me-2"></i>Guardar Rol
                         </button>
@@ -397,12 +364,11 @@ foreach ($permisos as $permiso) {
     </div>
 </div>
 
-<!-- MODAL EDITAR ROL -->
 <div class="modal fade" id="modalEditarRol" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold">Editar rol</h5>
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold">Editar Rol</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
@@ -423,9 +389,8 @@ foreach ($permisos as $permiso) {
                         <label for="editRolEstado">Estado</label>
                     </div>
 
-                    <div class="col-12 d-flex justify-content-end pt-3">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary px-4 fw-bold" type="submit">Actualizar</button>
+                    <div class="col-12 mt-4">
+                        <button class="btn btn-primary w-100 py-2 fw-bold" type="submit">Actualizar Datos</button>
                     </div>
                 </form>
             </div>
@@ -433,5 +398,4 @@ foreach ($permisos as $permiso) {
     </div>
 </div>
 
-<!-- JS específico (mantén tu archivo) -->
-<script src="<?php echo asset_url('js/rol.js'); ?>"></script>
+<script src="<?php echo asset_url('js/roles.js'); ?>"></script>

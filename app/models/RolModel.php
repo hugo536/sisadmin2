@@ -3,153 +3,189 @@ declare(strict_types=1);
 
 class RolModel extends Modelo
 {
+    /**
+     * Lista todos los roles activos (no eliminados).
+     */
     public function listar(): array
     {
-        $sql = 'SELECT id, nombre, estado, created_at
-                FROM roles
-                WHERE deleted_at IS NULL
+        $sql = 'SELECT id, nombre, estado, created_at, updated_at 
+                FROM roles 
+                WHERE deleted_at IS NULL 
                 ORDER BY id DESC';
         return $this->db()->query($sql)->fetchAll();
     }
 
+    /**
+     * Crea un nuevo rol.
+     */
     public function crear(string $nombre, int $createdBy): bool
     {
-        $sql = 'INSERT INTO roles (nombre, estado, created_at, created_by)
+        $sql = 'INSERT INTO roles (nombre, estado, created_at, created_by) 
                 VALUES (:nombre, 1, NOW(), :created_by)';
+        
         return $this->db()->prepare($sql)->execute([
-            'nombre' => $nombre,
+            'nombre'     => $nombre,
             'created_by' => $createdBy,
         ]);
     }
 
+    /**
+     * Actualiza datos básicos del rol.
+     */
     public function actualizar(int $id, string $nombre, int $estado, int $updatedBy): bool
     {
-        $sql = 'UPDATE roles
-                SET nombre = :nombre,
-                    estado = :estado,
-                    updated_at = NOW(),
-                    updated_by = :updated_by
-                WHERE id = :id
+        $sql = 'UPDATE roles 
+                SET nombre = :nombre, 
+                    estado = :estado, 
+                    updated_at = NOW(), 
+                    updated_by = :updated_by 
+                WHERE id = :id 
                   AND deleted_at IS NULL';
+        
         return $this->db()->prepare($sql)->execute([
-            'id' => $id,
-            'nombre' => $nombre,
-            'estado' => $estado,
+            'id'         => $id,
+            'nombre'     => $nombre,
+            'estado'     => $estado,
             'updated_by' => $updatedBy,
         ]);
     }
 
+    /**
+     * Cambia solo el estado (Activo/Inactivo).
+     */
     public function cambiar_estado(int $id, int $estado, int $updatedBy): bool
     {
-        $sql = 'UPDATE roles
-                SET estado = :estado,
-                    updated_at = NOW(),
-                    updated_by = :updated_by
-                WHERE id = :id
+        $sql = 'UPDATE roles 
+                SET estado = :estado, 
+                    updated_at = NOW(), 
+                    updated_by = :updated_by 
+                WHERE id = :id 
                   AND deleted_at IS NULL';
+        
         return $this->db()->prepare($sql)->execute([
-            'id' => $id,
-            'estado' => $estado,
+            'id'         => $id,
+            'estado'     => $estado,
             'updated_by' => $updatedBy,
         ]);
     }
 
+    /**
+     * Soft Delete del rol y sus permisos asociados.
+     */
     public function eliminar_logico(int $id, int $updatedBy): bool
     {
         $db = $this->db();
         $db->beginTransaction();
-        try {
-            // Eliminar rol
-            $db->prepare('UPDATE roles
-                          SET deleted_at = NOW(), estado = 0, updated_at = NOW(), updated_by = :updated_by
-                          WHERE id = :id AND deleted_at IS NULL')
-                ->execute(['id' => $id, 'updated_by' => $updatedBy]);
 
-            // Eliminar permisos asociados (ojo: verificamos si tu tabla tiene columna estado)
-            // Si tu tabla roles_permisos no tiene 'estado', elimina "estado = 0," de la consulta abajo.
-            // Basado en tu SQL previo, asumo que quieres mantener la lógica, pero corregí el nombre de la tabla si fuera necesario.
-            $db->prepare('UPDATE roles_permisos
-                          SET deleted_at = NOW() 
-                          WHERE id_rol = :id_rol AND deleted_at IS NULL')
-                ->execute(['id_rol' => $id]);
+        try {
+            // 1. Eliminar Rol (Soft Delete)
+            $sqlRol = 'UPDATE roles 
+                       SET deleted_at = NOW(), 
+                           estado = 0, 
+                           updated_at = NOW(), 
+                           updated_by = :updated_by 
+                       WHERE id = :id 
+                         AND deleted_at IS NULL';
+            $db->prepare($sqlRol)->execute(['id' => $id, 'updated_by' => $updatedBy]);
+
+            // 2. Eliminar Permisos Asociados (Soft Delete)
+            // Nota: roles_permisos usa PK compuesta, borramos por grupo id_rol
+            $sqlPermisos = 'UPDATE roles_permisos 
+                            SET deleted_at = NOW() 
+                            WHERE id_rol = :id_rol 
+                              AND deleted_at IS NULL';
+            $db->prepare($sqlPermisos)->execute(['id_rol' => $id]);
 
             $db->commit();
             return true;
+
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
         }
     }
 
+    /**
+     * Obtiene los IDs de permisos activos asignados a un rol.
+     */
     public function permisos_por_rol(int $idRol): array
     {
-        // CORREGIDO: id_permiso_def -> id_permiso
-        $sql = 'SELECT rp.id_permiso
-                FROM roles_permisos rp
-                WHERE rp.id_rol = :id_rol
-                  AND rp.deleted_at IS NULL';
-        
-        // Nota: He quitado "AND rp.estado = 1" porque en tu SQL Dump la tabla roles_permisos 
-        // no parece tener la columna 'estado'. Si la tiene, agrégalo de nuevo.
+        $sql = 'SELECT id_permiso 
+                FROM roles_permisos 
+                WHERE id_rol = :id_rol 
+                  AND deleted_at IS NULL';
         
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_rol' => $idRol]);
 
-        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     }
 
-    public function guardar_permisos(int $idRol, array $permisosIds): void
+    /**
+     * Sincroniza los permisos del rol (Estrategia Upsert/Restore).
+     * Corrige el uso de PK compuesta (id_rol, id_permiso) en lugar de ID autoincremental.
+     */
+    public function guardar_permisos(int $idRol, array $permisosIds, int $usuarioAuditId = 1): void
     {
         $db = $this->db();
         $db->beginTransaction();
+
         try {
-            // CORREGIDO: id_permiso_def -> id_permiso
-            $existentesStmt = $db->prepare('SELECT id, id_permiso FROM roles_permisos WHERE id_rol = :id_rol');
-            $existentesStmt->execute(['id_rol' => $idRol]);
-            $existentes = $existentesStmt->fetchAll();
+            // 1. Obtener estado actual de permisos (incluyendo eliminados soft-delete)
+            // Se usa PK compuesta para mapear
+            $sql = 'SELECT id_permiso, deleted_at 
+                    FROM roles_permisos 
+                    WHERE id_rol = :id_rol';
+            $stmt = $db->prepare($sql);
+            $stmt->execute(['id_rol' => $idRol]);
+            $actuales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $mapExistentes = [];
-            foreach ($existentes as $row) {
-                // CORREGIDO: key id_permiso
-                $mapExistentes[(int) $row['id_permiso']] = (int) $row['id'];
+            // Mapa: [id_permiso => 'deleted'|'active']
+            $mapaEstado = [];
+            foreach ($actuales as $row) {
+                $mapaEstado[$row['id_permiso']] = $row['deleted_at'] ? 'deleted' : 'active';
             }
 
-            $activar = array_values(array_unique(array_map('intval', $permisosIds)));
-            $activarSet = array_flip($activar);
+            // IDs que deben quedar activos
+            $idsParaActivar = array_unique(array_map('intval', $permisosIds));
 
-            // Reactivar (quitar deleted_at)
-            $activarStmt = $db->prepare('UPDATE roles_permisos
-                                         SET deleted_at = NULL
-                                         WHERE id = :id');
+            // Sentencias preparadas
+            $insertStmt = $db->prepare('INSERT INTO roles_permisos (id_rol, id_permiso, created_at, created_by) VALUES (:id_rol, :id_permiso, NOW(), :created_by)');
             
-            // Desactivar (poner deleted_at)
-            $desactivarStmt = $db->prepare('UPDATE roles_permisos
-                                            SET deleted_at = NOW()
-                                            WHERE id = :id');
+            $restoreStmt = $db->prepare('UPDATE roles_permisos SET deleted_at = NULL WHERE id_rol = :id_rol AND id_permiso = :id_permiso');
             
-            // Insertar nuevos
-            // CORREGIDO: id_permiso_def -> id_permiso y removido columna 'estado' si no existe en SQL
-            $insertStmt = $db->prepare('INSERT INTO roles_permisos (id_rol, id_permiso, created_at, created_by, deleted_at)
-                                        VALUES (:id_rol, :id_permiso, NOW(), 1, NULL)');
+            $deleteStmt = $db->prepare('UPDATE roles_permisos SET deleted_at = NOW() WHERE id_rol = :id_rol AND id_permiso = :id_permiso');
 
-            foreach ($mapExistentes as $idPermiso => $idRelacion) {
-                if (isset($activarSet[$idPermiso])) {
-                    $activarStmt->execute(['id' => $idRelacion]);
+            // 2. Procesar inserciones y restauraciones
+            foreach ($idsParaActivar as $pId) {
+                if (isset($mapaEstado[$pId])) {
+                    // Existe en BD
+                    if ($mapaEstado[$pId] === 'deleted') {
+                        // Estaba borrado -> Restaurar (Upsert lógico)
+                        $restoreStmt->execute(['id_rol' => $idRol, 'id_permiso' => $pId]);
+                    }
+                    // Si ya estaba 'active', no hacemos nada
                 } else {
-                    $desactivarStmt->execute(['id' => $idRelacion]);
+                    // No existe -> Insertar
+                    $insertStmt->execute([
+                        'id_rol'     => $idRol,
+                        'id_permiso' => $pId,
+                        'created_by' => $usuarioAuditId
+                    ]);
                 }
+                // Marcar como procesado para no borrarlo después
+                unset($mapaEstado[$pId]);
             }
 
-            foreach ($activar as $idPermiso) {
-                if (!isset($mapExistentes[$idPermiso])) {
-                    $insertStmt->execute([
-                        'id_rol' => $idRol,
-                        'id_permiso' => $idPermiso, // CORREGIDO: key correcta
-                    ]);
+            // 3. Procesar eliminaciones (lo que sobró en el mapa y estaba activo)
+            foreach ($mapaEstado as $pId => $status) {
+                if ($status === 'active') {
+                    $deleteStmt->execute(['id_rol' => $idRol, 'id_permiso' => $pId]);
                 }
             }
 
             $db->commit();
+
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
