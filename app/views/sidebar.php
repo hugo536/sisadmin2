@@ -54,13 +54,13 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
         </a>
 
         <?php if (tiene_permiso('items.ver')): ?>
-            <a class="sidebar-link<?php echo $activo('item'); ?>" href="<?php echo route_url('item'); ?>">
+            <a class="sidebar-link<?php echo $activo('items'); ?>" href="<?php echo route_url('items'); ?>">
                 <i class="bi bi-box-seam"></i> <span>Ítems / Productos</span>
             </a>
         <?php endif; ?>
 
         <?php if (tiene_permiso('items.ver')): // Ajusta el permiso si tienes 'terceros.ver' ?>
-            <a class="sidebar-link<?php echo $activo('tercero'); ?>" href="<?php echo route_url('tercero'); ?>">
+            <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo route_url('terceros'); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
         <?php endif; ?>
