@@ -147,8 +147,10 @@ class TercerosController extends Controlador
     {
         $tipoPersona = trim((string) ($data['tipo_persona'] ?? ''));
         $tipo = trim((string) ($data['tipo_documento'] ?? ''));
+        $numeroRaw = trim((string) ($data['numero_documento'] ?? ''));
         // Solo eliminamos espacios al inicio/final, permitimos guiones si es pasaporte, pero mejor sanitizar solo alfanuméricos para DNI/RUC
-        $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($data['numero_documento'] ?? '')));
+        $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
+        $numeroDigits = preg_replace('/\\D/', '', $numeroRaw);
         $nombre = trim((string) ($data['nombre_completo'] ?? ''));
         $telefono = trim((string) ($data['telefono'] ?? ''));
         $email = trim((string) ($data['email'] ?? ''));
@@ -163,12 +165,27 @@ class TercerosController extends Controlador
             throw new RuntimeException('Tipo de persona, tipo de documento, número y nombre son obligatorios.');
         }
 
-        if ($tipo === 'RUC' && strlen(preg_replace('/\\D/', '', $numero)) !== 11) {
-            throw new RuntimeException('El RUC debe tener 11 dígitos.');
+        if ($tipo === 'RUC') {
+            if (!ctype_digit($numeroDigits)) {
+                throw new RuntimeException('El RUC debe contener solo números.');
+            }
+            if (strlen($numeroDigits) !== 11) {
+                throw new RuntimeException('El RUC debe tener 11 dígitos.');
+            }
+            if (!preg_match('/^(10|20)/', $numeroDigits)) {
+                throw new RuntimeException('El RUC debe iniciar con 10 o 20.');
+            }
+            $numero = $numeroDigits;
         }
 
-        if ($tipo === 'DNI' && strlen(preg_replace('/\\D/', '', $numero)) !== 8) {
-            throw new RuntimeException('El DNI debe tener 8 dígitos.');
+        if ($tipo === 'DNI') {
+            if (!ctype_digit($numeroDigits)) {
+                throw new RuntimeException('El DNI debe contener solo números.');
+            }
+            if (strlen($numeroDigits) !== 8) {
+                throw new RuntimeException('El DNI debe tener 8 dígitos.');
+            }
+            $numero = $numeroDigits;
         }
 
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
