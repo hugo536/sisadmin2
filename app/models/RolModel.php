@@ -211,6 +211,10 @@ class RolModel extends Modelo
             }
         }
         $slug = preg_replace('/[^a-z0-9]+/i', '-', $slug) ?? '';
+
+        $slug = mb_strtolower($nombre);
+        $slug = preg_replace('/[^a-z0-9]+/u', '-', $slug) ?? '';
+
         $slug = trim($slug, '-');
 
         return $slug !== '' ? $slug : 'rol';
