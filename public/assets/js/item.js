@@ -2,8 +2,20 @@
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
 
-    // --- 1. Gestión del Modal de Edición ---
-    function initModalManager() {
+    // --- 0. Gestión del Modal de CREACIÓN (Nuevo) ---
+    function initCreateModal() {
+        const modalCreate = document.getElementById('modalCrearItem');
+        if (!modalCreate) return;
+
+        modalCreate.addEventListener('show.bs.modal', function () {
+            // Limpiar formulario al abrir para que no queden datos viejos
+            const form = document.getElementById('formCrearItem');
+            if (form) form.reset();
+        });
+    }
+
+    // --- 1. Gestión del Modal de EDICIÓN ---
+    function initEditModal() {
         const modalEdit = document.getElementById('modalEditarItem');
         if (!modalEdit) return;
 
@@ -11,7 +23,6 @@
             const btn = event.relatedTarget;
             if (!btn) return;
 
-            // Mapeo de datos del botón al formulario
             const fields = {
                 'editId': 'data-id',
                 'editSku': 'data-sku',
@@ -28,7 +39,6 @@
                 if (el) el.value = btn.getAttribute(fields[id]) || '';
             }
 
-            // Checkbox especial
             const checkStock = document.getElementById('editControlaStock');
             if (checkStock) {
                 checkStock.checked = btn.getAttribute('data-controla-stock') === '1';
@@ -43,40 +53,40 @@
         const filtroEstado = document.getElementById('itemFiltroEstado');
         const paginationControls = document.getElementById('itemsPaginationControls');
         const paginationInfo = document.getElementById('itemsPaginationInfo');
-        const allRows = Array.from(document.querySelectorAll('#itemsTable tbody tr'));
+        
+        const table = document.getElementById('itemsTable');
+        if (!table) return; 
 
-        if (allRows.length === 0) return;
+        const allRows = Array.from(table.querySelectorAll('tbody tr'));
 
         const updateTable = function () {
-            const texto = (searchInput ? searchInput.value : '').toLowerCase().trim();
-            const tipo = (filtroTipo ? filtroTipo.value : '');
-            const estado = (filtroEstado ? filtroEstado.value : '');
+            const texto = (searchInput?.value || '').toLowerCase().trim();
+            const tipo = filtroTipo?.value || '';
+            const estado = filtroEstado?.value || '';
 
             const visibleRows = allRows.filter(row => {
                 const rowSearch = row.getAttribute('data-search') || '';
                 const rowTipo = row.getAttribute('data-tipo') || '';
                 const rowEstado = row.getAttribute('data-estado') || '';
-
-                return rowSearch.includes(texto) &&
-                       (tipo === '' || rowTipo === tipo) &&
-                       (estado === '' || rowEstado === estado);
+                return rowSearch.includes(texto) && (tipo === '' || rowTipo === tipo) && (estado === '' || rowEstado === estado);
             });
 
             const totalRows = visibleRows.length;
             const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE) || 1;
-
             if (currentPage > totalPages) currentPage = 1;
 
             allRows.forEach(row => row.style.display = 'none');
             const start = (currentPage - 1) * ROWS_PER_PAGE;
             visibleRows.slice(start, start + ROWS_PER_PAGE).forEach(row => row.style.display = '');
 
-            // Actualizar UI
             if (paginationInfo) {
-                const end = Math.min(start + ROWS_PER_PAGE, totalRows);
-                paginationInfo.textContent = totalRows > 0 ? `Mostrando ${start + 1}-${end} de ${totalRows} ítems` : 'Sin resultados';
+                if (totalRows === 0) {
+                    paginationInfo.textContent = "Sin resultados";
+                } else {
+                    const end = Math.min(start + ROWS_PER_PAGE, totalRows);
+                    paginationInfo.textContent = `Mostrando ${start + 1}-${end} de ${totalRows} ítems`;
+                }
             }
-
             renderPagination(totalPages);
         };
 
@@ -89,10 +99,7 @@
                 const li = document.createElement('li');
                 li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
                 li.innerHTML = `<a class="page-link" href="#">${label}</a>`;
-                li.onclick = (e) => {
-                    e.preventDefault();
-                    if (!active && !disabled) { currentPage = page; updateTable(); }
-                };
+                li.onclick = (e) => { e.preventDefault(); if (!active && !disabled) { currentPage = page; updateTable(); }};
                 paginationControls.appendChild(li);
             };
 
@@ -101,36 +108,13 @@
             addBtn('»', currentPage + 1, false, currentPage === totalPages);
         }
 
-        [searchInput, filtroTipo, filtroEstado].forEach(el => {
-            if (el) el.addEventListener('input', () => { currentPage = 1; updateTable(); });
-        });
-
-        window.updateItemsTable = updateTable;
+        [searchInput, filtroTipo, filtroEstado].forEach(el => el?.addEventListener('input', () => { currentPage = 1; updateTable(); }));
         updateTable();
     }
 
-    function initStatusSwitch() {
-        document.querySelectorAll('.switch-estado-item').forEach(switchInput => {
-            switchInput.addEventListener('change', function () {
-                const itemId = this.getAttribute('data-id');
-                const nuevoEstado = this.checked ? 1 : 0;
-                const fila = this.closest('tr');
-                const badge = document.getElementById(`badge_status_item_${itemId}`);
-
-                if (fila) fila.setAttribute('data-estado', nuevoEstado);
-                if (badge) {
-                    badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
-                    badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
-                }
-
-                if (window.updateItemsTable) window.updateItemsTable();
-            });
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
-        initModalManager();
-        initTableManager();
-        initStatusSwitch();
+        initCreateModal(); // Iniciar gestor de modal crear
+        initEditModal();   // Iniciar gestor de modal editar
+        initTableManager(); // Iniciar tabla
     });
 })();

@@ -7,67 +7,9 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Administra el catálogo maestro de ítems.</p>
         </div>
-        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#crearItemCollapse">
+        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
             <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
         </button>
-    </div>
-
-    <div class="collapse mb-4" id="crearItemCollapse">
-        <div class="card border-0 shadow-sm overflow-hidden">
-            <div class="card-header bg-white py-3">
-                <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-plus-circle me-2"></i>Registrar ítem</h6>
-            </div>
-            <div class="card-body p-4 bg-light">
-                <form method="post" class="row g-3" id="formCrearItem">
-                    <input type="hidden" name="accion" value="crear">
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
-                            <label for="newSku">SKU (opcional)</label>
-                        </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required>
-                            <label for="newNombre">Nombre</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <select class="form-select" id="newTipo" name="tipo_item" required>
-                                <option value="" selected>Seleccionar...</option>
-                                <option value="PRODUCTO">Producto</option>
-                                <option value="SERVICIO">Servicio</option>
-                            </select>
-                            <label for="newTipo">Tipo de ítem</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca">
-                            <label for="newMarca">Marca</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newUnidad" name="unidad_base" value="UND">
-                            <label for="newUnidad">Unidad base</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000">
-                            <label for="newStockMin">Stock mín.</label>
-                        </div>
-                    </div>
-                    <div class="col-md-12 d-flex justify-content-end">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="bi bi-save me-2"></i>Guardar ítem
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
@@ -119,37 +61,21 @@
                                 data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
                                 <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width:40px; height:40px; border-radius:50%;">
-                                            <?php echo strtoupper(substr((string) $item['nombre'], 0, 1)); ?>
-                                        </div>
-                                        <div>
-                                            <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
-                                            <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
-                                        </div>
-                                    </div>
+                                    <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
+                                    <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($item['tipo_item']); ?></span></td>
                                 <td><?php echo e(number_format((float) $item['precio_venta'], 2)); ?></td>
                                 <td><?php echo e(number_format((float) $item['stock_minimo'], 2)); ?></td>
                                 <td class="text-center">
                                     <?php if ((int) $item['estado'] === 1): ?>
-                                        <span class="badge-status status-active" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
+                                        <span class="badge-status status-active">Activo</span>
                                     <?php else: ?>
-                                        <span class="badge-status status-inactive" id="badge_status_item_<?php echo (int) $item['id']; ?>">Inactivo</span>
+                                        <span class="badge-status status-inactive">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
                                     <div class="d-flex align-items-center justify-content-end gap-2">
-                                        <div class="form-check form-switch pt-1" title="Cambiar estado">
-                                            <input class="form-check-input switch-estado-item" type="checkbox" role="switch"
-                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                                   data-id="<?php echo (int) $item['id']; ?>"
-                                                   <?php echo (int) $item['estado'] === 1 ? 'checked' : ''; ?>>
-                                        </div>
-
-                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
-
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
                                             data-sku="<?php echo e($item['sku']); ?>"
@@ -157,12 +83,16 @@
                                             data-descripcion="<?php echo e($item['descripcion'] ?? ''); ?>"
                                             data-tipo="<?php echo e($item['tipo_item']); ?>"
                                             data-marca="<?php echo e($item['marca'] ?? ''); ?>"
+                                            data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
                                             data-precio="<?php echo e((string) $item['precio_venta']); ?>"
+                                            data-stock-minimo="<?php echo e((string) $item['stock_minimo']); ?>"
+                                            data-costo="<?php echo e((string) $item['costo_referencial']); ?>"
                                             data-controla-stock="<?php echo (int) $item['controla_stock']; ?>"
+                                            data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
-                                        <form method="post" class="d-inline m-0">
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ítem?');">
                                             <input type="hidden" name="accion" value="eliminar">
                                             <input type="hidden" name="id" value="<?php echo (int) $item['id']; ?>">
                                             <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent">
@@ -183,3 +113,167 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar ítem</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="post" class="row g-3" id="formCrearItem">
+                    <input type="hidden" name="accion" value="crear">
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
+                            <label for="newSku">SKU (opcional)</label>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required>
+                            <label for="newNombre">Nombre</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <select class="form-select" id="newTipo" name="tipo_item" required>
+                                <option value="" selected>Seleccionar...</option>
+                                <option value="PRODUCTO">Producto</option>
+                                <option value="SERVICIO">Servicio</option>
+                            </select>
+                            <label for="newTipo">Tipo de ítem</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca">
+                            <label for="newMarca">Marca</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="newUnidad" name="unidad_base" value="UND">
+                            <label for="newUnidad">Unidad base</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000">
+                            <label for="newStockMin">Stock mín.</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000">
+                            <label for="newPrecio">Precio venta</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000">
+                            <label for="newCosto">Costo referencial</label>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
+                            <label for="newDescripcion">Descripción</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <input type="number" class="form-control" id="newCategoria" name="id_categoria" placeholder="Categoría">
+                            <label for="newCategoria">ID Categoría</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center">
+                        <div class="form-check form-switch ps-5">
+                            <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
+                            <label class="form-check-label ms-2" for="newControlaStock">Controla stock</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <select class="form-select" id="newEstado" name="estado">
+                                <option value="1" selected>Activo</option>
+                                <option value="0">Inactivo</option>
+                            </select>
+                            <label for="newEstado">Estado</label>
+                        </div>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end pt-3">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4" type="submit">
+                            <i class="bi bi-save me-2"></i>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">Editar ítem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="post" id="formEditarItem" class="row g-3">
+                    <input type="hidden" name="accion" value="editar">
+                    <input type="hidden" name="id" id="editId">
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editSku" name="sku" readonly>
+                        <label for="editSku">SKU (inmutable)</label>
+                    </div>
+                    <div class="col-md-8 form-floating">
+                        <input class="form-control" id="editNombre" name="nombre" required>
+                        <label for="editNombre">Nombre</label>
+                    </div>
+                    <div class="col-md-12 form-floating">
+                        <input class="form-control" id="editDescripcion" name="descripcion">
+                        <label for="editDescripcion">Descripción</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editTipo" name="tipo_item" required>
+                            <option value="PRODUCTO">Producto</option>
+                            <option value="SERVICIO">Servicio</option>
+                        </select>
+                        <label for="editTipo">Tipo</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editMarca" name="marca">
+                        <label for="editMarca">Marca</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001">
+                        <label for="editPrecio">Precio</label>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center">
+                        <div class="form-check form-switch ps-5">
+                            <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
+                            <label class="form-check-label ms-2" for="editControlaStock">Controla stock</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editEstado" name="estado">
+                            <option value="1">Activo</option>
+                            <option value="0">Inactivo</option>
+                        </select>
+                        <label for="editEstado">Estado</label>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end pt-3">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4" type="submit">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="<?php echo asset_url('js/item.js'); ?>"></script>

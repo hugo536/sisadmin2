@@ -18,7 +18,7 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
     $rutas,
     static fn(bool $carry, string $ruta): bool => $carry || str_starts_with($rutaActual, $ruta),
     false
-) ? ' active' : ' collapsed'; // Bootstrap requiere 'collapsed' cuando está cerrado
+) ? ' active' : ' collapsed';
 
 // Datos de Usuario
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
@@ -48,9 +48,23 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
             <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
         </a>
 
+        <?php if (tiene_permiso('items.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('item'); ?>" href="<?php echo route_url('item'); ?>">
+                <i class="bi bi-box-seam"></i> <span>Ítems / Productos</span>
+            </a>
+        <?php endif; ?>
+
+        <?php if (tiene_permiso('items.ver')): // Ajusta el permiso si tienes 'terceros.ver' ?>
+            <a class="sidebar-link<?php echo $activo('tercero'); ?>" href="<?php echo route_url('tercero'); ?>">
+                <i class="bi bi-people"></i> <span>Terceros</span>
+            </a>
+        <?php endif; ?>
+
         <?php if (tiene_permiso('inventario.ver')): ?>
+            <div class="nav-label mt-3">Operaciones</div>
+            
             <a class="sidebar-link<?php echo $linkGrupoActivo(['inventario', 'stock', 'movimientos']); ?>" data-bs-toggle="collapse" href="#menuInventario" role="button" aria-expanded="false" aria-controls="menuInventario">
-                <i class="bi bi-box-seam"></i> <span>Inventario</span>
+                <i class="bi bi-clipboard-data"></i> <span>Inventario</span>
                 <span class="ms-auto"><i class="bi bi-chevron-down small"></i></span>
             </a>
             <div class="collapse<?php echo $grupoActivo(['inventario', 'stock', 'movimientos']); ?>" id="menuInventario">
@@ -67,30 +81,6 @@ $userRole = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id
                         </a>
                     </li>
                     <?php endif; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
-
-        <?php if (tiene_permiso('items.ver')): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['items', 'terceros', 'categorias']); ?>" 
-            data-bs-toggle="collapse" href="#menuMaestros" role="button" aria-expanded="false" aria-controls="menuMaestros">
-                <i class="bi bi-collection"></i> <span>Maestros</span>
-                <span class="ms-auto"><i class="bi bi-chevron-down small"></i></span>
-            </a>
-            <div class="collapse<?php echo $grupoActivo(['items', 'terceros', 'categorias']); ?>" id="menuMaestros">
-                <ul class="nav flex-column ps-3">
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('items'); ?>" 
-                        href="<?php echo route_url('items'); ?>">
-                            <span>Ítems / Productos</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('terceros'); ?>" 
-                        href="<?php echo route_url('terceros'); ?>">
-                            <span>Terceros</span>
-                        </a>
-                    </li>
                 </ul>
             </div>
         <?php endif; ?>

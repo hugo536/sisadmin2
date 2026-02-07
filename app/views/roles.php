@@ -15,29 +15,9 @@ foreach ($permisos as $permiso) {
             </h1>
             <p class="text-muted small mb-0 ms-1">Administración de roles y asignación granular de permisos.</p>
         </div>
-        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#crearRolCollapse">
+        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearRol">
             <i class="bi bi-plus-circle me-2"></i>Nuevo Rol
         </button>
-    </div>
-
-    <div class="collapse mb-4" id="crearRolCollapse">
-        <div class="card border-0 shadow-sm overflow-hidden">
-            <div class="card-header bg-white py-3">
-                <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-person-badge me-2"></i>Registrar nuevo rol</h6>
-            </div>
-            <div class="card-body p-4 bg-light">
-                <form method="post" class="row g-3" id="formCrearRol">
-                    <input type="hidden" name="accion" value="crear">
-                    <div class="col-md-8 form-floating">
-                        <input name="nombre" id="rolNombre" class="form-control" placeholder="Nombre del rol" required>
-                        <label for="rolNombre">Nombre del rol</label>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center">
-                        <button class="btn btn-primary w-100 h-100 py-3 fw-bold">Guardar rol</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
@@ -77,9 +57,11 @@ foreach ($permisos as $permiso) {
                         <tr data-search="<?php echo e(strtolower((string) $rol['nombre'])); ?>" data-estado="<?php echo (int) $rol['estado']; ?>">
                             <td class="ps-4 fw-semibold"><?php echo e((string) $rol['nombre']); ?></td>
                             <td class="text-center">
-                                <span class="badge-status <?php echo (int) $rol['estado'] === 1 ? 'status-active' : 'status-inactive'; ?>" id="badge_rol_<?php echo (int) $rol['id']; ?>">
-                                    <?php echo (int) $rol['estado'] === 1 ? 'Activo' : 'Inactivo'; ?>
-                                </span>
+                                <?php if ((int) $rol['estado'] === 1): ?>
+                                    <span class="badge-status status-active" id="badge_rol_<?php echo (int) $rol['id']; ?>">Activo</span>
+                                <?php else: ?>
+                                    <span class="badge-status status-inactive" id="badge_rol_<?php echo (int) $rol['id']; ?>">Inactivo</span>
+                                <?php endif; ?>
                             </td>
                             <td class="text-muted small"><?php echo e((string) ($rol['created_at'] ?? '-')); ?></td>
                             <td class="text-end pe-4">
@@ -112,39 +94,42 @@ foreach ($permisos as $permiso) {
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="4" class="bg-light-subtle">
-                                <form method="post" class="permiso-form">
-                                    <input type="hidden" name="accion" value="permisos">
-                                    <input type="hidden" name="id_rol" value="<?php echo (int) $rol['id']; ?>">
-                                    <div class="accordion" id="acordeonRol<?php echo (int) $rol['id']; ?>">
-                                        <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
-                                            <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden">
-                                                <h2 class="accordion-header" id="heading<?php echo (int) $rol['id'] . $idx; ?>">
-                                                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?php echo (int) $rol['id'] . $idx; ?>">
-                                                        <span class="fw-semibold small">Módulo: <?php echo e((string) $modulo); ?></span>
-                                                    </button>
-                                                </h2>
-                                                <div id="collapse<?php echo (int) $rol['id'] . $idx; ?>" class="accordion-collapse collapse" data-bs-parent="#acordeonRol<?php echo (int) $rol['id']; ?>">
-                                                    <div class="accordion-body py-2">
-                                                        <div class="row g-2">
-                                                            <?php foreach ($items as $permiso): ?>
-                                                                <div class="col-md-4">
-                                                                    <label class="form-check border rounded-3 px-2 py-1 bg-white">
-                                                                        <input class="form-check-input me-2" type="checkbox" name="permisos[]" value="<?php echo (int) $permiso['id']; ?>" <?php echo in_array((int) $permiso['id'], $rol['permisos_ids'], true) ? 'checked' : ''; ?>>
-                                                                        <span class="small"><?php echo e((string) $permiso['nombre']); ?> <span class="text-muted">(<?php echo e((string) $permiso['slug']); ?>)</span></span>
-                                                                    </label>
-                                                                </div>
-                                                            <?php endforeach; ?>
+                            <td colspan="4" class="bg-light-subtle p-0 border-0">
+                                <div class="px-3 py-2">
+                                    <form method="post" class="permiso-form">
+                                        <input type="hidden" name="accion" value="permisos">
+                                        <input type="hidden" name="id_rol" value="<?php echo (int) $rol['id']; ?>">
+                                        <div class="accordion" id="acordeonRol<?php echo (int) $rol['id']; ?>">
+                                            <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
+                                                <div class="accordion-item border-0 mb-1 rounded-3 overflow-hidden shadow-sm">
+                                                    <h2 class="accordion-header" id="heading<?php echo (int) $rol['id'] . $idx; ?>">
+                                                        <button class="accordion-button collapsed py-2 bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?php echo (int) $rol['id'] . $idx; ?>">
+                                                            <span class="fw-semibold small text-uppercase ls-1">Módulo: <?php echo e((string) $modulo); ?></span>
+                                                        </button>
+                                                    </h2>
+                                                    <div id="collapse<?php echo (int) $rol['id'] . $idx; ?>" class="accordion-collapse collapse" data-bs-parent="#acordeonRol<?php echo (int) $rol['id']; ?>">
+                                                        <div class="accordion-body py-2 bg-white">
+                                                            <div class="row g-2">
+                                                                <?php foreach ($items as $permiso): ?>
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-check border rounded-2 px-2 py-2 bg-light d-block h-100 cursor-pointer hover-bg-light-dark">
+                                                                            <input class="form-check-input me-2" type="checkbox" name="permisos[]" value="<?php echo (int) $permiso['id']; ?>" <?php echo in_array((int) $permiso['id'], $rol['permisos_ids'], true) ? 'checked' : ''; ?>>
+                                                                            <span class="small fw-medium"><?php echo e((string) $permiso['nombre']); ?></span>
+                                                                            <div class="text-muted x-small ps-4"><?php echo e((string) $permiso['slug']); ?></div>
+                                                                        </label>
+                                                                    </div>
+                                                                <?php endforeach; ?>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                    <div class="text-end mt-2">
-                                        <button class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>Guardar permisos</button>
-                                    </div>
-                                </form>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="text-end mt-2 mb-2">
+                                            <button class="btn btn-primary btn-sm px-3 shadow-sm"><i class="bi bi-save me-1"></i>Guardar permisos</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -153,7 +138,33 @@ foreach ($permisos as $permiso) {
             </div>
             <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
                 <small class="text-muted" id="rolesPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination pagination-sm mb-0" id="rolesPaginationControls"></ul></nav>
+                <nav><ul class="pagination pagination-sm mb-0 justify-content-end" id="rolesPaginationControls"></ul></nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCrearRol" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-shield-plus me-2"></i>Registrar nuevo rol</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="post" class="row g-3" id="formCrearRol">
+                    <input type="hidden" name="accion" value="crear">
+                    <div class="col-12 form-floating">
+                        <input name="nombre" id="rolNombre" class="form-control" placeholder="Nombre del rol" required>
+                        <label for="rolNombre">Nombre del rol</label>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end pt-2">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4 fw-bold" type="submit">
+                            <i class="bi bi-save me-2"></i>Guardar Rol
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -162,7 +173,7 @@ foreach ($permisos as $permiso) {
 <div class="modal fade" id="modalEditarRol" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light border-bottom-0">
+            <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold">Editar rol</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -181,11 +192,14 @@ foreach ($permisos as $permiso) {
                         </select>
                         <label for="editRolEstado">Estado</label>
                     </div>
-                    <div class="col-12 mt-3">
-                        <button class="btn btn-primary w-100 py-2 fw-bold" type="submit">Guardar cambios</button>
+                    <div class="col-12 d-flex justify-content-end pt-3">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4 fw-bold" type="submit">Actualizar</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script src="<?php echo asset_url('js/rol.js'); ?>"></script>
