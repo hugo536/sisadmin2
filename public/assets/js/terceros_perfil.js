@@ -183,6 +183,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const obs = this.getAttribute('data-obs');
 
                 editIdInput.value = id;
+                if (tipo && !Array.from(selectEdit.options).some(option => option.value === tipo)) {
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = tipo;
+                    fallbackOption.textContent = tipo;
+                    selectEdit.appendChild(fallbackOption);
+                }
                 selectEdit.value = tipo;
                 editObsInput.value = obs;
 
