@@ -76,21 +76,16 @@
         return null;
     }
 
-    function updateNombreLabel(tipoPersonaEl, labelEl) {
-        if (!tipoPersonaEl || !labelEl) return;
-        const tipo = tipoPersonaEl.value;
-        labelEl.innerHTML = (tipo === 'JURIDICA' ? 'Razón social' : 'Nombre completo') + ' <span class="text-danger">*</span>';
-    }
-
     function resetFields(containerEl) {
         if (!containerEl) return;
         containerEl.querySelectorAll('input, select, textarea').forEach(el => {
-            if (el.type === 'checkbox') {
+            if (el.type === 'checkbox' || el.type === 'radio') {
                 el.checked = false;
             } else {
                 el.value = '';
             }
             el.classList.remove('is-invalid');
+            el.disabled = false; // Reset disabled state
         });
     }
 
@@ -286,7 +281,7 @@
     function toggleLaboralFields(checkboxEl, containerEl) {
         if (!checkboxEl || !containerEl) return;
         const show = checkboxEl.checked;
-        containerEl.style.display = show ? '' : 'none';
+        containerEl.classList.toggle('d-none', !show);
         if (!show) resetFields(containerEl);
     }
 
@@ -297,8 +292,8 @@
         const sueldoInput = form.querySelector('[name="sueldo_basico"]');
         const pagoDiarioInput = form.querySelector('[name="pago_diario"]');
         
-        const sueldoCol = sueldoInput?.closest('.col-md-4');
-        const diarioCol = pagoDiarioInput?.closest('.col-md-4');
+        const sueldoCol = sueldoInput?.closest('.col-md-6') || sueldoInput?.closest('.col-md-4'); // Support both layouts
+        const diarioCol = pagoDiarioInput?.closest('.col-md-6') || pagoDiarioInput?.closest('.col-md-4');
 
         if (!sueldoCol || !diarioCol) return;
 
@@ -324,6 +319,26 @@
         const show = Boolean(clienteEl?.checked || proveedorEl?.checked);
         containerEl.classList.toggle('d-none', !show); 
         if (!show) resetFields(containerEl);
+    }
+
+    function toggleRegimenFields(regimenEl, form) {
+        if(!regimenEl || !form) return;
+        const comisionSelect = form.querySelector('[name="tipo_comision_afp"]');
+        const cusppInput = form.querySelector('[name="cuspp"]');
+        
+        if(comisionSelect && cusppInput) {
+            const val = regimenEl.value;
+            // Si es ONP o Ninguno, deshabilitar AFP fields
+            const isAfp = val && val !== 'Ninguno' && val !== 'ONP';
+            
+            comisionSelect.disabled = !isAfp;
+            cusppInput.disabled = !isAfp;
+            
+            if(!isAfp) {
+                comisionSelect.value = '';
+                cusppInput.value = '';
+            }
+        }
     }
 
     // =========================================================================
@@ -442,12 +457,11 @@
         const cargo = form.querySelector('[name="cargo"]');
         const area = form.querySelector('[name="area"]');
         const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
-        const estadoLaboral = form.querySelector('[name="estado_laboral"]');
         const tipoPago = form.querySelector('[name="tipo_pago"]');
         const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
         const pagoDiario = form.querySelector('[name="pago_diario"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, estadoLaboral, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
         form.querySelectorAll('select[name="cuenta_tipo[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
 
@@ -470,7 +484,6 @@
         if (!nombre?.value.trim()) { if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.'); valid = false; }
         if (!isValidEmail(email?.value || '')) { if (showErrors) setInvalid(email, 'Ingrese un email válido.'); valid = false; }
 
-        // Validación estricta de Teléfonos: Si existe la fila, NO puede estar vacía.
         form.querySelectorAll('input[name="telefonos[]"]').forEach(input => {
             if (input.value.trim() === '') {
                 if (showErrors) setInvalid(input, 'Ingrese el número o elimine la fila.');
@@ -508,7 +521,6 @@
             }
         }
 
-        // Validación estricta de Cuentas: Si existe la fila, validar campos
         const cTipos = form.querySelectorAll('select[name="cuenta_tipo[]"]');
         const cEntidades = form.querySelectorAll('input[name="cuenta_entidad[]"]');
         const cNumeros = form.querySelectorAll('input[name="cuenta_numero[]"]');
@@ -517,7 +529,6 @@
             const entidadEl = cEntidades[i];
             const numEl = cNumeros[i];
             
-            // Aquí NO verificamos if(!hasVal) return; porque queremos que SI la fila existe, se valide obligatoriamente.
             if (!tipoEl.value) { if(showErrors) setInvalid(tipoEl, 'Requerido'); valid = false; }
             if (!entidadEl.value.trim()) { if(showErrors) setInvalid(entidadEl, 'Requerido'); valid = false; }
             if (!numEl.value.trim()) { if(showErrors) setInvalid(numEl, 'Requerido'); valid = false; }
@@ -544,7 +555,6 @@
             const row = buildTelefonoRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
             listEl.appendChild(row);
         };
-        // CORRECCIÓN: Si telefonos está vacío, NO agregar fila por defecto
         (telefonos || []).forEach(item => addRow(item));
         
         addButton.onclick = () => {
@@ -560,7 +570,6 @@
             const row = buildCuentaRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
             listEl.appendChild(row);
         };
-        // CORRECCIÓN: Si cuentas está vacío, NO agregar fila por defecto
         (cuentas || []).forEach(item => addRow(item));
         
         addButton.onclick = () => {
@@ -637,7 +646,6 @@
             
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
             
-            // CORRECCIÓN: Limpiar y DESHABILITAR combos de ubigeo al abrir
             const provSelect = document.getElementById('crearProvincia');
             const distSelect = document.getElementById('crearDistrito');
             if (provSelect) {
@@ -655,11 +663,10 @@
                 document.getElementById('crearComercialFields')
             );
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'));
-            togglePagoFields(
-                document.getElementById('crearTipoPago')
-            );
+            togglePagoFields(document.getElementById('crearTipoPago'));
+            // Inicializar estado de campos AFP
+            toggleRegimenFields(document.getElementById('crearRegimen'), form);
 
-            // CORRECCIÓN: Iniciar listas vacías (array vacío)
             initTelefonosSection(
                 document.getElementById('crearTelefonosList'),
                 document.getElementById('crearAgregarTelefono'),
@@ -707,10 +714,15 @@
                 // Laboral
                 'editCargo': 'data-cargo',
                 'editArea': 'data-area',
+                'editTipoContrato': 'data-tipo-contrato',
                 'editFechaIngreso': 'data-fecha-ingreso',
+                'editFechaCese': 'data-fecha-cese',
                 'editEstadoLaboral': 'data-estado-laboral',
+                'editMoneda': 'data-moneda',
                 'editSueldoBasico': 'data-sueldo-basico',
                 'editRegimen': 'data-regimen-pensionario',
+                'editTipoComision': 'data-tipo-comision-afp',
+                'editCuspp': 'data-cuspp',
                 'editTipoPago': 'data-tipo-pago',
                 'editPagoDiario': 'data-pago-diario'
             };
@@ -722,6 +734,9 @@
 
             const essalud = document.getElementById('editEssalud');
             if (essalud) essalud.checked = button.getAttribute('data-essalud') === '1';
+            
+            const asigFam = document.getElementById('editAsignacionFamiliar');
+            if (asigFam) asigFam.checked = button.getAttribute('data-asignacion-familiar') === '1';
 
             ['editEsCliente', 'editEsProveedor', 'editEsEmpleado'].forEach(id => {
                 const el = document.getElementById(id);
@@ -750,6 +765,8 @@
             );
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'));
             togglePagoFields(document.getElementById('editTipoPago'));
+            // Actualizar estado de campos AFP al cargar
+            toggleRegimenFields(document.getElementById('editRegimen'), form);
 
             let telefonos = [], cuentas = [];
             try { telefonos = JSON.parse(button.getAttribute('data-telefonos') || '[]'); } catch(e){}
@@ -771,19 +788,20 @@
     function initDynamicFields() {
         const setup = (prefix) => {
             const formId = `form${prefix === 'crear' ? 'Crear' : 'Editar'}Tercero`;
+            const form = document.getElementById(formId);
             const fbId = `${prefix}RolesFeedback`;
             
             const esEmpleado = document.getElementById(`${prefix}EsEmpleado`);
             if(esEmpleado) esEmpleado.addEventListener('change', () => {
                 toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`));
-                refreshValidationOnChange(document.getElementById(formId), fbId);
+                refreshValidationOnChange(form, fbId);
             });
 
             const esCliente = document.getElementById(`${prefix}EsCliente`);
             const esProv = document.getElementById(`${prefix}EsProveedor`);
             const updateCom = () => {
                 toggleComercialFields(esCliente, esProv, document.getElementById(`${prefix}ComercialFields`));
-                refreshValidationOnChange(document.getElementById(formId), fbId);
+                refreshValidationOnChange(form, fbId);
             };
             if(esCliente) esCliente.addEventListener('change', updateCom);
             if(esProv) esProv.addEventListener('change', updateCom);
@@ -791,12 +809,72 @@
             const tipoPago = document.getElementById(`${prefix}TipoPago`);
             if(tipoPago) tipoPago.addEventListener('change', () => {
                 togglePagoFields(tipoPago);
-                refreshValidationOnChange(document.getElementById(formId), fbId);
+                refreshValidationOnChange(form, fbId);
+            });
+            
+            // NUEVO: Toggle para Regimen AFP/ONP
+            const regimen = document.getElementById(`${prefix}Regimen`);
+            if(regimen) regimen.addEventListener('change', () => {
+                toggleRegimenFields(regimen, form);
             });
         };
 
         setup('crear');
         setup('edit');
+    }
+
+    function initMaestrosManagement() {
+        const handleMaestroSubmit = (formId, listId, endpoint, selectsToUpdate) => {
+            const form = document.getElementById(formId);
+            if (!form) return;
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = form.querySelector('input[type="text"]');
+                const val = input.value.trim();
+                if(!val) return;
+
+                const fd = new FormData(form);
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.ok) {
+                        // Actualizar lista interna
+                        const list = document.getElementById(listId);
+                        if(list) {
+                            const item = document.createElement('div');
+                            item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                            item.innerHTML = `<span>${res.nombre}</span>`;
+                            list.appendChild(item);
+                        }
+
+                        // Actualizar selects globales
+                        selectsToUpdate.forEach(selId => {
+                            const sel = document.getElementById(selId);
+                            if(sel) {
+                                const opt = document.createElement('option');
+                                opt.value = res.nombre;
+                                opt.textContent = res.nombre;
+                                sel.appendChild(opt);
+                            }
+                        });
+
+                        input.value = '';
+                        Swal.fire('Guardado', res.mensaje, 'success');
+                    } else {
+                        Swal.fire('Error', res.mensaje || 'Error desconocido', 'error');
+                    }
+                })
+                .catch(err => console.error(err));
+            });
+        };
+
+        handleMaestroSubmit('formCrearCargo', 'listaCargosConfig', 'guardar_cargo', ['crearCargo', 'editCargo']);
+        handleMaestroSubmit('formCrearArea', 'listaAreasConfig', 'guardar_area', ['crearArea', 'editArea']);
     }
 
     function initStatusSwitch() {
@@ -907,6 +985,7 @@
         initDynamicFields();
         initStatusSwitch();
         initDocumentoValidation();
+        initMaestrosManagement(); // Nuevo iniciador para cargos/areas
 
         const crearBtn = document.getElementById('crearGuardarBtn');
         if (crearBtn) {

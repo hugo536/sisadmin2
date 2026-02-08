@@ -1,6 +1,8 @@
 <?php 
     $terceros = $terceros ?? []; 
     $departamentos_list = $departamentos_list ?? []; 
+    $cargos_list = $cargos_list ?? [];
+    $areas_list = $areas_list ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -10,9 +12,19 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
-        <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
-            <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
-        </button>
+        <div class="d-flex gap-2">
+            <!-- Botones de Gestión de Maestros -->
+            <button class="btn btn-outline-secondary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCargos">
+                <i class="bi bi-briefcase me-2"></i>Cargos
+            </button>
+            <button class="btn btn-outline-secondary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionAreas">
+                <i class="bi bi-building me-2"></i>Áreas
+            </button>
+            
+            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
+                <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
+            </button>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
@@ -77,6 +89,7 @@
                             $telefonosExtra = max(count($telefonos) - 1, 0);
                             $cuentasBancarias = $tercero['cuentas_bancarias'] ?? [];
                             
+                            // Helpers para ubigeo
                             $depId = $tercero['departamento_id'] ?? 0;
                             if ($depId == 0 && !empty($tercero['departamento'])) {
                                 foreach ($departamentos_list as $dep) {
@@ -140,6 +153,13 @@
 
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
+                                    <!-- BOTÓN PERFIL / DOCUMENTOS -->
+                                    <a href="?ruta=terceros/perfil&id=<?php echo (int) $tercero['id']; ?>" 
+                                       class="btn btn-sm btn-light text-info border-0 bg-transparent" 
+                                       title="Ver Perfil y Documentos">
+                                        <i class="bi bi-person-badge fs-5"></i>
+                                    </a>
+
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" 
                                             data-bs-toggle="modal" data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
@@ -155,7 +175,6 @@
                                             data-provincia-nombre="<?php echo htmlspecialchars($tercero['provincia'] ?? ''); ?>"
                                             data-distrito="<?php echo (int) ($tercero['distrito_id'] ?? 0); ?>"
                                             data-distrito-nombre="<?php echo htmlspecialchars($tercero['distrito'] ?? ''); ?>"
-                                            
                                             data-observaciones="<?php echo htmlspecialchars($tercero['observaciones'] ?? ''); ?>"
                                             
                                             data-condicion-pago="<?php echo htmlspecialchars($tercero['condicion_pago'] ?? ''); ?>"
@@ -167,14 +186,21 @@
                                             data-proveedor-condicion-pago="<?php echo htmlspecialchars($tercero['proveedor_condicion_pago'] ?? ''); ?>"
                                             data-proveedor-dias-credito="<?php echo (int) ($tercero['proveedor_dias_credito'] ?? 0); ?>"
                                             
+                                            /* DATOS LABORALES COMPLETOS */
                                             data-cargo="<?php echo htmlspecialchars($tercero['cargo'] ?? ''); ?>"
                                             data-area="<?php echo htmlspecialchars($tercero['area'] ?? ''); ?>"
+                                            data-tipo-contrato="<?php echo htmlspecialchars($tercero['tipo_contrato'] ?? ''); ?>"
                                             data-fecha-ingreso="<?php echo htmlspecialchars($tercero['fecha_ingreso'] ?? ''); ?>"
+                                            data-fecha-cese="<?php echo htmlspecialchars($tercero['fecha_cese'] ?? ''); ?>"
                                             data-estado-laboral="<?php echo htmlspecialchars($tercero['estado_laboral'] ?? ''); ?>"
+                                            data-moneda="<?php echo htmlspecialchars($tercero['moneda'] ?? 'PEN'); ?>"
                                             data-sueldo-basico="<?php echo (float) ($tercero['sueldo_basico'] ?? 0); ?>"
+                                            data-asignacion-familiar="<?php echo (int) ($tercero['asignacion_familiar'] ?? 0); ?>"
                                             data-tipo-pago="<?php echo htmlspecialchars($tercero['tipo_pago'] ?? ''); ?>"
                                             data-pago-diario="<?php echo (float) ($tercero['pago_diario'] ?? 0); ?>"
                                             data-regimen-pensionario="<?php echo htmlspecialchars($tercero['regimen_pensionario'] ?? ''); ?>"
+                                            data-tipo-comision-afp="<?php echo htmlspecialchars($tercero['tipo_comision_afp'] ?? ''); ?>"
+                                            data-cuspp="<?php echo htmlspecialchars($tercero['cuspp'] ?? ''); ?>"
                                             data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
                                             
                                             data-estado="<?php echo (int) $tercero['estado']; ?>"
@@ -374,7 +400,7 @@
                             </button>
                         </div>
 
-                        <!-- Campos Comerciales (condicionados por roles cliente/proveedor) -->
+                        <!-- Campos Comerciales -->
                         <div class="col-12 comercial-fields d-none" id="crearComercialFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
@@ -417,7 +443,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Campo Legacy/Generico -->
                                 <div class="col-12 mt-2">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición general">
@@ -427,27 +452,59 @@
                             </div>
                         </div>
 
-                        <!-- Campos Laborales (condicionados por rol empleado) -->
+                        <!-- Campos Laborales (COMPLETOS) -->
                         <div class="col-12 laboral-fields d-none" id="crearLaboralFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
                             <div class="row g-3">
+                                <!-- FILA 1 -->
                                 <div class="col-md-4">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="cargo" id="crearCargo" placeholder="Ej: Operario">
+                                        <select class="form-select" name="cargo" id="crearCargo">
+                                            <option value="">Seleccione Cargo...</option>
+                                            <?php foreach($cargos_list as $c): ?>
+                                                <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
                                         <label for="crearCargo">Cargo <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="area" id="crearArea" placeholder="Ej: Producción">
+                                        <select class="form-select" name="area" id="crearArea">
+                                            <option value="">Seleccione Área...</option>
+                                            <?php foreach($areas_list as $a): ?>
+                                                <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
                                         <label for="crearArea">Área <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
+                                        <select class="form-select" name="tipo_contrato" id="crearTipoContrato">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="INDETERMINADO">Indeterminado</option>
+                                            <option value="PLAZO_FIJO">Plazo Fijo</option>
+                                            <option value="PART_TIME">Part-Time</option>
+                                            <option value="LOCACION">Locación de Servicios</option>
+                                            <option value="PRACTICANTE">Practicante</option>
+                                        </select>
+                                        <label for="crearTipoContrato">Tipo de Contrato</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 2 -->
+                                <div class="col-md-4">
+                                    <div class="form-floating">
                                         <input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso">
-                                        <label for="crearFechaIngreso">Fecha de ingreso</label>
+                                        <label for="crearFechaIngreso">Fecha de Ingreso</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="date" class="form-control" name="fecha_cese" id="crearFechaCese">
+                                        <label for="crearFechaCese">Fecha de Cese</label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -460,7 +517,32 @@
                                         <label for="crearEstadoLaboral">Estado Laboral</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+
+                                <!-- FILA 3 -->
+                                <div class="col-md-2">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="moneda" id="crearMoneda">
+                                            <option value="PEN">S/ (Soles)</option>
+                                            <option value="USD">$ (Dólares)</option>
+                                        </select>
+                                        <label for="crearMoneda">Moneda</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="0.00">
+                                        <label for="crearSueldoBasico">Sueldo Básico</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-center">
+                                    <div class="form-check form-switch w-100 p-3 border rounded bg-white">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="crearAsignacionFamiliar" name="asignacion_familiar" value="1">
+                                        <label class="form-check-label" for="crearAsignacionFamiliar">Asignación Familiar (Hijos)</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 4 -->
+                                <div class="col-md-6">
                                     <div class="form-floating">
                                         <select class="form-select" name="tipo_pago" id="crearTipoPago">
                                             <option value="">Seleccionar...</option>
@@ -471,18 +553,14 @@
                                         <label for="crearTipoPago">Frecuencia Pago</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="0.00">
-                                        <label for="crearSueldoBasico">Sueldo Básico</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="pago_diario" id="crearPagoDiario" placeholder="0.00">
                                         <label for="crearPagoDiario">Pago Diario (si aplica)</label>
                                     </div>
                                 </div>
+
+                                <!-- FILA 5 -->
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="regimen_pensionario" id="crearRegimen">
@@ -496,10 +574,28 @@
                                         <label for="crearRegimen">Régimen Pensionario</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4 pt-2">
-                                    <div class="form-check form-switch mt-2">
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="tipo_comision_afp" id="crearTipoComision">
+                                            <option value="">No Aplica</option>
+                                            <option value="FLUJO">Comisión sobre Flujo</option>
+                                            <option value="MIXTA">Comisión Mixta/Saldo</option>
+                                        </select>
+                                        <label for="crearTipoComision">Tipo Comisión AFP</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="cuspp" id="crearCuspp" placeholder="CUSPP">
+                                        <label for="crearCuspp">CUSPP (Código AFP)</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 6 -->
+                                <div class="col-md-12">
+                                    <div class="form-check form-switch p-3 border rounded bg-white">
                                         <input class="form-check-input" type="checkbox" role="switch" id="crearEssalud" name="essalud" value="1">
-                                        <label class="form-check-label" for="crearEssalud">Aportante EsSalud</label>
+                                        <label class="form-check-label" for="crearEssalud">Aportante EsSalud (9%)</label>
                                     </div>
                                 </div>
                             </div>
@@ -530,6 +626,7 @@
                 <input type="hidden" name="id" id="editId">
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <!-- (Copia exacta de la estructura de Crear, pero con IDs 'edit...') -->
                         <!-- Roles -->
                         <div class="col-12">
                             <div class="border rounded-3 p-3 bg-light">
@@ -679,7 +776,7 @@
                             </button>
                         </div>
 
-                        <!-- Campos Comerciales (condicionados por roles cliente/proveedor) -->
+                        <!-- Campos Comerciales -->
                         <div class="col-12 comercial-fields d-none" id="editComercialFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
@@ -722,7 +819,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Campo Legacy -->
                                 <div class="col-12 mt-2">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" name="condicion_pago" id="editCondicionPago" placeholder="Condición general">
@@ -732,27 +828,59 @@
                             </div>
                         </div>
 
-                        <!-- Campos Laborales (condicionados por rol empleado) -->
+                        <!-- Campos Laborales (COMPLETOS) -->
                         <div class="col-12 laboral-fields d-none" id="editLaboralFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
                             <div class="row g-3">
+                                <!-- FILA 1 -->
                                 <div class="col-md-4">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="cargo" id="editCargo" placeholder="Ej: Operario">
+                                        <select class="form-select" name="cargo" id="editCargo">
+                                            <option value="">Seleccione Cargo...</option>
+                                            <?php foreach($cargos_list as $c): ?>
+                                                <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
                                         <label for="editCargo">Cargo <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="area" id="editArea" placeholder="Ej: Producción">
+                                        <select class="form-select" name="area" id="editArea">
+                                            <option value="">Seleccione Área...</option>
+                                            <?php foreach($areas_list as $a): ?>
+                                                <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
                                         <label for="editArea">Área <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
+                                        <select class="form-select" name="tipo_contrato" id="editTipoContrato">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="INDETERMINADO">Indeterminado</option>
+                                            <option value="PLAZO_FIJO">Plazo Fijo</option>
+                                            <option value="PART_TIME">Part-Time</option>
+                                            <option value="LOCACION">Locación de Servicios</option>
+                                            <option value="PRACTICANTE">Practicante</option>
+                                        </select>
+                                        <label for="editTipoContrato">Tipo de Contrato</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 2 -->
+                                <div class="col-md-4">
+                                    <div class="form-floating">
                                         <input type="date" class="form-control" name="fecha_ingreso" id="editFechaIngreso">
-                                        <label for="editFechaIngreso">Fecha de ingreso</label>
+                                        <label for="editFechaIngreso">Fecha de Ingreso</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="date" class="form-control" name="fecha_cese" id="editFechaCese">
+                                        <label for="editFechaCese">Fecha de Cese</label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -765,7 +893,32 @@
                                         <label for="editEstadoLaboral">Estado Laboral</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+
+                                <!-- FILA 3 -->
+                                <div class="col-md-2">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="moneda" id="editMoneda">
+                                            <option value="PEN">S/ (Soles)</option>
+                                            <option value="USD">$ (Dólares)</option>
+                                        </select>
+                                        <label for="editMoneda">Moneda</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="editSueldoBasico" placeholder="0.00">
+                                        <label for="editSueldoBasico">Sueldo Básico</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-center">
+                                    <div class="form-check form-switch w-100 p-3 border rounded bg-white">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="editAsignacionFamiliar" name="asignacion_familiar" value="1">
+                                        <label class="form-check-label" for="editAsignacionFamiliar">Asignación Familiar (Hijos)</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 4 -->
+                                <div class="col-md-6">
                                     <div class="form-floating">
                                         <select class="form-select" name="tipo_pago" id="editTipoPago">
                                             <option value="">Seleccionar...</option>
@@ -776,18 +929,14 @@
                                         <label for="editTipoPago">Frecuencia Pago</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="editSueldoBasico" placeholder="0.00">
-                                        <label for="editSueldoBasico">Sueldo Básico</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="pago_diario" id="editPagoDiario" placeholder="0.00">
                                         <label for="editPagoDiario">Pago Diario (si aplica)</label>
                                     </div>
                                 </div>
+
+                                <!-- FILA 5 -->
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="regimen_pensionario" id="editRegimen">
@@ -801,10 +950,28 @@
                                         <label for="editRegimen">Régimen Pensionario</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4 pt-2">
-                                    <div class="form-check form-switch mt-2">
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="tipo_comision_afp" id="editTipoComision">
+                                            <option value="">No Aplica</option>
+                                            <option value="FLUJO">Comisión sobre Flujo</option>
+                                            <option value="MIXTA">Comisión Mixta/Saldo</option>
+                                        </select>
+                                        <label for="editTipoComision">Tipo Comisión AFP</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="cuspp" id="editCuspp" placeholder="CUSPP">
+                                        <label for="editCuspp">CUSPP (Código AFP)</label>
+                                    </div>
+                                </div>
+
+                                <!-- FILA 6 -->
+                                <div class="col-md-12">
+                                    <div class="form-check form-switch p-3 border rounded bg-white">
                                         <input class="form-check-input" type="checkbox" role="switch" id="editEssalud" name="essalud" value="1">
-                                        <label class="form-check-label" for="editEssalud">Aportante EsSalud</label>
+                                        <label class="form-check-label" for="editEssalud">Aportante EsSalud (9%)</label>
                                     </div>
                                 </div>
                             </div>
@@ -818,6 +985,63 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gestión de Cargos -->
+<div class="modal fade" id="modalGestionCargos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title fs-6">Administrar Cargos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearCargo" class="mb-3">
+                    <input type="hidden" name="accion" value="guardar_cargo">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="nombre" placeholder="Nuevo Cargo" required>
+                        <button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i></button>
+                    </div>
+                </form>
+                <div class="list-group" id="listaCargosConfig" style="max-height: 300px; overflow-y: auto;">
+                    <?php foreach($cargos_list as $c): ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><?php echo htmlspecialchars($c['nombre']); ?></span>
+                            <!-- Aquí podrías agregar botones para editar/eliminar cargos en el futuro -->
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gestión de Áreas -->
+<div class="modal fade" id="modalGestionAreas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title fs-6">Administrar Áreas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearArea" class="mb-3">
+                    <input type="hidden" name="accion" value="guardar_area">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="nombre" placeholder="Nueva Área" required>
+                        <button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i></button>
+                    </div>
+                </form>
+                <div class="list-group" id="listaAreasConfig" style="max-height: 300px; overflow-y: auto;">
+                    <?php foreach($areas_list as $a): ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><?php echo htmlspecialchars($a['nombre']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
     </div>
 </div>

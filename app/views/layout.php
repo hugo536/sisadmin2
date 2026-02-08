@@ -11,6 +11,11 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
     
+    <!-- CSS Específico para Perfil de Terceros (AGREGADO) -->
+    <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">
+    <?php endif; ?>
+    
     <?php
     $baseUrl = base_url();
     $baseUrl = $baseUrl === '' ? '/' : rtrim($baseUrl, '/') . '/';
@@ -86,6 +91,11 @@ window.ROLES_FLASH = {
 
 <?php if (str_starts_with(($ruta_actual ?? ''), 'terceros')): ?>
 <script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
+<?php endif; ?>
+
+<!-- JS Específico para Perfil de Terceros (AGREGADO) -->
+<?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
+<script src="<?php echo e(asset_url('js/terceros_perfil.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>
