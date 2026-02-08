@@ -2,17 +2,14 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-// CAMBIO: Apunta al archivo en plural
 require_once BASE_PATH . '/app/models/TercerosModel.php';
 
 class TercerosController extends Controlador
 {
-    // CAMBIO: Propiedad en plural
     private TercerosModel $tercerosModel;
 
     public function __construct()
     {
-        // CAMBIO: Instancia la clase en plural
         $this->tercerosModel = new TercerosModel();
     }
 
@@ -31,7 +28,7 @@ class TercerosController extends Controlador
                 // Validación AJAX de documento duplicado
                 if (es_ajax() && $accion === 'validar_documento') {
                     require_permiso('terceros.crear');
-                    $tipoDoc = trim((string) ($_POST['tipo_documento'] ?? ''));
+                    $tipoDoc   = trim((string) ($_POST['tipo_documento'] ?? ''));
                     $numeroDoc = trim((string) ($_POST['numero_documento'] ?? ''));
                     $excludeId = isset($_POST['exclude_id']) ? (int) $_POST['exclude_id'] : null;
                     
@@ -46,7 +43,7 @@ class TercerosController extends Controlador
                 // Cambio de estado AJAX (Switch)
                 if (es_ajax() && $accion === 'toggle_estado') {
                     require_permiso('terceros.editar');
-                    $id = (int) ($_POST['id'] ?? 0);
+                    $id     = (int) ($_POST['id'] ?? 0);
                     $estado = (int) ($_POST['estado'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
                     
@@ -55,26 +52,50 @@ class TercerosController extends Controlador
                     return;
                 }
 
-                // --- ACCIÓN: CREAR ---
+                // Cargar Ubigeo vía AJAX (departamentos, provincias, distritos)
+                if (es_ajax() && $accion === 'cargar_ubigeo') {
+                    $tipo    = (string)($_POST['tipo'] ?? '');
+                    $padreId = (string)($_POST['padre_id'] ?? '');
+                    
+                    $data = [];
+                    switch ($tipo) {
+                        case 'departamentos':
+                            $data = $this->tercerosModel->obtenerDepartamentos();
+                            break;
+                        case 'provincias':
+                            if ($padreId !== '') $data = $this->tercerosModel->obtenerProvincias($padreId);
+                            break;
+                        case 'distritos':
+                            if ($padreId !== '') $data = $this->tercerosModel->obtenerDistritos($padreId);
+                            break;
+                    }
+                    
+                    json_response(['ok' => true, 'data' => $data]);
+                    return;
+                }
+
+                // ACCIÓN: CREAR
                 if ($accion === 'crear') {
                     require_permiso('terceros.crear');
                     $data = $this->validarTercero($_POST);
-                    // Verificación extra en el backend
+                    
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
                         throw new RuntimeException('El documento ya se encuentra registrado.');
                     }
+                    
                     $id = $this->tercerosModel->crear($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero registrado correctamente.', 'id' => $id];
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero registrado correctamente.'];
                 }
 
-                // --- ACCIÓN: EDITAR ---
+                // ACCIÓN: EDITAR
                 if ($accion === 'editar') {
                     require_permiso('terceros.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
                     
                     $data = $this->validarTercero($_POST);
+                    
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
                         throw new RuntimeException('El documento ya se encuentra registrado.');
                     }
@@ -84,7 +105,7 @@ class TercerosController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero actualizado correctamente.'];
                 }
 
-                // --- ACCIÓN: ELIMINAR ---
+                // ACCIÓN: ELIMINAR
                 if ($accion === 'eliminar') {
                     require_permiso('terceros.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
@@ -95,38 +116,31 @@ class TercerosController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero eliminado correctamente.'];
                 }
 
+                // Respuesta AJAX general
                 if (isset($respuesta) && es_ajax()) {
                     json_response($respuesta);
                     return;
                 }
 
-                // --- ACCIÓN: CONSULTAR SUNAT ---
+                // Consulta SUNAT (simulada o real)
                 if (es_ajax() && $accion === 'consultar_sunat') {
                     require_permiso('terceros.crear');
-                    $ruc = preg_replace('/\\D/', '', (string) ($_POST['ruc'] ?? ''));
+                    $ruc = preg_replace('/\D/', '', (string) ($_POST['ruc'] ?? ''));
                     if (strlen($ruc) !== 11) {
                         throw new RuntimeException('RUC inválido.');
                     }
 
+                    // Aquí iría tu integración real con API SUNAT
                     $simulados = [
-                        '20123456789' => [
-                            'razon_social' => 'Embotelladora Andina S.A.',
-                            'direccion' => 'Av. Principal 123, Lima',
-                        ],
-                        '20567890123' => [
-                            'razon_social' => 'Distribuciones del Sur SAC',
-                            'direccion' => 'Jr. Los Olivos 456, Arequipa',
-                        ],
+                        '20123456789' => ['razon_social' => 'Embotelladora Andina S.A.', 'direccion' => 'Av. Principal 123, Lima'],
+                        '20600000001' => ['razon_social' => 'Distribuidora Ejemplo SAC', 'direccion' => 'Jr. Comercio 456, Huanuco'],
                     ];
 
-                    $respuestaSunat = $simulados[$ruc] ?? [
-                        'razon_social' => 'Empresa ' . $ruc,
-                        'direccion' => 'Dirección no registrada',
-                    ];
-
+                    $respuestaSunat = $simulados[$ruc] ?? ['razon_social' => '', 'direccion' => ''];
                     json_response(['ok' => true] + $respuestaSunat);
                     return;
                 }
+
             } catch (Throwable $e) {
                 if (es_ajax()) {
                     json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
@@ -136,77 +150,169 @@ class TercerosController extends Controlador
             }
         }
 
+        // Vista principal
+        $departamentos = $this->tercerosModel->obtenerDepartamentos();
+
         $this->render('terceros', [
-            'terceros' => $this->tercerosModel->listar(),
-            'flash' => $flash,
-            'ruta_actual' => 'tercero', // Mantenemos singular si así está en tu sidebar
+            'terceros'           => $this->tercerosModel->listar(),
+            'flash'              => $flash,
+            'ruta_actual'        => 'tercero',
+            'departamentos_list' => $departamentos
         ]);
     }
 
+    /**
+     * Valida y normaliza todos los datos del formulario de tercero
+     */
     private function validarTercero(array $data): array
     {
-        $tipoPersona = trim((string) ($data['tipo_persona'] ?? ''));
-        $tipo = trim((string) ($data['tipo_documento'] ?? ''));
-        $numeroRaw = trim((string) ($data['numero_documento'] ?? ''));
-        // Solo eliminamos espacios al inicio/final, permitimos guiones si es pasaporte, pero mejor sanitizar solo alfanuméricos para DNI/RUC
-        $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
-        $numeroDigits = preg_replace('/\\D/', '', $numeroRaw);
-        $nombre = trim((string) ($data['nombre_completo'] ?? ''));
-        $email = trim((string) ($data['email'] ?? ''));
-        $telefonos = $data['telefonos'] ?? [];
-        $telefonosTipos = $data['telefono_tipos'] ?? [];
+        $tipoPersona   = trim((string) ($data['tipo_persona'] ?? ''));
+        $tipoDoc       = trim((string) ($data['tipo_documento'] ?? ''));
+        $numeroRaw     = trim((string) ($data['numero_documento'] ?? ''));
+        $nombre        = trim((string) ($data['nombre_completo'] ?? ''));
+        $direccion     = trim((string) ($data['direccion'] ?? ''));
+        $email         = trim((string) ($data['email'] ?? ''));
+
+        // Normalizar número de documento
+        $numeroDigits = preg_replace('/\D/', '', $numeroRaw);
+        $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
+
+        // --- CORRECCIÓN UBIGEO ---
+        // El frontend envía IDs (ej. "10", "1001"), pero la BD espera Nombres (ej. "HUANUCO").
+        // Buscamos el nombre correspondiente al ID seleccionado.
+        
+        $departamentoId = !empty($data['departamento']) ? (string) $data['departamento'] : '';
+        $provinciaId    = !empty($data['provincia'])    ? (string) $data['provincia']    : '';
+        $distritoId     = !empty($data['distrito'])     ? (string) $data['distrito']     : '';
+
+        $departamentoNombre = null;
+        $provinciaNombre    = null;
+        $distritoNombre     = null;
+
+        // 1. Resolver Nombre Departamento
+        if ($departamentoId !== '') {
+            $deps = $this->tercerosModel->obtenerDepartamentos();
+            foreach ($deps as $d) {
+                if ((string)$d['id'] === $departamentoId) {
+                    $departamentoNombre = $d['nombre'];
+                    break;
+                }
+            }
+        }
+
+        // 2. Resolver Nombre Provincia (si hay depto)
+        if ($departamentoId !== '' && $provinciaId !== '') {
+            $provs = $this->tercerosModel->obtenerProvincias($departamentoId);
+            foreach ($provs as $p) {
+                if ((string)$p['id'] === $provinciaId) {
+                    $provinciaNombre = $p['nombre'];
+                    break;
+                }
+            }
+        }
+
+        // 3. Resolver Nombre Distrito (si hay provincia)
+        if ($provinciaId !== '' && $distritoId !== '') {
+            $dists = $this->tercerosModel->obtenerDistritos($provinciaId);
+            foreach ($dists as $dt) {
+                if ((string)$dt['id'] === $distritoId) {
+                    $distritoNombre = $dt['nombre'];
+                    break;
+                }
+            }
+        }
+
+        // TELÉFONOS
+        $telefonos      = $data['telefonos']      ?? [];
+        $telefonoTipos  = $data['telefono_tipos'] ?? [];
+        
+        if (!is_array($telefonos))     $telefonos     = [$telefonos];
+        if (!is_array($telefonoTipos)) $telefonoTipos = [$telefonoTipos];
+
         $telefonosNormalizados = [];
-        if (!is_array($telefonos)) {
-            $telefonos = [$telefonos];
-        }
-        if (!is_array($telefonosTipos)) {
-            $telefonosTipos = [$telefonosTipos];
-        }
-        foreach ($telefonos as $index => $telefonoRaw) {
-            $telefonoRaw = trim((string) $telefonoRaw);
-            if ($telefonoRaw === '') {
-                continue;
-            }
-            $telefonoDigits = preg_replace('/\\D/', '', $telefonoRaw);
-            $telefonoValido = preg_match('/^9\\d{8}$/', $telefonoDigits) === 1 || preg_match('/^51\\d{9}$/', $telefonoDigits) === 1;
-            if (!$telefonoValido) {
-                throw new RuntimeException('El teléfono no tiene un formato válido.');
-            }
+        foreach ($telefonos as $i => $telRaw) {
+            $tel = trim((string) $telRaw);
+            if ($tel === '') continue;
             $telefonosNormalizados[] = [
-                'telefono' => $telefonoDigits,
-                'tipo' => isset($telefonosTipos[$index]) ? trim((string) $telefonosTipos[$index]) : null,
+                'telefono' => $tel,
+                'tipo'     => trim((string) ($telefonoTipos[$i] ?? 'Móvil'))
             ];
         }
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
+        // CUENTAS BANCARIAS / BILLETERAS DIGITALES
+        $cuentasTipo            = $data['cuenta_tipo']            ?? [];
+        $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
+        $cuentasTipoCta         = $data['cuenta_tipo_cta']        ?? [];
+        $cuentasNumero          = $data['cuenta_numero']          ?? [];
+        $cuentasCci             = $data['cuenta_cci']             ?? [];  // ← Aquí va número Yape/Plin o CCI
+        $cuentasAlias           = $data['cuenta_alias']           ?? [];
+        $cuentasMoneda          = $data['cuenta_moneda']          ?? [];
+        $cuentasPrincipal       = $data['cuenta_principal']       ?? [];
+        $cuentasBilletera       = $data['cuenta_billetera']       ?? [];
+        $cuentasObservaciones   = $data['cuenta_observaciones']   ?? [];
+
+        // Normalizar arrays
+        $keys = ['tipo', 'entidad', 'tipo_cta', 'numero', 'cci', 'alias', 'moneda', 'principal', 'billetera', 'observaciones'];
+        foreach ($keys as $k) {
+            $var = "cuentas" . ucfirst($k);
+            if (!is_array($$var)) $$var = [$$var];
+        }
+
+        $cuentasNormalizadas = [];
+        $maxIndex = max(
+            count($cuentasEntidad),
+            count($cuentasCci),
+            count($cuentasAlias),
+            count($cuentasNumero)
+        );
+
+        for ($i = 0; $i < $maxIndex; $i++) {
+            $entidad   = trim((string) ($cuentasEntidad[$i] ?? ''));
+            $cci       = trim((string) ($cuentasCci[$i] ?? ''));
+            $alias     = trim((string) ($cuentasAlias[$i] ?? ''));
+            $numero    = trim((string) ($cuentasNumero[$i] ?? ''));
+
+            // Si no hay entidad + (cci o alias o numero) → fila vacía
+            if ($entidad === '' && $cci === '' && $alias === '' && $numero === '') {
+                continue;
+            }
+
+            // Validación básica
+            if ($entidad === '') {
+                throw new RuntimeException("Indique la entidad/billetera en la cuenta #" . ($i + 1));
+            }
+
+            $cuentasNormalizadas[] = [
+                'tipo'              => trim((string) ($cuentasTipo[$i] ?? '')),
+                'entidad'           => $entidad,
+                'tipo_cta'          => trim((string) ($cuentasTipoCta[$i] ?? '')),
+                'numero_cuenta'     => $numero,
+                'cci'               => $cci,                  // Número Yape/Plin o CCI real
+                'alias'             => $alias,
+                'moneda'            => in_array($cuentasMoneda[$i] ?? 'PEN', ['PEN', 'USD']) ? $cuentasMoneda[$i] : 'PEN',
+                'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
+                'billetera_digital' => !empty($cuentasBilletera[$i]) ? 1 : 0,
+                'observaciones'     => trim((string) ($cuentasObservaciones[$i] ?? ''))
+            ];
+        }
+
+        // Validaciones generales
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
             !empty($data['es_empleado']),
         ];
 
-        if ($tipoPersona === '' || $tipo === '' || $numero === '' || $nombre === '') {
-            throw new RuntimeException('Tipo de persona, tipo de documento, número y nombre son obligatorios.');
+        if ($tipoPersona === '' || $tipoDoc === '' || $numero === '' || $nombre === '') {
+            throw new RuntimeException('Tipo de persona, documento y nombre son obligatorios.');
         }
 
-        if ($tipo === 'RUC') {
-            if (!ctype_digit($numeroDigits)) {
-                throw new RuntimeException('El RUC debe contener solo números.');
-            }
-            if (strlen($numeroDigits) !== 11) {
-                throw new RuntimeException('El RUC debe tener 11 dígitos.');
-            }
-            $numero = $numeroDigits;
+        if ($tipoDoc === 'RUC' && strlen($numeroDigits) !== 11) {
+            throw new RuntimeException('El RUC debe tener 11 dígitos.');
         }
-
-        if ($tipo === 'DNI') {
-            if (!ctype_digit($numeroDigits)) {
-                throw new RuntimeException('El DNI debe contener solo números.');
-            }
-            if (strlen($numeroDigits) !== 8) {
-                throw new RuntimeException('El DNI debe tener 8 dígitos.');
-            }
-            $numero = $numeroDigits;
+        if ($tipoDoc === 'DNI' && strlen($numeroDigits) !== 8) {
+            throw new RuntimeException('El DNI debe tener 8 dígitos.');
         }
 
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -214,67 +320,34 @@ class TercerosController extends Controlador
         }
 
         if (!in_array(true, $roles, true)) {
-            throw new RuntimeException('Seleccione al menos un rol para el tercero.');
+            throw new RuntimeException('Seleccione al menos un rol (Cliente, Proveedor o Empleado).');
         }
 
+        // Validación empleado (sin cambios)
         if (!empty($data['es_empleado'])) {
             $tipoPago = trim((string) ($data['tipo_pago'] ?? ''));
-            if ($tipoPago === '') {
-                throw new RuntimeException('Seleccione el tipo de pago del empleado.');
+            if ($tipoPago === '') throw new RuntimeException('Seleccione el tipo de pago del empleado.');
+            
+            if ($tipoPago === 'DIARIO' && (float) ($data['pago_diario'] ?? 0) <= 0) {
+                throw new RuntimeException('El pago diario debe ser mayor a 0.');
             }
-            if ($tipoPago === 'DIARIO') {
-                $pagoDiario = (float) ($data['pago_diario'] ?? 0);
-                if ($pagoDiario <= 0) {
-                    throw new RuntimeException('El pago diario debe ser mayor a 0.');
-                }
-            }
-            if ($tipoPago === 'SUELDO') {
-                $sueldo = (float) ($data['sueldo_basico'] ?? 0);
-                if ($sueldo <= 0) {
-                    throw new RuntimeException('El sueldo básico debe ser mayor a 0.');
-                }
+            if ($tipoPago === 'SUELDO' && (float) ($data['sueldo_basico'] ?? 0) <= 0) {
+                throw new RuntimeException('El sueldo básico debe ser mayor a 0.');
             }
         }
 
-        $cuentasTipos = $data['cuenta_tipo_entidad'] ?? [];
-        $cuentasEntidades = $data['cuenta_entidad'] ?? [];
-        $cuentasTiposCuenta = $data['cuenta_tipo_cuenta'] ?? [];
-        $cuentasNumeros = $data['cuenta_numero'] ?? [];
-        if (!is_array($cuentasTipos)) $cuentasTipos = [$cuentasTipos];
-        if (!is_array($cuentasEntidades)) $cuentasEntidades = [$cuentasEntidades];
-        if (!is_array($cuentasTiposCuenta)) $cuentasTiposCuenta = [$cuentasTiposCuenta];
-        if (!is_array($cuentasNumeros)) $cuentasNumeros = [$cuentasNumeros];
+        // Preparar payload para el modelo
+        $prepared = $data;
+        $prepared['numero_documento']      = $numero;
+        $prepared['telefono']              = $telefonoPrincipal;
+        $prepared['telefonos']             = $telefonosNormalizados;          // el modelo usa 'telefonos'
+        $prepared['cuentas_bancarias']     = $cuentasNormalizadas;           // el modelo usa 'cuentas_bancarias'
+        
+        // Pasamos los NOMBRES en lugar de los IDs
+        $prepared['departamento']          = $departamentoNombre;
+        $prepared['provincia']             = $provinciaNombre;
+        $prepared['distrito']              = $distritoNombre;
 
-        $cuentasNormalizadas = [];
-        $totalCuentas = max(count($cuentasTipos), count($cuentasEntidades), count($cuentasNumeros));
-        for ($i = 0; $i < $totalCuentas; $i++) {
-            $tipoEntidad = trim((string) ($cuentasTipos[$i] ?? ''));
-            $entidad = trim((string) ($cuentasEntidades[$i] ?? ''));
-            $tipoCuenta = trim((string) ($cuentasTiposCuenta[$i] ?? ''));
-            $numeroCuenta = trim((string) ($cuentasNumeros[$i] ?? ''));
-            $hasData = ($tipoEntidad !== '' || $entidad !== '' || $tipoCuenta !== '' || $numeroCuenta !== '');
-            if (!$hasData) {
-                continue;
-            }
-            if ($tipoEntidad === '' || $entidad === '' || $numeroCuenta === '') {
-                throw new RuntimeException('Complete los datos de la cuenta bancaria.');
-            }
-            if ($tipoEntidad === 'BANCO' && $tipoCuenta === '') {
-                throw new RuntimeException('Seleccione el tipo de cuenta bancaria.');
-            }
-            $cuentasNormalizadas[] = [
-                'tipo_entidad' => $tipoEntidad,
-                'entidad' => $entidad,
-                'tipo_cuenta' => $tipoCuenta !== '' ? $tipoCuenta : null,
-                'numero_cuenta' => $numeroCuenta,
-            ];
-        }
-
-        $data['numero_documento'] = $numero; // Guardamos el limpio
-        $data['telefono'] = $telefonoPrincipal;
-        $data['telefonos_list'] = $telefonosNormalizados;
-        $data['cuentas_bancarias_list'] = $cuentasNormalizadas;
-
-        return $data;
+        return $prepared;
     }
 }

@@ -1,23 +1,7 @@
 (function () {
-    const ROWS_PER_PAGE = 5;
-    let currentPage = 1;
+    'use strict';
 
-    const UBIGEO_DATA = {
-        LIMA: {
-            LIMA: ['Miraflores', 'San Isidro', 'Surco'],
-            HUAROCHIRI: ['Matucana', 'San Pedro de Casta'],
-            CAÑETE: ['San Vicente', 'Imperial']
-        },
-        AREQUIPA: {
-            AREQUIPA: ['Cayma', 'Yanahuara', 'Cerro Colorado'],
-            CAMANA: ['Camaná', 'Ocoña']
-        },
-        LA_LIBERTAD: {
-            TRUJILLO: ['Trujillo', 'La Esperanza', 'Víctor Larco'],
-            ASCOPE: ['Chocope', 'Rázuri']
-        }
-    };
-
+    // ENTIDADES FINANCIERAS (Estáticas para el ejemplo)
     const ENTIDADES_FINANCIERAS = {
         BANCO: ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Pichincha'],
         BILLETERA: ['Yape', 'Plin', 'Tunki', 'Agora Pay', 'BIM'],
@@ -26,12 +10,9 @@
         OTRO: []
     };
 
-    function initTooltips() {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    }
+    // =========================================================================
+    // UTILIDADES GENERALES
+    // =========================================================================
 
     function getFeedbackElement(input) {
         if (!input) return null;
@@ -81,27 +62,16 @@
 
     function getDocumentoError(tipo, numero) {
         const valor = (numero || '').trim();
-        if (!valor) {
-            return 'Ingrese el número de documento.';
-        }
+        if (!valor) return 'Ingrese el número de documento.';
+        
         if (tipo === 'RUC') {
-            if (!/^\d+$/.test(valor)) {
-                return 'El RUC debe contener solo números.';
-            }
-            const digits = sanitizeDigits(valor);
-            if (digits.length !== 11) {
-                return 'El RUC debe tener 11 dígitos.';
-            }
+            if (!/^\d+$/.test(valor)) return 'El RUC debe contener solo números.';
+            if (sanitizeDigits(valor).length !== 11) return 'El RUC debe tener 11 dígitos.';
             return null;
         }
         if (tipo === 'DNI') {
-            if (!/^\d+$/.test(valor)) {
-                return 'El DNI debe contener solo números.';
-            }
-            const digits = sanitizeDigits(valor);
-            if (digits.length !== 8) {
-                return 'El DNI debe tener 8 dígitos.';
-            }
+            if (!/^\d+$/.test(valor)) return 'El DNI debe contener solo números.';
+            if (sanitizeDigits(valor).length !== 8) return 'El DNI debe tener 8 dígitos.';
         }
         return null;
     }
@@ -124,122 +94,174 @@
         });
     }
 
+    // =========================================================================
+    // GENERADORES DE FILAS (Teléfonos y Cuentas)
+    // =========================================================================
+
+    function createRemoveButton(onClick) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-danger btn-sm';
+        btn.innerHTML = '<i class="bi bi-trash"></i>';
+        btn.title = 'Eliminar';
+        btn.addEventListener('click', onClick);
+        return btn;
+    }
+
     function buildTelefonoRow({ telefono = '', tipo = '' } = {}, onRemove) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'd-flex gap-2 align-items-start';
+        wrapper.className = 'input-group mb-2';
 
         const telefonoInput = document.createElement('input');
         telefonoInput.type = 'text';
         telefonoInput.name = 'telefonos[]';
         telefonoInput.className = 'form-control';
-        telefonoInput.placeholder = 'Número de teléfono';
+        telefonoInput.placeholder = 'Número';
         telefonoInput.value = telefono;
 
         const tipoSelect = document.createElement('select');
         tipoSelect.name = 'telefono_tipos[]';
         tipoSelect.className = 'form-select';
-        const tipos = ['', 'Móvil', 'Fijo', 'WhatsApp', 'Trabajo'];
-        tipos.forEach(optionValue => {
+        ['', 'Móvil', 'Fijo', 'WhatsApp', 'Trabajo'].forEach(opt => {
             const option = document.createElement('option');
-            option.value = optionValue;
-            option.textContent = optionValue === '' ? 'Tipo' : optionValue;
-            if (optionValue === tipo) option.selected = true;
+            option.value = opt;
+            option.textContent = opt === '' ? 'Tipo' : opt;
+            if (opt === tipo) option.selected = true;
             tipoSelect.appendChild(option);
         });
 
-        const removeButton = document.createElement('button');
-        removeButton.type = 'button';
-        removeButton.className = 'btn btn-outline-danger btn-sm';
-        removeButton.innerHTML = '<i class="bi bi-x-lg"></i>';
-        removeButton.addEventListener('click', () => {
+        const removeBtn = createRemoveButton(() => {
             wrapper.remove();
             if (typeof onRemove === 'function') onRemove();
         });
 
         wrapper.appendChild(telefonoInput);
         wrapper.appendChild(tipoSelect);
-        wrapper.appendChild(removeButton);
+        wrapper.appendChild(removeBtn);
         return wrapper;
     }
 
-    function buildCuentaRow({ tipo_entidad = '', entidad = '', tipo_cuenta = '', numero_cuenta = '' } = {}, onRemove) {
+    function buildCuentaRow({ tipo = '', entidad = '', tipo_cta = '', numero_cuenta = '', cci = '', alias = '', moneda = 'PEN', principal = 0, billetera_digital = 0, observaciones = '' } = {}, onRemove) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'border rounded-3 p-3 bg-light';
+        wrapper.className = 'card mb-2 bg-light border';
+
+        const tipoEntidadVal = tipo || ''; 
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body p-2';
 
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center';
 
-        const tipoEntCol = document.createElement('div');
-        tipoEntCol.className = 'col-md-3';
+        // Col 1: Tipo Entidad
+        const col1 = document.createElement('div');
+        col1.className = 'col-md-3';
         const tipoEntSelect = document.createElement('select');
-        tipoEntSelect.name = 'cuenta_tipo_entidad[]';
-        tipoEntSelect.className = 'form-select';
-        const tipoEntOptions = ['', 'BANCO', 'BILLETERA', 'CAJA', 'COOPERATIVA', 'OTRO'];
-        tipoEntOptions.forEach(optionValue => {
+        tipoEntSelect.name = 'cuenta_tipo[]';
+        tipoEntSelect.className = 'form-select form-select-sm';
+        ['', 'BANCO', 'BILLETERA', 'CAJA', 'COOPERATIVA', 'OTRO'].forEach(opt => {
             const option = document.createElement('option');
-            option.value = optionValue;
-            option.textContent = optionValue === '' ? 'Tipo' : optionValue;
-            if (optionValue === tipo_entidad) option.selected = true;
+            option.value = opt;
+            option.textContent = opt === '' ? 'Tipo' : opt;
+            if (opt === tipoEntidadVal) option.selected = true;
             tipoEntSelect.appendChild(option);
         });
-        tipoEntCol.appendChild(tipoEntSelect);
+        col1.appendChild(tipoEntSelect);
 
-        const entidadCol = document.createElement('div');
-        entidadCol.className = 'col-md-3';
+        // Col 2: Entidad (Input con Datalist)
+        const col2 = document.createElement('div');
+        col2.className = 'col-md-3';
         const entidadInput = document.createElement('input');
         entidadInput.name = 'cuenta_entidad[]';
-        entidadInput.className = 'form-control';
-        entidadInput.placeholder = 'Entidad (BBVA, Yape...)';
+        entidadInput.className = 'form-control form-control-sm';
+        entidadInput.placeholder = 'Entidad';
         entidadInput.value = entidad;
+        
         const datalist = document.createElement('datalist');
         const datalistId = `entidad-list-${Math.random().toString(36).slice(2)}`;
         datalist.id = datalistId;
         entidadInput.setAttribute('list', datalistId);
-        entidadCol.appendChild(entidadInput);
-        entidadCol.appendChild(datalist);
+        
+        col2.appendChild(entidadInput);
+        col2.appendChild(datalist);
 
-        const tipoCuentaCol = document.createElement('div');
-        tipoCuentaCol.className = 'col-md-3';
+        // Col 3: Tipo Cuenta
+        const col3 = document.createElement('div');
+        col3.className = 'col-md-3';
         const tipoCuentaSelect = document.createElement('select');
-        tipoCuentaSelect.name = 'cuenta_tipo_cuenta[]';
-        tipoCuentaSelect.className = 'form-select';
-        const tipoCuentaOptions = ['', 'AHORROS', 'CORRIENTE'];
-        tipoCuentaOptions.forEach(optionValue => {
+        tipoCuentaSelect.name = 'cuenta_tipo_cta[]';
+        tipoCuentaSelect.className = 'form-select form-select-sm';
+        ['', 'AHORROS', 'CORRIENTE', 'MAESTRA'].forEach(opt => {
             const option = document.createElement('option');
-            option.value = optionValue;
-            option.textContent = optionValue === '' ? 'Tipo de cuenta' : optionValue;
-            if (optionValue === tipo_cuenta) option.selected = true;
+            option.value = opt;
+            option.textContent = opt === '' ? 'Tipo Cta.' : opt;
+            if (opt === tipo_cta) option.selected = true;
             tipoCuentaSelect.appendChild(option);
         });
-        tipoCuentaCol.appendChild(tipoCuentaSelect);
+        col3.appendChild(tipoCuentaSelect);
 
-        const numeroCol = document.createElement('div');
-        numeroCol.className = 'col-md-3';
+        // Col 4: Número y Botón
+        const col4 = document.createElement('div');
+        col4.className = 'col-md-3';
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group input-group-sm';
+        
         const numeroInput = document.createElement('input');
         numeroInput.name = 'cuenta_numero[]';
         numeroInput.className = 'form-control';
-        numeroInput.placeholder = 'Número / celular';
+        numeroInput.placeholder = 'N° Cuenta';
         numeroInput.value = numero_cuenta;
-        numeroCol.appendChild(numeroInput);
 
-        const removeCol = document.createElement('div');
-        removeCol.className = 'col-12 text-end mt-2';
-        const removeButton = document.createElement('button');
-        removeButton.type = 'button';
-        removeButton.className = 'btn btn-outline-danger btn-sm';
-        removeButton.innerHTML = '<i class="bi bi-trash me-1"></i>Quitar';
-        removeButton.addEventListener('click', () => {
+        const removeBtn = createRemoveButton(() => {
             wrapper.remove();
             if (typeof onRemove === 'function') onRemove();
         });
-        removeCol.appendChild(removeButton);
 
-        row.appendChild(tipoEntCol);
-        row.appendChild(entidadCol);
-        row.appendChild(tipoCuentaCol);
-        row.appendChild(numeroCol);
-        wrapper.appendChild(row);
-        wrapper.appendChild(removeCol);
+        inputGroup.appendChild(numeroInput);
+        inputGroup.appendChild(removeBtn);
+        col4.appendChild(inputGroup);
+
+        // Fila 2: CCI y Moneda
+        const row2 = document.createElement('div');
+        row2.className = 'row g-2 mt-1';
+        
+        // CCI
+        const colCci = document.createElement('div');
+        colCci.className = 'col-md-4';
+        const cciInput = document.createElement('input');
+        cciInput.type = 'text';
+        cciInput.name = 'cuenta_cci[]';
+        cciInput.className = 'form-control form-control-sm';
+        cciInput.placeholder = 'CCI / Celular Yape';
+        cciInput.value = cci;
+        colCci.appendChild(cciInput);
+
+        // Moneda
+        const colMoneda = document.createElement('div');
+        colMoneda.className = 'col-md-3';
+        const monedaSelect = document.createElement('select');
+        monedaSelect.name = 'cuenta_moneda[]';
+        monedaSelect.className = 'form-select form-select-sm';
+        ['PEN', 'USD'].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if(m === moneda) opt.selected = true;
+            monedaSelect.appendChild(opt);
+        });
+        colMoneda.appendChild(monedaSelect);
+
+        row2.appendChild(colCci);
+        row2.appendChild(colMoneda);
+
+        row.appendChild(col1);
+        row.appendChild(col2);
+        row.appendChild(col3);
+        row.appendChild(col4);
+        
+        cardBody.appendChild(row);
+        cardBody.appendChild(row2);
+        wrapper.appendChild(cardBody);
 
         const updateEntidadList = () => {
             const opciones = ENTIDADES_FINANCIERAS[tipoEntSelect.value] || [];
@@ -249,11 +271,6 @@
                 option.value = nombre;
                 datalist.appendChild(option);
             });
-            const isBanco = tipoEntSelect.value === 'BANCO';
-            tipoCuentaSelect.disabled = !isBanco;
-            if (!isBanco) {
-                tipoCuentaSelect.value = '';
-            }
         };
 
         tipoEntSelect.addEventListener('change', updateEntidadList);
@@ -262,91 +279,156 @@
         return wrapper;
     }
 
+    // =========================================================================
+    // LÓGICA DE UI Y TOGGLES
+    // =========================================================================
+
     function toggleLaboralFields(checkboxEl, containerEl) {
         if (!checkboxEl || !containerEl) return;
         const show = checkboxEl.checked;
         containerEl.style.display = show ? '' : 'none';
-        if (!show) {
-            resetFields(containerEl);
-        }
+        if (!show) resetFields(containerEl);
     }
 
-    function togglePagoFields(tipoPagoEl, sueldoWrapper, pagoDiarioWrapper) {
-        if (!tipoPagoEl || !sueldoWrapper || !pagoDiarioWrapper) return;
+    function togglePagoFields(tipoPagoEl) {
+        if (!tipoPagoEl) return;
+        
+        const form = tipoPagoEl.closest('form');
+        const sueldoInput = form.querySelector('[name="sueldo_basico"]');
+        const pagoDiarioInput = form.querySelector('[name="pago_diario"]');
+        
+        const sueldoCol = sueldoInput?.closest('.col-md-4');
+        const diarioCol = pagoDiarioInput?.closest('.col-md-4');
+
+        if (!sueldoCol || !diarioCol) return;
+
         const tipo = tipoPagoEl.value;
-        const showSueldo = tipo === 'SUELDO';
+        const showSueldo = tipo === 'SUELDO' || tipo === 'MENSUAL' || tipo === 'QUINCENAL'; 
         const showDiario = tipo === 'DIARIO';
-        sueldoWrapper.style.display = showSueldo ? '' : 'none';
-        pagoDiarioWrapper.style.display = showDiario ? '' : 'none';
-        if (!showSueldo) {
-            sueldoWrapper.querySelector('input')?.classList.remove('is-invalid');
-            sueldoWrapper.querySelector('input')?.value = '';
-        }
-        if (!showDiario) {
-            pagoDiarioWrapper.querySelector('input')?.classList.remove('is-invalid');
-            pagoDiarioWrapper.querySelector('input')?.value = '';
+
+        // Resetear visualización
+        sueldoCol.style.display = 'none';
+        diarioCol.style.display = 'none';
+
+        if (showSueldo) {
+            sueldoCol.style.display = '';
+            pagoDiarioInput.value = '';
+        } else if (showDiario) {
+            diarioCol.style.display = '';
+            sueldoInput.value = '';
         }
     }
 
     function toggleComercialFields(clienteEl, proveedorEl, containerEl) {
         if (!containerEl) return;
         const show = Boolean(clienteEl?.checked || proveedorEl?.checked);
-        containerEl.style.display = show ? '' : 'none';
-        if (!show) {
-            resetFields(containerEl);
-        }
+        containerEl.classList.toggle('d-none', !show); 
+        if (!show) resetFields(containerEl);
     }
+
+    // =========================================================================
+    // LÓGICA DE UBIGEO CON AJAX
+    // =========================================================================
 
     function setUbigeoOptions(departamentoEl, provinciaEl, distritoEl, selected = {}) {
         if (!departamentoEl || !provinciaEl || !distritoEl) return;
-        const departamentos = Object.keys(UBIGEO_DATA);
 
-        const fillSelect = (select, options, placeholder) => {
-            select.innerHTML = '';
-            const emptyOption = document.createElement('option');
-            emptyOption.value = '';
-            emptyOption.textContent = placeholder;
-            select.appendChild(emptyOption);
-            options.forEach(option => {
-                const opt = document.createElement('option');
-                opt.value = option;
-                opt.textContent = option.replace('_', ' ');
-                select.appendChild(opt);
+        const loadUbigeoData = (tipo, padreId, selectEl, preSelectedValue, preSelectedName) => {
+            selectEl.innerHTML = '<option value="">Seleccionar...</option>';
+            selectEl.disabled = true;
+
+            const fd = new FormData();
+            fd.append('accion', 'cargar_ubigeo');
+            fd.append('tipo', tipo);
+            fd.append('padre_id', padreId);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            })
+            .then(r => r.json())
+            .then(res => {
+                selectEl.innerHTML = '<option value="">Seleccionar...</option>';
+                let matched = false;
+                if(res.ok && res.data) {
+                    res.data.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.id;
+                        opt.textContent = item.nombre;
+                        
+                        if(preSelectedValue && String(preSelectedValue) !== '0' && String(item.id) === String(preSelectedValue)) {
+                            opt.selected = true;
+                            matched = true;
+                        }
+                        else if(!matched && preSelectedName && item.nombre && String(item.nombre).toUpperCase() === String(preSelectedName).toUpperCase()) {
+                            opt.selected = true;
+                            matched = true;
+                        }
+                        
+                        selectEl.appendChild(opt);
+                    });
+                }
+                selectEl.disabled = false;
+                
+                if (matched) {
+                    selectEl.dispatchEvent(new Event('change'));
+                }
+            })
+            .catch(err => {
+                console.error("Error cargando ubigeo:", err);
+                selectEl.innerHTML = '<option value="">Error</option>';
+                selectEl.disabled = false;
             });
         };
 
-        fillSelect(departamentoEl, departamentos, 'Seleccionar...');
-        departamentoEl.value = selected.departamento || '';
+        departamentoEl.addEventListener('change', function() {
+            const depId = this.value;
+            distritoEl.innerHTML = '<option value="">Seleccionar...</option>'; 
+            distritoEl.disabled = true; 
+            
+            if(depId) {
+                const nextVal = this.dataset.nextSelectVal || null;
+                const nextName = this.dataset.nextSelectName || null; 
+                loadUbigeoData('provincias', depId, provinciaEl, nextVal, nextName);
+                this.dataset.nextSelectVal = '';
+                this.dataset.nextSelectName = '';
+            } else {
+                provinciaEl.innerHTML = '<option value="">Seleccionar...</option>';
+                provinciaEl.disabled = true; 
+            }
+        });
 
-        const provincias = departamentoEl.value ? Object.keys(UBIGEO_DATA[departamentoEl.value] || {}) : [];
-        fillSelect(provinciaEl, provincias, 'Seleccionar...');
-        provinciaEl.value = selected.provincia || '';
+        provinciaEl.addEventListener('change', function() {
+            const provId = this.value;
+            if(provId) {
+                const nextVal = this.dataset.nextSelectVal || null;
+                const nextName = this.dataset.nextSelectName || null; 
+                loadUbigeoData('distritos', provId, distritoEl, nextVal, nextName);
+                this.dataset.nextSelectVal = '';
+                this.dataset.nextSelectName = '';
+            } else {
+                distritoEl.innerHTML = '<option value="">Seleccionar...</option>';
+                distritoEl.disabled = true; 
+            }
+        });
 
-        const distritos = departamentoEl.value && provinciaEl.value
-            ? (UBIGEO_DATA[departamentoEl.value]?.[provinciaEl.value] || [])
-            : [];
-        fillSelect(distritoEl, distritos, 'Seleccionar...');
-        distritoEl.value = selected.distrito || '';
-
-        if (!departamentoEl.dataset.bound) {
-            departamentoEl.addEventListener('change', () => {
-                const newProvincias = departamentoEl.value ? Object.keys(UBIGEO_DATA[departamentoEl.value] || {}) : [];
-                fillSelect(provinciaEl, newProvincias, 'Seleccionar...');
-                fillSelect(distritoEl, [], 'Seleccionar...');
-            });
-            departamentoEl.dataset.bound = '1';
-        }
-
-        if (!provinciaEl.dataset.bound) {
-            provinciaEl.addEventListener('change', () => {
-                const newDistritos = departamentoEl.value && provinciaEl.value
-                    ? (UBIGEO_DATA[departamentoEl.value]?.[provinciaEl.value] || [])
-                    : [];
-                fillSelect(distritoEl, newDistritos, 'Seleccionar...');
-            });
-            provinciaEl.dataset.bound = '1';
+        if (selected.departamento) {
+            departamentoEl.value = selected.departamento;
+            departamentoEl.dataset.nextSelectVal = selected.provincia || '';
+            departamentoEl.dataset.nextSelectName = selected.provinciaNombre || '';
+            provinciaEl.dataset.nextSelectVal = selected.distrito || '';
+            provinciaEl.dataset.nextSelectName = selected.distritoNombre || '';
+            departamentoEl.dispatchEvent(new Event('change'));
+        } else {
+            provinciaEl.disabled = true;
+            distritoEl.disabled = true;
         }
     }
+
+    // =========================================================================
+    // VALIDACIONES
+    // =========================================================================
 
     function validateForm(form, rolesFeedbackId, showErrors = true) {
         let valid = true;
@@ -355,6 +437,8 @@
         const numeroDoc = form.querySelector('[name="numero_documento"]');
         const nombre = form.querySelector('[name="nombre_completo"]');
         const email = form.querySelector('[name="email"]');
+        
+        // Laborales
         const cargo = form.querySelector('[name="cargo"]');
         const area = form.querySelector('[name="area"]');
         const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
@@ -365,163 +449,79 @@
 
         [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, estadoLaboral, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
-        form.querySelectorAll('select[name="cuenta_tipo_entidad[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cuenta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
+        form.querySelectorAll('select[name="cuenta_tipo[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
 
-        if (!tipoPersona?.value) {
-            if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.');
-            valid = false;
-        }
-
-        if (!tipoDoc?.value) {
-            if (showErrors) setInvalid(tipoDoc, 'Seleccione el tipo de documento.');
-            valid = false;
-        }
+        if (!tipoPersona?.value) { if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.'); valid = false; }
+        if (!tipoDoc?.value) { if (showErrors) setInvalid(tipoDoc, 'Seleccione el tipo de documento.'); valid = false; }
 
         const numero = (numeroDoc?.value || '').trim();
-        const documentoError = getDocumentoError(tipoDoc?.value || '', numero);
-        if (documentoError) {
-            if (numeroDoc) numeroDoc.setCustomValidity(documentoError);
-            if (showErrors) setInvalid(numeroDoc, documentoError);
+        const docError = getDocumentoError(tipoDoc?.value || '', numero);
+        if (docError) {
+            if (numeroDoc) numeroDoc.setCustomValidity(docError);
+            if (showErrors) setInvalid(numeroDoc, docError);
             valid = false;
-        } else if (numeroDoc && !numeroDoc.validity?.customError) {
-            numeroDoc.setCustomValidity('');
-        }
-        if (numeroDoc?.validity?.customError) {
+        } else if (numeroDoc?.validity?.customError) {
             if (showErrors) setInvalid(numeroDoc, numeroDoc.validationMessage);
             valid = false;
+        } else if (numeroDoc) {
+            numeroDoc.setCustomValidity('');
         }
 
-        if (!nombre?.value.trim()) {
-            if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.');
-            valid = false;
-        }
+        if (!nombre?.value.trim()) { if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.'); valid = false; }
+        if (!isValidEmail(email?.value || '')) { if (showErrors) setInvalid(email, 'Ingrese un email válido.'); valid = false; }
 
-        if (!isValidEmail(email?.value || '')) {
-            if (showErrors) setInvalid(email, 'Ingrese un email válido.');
-            valid = false;
-        }
-
-        const telefonos = Array.from(form.querySelectorAll('input[name="telefonos[]"]'));
-        let telefonosInvalidos = false;
-        telefonos.forEach(telefonoInput => {
-            if (!isPeruPhone(telefonoInput.value || '')) {
-                if (showErrors) setInvalid(telefonoInput, 'Ingrese un teléfono peruano válido.');
+        // Validación estricta de Teléfonos: Si existe la fila, NO puede estar vacía.
+        form.querySelectorAll('input[name="telefonos[]"]').forEach(input => {
+            if (input.value.trim() === '') {
+                if (showErrors) setInvalid(input, 'Ingrese el número o elimine la fila.');
                 valid = false;
-                telefonosInvalidos = true;
+            } else if (!isPeruPhone(input.value)) {
+                if (showErrors) setInvalid(input, 'Teléfono inválido.');
+                valid = false;
             }
         });
-        const telefonosFeedback = form.querySelector('#crearTelefonosFeedback, #editTelefonosFeedback');
-        if (telefonosFeedback) {
-            if (telefonosInvalidos && showErrors) {
-                telefonosFeedback.classList.remove('d-none');
-                telefonosFeedback.classList.add('d-block');
-            } else {
-                telefonosFeedback.classList.add('d-none');
-                telefonosFeedback.classList.remove('d-block');
-            }
-        }
-
-        const roles = form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"]');
-        const hasRole = Array.from(roles).some(el => el.checked);
-        const rolesFeedback = rolesFeedbackId ? document.getElementById(rolesFeedbackId) : null;
+        
+        const hasRole = Array.from(form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"]')).some(el => el.checked);
+        const rolesFeedback = document.getElementById(rolesFeedbackId);
         if (!hasRole) {
-            if (showErrors) {
-                rolesFeedback?.classList.remove('d-none');
-                rolesFeedback?.classList.add('d-block');
+            if (showErrors && rolesFeedback) {
+                rolesFeedback.classList.remove('d-none');
+                rolesFeedback.classList.add('d-block');
             }
             valid = false;
-        } else {
-            rolesFeedback?.classList.add('d-none');
-            rolesFeedback?.classList.remove('d-block');
+        } else if (rolesFeedback) {
+            rolesFeedback.classList.add('d-none');
+            rolesFeedback.classList.remove('d-block');
         }
 
-        const esEmpleado = form.querySelector('[name="es_empleado"]')?.checked;
-
-        if (esEmpleado) {
-            if (!((cargo?.value || '').trim())) {
-                if (showErrors) setInvalid(cargo, 'Ingrese el cargo.');
-                valid = false;
+        if (form.querySelector('[name="es_empleado"]')?.checked) {
+            if (!cargo?.value.trim()) { if(showErrors) setInvalid(cargo, 'Requerido'); valid = false; }
+            if (!area?.value.trim()) { if(showErrors) setInvalid(area, 'Requerido'); valid = false; }
+            if (!fechaIngreso?.value) { if(showErrors) setInvalid(fechaIngreso, 'Requerido'); valid = false; }
+            
+            const tp = tipoPago?.value;
+            if ((tp === 'MENSUAL' || tp === 'QUINCENAL') && !sueldoBasico?.value) {
+                 if(showErrors) setInvalid(sueldoBasico, 'Requerido'); valid = false;
             }
-            if (!((area?.value || '').trim())) {
-                if (showErrors) setInvalid(area, 'Ingrese el área.');
-                valid = false;
-            }
-            if (!((fechaIngreso?.value || '').trim())) {
-                if (showErrors) setInvalid(fechaIngreso, 'Seleccione la fecha de ingreso.');
-                valid = false;
-            }
-            if (!((estadoLaboral?.value || '').trim())) {
-                if (showErrors) setInvalid(estadoLaboral, 'Seleccione el estado laboral.');
-                valid = false;
-            }
-            if (!((tipoPago?.value || '').trim())) {
-                if (showErrors) setInvalid(tipoPago, 'Seleccione el tipo de pago.');
-                valid = false;
-            }
-            if (tipoPago?.value === 'DIARIO') {
-                if (!((pagoDiario?.value || '').toString().trim())) {
-                    if (showErrors) setInvalid(pagoDiario, 'Ingrese el pago diario.');
-                    valid = false;
-                }
-            }
-            if (tipoPago?.value === 'SUELDO') {
-                if (!((sueldoBasico?.value || '').toString().trim())) {
-                    if (showErrors) setInvalid(sueldoBasico, 'Ingrese el sueldo básico.');
-                    valid = false;
-                }
+            if (tp === 'DIARIO' && !pagoDiario?.value) {
+                 if(showErrors) setInvalid(pagoDiario, 'Requerido'); valid = false;
             }
         }
 
-        const cuentaTipos = Array.from(form.querySelectorAll('select[name="cuenta_tipo_entidad[]"]'));
-        const cuentaEntidades = Array.from(form.querySelectorAll('input[name="cuenta_entidad[]"]'));
-        const cuentaTiposCuenta = Array.from(form.querySelectorAll('select[name="cuenta_tipo_cuenta[]"]'));
-        const cuentaNumeros = Array.from(form.querySelectorAll('input[name="cuenta_numero[]"]'));
-        let cuentasInvalidas = false;
+        // Validación estricta de Cuentas: Si existe la fila, validar campos
+        const cTipos = form.querySelectorAll('select[name="cuenta_tipo[]"]');
+        const cEntidades = form.querySelectorAll('input[name="cuenta_entidad[]"]');
+        const cNumeros = form.querySelectorAll('input[name="cuenta_numero[]"]');
 
-        cuentaTipos.forEach((tipoEl, index) => {
-            const entidadEl = cuentaEntidades[index];
-            const tipoCuentaEl = cuentaTiposCuenta[index];
-            const numeroEl = cuentaNumeros[index];
-
-            const tipoVal = tipoEl?.value || '';
-            const entidadVal = entidadEl?.value || '';
-            const tipoCuentaVal = tipoCuentaEl?.value || '';
-            const numeroVal = numeroEl?.value || '';
-            const hasData = [tipoVal, entidadVal, tipoCuentaVal, numeroVal].some(val => (val || '').toString().trim() !== '');
-            if (!hasData) return;
-
-            if (!tipoVal) {
-                if (showErrors) setInvalid(tipoEl, 'Seleccione el tipo.');
-                valid = false;
-                cuentasInvalidas = true;
-            }
-            if (!entidadVal.trim()) {
-                if (showErrors) setInvalid(entidadEl, 'Ingrese la entidad.');
-                valid = false;
-                cuentasInvalidas = true;
-            }
-            if (!numeroVal.trim()) {
-                if (showErrors) setInvalid(numeroEl, 'Ingrese el número.');
-                valid = false;
-                cuentasInvalidas = true;
-            }
-            if (tipoVal === 'BANCO' && !tipoCuentaVal) {
-                if (showErrors) setInvalid(tipoCuentaEl, 'Seleccione el tipo de cuenta.');
-                valid = false;
-                cuentasInvalidas = true;
-            }
+        cTipos.forEach((tipoEl, i) => {
+            const entidadEl = cEntidades[i];
+            const numEl = cNumeros[i];
+            
+            // Aquí NO verificamos if(!hasVal) return; porque queremos que SI la fila existe, se valide obligatoriamente.
+            if (!tipoEl.value) { if(showErrors) setInvalid(tipoEl, 'Requerido'); valid = false; }
+            if (!entidadEl.value.trim()) { if(showErrors) setInvalid(entidadEl, 'Requerido'); valid = false; }
+            if (!numEl.value.trim()) { if(showErrors) setInvalid(numEl, 'Requerido'); valid = false; }
         });
-
-        const cuentasFeedback = form.querySelector('#crearCuentasFeedback, #editCuentasFeedback');
-        if (cuentasFeedback) {
-            if (cuentasInvalidas && showErrors) {
-                cuentasFeedback.classList.remove('d-none');
-                cuentasFeedback.classList.add('d-block');
-            } else {
-                cuentasFeedback.classList.add('d-none');
-                cuentasFeedback.classList.remove('d-block');
-            }
-        }
 
         return valid;
     }
@@ -533,6 +533,10 @@
         }
     }
 
+    // =========================================================================
+    // INICIALIZADORES
+    // =========================================================================
+
     function initTelefonosSection(listEl, addButton, form, rolesFeedbackId, telefonos = []) {
         if (!listEl || !addButton) return;
         listEl.innerHTML = '';
@@ -540,7 +544,9 @@
             const row = buildTelefonoRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
             listEl.appendChild(row);
         };
-        (telefonos.length ? telefonos : [{}]).forEach(item => addRow(item));
+        // CORRECCIÓN: Si telefonos está vacío, NO agregar fila por defecto
+        (telefonos || []).forEach(item => addRow(item));
+        
         addButton.onclick = () => {
             addRow();
             refreshValidationOnChange(form, rolesFeedbackId);
@@ -554,7 +560,9 @@
             const row = buildCuentaRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
             listEl.appendChild(row);
         };
-        (cuentas.length ? cuentas : [{}]).forEach(item => addRow(item));
+        // CORRECCIÓN: Si cuentas está vacío, NO agregar fila por defecto
+        (cuentas || []).forEach(item => addRow(item));
+        
         addButton.onclick = () => {
             addRow();
             refreshValidationOnChange(form, rolesFeedbackId);
@@ -567,9 +575,7 @@
             event.preventDefault();
             form.dataset.submitted = '1';
 
-            if (!validateForm(form, rolesFeedbackId, true)) {
-                return;
-            }
+            if (!validateForm(form, rolesFeedbackId, true)) return;
 
             Swal.fire({
                 title: '¿Confirmar guardado?',
@@ -588,33 +594,31 @@
 
                 const formData = new FormData(form);
                 const targetUrl = form.getAttribute('action') || window.location.href;
+
                 fetch(targetUrl, {
                     method: 'POST',
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData
                 })
-                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                    .then(({ ok, data }) => {
-                        if (!ok || !data.ok) {
-                            throw new Error(data.mensaje || 'No se pudo guardar.');
-                        }
-                        Swal.fire('Guardado', data.mensaje || 'Registro guardado.', 'success').then(() => {
-                            const modalEl = form.closest('.modal');
-                            if (modalEl) {
-                                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-                            }
-                            window.location.reload();
-                        });
-                    })
-                    .catch(err => {
-                        Swal.fire('Error', err.message, 'error');
-                    })
-                    .finally(() => {
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.innerHTML = submitButton.getAttribute('data-original-text') || submitButton.innerHTML;
-                        }
+                .then(r => r.json().then(data => ({ ok: r.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok || !data.ok) throw new Error(data.mensaje || 'Error al guardar.');
+                    
+                    Swal.fire('Guardado', data.mensaje || 'Registro guardado.', 'success').then(() => {
+                        const modalEl = form.closest('.modal');
+                        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                        window.location.reload();
                     });
+                })
+                .catch(err => {
+                    Swal.fire('Error', err.message, 'error');
+                })
+                .finally(() => {
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = submitButton.getAttribute('data-original-text') || submitButton.innerHTML;
+                    }
+                });
             });
         });
     }
@@ -630,8 +634,21 @@
                 form.dataset.submitted = '0';
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             }
+            
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
-            updateNombreLabel(document.getElementById('crearTipoPersona'), document.getElementById('crearNombreLabel'));
+            
+            // CORRECCIÓN: Limpiar y DESHABILITAR combos de ubigeo al abrir
+            const provSelect = document.getElementById('crearProvincia');
+            const distSelect = document.getElementById('crearDistrito');
+            if (provSelect) {
+                provSelect.innerHTML = '<option value="">Seleccionar...</option>';
+                provSelect.disabled = true;
+            }
+            if (distSelect) {
+                distSelect.innerHTML = '<option value="">Seleccionar...</option>';
+                distSelect.disabled = true;
+            }
+
             toggleComercialFields(
                 document.getElementById('crearEsCliente'),
                 document.getElementById('crearEsProveedor'),
@@ -639,23 +656,19 @@
             );
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'));
             togglePagoFields(
-                document.getElementById('crearTipoPago'),
-                document.getElementById('crearSueldoBasicoWrapper'),
-                document.getElementById('crearPagoDiarioWrapper')
+                document.getElementById('crearTipoPago')
             );
+
+            // CORRECCIÓN: Iniciar listas vacías (array vacío)
             initTelefonosSection(
                 document.getElementById('crearTelefonosList'),
                 document.getElementById('crearAgregarTelefono'),
-                form,
-                'crearRolesFeedback',
-                []
+                form, 'crearRolesFeedback', []
             );
             initCuentasSection(
                 document.getElementById('crearCuentasBancariasList'),
                 document.getElementById('crearAgregarCuenta'),
-                form,
-                'crearRolesFeedback',
-                []
+                form, 'crearRolesFeedback', []
             );
         });
     }
@@ -669,11 +682,13 @@
             if (!button) return;
 
             const form = document.getElementById('formEditarTercero');
-            form?.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            if (form) form.dataset.submitted = '0';
+            if(form) {
+                form.dataset.submitted = '0';
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            }
 
             const fields = {
-                'editTerceroId': 'data-id',
+                'editId': 'data-id',
                 'editTipoPersona': 'data-tipo-persona',
                 'editTipoDoc': 'data-tipo-doc',
                 'editNumeroDoc': 'data-numero-doc',
@@ -681,16 +696,21 @@
                 'editDireccion': 'data-direccion',
                 'editEmail': 'data-email',
                 'editObservaciones': 'data-observaciones',
+                
+                // Comercial
                 'editCondicionPago': 'data-condicion-pago',
-                'editDiasCredito': 'data-dias-credito',
-                'editLimiteCredito': 'data-limite-credito',
+                'editClienteDiasCredito': 'data-cliente-dias-credito',
+                'editClienteLimiteCredito': 'data-cliente-limite-credito',
+                'editProvCondicion': 'data-proveedor-condicion-pago',
+                'editProvDiasCredito': 'data-proveedor-dias-credito',
+
+                // Laboral
                 'editCargo': 'data-cargo',
                 'editArea': 'data-area',
                 'editFechaIngreso': 'data-fecha-ingreso',
                 'editEstadoLaboral': 'data-estado-laboral',
                 'editSueldoBasico': 'data-sueldo-basico',
-                'editRegimenPensionario': 'data-regimen-pensionario',
-                'editEstado': 'data-estado',
+                'editRegimen': 'data-regimen-pensionario',
                 'editTipoPago': 'data-tipo-pago',
                 'editPagoDiario': 'data-pago-diario'
             };
@@ -700,247 +720,83 @@
                 if (el) el.value = button.getAttribute(fields[id]) || '';
             }
 
-            const estadoLaboral = document.getElementById('editEstadoLaboral');
-            if (estadoLaboral && estadoLaboral.value) {
-                const normalized = estadoLaboral.value.toLowerCase();
-                if (estadoLaboral.querySelector(`option[value="${normalized}"]`)) {
-                    estadoLaboral.value = normalized;
-                }
-            }
-
             const essalud = document.getElementById('editEssalud');
             if (essalud) essalud.checked = button.getAttribute('data-essalud') === '1';
 
-            const checks = {
-                'editEsCliente': 'data-es-cliente',
-                'editEsProveedor': 'data-es-proveedor',
-                'editEsEmpleado': 'data-es-empleado'
-            };
-
-            for (let id in checks) {
+            ['editEsCliente', 'editEsProveedor', 'editEsEmpleado'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.checked = button.getAttribute(checks[id]) === '1';
-            }
+                if(el) el.checked = button.getAttribute('data-' + id.replace('edit','').replace(/([A-Z])/g, '-$1').toLowerCase().slice(1)) === '1';
+            });
 
             setUbigeoOptions(
                 document.getElementById('editDepartamento'),
                 document.getElementById('editProvincia'),
                 document.getElementById('editDistrito'),
                 {
-                    departamento: button.getAttribute('data-departamento') || '',
-                    provincia: button.getAttribute('data-provincia') || '',
-                    distrito: button.getAttribute('data-distrito') || ''
+                    departamento: button.getAttribute('data-departamento'),
+                    provincia: button.getAttribute('data-provincia'),
+                    distrito: button.getAttribute('data-distrito'),
+                    provinciaNombre: button.getAttribute('data-provincia-nombre'),
+                    distritoNombre: button.getAttribute('data-distrito-nombre')
                 }
             );
 
             document.getElementById('editRolesFeedback')?.classList.add('d-none');
-            updateNombreLabel(document.getElementById('editTipoPersona'), document.getElementById('editNombreLabel'));
+            
             toggleComercialFields(
                 document.getElementById('editEsCliente'),
                 document.getElementById('editEsProveedor'),
                 document.getElementById('editComercialFields')
             );
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'));
-            togglePagoFields(
-                document.getElementById('editTipoPago'),
-                document.getElementById('editSueldoBasicoWrapper'),
-                document.getElementById('editPagoDiarioWrapper')
-            );
+            togglePagoFields(document.getElementById('editTipoPago'));
 
-            let telefonos = [];
-            let cuentas = [];
-            try {
-                const rawTelefonos = button.getAttribute('data-telefonos');
-                telefonos = rawTelefonos ? JSON.parse(rawTelefonos) : [];
-            } catch (e) {
-                telefonos = [];
-            }
-            try {
-                const rawCuentas = button.getAttribute('data-cuentas-bancarias');
-                cuentas = rawCuentas ? JSON.parse(rawCuentas) : [];
-            } catch (e) {
-                cuentas = [];
-            }
+            let telefonos = [], cuentas = [];
+            try { telefonos = JSON.parse(button.getAttribute('data-telefonos') || '[]'); } catch(e){}
+            try { cuentas = JSON.parse(button.getAttribute('data-cuentas-bancarias') || '[]'); } catch(e){}
+
             initTelefonosSection(
                 document.getElementById('editTelefonosList'),
                 document.getElementById('editAgregarTelefono'),
-                form,
-                'editRolesFeedback',
-                telefonos
+                form, 'editRolesFeedback', telefonos
             );
             initCuentasSection(
                 document.getElementById('editCuentasBancariasList'),
                 document.getElementById('editAgregarCuenta'),
-                form,
-                'editRolesFeedback',
-                cuentas
+                form, 'editRolesFeedback', cuentas
             );
         });
-    }
-
-    function initUbigeo() {
-        setUbigeoOptions(
-            document.getElementById('crearDepartamento'),
-            document.getElementById('crearProvincia'),
-            document.getElementById('crearDistrito'),
-            {}
-        );
     }
 
     function initDynamicFields() {
-        const createTipoPersona = document.getElementById('crearTipoPersona');
-        const editTipoPersona = document.getElementById('editTipoPersona');
-        const crearEsEmpleado = document.getElementById('crearEsEmpleado');
-        const editEsEmpleado = document.getElementById('editEsEmpleado');
-        const crearEsCliente = document.getElementById('crearEsCliente');
-        const crearEsProveedor = document.getElementById('crearEsProveedor');
-        const editEsCliente = document.getElementById('editEsCliente');
-        const editEsProveedor = document.getElementById('editEsProveedor');
-        const crearTipoPago = document.getElementById('crearTipoPago');
-        const editTipoPago = document.getElementById('editTipoPago');
-
-        createTipoPersona?.addEventListener('change', () => {
-            updateNombreLabel(createTipoPersona, document.getElementById('crearNombreLabel'));
-            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
-        });
-        editTipoPersona?.addEventListener('change', () => {
-            updateNombreLabel(editTipoPersona, document.getElementById('editNombreLabel'));
-            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
-        });
-
-        crearEsEmpleado?.addEventListener('change', () => {
-            toggleLaboralFields(crearEsEmpleado, document.getElementById('crearLaboralFields'));
-            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
-        });
-        editEsEmpleado?.addEventListener('change', () => {
-            toggleLaboralFields(editEsEmpleado, document.getElementById('editLaboralFields'));
-            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
-        });
-
-        const handleComercialToggle = (clienteEl, proveedorEl, formId, submitId, rolesFeedbackId, containerId) => {
-            toggleComercialFields(clienteEl, proveedorEl, document.getElementById(containerId));
-            refreshValidationOnChange(document.getElementById(formId), rolesFeedbackId);
-        };
-
-        crearEsCliente?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
-        crearEsProveedor?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
-        editEsCliente?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
-        editEsProveedor?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
-
-        crearTipoPago?.addEventListener('change', () => {
-            togglePagoFields(
-                crearTipoPago,
-                document.getElementById('crearSueldoBasicoWrapper'),
-                document.getElementById('crearPagoDiarioWrapper')
-            );
-            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
-        });
-        editTipoPago?.addEventListener('change', () => {
-            togglePagoFields(
-                editTipoPago,
-                document.getElementById('editSueldoBasicoWrapper'),
-                document.getElementById('editPagoDiarioWrapper')
-            );
-            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
-        });
-    }
-
-    function bindFormRealtimeValidation(form, submitButton, rolesFeedbackId) {
-        if (!form) return;
-        const fields = Array.from(form.querySelectorAll('input, select, textarea'));
-        fields.forEach(field => {
-            const eventType = field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio' ? 'change' : 'input';
-            field.addEventListener(eventType, () => refreshValidationOnChange(form, rolesFeedbackId));
-            if (eventType !== 'change') {
-                field.addEventListener('change', () => refreshValidationOnChange(form, rolesFeedbackId));
-            }
-        });
-    }
-
-    function initTableManager() {
-        const searchInput = document.getElementById('terceroSearch');
-        const filtroRol = document.getElementById('terceroFiltroRol');
-        const filtroEstado = document.getElementById('terceroFiltroEstado');
-        const paginationControls = document.getElementById('tercerosPaginationControls');
-        const paginationInfo = document.getElementById('tercerosPaginationInfo');
-
-        const table = document.getElementById('tercerosTable');
-        if (!table) return;
-
-        const allRows = Array.from(table.querySelectorAll('tbody tr'));
-
-        const updateTable = function () {
-            const texto = (searchInput?.value || '').toLowerCase().trim();
-            const rolSeleccionado = (filtroRol ? filtroRol.value : '');
-            const estadoSeleccionado = (filtroEstado ? filtroEstado.value : '');
-
-            const visibleRows = allRows.filter(row => {
-                const dataSearch = row.getAttribute('data-search') || '';
-                const dataRoles = row.getAttribute('data-roles') || '';
-                const dataEstado = row.getAttribute('data-estado') || '';
-
-                const coincideTexto = dataSearch.includes(texto);
-                const coincideRol = rolSeleccionado === '' || dataRoles.includes(rolSeleccionado);
-                const coincideEstado = estadoSeleccionado === '' || dataEstado === estadoSeleccionado;
-
-                return coincideTexto && coincideRol && coincideEstado;
+        const setup = (prefix) => {
+            const formId = `form${prefix === 'crear' ? 'Crear' : 'Editar'}Tercero`;
+            const fbId = `${prefix}RolesFeedback`;
+            
+            const esEmpleado = document.getElementById(`${prefix}EsEmpleado`);
+            if(esEmpleado) esEmpleado.addEventListener('change', () => {
+                toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`));
+                refreshValidationOnChange(document.getElementById(formId), fbId);
             });
 
-            const totalRows = visibleRows.length;
-            const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE) || 1;
+            const esCliente = document.getElementById(`${prefix}EsCliente`);
+            const esProv = document.getElementById(`${prefix}EsProveedor`);
+            const updateCom = () => {
+                toggleComercialFields(esCliente, esProv, document.getElementById(`${prefix}ComercialFields`));
+                refreshValidationOnChange(document.getElementById(formId), fbId);
+            };
+            if(esCliente) esCliente.addEventListener('change', updateCom);
+            if(esProv) esProv.addEventListener('change', updateCom);
 
-            if (currentPage > totalPages) currentPage = 1;
-            if (currentPage < 1) currentPage = 1;
-
-            allRows.forEach(row => row.style.display = 'none');
-
-            const start = (currentPage - 1) * ROWS_PER_PAGE;
-            const end = start + ROWS_PER_PAGE;
-            visibleRows.slice(start, end).forEach(row => row.style.display = '');
-
-            if (paginationInfo) {
-                if (totalRows === 0) {
-                    paginationInfo.textContent = 'Sin resultados';
-                } else {
-                    const realEnd = Math.min(end, totalRows);
-                    paginationInfo.textContent = `Mostrando ${start + 1}-${realEnd} de ${totalRows} terceros`;
-                }
-            }
-            renderPagination(totalPages);
+            const tipoPago = document.getElementById(`${prefix}TipoPago`);
+            if(tipoPago) tipoPago.addEventListener('change', () => {
+                togglePagoFields(tipoPago);
+                refreshValidationOnChange(document.getElementById(formId), fbId);
+            });
         };
 
-        function renderPagination(totalPages) {
-            if (!paginationControls) return;
-            paginationControls.innerHTML = '';
-            if (totalPages <= 1) return;
-
-            const createItem = (text, page, isActive = false, isDisabled = false) => {
-                const li = document.createElement('li');
-                li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#" onclick="return false;">${text}</a>`;
-                li.onclick = (e) => {
-                    e.preventDefault();
-                    if (!isActive && !isDisabled) {
-                        currentPage = page;
-                        updateTable();
-                    }
-                };
-                return li;
-            };
-
-            paginationControls.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
-            for (let i = 1; i <= totalPages; i++) {
-                paginationControls.appendChild(createItem(i, i, i === currentPage));
-            }
-            paginationControls.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
-        }
-
-        if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; updateTable(); });
-        if (filtroRol) filtroRol.addEventListener('change', () => { currentPage = 1; updateTable(); });
-        if (filtroEstado) filtroEstado.addEventListener('change', () => { currentPage = 1; updateTable(); });
-
-        window.updateTercerosTable = updateTable;
-        updateTable();
+        setup('crear');
+        setup('edit');
     }
 
     function initStatusSwitch() {
@@ -961,117 +817,128 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData
                 })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!data.ok) throw new Error(data.mensaje);
-                        if (fila) fila.setAttribute('data-estado', nuevoEstado);
-                        if (badge) {
-                            badge.textContent = nuevoEstado === 1 ? 'Activo' : nuevoEstado === 2 ? 'Bloqueado' : 'Inactivo';
-                            badge.className = nuevoEstado === 1 ? 'badge-status status-active' : 'badge-status status-inactive';
-                        }
-                        if (window.updateTercerosTable) window.updateTercerosTable();
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        this.checked = !this.checked;
-                        Swal.fire('Error', 'No se pudo actualizar el estado.', 'error');
-                    });
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.ok) throw new Error(data.mensaje);
+                    if (fila) fila.setAttribute('data-estado', nuevoEstado);
+                    if (badge) {
+                        badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                        badge.className = `badge-status status-${nuevoEstado === 1 ? 'active' : 'inactive'}`;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    this.checked = !this.checked;
+                    Swal.fire('Error', 'No se pudo actualizar el estado.', 'error');
+                });
             });
         });
     }
 
-    function initDocumentoValidation() {
-        const campos = [
-            { tipo: 'crearTipoDoc', numero: 'crearNumeroDoc', excludeId: null },
-            { tipo: 'editTipoDoc', numero: 'editNumeroDoc', excludeId: () => document.getElementById('editTerceroId')?.value || null }
-        ];
+    function bindFormRealtimeValidation(form, submitButton, rolesFeedbackId) {
+        if (!form) return;
+        form.querySelectorAll('input, select, textarea').forEach(field => {
+            const evt = (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') ? 'change' : 'input';
+            field.addEventListener(evt, () => refreshValidationOnChange(form, rolesFeedbackId));
+        });
+    }
 
+    function initDocumentoValidation() {
         const validar = (tipoEl, numeroEl, excludeIdVal) => {
             if (!tipoEl || !numeroEl) return;
             const tipo = tipoEl.value;
             const numero = numeroEl.value.trim();
-            if (tipo === '' || numero === '') return;
+            if (!tipo || !numero) return;
 
-            const errorMensaje = getDocumentoError(tipo, numero);
-            if (errorMensaje) {
-                numeroEl.setCustomValidity(errorMensaje);
-                if (numeroEl.closest('form')?.dataset.submitted === '1') {
-                    numeroEl.classList.add('is-invalid');
-                }
+            const error = getDocumentoError(tipo, numero);
+            if (error) {
+                numeroEl.setCustomValidity(error);
+                if (numeroEl.closest('form')?.dataset.submitted === '1') numeroEl.classList.add('is-invalid');
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('accion', 'validar_documento');
-            formData.append('tipo_documento', tipo);
-            formData.append('numero_documento', numero);
-            if (excludeIdVal) formData.append('exclude_id', excludeIdVal);
+            const fd = new FormData();
+            fd.append('accion', 'validar_documento');
+            fd.append('tipo_documento', tipo);
+            fd.append('numero_documento', numero);
+            if (excludeIdVal) fd.append('exclude_id', excludeIdVal);
 
-            fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData
-            })
+            fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
                 .then(r => r.json())
-                .then(data => {
-                    if (data.existe) {
-                        numeroEl.setCustomValidity('El documento ya se encuentra registrado.');
-                        if (numeroEl.closest('form')?.dataset.submitted === '1') {
-                            numeroEl.classList.add('is-invalid');
-                        }
-                    } else {
-                        numeroEl.setCustomValidity('');
-                        numeroEl.classList.remove('is-invalid');
-                    }
+                .then(d => {
+                    const msg = d.existe ? 'Documento ya registrado.' : '';
+                    numeroEl.setCustomValidity(msg);
+                    if(d.existe && numeroEl.closest('form')?.dataset.submitted === '1') numeroEl.classList.add('is-invalid');
+                    else if(!d.existe) numeroEl.classList.remove('is-invalid');
                 })
                 .catch(console.error);
         };
 
-        campos.forEach(c => {
-            const tEl = document.getElementById(c.tipo);
-            const nEl = document.getElementById(c.numero);
-            if (tEl && nEl) {
-                const handler = () => validar(tEl, nEl, typeof c.excludeId === 'function' ? c.excludeId() : c.excludeId);
-                const localHandler = () => {
-                    const errorMensaje = getDocumentoError(tEl.value, nEl.value);
-                    if (errorMensaje) {
-                        nEl.setCustomValidity(errorMensaje);
-                        if (nEl.closest('form')?.dataset.submitted === '1') {
-                            nEl.classList.add('is-invalid');
-                        }
-                    } else {
-                        nEl.setCustomValidity('');
-                        nEl.classList.remove('is-invalid');
-                    }
-                };
-                tEl.addEventListener('change', () => {
-                    localHandler();
-                    handler();
-                });
-                nEl.addEventListener('input', localHandler);
-                nEl.addEventListener('blur', handler);
+        const setup = (tipoId, numId, excludeFn) => {
+            const t = document.getElementById(tipoId);
+            const n = document.getElementById(numId);
+            if(t && n) {
+                const run = () => validar(t, n, excludeFn ? excludeFn() : null);
+                t.addEventListener('change', run);
+                n.addEventListener('blur', run);
             }
-        });
+        };
+
+        setup('crearTipoDoc', 'crearNumeroDoc', null);
+        setup('editTipoDoc', 'editNumeroDoc', () => document.getElementById('editId')?.value);
     }
 
+    // =========================================================================
+    // BOOTSTRAP
+    // =========================================================================
+
     document.addEventListener('DOMContentLoaded', function () {
-        initTooltips();
+        if (typeof ERPTable !== 'undefined' && ERPTable.initTooltips) {
+            ERPTable.initTooltips();
+        } else {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            })
+        }
+
         initCreateModal();
         initEditModal();
-        initUbigeo();
         initDynamicFields();
-        initTableManager();
         initStatusSwitch();
         initDocumentoValidation();
 
-        const crearGuardarBtn = document.getElementById('crearGuardarBtn');
-        if (crearGuardarBtn) crearGuardarBtn.setAttribute('data-original-text', crearGuardarBtn.innerHTML);
-        bindFormRealtimeValidation(document.getElementById('formCrearTercero'), crearGuardarBtn, 'crearRolesFeedback');
-        submitForm(document.getElementById('formCrearTercero'), crearGuardarBtn, 'crearRolesFeedback');
+        const crearBtn = document.getElementById('crearGuardarBtn');
+        if (crearBtn) {
+            crearBtn.setAttribute('data-original-text', crearBtn.innerHTML);
+            bindFormRealtimeValidation(document.getElementById('formCrearTercero'), crearBtn, 'crearRolesFeedback');
+            submitForm(document.getElementById('formCrearTercero'), crearBtn, 'crearRolesFeedback');
+        }
 
-        const editGuardarBtn = document.getElementById('editGuardarBtn');
-        if (editGuardarBtn) editGuardarBtn.setAttribute('data-original-text', editGuardarBtn.innerHTML);
-        bindFormRealtimeValidation(document.getElementById('formEditarTercero'), editGuardarBtn, 'editRolesFeedback');
-        submitForm(document.getElementById('formEditarTercero'), editGuardarBtn, 'editRolesFeedback');
+        const editBtn = document.getElementById('editGuardarBtn');
+        if (editBtn) {
+            editBtn.setAttribute('data-original-text', editBtn.innerHTML);
+            bindFormRealtimeValidation(document.getElementById('formEditarTercero'), editBtn, 'editRolesFeedback');
+            submitForm(document.getElementById('formEditarTercero'), editBtn, 'editRolesFeedback');
+        }
+
+        if (typeof ERPTable !== 'undefined' && ERPTable.createTableManager) {
+            window.tercerosTableManager = ERPTable.createTableManager({
+                tableSelector: '#tercerosTable',
+                searchInput: '#terceroSearch',
+                filters: [
+                    { el: '#terceroFiltroRol', attr: 'data-roles' },
+                    { el: '#terceroFiltroEstado', attr: 'data-estado' }
+                ],
+                paginationControls: '#tercerosPaginationControls',
+                paginationInfo: '#tercerosPaginationInfo',
+                rowsPerPage: 10,
+                emptyText: 'No se encontraron terceros registrados.',
+                infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} terceros`
+            }).init();
+        } else {
+            console.warn('ERPTable no está cargado. La tabla no tendrá paginación/filtros JS.');
+        }
     });
+
 })();
