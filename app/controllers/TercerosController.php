@@ -152,9 +152,33 @@ class TercerosController extends Controlador
         $numero = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
         $numeroDigits = preg_replace('/\\D/', '', $numeroRaw);
         $nombre = trim((string) ($data['nombre_completo'] ?? ''));
-        $telefono = trim((string) ($data['telefono'] ?? ''));
         $email = trim((string) ($data['email'] ?? ''));
-        
+        $telefonos = $data['telefonos'] ?? [];
+        $telefonosTipos = $data['telefono_tipos'] ?? [];
+        $telefonosNormalizados = [];
+        if (!is_array($telefonos)) {
+            $telefonos = [$telefonos];
+        }
+        if (!is_array($telefonosTipos)) {
+            $telefonosTipos = [$telefonosTipos];
+        }
+        foreach ($telefonos as $index => $telefonoRaw) {
+            $telefonoRaw = trim((string) $telefonoRaw);
+            if ($telefonoRaw === '') {
+                continue;
+            }
+            $telefonoDigits = preg_replace('/\\D/', '', $telefonoRaw);
+            $telefonoValido = preg_match('/^9\\d{8}$/', $telefonoDigits) === 1 || preg_match('/^51\\d{9}$/', $telefonoDigits) === 1;
+            if (!$telefonoValido) {
+                throw new RuntimeException('El teléfono no tiene un formato válido.');
+            }
+            $telefonosNormalizados[] = [
+                'telefono' => $telefonoDigits,
+                'tipo' => isset($telefonosTipos[$index]) ? trim((string) $telefonosTipos[$index]) : null,
+            ];
+        }
+        $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
+
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
@@ -189,19 +213,67 @@ class TercerosController extends Controlador
             throw new RuntimeException('El email no tiene un formato válido.');
         }
 
-        if ($telefono !== '') {
-            $telefonoDigits = preg_replace('/\\D/', '', $telefono);
-            $telefonoValido = preg_match('/^9\\d{8}$/', $telefonoDigits) === 1 || preg_match('/^51\\d{9}$/', $telefonoDigits) === 1;
-            if (!$telefonoValido) {
-                throw new RuntimeException('El teléfono no tiene un formato válido.');
-            }
-        }
-
         if (!in_array(true, $roles, true)) {
             throw new RuntimeException('Seleccione al menos un rol para el tercero.');
         }
 
+        if (!empty($data['es_empleado'])) {
+            $tipoPago = trim((string) ($data['tipo_pago'] ?? ''));
+            if ($tipoPago === '') {
+                throw new RuntimeException('Seleccione el tipo de pago del empleado.');
+            }
+            if ($tipoPago === 'DIARIO') {
+                $pagoDiario = (float) ($data['pago_diario'] ?? 0);
+                if ($pagoDiario <= 0) {
+                    throw new RuntimeException('El pago diario debe ser mayor a 0.');
+                }
+            }
+            if ($tipoPago === 'SUELDO') {
+                $sueldo = (float) ($data['sueldo_basico'] ?? 0);
+                if ($sueldo <= 0) {
+                    throw new RuntimeException('El sueldo básico debe ser mayor a 0.');
+                }
+            }
+        }
+
+        $cuentasTipos = $data['cuenta_tipo_entidad'] ?? [];
+        $cuentasEntidades = $data['cuenta_entidad'] ?? [];
+        $cuentasTiposCuenta = $data['cuenta_tipo_cuenta'] ?? [];
+        $cuentasNumeros = $data['cuenta_numero'] ?? [];
+        if (!is_array($cuentasTipos)) $cuentasTipos = [$cuentasTipos];
+        if (!is_array($cuentasEntidades)) $cuentasEntidades = [$cuentasEntidades];
+        if (!is_array($cuentasTiposCuenta)) $cuentasTiposCuenta = [$cuentasTiposCuenta];
+        if (!is_array($cuentasNumeros)) $cuentasNumeros = [$cuentasNumeros];
+
+        $cuentasNormalizadas = [];
+        $totalCuentas = max(count($cuentasTipos), count($cuentasEntidades), count($cuentasNumeros));
+        for ($i = 0; $i < $totalCuentas; $i++) {
+            $tipoEntidad = trim((string) ($cuentasTipos[$i] ?? ''));
+            $entidad = trim((string) ($cuentasEntidades[$i] ?? ''));
+            $tipoCuenta = trim((string) ($cuentasTiposCuenta[$i] ?? ''));
+            $numeroCuenta = trim((string) ($cuentasNumeros[$i] ?? ''));
+            $hasData = ($tipoEntidad !== '' || $entidad !== '' || $tipoCuenta !== '' || $numeroCuenta !== '');
+            if (!$hasData) {
+                continue;
+            }
+            if ($tipoEntidad === '' || $entidad === '' || $numeroCuenta === '') {
+                throw new RuntimeException('Complete los datos de la cuenta bancaria.');
+            }
+            if ($tipoEntidad === 'BANCO' && $tipoCuenta === '') {
+                throw new RuntimeException('Seleccione el tipo de cuenta bancaria.');
+            }
+            $cuentasNormalizadas[] = [
+                'tipo_entidad' => $tipoEntidad,
+                'entidad' => $entidad,
+                'tipo_cuenta' => $tipoCuenta !== '' ? $tipoCuenta : null,
+                'numero_cuenta' => $numeroCuenta,
+            ];
+        }
+
         $data['numero_documento'] = $numero; // Guardamos el limpio
+        $data['telefono'] = $telefonoPrincipal;
+        $data['telefonos_list'] = $telefonosNormalizados;
+        $data['cuentas_bancarias_list'] = $cuentasNormalizadas;
 
         return $data;
     }
