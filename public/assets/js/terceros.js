@@ -18,6 +18,14 @@
         }
     };
 
+    const ENTIDADES_FINANCIERAS = {
+        BANCO: ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Pichincha'],
+        BILLETERA: ['Yape', 'Plin', 'Tunki', 'Agora Pay', 'BIM'],
+        CAJA: ['Caja Huancayo', 'Caja Piura', 'Caja Arequipa', 'Caja Sullana'],
+        COOPERATIVA: ['Coopac Pacífico', 'Coopac San Cristóbal'],
+        OTRO: []
+    };
+
     function initTooltips() {
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -116,12 +124,167 @@
         });
     }
 
+    function buildTelefonoRow({ telefono = '', tipo = '' } = {}, onRemove) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'd-flex gap-2 align-items-start';
+
+        const telefonoInput = document.createElement('input');
+        telefonoInput.type = 'text';
+        telefonoInput.name = 'telefonos[]';
+        telefonoInput.className = 'form-control';
+        telefonoInput.placeholder = 'Número de teléfono';
+        telefonoInput.value = telefono;
+
+        const tipoSelect = document.createElement('select');
+        tipoSelect.name = 'telefono_tipos[]';
+        tipoSelect.className = 'form-select';
+        const tipos = ['', 'Móvil', 'Fijo', 'WhatsApp', 'Trabajo'];
+        tipos.forEach(optionValue => {
+            const option = document.createElement('option');
+            option.value = optionValue;
+            option.textContent = optionValue === '' ? 'Tipo' : optionValue;
+            if (optionValue === tipo) option.selected = true;
+            tipoSelect.appendChild(option);
+        });
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-outline-danger btn-sm';
+        removeButton.innerHTML = '<i class="bi bi-x-lg"></i>';
+        removeButton.addEventListener('click', () => {
+            wrapper.remove();
+            if (typeof onRemove === 'function') onRemove();
+        });
+
+        wrapper.appendChild(telefonoInput);
+        wrapper.appendChild(tipoSelect);
+        wrapper.appendChild(removeButton);
+        return wrapper;
+    }
+
+    function buildCuentaRow({ tipo_entidad = '', entidad = '', tipo_cuenta = '', numero_cuenta = '' } = {}, onRemove) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'border rounded-3 p-3 bg-light';
+
+        const row = document.createElement('div');
+        row.className = 'row g-2 align-items-center';
+
+        const tipoEntCol = document.createElement('div');
+        tipoEntCol.className = 'col-md-3';
+        const tipoEntSelect = document.createElement('select');
+        tipoEntSelect.name = 'cuenta_tipo_entidad[]';
+        tipoEntSelect.className = 'form-select';
+        const tipoEntOptions = ['', 'BANCO', 'BILLETERA', 'CAJA', 'COOPERATIVA', 'OTRO'];
+        tipoEntOptions.forEach(optionValue => {
+            const option = document.createElement('option');
+            option.value = optionValue;
+            option.textContent = optionValue === '' ? 'Tipo' : optionValue;
+            if (optionValue === tipo_entidad) option.selected = true;
+            tipoEntSelect.appendChild(option);
+        });
+        tipoEntCol.appendChild(tipoEntSelect);
+
+        const entidadCol = document.createElement('div');
+        entidadCol.className = 'col-md-3';
+        const entidadInput = document.createElement('input');
+        entidadInput.name = 'cuenta_entidad[]';
+        entidadInput.className = 'form-control';
+        entidadInput.placeholder = 'Entidad (BBVA, Yape...)';
+        entidadInput.value = entidad;
+        const datalist = document.createElement('datalist');
+        const datalistId = `entidad-list-${Math.random().toString(36).slice(2)}`;
+        datalist.id = datalistId;
+        entidadInput.setAttribute('list', datalistId);
+        entidadCol.appendChild(entidadInput);
+        entidadCol.appendChild(datalist);
+
+        const tipoCuentaCol = document.createElement('div');
+        tipoCuentaCol.className = 'col-md-3';
+        const tipoCuentaSelect = document.createElement('select');
+        tipoCuentaSelect.name = 'cuenta_tipo_cuenta[]';
+        tipoCuentaSelect.className = 'form-select';
+        const tipoCuentaOptions = ['', 'AHORROS', 'CORRIENTE'];
+        tipoCuentaOptions.forEach(optionValue => {
+            const option = document.createElement('option');
+            option.value = optionValue;
+            option.textContent = optionValue === '' ? 'Tipo de cuenta' : optionValue;
+            if (optionValue === tipo_cuenta) option.selected = true;
+            tipoCuentaSelect.appendChild(option);
+        });
+        tipoCuentaCol.appendChild(tipoCuentaSelect);
+
+        const numeroCol = document.createElement('div');
+        numeroCol.className = 'col-md-3';
+        const numeroInput = document.createElement('input');
+        numeroInput.name = 'cuenta_numero[]';
+        numeroInput.className = 'form-control';
+        numeroInput.placeholder = 'Número / celular';
+        numeroInput.value = numero_cuenta;
+        numeroCol.appendChild(numeroInput);
+
+        const removeCol = document.createElement('div');
+        removeCol.className = 'col-12 text-end mt-2';
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-outline-danger btn-sm';
+        removeButton.innerHTML = '<i class="bi bi-trash me-1"></i>Quitar';
+        removeButton.addEventListener('click', () => {
+            wrapper.remove();
+            if (typeof onRemove === 'function') onRemove();
+        });
+        removeCol.appendChild(removeButton);
+
+        row.appendChild(tipoEntCol);
+        row.appendChild(entidadCol);
+        row.appendChild(tipoCuentaCol);
+        row.appendChild(numeroCol);
+        wrapper.appendChild(row);
+        wrapper.appendChild(removeCol);
+
+        const updateEntidadList = () => {
+            const opciones = ENTIDADES_FINANCIERAS[tipoEntSelect.value] || [];
+            datalist.innerHTML = '';
+            opciones.forEach(nombre => {
+                const option = document.createElement('option');
+                option.value = nombre;
+                datalist.appendChild(option);
+            });
+            const isBanco = tipoEntSelect.value === 'BANCO';
+            tipoCuentaSelect.disabled = !isBanco;
+            if (!isBanco) {
+                tipoCuentaSelect.value = '';
+            }
+        };
+
+        tipoEntSelect.addEventListener('change', updateEntidadList);
+        updateEntidadList();
+
+        return wrapper;
+    }
+
     function toggleLaboralFields(checkboxEl, containerEl) {
         if (!checkboxEl || !containerEl) return;
         const show = checkboxEl.checked;
         containerEl.style.display = show ? '' : 'none';
         if (!show) {
             resetFields(containerEl);
+        }
+    }
+
+    function togglePagoFields(tipoPagoEl, sueldoWrapper, pagoDiarioWrapper) {
+        if (!tipoPagoEl || !sueldoWrapper || !pagoDiarioWrapper) return;
+        const tipo = tipoPagoEl.value;
+        const showSueldo = tipo === 'SUELDO';
+        const showDiario = tipo === 'DIARIO';
+        sueldoWrapper.style.display = showSueldo ? '' : 'none';
+        pagoDiarioWrapper.style.display = showDiario ? '' : 'none';
+        if (!showSueldo) {
+            sueldoWrapper.querySelector('input')?.classList.remove('is-invalid');
+            sueldoWrapper.querySelector('input')?.value = '';
+        }
+        if (!showDiario) {
+            pagoDiarioWrapper.querySelector('input')?.classList.remove('is-invalid');
+            pagoDiarioWrapper.querySelector('input')?.value = '';
         }
     }
 
@@ -191,17 +354,18 @@
         const tipoDoc = form.querySelector('[name="tipo_documento"]');
         const numeroDoc = form.querySelector('[name="numero_documento"]');
         const nombre = form.querySelector('[name="nombre_completo"]');
-        const telefono = form.querySelector('[name="telefono"]');
         const email = form.querySelector('[name="email"]');
-        const condicionPago = form.querySelector('[name="condicion_pago"]');
-        const diasCredito = form.querySelector('[name="dias_credito"]');
-        const limiteCredito = form.querySelector('[name="limite_credito"]');
         const cargo = form.querySelector('[name="cargo"]');
         const area = form.querySelector('[name="area"]');
         const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
         const estadoLaboral = form.querySelector('[name="estado_laboral"]');
+        const tipoPago = form.querySelector('[name="tipo_pago"]');
+        const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
+        const pagoDiario = form.querySelector('[name="pago_diario"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, telefono, email, condicionPago, diasCredito, limiteCredito, cargo, area, fechaIngreso, estadoLaboral].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, estadoLaboral, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
+        form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
+        form.querySelectorAll('select[name="cuenta_tipo_entidad[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cuenta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
 
         if (!tipoPersona?.value) {
             if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.');
@@ -237,9 +401,24 @@
             valid = false;
         }
 
-        if (!isPeruPhone(telefono?.value || '')) {
-            if (showErrors) setInvalid(telefono, 'Ingrese un teléfono peruano válido.');
-            valid = false;
+        const telefonos = Array.from(form.querySelectorAll('input[name="telefonos[]"]'));
+        let telefonosInvalidos = false;
+        telefonos.forEach(telefonoInput => {
+            if (!isPeruPhone(telefonoInput.value || '')) {
+                if (showErrors) setInvalid(telefonoInput, 'Ingrese un teléfono peruano válido.');
+                valid = false;
+                telefonosInvalidos = true;
+            }
+        });
+        const telefonosFeedback = form.querySelector('#crearTelefonosFeedback, #editTelefonosFeedback');
+        if (telefonosFeedback) {
+            if (telefonosInvalidos && showErrors) {
+                telefonosFeedback.classList.remove('d-none');
+                telefonosFeedback.classList.add('d-block');
+            } else {
+                telefonosFeedback.classList.add('d-none');
+                telefonosFeedback.classList.remove('d-block');
+            }
         }
 
         const roles = form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"]');
@@ -256,24 +435,7 @@
             rolesFeedback?.classList.remove('d-block');
         }
 
-        const esCliente = form.querySelector('[name="es_cliente"]')?.checked;
-        const esProveedor = form.querySelector('[name="es_proveedor"]')?.checked;
         const esEmpleado = form.querySelector('[name="es_empleado"]')?.checked;
-
-        if (esCliente || esProveedor) {
-            if (!((condicionPago?.value || '').trim())) {
-                if (showErrors) setInvalid(condicionPago, 'Ingrese la condición de pago.');
-                valid = false;
-            }
-            if (!((diasCredito?.value ?? '').toString().trim())) {
-                if (showErrors) setInvalid(diasCredito, 'Ingrese los días de crédito.');
-                valid = false;
-            }
-            if (!((limiteCredito?.value ?? '').toString().trim())) {
-                if (showErrors) setInvalid(limiteCredito, 'Ingrese el límite de crédito.');
-                valid = false;
-            }
-        }
 
         if (esEmpleado) {
             if (!((cargo?.value || '').trim())) {
@@ -292,24 +454,120 @@
                 if (showErrors) setInvalid(estadoLaboral, 'Seleccione el estado laboral.');
                 valid = false;
             }
+            if (!((tipoPago?.value || '').trim())) {
+                if (showErrors) setInvalid(tipoPago, 'Seleccione el tipo de pago.');
+                valid = false;
+            }
+            if (tipoPago?.value === 'DIARIO') {
+                if (!((pagoDiario?.value || '').toString().trim())) {
+                    if (showErrors) setInvalid(pagoDiario, 'Ingrese el pago diario.');
+                    valid = false;
+                }
+            }
+            if (tipoPago?.value === 'SUELDO') {
+                if (!((sueldoBasico?.value || '').toString().trim())) {
+                    if (showErrors) setInvalid(sueldoBasico, 'Ingrese el sueldo básico.');
+                    valid = false;
+                }
+            }
+        }
+
+        const cuentaTipos = Array.from(form.querySelectorAll('select[name="cuenta_tipo_entidad[]"]'));
+        const cuentaEntidades = Array.from(form.querySelectorAll('input[name="cuenta_entidad[]"]'));
+        const cuentaTiposCuenta = Array.from(form.querySelectorAll('select[name="cuenta_tipo_cuenta[]"]'));
+        const cuentaNumeros = Array.from(form.querySelectorAll('input[name="cuenta_numero[]"]'));
+        let cuentasInvalidas = false;
+
+        cuentaTipos.forEach((tipoEl, index) => {
+            const entidadEl = cuentaEntidades[index];
+            const tipoCuentaEl = cuentaTiposCuenta[index];
+            const numeroEl = cuentaNumeros[index];
+
+            const tipoVal = tipoEl?.value || '';
+            const entidadVal = entidadEl?.value || '';
+            const tipoCuentaVal = tipoCuentaEl?.value || '';
+            const numeroVal = numeroEl?.value || '';
+            const hasData = [tipoVal, entidadVal, tipoCuentaVal, numeroVal].some(val => (val || '').toString().trim() !== '');
+            if (!hasData) return;
+
+            if (!tipoVal) {
+                if (showErrors) setInvalid(tipoEl, 'Seleccione el tipo.');
+                valid = false;
+                cuentasInvalidas = true;
+            }
+            if (!entidadVal.trim()) {
+                if (showErrors) setInvalid(entidadEl, 'Ingrese la entidad.');
+                valid = false;
+                cuentasInvalidas = true;
+            }
+            if (!numeroVal.trim()) {
+                if (showErrors) setInvalid(numeroEl, 'Ingrese el número.');
+                valid = false;
+                cuentasInvalidas = true;
+            }
+            if (tipoVal === 'BANCO' && !tipoCuentaVal) {
+                if (showErrors) setInvalid(tipoCuentaEl, 'Seleccione el tipo de cuenta.');
+                valid = false;
+                cuentasInvalidas = true;
+            }
+        });
+
+        const cuentasFeedback = form.querySelector('#crearCuentasFeedback, #editCuentasFeedback');
+        if (cuentasFeedback) {
+            if (cuentasInvalidas && showErrors) {
+                cuentasFeedback.classList.remove('d-none');
+                cuentasFeedback.classList.add('d-block');
+            } else {
+                cuentasFeedback.classList.add('d-none');
+                cuentasFeedback.classList.remove('d-block');
+            }
         }
 
         return valid;
     }
 
-    function updateSubmitState(form, submitButton, rolesFeedbackId, showErrors = true) {
+    function refreshValidationOnChange(form, rolesFeedbackId) {
         if (!form) return;
-        const valid = validateForm(form, rolesFeedbackId, showErrors);
-        if (submitButton) submitButton.disabled = !valid;
+        if (form.dataset.submitted === '1') {
+            validateForm(form, rolesFeedbackId, true);
+        }
+    }
+
+    function initTelefonosSection(listEl, addButton, form, rolesFeedbackId, telefonos = []) {
+        if (!listEl || !addButton) return;
+        listEl.innerHTML = '';
+        const addRow = (data = {}) => {
+            const row = buildTelefonoRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
+            listEl.appendChild(row);
+        };
+        (telefonos.length ? telefonos : [{}]).forEach(item => addRow(item));
+        addButton.onclick = () => {
+            addRow();
+            refreshValidationOnChange(form, rolesFeedbackId);
+        };
+    }
+
+    function initCuentasSection(listEl, addButton, form, rolesFeedbackId, cuentas = []) {
+        if (!listEl || !addButton) return;
+        listEl.innerHTML = '';
+        const addRow = (data = {}) => {
+            const row = buildCuentaRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
+            listEl.appendChild(row);
+        };
+        (cuentas.length ? cuentas : [{}]).forEach(item => addRow(item));
+        addButton.onclick = () => {
+            addRow();
+            refreshValidationOnChange(form, rolesFeedbackId);
+        };
     }
 
     function submitForm(form, submitButton, rolesFeedbackId) {
         if (!form) return;
         form.addEventListener('submit', (event) => {
             event.preventDefault();
+            form.dataset.submitted = '1';
 
             if (!validateForm(form, rolesFeedbackId, true)) {
-                updateSubmitState(form, submitButton, rolesFeedbackId, true);
                 return;
             }
 
@@ -369,6 +627,7 @@
             const form = document.getElementById('formCrearTercero');
             if (form) {
                 form.reset();
+                form.dataset.submitted = '0';
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             }
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
@@ -379,7 +638,25 @@
                 document.getElementById('crearComercialFields')
             );
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'));
-            updateSubmitState(form, document.getElementById('crearGuardarBtn'), 'crearRolesFeedback', false);
+            togglePagoFields(
+                document.getElementById('crearTipoPago'),
+                document.getElementById('crearSueldoBasicoWrapper'),
+                document.getElementById('crearPagoDiarioWrapper')
+            );
+            initTelefonosSection(
+                document.getElementById('crearTelefonosList'),
+                document.getElementById('crearAgregarTelefono'),
+                form,
+                'crearRolesFeedback',
+                []
+            );
+            initCuentasSection(
+                document.getElementById('crearCuentasBancariasList'),
+                document.getElementById('crearAgregarCuenta'),
+                form,
+                'crearRolesFeedback',
+                []
+            );
         });
     }
 
@@ -391,7 +668,9 @@
             const button = event.relatedTarget;
             if (!button) return;
 
-            document.getElementById('formEditarTercero')?.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            const form = document.getElementById('formEditarTercero');
+            form?.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            if (form) form.dataset.submitted = '0';
 
             const fields = {
                 'editTerceroId': 'data-id',
@@ -400,7 +679,6 @@
                 'editNumeroDoc': 'data-numero-doc',
                 'editNombre': 'data-nombre',
                 'editDireccion': 'data-direccion',
-                'editTelefono': 'data-telefono',
                 'editEmail': 'data-email',
                 'editObservaciones': 'data-observaciones',
                 'editCondicionPago': 'data-condicion-pago',
@@ -412,7 +690,9 @@
                 'editEstadoLaboral': 'data-estado-laboral',
                 'editSueldoBasico': 'data-sueldo-basico',
                 'editRegimenPensionario': 'data-regimen-pensionario',
-                'editEstado': 'data-estado'
+                'editEstado': 'data-estado',
+                'editTipoPago': 'data-tipo-pago',
+                'editPagoDiario': 'data-pago-diario'
             };
 
             for (let id in fields) {
@@ -461,7 +741,40 @@
                 document.getElementById('editComercialFields')
             );
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'));
-            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback', false);
+            togglePagoFields(
+                document.getElementById('editTipoPago'),
+                document.getElementById('editSueldoBasicoWrapper'),
+                document.getElementById('editPagoDiarioWrapper')
+            );
+
+            let telefonos = [];
+            let cuentas = [];
+            try {
+                const rawTelefonos = button.getAttribute('data-telefonos');
+                telefonos = rawTelefonos ? JSON.parse(rawTelefonos) : [];
+            } catch (e) {
+                telefonos = [];
+            }
+            try {
+                const rawCuentas = button.getAttribute('data-cuentas-bancarias');
+                cuentas = rawCuentas ? JSON.parse(rawCuentas) : [];
+            } catch (e) {
+                cuentas = [];
+            }
+            initTelefonosSection(
+                document.getElementById('editTelefonosList'),
+                document.getElementById('editAgregarTelefono'),
+                form,
+                'editRolesFeedback',
+                telefonos
+            );
+            initCuentasSection(
+                document.getElementById('editCuentasBancariasList'),
+                document.getElementById('editAgregarCuenta'),
+                form,
+                'editRolesFeedback',
+                cuentas
+            );
         });
     }
 
@@ -483,34 +796,53 @@
         const crearEsProveedor = document.getElementById('crearEsProveedor');
         const editEsCliente = document.getElementById('editEsCliente');
         const editEsProveedor = document.getElementById('editEsProveedor');
+        const crearTipoPago = document.getElementById('crearTipoPago');
+        const editTipoPago = document.getElementById('editTipoPago');
 
         createTipoPersona?.addEventListener('change', () => {
             updateNombreLabel(createTipoPersona, document.getElementById('crearNombreLabel'));
-            updateSubmitState(document.getElementById('formCrearTercero'), document.getElementById('crearGuardarBtn'), 'crearRolesFeedback');
+            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
         });
         editTipoPersona?.addEventListener('change', () => {
             updateNombreLabel(editTipoPersona, document.getElementById('editNombreLabel'));
-            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback');
+            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
         });
 
         crearEsEmpleado?.addEventListener('change', () => {
             toggleLaboralFields(crearEsEmpleado, document.getElementById('crearLaboralFields'));
-            updateSubmitState(document.getElementById('formCrearTercero'), document.getElementById('crearGuardarBtn'), 'crearRolesFeedback');
+            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
         });
         editEsEmpleado?.addEventListener('change', () => {
             toggleLaboralFields(editEsEmpleado, document.getElementById('editLaboralFields'));
-            updateSubmitState(document.getElementById('formEditarTercero'), document.getElementById('editGuardarBtn'), 'editRolesFeedback');
+            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
         });
 
         const handleComercialToggle = (clienteEl, proveedorEl, formId, submitId, rolesFeedbackId, containerId) => {
             toggleComercialFields(clienteEl, proveedorEl, document.getElementById(containerId));
-            updateSubmitState(document.getElementById(formId), document.getElementById(submitId), rolesFeedbackId);
+            refreshValidationOnChange(document.getElementById(formId), rolesFeedbackId);
         };
 
         crearEsCliente?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
         crearEsProveedor?.addEventListener('change', () => handleComercialToggle(crearEsCliente, crearEsProveedor, 'formCrearTercero', 'crearGuardarBtn', 'crearRolesFeedback', 'crearComercialFields'));
         editEsCliente?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
         editEsProveedor?.addEventListener('change', () => handleComercialToggle(editEsCliente, editEsProveedor, 'formEditarTercero', 'editGuardarBtn', 'editRolesFeedback', 'editComercialFields'));
+
+        crearTipoPago?.addEventListener('change', () => {
+            togglePagoFields(
+                crearTipoPago,
+                document.getElementById('crearSueldoBasicoWrapper'),
+                document.getElementById('crearPagoDiarioWrapper')
+            );
+            refreshValidationOnChange(document.getElementById('formCrearTercero'), 'crearRolesFeedback');
+        });
+        editTipoPago?.addEventListener('change', () => {
+            togglePagoFields(
+                editTipoPago,
+                document.getElementById('editSueldoBasicoWrapper'),
+                document.getElementById('editPagoDiarioWrapper')
+            );
+            refreshValidationOnChange(document.getElementById('formEditarTercero'), 'editRolesFeedback');
+        });
     }
 
     function bindFormRealtimeValidation(form, submitButton, rolesFeedbackId) {
@@ -518,12 +850,11 @@
         const fields = Array.from(form.querySelectorAll('input, select, textarea'));
         fields.forEach(field => {
             const eventType = field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio' ? 'change' : 'input';
-            field.addEventListener(eventType, () => updateSubmitState(form, submitButton, rolesFeedbackId, true));
+            field.addEventListener(eventType, () => refreshValidationOnChange(form, rolesFeedbackId));
             if (eventType !== 'change') {
-                field.addEventListener('change', () => updateSubmitState(form, submitButton, rolesFeedbackId, true));
+                field.addEventListener('change', () => refreshValidationOnChange(form, rolesFeedbackId));
             }
         });
-        updateSubmitState(form, submitButton, rolesFeedbackId, false);
     }
 
     function initTableManager() {
@@ -664,7 +995,9 @@
             const errorMensaje = getDocumentoError(tipo, numero);
             if (errorMensaje) {
                 numeroEl.setCustomValidity(errorMensaje);
-                numeroEl.classList.add('is-invalid');
+                if (numeroEl.closest('form')?.dataset.submitted === '1') {
+                    numeroEl.classList.add('is-invalid');
+                }
                 return;
             }
 
@@ -683,7 +1016,9 @@
                 .then(data => {
                     if (data.existe) {
                         numeroEl.setCustomValidity('El documento ya se encuentra registrado.');
-                        numeroEl.classList.add('is-invalid');
+                        if (numeroEl.closest('form')?.dataset.submitted === '1') {
+                            numeroEl.classList.add('is-invalid');
+                        }
                     } else {
                         numeroEl.setCustomValidity('');
                         numeroEl.classList.remove('is-invalid');
@@ -701,7 +1036,9 @@
                     const errorMensaje = getDocumentoError(tEl.value, nEl.value);
                     if (errorMensaje) {
                         nEl.setCustomValidity(errorMensaje);
-                        nEl.classList.add('is-invalid');
+                        if (nEl.closest('form')?.dataset.submitted === '1') {
+                            nEl.classList.add('is-invalid');
+                        }
                     } else {
                         nEl.setCustomValidity('');
                         nEl.classList.remove('is-invalid');

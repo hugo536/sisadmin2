@@ -63,10 +63,18 @@
                             if ((int) $tercero['es_proveedor'] === 1) $roles[] = 'PROVEEDOR';
                             if ((int) $tercero['es_empleado'] === 1) $roles[] = 'EMPLEADO';
                             $rolesFiltro = implode('|', $roles);
+                            $telefonos = $tercero['telefonos'] ?? [];
+                            if ($telefonos === [] && !empty($tercero['telefono'])) {
+                                $telefonos = [['telefono' => $tercero['telefono'], 'tipo' => null]];
+                            }
+                            $telefonoPrincipal = $telefonos[0]['telefono'] ?? ($tercero['telefono'] ?? '');
+                            $telefonosTexto = implode(' ', array_map(static fn($tel) => (string) ($tel['telefono'] ?? ''), $telefonos));
+                            $telefonosExtra = max(count($telefonos) - 1, 0);
+                            $cuentasBancarias = $tercero['cuentas_bancarias'] ?? [];
                         ?>
                         <tr data-estado="<?php echo (int) $tercero['estado']; ?>"
                             data-roles="<?php echo e($rolesFiltro); ?>"
-                            data-search="<?php echo e(mb_strtolower($tercero['tipo_documento'].' '.$tercero['numero_documento'].' '.$tercero['nombre_completo'].' '.($tercero['direccion'] ?? '').' '.($tercero['telefono'] ?? '').' '.($tercero['email'] ?? ''))); ?>">
+                            data-search="<?php echo e(mb_strtolower($tercero['tipo_documento'].' '.$tercero['numero_documento'].' '.$tercero['nombre_completo'].' '.($tercero['direccion'] ?? '').' '.$telefonosTexto.' '.($tercero['email'] ?? ''))); ?>">
                             <td class="ps-4 fw-semibold" data-label="Documento"><?php echo e($tercero['tipo_documento']); ?> - <?php echo e($tercero['numero_documento']); ?></td>
                             <td data-label="Tercero">
                                 <div class="d-flex align-items-center">
@@ -89,7 +97,10 @@
                                 <?php endif; ?>
                             </td>
                             <td data-label="Contacto">
-                                <div><?php echo e($tercero['telefono'] ?? ''); ?></div>
+                                <div><?php echo e($telefonoPrincipal); ?></div>
+                                <?php if ($telefonosExtra > 0): ?>
+                                    <div class="small text-muted">+<?php echo (int) $telefonosExtra; ?> teléfono(s)</div>
+                                <?php endif; ?>
                                 <div class="small text-muted"><?php echo e($tercero['email'] ?? ''); ?></div>
                             </td>
                             <td class="text-center" data-label="Estado">
@@ -119,7 +130,7 @@
                                             data-numero-doc="<?php echo e($tercero['numero_documento']); ?>"
                                             data-nombre="<?php echo e($tercero['nombre_completo']); ?>"
                                             data-direccion="<?php echo e($tercero['direccion'] ?? ''); ?>"
-                                            data-telefono="<?php echo e($tercero['telefono'] ?? ''); ?>"
+                                            data-telefonos="<?php echo e(htmlspecialchars(json_encode($telefonos, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8')); ?>"
                                             data-email="<?php echo e($tercero['email'] ?? ''); ?>"
                                             data-departamento="<?php echo e($tercero['departamento'] ?? ''); ?>"
                                             data-provincia="<?php echo e($tercero['provincia'] ?? ''); ?>"
@@ -133,12 +144,15 @@
                                             data-fecha-ingreso="<?php echo e($tercero['fecha_ingreso'] ?? ''); ?>"
                                             data-estado-laboral="<?php echo e($tercero['estado_laboral'] ?? ''); ?>"
                                             data-sueldo-basico="<?php echo e((string) ($tercero['sueldo_basico'] ?? '')); ?>"
+                                            data-tipo-pago="<?php echo e($tercero['tipo_pago'] ?? ''); ?>"
+                                            data-pago-diario="<?php echo e((string) ($tercero['pago_diario'] ?? '')); ?>"
                                             data-regimen-pensionario="<?php echo e($tercero['regimen_pensionario'] ?? ''); ?>"
                                             data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
                                             data-estado="<?php echo (int) $tercero['estado']; ?>"
                                             data-es-cliente="<?php echo (int) $tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int) $tercero['es_empleado']; ?>"
+                                            data-cuentas-bancarias="<?php echo e(htmlspecialchars(json_encode($cuentasBancarias, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8')); ?>"
                                             title="Editar">
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
@@ -244,19 +258,20 @@
                                 <label for="crearDireccion">Dirección</label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="telefono" id="crearTelefono" placeholder="Teléfono">
-                                <label for="crearTelefono">Teléfono</label>
-                                <div class="invalid-feedback">Ingrese un teléfono peruano válido.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <div class="form-floating">
                                 <input type="email" class="form-control" name="email" id="crearEmail" placeholder="Correo">
                                 <label for="crearEmail">Email</label>
                                 <div class="invalid-feedback">Ingrese un email válido.</div>
                             </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Teléfonos</label>
+                            <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarTelefono">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar teléfono
+                            </button>
+                            <div class="invalid-feedback d-none" id="crearTelefonosFeedback">Ingrese teléfonos válidos.</div>
                         </div>
                         <div class="col-md-8">
                             <div class="row g-2">
@@ -304,25 +319,35 @@
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición de pago">
-                                        <label for="crearCondicionPago">Condición de pago <span class="text-danger">*</span></label>
+                                        <label for="crearCondicionPago">Condición de pago</label>
                                         <div class="invalid-feedback">Ingrese la condición de pago.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <input type="number" class="form-control" name="dias_credito" id="crearDiasCredito" placeholder="Días de crédito">
-                                        <label for="crearDiasCredito">Días de crédito <span class="text-danger">*</span></label>
+                                        <label for="crearDiasCredito">Días de crédito</label>
                                         <div class="invalid-feedback">Ingrese los días de crédito.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="limite_credito" id="crearLimiteCredito" placeholder="Límite de crédito">
-                                        <label for="crearLimiteCredito">Límite de crédito <span class="text-danger">*</span></label>
+                                        <label for="crearLimiteCredito">Límite de crédito</label>
                                         <div class="invalid-feedback">Ingrese el límite de crédito.</div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="col-12" id="crearCuentasBancariasSection">
+                            <hr class="my-2">
+                            <h6 class="fw-bold">Cuentas bancarias</h6>
+                            <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta
+                            </button>
+                            <div class="invalid-feedback d-none" id="crearCuentasFeedback">Complete los datos de la cuenta.</div>
                         </div>
 
                         <div class="col-12 laboral-fields" id="crearLaboralFields">
@@ -362,10 +387,29 @@
                                         <div class="invalid-feedback">Seleccione el estado laboral.</div>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-4" id="crearSueldoBasicoWrapper">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="Sueldo básico">
                                         <label for="crearSueldoBasico">Sueldo básico</label>
+                                        <div class="invalid-feedback">Ingrese el sueldo básico.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="tipo_pago" id="crearTipoPago">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="DIARIO">Pago diario (8 horas)</option>
+                                            <option value="SUELDO">Sueldo mensual</option>
+                                        </select>
+                                        <label for="crearTipoPago">Tipo de pago <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Seleccione el tipo de pago.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4" id="crearPagoDiarioWrapper">
+                                    <div class="form-floating">
+                                        <input type="number" step="0.01" class="form-control" name="pago_diario" id="crearPagoDiario" placeholder="Pago diario">
+                                        <label for="crearPagoDiario">Pago diario (8 horas)</label>
+                                        <div class="invalid-feedback">Ingrese el pago diario.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -452,15 +496,18 @@
                         <input class="form-control" id="editDireccion" name="direccion">
                         <label for="editDireccion">Dirección</label>
                     </div>
-                    <div class="col-md-3 form-floating">
-                        <input class="form-control" id="editTelefono" name="telefono">
-                        <label for="editTelefono">Teléfono</label>
-                        <div class="invalid-feedback">Ingrese un teléfono peruano válido.</div>
-                    </div>
-                    <div class="col-md-3 form-floating">
+                    <div class="col-md-6 form-floating">
                         <input class="form-control" id="editEmail" name="email" type="email">
                         <label for="editEmail">Email</label>
                         <div class="invalid-feedback">Ingrese un email válido.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Teléfonos</label>
+                        <div id="editTelefonosList" class="d-flex flex-column gap-2"></div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAgregarTelefono">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar teléfono
+                        </button>
+                        <div class="invalid-feedback d-none" id="editTelefonosFeedback">Ingrese teléfonos válidos.</div>
                     </div>
                     <div class="col-md-8">
                         <div class="row g-2">
@@ -499,20 +546,30 @@
                         <div class="row g-3">
                             <div class="col-md-4 form-floating">
                                 <input class="form-control" id="editCondicionPago" name="condicion_pago">
-                                <label for="editCondicionPago">Condición de pago <span class="text-danger">*</span></label>
+                                <label for="editCondicionPago">Condición de pago</label>
                                 <div class="invalid-feedback">Ingrese la condición de pago.</div>
                             </div>
                             <div class="col-md-4 form-floating">
                                 <input class="form-control" id="editDiasCredito" name="dias_credito" type="number">
-                                <label for="editDiasCredito">Días de crédito <span class="text-danger">*</span></label>
+                                <label for="editDiasCredito">Días de crédito</label>
                                 <div class="invalid-feedback">Ingrese los días de crédito.</div>
                             </div>
                             <div class="col-md-4 form-floating">
                                 <input class="form-control" id="editLimiteCredito" name="limite_credito" type="number" step="0.01">
-                                <label for="editLimiteCredito">Límite de crédito <span class="text-danger">*</span></label>
+                                <label for="editLimiteCredito">Límite de crédito</label>
                                 <div class="invalid-feedback">Ingrese el límite de crédito.</div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="col-12" id="editCuentasBancariasSection">
+                        <hr class="my-2">
+                        <h6 class="fw-bold">Cuentas bancarias</h6>
+                        <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAgregarCuenta">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar cuenta
+                        </button>
+                        <div class="invalid-feedback d-none" id="editCuentasFeedback">Complete los datos de la cuenta.</div>
                     </div>
 
                     <div class="col-12"><hr class="my-2"><h6 class="fw-bold">Observaciones</h6></div>
@@ -552,7 +609,31 @@
                                 <label for="editEstadoLaboral">Estado laboral <span class="text-danger">*</span></label>
                                 <div class="invalid-feedback">Seleccione el estado laboral.</div>
                             </div>
-                            <div class="col-md-4 form-floating"><input class="form-control" id="editSueldoBasico" name="sueldo_basico" type="number" step="0.01"><label for="editSueldoBasico">Sueldo básico</label></div>
+                            <div class="col-md-4" id="editSueldoBasicoWrapper">
+                                <div class="form-floating">
+                                    <input class="form-control" id="editSueldoBasico" name="sueldo_basico" type="number" step="0.01">
+                                    <label for="editSueldoBasico">Sueldo básico</label>
+                                    <div class="invalid-feedback">Ingrese el sueldo básico.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" name="tipo_pago" id="editTipoPago">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="DIARIO">Pago diario (8 horas)</option>
+                                        <option value="SUELDO">Sueldo mensual</option>
+                                    </select>
+                                    <label for="editTipoPago">Tipo de pago <span class="text-danger">*</span></label>
+                                    <div class="invalid-feedback">Seleccione el tipo de pago.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4" id="editPagoDiarioWrapper">
+                                <div class="form-floating">
+                                    <input class="form-control" id="editPagoDiario" name="pago_diario" type="number" step="0.01">
+                                    <label for="editPagoDiario">Pago diario (8 horas)</label>
+                                    <div class="invalid-feedback">Ingrese el pago diario.</div>
+                                </div>
+                            </div>
                             <div class="col-md-4">
                                 <div class="form-floating">
                                     <select class="form-select" name="regimen_pensionario" id="editRegimenPensionario">
