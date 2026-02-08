@@ -397,36 +397,42 @@
             });
         };
 
-        departamentoEl.addEventListener('change', function() {
-            const depId = this.value;
-            distritoEl.innerHTML = '<option value="">Seleccionar...</option>'; 
-            distritoEl.disabled = true; 
-            
-            if(depId) {
-                const nextVal = this.dataset.nextSelectVal || null;
-                const nextName = this.dataset.nextSelectName || null; 
-                loadUbigeoData('provincias', depId, provinciaEl, nextVal, nextName);
-                this.dataset.nextSelectVal = '';
-                this.dataset.nextSelectName = '';
-            } else {
-                provinciaEl.innerHTML = '<option value="">Seleccionar...</option>';
-                provinciaEl.disabled = true; 
-            }
-        });
-
-        provinciaEl.addEventListener('change', function() {
-            const provId = this.value;
-            if(provId) {
-                const nextVal = this.dataset.nextSelectVal || null;
-                const nextName = this.dataset.nextSelectName || null; 
-                loadUbigeoData('distritos', provId, distritoEl, nextVal, nextName);
-                this.dataset.nextSelectVal = '';
-                this.dataset.nextSelectName = '';
-            } else {
-                distritoEl.innerHTML = '<option value="">Seleccionar...</option>';
+        if (!departamentoEl._ubigeoChangeHandler) {
+            departamentoEl._ubigeoChangeHandler = function() {
+                const depId = this.value;
+                distritoEl.innerHTML = '<option value="">Seleccionar...</option>'; 
                 distritoEl.disabled = true; 
-            }
-        });
+                
+                if(depId) {
+                    const nextVal = this.dataset.nextSelectVal || null;
+                    const nextName = this.dataset.nextSelectName || null; 
+                    loadUbigeoData('provincias', depId, provinciaEl, nextVal, nextName);
+                    this.dataset.nextSelectVal = '';
+                    this.dataset.nextSelectName = '';
+                } else {
+                    provinciaEl.innerHTML = '<option value="">Seleccionar...</option>';
+                    provinciaEl.disabled = true; 
+                }
+            };
+            departamentoEl.addEventListener('change', departamentoEl._ubigeoChangeHandler);
+        }
+
+        if (!provinciaEl._ubigeoChangeHandler) {
+            provinciaEl._ubigeoChangeHandler = function() {
+                const provId = this.value;
+                if(provId) {
+                    const nextVal = this.dataset.nextSelectVal || null;
+                    const nextName = this.dataset.nextSelectName || null; 
+                    loadUbigeoData('distritos', provId, distritoEl, nextVal, nextName);
+                    this.dataset.nextSelectVal = '';
+                    this.dataset.nextSelectName = '';
+                } else {
+                    distritoEl.innerHTML = '<option value="">Seleccionar...</option>';
+                    distritoEl.disabled = true; 
+                }
+            };
+            provinciaEl.addEventListener('change', provinciaEl._ubigeoChangeHandler);
+        }
 
         if (selected.departamento) {
             departamentoEl.value = selected.departamento;
@@ -966,6 +972,29 @@
         setup('editTipoDoc', 'editNumeroDoc', () => document.getElementById('editId')?.value);
     }
 
+    function initDeleteForms() {
+        document.querySelectorAll('.delete-form').forEach(form => {
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                Swal.fire({
+                    title: '¿Eliminar este tercero?',
+                    text: 'Esta acción no se puede deshacer.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+    }
+
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
@@ -986,6 +1015,7 @@
         initStatusSwitch();
         initDocumentoValidation();
         initMaestrosManagement(); // Nuevo iniciador para cargos/areas
+        initDeleteForms();
 
         const crearBtn = document.getElementById('crearGuardarBtn');
         if (crearBtn) {

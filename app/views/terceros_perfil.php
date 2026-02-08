@@ -256,7 +256,7 @@ function showVal($val, $suffix = '') {
                                                         </div>
                                                         <div class="d-flex gap-1">
                                                             <!-- Botón Editar -->
-                                                            <button type="button" class="btn btn-sm btn-light text-primary btn-edit-doc" 
+                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-icon-sm btn-edit-doc" 
                                                                     title="Editar"
                                                                     data-id="<?php echo (int)$doc['id']; ?>"
                                                                     data-tipo="<?php echo htmlspecialchars($doc['tipo_documento']); ?>"
@@ -268,7 +268,7 @@ function showVal($val, $suffix = '') {
                                                                 <input type="hidden" name="accion" value="eliminar_documento">
                                                                 <input type="hidden" name="id_tercero" value="<?php echo (int)$t['id']; ?>">
                                                                 <input type="hidden" name="id_documento" value="<?php echo (int)$doc['id']; ?>">
-                                                                <button type="submit" class="btn btn-sm btn-light text-danger" title="Eliminar">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-sm" title="Eliminar">
                                                                     <i class="bi bi-trash"></i>
                                                                 </button>
                                                             </form>
