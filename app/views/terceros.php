@@ -13,7 +13,7 @@
             <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
         <div class="d-flex gap-2">
-            <!-- Botones de Gestión de Maestros con mejor estilo -->
+            <!-- Botones de Gestión de Maestros -->
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCargos">
                 <i class="bi bi-briefcase me-2 text-warning"></i>Cargos
             </button>
@@ -82,6 +82,7 @@
                             $rolesFiltro = implode('|', $roles);
                             
                             $telefonos = $tercero['telefonos'] ?? [];
+                            // Fallback visual si no hay array de telefonos pero sí telefono principal
                             if (empty($telefonos) && !empty($tercero['telefono'])) {
                                 $telefonos = [['telefono' => $tercero['telefono'], 'tipo' => 'Principal']];
                             }
@@ -91,6 +92,7 @@
                             $telefonosExtra = max(count($telefonos) - 1, 0);
                             $cuentasBancarias = $tercero['cuentas_bancarias'] ?? [];
                             
+                            // Mapeo básico departamento nombre -> id si falta (para edición)
                             $depId = $tercero['departamento_id'] ?? 0;
                             if ($depId == 0 && !empty($tercero['departamento'])) {
                                 foreach ($departamentos_list as $dep) {
@@ -154,13 +156,14 @@
 
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
+                                    <!-- BOTÓN PERFIL / DOCUMENTOS -->
                                     <a href="?ruta=terceros/perfil&id=<?php echo (int) $tercero['id']; ?>" 
-                                       class="btn btn-sm btn-outline-info btn-icon-sm" 
+                                       class="btn btn-sm btn-light text-info border-0 bg-transparent" 
                                        title="Ver Perfil y Documentos">
                                         <i class="bi bi-person-badge fs-5"></i>
                                     </a>
 
-                                    <button class="btn btn-sm btn-outline-primary btn-icon-sm" 
+                                    <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" 
                                             data-bs-toggle="modal" data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
                                             data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona'] ?? 'NATURAL'); ?>"
@@ -214,10 +217,10 @@
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
 
-                                    <form method="post" class="delete-form d-inline m-0">
+                                    <form method="post" class="delete-form d-inline m-0" onsubmit="return confirm('¿Eliminar este tercero?');">
                                         <input type="hidden" name="accion" value="eliminar">
                                         <input type="hidden" name="id" value="<?php echo (int) $tercero['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-sm" title="Eliminar">
+                                        <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">
                                             <i class="bi bi-trash fs-5"></i>
                                         </button>
                                     </form>
@@ -461,10 +464,14 @@
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="cargo" id="crearCargo">
-                                            <option value="">Seleccione Cargo...</option>
-                                            <?php foreach($cargos_list as $c): ?>
-                                                <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
-                                            <?php endforeach; ?>
+                                            <option value="" disabled selected>Seleccione Cargo...</option>
+                                            <?php if(empty($cargos_list)): ?>
+                                                <option value="" disabled>-- No hay cargos registrados --</option>
+                                            <?php else: ?>
+                                                <?php foreach($cargos_list as $c): ?>
+                                                    <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <label for="crearCargo">Cargo <span class="text-danger">*</span></label>
                                     </div>
@@ -472,10 +479,14 @@
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="area" id="crearArea">
-                                            <option value="">Seleccione Área...</option>
-                                            <?php foreach($areas_list as $a): ?>
-                                                <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                            <?php endforeach; ?>
+                                            <option value="" disabled selected>Seleccione Área...</option>
+                                            <?php if(empty($areas_list)): ?>
+                                                <option value="" disabled>-- No hay áreas registradas --</option>
+                                            <?php else: ?>
+                                                <?php foreach($areas_list as $a): ?>
+                                                    <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <label for="crearArea">Área <span class="text-danger">*</span></label>
                                     </div>
@@ -518,8 +529,8 @@
                                     </div>
                                 </div>
 
-                                <!-- FILA 3 -->
-                                <div class="col-md-2">
+                                <!-- FILA 3 (Ajuste de anchos para Switch) -->
+                                <div class="col-md-3">
                                     <div class="form-floating">
                                         <select class="form-select" name="moneda" id="crearMoneda">
                                             <option value="PEN">S/ (Soles)</option>
@@ -528,16 +539,16 @@
                                         <label for="crearMoneda">Moneda</label>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="0.00">
                                         <label for="crearSueldoBasico">Sueldo Básico</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4 d-flex align-items-center">
-                                    <div class="form-check form-switch w-100 p-3 border rounded bg-white">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="crearAsignacionFamiliar" name="asignacion_familiar" value="1">
-                                        <label class="form-check-label" for="crearAsignacionFamiliar">Asignación Familiar (Hijos)</label>
+                                <div class="col-md-5">
+                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="crearAsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
+                                        <label class="form-check-label small lh-1" for="crearAsignacionFamiliar">Asignación Familiar (Hijos)</label>
                                     </div>
                                 </div>
 
@@ -593,9 +604,9 @@
 
                                 <!-- FILA 6 -->
                                 <div class="col-md-12">
-                                    <div class="form-check form-switch p-3 border rounded bg-white">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="crearEssalud" name="essalud" value="1">
-                                        <label class="form-check-label" for="crearEssalud">Aportante EsSalud (9%)</label>
+                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="crearEssalud" name="essalud" value="1" style="margin-top: 0;">
+                                        <label class="form-check-label small" for="crearEssalud">Aportante EsSalud (9%)</label>
                                     </div>
                                 </div>
                             </div>
@@ -627,7 +638,6 @@
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <!-- Copia exacta de Crear, pero con IDs 'edit...' -->
-                        
                         <!-- Roles -->
                         <div class="col-12">
                             <div class="border rounded-3 p-3 bg-light">
@@ -829,7 +839,7 @@
                             </div>
                         </div>
 
-                        <!-- Campos Laborales (COMPLETOS) -->
+                        <!-- Campos Laborales (REDISEÑADO) -->
                         <div class="col-12 laboral-fields d-none" id="editLaboralFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
@@ -838,10 +848,14 @@
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="cargo" id="editCargo">
-                                            <option value="">Seleccione Cargo...</option>
-                                            <?php foreach($cargos_list as $c): ?>
-                                                <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
-                                            <?php endforeach; ?>
+                                            <option value="" disabled selected>Seleccione Cargo...</option>
+                                            <?php if(empty($cargos_list)): ?>
+                                                <option value="" disabled>-- No hay cargos registrados --</option>
+                                            <?php else: ?>
+                                                <?php foreach($cargos_list as $c): ?>
+                                                    <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <label for="editCargo">Cargo <span class="text-danger">*</span></label>
                                     </div>
@@ -849,10 +863,14 @@
                                 <div class="col-md-4">
                                     <div class="form-floating">
                                         <select class="form-select" name="area" id="editArea">
-                                            <option value="">Seleccione Área...</option>
-                                            <?php foreach($areas_list as $a): ?>
-                                                <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                            <?php endforeach; ?>
+                                            <option value="" disabled selected>Seleccione Área...</option>
+                                            <?php if(empty($areas_list)): ?>
+                                                <option value="" disabled>-- No hay áreas registradas --</option>
+                                            <?php else: ?>
+                                                <?php foreach($areas_list as $a): ?>
+                                                    <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <label for="editArea">Área <span class="text-danger">*</span></label>
                                     </div>
@@ -895,8 +913,8 @@
                                     </div>
                                 </div>
 
-                                <!-- FILA 3 -->
-                                <div class="col-md-2">
+                                <!-- FILA 3 (Ajuste de anchos para Switch) -->
+                                <div class="col-md-3">
                                     <div class="form-floating">
                                         <select class="form-select" name="moneda" id="editMoneda">
                                             <option value="PEN">S/ (Soles)</option>
@@ -905,16 +923,16 @@
                                         <label for="editMoneda">Moneda</label>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="form-floating">
                                         <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="editSueldoBasico" placeholder="0.00">
                                         <label for="editSueldoBasico">Sueldo Básico</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4 d-flex align-items-center">
-                                    <div class="form-check form-switch w-100 p-3 border rounded bg-white">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="editAsignacionFamiliar" name="asignacion_familiar" value="1">
-                                        <label class="form-check-label" for="editAsignacionFamiliar">Asignación Familiar (Hijos)</label>
+                                <div class="col-md-5">
+                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="editAsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
+                                        <label class="form-check-label small lh-1" for="editAsignacionFamiliar">Asignación Familiar (Hijos)</label>
                                     </div>
                                 </div>
 
@@ -970,9 +988,9 @@
 
                                 <!-- FILA 6 -->
                                 <div class="col-md-12">
-                                    <div class="form-check form-switch p-3 border rounded bg-white">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="editEssalud" name="essalud" value="1">
-                                        <label class="form-check-label" for="editEssalud">Aportante EsSalud (9%)</label>
+                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="editEssalud" name="essalud" value="1" style="margin-top: 0;">
+                                        <label class="form-check-label small" for="editEssalud">Aportante EsSalud (9%)</label>
                                     </div>
                                 </div>
                             </div>

@@ -1,19 +1,31 @@
 <?php
-declare(strict_types=1);
+// Si tu proyecto usa namespaces, descomenta la siguiente línea:
+// namespace App\Controllers;
 
-require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/TercerosModel.php';
+// Usamos rutas relativas para evitar problemas con BASE_PATH
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../models/TercerosModel.php';
 
 class TercerosController extends Controlador
 {
-    private TercerosModel $tercerosModel;
+    private $tercerosModel;
 
     public function __construct()
     {
+        // Validación de seguridad para la clase padre
+        if (!class_exists('Controlador')) {
+            // Intenta cargar la clase Controlador si no existe (ajusta la ruta si es necesario)
+            if (file_exists(__DIR__ . '/../core/Controlador.php')) {
+                require_once __DIR__ . '/../core/Controlador.php';
+            } elseif (file_exists(__DIR__ . '/../libs/Controlador.php')) {
+                require_once __DIR__ . '/../libs/Controlador.php';
+            }
+        }
+        
         $this->tercerosModel = new TercerosModel();
     }
 
-    public function index(): void
+    public function index()
     {
         AuthMiddleware::handle();
         require_permiso('terceros.ver');
@@ -25,7 +37,9 @@ class TercerosController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
-                // Validación AJAX de documento duplicado
+                // ==========================================
+                // VALIDACIONES AJAX
+                // ==========================================
                 if (es_ajax() && $accion === 'validar_documento') {
                     require_permiso('terceros.crear');
                     $tipoDoc   = trim((string) ($_POST['tipo_documento'] ?? ''));
@@ -40,19 +54,17 @@ class TercerosController extends Controlador
                     return;
                 }
 
-                // Cambio de estado AJAX (Switch)
                 if (es_ajax() && $accion === 'toggle_estado') {
                     require_permiso('terceros.editar');
                     $id     = (int) ($_POST['id'] ?? 0);
                     $estado = (int) ($_POST['estado'] ?? 0);
-                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    if ($id <= 0) throw new Exception('ID inválido.');
                     
                     $this->tercerosModel->actualizarEstado($id, $estado, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Estado actualizado.']);
                     return;
                 }
 
-                // Cargar Ubigeo vía AJAX
                 if (es_ajax() && $accion === 'cargar_ubigeo') {
                     $tipo    = (string)($_POST['tipo'] ?? '');
                     $padreId = (string)($_POST['padre_id'] ?? '');
@@ -75,9 +87,10 @@ class TercerosController extends Controlador
                 }
 
                 // ==========================================
-                // ACCIONES: CARGOS (CRUD)
+                // GESTIÓN DE MAESTROS (CARGOS Y ÁREAS)
                 // ==========================================
 
+                // --- CARGOS ---
                 if (es_ajax() && $accion === 'listar_cargos') {
                     $data = $this->tercerosModel->listarCargos();
                     json_response(['ok' => true, 'data' => $data]);
@@ -87,7 +100,7 @@ class TercerosController extends Controlador
                 if (es_ajax() && $accion === 'guardar_cargo') {
                     require_permiso('configuracion.editar');
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
-                    if ($nombre === '') throw new RuntimeException('El nombre del cargo es obligatorio');
+                    if ($nombre === '') throw new Exception('El nombre del cargo es obligatorio');
                     
                     $id = $this->tercerosModel->guardarCargo($nombre);
                     json_response(['ok' => true, 'id' => $id, 'nombre' => $nombre, 'mensaje' => 'Cargo guardado']);
@@ -98,7 +111,7 @@ class TercerosController extends Controlador
                     require_permiso('configuracion.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
-                    if ($id <= 0 || $nombre === '') throw new RuntimeException('Datos inválidos');
+                    if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
                     
                     $this->tercerosModel->actualizarCargo($id, $nombre);
                     json_response(['ok' => true, 'mensaje' => 'Cargo actualizado']);
@@ -108,17 +121,14 @@ class TercerosController extends Controlador
                 if (es_ajax() && $accion === 'eliminar_cargo') {
                     require_permiso('configuracion.editar');
                     $id = (int)($_POST['id'] ?? 0);
-                    if ($id <= 0) throw new RuntimeException('ID inválido');
+                    if ($id <= 0) throw new Exception('ID inválido');
                     
                     $this->tercerosModel->eliminarCargo($id);
                     json_response(['ok' => true, 'mensaje' => 'Cargo desactivado']);
                     return;
                 }
 
-                // ==========================================
-                // ACCIONES: ÁREAS (CRUD)
-                // ==========================================
-
+                // --- ÁREAS ---
                 if (es_ajax() && $accion === 'listar_areas') {
                     $data = $this->tercerosModel->listarAreas();
                     json_response(['ok' => true, 'data' => $data]);
@@ -128,7 +138,7 @@ class TercerosController extends Controlador
                 if (es_ajax() && $accion === 'guardar_area') {
                     require_permiso('configuracion.editar');
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
-                    if ($nombre === '') throw new RuntimeException('El nombre del área es obligatorio');
+                    if ($nombre === '') throw new Exception('El nombre del área es obligatorio');
                     
                     $id = $this->tercerosModel->guardarArea($nombre);
                     json_response(['ok' => true, 'id' => $id, 'nombre' => $nombre, 'mensaje' => 'Área guardada']);
@@ -139,7 +149,7 @@ class TercerosController extends Controlador
                     require_permiso('configuracion.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
-                    if ($id <= 0 || $nombre === '') throw new RuntimeException('Datos inválidos');
+                    if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
                     
                     $this->tercerosModel->actualizarArea($id, $nombre);
                     json_response(['ok' => true, 'mensaje' => 'Área actualizada']);
@@ -149,7 +159,7 @@ class TercerosController extends Controlador
                 if (es_ajax() && $accion === 'eliminar_area') {
                     require_permiso('configuracion.editar');
                     $id = (int)($_POST['id'] ?? 0);
-                    if ($id <= 0) throw new RuntimeException('ID inválido');
+                    if ($id <= 0) throw new Exception('ID inválido');
                     
                     $this->tercerosModel->eliminarArea($id);
                     json_response(['ok' => true, 'mensaje' => 'Área desactivada']);
@@ -157,7 +167,7 @@ class TercerosController extends Controlador
                 }
 
                 // ==========================================
-                // ACCIONES: DOCUMENTOS
+                // GESTIÓN DE DOCUMENTOS
                 // ==========================================
 
                 if ($accion === 'subir_documento') {
@@ -166,17 +176,20 @@ class TercerosController extends Controlador
                     $tipoDoc   = trim((string)($_POST['tipo_documento'] ?? 'OTRO'));
                     $obs       = trim((string)($_POST['observaciones'] ?? ''));
 
-                    if ($idTercero <= 0) throw new RuntimeException('ID de tercero inválido');
-                    if (empty($_FILES['archivo']['name'])) throw new RuntimeException('No se ha seleccionado ningún archivo');
+                    if ($idTercero <= 0) throw new Exception('ID de tercero inválido');
+                    if (empty($_FILES['archivo']['name'])) throw new Exception('No se ha seleccionado ningún archivo');
 
                     $file = $_FILES['archivo'];
                     $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                     $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'doc', 'docx', 'xls', 'xlsx'];
                     
-                    if (!in_array($ext, $allowed)) throw new RuntimeException('Formato de archivo no permitido');
+                    if (!in_array($ext, $allowed)) throw new Exception('Formato de archivo no permitido');
 
                     // Crear directorio si no existe
-                    $uploadDir = BASE_PATH . '/public/uploads/terceros/' . $idTercero . '/';
+                    // Usamos una ruta relativa desde public si BASE_PATH falla, pero idealmente BASE_PATH debe estar definido
+                    $baseUploads = defined('BASE_PATH') ? BASE_PATH . '/public/uploads/terceros/' : __DIR__ . '/../../public/uploads/terceros/';
+                    $uploadDir = $baseUploads . $idTercero . '/';
+                    
                     if (!is_dir($uploadDir)) {
                         mkdir($uploadDir, 0755, true);
                     }
@@ -196,11 +209,10 @@ class TercerosController extends Controlador
                         ]);
                         
                         $flash = ['tipo' => 'success', 'texto' => 'Documento subido correctamente'];
-                        // Redirigir al perfil
                         header("Location: ?ruta=terceros/perfil&id=$idTercero&tab=documentos");
                         exit;
                     } else {
-                        throw new RuntimeException('Error al mover el archivo al servidor');
+                        throw new Exception('Error al mover el archivo al servidor');
                     }
                 }
 
@@ -241,7 +253,7 @@ class TercerosController extends Controlador
                     $data = $this->validarTercero($_POST);
                     
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
-                        throw new RuntimeException('El documento ya se encuentra registrado.');
+                        throw new Exception('El documento ya se encuentra registrado.');
                     }
                     
                     $id = $this->tercerosModel->crear($data, $userId);
@@ -252,12 +264,12 @@ class TercerosController extends Controlador
                 if ($accion === 'editar') {
                     require_permiso('terceros.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    if ($id <= 0) throw new Exception('ID inválido.');
                     
                     $data = $this->validarTercero($_POST);
                     
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
-                        throw new RuntimeException('El documento ya se encuentra registrado.');
+                        throw new Exception('El documento ya se encuentra registrado.');
                     }
                     
                     $this->tercerosModel->actualizar($id, $data, $userId);
@@ -268,7 +280,7 @@ class TercerosController extends Controlador
                 if ($accion === 'eliminar') {
                     require_permiso('terceros.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) throw new RuntimeException('ID inválido.');
+                    if ($id <= 0) throw new Exception('ID inválido.');
                     
                     $this->tercerosModel->eliminar($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero eliminado correctamente.'];
@@ -284,36 +296,42 @@ class TercerosController extends Controlador
                     require_permiso('terceros.crear');
                     $ruc = preg_replace('/\D/', '', (string) ($_POST['ruc'] ?? ''));
                     if (strlen($ruc) !== 11) {
-                        throw new RuntimeException('RUC inválido.');
+                        throw new Exception('RUC inválido.');
                     }
+                    // Simulación (puedes reemplazar con API real más adelante)
                     $simulados = [
                         '20123456789' => ['razon_social' => 'Embotelladora Andina S.A.', 'direccion' => 'Av. Principal 123, Lima'],
-                        '20600000001' => ['razon_social' => 'Distribuidora Ejemplo SAC', 'direccion' => 'Jr. Comercio 456, Huanuco'],
                     ];
                     $respuestaSunat = $simulados[$ruc] ?? ['razon_social' => '', 'direccion' => ''];
                     json_response(['ok' => true] + $respuestaSunat);
                     return;
                 }
 
-            } catch (Throwable $e) {
+            } catch (Exception $e) {
                 if (es_ajax()) {
                     json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
                     return;
                 }
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
                 
-                // Si falla subida, redirigir back
+                // Redirigir si falla documento
                 if (in_array($accion, ['subir_documento', 'editar_documento', 'eliminar_documento'])) {
-                     $idTercero = (int)($_POST['id_tercero'] ?? 0);
-                     if ($idTercero > 0) {
+                    $idTercero = (int)($_POST['id_tercero'] ?? 0);
+                    if ($idTercero > 0) {
                         header("Location: ?ruta=terceros/perfil&id=$idTercero&tab=documentos&error=" . urlencode($e->getMessage()));
                         exit;
-                     }
+                    }
                 }
+            } catch (Throwable $e) {
+                 if (es_ajax()) {
+                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 500);
+                    return;
+                }
+                $flash = ['tipo' => 'error', 'texto' => "Error del sistema: " . $e->getMessage()];
             }
         }
 
-        // Vista principal
+        // Cargar datos para la vista principal
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
         $cargos = $this->tercerosModel->listarCargos();
         $areas = $this->tercerosModel->listarAreas();
@@ -331,7 +349,7 @@ class TercerosController extends Controlador
     /**
      * Nueva Vista: Perfil del Tercero
      */
-    public function perfil(): void
+    public function perfil()
     {
         AuthMiddleware::handle();
         require_permiso('terceros.ver');
@@ -359,7 +377,7 @@ class TercerosController extends Controlador
         ]);
     }
 
-    private function validarTercero(array $data): array
+    private function validarTercero($data)
     {
         $tipoPersona   = trim((string) ($data['tipo_persona'] ?? ''));
         $tipoDoc       = trim((string) ($data['tipo_documento'] ?? ''));
@@ -370,6 +388,7 @@ class TercerosController extends Controlador
         $numeroDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
+        // --- UBIGEO: Resolver Nombres ---
         $departamentoId = !empty($data['departamento']) ? (string) $data['departamento'] : '';
         $provinciaId    = !empty($data['provincia'])    ? (string) $data['provincia']    : '';
         $distritoId     = !empty($data['distrito'])     ? (string) $data['distrito']     : '';
@@ -408,6 +427,7 @@ class TercerosController extends Controlador
             }
         }
 
+        // --- TELÉFONOS ---
         $telefonos      = $data['telefonos']      ?? [];
         $telefonoTipos  = $data['telefono_tipos'] ?? [];
         
@@ -425,6 +445,7 @@ class TercerosController extends Controlador
         }
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
+        // --- CUENTAS ---
         $cuentasTipo            = $data['cuenta_tipo']            ?? [];
         $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
         $cuentasTipoCta         = $data['cuenta_tipo_cta']        ?? [];
@@ -454,7 +475,7 @@ class TercerosController extends Controlador
             if ($entidad === '' && $cci === '' && $alias === '' && $numero === '') continue;
 
             if ($entidad === '') {
-                throw new RuntimeException("Indique la entidad/billetera en la cuenta #" . ($i + 1));
+                throw new Exception("Indique la entidad/billetera en la cuenta #" . ($i + 1));
             }
 
             $cuentasNormalizadas[] = [
@@ -471,6 +492,7 @@ class TercerosController extends Controlador
             ];
         }
 
+        // --- VALIDACIONES BÁSICAS ---
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
@@ -478,31 +500,25 @@ class TercerosController extends Controlador
         ];
 
         if ($tipoPersona === '' || $tipoDoc === '' || $numero === '' || $nombre === '') {
-            throw new RuntimeException('Tipo de persona, documento y nombre son obligatorios.');
+            throw new Exception('Tipo de persona, documento y nombre son obligatorios.');
         }
 
         if ($tipoDoc === 'RUC' && strlen($numeroDigits) !== 11) {
-            throw new RuntimeException('El RUC debe tener 11 dígitos.');
+            throw new Exception('El RUC debe tener 11 dígitos.');
         }
         if ($tipoDoc === 'DNI' && strlen($numeroDigits) !== 8) {
-            throw new RuntimeException('El DNI debe tener 8 dígitos.');
+            throw new Exception('El DNI debe tener 8 dígitos.');
         }
 
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('El email no tiene un formato válido.');
+            throw new Exception('El email no tiene un formato válido.');
         }
 
         if (!in_array(true, $roles, true)) {
-            throw new RuntimeException('Seleccione al menos un rol (Cliente, Proveedor o Empleado).');
+            throw new Exception('Seleccione al menos un rol (Cliente, Proveedor o Empleado).');
         }
 
-        // Validación empleado
-        if (!empty($data['es_empleado'])) {
-            // Nota: Se han relajado validaciones estrictas aquí porque 
-            // el controller ya no debe validar "tipo_pago" obligatorio si solo se está creando un borrador
-            // pero mantenemos lo básico si se envían.
-        }
-
+        // --- PREPARAR PAYLOAD ---
         $prepared = $data;
         $prepared['numero_documento']      = $numero;
         $prepared['telefono']              = $telefonoPrincipal;

@@ -90,6 +90,62 @@
     }
 
     // =========================================================================
+    // LÓGICA DE ESTADO LABORAL (Reglas de Negocio)
+    // =========================================================================
+
+    function updateLaboralState(form) {
+        if (!form) return;
+        
+        const estadoEl = form.querySelector('[name="estado_laboral"]');
+        if (!estadoEl) return; // Si no es empleado, no existe este campo
+
+        const estado = estadoEl.value; // 'activo', 'cesado', 'suspendido'
+        const fechaCese = form.querySelector('[name="fecha_cese"]');
+        
+        // Campos que se bloquean si no está activo
+        // Nota: Incluimos los selects y inputs de la sección económica/pensionaria
+        const fieldsToToggle = form.querySelectorAll(
+            '[name="tipo_pago"], [name="moneda"], [name="sueldo_basico"], ' +
+            '[name="asignacion_familiar"], [name="regimen_pensionario"], ' +
+            '[name="tipo_comision_afp"], [name="cuspp"], [name="essalud"], [name="pago_diario"]'
+        );
+
+        if (estado === 'activo') {
+            // Caso Activo: Limpiar y bloquear fecha cese
+            if (fechaCese) {
+                fechaCese.value = '';
+                fechaCese.disabled = true;
+                fechaCese.required = false;
+                clearInvalid(fechaCese);
+            }
+            
+            // Habilitar campos económicos
+            fieldsToToggle.forEach(el => el.disabled = false);
+            
+            // Re-ejecutar lógicas internas (toggle de pagos y afp) para estado correcto
+            const tipoPago = form.querySelector('[name="tipo_pago"]');
+            if (tipoPago) tipoPago.dispatchEvent(new Event('change'));
+            
+            const regimen = form.querySelector('[name="regimen_pensionario"]');
+            if (regimen) regimen.dispatchEvent(new Event('change'));
+
+        } else {
+            // Caso Cesado o Suspendido
+            if (fechaCese) {
+                fechaCese.disabled = false;
+                if (estado === 'cesado') {
+                    fechaCese.required = true;
+                } else {
+                    fechaCese.required = false; // Suspendido puede ser indefinido
+                }
+            }
+
+            // Deshabilitar campos económicos (Histórico congelado)
+            fieldsToToggle.forEach(el => el.disabled = true);
+        }
+    }
+
+    // =========================================================================
     // GENERADORES DE FILAS (Teléfonos y Cuentas)
     // =========================================================================
 
@@ -278,11 +334,17 @@
     // LÓGICA DE UI Y TOGGLES
     // =========================================================================
 
-    function toggleLaboralFields(checkboxEl, containerEl) {
+    function toggleLaboralFields(checkboxEl, containerEl, form) {
         if (!checkboxEl || !containerEl) return;
         const show = checkboxEl.checked;
         containerEl.classList.toggle('d-none', !show);
-        if (!show) resetFields(containerEl);
+        
+        if (show) {
+            // Si se activa, revisar estado para aplicar reglas de bloqueo
+            updateLaboralState(form);
+        } else {
+            resetFields(containerEl);
+        }
     }
 
     function togglePagoFields(tipoPagoEl) {
@@ -292,13 +354,13 @@
         const sueldoInput = form.querySelector('[name="sueldo_basico"]');
         const pagoDiarioInput = form.querySelector('[name="pago_diario"]');
         
-        const sueldoCol = sueldoInput?.closest('.col-md-6') || sueldoInput?.closest('.col-md-4'); // Support both layouts
+        const sueldoCol = sueldoInput?.closest('.col-md-6') || sueldoInput?.closest('.col-md-4'); 
         const diarioCol = pagoDiarioInput?.closest('.col-md-6') || pagoDiarioInput?.closest('.col-md-4');
 
         if (!sueldoCol || !diarioCol) return;
 
         const tipo = tipoPagoEl.value;
-        const showSueldo = tipo === 'SUELDO' || tipo === 'MENSUAL' || tipo === 'QUINCENAL'; 
+        const showSueldo = tipo === 'MENSUAL' || tipo === 'QUINCENAL'; 
         const showDiario = tipo === 'DIARIO';
 
         // Resetear visualización
@@ -463,11 +525,13 @@
         const cargo = form.querySelector('[name="cargo"]');
         const area = form.querySelector('[name="area"]');
         const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
+        const fechaCese = form.querySelector('[name="fecha_cese"]');
+        const estadoLaboral = form.querySelector('[name="estado_laboral"]');
         const tipoPago = form.querySelector('[name="tipo_pago"]');
         const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
         const pagoDiario = form.querySelector('[name="pago_diario"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
         form.querySelectorAll('select[name="cuenta_tipo[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
 
@@ -518,12 +582,25 @@
             if (!area?.value.trim()) { if(showErrors) setInvalid(area, 'Requerido'); valid = false; }
             if (!fechaIngreso?.value) { if(showErrors) setInvalid(fechaIngreso, 'Requerido'); valid = false; }
             
-            const tp = tipoPago?.value;
-            if ((tp === 'MENSUAL' || tp === 'QUINCENAL') && !sueldoBasico?.value) {
-                 if(showErrors) setInvalid(sueldoBasico, 'Requerido'); valid = false;
+            // Validación de Fechas Lógica
+            const est = estadoLaboral?.value;
+            if (est === 'cesado') {
+                if(!fechaCese?.value) {
+                    if(showErrors) setInvalid(fechaCese, 'Fecha de cese obligatoria.'); valid = false;
+                } else if(fechaIngreso?.value && fechaCese.value < fechaIngreso.value) {
+                    if(showErrors) setInvalid(fechaCese, 'El cese no puede ser antes del ingreso.'); valid = false;
+                }
             }
-            if (tp === 'DIARIO' && !pagoDiario?.value) {
-                 if(showErrors) setInvalid(pagoDiario, 'Requerido'); valid = false;
+
+            // Solo validar pagos si está activo (si está cesado, los campos están disabled y no importan)
+            if (est === 'activo') {
+                const tp = tipoPago?.value;
+                if ((tp === 'MENSUAL' || tp === 'QUINCENAL') && !sueldoBasico?.value) {
+                     if(showErrors) setInvalid(sueldoBasico, 'Requerido'); valid = false;
+                }
+                if (tp === 'DIARIO' && !pagoDiario?.value) {
+                     if(showErrors) setInvalid(pagoDiario, 'Requerido'); valid = false;
+                }
             }
         }
 
@@ -590,6 +667,9 @@
             event.preventDefault();
             form.dataset.submitted = '1';
 
+            // Antes de enviar, reactivamos campos disabled temporalmente si es necesario para el backend
+            // Pero en este caso, la lógica de negocio dice que si está cesado, no importan los datos de pago
+            
             if (!validateForm(form, rolesFeedbackId, true)) return;
 
             Swal.fire({
@@ -648,6 +728,8 @@
                 form.reset();
                 form.dataset.submitted = '0';
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                // Asegurar que campos se reseteen al estado inicial (activo)
+                updateLaboralState(form);
             }
             
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
@@ -668,9 +750,8 @@
                 document.getElementById('crearEsProveedor'),
                 document.getElementById('crearComercialFields')
             );
-            toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'));
+            toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
             togglePagoFields(document.getElementById('crearTipoPago'));
-            // Inicializar estado de campos AFP
             toggleRegimenFields(document.getElementById('crearRegimen'), form);
 
             initTelefonosSection(
@@ -769,10 +850,12 @@
                 document.getElementById('editEsProveedor'),
                 document.getElementById('editComercialFields')
             );
-            toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'));
+            toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
-            // Actualizar estado de campos AFP al cargar
             toggleRegimenFields(document.getElementById('editRegimen'), form);
+            
+            // Forzar actualización de estado laboral después de cargar valores
+            updateLaboralState(form);
 
             let telefonos = [], cuentas = [];
             try { telefonos = JSON.parse(button.getAttribute('data-telefonos') || '[]'); } catch(e){}
@@ -799,7 +882,7 @@
             
             const esEmpleado = document.getElementById(`${prefix}EsEmpleado`);
             if(esEmpleado) esEmpleado.addEventListener('change', () => {
-                toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`));
+                toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`), form);
                 refreshValidationOnChange(form, fbId);
             });
 
@@ -818,10 +901,15 @@
                 refreshValidationOnChange(form, fbId);
             });
             
-            // NUEVO: Toggle para Regimen AFP/ONP
             const regimen = document.getElementById(`${prefix}Regimen`);
             if(regimen) regimen.addEventListener('change', () => {
                 toggleRegimenFields(regimen, form);
+            });
+
+            // NUEVO: Listener para Estado Laboral
+            const estadoLaboral = document.getElementById(`${prefix}EstadoLaboral`);
+            if(estadoLaboral) estadoLaboral.addEventListener('change', () => {
+                updateLaboralState(form);
             });
         };
 
@@ -829,142 +917,55 @@
         setup('edit');
     }
 
-    // =========================================================================
-    // LÓGICA DE GESTIÓN DE MAESTROS (CARGOS Y ÁREAS)
-    // =========================================================================
-
     function initMaestrosManagement() {
-        // Función genérica para configurar Cargo y Área
-        const setupMaestro = (tipo) => { // tipo = 'cargo' o 'area'
-            const Cap = tipo.charAt(0).toUpperCase() + tipo.slice(1); // 'Cargo' o 'Area'
-            const form = document.getElementById(`formCrear${Cap}`);
-            const inputAccion = document.getElementById(`${tipo}Accion`);
-            const inputId = document.getElementById(`${tipo}Id`);
-            const inputNombre = document.getElementById(`${tipo}Nombre`);
-            const btnSave = document.getElementById(`btnSave${Cap}`);
-            const btnCancel = document.getElementById(`btnCancel${Cap}`);
-            const lista = document.getElementById(`lista${Cap}sConfig`); // listaCargosConfig
-            const modal = document.getElementById(`modalGestion${Cap}s`);
+        const handleMaestroSubmit = (formId, listId, endpoint, selectsToUpdate) => {
+            const form = document.getElementById(formId);
+            if (!form) return;
 
-            // 1. Resetear al abrir modal
-            if(modal){
-                modal.addEventListener('show.bs.modal', () => {
-                    resetForm();
-                });
-            }
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = form.querySelector('input[type="text"]');
+                const val = input.value.trim();
+                if(!val) return;
 
-            // 2. Función Reset
-            const resetForm = () => {
-                if(form) {
-                    form.reset();
-                    if(inputAccion) inputAccion.value = `guardar_${tipo}`;
-                    if(inputId) inputId.value = '';
-                    if(btnSave) {
-                        btnSave.innerHTML = '<i class="bi bi-plus-lg"></i>';
-                        btnSave.classList.remove('btn-warning');
-                        btnSave.classList.add('btn-primary');
-                    }
-                    if(btnCancel) btnCancel.classList.add('d-none');
-                }
-            };
-
-            // 3. Manejar Submit (Crear o Editar)
-            if(form) {
-                form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const fd = new FormData(form);
-                    
-                    fetch(window.location.href, {
-                        method: 'POST',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        body: fd
-                    })
-                    .then(r => r.json())
-                    .then(res => {
-                        if (res.ok) {
-                            Swal.fire({
-                                title: 'Éxito', 
-                                text: res.mensaje, 
-                                icon: 'success',
-                                toast: true,
-                                position: 'top-end',
-                                showConfirmButton: false,
-                                timer: 2000
-                            });
-                            
-                            // Recargar la página para actualizar todas las listas y selects
-                            // (Es lo más seguro para sincronizar todo sin complicar el JS)
-                            setTimeout(() => window.location.reload(), 1000);
-                        } else {
-                            Swal.fire('Error', res.mensaje, 'error');
+                const fd = new FormData(form);
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.ok) {
+                        const list = document.getElementById(listId);
+                        if(list) {
+                            const item = document.createElement('div');
+                            item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                            item.innerHTML = `<span>${res.nombre}</span>`;
+                            list.appendChild(item);
                         }
-                    });
-                });
-            }
-
-            // 4. Manejar Clics en la lista (Editar / Eliminar)
-            if(lista) {
-                lista.addEventListener('click', (e) => {
-                    const btnEdit = e.target.closest('.btn-edit-maestro');
-                    const btnDel = e.target.closest('.btn-del-maestro');
-
-                    // A) MODO EDICIÓN
-                    if (btnEdit) {
-                        const id = btnEdit.dataset.id;
-                        const nombre = btnEdit.dataset.nombre;
-                        
-                        inputAccion.value = `editar_${tipo}`;
-                        inputId.value = id;
-                        inputNombre.value = nombre;
-                        inputNombre.focus();
-                        
-                        btnSave.innerHTML = '<i class="bi bi-check-lg"></i>';
-                        btnSave.classList.remove('btn-primary');
-                        btnSave.classList.add('btn-warning');
-                        btnCancel.classList.remove('d-none');
-                    }
-
-                    // B) MODO ELIMINAR (Soft Delete)
-                    if (btnDel) {
-                        Swal.fire({
-                            title: '¿Desactivar?',
-                            text: "Ya no aparecerá en los listados nuevos.",
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#d33',
-                            confirmButtonText: 'Sí, desactivar'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                const fd = new FormData();
-                                fd.append('accion', `eliminar_${tipo}`);
-                                fd.append('id', btnDel.dataset.id);
-
-                                fetch(window.location.href, {
-                                    method: 'POST',
-                                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                                    body: fd
-                                })
-                                .then(r => r.json())
-                                .then(res => {
-                                    if(res.ok) {
-                                        btnDel.closest('.list-group-item').remove();
-                                        Swal.fire('Eliminado', res.mensaje, 'success');
-                                    }
-                                });
+                        selectsToUpdate.forEach(selId => {
+                            const sel = document.getElementById(selId);
+                            if(sel) {
+                                const opt = document.createElement('option');
+                                opt.value = res.nombre;
+                                opt.textContent = res.nombre;
+                                sel.appendChild(opt);
                             }
                         });
+                        input.value = '';
+                        Swal.fire('Guardado', res.mensaje, 'success');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        Swal.fire('Error', res.mensaje || 'Error desconocido', 'error');
                     }
-                });
-            }
-
-            // 5. Botón Cancelar Edición
-            if(btnCancel) {
-                btnCancel.addEventListener('click', resetForm);
-            }
+                })
+                .catch(err => console.error(err));
+            });
         };
 
-        setupMaestro('cargo');
-        setupMaestro('area');
+        handleMaestroSubmit('formCrearCargo', 'listaCargosConfig', 'guardar_cargo', ['crearCargo', 'editCargo']);
+        handleMaestroSubmit('formCrearArea', 'listaAreasConfig', 'guardar_area', ['crearArea', 'editArea']);
     }
 
     function initStatusSwitch() {
@@ -1056,29 +1057,6 @@
         setup('editTipoDoc', 'editNumeroDoc', () => document.getElementById('editId')?.value);
     }
 
-    function initDeleteForms() {
-        document.querySelectorAll('.delete-form').forEach(form => {
-            form.addEventListener('submit', (event) => {
-                event.preventDefault();
-                Swal.fire({
-                    title: '¿Eliminar este tercero?',
-                    text: 'Esta acción no se puede deshacer.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar',
-                    cancelButtonText: 'Cancelar',
-                    reverseButtons: true
-                }).then(result => {
-                    if (result.isConfirmed) {
-                        form.submit();
-                    }
-                });
-            });
-        });
-    }
-
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
@@ -1098,8 +1076,7 @@
         initDynamicFields();
         initStatusSwitch();
         initDocumentoValidation();
-        initMaestrosManagement(); // Nuevo iniciador para cargos/areas
-        initDeleteForms();
+        initMaestrosManagement(); 
 
         const crearBtn = document.getElementById('crearGuardarBtn');
         if (crearBtn) {
