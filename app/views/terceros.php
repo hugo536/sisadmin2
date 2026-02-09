@@ -155,12 +155,12 @@
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
                                     <a href="?ruta=terceros/perfil&id=<?php echo (int) $tercero['id']; ?>" 
-                                       class="btn btn-sm btn-light text-info border-0 bg-transparent" 
+                                       class="btn btn-sm btn-outline-info btn-icon-sm" 
                                        title="Ver Perfil y Documentos">
                                         <i class="bi bi-person-badge fs-5"></i>
                                     </a>
 
-                                    <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" 
+                                    <button class="btn btn-sm btn-outline-primary btn-icon-sm" 
                                             data-bs-toggle="modal" data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
                                             data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona'] ?? 'NATURAL'); ?>"
@@ -214,10 +214,10 @@
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
 
-                                    <form method="post" class="delete-form d-inline m-0" onsubmit="return confirm('¿Eliminar este tercero?');">
+                                    <form method="post" class="delete-form d-inline m-0">
                                         <input type="hidden" name="accion" value="eliminar">
                                         <input type="hidden" name="id" value="<?php echo (int) $tercero['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-sm" title="Eliminar">
                                             <i class="bi bi-trash fs-5"></i>
                                         </button>
                                     </form>
