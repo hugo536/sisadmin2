@@ -376,13 +376,6 @@
         }
     }
 
-    function toggleComercialFields(clienteEl, proveedorEl, containerEl) {
-        if (!containerEl) return;
-        const show = Boolean(clienteEl?.checked || proveedorEl?.checked);
-        containerEl.classList.toggle('d-none', !show); 
-        if (!show) resetFields(containerEl);
-    }
-
     function toggleRegimenFields(regimenEl, form) {
         if(!regimenEl || !form) return;
         const comisionSelect = form.querySelector('[name="tipo_comision_afp"]');
@@ -745,10 +738,14 @@
                 distSelect.disabled = true;
             }
 
-            toggleComercialFields(
+            window.TercerosClientes?.toggleComercialFields(
                 document.getElementById('crearEsCliente'),
                 document.getElementById('crearEsProveedor'),
                 document.getElementById('crearComercialFields')
+            );
+            window.TercerosClientes?.toggleDistribuidorFields(
+                document.getElementById('crearEsDistribuidor'),
+                document.getElementById('crearDistribuidorFields')
             );
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
             togglePagoFields(document.getElementById('crearTipoPago'));
@@ -792,11 +789,13 @@
                 'editObservaciones': 'data-observaciones',
                 
                 // Comercial
-                'editCondicionPago': 'data-condicion-pago',
                 'editClienteDiasCredito': 'data-cliente-dias-credito',
                 'editClienteLimiteCredito': 'data-cliente-limite-credito',
+                'editClienteCondicionPago': 'data-cliente-condicion-pago',
+                'editClienteRutaReparto': 'data-cliente-ruta-reparto',
                 'editProvCondicion': 'data-proveedor-condicion-pago',
                 'editProvDiasCredito': 'data-proveedor-dias-credito',
+                'editProvFormaPago': 'data-proveedor-forma-pago',
 
                 // Laboral
                 'editCargo': 'data-cargo',
@@ -811,7 +810,11 @@
                 'editTipoComision': 'data-tipo-comision-afp',
                 'editCuspp': 'data-cuspp',
                 'editTipoPago': 'data-tipo-pago',
-                'editPagoDiario': 'data-pago-diario'
+                'editPagoDiario': 'data-pago-diario',
+
+                // Distribuidor
+                'editDistribuidorZona': 'data-distribuidor-zona-exclusiva',
+                'editDistribuidorMeta': 'data-distribuidor-meta-volumen'
             };
 
             for (let id in fields) {
@@ -825,7 +828,7 @@
             const asigFam = document.getElementById('editAsignacionFamiliar');
             if (asigFam) asigFam.checked = button.getAttribute('data-asignacion-familiar') === '1';
 
-            ['editEsCliente', 'editEsProveedor', 'editEsEmpleado'].forEach(id => {
+            ['editEsCliente', 'editEsProveedor', 'editEsEmpleado', 'editEsDistribuidor'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.checked = button.getAttribute('data-' + id.replace('edit','').replace(/([A-Z])/g, '-$1').toLowerCase().slice(1)) === '1';
             });
@@ -845,10 +848,14 @@
 
             document.getElementById('editRolesFeedback')?.classList.add('d-none');
             
-            toggleComercialFields(
+            window.TercerosClientes?.toggleComercialFields(
                 document.getElementById('editEsCliente'),
                 document.getElementById('editEsProveedor'),
                 document.getElementById('editComercialFields')
+            );
+            window.TercerosClientes?.toggleDistribuidorFields(
+                document.getElementById('editEsDistribuidor'),
+                document.getElementById('editDistribuidorFields')
             );
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
@@ -889,11 +896,16 @@
             const esCliente = document.getElementById(`${prefix}EsCliente`);
             const esProv = document.getElementById(`${prefix}EsProveedor`);
             const updateCom = () => {
-                toggleComercialFields(esCliente, esProv, document.getElementById(`${prefix}ComercialFields`));
+                window.TercerosClientes?.toggleComercialFields(
+                    esCliente,
+                    esProv,
+                    document.getElementById(`${prefix}ComercialFields`)
+                );
                 refreshValidationOnChange(form, fbId);
             };
             if(esCliente) esCliente.addEventListener('change', updateCom);
             if(esProv) esProv.addEventListener('change', updateCom);
+            window.TercerosClientes?.bindDistribuidorToggle(prefix);
 
             const tipoPago = document.getElementById(`${prefix}TipoPago`);
             if(tipoPago) tipoPago.addEventListener('change', () => {

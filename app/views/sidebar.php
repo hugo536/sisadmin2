@@ -124,6 +124,9 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
+            <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
+                <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
+            </a>
         <?php endif; ?>
 
         <?php if (tiene_permiso('inventario.ver')): ?>
