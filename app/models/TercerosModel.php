@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/terceros/TercerosClientesModel.php';
+require_once __DIR__ . '/terceros/TercerosProveedoresModel.php';
+require_once __DIR__ . '/terceros/TercerosEmpleadosModel.php';
+require_once __DIR__ . '/terceros/DistribuidoresModel.php';
+
 class TercerosModel extends Modelo
 {
     private TercerosClientesModel $clientesModel;
