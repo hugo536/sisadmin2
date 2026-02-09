@@ -202,7 +202,7 @@ class TercerosModel extends Modelo
     }
 
     // ==========================================
-    // SECCIÓN 3: GESTIÓN DE CARGOS Y ÁREAS
+    // SECCIÓN 3: GESTIÓN DE CARGOS Y ÁREAS (CRUD COMPLETO)
     // ==========================================
 
     public function listarCargos(): array
@@ -230,6 +230,18 @@ class TercerosModel extends Modelo
         return (int) $this->db()->lastInsertId();
     }
 
+    // --- MÉTODOS PARA ACTUALIZAR Y ELIMINAR (SOFT DELETE) ---
+    public function actualizarCargo(int $id, string $nombre): bool
+    {
+        return $this->db()->prepare("UPDATE cargos SET nombre = ? WHERE id = ?")->execute([trim($nombre), $id]);
+    }
+
+    public function eliminarCargo(int $id): bool
+    {
+        // No borramos, solo desactivamos (estado = 0)
+        return $this->db()->prepare("UPDATE cargos SET estado = 0 WHERE id = ?")->execute([$id]);
+    }
+
     public function guardarArea(string $nombre): int
     {
         $stmt = $this->db()->prepare("SELECT id FROM areas WHERE nombre = ? LIMIT 1");
@@ -239,6 +251,16 @@ class TercerosModel extends Modelo
         $stmt = $this->db()->prepare("INSERT INTO areas (nombre, estado) VALUES (?, 1)");
         $stmt->execute([trim($nombre)]);
         return (int) $this->db()->lastInsertId();
+    }
+
+    public function actualizarArea(int $id, string $nombre): bool
+    {
+        return $this->db()->prepare("UPDATE areas SET nombre = ? WHERE id = ?")->execute([trim($nombre), $id]);
+    }
+
+    public function eliminarArea(int $id): bool
+    {
+        return $this->db()->prepare("UPDATE areas SET estado = 0 WHERE id = ?")->execute([$id]);
     }
 
     // ==========================================

@@ -75,7 +75,7 @@ class TercerosController extends Controlador
                 }
 
                 // ==========================================
-                // NUEVAS ACCIONES: CARGOS Y ÁREAS
+                // ACCIONES: CARGOS (CRUD)
                 // ==========================================
 
                 if (es_ajax() && $accion === 'listar_cargos') {
@@ -84,19 +84,44 @@ class TercerosController extends Controlador
                     return;
                 }
 
-                if (es_ajax() && $accion === 'listar_areas') {
-                    $data = $this->tercerosModel->listarAreas();
-                    json_response(['ok' => true, 'data' => $data]);
-                    return;
-                }
-
                 if (es_ajax() && $accion === 'guardar_cargo') {
-                    require_permiso('configuracion.editar'); // O permiso específico
+                    require_permiso('configuracion.editar');
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($nombre === '') throw new RuntimeException('El nombre del cargo es obligatorio');
                     
                     $id = $this->tercerosModel->guardarCargo($nombre);
                     json_response(['ok' => true, 'id' => $id, 'nombre' => $nombre, 'mensaje' => 'Cargo guardado']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'editar_cargo') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $nombre = trim((string)($_POST['nombre'] ?? ''));
+                    if ($id <= 0 || $nombre === '') throw new RuntimeException('Datos inválidos');
+                    
+                    $this->tercerosModel->actualizarCargo($id, $nombre);
+                    json_response(['ok' => true, 'mensaje' => 'Cargo actualizado']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'eliminar_cargo') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    if ($id <= 0) throw new RuntimeException('ID inválido');
+                    
+                    $this->tercerosModel->eliminarCargo($id);
+                    json_response(['ok' => true, 'mensaje' => 'Cargo desactivado']);
+                    return;
+                }
+
+                // ==========================================
+                // ACCIONES: ÁREAS (CRUD)
+                // ==========================================
+
+                if (es_ajax() && $accion === 'listar_areas') {
+                    $data = $this->tercerosModel->listarAreas();
+                    json_response(['ok' => true, 'data' => $data]);
                     return;
                 }
 
@@ -110,8 +135,29 @@ class TercerosController extends Controlador
                     return;
                 }
 
+                if (es_ajax() && $accion === 'editar_area') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $nombre = trim((string)($_POST['nombre'] ?? ''));
+                    if ($id <= 0 || $nombre === '') throw new RuntimeException('Datos inválidos');
+                    
+                    $this->tercerosModel->actualizarArea($id, $nombre);
+                    json_response(['ok' => true, 'mensaje' => 'Área actualizada']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'eliminar_area') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    if ($id <= 0) throw new RuntimeException('ID inválido');
+                    
+                    $this->tercerosModel->eliminarArea($id);
+                    json_response(['ok' => true, 'mensaje' => 'Área desactivada']);
+                    return;
+                }
+
                 // ==========================================
-                // NUEVAS ACCIONES: DOCUMENTOS
+                // ACCIONES: DOCUMENTOS
                 // ==========================================
 
                 if ($accion === 'subir_documento') {
@@ -125,7 +171,7 @@ class TercerosController extends Controlador
 
                     $file = $_FILES['archivo'];
                     $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                    $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
+                    $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'doc', 'docx', 'xls', 'xlsx'];
                     
                     if (!in_array($ext, $allowed)) throw new RuntimeException('Formato de archivo no permitido');
 
@@ -187,10 +233,9 @@ class TercerosController extends Controlador
                 }
 
                 // ==========================================
-                // ACCIONES CRUD TERCEROS (Originales)
+                // ACCIONES CRUD TERCEROS
                 // ==========================================
 
-                // ACCIÓN: CREAR
                 if ($accion === 'crear') {
                     require_permiso('terceros.crear');
                     $data = $this->validarTercero($_POST);
@@ -204,7 +249,6 @@ class TercerosController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero registrado correctamente.'];
                 }
 
-                // ACCIÓN: EDITAR
                 if ($accion === 'editar') {
                     require_permiso('terceros.editar');
                     $id = (int) ($_POST['id'] ?? 0);
@@ -221,7 +265,6 @@ class TercerosController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero actualizado correctamente.'];
                 }
 
-                // ACCIÓN: ELIMINAR
                 if ($accion === 'eliminar') {
                     require_permiso('terceros.eliminar');
                     $id = (int) ($_POST['id'] ?? 0);
@@ -232,25 +275,21 @@ class TercerosController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Tercero eliminado correctamente.'];
                 }
 
-                // Respuesta AJAX general
                 if (isset($respuesta) && es_ajax()) {
                     json_response($respuesta);
                     return;
                 }
 
-                // Consulta SUNAT
                 if (es_ajax() && $accion === 'consultar_sunat') {
                     require_permiso('terceros.crear');
                     $ruc = preg_replace('/\D/', '', (string) ($_POST['ruc'] ?? ''));
                     if (strlen($ruc) !== 11) {
                         throw new RuntimeException('RUC inválido.');
                     }
-
                     $simulados = [
                         '20123456789' => ['razon_social' => 'Embotelladora Andina S.A.', 'direccion' => 'Av. Principal 123, Lima'],
                         '20600000001' => ['razon_social' => 'Distribuidora Ejemplo SAC', 'direccion' => 'Jr. Comercio 456, Huanuco'],
                     ];
-
                     $respuestaSunat = $simulados[$ruc] ?? ['razon_social' => '', 'direccion' => ''];
                     json_response(['ok' => true] + $respuestaSunat);
                     return;
@@ -276,7 +315,6 @@ class TercerosController extends Controlador
 
         // Vista principal
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
-        // Cargamos cargos y áreas para pasarlos a la vista principal (modales)
         $cargos = $this->tercerosModel->listarCargos();
         $areas = $this->tercerosModel->listarAreas();
 
@@ -285,8 +323,8 @@ class TercerosController extends Controlador
             'flash'          => $flash,
             'ruta_actual'    => 'tercero',
             'departamentos_list' => $departamentos,
-            'cargos_list'    => $cargos, // Pasamos lista de cargos
-            'areas_list'     => $areas   // Pasamos lista de áreas
+            'cargos_list'    => $cargos,
+            'areas_list'     => $areas
         ]);
     }
 
@@ -310,10 +348,7 @@ class TercerosController extends Controlador
             exit;
         }
 
-        // Obtener documentos
         $documentos = $this->tercerosModel->listarDocumentos($id);
-        
-        // Obtener catálogos para selects dentro del perfil si quisieras editar ahí mismo
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
 
         $this->render('terceros_perfil', [
@@ -332,11 +367,9 @@ class TercerosController extends Controlador
         $nombre        = trim((string) ($data['nombre_completo'] ?? ''));
         $email         = trim((string) ($data['email'] ?? ''));
 
-        // Normalizar número de documento
         $numeroDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
-        // --- CORRECCIÓN UBIGEO ---
         $departamentoId = !empty($data['departamento']) ? (string) $data['departamento'] : '';
         $provinciaId    = !empty($data['provincia'])    ? (string) $data['provincia']    : '';
         $distritoId     = !empty($data['distrito'])     ? (string) $data['distrito']     : '';
@@ -345,7 +378,6 @@ class TercerosController extends Controlador
         $provinciaNombre    = null;
         $distritoNombre     = null;
 
-        // 1. Resolver Nombre Departamento
         if ($departamentoId !== '') {
             $deps = $this->tercerosModel->obtenerDepartamentos();
             foreach ($deps as $d) {
@@ -356,7 +388,6 @@ class TercerosController extends Controlador
             }
         }
 
-        // 2. Resolver Nombre Provincia (si hay depto)
         if ($departamentoId !== '' && $provinciaId !== '') {
             $provs = $this->tercerosModel->obtenerProvincias($departamentoId);
             foreach ($provs as $p) {
@@ -367,7 +398,6 @@ class TercerosController extends Controlador
             }
         }
 
-        // 3. Resolver Nombre Distrito (si hay provincia)
         if ($provinciaId !== '' && $distritoId !== '') {
             $dists = $this->tercerosModel->obtenerDistritos($provinciaId);
             foreach ($dists as $dt) {
@@ -378,7 +408,6 @@ class TercerosController extends Controlador
             }
         }
 
-        // TELÉFONOS
         $telefonos      = $data['telefonos']      ?? [];
         $telefonoTipos  = $data['telefono_tipos'] ?? [];
         
@@ -396,7 +425,6 @@ class TercerosController extends Controlador
         }
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
-        // CUENTAS BANCARIAS
         $cuentasTipo            = $data['cuenta_tipo']            ?? [];
         $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
         $cuentasTipoCta         = $data['cuenta_tipo_cta']        ?? [];
@@ -408,7 +436,6 @@ class TercerosController extends Controlador
         $cuentasBilletera       = $data['cuenta_billetera']       ?? [];
         $cuentasObservaciones   = $data['cuenta_observaciones']   ?? [];
 
-        // Normalizar arrays
         $keys = ['tipo', 'entidad', 'tipo_cta', 'numero', 'cci', 'alias', 'moneda', 'principal', 'billetera', 'observaciones'];
         foreach ($keys as $k) {
             $var = "cuentas" . ucfirst($k);
@@ -444,7 +471,6 @@ class TercerosController extends Controlador
             ];
         }
 
-        // Validaciones generales
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),

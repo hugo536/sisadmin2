@@ -823,58 +823,142 @@
         setup('edit');
     }
 
+    // =========================================================================
+    // LÓGICA DE GESTIÓN DE MAESTROS (CARGOS Y ÁREAS)
+    // =========================================================================
+
     function initMaestrosManagement() {
-        const handleMaestroSubmit = (formId, listId, endpoint, selectsToUpdate) => {
-            const form = document.getElementById(formId);
-            if (!form) return;
+        // Función genérica para configurar Cargo y Área
+        const setupMaestro = (tipo) => { // tipo = 'cargo' o 'area'
+            const Cap = tipo.charAt(0).toUpperCase() + tipo.slice(1); // 'Cargo' o 'Area'
+            const form = document.getElementById(`formCrear${Cap}`);
+            const inputAccion = document.getElementById(`${tipo}Accion`);
+            const inputId = document.getElementById(`${tipo}Id`);
+            const inputNombre = document.getElementById(`${tipo}Nombre`);
+            const btnSave = document.getElementById(`btnSave${Cap}`);
+            const btnCancel = document.getElementById(`btnCancel${Cap}`);
+            const lista = document.getElementById(`lista${Cap}sConfig`); // listaCargosConfig
+            const modal = document.getElementById(`modalGestion${Cap}s`);
 
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const input = form.querySelector('input[type="text"]');
-                const val = input.value.trim();
-                if(!val) return;
+            // 1. Resetear al abrir modal
+            if(modal){
+                modal.addEventListener('show.bs.modal', () => {
+                    resetForm();
+                });
+            }
 
-                const fd = new FormData(form);
-                fetch(window.location.href, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: fd
-                })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.ok) {
-                        // Actualizar lista interna
-                        const list = document.getElementById(listId);
-                        if(list) {
-                            const item = document.createElement('div');
-                            item.className = 'list-group-item d-flex justify-content-between align-items-center';
-                            item.innerHTML = `<span>${res.nombre}</span>`;
-                            list.appendChild(item);
+            // 2. Función Reset
+            const resetForm = () => {
+                if(form) {
+                    form.reset();
+                    if(inputAccion) inputAccion.value = `guardar_${tipo}`;
+                    if(inputId) inputId.value = '';
+                    if(btnSave) {
+                        btnSave.innerHTML = '<i class="bi bi-plus-lg"></i>';
+                        btnSave.classList.remove('btn-warning');
+                        btnSave.classList.add('btn-primary');
+                    }
+                    if(btnCancel) btnCancel.classList.add('d-none');
+                }
+            };
+
+            // 3. Manejar Submit (Crear o Editar)
+            if(form) {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(form);
+                    
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.ok) {
+                            Swal.fire({
+                                title: 'Éxito', 
+                                text: res.mensaje, 
+                                icon: 'success',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 2000
+                            });
+                            
+                            // Recargar la página para actualizar todas las listas y selects
+                            // (Es lo más seguro para sincronizar todo sin complicar el JS)
+                            setTimeout(() => window.location.reload(), 1000);
+                        } else {
+                            Swal.fire('Error', res.mensaje, 'error');
                         }
+                    });
+                });
+            }
 
-                        // Actualizar selects globales
-                        selectsToUpdate.forEach(selId => {
-                            const sel = document.getElementById(selId);
-                            if(sel) {
-                                const opt = document.createElement('option');
-                                opt.value = res.nombre;
-                                opt.textContent = res.nombre;
-                                sel.appendChild(opt);
+            // 4. Manejar Clics en la lista (Editar / Eliminar)
+            if(lista) {
+                lista.addEventListener('click', (e) => {
+                    const btnEdit = e.target.closest('.btn-edit-maestro');
+                    const btnDel = e.target.closest('.btn-del-maestro');
+
+                    // A) MODO EDICIÓN
+                    if (btnEdit) {
+                        const id = btnEdit.dataset.id;
+                        const nombre = btnEdit.dataset.nombre;
+                        
+                        inputAccion.value = `editar_${tipo}`;
+                        inputId.value = id;
+                        inputNombre.value = nombre;
+                        inputNombre.focus();
+                        
+                        btnSave.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        btnSave.classList.remove('btn-primary');
+                        btnSave.classList.add('btn-warning');
+                        btnCancel.classList.remove('d-none');
+                    }
+
+                    // B) MODO ELIMINAR (Soft Delete)
+                    if (btnDel) {
+                        Swal.fire({
+                            title: '¿Desactivar?',
+                            text: "Ya no aparecerá en los listados nuevos.",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#d33',
+                            confirmButtonText: 'Sí, desactivar'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                const fd = new FormData();
+                                fd.append('accion', `eliminar_${tipo}`);
+                                fd.append('id', btnDel.dataset.id);
+
+                                fetch(window.location.href, {
+                                    method: 'POST',
+                                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                    body: fd
+                                })
+                                .then(r => r.json())
+                                .then(res => {
+                                    if(res.ok) {
+                                        btnDel.closest('.list-group-item').remove();
+                                        Swal.fire('Eliminado', res.mensaje, 'success');
+                                    }
+                                });
                             }
                         });
-
-                        input.value = '';
-                        Swal.fire('Guardado', res.mensaje, 'success');
-                    } else {
-                        Swal.fire('Error', res.mensaje || 'Error desconocido', 'error');
                     }
-                })
-                .catch(err => console.error(err));
-            });
+                });
+            }
+
+            // 5. Botón Cancelar Edición
+            if(btnCancel) {
+                btnCancel.addEventListener('click', resetForm);
+            }
         };
 
-        handleMaestroSubmit('formCrearCargo', 'listaCargosConfig', 'guardar_cargo', ['crearCargo', 'editCargo']);
-        handleMaestroSubmit('formCrearArea', 'listaAreasConfig', 'guardar_area', ['crearArea', 'editArea']);
+        setupMaestro('cargo');
+        setupMaestro('area');
     }
 
     function initStatusSwitch() {

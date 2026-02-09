@@ -13,14 +13,16 @@
             <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
         <div class="d-flex gap-2">
-            <!-- Botones de Gestión de Maestros -->
-            <button class="btn btn-outline-secondary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCargos">
-                <i class="bi bi-briefcase me-2"></i>Cargos
+            <!-- Botones de Gestión de Maestros con mejor estilo -->
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCargos">
+                <i class="bi bi-briefcase me-2 text-warning"></i>Cargos
             </button>
-            <button class="btn btn-outline-secondary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionAreas">
-                <i class="bi bi-building me-2"></i>Áreas
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionAreas">
+                <i class="bi bi-building me-2 text-info"></i>Áreas
             </button>
             
+            <div class="vr mx-2"></div>
+
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
                 <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
             </button>
@@ -89,7 +91,6 @@
                             $telefonosExtra = max(count($telefonos) - 1, 0);
                             $cuentasBancarias = $tercero['cuentas_bancarias'] ?? [];
                             
-                            // Helpers para ubigeo
                             $depId = $tercero['departamento_id'] ?? 0;
                             if ($depId == 0 && !empty($tercero['departamento'])) {
                                 foreach ($departamentos_list as $dep) {
@@ -153,7 +154,6 @@
 
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
-                                    <!-- BOTÓN PERFIL / DOCUMENTOS -->
                                     <a href="?ruta=terceros/perfil&id=<?php echo (int) $tercero['id']; ?>" 
                                        class="btn btn-sm btn-light text-info border-0 bg-transparent" 
                                        title="Ver Perfil y Documentos">
@@ -452,7 +452,7 @@
                             </div>
                         </div>
 
-                        <!-- Campos Laborales (COMPLETOS) -->
+                        <!-- Campos Laborales (COMPLETOS Y ACOMODADOS) -->
                         <div class="col-12 laboral-fields d-none" id="crearLaboralFields">
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
@@ -626,7 +626,8 @@
                 <input type="hidden" name="id" id="editId">
                 <div class="modal-body p-4">
                     <div class="row g-3">
-                        <!-- (Copia exacta de la estructura de Crear, pero con IDs 'edit...') -->
+                        <!-- Copia exacta de Crear, pero con IDs 'edit...' -->
+                        
                         <!-- Roles -->
                         <div class="col-12">
                             <div class="border rounded-3 p-3 bg-light">
@@ -989,27 +990,47 @@
     </div>
 </div>
 
-<!-- Modal Gestión de Cargos -->
+<!-- Modal Gestión de Cargos MEJORADO -->
 <div class="modal fade" id="modalGestionCargos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-secondary text-white">
-                <h5 class="modal-title fs-6">Administrar Cargos</h5>
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title mb-0">Administrar Cargos</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="formCrearCargo" class="mb-3">
-                    <input type="hidden" name="accion" value="guardar_cargo">
+                    <input type="hidden" name="accion" value="guardar_cargo" id="cargoAccion">
+                    <input type="hidden" name="id" id="cargoId">
                     <div class="input-group">
-                        <input type="text" class="form-control" name="nombre" placeholder="Nuevo Cargo" required>
-                        <button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i></button>
+                        <input type="text" class="form-control" name="nombre" id="cargoNombre" placeholder="Nuevo Cargo" required>
+                        <button class="btn btn-primary" type="submit" id="btnSaveCargo">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary d-none" type="button" id="btnCancelCargo">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
                 </form>
-                <div class="list-group" id="listaCargosConfig" style="max-height: 300px; overflow-y: auto;">
+                
+                <h6 class="small text-muted fw-bold">Listado Activo</h6>
+                <div class="list-group list-group-flush border rounded" id="listaCargosConfig" style="max-height: 300px; overflow-y: auto;">
                     <?php foreach($cargos_list as $c): ?>
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><?php echo htmlspecialchars($c['nombre']); ?></span>
-                            <!-- Aquí podrías agregar botones para editar/eliminar cargos en el futuro -->
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro">
+                            <span class="text-truncate fw-medium"><?php echo htmlspecialchars($c['nombre']); ?></span>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
+                                        data-tipo="cargo" 
+                                        data-id="<?php echo (int)$c['id']; ?>" 
+                                        data-nombre="<?php echo htmlspecialchars($c['nombre']); ?>">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-light text-danger btn-del-maestro" 
+                                        data-tipo="cargo" 
+                                        data-id="<?php echo (int)$c['id']; ?>">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -1018,26 +1039,47 @@
     </div>
 </div>
 
-<!-- Modal Gestión de Áreas -->
+<!-- Modal Gestión de Áreas MEJORADO -->
 <div class="modal fade" id="modalGestionAreas" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-secondary text-white">
-                <h5 class="modal-title fs-6">Administrar Áreas</h5>
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title mb-0">Administrar Áreas</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="formCrearArea" class="mb-3">
-                    <input type="hidden" name="accion" value="guardar_area">
+                    <input type="hidden" name="accion" value="guardar_area" id="areaAccion">
+                    <input type="hidden" name="id" id="areaId">
                     <div class="input-group">
-                        <input type="text" class="form-control" name="nombre" placeholder="Nueva Área" required>
-                        <button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i></button>
+                        <input type="text" class="form-control" name="nombre" id="areaNombre" placeholder="Nueva Área" required>
+                        <button class="btn btn-primary" type="submit" id="btnSaveArea">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary d-none" type="button" id="btnCancelArea">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
                 </form>
-                <div class="list-group" id="listaAreasConfig" style="max-height: 300px; overflow-y: auto;">
+                
+                <h6 class="small text-muted fw-bold">Listado Activo</h6>
+                <div class="list-group list-group-flush border rounded" id="listaAreasConfig" style="max-height: 300px; overflow-y: auto;">
                     <?php foreach($areas_list as $a): ?>
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><?php echo htmlspecialchars($a['nombre']); ?></span>
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro">
+                            <span class="text-truncate fw-medium"><?php echo htmlspecialchars($a['nombre']); ?></span>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
+                                        data-tipo="area" 
+                                        data-id="<?php echo (int)$a['id']; ?>" 
+                                        data-nombre="<?php echo htmlspecialchars($a['nombre']); ?>">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-light text-danger btn-del-maestro" 
+                                        data-tipo="area" 
+                                        data-id="<?php echo (int)$a['id']; ?>">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
