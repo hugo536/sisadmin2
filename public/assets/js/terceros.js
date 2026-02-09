@@ -741,7 +741,9 @@
             window.TercerosClientes?.toggleComercialFields(
                 document.getElementById('crearEsCliente'),
                 document.getElementById('crearEsProveedor'),
-                document.getElementById('crearComercialFields')
+                document.getElementById('crearComercialFields'),
+                document.getElementById('crearComercialClienteSection'),
+                document.getElementById('crearComercialProveedorSection')
             );
             window.TercerosClientes?.toggleDistribuidorFields(
                 document.getElementById('crearEsDistribuidor'),
@@ -851,7 +853,9 @@
             window.TercerosClientes?.toggleComercialFields(
                 document.getElementById('editEsCliente'),
                 document.getElementById('editEsProveedor'),
-                document.getElementById('editComercialFields')
+                document.getElementById('editComercialFields'),
+                document.getElementById('editComercialClienteSection'),
+                document.getElementById('editComercialProveedorSection')
             );
             window.TercerosClientes?.toggleDistribuidorFields(
                 document.getElementById('editEsDistribuidor'),
@@ -899,7 +903,9 @@
                 window.TercerosClientes?.toggleComercialFields(
                     esCliente,
                     esProv,
-                    document.getElementById(`${prefix}ComercialFields`)
+                    document.getElementById(`${prefix}ComercialFields`),
+                    document.getElementById(`${prefix}ComercialClienteSection`),
+                    document.getElementById(`${prefix}ComercialProveedorSection`)
                 );
                 refreshValidationOnChange(form, fbId);
             };

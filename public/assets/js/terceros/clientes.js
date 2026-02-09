@@ -14,11 +14,27 @@
         });
     }
 
-    function toggleComercialFields(clienteEl, proveedorEl, containerEl) {
+    function toggleComercialFields(clienteEl, proveedorEl, containerEl, clienteSectionEl, proveedorSectionEl) {
         if (!containerEl) return;
-        const show = Boolean(clienteEl?.checked || proveedorEl?.checked);
-        containerEl.classList.toggle('d-none', !show);
-        if (!show) resetFields(containerEl);
+        const showCliente = Boolean(clienteEl?.checked);
+        const showProveedor = Boolean(proveedorEl?.checked);
+        const showAny = showCliente || showProveedor;
+
+        containerEl.classList.toggle('d-none', !showAny);
+        if (!showAny) {
+            resetFields(containerEl);
+            return;
+        }
+
+        if (clienteSectionEl) {
+            clienteSectionEl.classList.toggle('d-none', !showCliente);
+            if (!showCliente) resetFields(clienteSectionEl);
+        }
+
+        if (proveedorSectionEl) {
+            proveedorSectionEl.classList.toggle('d-none', !showProveedor);
+            if (!showProveedor) resetFields(proveedorSectionEl);
+        }
     }
 
     function toggleDistribuidorFields(checkboxEl, containerEl) {
