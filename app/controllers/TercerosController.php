@@ -492,6 +492,10 @@ class TercerosController extends Controlador
             ];
         }
 
+        if (!empty($data['es_distribuidor'])) {
+            $data['es_cliente'] = 1;
+        }
+
         // --- VALIDACIONES BÁSICAS ---
         $roles = [
             !empty($data['es_cliente']),

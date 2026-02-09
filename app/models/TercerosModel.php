@@ -3,6 +3,18 @@ declare(strict_types=1);
 
 class TercerosModel extends Modelo
 {
+    private TercerosClientesModel $clientesModel;
+    private TercerosProveedoresModel $proveedoresModel;
+    private TercerosEmpleadosModel $empleadosModel;
+    private DistribuidoresModel $distribuidoresModel;
+
+    public function __construct()
+    {
+        $this->clientesModel = new TercerosClientesModel();
+        $this->proveedoresModel = new TercerosProveedoresModel();
+        $this->empleadosModel = new TercerosEmpleadosModel();
+        $this->distribuidoresModel = new DistribuidoresModel();
+    }
     // ==========================================
     // SECCIÓN 1: LECTURA DE TERCEROS (Listar/Obtener)
     // ==========================================
@@ -30,11 +42,17 @@ class TercerosModel extends Modelo
                        te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, 
                        te.sueldo_basico, te.moneda, te.asignacion_familiar,
                        te.tipo_pago, te.pago_diario, te.regimen_pensionario, 
-                       te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato
+                       te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato,
+
+                       -- Datos distribuidor
+                       d.zona_exclusiva AS distribuidor_zona_exclusiva,
+                       d.meta_volumen AS distribuidor_meta_volumen,
+                       CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
                 FROM terceros t
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
+                LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
                 ORDER BY t.id DESC";
 
@@ -83,11 +101,17 @@ class TercerosModel extends Modelo
                        te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, 
                        te.sueldo_basico, te.moneda, te.asignacion_familiar,
                        te.tipo_pago, te.pago_diario, te.tipo_contrato, te.fecha_cese,
-                       te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud
+                       te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
+
+                       -- Distribuidor
+                       d.zona_exclusiva AS distribuidor_zona_exclusiva,
+                       d.meta_volumen AS distribuidor_meta_volumen,
+                       CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
                 FROM terceros t
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
+                LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.id = :id AND t.deleted_at IS NULL LIMIT 1";
 
         $stmt = $this->db()->prepare($sql);
@@ -159,13 +183,16 @@ class TercerosModel extends Modelo
 
             // Guardar datos específicos según roles
             if (!empty($payload['es_empleado'])) {
-                $this->guardarEmpleado($idTercero, $payload, $userId);
+                $this->empleadosModel->guardar($idTercero, $payload, $userId);
             }
             if (!empty($payload['es_cliente'])) {
-                $this->guardarCliente($idTercero, $payload, $userId);
+                $this->clientesModel->guardar($idTercero, $payload, $userId);
             }
             if (!empty($payload['es_proveedor'])) {
-                $this->guardarProveedor($idTercero, $payload, $userId);
+                $this->proveedoresModel->guardar($idTercero, $payload, $userId);
+            }
+            if (!empty($payload['es_distribuidor'])) {
+                $this->distribuidoresModel->guardar($idTercero, $payload, $userId);
             }
 
             $this->sincronizarTelefonos($idTercero, $payload['telefonos'] ?? [], $userId);
@@ -209,13 +236,16 @@ class TercerosModel extends Modelo
 
             // Actualizar hijas según roles
             if (!empty($payload['es_empleado'])) {
-                $this->guardarEmpleado($id, $payload, $userId);
+                $this->empleadosModel->guardar($id, $payload, $userId);
             }
             if (!empty($payload['es_cliente'])) {
-                $this->guardarCliente($id, $payload, $userId);
+                $this->clientesModel->guardar($id, $payload, $userId);
             }
             if (!empty($payload['es_proveedor'])) {
-                $this->guardarProveedor($id, $payload, $userId);
+                $this->proveedoresModel->guardar($id, $payload, $userId);
+            }
+            if (!empty($payload['es_distribuidor'])) {
+                $this->distribuidoresModel->guardar($id, $payload, $userId);
             }
 
             $this->sincronizarTelefonos($id, $payload['telefonos'] ?? [], $userId);
@@ -362,87 +392,6 @@ class TercerosModel extends Modelo
     // MÉTODOS PRIVADOS Y HELPERS
     // ==========================================
 
-    private function guardarCliente(int $idTercero, array $data, int $userId): void
-    {
-        $sql = "INSERT INTO terceros_clientes (id_tercero, dias_credito, limite_credito, condicion_pago, ruta_reparto, updated_by)
-                VALUES (:id_tercero, :dias_credito, :limite_credito, :condicion_pago, :ruta_reparto, :updated_by)
-                ON DUPLICATE KEY UPDATE
-                    dias_credito = VALUES(dias_credito),
-                    limite_credito = VALUES(limite_credito),
-                    condicion_pago = VALUES(condicion_pago),
-                    ruta_reparto = VALUES(ruta_reparto),
-                    updated_by = VALUES(updated_by),
-                    updated_at = NOW()";
-        
-        $this->db()->prepare($sql)->execute([
-            'id_tercero'      => $idTercero,
-            'dias_credito'    => (int)($data['cliente_dias_credito'] ?? 0),
-            'limite_credito'  => (float)($data['cliente_limite_credito'] ?? 0),
-            'condicion_pago'  => $data['cliente_condicion_pago'] ?? null,
-            'ruta_reparto'    => $data['cliente_ruta_reparto'] ?? null,
-            'updated_by'      => $userId
-        ]);
-    }
-
-    private function guardarProveedor(int $idTercero, array $data, int $userId): void
-    {
-        $sql = "INSERT INTO terceros_proveedores (id_tercero, dias_credito, condicion_pago, forma_pago, updated_by)
-                VALUES (:id_tercero, :dias_credito, :condicion_pago, :forma_pago, :updated_by)
-                ON DUPLICATE KEY UPDATE
-                    dias_credito = VALUES(dias_credito),
-                    condicion_pago = VALUES(condicion_pago),
-                    forma_pago = VALUES(forma_pago),
-                    updated_by = VALUES(updated_by),
-                    updated_at = NOW()";
-        
-        $this->db()->prepare($sql)->execute([
-            'id_tercero'      => $idTercero,
-            'dias_credito'    => (int)($data['proveedor_dias_credito'] ?? 0),
-            'condicion_pago'  => $data['proveedor_condicion_pago'] ?? null,
-            'forma_pago'      => $data['proveedor_forma_pago'] ?? null,
-            'updated_by'      => $userId
-        ]);
-    }
-
-    private function guardarEmpleado(int $idTercero, array $data, int $userId): void
-    {
-        $sql = "INSERT INTO terceros_empleados (id_tercero, cargo, area, fecha_ingreso, fecha_cese, estado_laboral, 
-                                            tipo_contrato, sueldo_basico, moneda, asignacion_familiar,
-                                            tipo_pago, pago_diario, regimen_pensionario, tipo_comision_afp, cuspp, essalud, updated_by)
-                VALUES (:id_tercero, :cargo, :area, :fecha_ingreso, :fecha_cese, :estado_laboral, 
-                        :tipo_contrato, :sueldo_basico, :moneda, :asignacion_familiar,
-                        :tipo_pago, :pago_diario, :regimen_pensionario, :tipo_comision_afp, :cuspp, :essalud, :updated_by)
-                ON DUPLICATE KEY UPDATE
-                    cargo = VALUES(cargo), area = VALUES(area), 
-                    fecha_ingreso = VALUES(fecha_ingreso), fecha_cese = VALUES(fecha_cese),
-                    estado_laboral = VALUES(estado_laboral), tipo_contrato = VALUES(tipo_contrato),
-                    sueldo_basico = VALUES(sueldo_basico), moneda = VALUES(moneda), asignacion_familiar = VALUES(asignacion_familiar),
-                    tipo_pago = VALUES(tipo_pago), pago_diario = VALUES(pago_diario),
-                    regimen_pensionario = VALUES(regimen_pensionario), tipo_comision_afp = VALUES(tipo_comision_afp),
-                    cuspp = VALUES(cuspp), essalud = VALUES(essalud),
-                    updated_by = VALUES(updated_by), updated_at = NOW()";
-        
-        $this->db()->prepare($sql)->execute([
-            'id_tercero'      => $idTercero,
-            'cargo'           => $data['cargo'] ?? null,
-            'area'            => $data['area'] ?? null,
-            'fecha_ingreso'   => $data['fecha_ingreso'] ?? null,
-            'fecha_cese'      => $data['fecha_cese'] ?? null,
-            'estado_laboral'  => $data['estado_laboral'] ?? 'activo',
-            'tipo_contrato'   => $data['tipo_contrato'] ?? null,
-            'sueldo_basico'   => (float)($data['sueldo_basico'] ?? 0),
-            'moneda'          => $data['moneda'] ?? 'PEN',
-            'asignacion_familiar' => !empty($data['asignacion_familiar']) ? 1 : 0,
-            'tipo_pago'       => $data['tipo_pago'] ?? null,
-            'pago_diario'     => (float)($data['pago_diario'] ?? 0),
-            'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
-            'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
-            'cuspp'           => $data['cuspp'] ?? null,
-            'essalud'         => !empty($data['essalud']) ? 1 : 0,
-            'updated_by'      => $userId
-        ]);
-    }
-
     private function filtrarParamsTercero(array $payload): array
     {
         return [
@@ -482,6 +431,12 @@ class TercerosModel extends Modelo
             }
         }
 
+        $esDistribuidor = !empty($data['es_distribuidor']) ? 1 : 0;
+        $esCliente = !empty($data['es_cliente']) ? 1 : 0;
+        if ($esDistribuidor) {
+            $esCliente = 1;
+        }
+
         return [
             'tipo_persona'     => trim((string)($data['tipo_persona'] ?? 'NATURAL')),
             'tipo_documento'   => trim((string)($data['tipo_documento'] ?? '')),
@@ -495,9 +450,10 @@ class TercerosModel extends Modelo
             'distrito'         => !empty($data['distrito'])     ? (string)$data['distrito']     : null,
             'rubro_sector'     => trim((string)($data['rubro_sector'] ?? '')),
             'observaciones'    => trim((string)($data['observaciones'] ?? '')),
-            'es_cliente'       => !empty($data['es_cliente'])   ? 1 : 0,
+            'es_cliente'       => $esCliente,
             'es_proveedor'     => !empty($data['es_proveedor']) ? 1 : 0,
             'es_empleado'      => !empty($data['es_empleado'])  ? 1 : 0,
+            'es_distribuidor'  => $esDistribuidor,
             'estado'           => isset($data['estado']) ? (int)$data['estado'] : 1,
             
             // Campos cliente
@@ -527,6 +483,10 @@ class TercerosModel extends Modelo
             'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
             'cuspp'           => $data['cuspp'] ?? null,
             'essalud'         => !empty($data['essalud']) ? 1 : 0,
+
+            // Distribuidores
+            'distribuidor_zona_exclusiva' => trim((string)($data['distribuidor_zona_exclusiva'] ?? '')),
+            'distribuidor_meta_volumen'   => (float)($data['distribuidor_meta_volumen'] ?? 0),
             
             'telefonos'         => $listaTelefonos,
             'cuentas_bancarias' => $data['cuentas_bancarias'] ?? $data['cuentas_bancarias_list'] ?? []

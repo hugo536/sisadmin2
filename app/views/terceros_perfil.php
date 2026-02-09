@@ -7,6 +7,7 @@ $docs = $documentos ?? [];
 $esEmpleado = (int)($t['es_empleado'] ?? 0);
 $esCliente = (int)($t['es_cliente'] ?? 0);
 $esProveedor = (int)($t['es_proveedor'] ?? 0);
+$esDistribuidor = (int)($t['es_distribuidor'] ?? 0);
 
 // Helper para mostrar texto vacío
 function showVal($val, $suffix = '') {
@@ -53,6 +54,7 @@ function showVal($val, $suffix = '') {
                     
                     <div class="d-flex justify-content-center gap-2 mb-4 flex-wrap">
                         <?php if ($esCliente): ?><span class="badge bg-info text-dark">Cliente</span><?php endif; ?>
+                        <?php if ($esDistribuidor): ?><span class="badge bg-primary">Distribuidor</span><?php endif; ?>
                         <?php if ($esProveedor): ?><span class="badge bg-warning text-dark">Proveedor</span><?php endif; ?>
                         <?php if ($esEmpleado): ?><span class="badge bg-success">Empleado</span><?php endif; ?>
                     </div>
@@ -110,6 +112,11 @@ function showVal($val, $suffix = '') {
                             <button class="nav-link rounded-pill" id="com-tab" data-bs-toggle="tab" data-bs-target="#tab-com" type="button" role="tab">Datos Comerciales</button>
                         </li>
                         <?php endif; ?>
+                        <?php if ($esDistribuidor): ?>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded-pill" id="dist-tab" data-bs-toggle="tab" data-bs-target="#tab-dist" type="button" role="tab">Distribuidor</button>
+                        </li>
+                        <?php endif; ?>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link rounded-pill bg-primary bg-opacity-10 text-primary" id="docs-tab" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button" role="tab">
                                 <i class="bi bi-folder2-open me-2"></i>Documentos Digitales
@@ -165,6 +172,26 @@ function showVal($val, $suffix = '') {
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Ingreso</label><div><?php echo showVal($t['fecha_ingreso']); ?></div></div>
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo</label><div class="fw-bold"><?php echo ($t['moneda']??'PEN')==='USD'?'$':'S/'; ?> <?php echo number_format((float)($t['sueldo_basico']??0),2); ?></div></div>
                                 <div class="col-md-4"><label class="text-muted small fw-bold">AFP/ONP</label><div><?php echo showVal(str_replace('_',' ',$t['regimen_pensionario']??'')); ?></div></div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if ($esDistribuidor): ?>
+                        <div class="tab-pane fade p-4" id="tab-dist" role="tabpanel">
+                            <h6 class="fw-bold text-primary mb-4 pb-2 border-bottom">Información de Distribuidor</h6>
+                            <div class="row g-4">
+                                <div class="col-md-8">
+                                    <div class="p-3 border rounded bg-light h-100">
+                                        <small class="text-muted d-block mb-1">Zona exclusiva</small>
+                                        <div class="fw-bold"><?php echo showVal($t['distribuidor_zona_exclusiva'] ?? ''); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded bg-light h-100">
+                                        <small class="text-muted d-block mb-1">Meta de volumen</small>
+                                        <div class="fw-bold"><?php echo number_format((float)($t['distribuidor_meta_volumen'] ?? 0), 2); ?></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <?php endif; ?>

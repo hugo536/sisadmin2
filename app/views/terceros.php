@@ -42,6 +42,7 @@
                     <select class="form-select bg-light" id="terceroFiltroRol">
                         <option value="">Todos los roles</option>
                         <option value="CLIENTE">Cliente</option>
+                        <option value="DISTRIBUIDOR">Distribuidor</option>
                         <option value="PROVEEDOR">Proveedor</option>
                         <option value="EMPLEADO">Empleado</option>
                     </select>
@@ -77,6 +78,7 @@
                         <?php
                             $roles = [];
                             if ((int) $tercero['es_cliente'] === 1) $roles[] = 'CLIENTE';
+                            if ((int) ($tercero['es_distribuidor'] ?? 0) === 1) $roles[] = 'DISTRIBUIDOR';
                             if ((int) $tercero['es_proveedor'] === 1) $roles[] = 'PROVEEDOR';
                             if ((int) $tercero['es_empleado'] === 1) $roles[] = 'EMPLEADO';
                             $rolesFiltro = implode('|', $roles);
@@ -180,14 +182,13 @@
                                             data-distrito-nombre="<?php echo htmlspecialchars($tercero['distrito'] ?? ''); ?>"
                                             data-observaciones="<?php echo htmlspecialchars($tercero['observaciones'] ?? ''); ?>"
                                             
-                                            data-condicion-pago="<?php echo htmlspecialchars($tercero['condicion_pago'] ?? ''); ?>"
-                                            data-dias-credito="<?php echo (int) ($tercero['dias_credito'] ?? 0); ?>"
-                                            data-limite-credito="<?php echo (float) ($tercero['limite_credito'] ?? 0); ?>"
-                                            
                                             data-cliente-dias-credito="<?php echo (int) ($tercero['cliente_dias_credito'] ?? 0); ?>"
                                             data-cliente-limite-credito="<?php echo (float) ($tercero['cliente_limite_credito'] ?? 0); ?>"
+                                            data-cliente-condicion-pago="<?php echo htmlspecialchars($tercero['cliente_condicion_pago'] ?? ''); ?>"
+                                            data-cliente-ruta-reparto="<?php echo htmlspecialchars($tercero['cliente_ruta_reparto'] ?? ''); ?>"
                                             data-proveedor-condicion-pago="<?php echo htmlspecialchars($tercero['proveedor_condicion_pago'] ?? ''); ?>"
                                             data-proveedor-dias-credito="<?php echo (int) ($tercero['proveedor_dias_credito'] ?? 0); ?>"
+                                            data-proveedor-forma-pago="<?php echo htmlspecialchars($tercero['proveedor_forma_pago'] ?? ''); ?>"
                                             
                                             /* DATOS LABORALES COMPLETOS */
                                             data-cargo="<?php echo htmlspecialchars($tercero['cargo'] ?? ''); ?>"
@@ -210,6 +211,9 @@
                                             data-es-cliente="<?php echo (int) $tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int) $tercero['es_empleado']; ?>"
+                                            data-es-distribuidor="<?php echo (int) ($tercero['es_distribuidor'] ?? 0); ?>"
+                                            data-distribuidor-zona-exclusiva="<?php echo htmlspecialchars($tercero['distribuidor_zona_exclusiva'] ?? ''); ?>"
+                                            data-distribuidor-meta-volumen="<?php echo htmlspecialchars((string) ($tercero['distribuidor_meta_volumen'] ?? '')); ?>"
                                             
                                             data-telefonos="<?php echo htmlspecialchars(json_encode($telefonos, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-cuentas-bancarias="<?php echo htmlspecialchars(json_encode($cuentasBancarias, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>"
@@ -409,48 +413,12 @@
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
                             <div class="row g-3">
                                 <div class="col-md-6 border-end">
-                                    <h6 class="small text-muted fw-bold mb-2">CLIENTE</h6>
-                                    <div class="row g-2">
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" class="form-control" name="cliente_dias_credito" id="crearClienteDiasCredito" min="0" placeholder="0">
-                                                <label for="crearClienteDiasCredito">Días Crédito (Cliente)</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" step="0.01" class="form-control" name="cliente_limite_credito" id="crearClienteLimiteCredito" min="0" placeholder="0.00">
-                                                <label for="crearClienteLimiteCredito">Límite Crédito (S/)</label>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <?php $prefix = 'crear'; ?>
+                                    <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
                                 </div>
                                 <div class="col-md-6">
-                                    <h6 class="small text-muted fw-bold mb-2">PROVEEDOR</h6>
-                                    <div class="row g-2">
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <select class="form-select" name="proveedor_condicion_pago" id="crearProvCondicion">
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="contado">Contado</option>
-                                                    <option value="credito">Crédito</option>
-                                                </select>
-                                                <label for="crearProvCondicion">Condición Pago</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" class="form-control" name="proveedor_dias_credito" id="crearProvDiasCredito" min="0" placeholder="0">
-                                                <label for="crearProvDiasCredito">Días Crédito (Proveedor)</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-12 mt-2">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="condicion_pago" id="crearCondicionPago" placeholder="Condición general">
-                                        <label for="crearCondicionPago">Condición de pago (General)</label>
-                                    </div>
+                                    <?php $prefix = 'crear'; ?>
+                                    <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
@@ -458,158 +426,8 @@
                         <!-- Campos Laborales (COMPLETOS Y ACOMODADOS) -->
                         <div class="col-12 laboral-fields d-none" id="crearLaboralFields">
                             <hr class="my-3">
-                            <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
-                            <div class="row g-3">
-                                <!-- FILA 1 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="cargo" id="crearCargo">
-                                            <option value="" disabled selected>Seleccione Cargo...</option>
-                                            <?php if(empty($cargos_list)): ?>
-                                                <option value="" disabled>-- No hay cargos registrados --</option>
-                                            <?php else: ?>
-                                                <?php foreach($cargos_list as $c): ?>
-                                                    <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
-                                        </select>
-                                        <label for="crearCargo">Cargo <span class="text-danger">*</span></label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="area" id="crearArea">
-                                            <option value="" disabled selected>Seleccione Área...</option>
-                                            <?php if(empty($areas_list)): ?>
-                                                <option value="" disabled>-- No hay áreas registradas --</option>
-                                            <?php else: ?>
-                                                <?php foreach($areas_list as $a): ?>
-                                                    <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
-                                        </select>
-                                        <label for="crearArea">Área <span class="text-danger">*</span></label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_contrato" id="crearTipoContrato">
-                                            <option value="">Seleccionar...</option>
-                                            <option value="INDETERMINADO">Indeterminado</option>
-                                            <option value="PLAZO_FIJO">Plazo Fijo</option>
-                                            <option value="PART_TIME">Part-Time</option>
-                                            <option value="LOCACION">Locación de Servicios</option>
-                                            <option value="PRACTICANTE">Practicante</option>
-                                        </select>
-                                        <label for="crearTipoContrato">Tipo de Contrato</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 2 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="date" class="form-control" name="fecha_ingreso" id="crearFechaIngreso">
-                                        <label for="crearFechaIngreso">Fecha de Ingreso</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="date" class="form-control" name="fecha_cese" id="crearFechaCese">
-                                        <label for="crearFechaCese">Fecha de Cese</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="estado_laboral" id="crearEstadoLaboral">
-                                            <option value="activo">Activo</option>
-                                            <option value="cesado">Cesado</option>
-                                            <option value="suspendido">Suspendido</option>
-                                        </select>
-                                        <label for="crearEstadoLaboral">Estado Laboral</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 3 (Ajuste de anchos para Switch) -->
-                                <div class="col-md-3">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="moneda" id="crearMoneda">
-                                            <option value="PEN">S/ (Soles)</option>
-                                            <option value="USD">$ (Dólares)</option>
-                                        </select>
-                                        <label for="crearMoneda">Moneda</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="crearSueldoBasico" placeholder="0.00">
-                                        <label for="crearSueldoBasico">Sueldo Básico</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-5">
-                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="crearAsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
-                                        <label class="form-check-label small lh-1" for="crearAsignacionFamiliar">Asignación Familiar (Hijos)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 4 -->
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_pago" id="crearTipoPago">
-                                            <option value="">Seleccionar...</option>
-                                            <option value="MENSUAL">Mensual</option>
-                                            <option value="QUINCENAL">Quincenal</option>
-                                            <option value="DIARIO">Diario</option>
-                                        </select>
-                                        <label for="crearTipoPago">Frecuencia Pago</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="pago_diario" id="crearPagoDiario" placeholder="0.00">
-                                        <label for="crearPagoDiario">Pago Diario (si aplica)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 5 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="regimen_pensionario" id="crearRegimen">
-                                            <option value="">Ninguno</option>
-                                            <option value="ONP">ONP</option>
-                                            <option value="AFP_INTEGRA">AFP Integra</option>
-                                            <option value="AFP_PRIMA">AFP Prima</option>
-                                            <option value="AFP_PROFUTURO">AFP Profuturo</option>
-                                            <option value="AFP_HABITAT">AFP Habitat</option>
-                                        </select>
-                                        <label for="crearRegimen">Régimen Pensionario</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_comision_afp" id="crearTipoComision">
-                                            <option value="">No Aplica</option>
-                                            <option value="FLUJO">Comisión sobre Flujo</option>
-                                            <option value="MIXTA">Comisión Mixta/Saldo</option>
-                                        </select>
-                                        <label for="crearTipoComision">Tipo Comisión AFP</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="cuspp" id="crearCuspp" placeholder="CUSPP">
-                                        <label for="crearCuspp">CUSPP (Código AFP)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 6 -->
-                                <div class="col-md-12">
-                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="crearEssalud" name="essalud" value="1" style="margin-top: 0;">
-                                        <label class="form-check-label small" for="crearEssalud">Aportante EsSalud (9%)</label>
-                                    </div>
-                                </div>
-                            </div>
+                            <?php $prefix = 'crear'; ?>
+                            <?php require __DIR__ . '/terceros/empleados_form.php'; ?>
                         </div>
                     </div>
                 </div>
@@ -793,48 +611,12 @@
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
                             <div class="row g-3">
                                 <div class="col-md-6 border-end">
-                                    <h6 class="small text-muted fw-bold mb-2">CLIENTE</h6>
-                                    <div class="row g-2">
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" class="form-control" name="cliente_dias_credito" id="editClienteDiasCredito" min="0" placeholder="0">
-                                                <label for="editClienteDiasCredito">Días Crédito (Cliente)</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" step="0.01" class="form-control" name="cliente_limite_credito" id="editClienteLimiteCredito" min="0" placeholder="0.00">
-                                                <label for="editClienteLimiteCredito">Límite Crédito (S/)</label>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <?php $prefix = 'edit'; ?>
+                                    <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
                                 </div>
                                 <div class="col-md-6">
-                                    <h6 class="small text-muted fw-bold mb-2">PROVEEDOR</h6>
-                                    <div class="row g-2">
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <select class="form-select" name="proveedor_condicion_pago" id="editProvCondicion">
-                                                    <option value="">Seleccionar...</option>
-                                                    <option value="contado">Contado</option>
-                                                    <option value="credito">Crédito</option>
-                                                </select>
-                                                <label for="editProvCondicion">Condición Pago</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="form-floating">
-                                                <input type="number" class="form-control" name="proveedor_dias_credito" id="editProvDiasCredito" min="0" placeholder="0">
-                                                <label for="editProvDiasCredito">Días Crédito (Proveedor)</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-12 mt-2">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="condicion_pago" id="editCondicionPago" placeholder="Condición general">
-                                        <label for="editCondicionPago">Condición de pago (General)</label>
-                                    </div>
+                                    <?php $prefix = 'edit'; ?>
+                                    <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
@@ -842,158 +624,8 @@
                         <!-- Campos Laborales (REDISEÑADO) -->
                         <div class="col-12 laboral-fields d-none" id="editLaboralFields">
                             <hr class="my-3">
-                            <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
-                            <div class="row g-3">
-                                <!-- FILA 1 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="cargo" id="editCargo">
-                                            <option value="" disabled selected>Seleccione Cargo...</option>
-                                            <?php if(empty($cargos_list)): ?>
-                                                <option value="" disabled>-- No hay cargos registrados --</option>
-                                            <?php else: ?>
-                                                <?php foreach($cargos_list as $c): ?>
-                                                    <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
-                                        </select>
-                                        <label for="editCargo">Cargo <span class="text-danger">*</span></label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="area" id="editArea">
-                                            <option value="" disabled selected>Seleccione Área...</option>
-                                            <?php if(empty($areas_list)): ?>
-                                                <option value="" disabled>-- No hay áreas registradas --</option>
-                                            <?php else: ?>
-                                                <?php foreach($areas_list as $a): ?>
-                                                    <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
-                                        </select>
-                                        <label for="editArea">Área <span class="text-danger">*</span></label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_contrato" id="editTipoContrato">
-                                            <option value="">Seleccionar...</option>
-                                            <option value="INDETERMINADO">Indeterminado</option>
-                                            <option value="PLAZO_FIJO">Plazo Fijo</option>
-                                            <option value="PART_TIME">Part-Time</option>
-                                            <option value="LOCACION">Locación de Servicios</option>
-                                            <option value="PRACTICANTE">Practicante</option>
-                                        </select>
-                                        <label for="editTipoContrato">Tipo de Contrato</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 2 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="date" class="form-control" name="fecha_ingreso" id="editFechaIngreso">
-                                        <label for="editFechaIngreso">Fecha de Ingreso</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="date" class="form-control" name="fecha_cese" id="editFechaCese">
-                                        <label for="editFechaCese">Fecha de Cese</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="estado_laboral" id="editEstadoLaboral">
-                                            <option value="activo">Activo</option>
-                                            <option value="cesado">Cesado</option>
-                                            <option value="suspendido">Suspendido</option>
-                                        </select>
-                                        <label for="editEstadoLaboral">Estado Laboral</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 3 (Ajuste de anchos para Switch) -->
-                                <div class="col-md-3">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="moneda" id="editMoneda">
-                                            <option value="PEN">S/ (Soles)</option>
-                                            <option value="USD">$ (Dólares)</option>
-                                        </select>
-                                        <label for="editMoneda">Moneda</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="sueldo_basico" id="editSueldoBasico" placeholder="0.00">
-                                        <label for="editSueldoBasico">Sueldo Básico</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-5">
-                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="editAsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
-                                        <label class="form-check-label small lh-1" for="editAsignacionFamiliar">Asignación Familiar (Hijos)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 4 -->
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_pago" id="editTipoPago">
-                                            <option value="">Seleccionar...</option>
-                                            <option value="MENSUAL">Mensual</option>
-                                            <option value="QUINCENAL">Quincenal</option>
-                                            <option value="DIARIO">Diario</option>
-                                        </select>
-                                        <label for="editTipoPago">Frecuencia Pago</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        <input type="number" step="0.01" class="form-control" name="pago_diario" id="editPagoDiario" placeholder="0.00">
-                                        <label for="editPagoDiario">Pago Diario (si aplica)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 5 -->
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="regimen_pensionario" id="editRegimen">
-                                            <option value="">Ninguno</option>
-                                            <option value="ONP">ONP</option>
-                                            <option value="AFP_INTEGRA">AFP Integra</option>
-                                            <option value="AFP_PRIMA">AFP Prima</option>
-                                            <option value="AFP_PROFUTURO">AFP Profuturo</option>
-                                            <option value="AFP_HABITAT">AFP Habitat</option>
-                                        </select>
-                                        <label for="editRegimen">Régimen Pensionario</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="tipo_comision_afp" id="editTipoComision">
-                                            <option value="">No Aplica</option>
-                                            <option value="FLUJO">Comisión sobre Flujo</option>
-                                            <option value="MIXTA">Comisión Mixta/Saldo</option>
-                                        </select>
-                                        <label for="editTipoComision">Tipo Comisión AFP</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="cuspp" id="editCuspp" placeholder="CUSPP">
-                                        <label for="editCuspp">CUSPP (Código AFP)</label>
-                                    </div>
-                                </div>
-
-                                <!-- FILA 6 -->
-                                <div class="col-md-12">
-                                    <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="editEssalud" name="essalud" value="1" style="margin-top: 0;">
-                                        <label class="form-check-label small" for="editEssalud">Aportante EsSalud (9%)</label>
-                                    </div>
-                                </div>
-                            </div>
+                            <?php $prefix = 'edit'; ?>
+                            <?php require __DIR__ . '/terceros/empleados_form.php'; ?>
                         </div>
                     </div>
                 </div>
@@ -1106,4 +738,8 @@
     </div>
 </div>
 
+<script src="<?php echo asset_url('js/terceros/clientes.js'); ?>"></script>
+<script src="<?php echo asset_url('js/terceros/proveedores.js'); ?>"></script>
+<script src="<?php echo asset_url('js/terceros/empleados.js'); ?>"></script>
+<script src="<?php echo asset_url('js/terceros/distribuidores.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros.js'); ?>"></script>
