@@ -412,11 +412,11 @@
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
                             <div class="row g-3">
-                                <div class="col-md-6 border-end">
+                                <div class="col-md-6 border-end" id="crearComercialClienteSection">
                                     <?php $prefix = 'crear'; ?>
                                     <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6" id="crearComercialProveedorSection">
                                     <?php $prefix = 'crear'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
@@ -610,11 +610,11 @@
                             <hr class="my-3">
                             <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
                             <div class="row g-3">
-                                <div class="col-md-6 border-end">
+                                <div class="col-md-6 border-end" id="editComercialClienteSection">
                                     <?php $prefix = 'edit'; ?>
                                     <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6" id="editComercialProveedorSection">
                                     <?php $prefix = 'edit'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
