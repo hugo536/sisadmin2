@@ -81,3 +81,16 @@ CREATE TABLE terceros_cuentas_bancarias (
     CONSTRAINT fk_terceros_cuentas_tercero
         FOREIGN KEY (tercero_id) REFERENCES terceros (id)
 );
+
+CREATE TABLE distribuidores (
+    id_tercero INT UNSIGNED PRIMARY KEY,
+    zona_exclusiva VARCHAR(120) DEFAULT NULL,
+    meta_volumen DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    created_by INT DEFAULT NULL,
+    updated_by INT DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    CONSTRAINT fk_distribuidores_tercero
+        FOREIGN KEY (id_tercero) REFERENCES terceros (id)
+);
