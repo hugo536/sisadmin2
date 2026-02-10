@@ -489,7 +489,7 @@ class TercerosModel extends Modelo
             'es_proveedor'     => !empty($data['es_proveedor']) ? 1 : 0,
             'es_empleado'      => !empty($data['es_empleado'])  ? 1 : 0,
             'es_distribuidor'  => $esDistribuidor,
-            'estado'           => isset($data['estado']) ? (int)$data['estado'] : 1,
+            'estado'           => ((int)($data['estado'] ?? 1) === 1) ? 1 : 0,
             
             // Campos cliente
             'cliente_dias_credito'     => (int)($data['cliente_dias_credito'] ?? 0),
@@ -623,7 +623,7 @@ class TercerosModel extends Modelo
     public function actualizarEstado(int $id, int $estado, int $userId): bool
     {
         $sql = 'UPDATE terceros SET estado = :estado, updated_by = :updated_by WHERE id = :id AND deleted_at IS NULL';
-        return $this->db()->prepare($sql)->execute(['id' => $id, 'estado' => $estado, 'updated_by' => $userId]);
+        return $this->db()->prepare($sql)->execute(['id' => $id, 'estado' => $estado === 1 ? 1 : 0, 'updated_by' => $userId]);
     }
 
     private function buscarPorDocumento(string $tipo, string $numero): array

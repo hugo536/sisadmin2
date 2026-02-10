@@ -865,6 +865,7 @@
                 'editEmail': 'data-email',
                 'editObservaciones': 'data-observaciones',
                 'editRepresentanteLegal': 'data-representante-legal',
+                'editEstado': 'data-estado',
                 
                 // Comercial
                 'editClienteDiasCredito': 'data-cliente-dias-credito',
