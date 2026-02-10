@@ -497,12 +497,21 @@ class TercerosController extends Controlador
         $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
         $cuentasTipoCta         = $data['cuenta_tipo_cuenta']     ?? $data['cuenta_tipo_cta'] ?? [];
         $cuentasNumero          = $data['cuenta_numero']          ?? [];
-        $cuentasCci             = $data['cuenta_cci']             ?? [];  
+        $cuentasCci             = $data['cuenta_cci']             ?? [];
         $cuentasAlias           = $data['cuenta_alias']           ?? [];
         $cuentasMoneda          = $data['cuenta_moneda']          ?? [];
         $cuentasPrincipal       = $data['cuenta_principal']       ?? [];
         $cuentasBilletera       = $data['cuenta_billetera']       ?? [];
         $cuentasObservaciones   = $data['cuenta_observaciones']   ?? [];
+
+        $normalizarTipoEntidad = static function ($tipoRaw): string {
+            $tipo = mb_strtolower(trim((string) $tipoRaw));
+            if ($tipo === 'banco') return 'Banco';
+            if ($tipo === 'caja') return 'Caja';
+            if ($tipo === 'billetera' || $tipo === 'billetera digital') return 'Billetera Digital';
+            if ($tipo === 'cooperativa' || $tipo === 'otro' || $tipo === 'otros') return 'Otros';
+            return 'Banco';
+        };
 
         $toArray = static function ($value): array {
             return is_array($value) ? $value : [$value];
@@ -526,25 +535,54 @@ class TercerosController extends Controlador
             $entidad   = trim((string) ($cuentasEntidad[$i] ?? ''));
             $cci       = trim((string) ($cuentasCci[$i] ?? ''));
             $alias     = trim((string) ($cuentasAlias[$i] ?? ''));
-            $numero    = trim((string) ($cuentasNumero[$i] ?? ''));
+            $numeroCuenta = trim((string) ($cuentasNumero[$i] ?? ''));
 
-            if ($entidad === '' && $cci === '' && $alias === '' && $numero === '') continue;
-
+            if ($entidad === '' && $cci === '' && $alias === '' && $numeroCuenta === '') continue;
             if ($entidad === '') {
                 throw new Exception("Indique la entidad/billetera en la cuenta #" . ($i + 1));
             }
 
+            $tipoEntidad = $normalizarTipoEntidad($cuentasTipo[$i] ?? 'Banco');
+            $esBilletera = $tipoEntidad === 'Billetera Digital';
+            $numeroDigits = preg_replace('/\D+/', '', $numeroCuenta);
+            $cciDigits = preg_replace('/\D+/', '', $cci);
+
+            if ($esBilletera) {
+                if ($cciDigits === '' && $numeroDigits !== '') {
+                    $cciDigits = $numeroDigits;
+                }
+                if (!preg_match('/^\d{9}$/', $cciDigits)) {
+                    throw new Exception("Cuenta #" . ($i + 1) . ": para billetera digital ingrese un número de teléfono de 9 dígitos.");
+                }
+                $cci = $cciDigits;
+                $numeroCuenta = $numeroDigits;
+            } else {
+                if ($cciDigits === '' && $numeroDigits === '') {
+                    throw new Exception("Cuenta #" . ($i + 1) . ": ingrese CCI o número de cuenta.");
+                }
+                if ($cciDigits !== '' && strlen($cciDigits) !== 20 && strlen($cciDigits) < 6) {
+                    throw new Exception("Cuenta #" . ($i + 1) . ": el CCI debe tener 20 dígitos o use número de cuenta.");
+                }
+                $cci = $cciDigits !== '' ? $cciDigits : $cci;
+                $numeroCuenta = $numeroDigits !== '' ? $numeroDigits : $numeroCuenta;
+            }
+
+            $tipoCuenta = trim((string) ($cuentasTipoCta[$i] ?? ''));
+            if ($esBilletera && $tipoCuenta === '') {
+                $tipoCuenta = 'N/A';
+            }
+
             $cuentasNormalizadas[] = [
-                'tipo'              => trim((string) ($cuentasTipo[$i] ?? '')),
+                'tipo'              => $tipoEntidad,
                 'entidad'           => $entidad,
-                'tipo_cta'          => trim((string) ($cuentasTipoCta[$i] ?? '')),
-                'tipo_cuenta'       => trim((string) ($cuentasTipoCta[$i] ?? '')),
-                'numero_cuenta'     => $numero,
-                'cci'               => $cci,                              
+                'tipo_cta'          => $tipoCuenta,
+                'tipo_cuenta'       => $tipoCuenta,
+                'numero_cuenta'     => $numeroCuenta,
+                'cci'               => $cci,
                 'alias'             => $alias,
                 'moneda'            => in_array($cuentasMoneda[$i] ?? 'PEN', ['PEN', 'USD']) ? $cuentasMoneda[$i] : 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
-                'billetera_digital' => !empty($cuentasBilletera[$i]) ? 1 : 0,
+                'billetera_digital' => $esBilletera ? 1 : 0,
                 'observaciones'     => trim((string) ($cuentasObservaciones[$i] ?? ''))
             ];
         }
