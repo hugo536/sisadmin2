@@ -447,7 +447,6 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newMoneda">Moneda</label>
                     </div>
-                    <div class="col-md-3"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div></div>
                     <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000"><label for="newPrecio">Precio venta</label></div></div>
                     <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000"><label for="newCosto">Costo referencial</label></div></div>
                     <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00"><label for="newImpuesto">Impuesto (%)</label></div></div>
@@ -461,39 +460,26 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newCategoria">Categoría</label>
                     </div>
-                    <div class="col-md-4">
-                        <div class="d-flex gap-2">
-                            <div class="form-floating flex-grow-1">
-                                <select class="form-select" id="newSabor" name="id_sabor">
-                                    <option value="" selected>Seleccionar sabor...</option>
-                                    <?php foreach ($sabores as $sabor): ?>
-                                        <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="newSabor">Sabor</label>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="sabores" title="Gestionar sabores">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="newSabor" name="id_sabor">
+                            <option value="" selected>Seleccionar sabor...</option>
+                            <?php foreach ($sabores as $sabor): ?>
+                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="newSabor">Sabor</label>
                     </div>
-                    <div class="col-md-4">
-                        <div class="d-flex gap-2">
-                            <div class="form-floating flex-grow-1">
-                                <select class="form-select" id="newPresentacion" name="id_presentacion">
-                                    <option value="" selected>Seleccionar presentación...</option>
-                                    <?php foreach ($presentaciones as $presentacion): ?>
-                                        <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="newPresentacion">Presentación</label>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="presentaciones" title="Gestionar presentaciones">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="newPresentacion" name="id_presentacion">
+                            <option value="" selected>Seleccionar presentación...</option>
+                            <?php foreach ($presentaciones as $presentacion): ?>
+                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="newPresentacion">Presentación</label>
                     </div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
+                    <div class="col-md-4 form-floating d-none" id="newStockMinContainer"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
@@ -501,7 +487,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         <input type="number" min="0" class="form-control" id="newDiasAlerta" name="dias_alerta_vencimiento" value="30">
                         <label for="newDiasAlerta">Días de alerta</label>
                     </div>
-                    <div class="col-md-4 form-floating"><select class="form-select" id="newEstado" name="estado"><option value="1" selected>Activo</option><option value="0">Inactivo</option></select><label for="newEstado">Estado</label></div>
+                    <input type="hidden" id="newEstado" name="estado" value="1">
                     <div class="col-12 d-flex justify-content-end pt-3">
                         <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
                         <button class="btn btn-primary px-4" type="submit"><i class="bi bi-save me-2"></i>Guardar</button>
@@ -557,7 +543,6 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     </div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001" value="18.00"><label for="editImpuesto">Impuesto (%)</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001"><label for="editPrecio">Precio</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001"><label for="editStockMinimo">Stock mín.</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001"><label for="editCosto">Costo referencial</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editCategoria" name="id_categoria">
@@ -568,40 +553,27 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="editCategoria">Categoría</label>
                     </div>
-                    <div class="col-md-4">
-                        <div class="d-flex gap-2">
-                            <div class="form-floating flex-grow-1">
-                                <select class="form-select" id="editSabor" name="id_sabor">
-                                    <option value="">Seleccionar sabor...</option>
-                                    <?php foreach ($sabores as $sabor): ?>
-                                        <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="editSabor">Sabor</label>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="sabores" title="Gestionar sabores">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editSabor" name="id_sabor">
+                            <option value="">Seleccionar sabor...</option>
+                            <?php foreach ($sabores as $sabor): ?>
+                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="editSabor">Sabor</label>
                     </div>
-                    <div class="col-md-4">
-                        <div class="d-flex gap-2">
-                            <div class="form-floating flex-grow-1">
-                                <select class="form-select" id="editPresentacion" name="id_presentacion">
-                                    <option value="">Seleccionar presentación...</option>
-                                    <?php foreach ($presentaciones as $presentacion): ?>
-                                        <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="editPresentacion">Presentación</label>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="presentaciones" title="Gestionar presentaciones">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editPresentacion" name="id_presentacion">
+                            <option value="">Seleccionar presentación...</option>
+                            <?php foreach ($presentaciones as $presentacion): ?>
+                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="editPresentacion">Presentación</label>
                     </div>
 
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
+                    <div class="col-md-4 form-floating d-none" id="editStockMinimoContainer"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001"><label for="editStockMinimo">Stock mín.</label></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
@@ -617,4 +589,3 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
         </div>
     </div>
 </div>
-
