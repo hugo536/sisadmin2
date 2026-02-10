@@ -285,7 +285,7 @@
                                 <select class="form-select" name="tipo_persona" id="crearTipoPersona" required>
                                     <option value="" selected>Seleccionar...</option>
                                     <option value="NATURAL">Natural</option>
-                                    <option value="JURIDICA">Jurídica</option>
+                                    <option value="JURIDICA">JURÍDICA</option>
                                 </select>
                                 <label for="crearTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
                             </div>
@@ -314,13 +314,14 @@
                         <div class="col-md-12">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="nombre_completo" id="crearNombre" placeholder="Nombre completo" required>
-                                <label for="crearNombre">Nombre completo / Razón social <span class="text-danger">*</span></label>
+                                <label for="crearNombre" id="crearNombreLabel">Nombre completo <span class="text-danger">*</span></label>
                             </div>
                         </div>
-                        <div class="col-md-12">
+                        <div class="col-md-12 representante-legal-section d-none" id="crearRepresentanteLegalSection">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante legal / Encargado">
-                                <label for="crearRepresentanteLegal">Representante legal / Encargado</label>
+                                <label for="crearRepresentanteLegal">Representante legal / Encargado <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Representante legal es obligatorio para empresas.</div>
                             </div>
                         </div>
 
@@ -493,7 +494,7 @@
                                 <select class="form-select" name="tipo_persona" id="editTipoPersona" required>
                                     <option value="" selected>Seleccionar...</option>
                                     <option value="NATURAL">Natural</option>
-                                    <option value="JURIDICA">Jurídica</option>
+                                    <option value="JURIDICA">JURÍDICA</option>
                                 </select>
                                 <label for="editTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
                             </div>
@@ -522,13 +523,14 @@
                         <div class="col-md-12">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="nombre_completo" id="editNombre" placeholder="Nombre completo" required>
-                                <label for="editNombre">Nombre completo / Razón social <span class="text-danger">*</span></label>
+                                <label for="editNombre" id="editNombreLabel">Nombre completo <span class="text-danger">*</span></label>
                             </div>
                         </div>
-                        <div class="col-md-12">
+                        <div class="col-md-12 representante-legal-section d-none" id="editRepresentanteLegalSection">
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="representante_legal" id="editRepresentanteLegal" placeholder="Representante legal / Encargado">
-                                <label for="editRepresentanteLegal">Representante legal / Encargado</label>
+                                <label for="editRepresentanteLegal">Representante legal / Encargado <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">Representante legal es obligatorio para empresas.</div>
                             </div>
                         </div>
 

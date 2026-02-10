@@ -506,12 +506,46 @@
     // VALIDACIONES
     // =========================================================================
 
+    function isTipoPersonaJuridica(tipoPersona = '') {
+        return String(tipoPersona).trim().toUpperCase() === 'JURIDICA';
+    }
+
+    function toggleRepresentanteLegal(form, prefix) {
+        if (!form) return;
+
+        const tipoPersona = form.querySelector('[name="tipo_persona"]');
+        const representante = form.querySelector('[name="representante_legal"]');
+        const section = form.querySelector('.representante-legal-section') || document.getElementById(`${prefix}RepresentanteLegalSection`);
+        const nombreLabel = document.getElementById(`${prefix}NombreLabel`);
+        const esJuridica = isTipoPersonaJuridica(tipoPersona?.value || '');
+
+        if (nombreLabel) {
+            nombreLabel.innerHTML = esJuridica
+                ? 'Razón Social <span class="text-danger">*</span>'
+                : 'Nombre completo <span class="text-danger">*</span>';
+        }
+
+        if (section) {
+            section.classList.toggle('d-none', !esJuridica);
+        }
+
+        if (representante) {
+            representante.required = esJuridica;
+            if (!esJuridica) {
+                representante.value = '';
+                representante.setCustomValidity('');
+                clearInvalid(representante);
+            }
+        }
+    }
+
     function validateForm(form, rolesFeedbackId, showErrors = true) {
         let valid = true;
         const tipoPersona = form.querySelector('[name="tipo_persona"]');
         const tipoDoc = form.querySelector('[name="tipo_documento"]');
         const numeroDoc = form.querySelector('[name="numero_documento"]');
         const nombre = form.querySelector('[name="nombre_completo"]');
+        const representanteLegal = form.querySelector('[name="representante_legal"]');
         const email = form.querySelector('[name="email"]');
         
         // Laborales
@@ -524,7 +558,7 @@
         const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
         const pagoDiario = form.querySelector('[name="pago_diario"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, representanteLegal, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
         form.querySelectorAll('select[name="cuenta_tipo[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
 
@@ -545,6 +579,10 @@
         }
 
         if (!nombre?.value.trim()) { if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.'); valid = false; }
+        if (isTipoPersonaJuridica(tipoPersona?.value || '') && !representanteLegal?.value.trim()) {
+            if (showErrors) setInvalid(representanteLegal, 'Representante legal es obligatorio para empresas.');
+            valid = false;
+        }
         if (!isValidEmail(email?.value || '')) { if (showErrors) setInvalid(email, 'Ingrese un email válido.'); valid = false; }
 
         form.querySelectorAll('input[name="telefonos[]"]').forEach(input => {
@@ -753,6 +791,7 @@
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
             togglePagoFields(document.getElementById('crearTipoPago'));
             toggleRegimenFields(document.getElementById('crearRegimen'), form);
+            toggleRepresentanteLegal(form, 'crear');
 
             initTelefonosSection(
                 document.getElementById('crearTelefonosList'),
@@ -865,6 +904,7 @@
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
             toggleRegimenFields(document.getElementById('editRegimen'), form);
+            toggleRepresentanteLegal(form, 'edit');
             
             // Forzar actualización de estado laboral después de cargar valores
             updateLaboralState(form);
@@ -925,6 +965,15 @@
             if(regimen) regimen.addEventListener('change', () => {
                 toggleRegimenFields(regimen, form);
             });
+
+            const tipoPersona = document.getElementById(`${prefix}TipoPersona`);
+            if (tipoPersona) {
+                tipoPersona.addEventListener('change', () => {
+                    toggleRepresentanteLegal(form, prefix);
+                    refreshValidationOnChange(form, fbId);
+                });
+                toggleRepresentanteLegal(form, prefix);
+            }
 
             // NUEVO: Listener para Estado Laboral
             const estadoLaboral = document.getElementById(`${prefix}EstadoLaboral`);
