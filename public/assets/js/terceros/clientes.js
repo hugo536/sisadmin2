@@ -9,6 +9,10 @@
 
     const zoneManagers = {};
     let geoJsonDataPromise = null;
+    const GEOJSON_SOURCES = [
+        'assets/geojson/peru_distrital_simple.geojson',
+        'assets/geojson/peru-distritos.geojson'
+    ];
 
     function normalizeText(value) {
         return (value || '')
@@ -16,14 +20,41 @@
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toUpperCase()
+            .replace(/\b(DISTRITO|PROVINCIA|DEPARTAMENTO)\b/g, ' ')
+            .replace(/[^A-Z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    function normalizeCompact(value) {
+        return normalizeText(value).replace(/\s+/g, '');
+    }
+
+    function namesMatch(left, right) {
+        const a = normalizeText(left);
+        const b = normalizeText(right);
+        if (!a || !b) return false;
+        if (a === b) return true;
+
+        const compactA = normalizeCompact(a);
+        const compactB = normalizeCompact(b);
+        if (compactA === compactB) return true;
+
+        return compactA.includes(compactB) || compactB.includes(compactA);
+    }
+
+    function fetchGeoJson(url) {
+        return fetch(url)
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null);
     }
 
     function getGeoJsonData() {
         if (geoJsonDataPromise) return geoJsonDataPromise;
-        geoJsonDataPromise = fetch('assets/geojson/peru-distritos.geojson')
-            .then(r => r.ok ? r.json() : { type: 'FeatureCollection', features: [] })
-            .catch(() => ({ type: 'FeatureCollection', features: [] }));
+        geoJsonDataPromise = GEOJSON_SOURCES.reduce(
+            (promise, url) => promise.then(data => data || fetchGeoJson(url)),
+            Promise.resolve(null)
+        ).then(data => data || { type: 'FeatureCollection', features: [] });
         return geoJsonDataPromise;
     }
 
@@ -157,13 +188,17 @@
 
     function featureMatchesZone(feature, zona) {
         const props = feature?.properties || {};
-        const dep = normalizeText(zona.departamento_nombre);
-        const prov = normalizeText(zona.provincia_nombre);
-        const dist = normalizeText(zona.distrito_nombre);
+        const dep = zona.departamento_nombre;
+        const prov = zona.provincia_nombre;
+        const dist = zona.distrito_nombre;
 
-        if (dist) return normalizeText(props.NOMBDIST) === dist;
-        if (prov) return normalizeText(props.NOMBPROV) === prov;
-        return normalizeText(props.NOMBDEP) === dep;
+        if (dist) {
+            return namesMatch(props.NOMBDIST || props.DISTRITO || props.distrito, dist);
+        }
+        if (prov) {
+            return namesMatch(props.NOMBPROV || props.PROVINCIA || props.provincia, prov);
+        }
+        return namesMatch(props.NOMBDEP || props.DEPARTAMEN || props.departamento, dep);
     }
 
     function repaintMap(manager, focusKey = '') {
