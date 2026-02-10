@@ -379,7 +379,7 @@ class TercerosController extends Controlador
 
     private function validarTercero($data)
     {
-        $tipoPersona   = trim((string) ($data['tipo_persona'] ?? ''));
+        $tipoPersona   = strtoupper(trim((string) ($data['tipo_persona'] ?? '')));
         $tipoDoc       = trim((string) ($data['tipo_documento'] ?? ''));
         $numeroRaw     = trim((string) ($data['numero_documento'] ?? ''));
         $nombre        = trim((string) ($data['nombre_completo'] ?? ''));
@@ -508,6 +508,11 @@ class TercerosController extends Controlador
             throw new Exception('Tipo de persona, documento y nombre son obligatorios.');
         }
 
+        $representanteLegal = trim((string) ($data['representante_legal'] ?? ''));
+        if ($tipoPersona === 'JURIDICA' && $representanteLegal === '') {
+            throw new Exception('Representante legal es obligatorio para empresas.');
+        }
+
         if ($tipoDoc === 'RUC' && strlen($numeroDigits) !== 11) {
             throw new Exception('El RUC debe tener 11 dígitos.');
         }
@@ -538,7 +543,9 @@ class TercerosController extends Controlador
 
         // --- PREPARAR PAYLOAD ---
         $prepared = $data;
+        $prepared['tipo_persona']          = $tipoPersona;
         $prepared['numero_documento']      = $numero;
+        $prepared['representante_legal']   = $tipoPersona === 'JURIDICA' ? $representanteLegal : null;
         $prepared['telefono']              = $telefonoPrincipal;
         $prepared['telefonos']             = $telefonosNormalizados; 
         $prepared['cuentas_bancarias']     = $cuentasNormalizadas;   

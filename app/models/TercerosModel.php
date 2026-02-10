@@ -484,12 +484,14 @@ class TercerosModel extends Modelo
         }
 
         return [
-            'tipo_persona'     => trim((string)($data['tipo_persona'] ?? 'NATURAL')),
+            'tipo_persona'     => strtoupper(trim((string)($data['tipo_persona'] ?? 'NATURAL'))),
             'tipo_documento'   => trim((string)($data['tipo_documento'] ?? '')),
             'numero_documento' => $numeroDocumento,
             'nombre_completo'  => trim((string)($data['nombre_completo'] ?? '')),
             'direccion'        => trim((string)($data['direccion'] ?? '')),
-            'representante_legal' => trim((string)($data['representante_legal'] ?? '')),
+            'representante_legal' => strtoupper(trim((string)($data['tipo_persona'] ?? 'NATURAL'))) === 'JURIDICA'
+                ? trim((string)($data['representante_legal'] ?? ''))
+                : null,
             'telefono_principal' => $telefonoPrincipal, // Nuevo campo derivado
             'email'            => trim((string)($data['email'] ?? '')),
             'departamento'     => !empty($data['departamento']) ? (string)$data['departamento'] : null,
