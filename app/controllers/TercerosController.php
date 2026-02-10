@@ -86,6 +86,30 @@ class TercerosController extends Controlador
                     return;
                 }
 
+                if (es_ajax() && $accion === 'cargar_zonas_distribuidor') {
+                    $idDistribuidor = (int)($_POST['distribuidor_id'] ?? 0);
+                    if ($idDistribuidor <= 0) {
+                        json_response(['ok' => true, 'data' => []]);
+                        return;
+                    }
+
+                    $zonas = $this->tercerosModel->obtenerZonasDistribuidor($idDistribuidor);
+                    json_response(['ok' => true, 'data' => $zonas]);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'validar_conflictos_zonas') {
+                    $excludeDistribuidorId = (int)($_POST['distribuidor_id'] ?? 0);
+                    $zonas = $_POST['zonas'] ?? [];
+                    if (!is_array($zonas)) {
+                        $zonas = [$zonas];
+                    }
+
+                    $conflictos = $this->tercerosModel->obtenerConflictosZonasDistribuidor($zonas, $excludeDistribuidorId);
+                    json_response(['ok' => true, 'conflictos' => $conflictos]);
+                    return;
+                }
+
                 // ==========================================
                 // GESTIÓN DE MAESTROS (CARGOS Y ÁREAS)
                 // ==========================================
@@ -255,6 +279,12 @@ class TercerosController extends Controlador
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
                         throw new Exception('El documento ya se encuentra registrado.');
                     }
+
+                    $conflictos = $this->tercerosModel->obtenerConflictosZonasDistribuidor($data['zonas_exclusivas'] ?? [], 0);
+                    if (!empty($conflictos)) {
+                        $zona = $conflictos[0];
+                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . $zona['distribuidor_id'])) . '.');
+                    }
                     
                     $id = $this->tercerosModel->crear($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Tercero registrado correctamente.', 'id' => $id];
@@ -270,6 +300,12 @@ class TercerosController extends Controlador
                     
                     if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
                         throw new Exception('El documento ya se encuentra registrado.');
+                    }
+
+                    $conflictos = $this->tercerosModel->obtenerConflictosZonasDistribuidor($data['zonas_exclusivas'] ?? [], $id);
+                    if (!empty($conflictos)) {
+                        $zona = $conflictos[0];
+                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . $zona['distribuidor_id'])) . '.');
                     }
                     
                     $this->tercerosModel->actualizar($id, $data, $userId);
@@ -535,7 +571,7 @@ class TercerosController extends Controlador
         $zonasLimpias = [];
         foreach ($zonas as $zona) {
             $zona = trim((string)$zona);
-            if ($zona === '' || !preg_match('/^[^|]+\|[^|]+\|[^|]+$/', $zona)) {
+            if ($zona === '' || !preg_match('/^[^|]+\|[^|]*\|[^|]*$/', $zona)) {
                 continue;
             }
             $zonasLimpias[] = $zona;
