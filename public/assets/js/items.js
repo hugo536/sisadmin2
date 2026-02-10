@@ -1,4 +1,6 @@
 (function () {
+    if (window.__itemsModuleInitialized) return;
+    window.__itemsModuleInitialized = true;
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
 
