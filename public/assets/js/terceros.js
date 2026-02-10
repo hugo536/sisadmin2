@@ -953,6 +953,7 @@
             
             const provSelect = document.getElementById('crearProvincia');
             const distSelect = document.getElementById('crearDistrito');
+            const depSelect = document.getElementById('crearDepartamento');
             if (provSelect) {
                 provSelect.innerHTML = '<option value="">Seleccionar...</option>';
                 provSelect.disabled = true;
@@ -961,6 +962,8 @@
                 distSelect.innerHTML = '<option value="">Seleccionar...</option>';
                 distSelect.disabled = true;
             }
+
+            setUbigeoOptions(depSelect, provSelect, distSelect);
 
             window.TercerosClientes?.toggleComercialFields(
                 document.getElementById('crearEsCliente'),
