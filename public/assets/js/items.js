@@ -2,7 +2,27 @@
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
 
-    // --- 0. Gestión del Modal de CREACIÓN (Nuevo) ---
+    function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
+        const trigger = document.getElementById(inputId);
+        const container = document.getElementById(containerId);
+        const diasInput = document.getElementById(diasInputId);
+        if (!trigger || !container || !diasInput) return;
+
+        const applyVisibility = () => {
+            const visible = trigger.checked;
+            container.classList.toggle('d-none', !visible);
+            diasInput.disabled = !visible;
+            if (!visible) {
+                diasInput.value = '';
+            } else if (diasInput.value === '') {
+                diasInput.value = '30';
+            }
+        };
+
+        trigger.addEventListener('change', applyVisibility);
+        applyVisibility();
+    }
+
     function initCreateModal() {
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
@@ -10,10 +30,10 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
+            toggleAlertaVencimiento('newRequiereVencimiento', 'newDiasAlertaContainer', 'newDiasAlerta');
         });
     }
 
-    // --- 1. Gestión del Modal de EDICIÓN ---
     function initEditModal() {
         const modalEdit = document.getElementById('modalEditarItem');
         if (!modalEdit) return;
@@ -23,53 +43,53 @@
             if (!btn) return;
 
             const fields = {
-                'editId': 'data-id',
-                'editSku': 'data-sku',
-                'editNombre': 'data-nombre',
-                'editDescripcion': 'data-descripcion',
-                'editTipo': 'data-tipo',
-                'editMarca': 'data-marca',
-                'editUnidad': 'data-unidad',
-                'editMoneda': 'data-moneda',
-                'editImpuesto': 'data-impuesto',
-                'editPrecio': 'data-precio',
-                'editStockMinimo': 'data-stock-minimo',
-                'editCosto': 'data-costo',
-                'editEstado': 'data-estado'
+                editId: 'data-id',
+                editSku: 'data-sku',
+                editNombre: 'data-nombre',
+                editDescripcion: 'data-descripcion',
+                editTipo: 'data-tipo',
+                editMarca: 'data-marca',
+                editUnidad: 'data-unidad',
+                editMoneda: 'data-moneda',
+                editImpuesto: 'data-impuesto',
+                editPrecio: 'data-precio',
+                editStockMinimo: 'data-stock-minimo',
+                editCosto: 'data-costo',
+                editCategoria: 'data-categoria',
+                editEstado: 'data-estado',
+                editDiasAlerta: 'data-dias-alerta-vencimiento'
             };
 
-            for (let id in fields) {
+            Object.keys(fields).forEach((id) => {
                 const el = document.getElementById(id);
                 if (el) el.value = btn.getAttribute(fields[id]) || '';
-            }
+            });
 
-            // Mapeo de Switches
             const checks = {
-                'editControlaStock': 'data-controla-stock',
-                'editPermiteDecimales': 'data-permite-decimales',
-                'editRequiereLote': 'data-requiere-lote',
-                'editRequiereVencimiento': 'data-requiere-vencimiento'
+                editControlaStock: 'data-controla-stock',
+                editPermiteDecimales: 'data-permite-decimales',
+                editRequiereLote: 'data-requiere-lote',
+                editRequiereVencimiento: 'data-requiere-vencimiento'
             };
 
-            for (let id in checks) {
+            Object.keys(checks).forEach((id) => {
                 const el = document.getElementById(id);
-                if (el) {
-                    el.checked = btn.getAttribute(checks[id]) === '1';
-                }
-            }
+                if (el) el.checked = btn.getAttribute(checks[id]) === '1';
+            });
+
+            toggleAlertaVencimiento('editRequiereVencimiento', 'editDiasAlertaContainer', 'editDiasAlerta');
         });
     }
 
-    // --- 2. Gestión de Tabla (Búsqueda, Filtros, Paginación) ---
     function initTableManager() {
         const searchInput = document.getElementById('itemSearch');
         const filtroTipo = document.getElementById('itemFiltroTipo');
         const filtroEstado = document.getElementById('itemFiltroEstado');
         const paginationControls = document.getElementById('itemsPaginationControls');
         const paginationInfo = document.getElementById('itemsPaginationInfo');
-        
+
         const table = document.getElementById('itemsTable');
-        if (!table) return; 
+        if (!table) return;
 
         const allRows = Array.from(table.querySelectorAll('tbody tr'));
 
@@ -78,7 +98,7 @@
             const tipo = filtroTipo?.value || '';
             const estado = filtroEstado?.value || '';
 
-            const visibleRows = allRows.filter(row => {
+            const visibleRows = allRows.filter((row) => {
                 const rowSearch = row.getAttribute('data-search') || '';
                 const rowTipo = row.getAttribute('data-tipo') || '';
                 const rowEstado = row.getAttribute('data-estado') || '';
@@ -89,13 +109,17 @@
             const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE) || 1;
             if (currentPage > totalPages) currentPage = 1;
 
-            allRows.forEach(row => row.style.display = 'none');
+            allRows.forEach((row) => {
+                row.style.display = 'none';
+            });
             const start = (currentPage - 1) * ROWS_PER_PAGE;
-            visibleRows.slice(start, start + ROWS_PER_PAGE).forEach(row => row.style.display = '');
+            visibleRows.slice(start, start + ROWS_PER_PAGE).forEach((row) => {
+                row.style.display = '';
+            });
 
             if (paginationInfo) {
                 if (totalRows === 0) {
-                    paginationInfo.textContent = "Sin resultados";
+                    paginationInfo.textContent = 'Sin resultados';
                 } else {
                     const end = Math.min(start + ROWS_PER_PAGE, totalRows);
                     paginationInfo.textContent = `Mostrando ${start + 1}-${end} de ${totalRows} ítems`;
@@ -113,22 +137,33 @@
                 const li = document.createElement('li');
                 li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
                 li.innerHTML = `<a class="page-link" href="#">${label}</a>`;
-                li.onclick = (e) => { e.preventDefault(); if (!active && !disabled) { currentPage = page; updateTable(); }};
+                li.onclick = (e) => {
+                    e.preventDefault();
+                    if (!active && !disabled) {
+                        currentPage = page;
+                        updateTable();
+                    }
+                };
                 paginationControls.appendChild(li);
             };
 
             addBtn('«', currentPage - 1, false, currentPage === 1);
-            for (let i = 1; i <= totalPages; i++) addBtn(i, i, i === currentPage);
+            for (let i = 1; i <= totalPages; i += 1) addBtn(i, i, i === currentPage);
             addBtn('»', currentPage + 1, false, currentPage === totalPages);
         }
 
-        [searchInput, filtroTipo, filtroEstado].forEach(el => el?.addEventListener('input', () => { currentPage = 1; updateTable(); }));
+        [searchInput, filtroTipo, filtroEstado].forEach((el) => el?.addEventListener('input', () => {
+            currentPage = 1;
+            updateTable();
+        }));
         updateTable();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initCreateModal(); 
-        initEditModal(); 
-        initTableManager(); 
+        initCreateModal();
+        initEditModal();
+        initTableManager();
+        toggleAlertaVencimiento('newRequiereVencimiento', 'newDiasAlertaContainer', 'newDiasAlerta');
+        toggleAlertaVencimiento('editRequiereVencimiento', 'editDiasAlertaContainer', 'editDiasAlerta');
     });
 })();

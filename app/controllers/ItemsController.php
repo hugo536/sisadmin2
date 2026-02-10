@@ -35,7 +35,8 @@ class ItemsController extends Controlador
             try {
                 if ($accion === 'crear') {
                     require_permiso('items.crear');
-                    $data = $this->validarItem($_POST, false);
+                    $data = $this->normalizarBanderas($_POST);
+                    $data = $this->validarItem($data, false);
                     
                     if ($data['sku'] !== '' && $this->itemsModel->skuExiste($data['sku'])) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
@@ -51,7 +52,8 @@ class ItemsController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
-                    $data = $this->validarItem($_POST, true);
+                    $data = $this->normalizarBanderas($_POST);
+                    $data = $this->validarItem($data, true);
                     $actual = $this->itemsModel->obtener($id);
                     
                     if ($actual === []) throw new RuntimeException('El ítem no existe.');
@@ -91,19 +93,36 @@ class ItemsController extends Controlador
 
         $this->render('items', [
             'items' => $this->itemsModel->listar(),
+            'categorias' => $this->itemsModel->listarCategoriasActivas(),
             'flash' => $flash,
             'ruta_actual' => 'items', 
         ]);
     }
 
+    private function normalizarBanderas(array $data): array
+    {
+        foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento'] as $flag) {
+            $data[$flag] = isset($data[$flag]) ? 1 : 0;
+        }
+
+        return $data;
+    }
+
     private function validarItem(array $data, bool $esEdicion): array
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
-        $tipo = trim((string) ($data['tipo_item'] ?? ''));
+        $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
+        $tiposPermitidos = ['producto', 'servicio', 'insumo', 'activo', 'gasto'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
         }
+
+        if (!in_array($tipo, $tiposPermitidos, true)) {
+            throw new RuntimeException('El tipo de ítem no es válido.');
+        }
+
+        $data['tipo_item'] = $tipo;
 
         return $data;
     }

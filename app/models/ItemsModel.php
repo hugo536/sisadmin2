@@ -8,7 +8,7 @@ class ItemsModel extends Modelo
         // CORREGIDO: Usamos un alias (AS impuesto) para evitar errores en la vista
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                       controla_stock, stock_minimo, precio_venta, costo_referencial,
+                       dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
                 FROM items
                 WHERE deleted_at IS NULL
@@ -24,7 +24,7 @@ class ItemsModel extends Modelo
         // CORREGIDO: Usamos un alias aquí también
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                       controla_stock, stock_minimo, precio_venta, costo_referencial,
+                       dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
                 FROM items
                 WHERE id = :id
@@ -54,6 +54,18 @@ class ItemsModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
+    public function listarCategoriasActivas(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM categorias
+                WHERE estado = 1
+                ORDER BY nombre ASC';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function crear(array $data, int $userId): int
     {
         $payload = $this->mapPayload($data);
@@ -68,11 +80,11 @@ class ItemsModel extends Modelo
         // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, marca,
                                    unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                                   controla_stock, stock_minimo, precio_venta, costo_referencial,
+                                   dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                                    moneda, impuesto_porcentaje, estado, created_by, updated_by)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
-                        :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
+                        :dias_alerta_vencimiento, :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($payload);
@@ -93,6 +105,7 @@ class ItemsModel extends Modelo
                     permite_decimales = :permite_decimales,
                     requiere_lote = :requiere_lote,
                     requiere_vencimiento = :requiere_vencimiento,
+                    dias_alerta_vencimiento = :dias_alerta_vencimiento,
                     controla_stock = :controla_stock,
                     stock_minimo = :stock_minimo,
                     precio_venta = :precio_venta,
@@ -141,6 +154,7 @@ class ItemsModel extends Modelo
                 'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
                 'requiere_lote' => (int) ($item['requiere_lote'] ?? 0),
                 'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
+                'dias_alerta_vencimiento' => $item['dias_alerta_vencimiento'] !== null ? (int) $item['dias_alerta_vencimiento'] : null,
                 'controla_stock' => (int) ($item['controla_stock'] ?? 0),
                 'stock_minimo' => (float) ($item['stock_minimo'] ?? 0),
                 'precio_venta' => (float) ($item['precio_venta'] ?? 0),
@@ -172,6 +186,9 @@ class ItemsModel extends Modelo
             'permite_decimales' => !empty($data['permite_decimales']) ? 1 : 0,
             'requiere_lote' => !empty($data['requiere_lote']) ? 1 : 0,
             'requiere_vencimiento' => !empty($data['requiere_vencimiento']) ? 1 : 0,
+            'dias_alerta_vencimiento' => !empty($data['requiere_vencimiento'])
+                ? ((isset($data['dias_alerta_vencimiento']) && $data['dias_alerta_vencimiento'] !== '') ? (int) $data['dias_alerta_vencimiento'] : 0)
+                : null,
             'controla_stock' => !empty($data['controla_stock']) ? 1 : 0,
             'stock_minimo' => (float) ($data['stock_minimo'] ?? 0),
             'precio_venta' => (float) ($data['precio_venta'] ?? 0),
