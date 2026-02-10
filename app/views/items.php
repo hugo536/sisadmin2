@@ -618,4 +618,3 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
     </div>
 </div>
 
-<script src="<?php echo asset_url('js/items.js'); ?>"></script>
