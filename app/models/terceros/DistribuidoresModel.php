@@ -41,20 +41,102 @@ class DistribuidoresModel extends Modelo
              VALUES (:distribuidor_id, :departamento_id, :provincia_id, :distrito_id, :created_by, :updated_by)'
         );
 
+        $insertadas = [];
+
         foreach ($zonas as $zona) {
-            if (!preg_match('/^([^|]+)\|([^|]+)\|([^|]+)$/', (string)$zona, $parts)) {
+            if (!preg_match('/^([^|]+)\|([^|]*)\|([^|]*)$/', (string)$zona, $parts)) {
                 continue;
             }
 
+            $departamentoId = trim($parts[1]);
+            $provinciaId = trim($parts[2]);
+            $distritoId = trim($parts[3]);
+            if ($departamentoId === '') {
+                continue;
+            }
+
+            $key = $departamentoId . '|' . $provinciaId . '|' . $distritoId;
+            if (isset($insertadas[$key])) {
+                continue;
+            }
+            $insertadas[$key] = true;
+
             $stmt->execute([
                 'distribuidor_id' => $idTercero,
-                'departamento_id' => trim($parts[1]),
-                'provincia_id'    => trim($parts[2]),
-                'distrito_id'     => trim($parts[3]),
+                'departamento_id' => $departamentoId,
+                'provincia_id'    => $provinciaId !== '' ? $provinciaId : null,
+                'distrito_id'     => $distritoId !== '' ? $distritoId : null,
                 'created_by'      => $userId,
                 'updated_by'      => $userId,
             ]);
         }
+    }
+
+    public function obtenerZonasPorTercero(int $idTercero): array
+    {
+        return $this->obtenerZonasPorTerceros([$idTercero])[$idTercero] ?? [];
+    }
+
+    public function obtenerConflictosZonas(array $zonas, int $excludeDistribuidorId = 0): array
+    {
+        $sql = 'SELECT dz.distribuidor_id,
+                       dz.departamento_id,
+                       dz.provincia_id,
+                       dz.distrito_id,
+                       t.nombre_completo AS distribuidor_nombre,
+                       d.nombre AS departamento_nombre,
+                       p.nombre AS provincia_nombre,
+                       dt.nombre AS distrito_nombre
+                FROM distribuidores_zonas dz
+                INNER JOIN terceros t ON t.id = dz.distribuidor_id
+                LEFT JOIN departamentos d ON d.id = dz.departamento_id
+                LEFT JOIN provincias p ON p.id = dz.provincia_id
+                LEFT JOIN distritos dt ON dt.id = dz.distrito_id
+                WHERE dz.departamento_id = :departamento_id
+                  AND dz.provincia_id <=> :provincia_id
+                  AND dz.distrito_id <=> :distrito_id';
+
+        if ($excludeDistribuidorId > 0) {
+            $sql .= ' AND dz.distribuidor_id <> :exclude_distribuidor_id';
+        }
+
+        $stmt = $this->db()->prepare($sql);
+        $conflictos = [];
+
+        foreach ($zonas as $zona) {
+            if (!preg_match('/^([^|]+)\|([^|]*)\|([^|]*)$/', (string)$zona, $parts)) {
+                continue;
+            }
+
+            $departamentoId = trim($parts[1]);
+            $provinciaId = trim($parts[2]);
+            $distritoId = trim($parts[3]);
+            if ($departamentoId === '') {
+                continue;
+            }
+
+            $params = [
+                'departamento_id' => $departamentoId,
+                'provincia_id' => $provinciaId !== '' ? $provinciaId : null,
+                'distrito_id' => $distritoId !== '' ? $distritoId : null,
+            ];
+            if ($excludeDistribuidorId > 0) {
+                $params['exclude_distribuidor_id'] = $excludeDistribuidorId;
+            }
+
+            $stmt->execute($params);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $key = ($row['departamento_id'] ?? '') . '|' . ($row['provincia_id'] ?? '') . '|' . ($row['distrito_id'] ?? '');
+                $conflictos[$key] = [
+                    'valor' => $key,
+                    'label' => trim(($row['departamento_nombre'] ?? '') . ' - ' . ($row['provincia_nombre'] ?? '') . ' - ' . ($row['distrito_nombre'] ?? '')),
+                    'distribuidor_id' => (int)($row['distribuidor_id'] ?? 0),
+                    'distribuidor_nombre' => $row['distribuidor_nombre'] ?? ''
+                ];
+            }
+        }
+
+        return array_values($conflictos);
     }
 
     public function obtenerZonasPorTerceros(array $terceroIds): array
@@ -86,13 +168,13 @@ class DistribuidoresModel extends Modelo
             $id = (int)$row['distribuidor_id'];
             $grouped[$id][] = [
                 'departamento_id' => (string)$row['departamento_id'],
-                'provincia_id' => (string)$row['provincia_id'],
-                'distrito_id' => (string)$row['distrito_id'],
+                'provincia_id' => (string)($row['provincia_id'] ?? ''),
+                'distrito_id' => (string)($row['distrito_id'] ?? ''),
                 'departamento_nombre' => $row['departamento_nombre'] ?? '',
                 'provincia_nombre' => $row['provincia_nombre'] ?? '',
                 'distrito_nombre' => $row['distrito_nombre'] ?? '',
                 'label' => trim(($row['departamento_nombre'] ?? '') . ' - ' . ($row['provincia_nombre'] ?? '') . ' - ' . ($row['distrito_nombre'] ?? '')),
-                'valor' => $row['departamento_id'] . '|' . $row['provincia_id'] . '|' . $row['distrito_id']
+                'valor' => $row['departamento_id'] . '|' . ($row['provincia_id'] ?? '') . '|' . ($row['distrito_id'] ?? '')
             ];
         }
 

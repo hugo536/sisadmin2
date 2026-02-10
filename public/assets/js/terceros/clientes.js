@@ -1,6 +1,64 @@
 (function () {
     'use strict';
 
+    const ZONE_STATUS = {
+        TEMP: 'temp',
+        SAVED: 'saved',
+        CONFLICT: 'conflict'
+    };
+
+    const zoneManagers = {};
+    let geoJsonDataPromise = null;
+
+    function normalizeText(value) {
+        return (value || '')
+            .toString()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase()
+            .trim();
+    }
+
+    function getGeoJsonData() {
+        if (geoJsonDataPromise) return geoJsonDataPromise;
+        geoJsonDataPromise = fetch('assets/geojson/peru-distritos.geojson')
+            .then(r => r.ok ? r.json() : { type: 'FeatureCollection', features: [] })
+            .catch(() => ({ type: 'FeatureCollection', features: [] }));
+        return geoJsonDataPromise;
+    }
+
+    function buildLabel(zona) {
+        return [zona.departamento_nombre, zona.provincia_nombre, zona.distrito_nombre].filter(Boolean).join(' - ');
+    }
+
+    function zoneStyle(status) {
+        if (status === ZONE_STATUS.SAVED) return { color: '#28a745', weight: 2, fillOpacity: 0.35 };
+        if (status === ZONE_STATUS.CONFLICT) return { color: '#dc3545', weight: 2, fillOpacity: 0.35 };
+        return { color: '#2f80ed', weight: 2, fillOpacity: 0.35 };
+    }
+
+    function createManager(prefix) {
+        if (zoneManagers[prefix]) return zoneManagers[prefix];
+
+        const manager = {
+            prefix,
+            zones: new Map(),
+            dep: document.getElementById(`${prefix}ZonaDepartamento`),
+            prov: document.getElementById(`${prefix}ZonaProvincia`),
+            dist: document.getElementById(`${prefix}ZonaDistrito`),
+            btn: document.getElementById(`${prefix}AgregarZonaBtn`),
+            list: document.getElementById(`${prefix}ZonasList`),
+            mapEl: document.getElementById(`${prefix}ZonasMap`),
+            map: null,
+            geoLayer: null,
+            drawnLayer: null,
+            conflicts: new Set()
+        };
+
+        zoneManagers[prefix] = manager;
+        return manager;
+    }
+
     function resetFields(containerEl) {
         if (!containerEl) return;
         containerEl.querySelectorAll('input, select, textarea').forEach(el => {
@@ -37,27 +95,6 @@
         }
     }
 
-    function addZonaRow(prefix, zona, listEl) {
-        const key = zona.valor;
-        if (!key || !listEl || listEl.querySelector(`tr[data-zona="${CSS.escape(key)}"]`)) return;
-
-        const tr = document.createElement('tr');
-        tr.dataset.zona = key;
-        tr.innerHTML = `
-            <td>
-                <span>${zona.label}</span>
-                <input type="hidden" name="zonas_exclusivas[]" value="${key}">
-            </td>
-            <td class="text-end">
-                <button type="button" class="btn btn-sm btn-outline-danger" title="Quitar zona">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </td>`;
-
-        tr.querySelector('button')?.addEventListener('click', () => tr.remove());
-        listEl.appendChild(tr);
-    }
-
     function fetchUbigeo(tipo, padreId) {
         const fd = new FormData();
         fd.append('accion', 'cargar_ubigeo');
@@ -85,66 +122,233 @@
         selectEl.disabled = false;
     }
 
-    function initDistribuidorZones(prefix) {
-        const dep = document.getElementById(`${prefix}ZonaDepartamento`);
-        const prov = document.getElementById(`${prefix}ZonaProvincia`);
-        const dist = document.getElementById(`${prefix}ZonaDistrito`);
-        const btn = document.getElementById(`${prefix}AgregarZonaBtn`);
-        const list = document.getElementById(`${prefix}ZonasList`);
-        if (!dep || !prov || !dist || !btn || !list) return;
+    function zoneKey(dep, prov, dist) {
+        return `${dep || ''}|${prov || ''}|${dist || ''}`;
+    }
 
-        fetchUbigeo('departamentos', '').then(items => fillSelect(dep, items));
+    function addZone(manager, zona, status = ZONE_STATUS.TEMP) {
+        const key = zoneKey(zona.departamento_id, zona.provincia_id, zona.distrito_id);
+        if (!zona.departamento_id || manager.zones.has(key)) return;
 
-        dep.addEventListener('change', () => {
-            prov.innerHTML = '<option value="">Seleccionar...</option>';
-            dist.innerHTML = '<option value="">Seleccionar...</option>';
-            prov.disabled = true;
-            dist.disabled = true;
-            if (!dep.value) return;
-            fetchUbigeo('provincias', dep.value).then(items => fillSelect(prov, items));
+        manager.zones.set(key, {
+            ...zona,
+            valor: key,
+            label: zona.label || buildLabel(zona),
+            status
+        });
+        renderZones(manager);
+        validateConflicts(manager);
+    }
+
+    function removeZone(manager, key) {
+        manager.zones.delete(key);
+        manager.conflicts.delete(key);
+        renderZones(manager);
+        validateConflicts(manager);
+    }
+
+    function featureMatchesZone(feature, zona) {
+        const props = feature?.properties || {};
+        const dep = normalizeText(zona.departamento_nombre);
+        const prov = normalizeText(zona.provincia_nombre);
+        const dist = normalizeText(zona.distrito_nombre);
+
+        if (dist) return normalizeText(props.NOMBDIST) === dist;
+        if (prov) return normalizeText(props.NOMBPROV) === prov;
+        return normalizeText(props.NOMBDEP) === dep;
+    }
+
+    function repaintMap(manager, focusKey = '') {
+        if (!manager.map || !manager.geoLayer) return;
+        if (manager.drawnLayer) {
+            manager.drawnLayer.remove();
+        }
+
+        const features = [];
+        let focusedLayer = null;
+        manager.zones.forEach((zona, key) => {
+            manager.geoLayer.eachLayer(layer => {
+                if (!featureMatchesZone(layer.feature, zona)) return;
+                const clone = JSON.parse(JSON.stringify(layer.feature));
+                clone.properties = clone.properties || {};
+                clone.properties._zoneKey = key;
+                clone.properties._zoneStatus = manager.conflicts.has(key) ? ZONE_STATUS.CONFLICT : zona.status;
+                clone.properties._zoneLabel = zona.label;
+                features.push(clone);
+            });
         });
 
-        prov.addEventListener('change', () => {
-            dist.innerHTML = '<option value="">Seleccionar...</option>';
-            dist.disabled = true;
-            if (!prov.value) return;
-            fetchUbigeo('distritos', prov.value).then(items => fillSelect(dist, items));
+        manager.drawnLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+            style: f => zoneStyle(f.properties._zoneStatus),
+            onEachFeature: (feature, layer) => {
+                layer.bindTooltip(feature.properties._zoneLabel || 'Zona');
+                layer.on({
+                    mouseover: () => layer.setStyle({ weight: 3, fillOpacity: 0.5 }),
+                    mouseout: () => manager.drawnLayer.resetStyle(layer)
+                });
+                if (focusKey && feature.properties._zoneKey === focusKey && !focusedLayer) {
+                    focusedLayer = layer;
+                }
+            }
+        }).addTo(manager.map);
+
+        const target = focusedLayer || manager.drawnLayer;
+        if (target && target.getBounds && target.getBounds().isValid()) {
+            manager.map.fitBounds(target.getBounds(), { padding: [15, 15], maxZoom: 9 });
+        }
+    }
+
+    function renderZones(manager) {
+        manager.list.innerHTML = '';
+        manager.zones.forEach((zona, key) => {
+            const status = manager.conflicts.has(key) ? ZONE_STATUS.CONFLICT : zona.status;
+            const tr = document.createElement('tr');
+            tr.dataset.zona = key;
+            tr.innerHTML = `
+                <td>
+                    <span>${zona.label}</span>
+                    <input type="hidden" name="zonas_exclusivas[]" value="${key}">
+                </td>
+                <td>
+                    <span class="badge ${status === ZONE_STATUS.SAVED ? 'bg-success' : status === ZONE_STATUS.CONFLICT ? 'bg-danger' : 'bg-primary'}">
+                        ${status === ZONE_STATUS.SAVED ? 'Guardada' : status === ZONE_STATUS.CONFLICT ? 'Conflicto' : 'Temporal'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger" title="Quitar zona">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </td>`;
+            tr.querySelector('button')?.addEventListener('click', () => removeZone(manager, key));
+            manager.list.appendChild(tr);
         });
 
-        btn.addEventListener('click', () => {
-            const depText = dep.options[dep.selectedIndex]?.text || '';
-            const provText = prov.options[prov.selectedIndex]?.text || '';
-            const distText = dist.options[dist.selectedIndex]?.text || '';
-            if (!dep.value || !prov.value || !dist.value) return;
+        repaintMap(manager);
+    }
 
-            addZonaRow(prefix, {
-                valor: `${dep.value}|${prov.value}|${dist.value}`,
-                label: `${depText} - ${provText} - ${distText}`
-            }, list);
-        });
+    function getDistribuidorId(manager) {
+        return manager.prefix === 'edit' ? (document.getElementById('editId')?.value || '') : '';
+    }
+
+    function validateConflicts(manager) {
+        const zones = Array.from(manager.zones.keys());
+        const fd = new FormData();
+        fd.append('accion', 'validar_conflictos_zonas');
+        fd.append('distribuidor_id', getDistribuidorId(manager));
+        zones.forEach(z => fd.append('zonas[]', z));
+
+        return fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+            .then(r => r.json())
+            .then(r => {
+                manager.conflicts.clear();
+                (r.conflictos || []).forEach(item => manager.conflicts.add(item.valor));
+                renderZones(manager);
+            })
+            .catch(() => undefined);
+    }
+
+    function setDistribuidorZones(prefix, zonas, status = ZONE_STATUS.SAVED) {
+        const manager = createManager(prefix);
+        manager.zones.clear();
+        manager.conflicts.clear();
+
+        (zonas || []).forEach(z => addZone(manager, {
+            departamento_id: z.departamento_id,
+            provincia_id: z.provincia_id || '',
+            distrito_id: z.distrito_id || '',
+            departamento_nombre: z.departamento_nombre || '',
+            provincia_nombre: z.provincia_nombre || '',
+            distrito_nombre: z.distrito_nombre || '',
+            label: z.label || buildLabel(z)
+        }, status));
+
+        renderZones(manager);
     }
 
     function resetDistribuidorZones(prefix) {
-        const list = document.getElementById(`${prefix}ZonasList`);
-        if (list) list.innerHTML = '';
+        const manager = createManager(prefix);
+        manager.zones.clear();
+        manager.conflicts.clear();
+        renderZones(manager);
     }
 
-    function setDistribuidorZones(prefix, zonas) {
-        const list = document.getElementById(`${prefix}ZonasList`);
-        if (!list) return;
-        list.innerHTML = '';
-        (zonas || []).forEach(z => addZonaRow(prefix, {
-            valor: z.valor || `${z.departamento_id}|${z.provincia_id}|${z.distrito_id}`,
-            label: z.label || `${z.departamento_nombre || ''} - ${z.provincia_nombre || ''} - ${z.distrito_nombre || ''}`
-        }, list));
+    function initMap(manager) {
+        if (!manager.mapEl || typeof L === 'undefined' || manager.map) return;
+        manager.map = L.map(manager.mapEl, { zoomControl: true }).setView([-9.19, -75.0152], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(manager.map);
+
+        getGeoJsonData().then(data => {
+            manager.geoLayer = L.geoJSON(data, { style: { opacity: 0, fillOpacity: 0 } });
+            repaintMap(manager);
+        });
+    }
+
+    function initDistribuidorZones(prefix) {
+        const manager = createManager(prefix);
+        const { dep, prov, dist, btn, mapEl } = manager;
+        if (!dep || !prov || !dist || !btn || !manager.list) return;
+
+        if (!dep.dataset.bound) {
+            fetchUbigeo('departamentos', '').then(items => fillSelect(dep, items));
+
+            dep.addEventListener('change', () => {
+                prov.innerHTML = '<option value="">Seleccionar...</option>';
+                dist.innerHTML = '<option value="">Seleccionar...</option>';
+                prov.disabled = true;
+                dist.disabled = true;
+                if (!dep.value) return;
+                fetchUbigeo('provincias', dep.value).then(items => fillSelect(prov, items));
+            });
+
+            prov.addEventListener('change', () => {
+                dist.innerHTML = '<option value="">Seleccionar...</option>';
+                dist.disabled = true;
+                if (!prov.value) return;
+                fetchUbigeo('distritos', prov.value).then(items => fillSelect(dist, items));
+            });
+
+            btn.addEventListener('click', () => {
+                if (!dep.value) return;
+                const zona = {
+                    departamento_id: dep.value,
+                    provincia_id: prov.value || '',
+                    distrito_id: dist.value || '',
+                    departamento_nombre: dep.options[dep.selectedIndex]?.text || '',
+                    provincia_nombre: prov.options[prov.selectedIndex]?.text || '',
+                    distrito_nombre: dist.options[dist.selectedIndex]?.text || ''
+                };
+                zona.label = buildLabel(zona);
+                addZone(manager, zona, ZONE_STATUS.TEMP);
+                repaintMap(manager, zoneKey(zona.departamento_id, zona.provincia_id, zona.distrito_id));
+            });
+
+            dep.dataset.bound = '1';
+        }
+
+        if (mapEl && !mapEl.dataset.initialized) {
+            initMap(manager);
+            mapEl.dataset.initialized = '1';
+        }
     }
 
     function toggleDistribuidorFields(checkboxEl, containerEl) {
         if (!checkboxEl || !containerEl) return;
         const show = checkboxEl.checked;
         containerEl.classList.toggle('d-none', !show);
-        if (!show) {
-            const prefix = checkboxEl.id.replace('EsDistribuidor', '');
+        const prefix = checkboxEl.id.replace('EsDistribuidor', '');
+        const manager = createManager(prefix);
+
+        if (show) {
+            initMap(manager);
+            setTimeout(() => manager.map?.invalidateSize(), 50);
+        } else {
             resetDistribuidorZones(prefix);
         }
     }
@@ -156,12 +360,34 @@
         checkboxEl.addEventListener('change', () => toggleDistribuidorFields(checkboxEl, containerEl));
     }
 
+    function loadSavedZones(prefix, distribuidorId) {
+        if (!distribuidorId) {
+            setDistribuidorZones(prefix, [], ZONE_STATUS.SAVED);
+            return Promise.resolve();
+        }
+
+        const fd = new FormData();
+        fd.append('accion', 'cargar_zonas_distribuidor');
+        fd.append('distribuidor_id', distribuidorId);
+
+        return fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+            .then(r => r.json())
+            .then(r => {
+                setDistribuidorZones(prefix, r.data || [], ZONE_STATUS.SAVED);
+            });
+    }
+
     window.TercerosClientes = {
         toggleComercialFields,
         toggleDistribuidorFields,
         bindDistribuidorToggle,
         initDistribuidorZones,
         resetDistribuidorZones,
-        setDistribuidorZones
+        setDistribuidorZones,
+        loadSavedZones
     };
 })();

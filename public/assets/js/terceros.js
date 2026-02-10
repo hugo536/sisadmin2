@@ -787,7 +787,7 @@
                 document.getElementById('crearEsDistribuidor'),
                 document.getElementById('crearDistribuidorFields')
             );
-            window.TercerosClientes?.resetDistribuidorZones('crear');
+            window.TercerosClientes?.setDistribuidorZones('crear', []);
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
             togglePagoFields(document.getElementById('crearTipoPago'));
             toggleRegimenFields(document.getElementById('crearRegimen'), form);
@@ -898,9 +898,12 @@
                 document.getElementById('editEsDistribuidor'),
                 document.getElementById('editDistribuidorFields')
             );
-            let zonas = [];
-            try { zonas = JSON.parse(button.getAttribute('data-zonas-exclusivas') || '[]'); } catch(e){}
-            window.TercerosClientes?.setDistribuidorZones('edit', zonas);
+            const editId = button.getAttribute('data-id') || '';
+            window.TercerosClientes?.loadSavedZones('edit', editId).catch(() => {
+                let zonas = [];
+                try { zonas = JSON.parse(button.getAttribute('data-zonas-exclusivas') || '[]'); } catch(e){}
+                window.TercerosClientes?.setDistribuidorZones('edit', zonas);
+            });
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
             toggleRegimenFields(document.getElementById('editRegimen'), form);

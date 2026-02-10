@@ -93,6 +93,16 @@ class TercerosModel extends Modelo
         return $rows;
     }
 
+    public function obtenerZonasDistribuidor(int $idTercero): array
+    {
+        return $this->distribuidoresModel->obtenerZonasPorTercero($idTercero);
+    }
+
+    public function obtenerConflictosZonasDistribuidor(array $zonas, int $excludeDistribuidorId = 0): array
+    {
+        return $this->distribuidoresModel->obtenerConflictosZonas($zonas, $excludeDistribuidorId);
+    }
+
     public function obtener(int $id): array
     {
         $sql = "SELECT t.*, 
