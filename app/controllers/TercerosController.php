@@ -501,6 +501,7 @@ class TercerosController extends Controlador
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
             !empty($data['es_empleado']),
+            !empty($data['es_distribuidor']),
         ];
 
         if ($tipoPersona === '' || $tipoDoc === '' || $numero === '' || $nombre === '') {
@@ -519,7 +520,20 @@ class TercerosController extends Controlador
         }
 
         if (!in_array(true, $roles, true)) {
-            throw new Exception('Seleccione al menos un rol (Cliente, Proveedor o Empleado).');
+            throw new Exception('Seleccione al menos un rol (Cliente, Proveedor, Empleado o Distribuidor).');
+        }
+
+        $zonas = $data['zonas_exclusivas'] ?? [];
+        if (!is_array($zonas)) {
+            $zonas = [$zonas];
+        }
+        $zonasLimpias = [];
+        foreach ($zonas as $zona) {
+            $zona = trim((string)$zona);
+            if ($zona === '' || !preg_match('/^[^|]+\|[^|]+\|[^|]+$/', $zona)) {
+                continue;
+            }
+            $zonasLimpias[] = $zona;
         }
 
         // --- PREPARAR PAYLOAD ---
@@ -532,6 +546,7 @@ class TercerosController extends Controlador
         $prepared['departamento']          = $departamentoNombre;
         $prepared['provincia']             = $provinciaNombre;
         $prepared['distrito']              = $distritoNombre;
+        $prepared['zonas_exclusivas']      = $zonasLimpias;
 
         return $prepared;
     }

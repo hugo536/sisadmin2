@@ -137,6 +137,12 @@ function showVal($val, $suffix = '') {
                                         <label class="text-uppercase text-muted small fw-bold mb-1">Tipo de Persona</label>
                                         <div class="fs-6"><?php echo showVal($t['tipo_persona']); ?></div>
                                     </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 border rounded bg-light h-100">
+                                        <small class="text-muted d-block mb-1">Representante legal / Encargado</small>
+                                        <div class="fs-6"><?php echo showVal($t['representante_legal'] ?? ''); ?></div>
+                                    </div>
                                     <div class="mb-4">
                                         <label class="text-uppercase text-muted small fw-bold mb-1">Identificación</label>
                                         <div class="fs-6 fw-semibold text-dark"><?php echo showVal($t['tipo_documento']); ?>: <?php echo showVal($t['numero_documento']); ?></div>
@@ -180,16 +186,19 @@ function showVal($val, $suffix = '') {
                         <div class="tab-pane fade p-4" id="tab-dist" role="tabpanel">
                             <h6 class="fw-bold text-primary mb-4 pb-2 border-bottom">Información de Distribuidor</h6>
                             <div class="row g-4">
-                                <div class="col-md-8">
+                                <div class="col-12">
                                     <div class="p-3 border rounded bg-light h-100">
-                                        <small class="text-muted d-block mb-1">Zona exclusiva</small>
-                                        <div class="fw-bold"><?php echo showVal($t['distribuidor_zona_exclusiva'] ?? ''); ?></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="p-3 border rounded bg-light h-100">
-                                        <small class="text-muted d-block mb-1">Meta de volumen</small>
-                                        <div class="fw-bold"><?php echo number_format((float)($t['distribuidor_meta_volumen'] ?? 0), 2); ?></div>
+                                        <small class="text-muted d-block mb-2">Zonas exclusivas</small>
+                                        <?php $zonas = $t['zonas_exclusivas'] ?? []; ?>
+                                        <?php if (!empty($zonas)): ?>
+                                            <ul class="mb-0">
+                                                <?php foreach ($zonas as $zona): ?>
+                                                    <li><?php echo htmlspecialchars($zona['label'] ?? ''); ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <div class="text-muted fst-italic">Sin zonas registradas.</div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>

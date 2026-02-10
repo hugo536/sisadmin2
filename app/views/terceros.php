@@ -181,11 +181,11 @@
                                             data-distrito="<?php echo (int) ($tercero['distrito_id'] ?? 0); ?>"
                                             data-distrito-nombre="<?php echo htmlspecialchars($tercero['distrito'] ?? ''); ?>"
                                             data-observaciones="<?php echo htmlspecialchars($tercero['observaciones'] ?? ''); ?>"
+                                            data-representante-legal="<?php echo htmlspecialchars($tercero['representante_legal'] ?? ''); ?>"
                                             
                                             data-cliente-dias-credito="<?php echo (int) ($tercero['cliente_dias_credito'] ?? 0); ?>"
                                             data-cliente-limite-credito="<?php echo (float) ($tercero['cliente_limite_credito'] ?? 0); ?>"
                                             data-cliente-condicion-pago="<?php echo htmlspecialchars($tercero['cliente_condicion_pago'] ?? ''); ?>"
-                                            data-cliente-ruta-reparto="<?php echo htmlspecialchars($tercero['cliente_ruta_reparto'] ?? ''); ?>"
                                             data-proveedor-condicion-pago="<?php echo htmlspecialchars($tercero['proveedor_condicion_pago'] ?? ''); ?>"
                                             data-proveedor-dias-credito="<?php echo (int) ($tercero['proveedor_dias_credito'] ?? 0); ?>"
                                             data-proveedor-forma-pago="<?php echo htmlspecialchars($tercero['proveedor_forma_pago'] ?? ''); ?>"
@@ -212,8 +212,7 @@
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int) $tercero['es_empleado']; ?>"
                                             data-es-distribuidor="<?php echo (int) ($tercero['es_distribuidor'] ?? 0); ?>"
-                                            data-distribuidor-zona-exclusiva="<?php echo htmlspecialchars($tercero['distribuidor_zona_exclusiva'] ?? ''); ?>"
-                                            data-distribuidor-meta-volumen="<?php echo htmlspecialchars((string) ($tercero['distribuidor_meta_volumen'] ?? '')); ?>"
+                                            data-zonas-exclusivas="<?php echo htmlspecialchars(json_encode($tercero['zonas_exclusivas'] ?? [], JSON_UNESCAPED_UNICODE)); ?>"
                                             
                                             data-telefonos="<?php echo htmlspecialchars(json_encode($telefonos, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-cuentas-bancarias="<?php echo htmlspecialchars(json_encode($cuentasBancarias, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>"
@@ -318,6 +317,12 @@
                                 <label for="crearNombre">Nombre completo / Razón social <span class="text-danger">*</span></label>
                             </div>
                         </div>
+                        <div class="col-md-12">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante legal / Encargado">
+                                <label for="crearRepresentanteLegal">Representante legal / Encargado</label>
+                            </div>
+                        </div>
 
                         <div class="col-md-6">
                             <div class="form-floating">
@@ -420,6 +425,10 @@
                                     <?php $prefix = 'crear'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
+                                <div class="col-12">
+                                    <?php $prefix = 'crear'; ?>
+                                    <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
+                                </div>
                             </div>
                         </div>
 
@@ -514,6 +523,12 @@
                             <div class="form-floating">
                                 <input type="text" class="form-control" name="nombre_completo" id="editNombre" placeholder="Nombre completo" required>
                                 <label for="editNombre">Nombre completo / Razón social <span class="text-danger">*</span></label>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" name="representante_legal" id="editRepresentanteLegal" placeholder="Representante legal / Encargado">
+                                <label for="editRepresentanteLegal">Representante legal / Encargado</label>
                             </div>
                         </div>
 
@@ -617,6 +632,10 @@
                                 <div class="col-md-6" id="editComercialProveedorSection">
                                     <?php $prefix = 'edit'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
+                                </div>
+                                <div class="col-12">
+                                    <?php $prefix = 'edit'; ?>
+                                    <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
                                 </div>
                             </div>
                         </div>

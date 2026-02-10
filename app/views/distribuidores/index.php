@@ -37,14 +37,13 @@ $distribuidores = $distribuidores ?? [];
                         <tr>
                             <th class="ps-4">Documento</th>
                             <th>Distribuidor</th>
-                            <th>Zona exclusiva</th>
-                            <th class="text-end">Meta volumen</th>
+                            <th>Zonas exclusivas</th>
                             <th class="text-end pe-4">Ventas actual</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($distribuidores as $distribuidor): ?>
-                            <tr data-search="<?php echo htmlspecialchars(mb_strtolower($distribuidor['tipo_documento'] . ' ' . $distribuidor['numero_documento'] . ' ' . $distribuidor['nombre_completo'] . ' ' . ($distribuidor['zona_exclusiva'] ?? ''))); ?>">
+                            <tr data-search="<?php echo htmlspecialchars(mb_strtolower($distribuidor['tipo_documento'] . ' ' . $distribuidor['numero_documento'] . ' ' . $distribuidor['nombre_completo'] . ' ' . ($distribuidor['zonas_exclusivas_resumen'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold" data-label="Documento">
                                     <?php echo htmlspecialchars($distribuidor['tipo_documento']); ?> - <?php echo htmlspecialchars($distribuidor['numero_documento']); ?>
                                 </td>
@@ -52,11 +51,16 @@ $distribuidores = $distribuidores ?? [];
                                     <div class="fw-bold text-dark"><?php echo htmlspecialchars($distribuidor['nombre_completo']); ?></div>
                                     <div class="small text-muted"><?php echo htmlspecialchars($distribuidor['telefono'] ?? ''); ?></div>
                                 </td>
-                                <td data-label="Zona exclusiva">
-                                    <?php echo htmlspecialchars($distribuidor['zona_exclusiva'] ?? ''); ?>
-                                </td>
-                                <td class="text-end" data-label="Meta volumen">
-                                    <?php echo number_format((float)($distribuidor['meta_volumen'] ?? 0), 2); ?>
+                                <td data-label="Zonas exclusivas">
+                                    <?php if (!empty($distribuidor['zonas_exclusivas'])): ?>
+                                        <ul class="mb-0 ps-3">
+                                            <?php foreach ($distribuidor['zonas_exclusivas'] as $zona): ?>
+                                                <li><?php echo htmlspecialchars($zona['label'] ?? ''); ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php else: ?>
+                                        <span class="text-muted">Sin zonas</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4" data-label="Ventas actual">
                                     <span class="text-muted">--</span>
