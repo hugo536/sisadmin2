@@ -78,6 +78,39 @@ class ItemsController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem eliminado correctamente.'];
                 }
 
+                if ($accion === 'crear_categoria') {
+                    require_permiso('configuracion.editar');
+                    $data = $this->validarCategoria($_POST);
+                    $this->itemsModel->crearCategoria($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Categoría creada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Categoría creada correctamente.'];
+                }
+
+                if ($accion === 'editar_categoria') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de categoría inválido.');
+                    }
+
+                    $data = $this->validarCategoria($_POST);
+                    $this->itemsModel->actualizarCategoria($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Categoría actualizada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Categoría actualizada correctamente.'];
+                }
+
+                if ($accion === 'eliminar_categoria') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de categoría inválido.');
+                    }
+
+                    $this->itemsModel->eliminarCategoria($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Categoría eliminada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Categoría eliminada correctamente.'];
+                }
+
                 if (isset($respuesta) && es_ajax()) {
                     json_response($respuesta);
                     return;
@@ -94,6 +127,7 @@ class ItemsController extends Controlador
         $this->render('items', [
             'items' => $this->itemsModel->listar(),
             'categorias' => $this->itemsModel->listarCategoriasActivas(),
+            'categorias_gestion' => $this->itemsModel->listarCategorias(),
             'flash' => $flash,
             'ruta_actual' => 'items', 
         ]);
@@ -124,6 +158,28 @@ class ItemsController extends Controlador
 
         $data['tipo_item'] = $tipo;
 
+        $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== ''
+            ? (int) $data['id_categoria']
+            : 0;
+
+        if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
+            throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
+        }
+
         return $data;
+    }
+
+    private function validarCategoria(array $data): array
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre de la categoría es obligatorio.');
+        }
+
+        return [
+            'nombre' => $nombre,
+            'descripcion' => trim((string) ($data['descripcion'] ?? '')),
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+        ];
     }
 }
