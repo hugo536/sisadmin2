@@ -535,16 +535,16 @@ class TercerosController extends Controlador
             $entidad   = trim((string) ($cuentasEntidad[$i] ?? ''));
             $cci       = trim((string) ($cuentasCci[$i] ?? ''));
             $alias     = trim((string) ($cuentasAlias[$i] ?? ''));
-            $numero    = trim((string) ($cuentasNumero[$i] ?? ''));
+            $numeroCuenta = trim((string) ($cuentasNumero[$i] ?? ''));
 
-            if ($entidad === '' && $cci === '' && $alias === '' && $numero === '') continue;
+            if ($entidad === '' && $cci === '' && $alias === '' && $numeroCuenta === '') continue;
             if ($entidad === '') {
                 throw new Exception("Indique la entidad/billetera en la cuenta #" . ($i + 1));
             }
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipo[$i] ?? 'Banco');
             $esBilletera = $tipoEntidad === 'Billetera Digital';
-            $numeroDigits = preg_replace('/\D+/', '', $numero);
+            $numeroDigits = preg_replace('/\D+/', '', $numeroCuenta);
             $cciDigits = preg_replace('/\D+/', '', $cci);
 
             if ($esBilletera) {
@@ -555,7 +555,7 @@ class TercerosController extends Controlador
                     throw new Exception("Cuenta #" . ($i + 1) . ": para billetera digital ingrese un número de teléfono de 9 dígitos.");
                 }
                 $cci = $cciDigits;
-                $numero = $numeroDigits;
+                $numeroCuenta = $numeroDigits;
             } else {
                 if ($cciDigits === '' && $numeroDigits === '') {
                     throw new Exception("Cuenta #" . ($i + 1) . ": ingrese CCI o número de cuenta.");
@@ -564,7 +564,7 @@ class TercerosController extends Controlador
                     throw new Exception("Cuenta #" . ($i + 1) . ": el CCI debe tener 20 dígitos o use número de cuenta.");
                 }
                 $cci = $cciDigits !== '' ? $cciDigits : $cci;
-                $numero = $numeroDigits !== '' ? $numeroDigits : $numero;
+                $numeroCuenta = $numeroDigits !== '' ? $numeroDigits : $numeroCuenta;
             }
 
             $tipoCuenta = trim((string) ($cuentasTipoCta[$i] ?? ''));
@@ -577,7 +577,7 @@ class TercerosController extends Controlador
                 'entidad'           => $entidad,
                 'tipo_cta'          => $tipoCuenta,
                 'tipo_cuenta'       => $tipoCuenta,
-                'numero_cuenta'     => $numero,
+                'numero_cuenta'     => $numeroCuenta,
                 'cci'               => $cci,
                 'alias'             => $alias,
                 'moneda'            => in_array($cuentasMoneda[$i] ?? 'PEN', ['PEN', 'USD']) ? $cuentasMoneda[$i] : 'PEN',
