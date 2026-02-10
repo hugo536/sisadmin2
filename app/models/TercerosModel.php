@@ -12,6 +12,7 @@ class TercerosModel extends Modelo
     private TercerosProveedoresModel $proveedoresModel;
     private TercerosEmpleadosModel $empleadosModel;
     private DistribuidoresModel $distribuidoresModel;
+    private ?bool $hasRepresentanteLegalColumn = null;
 
     public function __construct()
     {
@@ -26,9 +27,13 @@ class TercerosModel extends Modelo
 
     public function listar(): array
     {
+        $representanteLegalSelect = $this->hasRepresentanteLegalColumn()
+            ? 't.representante_legal'
+            : "'' AS representante_legal";
+
         // Agregado t.telefono para tener el número principal disponible en la lista
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, t.representante_legal,
+                       t.direccion, t.telefono, t.email, {$representanteLegalSelect},
                        t.departamento, t.provincia, t.distrito,
                        t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
                        
@@ -139,6 +144,7 @@ class TercerosModel extends Modelo
     public function crear(array $data, int $userId): int
     {
         $payload = $this->mapPayload($data);
+        $hasRepresentanteLegalColumn = $this->hasRepresentanteLegalColumn();
         
         try {
             $this->db()->beginTransaction();
@@ -152,8 +158,14 @@ class TercerosModel extends Modelo
                 $sql = "UPDATE terceros SET 
                             tipo_persona = :tipo_persona, 
                             nombre_completo = :nombre_completo, 
-                            direccion = :direccion,
-                            representante_legal = :representante_legal,
+                            direccion = :direccion,";
+
+                if ($hasRepresentanteLegalColumn) {
+                    $sql .= "
+                            representante_legal = :representante_legal,";
+                }
+
+                $sql .= "
                             telefono = :telefono, 
                             email = :email, 
                             departamento = :departamento, provincia = :provincia, distrito = :distrito,
@@ -166,21 +178,34 @@ class TercerosModel extends Modelo
                 $params['id'] = $idTercero;
                 $params['updated_by'] = $userId;
                 unset($params['tipo_documento'], $params['numero_documento'], $params['created_by']);
+                if (!$hasRepresentanteLegalColumn) {
+                    unset($params['representante_legal']);
+                }
 
                 $this->db()->prepare($sql)->execute($params);
             } else {
-                $sql = "INSERT INTO terceros (tipo_persona, tipo_documento, numero_documento, nombre_completo,
-                                            direccion, representante_legal, telefono, email, departamento, provincia, distrito,
-                                            rubro_sector, observaciones, es_cliente, es_proveedor, es_empleado,
-                                            estado, created_by, updated_by)
-                        VALUES (:tipo_persona, :tipo_documento, :numero_documento, :nombre_completo,
-                                :direccion, :representante_legal, :telefono, :email, :departamento, :provincia, :distrito,
-                                :rubro_sector, :observaciones, :es_cliente, :es_proveedor, :es_empleado,
-                                :estado, :created_by, :updated_by)";
+                $insertColumns = [
+                    'tipo_persona', 'tipo_documento', 'numero_documento', 'nombre_completo',
+                    'direccion', 'telefono', 'email', 'departamento', 'provincia', 'distrito',
+                    'rubro_sector', 'observaciones', 'es_cliente', 'es_proveedor', 'es_empleado',
+                    'estado', 'created_by', 'updated_by'
+                ];
+                if ($hasRepresentanteLegalColumn) {
+                    array_splice($insertColumns, 5, 0, 'representante_legal');
+                }
+
+                $sql = sprintf(
+                    'INSERT INTO terceros (%s) VALUES (:%s)',
+                    implode(', ', $insertColumns),
+                    implode(', :', $insertColumns)
+                );
                 
                 $params = $this->filtrarParamsTercero($payload);
                 $params['created_by'] = $userId;
                 $params['updated_by'] = $userId;
+                if (!$hasRepresentanteLegalColumn) {
+                    unset($params['representante_legal']);
+                }
 
                 $this->db()->prepare($sql)->execute($params);
                 $idTercero = (int) $this->db()->lastInsertId();
@@ -217,6 +242,7 @@ class TercerosModel extends Modelo
     public function actualizar(int $id, array $data, int $userId): bool
     {
         $payload = $this->mapPayload($data);
+        $hasRepresentanteLegalColumn = $this->hasRepresentanteLegalColumn();
         
         try {
             $this->db()->beginTransaction();
@@ -225,8 +251,14 @@ class TercerosModel extends Modelo
             $sql = "UPDATE terceros SET 
                         tipo_persona = :tipo_persona, tipo_documento = :tipo_documento, numero_documento = :numero_documento,
                         nombre_completo = :nombre_completo, 
-                        direccion = :direccion,
-                        representante_legal = :representante_legal,
+                        direccion = :direccion,";
+
+            if ($hasRepresentanteLegalColumn) {
+                $sql .= "
+                        representante_legal = :representante_legal,";
+            }
+
+            $sql .= "
                         telefono = :telefono,
                         email = :email,
                         departamento = :departamento, provincia = :provincia, distrito = :distrito,
@@ -239,6 +271,9 @@ class TercerosModel extends Modelo
             $params['id'] = $id;
             $params['updated_by'] = $userId;
             unset($params['created_by']);
+            if (!$hasRepresentanteLegalColumn) {
+                unset($params['representante_legal']);
+            }
 
             $this->db()->prepare($sql)->execute($params);
 
@@ -591,5 +626,18 @@ class TercerosModel extends Modelo
         $stmt = $this->db()->prepare("SELECT id FROM terceros WHERE tipo_documento = ? AND numero_documento = ? LIMIT 1");
         $stmt->execute([$tipo, $numero]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function hasRepresentanteLegalColumn(): bool
+    {
+        if ($this->hasRepresentanteLegalColumn !== null) {
+            return $this->hasRepresentanteLegalColumn;
+        }
+
+        $stmt = $this->db()->prepare('SHOW COLUMNS FROM terceros LIKE :column');
+        $stmt->execute(['column' => 'representante_legal']);
+        $this->hasRepresentanteLegalColumn = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $this->hasRepresentanteLegalColumn;
     }
 }
