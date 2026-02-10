@@ -432,7 +432,7 @@ class TercerosController extends Controlador
         $nombre        = trim((string) ($data['nombre_completo'] ?? ''));
         $email         = trim((string) ($data['email'] ?? ''));
 
-        $numeroDigits = preg_replace('/\D/', '', $numeroRaw);
+        $numeroDocumentoDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
        // --- UBIGEO: Resolver Nombres (Corregido) ---
@@ -535,36 +535,36 @@ class TercerosController extends Controlador
             $entidad   = trim((string) ($cuentasEntidad[$i] ?? ''));
             $cci       = trim((string) ($cuentasCci[$i] ?? ''));
             $alias     = trim((string) ($cuentasAlias[$i] ?? ''));
-            $numero    = trim((string) ($cuentasNumero[$i] ?? ''));
+            $numeroCuenta = trim((string) ($cuentasNumero[$i] ?? ''));
 
-            if ($entidad === '' && $cci === '' && $alias === '' && $numero === '') continue;
+            if ($entidad === '' && $cci === '' && $alias === '' && $numeroCuenta === '') continue;
             if ($entidad === '') {
                 throw new Exception("Indique la entidad/billetera en la cuenta #" . ($i + 1));
             }
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipo[$i] ?? 'Banco');
             $esBilletera = $tipoEntidad === 'Billetera Digital';
-            $numeroDigits = preg_replace('/\D+/', '', $numero);
+            $numeroCuentaDigits = preg_replace('/\D+/', '', $numeroCuenta);
             $cciDigits = preg_replace('/\D+/', '', $cci);
 
             if ($esBilletera) {
-                if ($cciDigits === '' && $numeroDigits !== '') {
-                    $cciDigits = $numeroDigits;
+                if ($cciDigits === '' && $numeroCuentaDigits !== '') {
+                    $cciDigits = $numeroCuentaDigits;
                 }
                 if (!preg_match('/^\d{9}$/', $cciDigits)) {
                     throw new Exception("Cuenta #" . ($i + 1) . ": para billetera digital ingrese un número de teléfono de 9 dígitos.");
                 }
                 $cci = $cciDigits;
-                $numero = $numeroDigits;
+                $numeroCuenta = $numeroCuentaDigits;
             } else {
-                if ($cciDigits === '' && $numeroDigits === '') {
+                if ($cciDigits === '' && $numeroCuentaDigits === '') {
                     throw new Exception("Cuenta #" . ($i + 1) . ": ingrese CCI o número de cuenta.");
                 }
                 if ($cciDigits !== '' && strlen($cciDigits) !== 20 && strlen($cciDigits) < 6) {
                     throw new Exception("Cuenta #" . ($i + 1) . ": el CCI debe tener 20 dígitos o use número de cuenta.");
                 }
                 $cci = $cciDigits !== '' ? $cciDigits : $cci;
-                $numero = $numeroDigits !== '' ? $numeroDigits : $numero;
+                $numeroCuenta = $numeroCuentaDigits !== '' ? $numeroCuentaDigits : $numeroCuenta;
             }
 
             $tipoCuenta = trim((string) ($cuentasTipoCta[$i] ?? ''));
@@ -577,7 +577,7 @@ class TercerosController extends Controlador
                 'entidad'           => $entidad,
                 'tipo_cta'          => $tipoCuenta,
                 'tipo_cuenta'       => $tipoCuenta,
-                'numero_cuenta'     => $numero,
+                'numero_cuenta'     => $numeroCuenta,
                 'cci'               => $cci,
                 'alias'             => $alias,
                 'moneda'            => in_array($cuentasMoneda[$i] ?? 'PEN', ['PEN', 'USD']) ? $cuentasMoneda[$i] : 'PEN',
@@ -608,10 +608,10 @@ class TercerosController extends Controlador
             throw new Exception('Representante legal es obligatorio para empresas.');
         }
 
-        if ($tipoDoc === 'RUC' && strlen($numeroDigits) !== 11) {
+        if ($tipoDoc === 'RUC' && strlen($numeroDocumentoDigits) !== 11) {
             throw new Exception('El RUC debe tener 11 dígitos.');
         }
-        if ($tipoDoc === 'DNI' && strlen($numeroDigits) !== 8) {
+        if ($tipoDoc === 'DNI' && strlen($numeroDocumentoDigits) !== 8) {
             throw new Exception('El DNI debe tener 8 dígitos.');
         }
 
