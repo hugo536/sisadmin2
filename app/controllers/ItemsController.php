@@ -226,7 +226,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'servicio', 'insumo', 'activo', 'gasto'];
+        $tiposPermitidos = ['producto', 'servicio', 'insumo'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
