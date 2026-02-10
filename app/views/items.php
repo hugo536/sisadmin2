@@ -41,10 +41,9 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <select class="form-select bg-light" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
                         <option value="producto">Producto</option>
+                        <option value="materia_prima">Materia prima</option>
+                        <option value="material_empaque">Material de empaque</option>
                         <option value="servicio">Servicio</option>
-                        <option value="insumo">Insumo</option>
-                        <option value="activo">Activo</option>
-                        <option value="gasto">Gasto</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
@@ -420,9 +419,10 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="newTipo" name="tipo_item" required>
                             <option value="" selected disabled>Seleccionar tipo...</option>
-                            <option value="producto">Producto Terminado (Gaseosas)</option>
-                            <option value="insumo">Insumo / Materia Prima (Tapas, Químicos)</option>
-                            <option value="servicio">Servicio (Fletes, Mantenimiento)</option>
+                            <option value="producto">Producto Terminado (Bebidas)</option>
+                            <option value="materia_prima">Materia Prima (Líquidos/Ingredientes)</option>
+                            <option value="material_empaque">Material de Empaque (Tapas/Botellas)</option>
+                            <option value="servicio">Servicios / Otros</option>
                         </select>
                         <label for="newTipo">Tipo de ítem</label>
                     </div>
@@ -513,10 +513,9 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
                             <option value="producto">Producto</option>
+                            <option value="materia_prima">Materia prima</option>
+                            <option value="material_empaque">Material de empaque</option>
                             <option value="servicio">Servicio</option>
-                            <option value="insumo">Insumo</option>
-                            <option value="activo">Activo</option>
-                            <option value="gasto">Gasto</option>
                         </select>
                         <label for="editTipo">Tipo</label>
                     </div>

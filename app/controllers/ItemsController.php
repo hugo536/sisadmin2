@@ -239,7 +239,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'servicio', 'insumo'];
+        $tiposPermitidos = ['producto', 'materia_prima', 'material_empaque', 'servicio'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
@@ -287,6 +287,15 @@ class ItemsController extends Controlador
             $data['requiere_lote'] = 0;
             $data['requiere_vencimiento'] = 0;
             $data['dias_alerta_vencimiento'] = null;
+        }
+
+        if ($tipo === 'materia_prima') {
+            $data['permite_decimales'] = 1;
+            $data['requiere_lote'] = 1;
+        }
+
+        if ($tipo === 'material_empaque') {
+            $data['permite_decimales'] = 0;
         }
 
         if ((int) ($data['controla_stock'] ?? 0) !== 1) {
