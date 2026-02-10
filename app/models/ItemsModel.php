@@ -5,6 +5,7 @@ class ItemsModel extends Modelo
 {
     private const TABLA_SABORES = 'item_sabores';
     private const TABLA_PRESENTACIONES = 'item_presentaciones';
+    private array $cacheColumnasPorTabla = [];
 
     public function listar(): array
     {
@@ -301,7 +302,11 @@ class ItemsModel extends Modelo
     {
         $sql = "SELECT id, nombre, estado
                 FROM {$tabla}
-                WHERE deleted_at IS NULL";
+                WHERE 1 = 1";
+
+        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
 
         if ($soloActivos) {
             $sql .= ' AND estado = 1';
@@ -342,42 +347,81 @@ class ItemsModel extends Modelo
             throw new RuntimeException('Ya existe un registro con ese nombre.');
         }
 
-        $sql = "UPDATE {$tabla}
-                SET nombre = :nombre,
-                    estado = :estado,
-                    updated_at = NOW(),
-                    updated_by = :updated_by
-                WHERE id = :id
-                  AND deleted_at IS NULL";
+        $set = [
+            'nombre = :nombre',
+            'estado = :estado',
+        ];
 
-        return $this->db()->prepare($sql)->execute([
+        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
+            $set[] = 'updated_at = NOW()';
+        }
+
+        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
+            $set[] = 'updated_by = :updated_by';
+        }
+
+        $sql = "UPDATE {$tabla}
+                SET " . implode(",\n                    ", $set) . "
+                WHERE id = :id";
+
+        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
+            $sql .= "
+                  AND deleted_at IS NULL";
+        }
+
+        $params = [
             'id' => $id,
             'nombre' => $nombre,
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
             'updated_by' => $userId,
-        ]);
+        ];
+
+        if (!$this->tablaTieneColumna($tabla, 'updated_by')) {
+            unset($params['updated_by']);
+        }
+
+        return $this->db()->prepare($sql)->execute($params);
     }
 
     private function eliminarAtributo(string $tabla, int $id, int $userId): bool
     {
+        if (!$this->tablaTieneColumna($tabla, 'deleted_at')) {
+            $sql = "DELETE FROM {$tabla} WHERE id = :id";
+
+            return $this->db()->prepare($sql)->execute(['id' => $id]);
+        }
+
+        $set = ['deleted_at = NOW()'];
+        $params = ['id' => $id];
+
+        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
+            $set[] = 'updated_at = NOW()';
+        }
+        if ($this->tablaTieneColumna($tabla, 'deleted_by')) {
+            $set[] = 'deleted_by = :deleted_by';
+            $params['deleted_by'] = $userId;
+        }
+        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
+            $set[] = 'updated_by = :updated_by';
+            $params['updated_by'] = $userId;
+        }
+
         $sql = "UPDATE {$tabla}
-                SET deleted_at = NOW(),
-                    updated_at = NOW(),
-                    deleted_by = :deleted_by,
-                    updated_by = :updated_by
+                SET " . implode(",\n                    ", $set) . "
                 WHERE id = :id
                   AND deleted_at IS NULL";
 
-        return $this->db()->prepare($sql)->execute([
-            'id' => $id,
-            'deleted_by' => $userId,
-            'updated_by' => $userId,
-        ]);
+        return $this->db()->prepare($sql)->execute($params);
     }
 
     private function atributoDuplicado(string $tabla, string $nombre, ?int $excludeId = null): bool
     {
-        $sql = "SELECT 1 FROM {$tabla} WHERE LOWER(nombre) = LOWER(:nombre) AND deleted_at IS NULL";
+        $sql = "SELECT 1 FROM {$tabla} WHERE LOWER(nombre) = LOWER(:nombre)";
+
+        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
         $params = ['nombre' => $nombre];
 
         if ($excludeId !== null) {
@@ -391,6 +435,18 @@ class ItemsModel extends Modelo
         $stmt->execute($params);
 
         return (bool) $stmt->fetchColumn();
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        if (!isset($this->cacheColumnasPorTabla[$tabla])) {
+            $stmt = $this->db()->prepare('SHOW COLUMNS FROM ' . $tabla);
+            $stmt->execute();
+            $columnas = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $this->cacheColumnasPorTabla[$tabla] = array_map('strtolower', $columnas ?: []);
+        }
+
+        return in_array(strtolower($columna), $this->cacheColumnasPorTabla[$tabla], true);
     }
 
     private function mapPayload(array $data): array
