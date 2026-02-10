@@ -8,74 +8,9 @@
     };
 
     const zoneManagers = {};
-    let geoJsonDataPromise = null;
-    const GEOJSON_SOURCES = [
-        'assets/geojson/peru_distrital_simple.geojson',
-        'assets/geojson/peru-distritos.geojson'
-    ];
-
-    function normalizeText(value) {
-        return (value || '')
-            .toString()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toUpperCase()
-            .replace(/\b(DISTRITO|PROVINCIA|DEPARTAMENTO)\b/g, ' ')
-            .replace(/[^A-Z0-9]+/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    function normalizeCompact(value) {
-        return normalizeText(value).replace(/\s+/g, '');
-    }
-
-    function namesMatch(left, right) {
-        const a = normalizeText(left);
-        const b = normalizeText(right);
-        if (!a || !b) return false;
-        if (a === b) return true;
-
-        const compactA = normalizeCompact(a);
-        const compactB = normalizeCompact(b);
-        if (compactA === compactB) return true;
-
-        return compactA.includes(compactB) || compactB.includes(compactA);
-    }
-
-    function fetchGeoJson(url) {
-        return fetch(url)
-            .then(r => (r.ok ? r.json() : null))
-            .catch(() => null);
-    }
-
-    function getGeoJsonData() {
-        if (geoJsonDataPromise) return geoJsonDataPromise;
-        geoJsonDataPromise = GEOJSON_SOURCES.reduce(
-            (promise, url) => promise.then(data => {
-                if (Array.isArray(data?.features) && data.features.length > 0) {
-                    return data;
-                }
-                return fetchGeoJson(url);
-            }),
-            Promise.resolve(null)
-        ).then(data => {
-            if (Array.isArray(data?.features) && data.features.length > 0) {
-                return data;
-            }
-            return { type: 'FeatureCollection', features: [] };
-        });
-        return geoJsonDataPromise;
-    }
 
     function buildLabel(zona) {
         return [zona.departamento_nombre, zona.provincia_nombre, zona.distrito_nombre].filter(Boolean).join(' - ');
-    }
-
-    function zoneStyle(status) {
-        if (status === ZONE_STATUS.SAVED) return { color: '#28a745', weight: 2, fillOpacity: 0.35 };
-        if (status === ZONE_STATUS.CONFLICT) return { color: '#dc3545', weight: 2, fillOpacity: 0.35 };
-        return { color: '#2f80ed', weight: 2, fillOpacity: 0.35 };
     }
 
     function createManager(prefix) {
@@ -89,10 +24,6 @@
             dist: document.getElementById(`${prefix}ZonaDistrito`),
             btn: document.getElementById(`${prefix}AgregarZonaBtn`),
             list: document.getElementById(`${prefix}ZonasList`),
-            mapEl: document.getElementById(`${prefix}ZonasMap`),
-            map: null,
-            geoLayer: null,
-            drawnLayer: null,
             conflicts: new Set(),
             focusKey: '',
             validationSeq: 0
@@ -196,61 +127,6 @@
         validateConflicts(manager);
     }
 
-    function featureMatchesZone(feature, zona) {
-        const props = feature?.properties || {};
-        const dep = zona.departamento_nombre;
-        const prov = zona.provincia_nombre;
-        const dist = zona.distrito_nombre;
-
-        if (dist) {
-            return namesMatch(props.NOMBDIST || props.DISTRITO || props.distrito, dist);
-        }
-        if (prov) {
-            return namesMatch(props.NOMBPROV || props.PROVINCIA || props.provincia, prov);
-        }
-        return namesMatch(props.NOMBDEP || props.DEPARTAMEN || props.departamento, dep);
-    }
-
-    function repaintMap(manager, focusKey = '') {
-        if (!manager.map || !manager.geoLayer) return;
-        if (manager.drawnLayer) {
-            manager.drawnLayer.remove();
-        }
-
-        const features = [];
-        let focusedLayer = null;
-        manager.zones.forEach((zona, key) => {
-            manager.geoLayer.eachLayer(layer => {
-                if (!featureMatchesZone(layer.feature, zona)) return;
-                const clone = JSON.parse(JSON.stringify(layer.feature));
-                clone.properties = clone.properties || {};
-                clone.properties._zoneKey = key;
-                clone.properties._zoneStatus = manager.conflicts.has(key) ? ZONE_STATUS.CONFLICT : zona.status;
-                clone.properties._zoneLabel = zona.label;
-                features.push(clone);
-            });
-        });
-
-        manager.drawnLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
-            style: f => zoneStyle(f.properties._zoneStatus),
-            onEachFeature: (feature, layer) => {
-                layer.bindTooltip(feature.properties._zoneLabel || 'Zona');
-                layer.on({
-                    mouseover: () => layer.setStyle({ weight: 3, fillOpacity: 0.5 }),
-                    mouseout: () => manager.drawnLayer.resetStyle(layer)
-                });
-                if (focusKey && feature.properties._zoneKey === focusKey && !focusedLayer) {
-                    focusedLayer = layer;
-                }
-            }
-        }).addTo(manager.map);
-
-        const target = focusedLayer || manager.drawnLayer;
-        if (target && target.getBounds && target.getBounds().isValid()) {
-            manager.map.fitBounds(target.getBounds(), { padding: [15, 15], maxZoom: 9 });
-        }
-    }
-
     function renderZones(manager) {
         manager.list.innerHTML = '';
         manager.zones.forEach((zona, key) => {
@@ -275,8 +151,6 @@
             tr.querySelector('button')?.addEventListener('click', () => removeZone(manager, key));
             manager.list.appendChild(tr);
         });
-
-        repaintMap(manager, manager.focusKey);
     }
 
     function getDistribuidorId(manager) {
@@ -337,29 +211,9 @@
         renderZones(manager);
     }
 
-    function initMap(manager) {
-        if (!manager.mapEl || typeof L === 'undefined' || manager.map) return;
-        manager.map = L.map(manager.mapEl, { zoomControl: true }).setView([-9.19, -75.0152], 5);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(manager.map);
-
-        getGeoJsonData().then(data => {
-            const features = Array.isArray(data?.features) ? data.features : [];
-            manager.geoLayer = L.geoJSON({ type: 'FeatureCollection', features }, { style: { opacity: 0, fillOpacity: 0 } });
-
-            if (!features.length) {
-                console.info('[Distribuidores] No se encontró cartografía de distritos. El guardado funciona, pero no se pintarán zonas en el mapa.');
-            }
-
-            repaintMap(manager);
-        });
-    }
-
     function initDistribuidorZones(prefix) {
         const manager = createManager(prefix);
-        const { dep, prov, dist, btn, mapEl } = manager;
+        const { dep, prov, dist, btn } = manager;
         if (!dep || !prov || !dist || !btn || !manager.list) return;
 
         if (!dep.dataset.bound) {
@@ -393,15 +247,9 @@
                 };
                 zona.label = buildLabel(zona);
                 addZone(manager, zona, ZONE_STATUS.TEMP);
-                repaintMap(manager, zoneKey(zona.departamento_id, zona.provincia_id, zona.distrito_id));
             });
 
             dep.dataset.bound = '1';
-        }
-
-        if (mapEl && !mapEl.dataset.initialized) {
-            initMap(manager);
-            mapEl.dataset.initialized = '1';
         }
     }
 
@@ -413,8 +261,7 @@
         const manager = createManager(prefix);
 
         if (show) {
-            initMap(manager);
-            setTimeout(() => manager.map?.invalidateSize(), 50);
+            manager.focusKey = '';
         } else {
             resetDistribuidorZones(prefix);
         }

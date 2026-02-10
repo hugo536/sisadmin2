@@ -759,11 +759,6 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-<style>
-.zonas-map{height:360px;min-height:260px;width:100%;border-radius:.375rem;}
-</style>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="<?php echo asset_url('js/terceros/clientes.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros/proveedores.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros/empleados.js'); ?>"></script>
