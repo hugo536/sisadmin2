@@ -57,7 +57,7 @@ class TercerosController extends Controlador
                 if (es_ajax() && $accion === 'toggle_estado') {
                     require_permiso('terceros.editar');
                     $id     = (int) ($_POST['id'] ?? 0);
-                    $estado = (int) ($_POST['estado'] ?? 0);
+                    $estado = ((int) ($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido.');
                     
                     $this->tercerosModel->actualizarEstado($id, $estado, $userId);
