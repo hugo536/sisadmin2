@@ -2,6 +2,10 @@
 $items = $items ?? [];
 $categorias = $categorias ?? [];
 $categoriasGestion = $categorias_gestion ?? [];
+$sabores = $sabores ?? [];
+$saboresGestion = $sabores_gestion ?? [];
+$presentaciones = $presentaciones ?? [];
+$presentacionesGestion = $presentaciones_gestion ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -14,6 +18,9 @@ $categoriasGestion = $categorias_gestion ?? [];
         <div class="d-flex gap-2">
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
                 <i class="bi bi-tags me-2 text-info"></i>Categorías
+            </button>
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionItems">
+                <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
             </button>
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
                 <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
@@ -109,6 +116,8 @@ $categoriasGestion = $categorias_gestion ?? [];
                                             data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
                                             data-dias-alerta-vencimiento="<?php echo e((string) ($item['dias_alerta_vencimiento'] ?? '')); ?>"
                                             data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
+                                            data-sabor="<?php echo e((string) ($item['id_sabor'] ?? '')); ?>"
+                                            data-presentacion="<?php echo e((string) ($item['id_presentacion'] ?? '')); ?>"
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
@@ -212,6 +221,154 @@ $categoriasGestion = $categorias_gestion ?? [];
     </div>
 </div>
 
+<div class="modal fade" id="modalGestionItems" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title mb-0"><i class="bi bi-sliders me-2"></i>Configuración de ítems</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="tabsGestionItems" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="sabores-tab" data-bs-toggle="tab" data-bs-target="#tabSabores" type="button" role="tab">Sabores</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="presentaciones-tab" data-bs-toggle="tab" data-bs-target="#tabPresentaciones" type="button" role="tab">Presentaciones</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="marcas-tab" data-bs-toggle="tab" data-bs-target="#tabMarcas" type="button" role="tab">Marcas</button>
+                    </li>
+                </ul>
+                <div class="tab-content border border-top-0 rounded-bottom p-3" id="tabsGestionItemsContent">
+                    <div class="tab-pane fade show active" id="tabSabores" role="tabpanel">
+                        <form method="post" id="formAgregarSabor" class="row g-2 mb-3">
+                            <input type="hidden" name="accion" value="crear_sabor">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="nombre" placeholder="Agregar nuevo sabor" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Agregar</button>
+                            </div>
+                        </form>
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control" id="buscarSabores" placeholder="Buscar sabor...">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="tablaSaboresGestion">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($saboresGestion as $sabor): ?>
+                                        <tr data-search="<?php echo e(mb_strtolower((string) $sabor['nombre'])); ?>">
+                                            <td class="fw-semibold"><?php echo e((string) $sabor['nombre']); ?></td>
+                                            <td>
+                                                <div class="form-check form-switch m-0">
+                                                    <input class="form-check-input js-toggle-atributo" type="checkbox"
+                                                        data-accion="editar_sabor"
+                                                        data-id="<?php echo (int) $sabor['id']; ?>"
+                                                        data-nombre="<?php echo e((string) $sabor['nombre']); ?>"
+                                                        <?php echo ((int) ($sabor['estado'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="sabor" data-id="<?php echo (int) $sabor['id']; ?>" data-nombre="<?php echo e((string) $sabor['nombre']); ?>" data-estado="<?php echo (int) ($sabor['estado'] ?? 1); ?>">Editar</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_sabor" data-id="<?php echo (int) $sabor['id']; ?>">Eliminar</button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabPresentaciones" role="tabpanel">
+                        <form method="post" id="formAgregarPresentacion" class="row g-2 mb-3">
+                            <input type="hidden" name="accion" value="crear_presentacion">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="nombre" placeholder="Agregar nueva presentación" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Agregar</button>
+                            </div>
+                        </form>
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control" id="buscarPresentaciones" placeholder="Buscar presentación...">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="tablaPresentacionesGestion">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($presentacionesGestion as $presentacion): ?>
+                                        <tr data-search="<?php echo e(mb_strtolower((string) $presentacion['nombre'])); ?>">
+                                            <td class="fw-semibold"><?php echo e((string) $presentacion['nombre']); ?></td>
+                                            <td>
+                                                <div class="form-check form-switch m-0">
+                                                    <input class="form-check-input js-toggle-atributo" type="checkbox"
+                                                        data-accion="editar_presentacion"
+                                                        data-id="<?php echo (int) $presentacion['id']; ?>"
+                                                        data-nombre="<?php echo e((string) $presentacion['nombre']); ?>"
+                                                        <?php echo ((int) ($presentacion['estado'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="presentacion" data-id="<?php echo (int) $presentacion['id']; ?>" data-nombre="<?php echo e((string) $presentacion['nombre']); ?>" data-estado="<?php echo (int) ($presentacion['estado'] ?? 1); ?>">Editar</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_presentacion" data-id="<?php echo (int) $presentacion['id']; ?>">Eliminar</button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabMarcas" role="tabpanel">
+                        <div class="alert alert-light border mb-0">La marca sigue siendo un campo libre en el formulario de ítems.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarAtributo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h6 class="modal-title mb-0" id="tituloEditarAtributo">Editar</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="formEditarAtributo" class="modal-body">
+                <input type="hidden" name="accion" id="editarAtributoAccion" value="">
+                <input type="hidden" name="id" id="editarAtributoId" value="">
+                <div class="mb-3">
+                    <label for="editarAtributoNombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="editarAtributoNombre" name="nombre" required>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="editarAtributoEstado" name="estado" value="1" checked>
+                    <label class="form-check-label" for="editarAtributoEstado">Activo</label>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
@@ -267,6 +424,38 @@ $categoriasGestion = $categorias_gestion ?? [];
                             <?php endforeach; ?>
                         </select>
                         <label for="newCategoria">Categoría</label>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2">
+                            <div class="form-floating flex-grow-1">
+                                <select class="form-select" id="newSabor" name="id_sabor">
+                                    <option value="" selected>Seleccionar sabor...</option>
+                                    <?php foreach ($sabores as $sabor): ?>
+                                        <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="newSabor">Sabor</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="sabores" title="Gestionar sabores">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2">
+                            <div class="form-floating flex-grow-1">
+                                <select class="form-select" id="newPresentacion" name="id_presentacion">
+                                    <option value="" selected>Seleccionar presentación...</option>
+                                    <?php foreach ($presentaciones as $presentacion): ?>
+                                        <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="newPresentacion">Presentación</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="presentaciones" title="Gestionar presentaciones">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
@@ -342,6 +531,38 @@ $categoriasGestion = $categorias_gestion ?? [];
                             <?php endforeach; ?>
                         </select>
                         <label for="editCategoria">Categoría</label>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2">
+                            <div class="form-floating flex-grow-1">
+                                <select class="form-select" id="editSabor" name="id_sabor">
+                                    <option value="">Seleccionar sabor...</option>
+                                    <?php foreach ($sabores as $sabor): ?>
+                                        <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="editSabor">Sabor</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="sabores" title="Gestionar sabores">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2">
+                            <div class="form-floating flex-grow-1">
+                                <select class="form-select" id="editPresentacion" name="id_presentacion">
+                                    <option value="">Seleccionar presentación...</option>
+                                    <?php foreach ($presentaciones as $presentacion): ?>
+                                        <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="editPresentacion">Presentación</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm align-self-center mt-2 js-open-gestion-items" data-tab="presentaciones" title="Gestionar presentaciones">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
