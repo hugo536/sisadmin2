@@ -37,6 +37,13 @@ class ItemsController extends Controlador
         }
 
         $flash = ['tipo' => '', 'texto' => ''];
+        if (isset($_SESSION['items_flash']) && is_array($_SESSION['items_flash'])) {
+            $flash = [
+                'tipo' => (string) ($_SESSION['items_flash']['tipo'] ?? ''),
+                'texto' => (string) ($_SESSION['items_flash']['texto'] ?? ''),
+            ];
+            unset($_SESSION['items_flash']);
+        }
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
@@ -183,9 +190,15 @@ class ItemsController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Presentación eliminada correctamente.'];
                 }
 
-                if (isset($respuesta) && es_ajax()) {
-                    json_response($respuesta);
-                    return;
+                if (isset($respuesta)) {
+                    if (es_ajax()) {
+                        json_response($respuesta);
+                        return;
+                    }
+
+                    $_SESSION['items_flash'] = $flash;
+                    header('Location: ' . (string) ($_SERVER['REQUEST_URI'] ?? '?ruta=items'));
+                    exit;
                 }
             } catch (Throwable $e) {
                 if (es_ajax()) {
