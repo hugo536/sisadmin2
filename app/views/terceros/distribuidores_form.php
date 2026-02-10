@@ -11,56 +11,42 @@ $prefix = $prefix ?? 'crear';
 
 <div class="border rounded-3 p-3 bg-light mt-3 d-none" id="<?php echo $prefix; ?>DistribuidorFields">
     <h6 class="small text-muted fw-bold mb-3">ZONAS EXCLUSIVAS</h6>
-    <div class="row g-3">
-        <div class="col-lg-5">
-            <div class="row g-2 align-items-end">
-                <div class="col-12">
-                    <label class="form-label">Departamento <span class="text-danger">*</span></label>
-                    <select class="form-select" id="<?php echo $prefix; ?>ZonaDepartamento">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Provincia</label>
-                    <select class="form-select" id="<?php echo $prefix; ?>ZonaProvincia" disabled>
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Distrito</label>
-                    <select class="form-select" id="<?php echo $prefix; ?>ZonaDistrito" disabled>
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="<?php echo $prefix; ?>AgregarZonaBtn">
-                        <i class="bi bi-plus-circle me-1"></i>Agregar zona
-                    </button>
-                </div>
-            </div>
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4">
+            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+            <select class="form-select" id="<?php echo $prefix; ?>ZonaDepartamento">
+                <option value="">Seleccionar...</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-4">
+            <label class="form-label">Provincia</label>
+            <select class="form-select" id="<?php echo $prefix; ?>ZonaProvincia" disabled>
+                <option value="">Seleccionar...</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-4">
+            <label class="form-label">Distrito</label>
+            <select class="form-select" id="<?php echo $prefix; ?>ZonaDistrito" disabled>
+                <option value="">Seleccionar...</option>
+            </select>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="<?php echo $prefix; ?>AgregarZonaBtn">
+                <i class="bi bi-plus-circle me-1"></i>Agregar zona
+            </button>
+        </div>
+    </div>
 
-            <div class="table-responsive mt-3">
-                <table class="table table-sm align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Zona</th>
-                            <th>Estado</th>
-                            <th class="text-end" style="width:90px;">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="<?php echo $prefix; ?>ZonasList"></tbody>
-                </table>
-            </div>
-        </div>
-        <div class="col-lg-7">
-            <div class="border rounded bg-white p-2">
-                <div id="<?php echo $prefix; ?>ZonasMap" class="zonas-map"></div>
-            </div>
-            <div class="small mt-2 d-flex gap-3">
-                <span><span class="badge rounded-pill" style="background:#2f80ed;">&nbsp;</span> Temporal</span>
-                <span><span class="badge rounded-pill" style="background:#28a745;">&nbsp;</span> Guardada</span>
-                <span><span class="badge rounded-pill" style="background:#dc3545;">&nbsp;</span> Conflicto</span>
-            </div>
-        </div>
+    <div class="table-responsive mt-3">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Zona</th>
+                    <th>Estado</th>
+                    <th class="text-end" style="width:90px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="<?php echo $prefix; ?>ZonasList"></tbody>
+        </table>
     </div>
 </div>
