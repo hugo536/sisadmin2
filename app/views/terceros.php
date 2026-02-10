@@ -168,7 +168,7 @@
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" 
                                             data-bs-toggle="modal" data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
-                                            data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona'] ?? 'NATURAL'); ?>"
+                                            data-tipo-persona="<?php echo htmlspecialchars(strtoupper($tercero['tipo_persona'] ?? 'NATURAL')); ?>"
                                             data-tipo-doc="<?php echo htmlspecialchars($tercero['tipo_documento']); ?>"
                                             data-numero-doc="<?php echo htmlspecialchars($tercero['numero_documento']); ?>"
                                             data-nombre="<?php echo htmlspecialchars($tercero['nombre_completo']); ?>"
