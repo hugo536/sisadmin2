@@ -14,6 +14,28 @@
     // UTILIDADES GENERALES
     // =========================================================================
 
+
+    async function parseJsonResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+        const bodyText = await response.text();
+
+        if (!bodyText) {
+            return { ok: response.ok, data: {} };
+        }
+
+        if (contentType.includes('application/json')) {
+            return { ok: response.ok, data: JSON.parse(bodyText) };
+        }
+
+        try {
+            return { ok: response.ok, data: JSON.parse(bodyText) };
+        } catch (error) {
+            const plainText = bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            const details = plainText ? `Respuesta del servidor: ${plainText.slice(0, 180)}` : 'El servidor devolvió una respuesta no válida.';
+            throw new Error(`No se pudo procesar la respuesta del servidor. ${details}`);
+        }
+    }
+
     function getFeedbackElement(input) {
         if (!input) return null;
         const floatingFeedback = input.closest('.form-floating')?.querySelector('.invalid-feedback');
@@ -417,8 +439,8 @@
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: fd
             })
-            .then(r => r.json())
-            .then(res => {
+            .then(parseJsonResponse)
+            .then(({ data: res }) => {
                 selectEl.innerHTML = '<option value="">Seleccionar...</option>';
                 let matched = false;
                 if(res.ok && res.data) {
@@ -739,7 +761,7 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData
                 })
-                .then(r => r.json().then(data => ({ ok: r.ok, data })))
+                .then(parseJsonResponse)
                 .then(({ ok, data }) => {
                     if (!ok || !data.ok) throw new Error(data.mensaje || 'Error al guardar.');
                     
@@ -1019,8 +1041,8 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: fd
                 })
-                .then(r => r.json())
-                .then(res => {
+                .then(parseJsonResponse)
+                .then(({ data: res }) => {
                     if (res.ok) {
                         const list = document.getElementById(listId);
                         if(list) {
@@ -1071,8 +1093,8 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData
                 })
-                .then(r => r.json())
-                .then(data => {
+                .then(parseJsonResponse)
+                .then(({ data }) => {
                     if (!data.ok) throw new Error(data.mensaje);
                     if (fila) fila.setAttribute('data-estado', nuevoEstado);
                     if (badge) {
@@ -1118,8 +1140,8 @@
             if (excludeIdVal) fd.append('exclude_id', excludeIdVal);
 
             fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-                .then(r => r.json())
-                .then(d => {
+                .then(parseJsonResponse)
+                .then(({ data: d }) => {
                     const msg = d.existe ? 'Documento ya registrado.' : '';
                     numeroEl.setCustomValidity(msg);
                     if(d.existe && numeroEl.closest('form')?.dataset.submitted === '1') numeroEl.classList.add('is-invalid');
