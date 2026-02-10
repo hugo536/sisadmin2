@@ -701,7 +701,20 @@
             // Antes de enviar, reactivamos campos disabled temporalmente si es necesario para el backend
             // Pero en este caso, la lógica de negocio dice que si está cesado, no importan los datos de pago
             
-            if (!validateForm(form, rolesFeedbackId, true)) return;
+            if (!validateForm(form, rolesFeedbackId, true)) {
+                const firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus?.({ preventScroll: true });
+                }
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Faltan datos por completar',
+                    text: 'Revisa los campos marcados en rojo antes de guardar.'
+                });
+                return;
+            }
 
             Swal.fire({
                 title: '¿Confirmar guardado?',

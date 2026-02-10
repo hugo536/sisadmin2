@@ -52,9 +52,19 @@
     function getGeoJsonData() {
         if (geoJsonDataPromise) return geoJsonDataPromise;
         geoJsonDataPromise = GEOJSON_SOURCES.reduce(
-            (promise, url) => promise.then(data => data || fetchGeoJson(url)),
+            (promise, url) => promise.then(data => {
+                if (Array.isArray(data?.features) && data.features.length > 0) {
+                    return data;
+                }
+                return fetchGeoJson(url);
+            }),
             Promise.resolve(null)
-        ).then(data => data || { type: 'FeatureCollection', features: [] });
+        ).then(data => {
+            if (Array.isArray(data?.features) && data.features.length > 0) {
+                return data;
+            }
+            return { type: 'FeatureCollection', features: [] };
+        });
         return geoJsonDataPromise;
     }
 
@@ -340,7 +350,7 @@
             manager.geoLayer = L.geoJSON({ type: 'FeatureCollection', features }, { style: { opacity: 0, fillOpacity: 0 } });
 
             if (!features.length) {
-                console.warn('[Distribuidores] El GeoJSON de distritos está vacío. No se podrán pintar zonas en el mapa.');
+                console.info('[Distribuidores] No se encontró cartografía de distritos. El guardado funciona, pero no se pintarán zonas en el mapa.');
             }
 
             repaintMap(manager);
