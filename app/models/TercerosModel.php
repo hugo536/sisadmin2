@@ -13,6 +13,8 @@ class TercerosModel extends Modelo
     private TercerosEmpleadosModel $empleadosModel;
     private DistribuidoresModel $distribuidoresModel;
     private ?bool $hasRepresentanteLegalColumn = null;
+    /** @var array<string,bool> */
+    private array $columnCache = [];
 
     public function __construct()
     {
@@ -569,7 +571,11 @@ class TercerosModel extends Modelo
     {
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db()->prepare("SELECT tercero_id, tipo, entidad, tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones FROM terceros_cuentas_bancarias WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
+        $usaTipoCuenta = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_cuenta');
+        $tipoCuentaSelect = $usaTipoCuenta
+            ? 'COALESCE(tipo_cuenta, tipo_cta) AS tipo_cuenta, COALESCE(tipo_cuenta, tipo_cta) AS tipo_cta'
+            : 'tipo_cta AS tipo_cuenta, tipo_cta';
+        $stmt = $this->db()->prepare("SELECT tercero_id, tipo, entidad, {$tipoCuentaSelect}, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones FROM terceros_cuentas_bancarias WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
         $stmt->execute($ids);
         $result = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -597,18 +603,31 @@ class TercerosModel extends Modelo
         $this->db()->prepare("DELETE FROM terceros_cuentas_bancarias WHERE tercero_id = ?")->execute([$terceroId]);
         if (empty($cuentas)) return;
 
-        $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, entidad, tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $usaTipoCuenta = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_cuenta');
+        $sql = $usaTipoCuenta
+            ? "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, entidad, tipo_cta, tipo_cuenta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            : "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, entidad, tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->db()->prepare($sql);
         foreach ($cuentas as $cta) {
             // Validar que al menos tenga un identificador
             if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['alias']) && empty($cta['numero_cuenta'])) continue;
+
+            $tipoCuenta = $cta['tipo_cuenta'] ?? $cta['tipo_cta'] ?? null;
+            $params = $usaTipoCuenta
+                ? [
+                    $terceroId, $cta['tipo'] ?? null, $cta['entidad'] ?? '', $tipoCuenta, $tipoCuenta,
+                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
+                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
+                    $cta['observaciones'] ?? null, $userId, $userId
+                ]
+                : [
+                    $terceroId, $cta['tipo'] ?? null, $cta['entidad'] ?? '', $tipoCuenta,
+                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
+                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
+                    $cta['observaciones'] ?? null, $userId, $userId
+                ];
             
-            $stmt->execute([
-                $terceroId, $cta['tipo'] ?? null, $cta['entidad'] ?? '', $cta['tipo_cta'] ?? null,
-                trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
-                $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
-                $cta['observaciones'] ?? null, $userId, $userId
-            ]);
+            $stmt->execute($params);
         }
     }
 
@@ -661,5 +680,29 @@ class TercerosModel extends Modelo
         $this->hasRepresentanteLegalColumn = (bool) $stmt->fetchColumn();
 
         return $this->hasRepresentanteLegalColumn;
+    }
+
+    private function hasColumn(string $tableName, string $columnName): bool
+    {
+        $cacheKey = $tableName . '.' . $columnName;
+        if (array_key_exists($cacheKey, $this->columnCache)) {
+            return $this->columnCache[$cacheKey];
+        }
+
+        $stmt = $this->db()->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
+        );
+        $stmt->execute([
+            'table_name' => $tableName,
+            'column_name' => $columnName,
+        ]);
+
+        $this->columnCache[$cacheKey] = (bool) $stmt->fetchColumn();
+        return $this->columnCache[$cacheKey];
     }
 }

@@ -87,7 +87,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'cargar_zonas_distribuidor') {
-                    $idDistribuidor = (int)($_POST['distribuidor_id'] ?? 0);
+                    $idDistribuidor = $this->postInt(['tercero_id', 'distribuidor_id']);
                     if ($idDistribuidor <= 0) {
                         json_response(['ok' => true, 'data' => []]);
                         return;
@@ -99,7 +99,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'validar_conflictos_zonas') {
-                    $excludeDistribuidorId = (int)($_POST['distribuidor_id'] ?? 0);
+                    $excludeDistribuidorId = $this->postInt(['tercero_id', 'distribuidor_id']);
                     $zonas = $_POST['zonas'] ?? [];
                     if (!is_array($zonas)) {
                         $zonas = [$zonas];
@@ -196,7 +196,7 @@ class TercerosController extends Controlador
 
                 if ($accion === 'subir_documento') {
                     require_permiso('terceros.editar');
-                    $idTercero = (int)($_POST['id_tercero'] ?? 0);
+                    $idTercero = $this->postInt(['tercero_id', 'id_tercero']);
                     $tipoDoc   = trim((string)($_POST['tipo_documento'] ?? 'OTRO'));
                     $obs       = trim((string)($_POST['observaciones'] ?? ''));
 
@@ -243,7 +243,7 @@ class TercerosController extends Controlador
                 if ($accion === 'editar_documento') {
                     require_permiso('terceros.editar');
                     $docId = (int)($_POST['id_documento'] ?? 0);
-                    $idTercero = (int)($_POST['id_tercero'] ?? 0);
+                    $idTercero = $this->postInt(['tercero_id', 'id_tercero']);
                     $tipoDoc = trim((string)($_POST['tipo_documento'] ?? ''));
                     $obs = trim((string)($_POST['observaciones'] ?? ''));
 
@@ -258,7 +258,7 @@ class TercerosController extends Controlador
                 if ($accion === 'eliminar_documento') {
                     require_permiso('terceros.editar');
                     $docId = (int)($_POST['id_documento'] ?? 0);
-                    $idTercero = (int)($_POST['id_tercero'] ?? 0);
+                    $idTercero = $this->postInt(['tercero_id', 'id_tercero']);
                     
                     if ($docId > 0) {
                         $this->tercerosModel->eliminarDocumento($docId);
@@ -283,7 +283,7 @@ class TercerosController extends Controlador
                     $conflictos = $this->tercerosModel->obtenerConflictosZonasDistribuidor($data['zonas_exclusivas'] ?? [], 0);
                     if (!empty($conflictos)) {
                         $zona = $conflictos[0];
-                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . $zona['distribuidor_id'])) . '.');
+                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . ($zona['tercero_id'] ?? $zona['distribuidor_id']))) . '.');
                     }
                     
                     $id = $this->tercerosModel->crear($data, $userId);
@@ -305,7 +305,7 @@ class TercerosController extends Controlador
                     $conflictos = $this->tercerosModel->obtenerConflictosZonasDistribuidor($data['zonas_exclusivas'] ?? [], $id);
                     if (!empty($conflictos)) {
                         $zona = $conflictos[0];
-                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . $zona['distribuidor_id'])) . '.');
+                        throw new Exception('La zona exclusiva ' . ($zona['label'] ?: $zona['valor']) . ' ya pertenece al distribuidor ' . ($zona['distribuidor_nombre'] ?: ('#' . ($zona['tercero_id'] ?? $zona['distribuidor_id']))) . '.');
                     }
                     
                     $this->tercerosModel->actualizar($id, $data, $userId);
@@ -352,7 +352,7 @@ class TercerosController extends Controlador
                 
                 // Redirigir si falla documento
                 if (in_array($accion, ['subir_documento', 'editar_documento', 'eliminar_documento'])) {
-                    $idTercero = (int)($_POST['id_tercero'] ?? 0);
+                    $idTercero = $this->postInt(['tercero_id', 'id_tercero']);
                     if ($idTercero > 0) {
                         header("Location: ?ruta=terceros/perfil&id=$idTercero&tab=documentos&error=" . urlencode($e->getMessage()));
                         exit;
@@ -413,6 +413,17 @@ class TercerosController extends Controlador
         ]);
     }
 
+    private function postInt(array $keys, int $default = 0): int
+    {
+        foreach ($keys as $key) {
+            if (isset($_POST[$key])) {
+                return (int) $_POST[$key];
+            }
+        }
+
+        return $default;
+    }
+
     private function validarTercero($data)
     {
         $tipoPersona   = strtoupper(trim((string) ($data['tipo_persona'] ?? '')));
@@ -425,9 +436,9 @@ class TercerosController extends Controlador
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
         // --- UBIGEO: Resolver Nombres ---
-        $departamentoId = !empty($data['departamento']) ? (string) $data['departamento'] : '';
-        $provinciaId    = !empty($data['provincia'])    ? (string) $data['provincia']    : '';
-        $distritoId     = !empty($data['distrito'])     ? (string) $data['distrito']     : '';
+        $departamentoId = !empty($data['departamento_id'] ?? $data['departamento']) ? (string) ($data['departamento_id'] ?? $data['departamento']) : '';
+        $provinciaId    = !empty($data['provincia_id'] ?? $data['provincia'])    ? (string) ($data['provincia_id'] ?? $data['provincia'])    : '';
+        $distritoId     = !empty($data['distrito_id'] ?? $data['distrito'])     ? (string) ($data['distrito_id'] ?? $data['distrito'])     : '';
 
         $departamentoNombre = null;
         $provinciaNombre    = null;
@@ -484,7 +495,7 @@ class TercerosController extends Controlador
         // --- CUENTAS ---
         $cuentasTipo            = $data['cuenta_tipo']            ?? [];
         $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
-        $cuentasTipoCta         = $data['cuenta_tipo_cta']        ?? [];
+        $cuentasTipoCta         = $data['cuenta_tipo_cuenta']     ?? $data['cuenta_tipo_cta'] ?? [];
         $cuentasNumero          = $data['cuenta_numero']          ?? [];
         $cuentasCci             = $data['cuenta_cci']             ?? [];  
         $cuentasAlias           = $data['cuenta_alias']           ?? [];
@@ -527,6 +538,7 @@ class TercerosController extends Controlador
                 'tipo'              => trim((string) ($cuentasTipo[$i] ?? '')),
                 'entidad'           => $entidad,
                 'tipo_cta'          => trim((string) ($cuentasTipoCta[$i] ?? '')),
+                'tipo_cuenta'       => trim((string) ($cuentasTipoCta[$i] ?? '')),
                 'numero_cuenta'     => $numero,
                 'cci'               => $cci,                              
                 'alias'             => $alias,
@@ -598,6 +610,9 @@ class TercerosController extends Controlador
         $prepared['departamento']          = $departamentoNombre;
         $prepared['provincia']             = $provinciaNombre;
         $prepared['distrito']              = $distritoNombre;
+        $prepared['departamento_id']       = $departamentoId !== '' ? $departamentoId : null;
+        $prepared['provincia_id']          = $provinciaId !== '' ? $provinciaId : null;
+        $prepared['distrito_id']           = $distritoId !== '' ? $distritoId : null;
         $prepared['zonas_exclusivas']      = $zonasLimpias;
 
         return $prepared;

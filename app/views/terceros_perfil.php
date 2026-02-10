@@ -232,7 +232,7 @@ function showVal($val, $suffix = '') {
                                         <h6 class="fw-bold mb-2"><i class="bi bi-cloud-upload me-2"></i>Subir Documento</h6>
                                         <form action="?ruta=terceros" method="POST" enctype="multipart/form-data">
                                             <input type="hidden" name="accion" value="subir_documento">
-                                            <input type="hidden" name="id_tercero" value="<?php echo (int)$t['id']; ?>">
+                                            <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
                                             <div class="mb-2">
                                                 <select class="form-select form-select-sm" name="tipo_documento" id="docTipoSelect" required>
                                                     <option value="">Tipo...</option>
@@ -302,7 +302,7 @@ function showVal($val, $suffix = '') {
                                                             <!-- Botón Eliminar -->
                                                             <form action="?ruta=terceros" method="POST" class="form-eliminar-doc d-inline">
                                                                 <input type="hidden" name="accion" value="eliminar_documento">
-                                                                <input type="hidden" name="id_tercero" value="<?php echo (int)$t['id']; ?>">
+                                                                <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
                                                                 <input type="hidden" name="id_documento" value="<?php echo (int)$doc['id']; ?>">
                                                                 <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-sm" title="Eliminar">
                                                                     <i class="bi bi-trash"></i>
@@ -370,7 +370,7 @@ function showVal($val, $suffix = '') {
             </div>
             <form action="?ruta=terceros" method="POST">
                 <input type="hidden" name="accion" value="editar_documento">
-                <input type="hidden" name="id_tercero" value="<?php echo (int)$t['id']; ?>">
+                <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
                 <input type="hidden" name="id_documento" id="editDocId">
                 <div class="modal-body">
                     <div class="mb-3">
