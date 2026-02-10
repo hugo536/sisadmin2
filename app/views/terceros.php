@@ -51,7 +51,6 @@
                     <select class="form-select bg-light" id="terceroFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activo</option>
-                        <option value="2">Bloqueado</option>
                         <option value="0">Inactivo</option>
                     </select>
                 </div>
@@ -104,8 +103,10 @@
                                     }
                                 }
                             }
+
+                            $estadoBinario = ((int) ($tercero['estado'] ?? 0) === 1) ? 1 : 0;
                         ?>
-                        <tr data-estado="<?php echo (int) $tercero['estado']; ?>"
+                        <tr data-estado="<?php echo $estadoBinario; ?>"
                             data-roles="<?php echo htmlspecialchars($rolesFiltro); ?>"
                             data-search="<?php echo htmlspecialchars(mb_strtolower($tercero['tipo_documento'].' '.$tercero['numero_documento'].' '.$tercero['nombre_completo'].' '.($tercero['direccion'] ?? '').' '.$telefonosTexto.' '.($tercero['email'] ?? ''))); ?>">
                             <td class="ps-4 fw-semibold" data-label="Documento">
@@ -139,10 +140,8 @@
                                 <div class="small text-muted"><?php echo htmlspecialchars($tercero['email'] ?? ''); ?></div>
                             </td>
                             <td class="text-center" data-label="Estado">
-                                <?php if ((int) $tercero['estado'] === 1): ?>
+                                <?php if ($estadoBinario === 1): ?>
                                     <span class="badge-status status-active" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Activo</span>
-                                <?php elseif ((int) $tercero['estado'] === 2): ?>
-                                    <span class="badge-status status-inactive" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Bloqueado</span>
                                 <?php else: ?>
                                     <span class="badge-status status-inactive" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Inactivo</span>
                                 <?php endif; ?>
@@ -153,7 +152,7 @@
                                         <input class="form-check-input switch-estado-tercero" type="checkbox" role="switch"
                                                style="cursor: pointer; width: 2.5em; height: 1.25em;"
                                                data-id="<?php echo (int) $tercero['id']; ?>"
-                                               <?php echo (int) $tercero['estado'] === 1 ? 'checked' : ''; ?>>
+                                               <?php echo $estadoBinario === 1 ? 'checked' : ''; ?>>
                                     </div>
 
                                     <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
@@ -207,7 +206,7 @@
                                             data-cuspp="<?php echo htmlspecialchars($tercero['cuspp'] ?? ''); ?>"
                                             data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
                                             
-                                            data-estado="<?php echo (int) $tercero['estado']; ?>"
+                                            data-estado="<?php echo $estadoBinario; ?>"
                                             data-es-cliente="<?php echo (int) $tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int) $tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int) $tercero['es_empleado']; ?>"
@@ -397,7 +396,6 @@
                                 <select class="form-select" name="estado" id="crearEstado">
                                     <option value="1" selected>Activo</option>
                                     <option value="0">Inactivo</option>
-                                    <option value="2">Bloqueado</option>
                                 </select>
                                 <label for="crearEstado">Estado</label>
                             </div>
@@ -606,7 +604,6 @@
                                 <select class="form-select" name="estado" id="editEstado">
                                     <option value="1">Activo</option>
                                     <option value="0">Inactivo</option>
-                                    <option value="2">Bloqueado</option>
                                 </select>
                                 <label for="editEstado">Estado</label>
                             </div>
