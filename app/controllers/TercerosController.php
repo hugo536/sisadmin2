@@ -493,11 +493,20 @@ class TercerosController extends Controlador
         $cuentasBilletera       = $data['cuenta_billetera']       ?? [];
         $cuentasObservaciones   = $data['cuenta_observaciones']   ?? [];
 
-        $keys = ['tipo', 'entidad', 'tipo_cta', 'numero', 'cci', 'alias', 'moneda', 'principal', 'billetera', 'observaciones'];
-        foreach ($keys as $k) {
-            $var = "cuentas" . ucfirst($k);
-            if (!is_array($$var)) $$var = [$$var];
-        }
+        $toArray = static function ($value): array {
+            return is_array($value) ? $value : [$value];
+        };
+
+        $cuentasTipo          = $toArray($cuentasTipo);
+        $cuentasEntidad       = $toArray($cuentasEntidad);
+        $cuentasTipoCta       = $toArray($cuentasTipoCta);
+        $cuentasNumero        = $toArray($cuentasNumero);
+        $cuentasCci           = $toArray($cuentasCci);
+        $cuentasAlias         = $toArray($cuentasAlias);
+        $cuentasMoneda        = $toArray($cuentasMoneda);
+        $cuentasPrincipal     = $toArray($cuentasPrincipal);
+        $cuentasBilletera     = $toArray($cuentasBilletera);
+        $cuentasObservaciones = $toArray($cuentasObservaciones);
 
         $cuentasNormalizadas = [];
         $maxIndex = max(count($cuentasEntidad), count($cuentasCci), count($cuentasAlias), count($cuentasNumero));
