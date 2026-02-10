@@ -1,86 +1,98 @@
 <?php
-// Archivo: public/check.php
-// Accede en tu navegador a: http://localhost/sisadmin2/public/check.php
+// 1. CONFIGURACIÓN DE CABECERAS PARA FORZAR JSON
+// Esto es vital. Si ves HTML en la respuesta de este archivo, 
+// tu servidor web (Apache/Nginx) está inyectando cosas antes de PHP.
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST');
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// 2. CAPTURA DE ERRORES (Buffer de Salida)
+// Iniciamos un buffer para que si hay un "Notice" o "Warning", 
+// no rompa el JSON, sino que lo capturemos.
+ob_start();
 
-echo "<h2>🕵️ Diagnóstico de Archivos y Modelos</h2><hr>";
-
-// 1. Definir Ruta Base
-define('BASE_PATH', dirname(__DIR__));
-echo "✅ <b>BASE_PATH:</b> " . BASE_PATH . "<br>";
-
-// 2. Cargar Autoload
-$autoload = BASE_PATH . '/vendor/autoload.php';
-if (file_exists($autoload)) {
-    require $autoload;
-    echo "✅ <b>Composer:</b> Cargado correctamente.<br>";
-} else {
-    die("❌ <b>ERROR:</b> No se encuentra vendor/autoload.php");
-}
-
-// 3. Cargar Variables de Entorno
-if (class_exists(\Dotenv\Dotenv::class) && file_exists(BASE_PATH . '/.env')) {
-    $dotenv = \Dotenv\Dotenv::createImmutable(BASE_PATH);
-    $dotenv->safeLoad();
-    echo "✅ <b>Entorno (.env):</b> Cargado.<br>";
-}
-
-// 4. Cargar Conexión
-$conexionFile = BASE_PATH . '/app/config/Conexion.php';
-if (file_exists($conexionFile)) {
-    require_once $conexionFile;
-    echo "✅ <b>Archivo Conexion.php:</b> Encontrado.<br>";
-} else {
-    die("❌ <b>ERROR:</b> Falta app/config/Conexion.php");
-}
-
-// 5. Probar Conexión BD
-try {
-    $pdo = Conexion::get();
-    echo "✅ <b>Base de Datos:</b> Conectado exitosamente.<br>";
-} catch (Exception $e) {
-    die("❌ <b>ERROR BD:</b> " . $e->getMessage());
-}
-
-// 6. Cargar Modelo Base
-require_once BASE_PATH . '/app/core/Modelo.php';
-
-// 7. VERIFICAR MODELO TERCEROS Y SUB-MODELOS
-$archivos = [
-    '/app/models/terceros/TercerosClientesModel.php',
-    '/app/models/terceros/TercerosProveedoresModel.php',
-    '/app/models/terceros/TercerosEmpleadosModel.php',
-    '/app/models/terceros/DistribuidoresModel.php',
-    '/app/models/TercerosModel.php'
+$debug = [
+    'status' => 'pending',
+    'timestamp' => date('Y-m-d H:i:s'),
+    'system' => [],
+    'session' => [],
+    'database' => [],
+    'request' => [],
+    'errors' => []
 ];
 
-echo "<hr><h3>Verificando Archivos de Modelos:</h3>";
-
-foreach ($archivos as $archivo) {
-    $ruta = BASE_PATH . $archivo;
-    if (file_exists($ruta)) {
-        echo "✅ Existe: $archivo <br>";
-        require_once $ruta;
-    } else {
-        echo "❌ <b>FALTA:</b> $archivo <br>";
-        $error = true;
-    }
-}
-
-if (isset($error)) {
-    die("<br><b>⛔ DETENIDO:</b> Faltan archivos del modelo.");
-}
-
-// 8. INTENTO DE INSTANCIA
-echo "<hr><h3>Prueba de Instancia (Constructor):</h3>";
 try {
-    $model = new TercerosModel();
-    echo "✅ <b>¡ÉXITO!</b> La clase TercerosModel se instanció correctamente.<br>";
-    echo "Los constructores de Clientes, Proveedores, Empleados y Distribuidores funcionaron.";
+    // --- A. CHEQUEO DEL SISTEMA ---
+    $debug['system']['php_version'] = phpversion();
+    $debug['system']['server_software'] = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
+    $debug['system']['document_root'] = $_SERVER['DOCUMENT_ROOT'];
+
+    // --- B. CHEQUEO DE SESIÓN ---
+    // Intentamos iniciar sesión. Si falla, sabremos que el directorio de sesiones no tiene permisos.
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $debug['session']['status'] = 'Active';
+    $debug['session']['id'] = session_id();
+    $debug['session']['data'] = $_SESSION; // Muestra qué datos tiene el usuario actual
+    
+    // Prueba de escritura en sesión
+    $_SESSION['check_test'] = 'Funciona: ' . time();
+
+    // --- C. CHEQUEO DE BASE DE DATOS ---
+    // ADVERTENCIA: Rellena esto con tus datos reales del config
+    $dbHost = 'localhost';     // <--- CAMBIAR SI ES NECESARIO
+    $dbName = 'nombre_de_tu_bd'; // <--- PON EL NOMBRE DE TU BD AQUÍ
+    $dbUser = 'root';          // <--- TU USUARIO
+    $dbPass = '';              // <--- TU CONTRASEÑA
+
+    try {
+        $dsn = "mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4";
+        $pdo = new PDO($dsn, $dbUser, $dbPass);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $debug['database']['connection'] = 'SUCCESS';
+        $debug['database']['info'] = 'Conectado a ' . $dbName;
+        
+        // Prueba simple de consulta
+        $stmt = $pdo->query("SELECT 1 as test");
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $debug['database']['query_test'] = $result;
+
+    } catch (PDOException $e) {
+        $debug['database']['connection'] = 'ERROR';
+        $debug['database']['error_msg'] = $e->getMessage();
+    }
+
+    // --- D. CHEQUEO DE LA SOLICITUD (REQUEST) ---
+    // Esto verifica si el servidor recibe bien los datos JSON o POST
+    $rawInput = file_get_contents('php://input');
+    $debug['request']['method'] = $_SERVER['REQUEST_METHOD'];
+    $debug['request']['raw_input'] = $rawInput;
+    $debug['request']['json_decoded'] = json_decode($rawInput, true);
+    $debug['request']['post_data'] = $_POST;
+
+    $debug['status'] = 'ok';
+
 } catch (Throwable $e) {
-    echo "❌ <b>ERROR FATAL AL INSTANCIAR:</b> " . $e->getMessage() . "<br>";
-    echo "Archivo: " . $e->getFile() . " en línea " . $e->getLine();
+    $debug['status'] = 'error';
+    $debug['errors'][] = [
+        'type' => 'Exception',
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ];
 }
-?>
+
+// 3. LIMPIEZA DEL BUFFER
+// Si hubo algún echo, print o warning de PHP antes de esto, lo guardamos en 'output_buffer'
+$outputBuffer = ob_get_clean();
+if (!empty($outputBuffer)) {
+    $debug['errors'][] = [
+        'type' => 'Output Buffer (Unexpected Content)',
+        'content' => $outputBuffer // <--- AQUÍ APARECERÁ EL HTML "COLADO" SI LO HAY
+    ];
+}
+
+// 4. SALIDA FINAL
+echo json_encode($debug, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);

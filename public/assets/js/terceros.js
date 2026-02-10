@@ -230,11 +230,24 @@
         return wrapper;
     }
 
-    function buildCuentaRow({ tipo = '', entidad = '', tipo_cta = '', numero_cuenta = '', cci = '', alias = '', moneda = 'PEN', principal = 0, billetera_digital = 0, observaciones = '' } = {}, onRemove) {
+    function buildCuentaRow({ 
+        tipo_entidad = '', 
+        entidad = '', 
+        tipo_cuenta = '', 
+        numero_cuenta = '', 
+        cci = '', 
+        alias = '', 
+        moneda = 'PEN', 
+        principal = 0, 
+        billetera_digital = 0, 
+        observaciones = '' 
+    } = {}, onRemove) {
+        
         const wrapper = document.createElement('div');
-        wrapper.className = 'card mb-2 bg-light border';
+        wrapper.className = 'card mb-2 border shadow-sm';
 
-        const tipoEntidadVal = normalizeTipoEntidad(tipo || (Number(billetera_digital) === 1 ? 'Billetera Digital' : 'Banco'));
+        // Determinar tipo inicial
+        const tipoEntidadVal = normalizeTipoEntidad(tipo_entidad || (Number(billetera_digital) === 1 ? 'Billetera Digital' : 'Banco'));
 
         const cardBody = document.createElement('div');
         cardBody.className = 'card-body p-2';
@@ -242,12 +255,12 @@
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center';
 
-        // Col 1: Tipo Entidad
-        const col1 = document.createElement('div');
-        col1.className = 'col-md-3';
+        // --- COLUMNA 1: TIPO DE ENTIDAD (Banco, Billetera...) ---
+        const colType = document.createElement('div');
+        colType.className = 'col-md-2'; // Más angosto
         const tipoEntSelect = document.createElement('select');
         tipoEntSelect.name = 'cuenta_tipo[]';
-        tipoEntSelect.className = 'form-select form-select-sm';
+        tipoEntSelect.className = 'form-select form-select-sm fw-bold bg-light';
         TIPOS_ENTIDAD_CUENTA.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt;
@@ -255,115 +268,109 @@
             if (opt === tipoEntidadVal) option.selected = true;
             tipoEntSelect.appendChild(option);
         });
-        col1.appendChild(tipoEntSelect);
+        colType.appendChild(tipoEntSelect);
 
-        // Col 2: Entidad (Select dinámico)
-        const col2 = document.createElement('div');
-        col2.className = 'col-md-3';
+        // --- COLUMNA 2: ENTIDAD (BCP, Yape...) ---
+        const colEntidad = document.createElement('div');
+        colEntidad.className = 'col-md-3';
         const entidadSelect = document.createElement('select');
         entidadSelect.name = 'cuenta_entidad[]';
         entidadSelect.className = 'form-select form-select-sm';
-        col2.appendChild(entidadSelect);
+        colEntidad.appendChild(entidadSelect);
 
-        // Col 3: Tipo Cuenta
-        const col3 = document.createElement('div');
-        col3.className = 'col-md-3';
+        // --- COLUMNA 3: TIPO DE CUENTA (Ahorros, Corriente...) ---
+        // Este contenedor se ocultará si es Billetera
+        const colTipoCta = document.createElement('div');
+        colTipoCta.className = 'col-md-2';
         const tipoCuentaSelect = document.createElement('select');
         tipoCuentaSelect.name = 'cuenta_tipo_cta[]';
         tipoCuentaSelect.className = 'form-select form-select-sm';
-        col3.appendChild(tipoCuentaSelect);
+        colTipoCta.appendChild(tipoCuentaSelect);
 
-        const tipoCuentaHelp = document.createElement('small');
-        tipoCuentaHelp.className = 'text-muted d-block mt-1';
-        col3.appendChild(tipoCuentaHelp);
-
+        // Input oculto para identificar billetera en backend
         const billeteraHidden = document.createElement('input');
         billeteraHidden.type = 'hidden';
         billeteraHidden.name = 'cuenta_billetera[]';
-        billeteraHidden.value = Number(billetera_digital) === 1 ? '1' : '0';
-        col3.appendChild(billeteraHidden);
+        billeteraHidden.value = '0';
+        colTipoCta.appendChild(billeteraHidden);
 
-        // Col 4: Número y Botón
-        const col4 = document.createElement('div');
-        col4.className = 'col-md-3';
+        // --- COLUMNA 4: NÚMERO / CCI / TELÉFONO (El campo principal) ---
+        const colInput = document.createElement('div');
+        colInput.className = 'col-md-4'; // Ocupa el espacio restante
         const inputGroup = document.createElement('div');
         inputGroup.className = 'input-group input-group-sm';
+
+        // Icono dinámico
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'input-group-text bg-white text-muted border-end-0';
+        iconSpan.innerHTML = '<i class="bi bi-hash"></i>';
         
-        const numeroInput = document.createElement('input');
-        numeroInput.name = 'cuenta_numero[]';
-        numeroInput.className = 'form-control';
-        numeroInput.placeholder = 'CCI o número de cuenta';
-        numeroInput.value = numero_cuenta;
+        // Input principal (CCI o Teléfono)
+        const mainInput = document.createElement('input');
+        mainInput.type = 'text';
+        mainInput.name = 'cuenta_cci[]'; // Usamos CCI como campo principal de valor
+        mainInput.className = 'form-control border-start-0';
+        mainInput.placeholder = 'Número de cuenta';
+        mainInput.value = cci || numero_cuenta; // Preferimos CCI/Teléfono
+
+        // Input secundario oculto (para compatibilidad si el backend pide ambos)
+        const secondaryInput = document.createElement('input');
+        secondaryInput.type = 'hidden';
+        secondaryInput.name = 'cuenta_numero[]';
+        secondaryInput.value = numero_cuenta;
+
+        inputGroup.appendChild(iconSpan);
+        inputGroup.appendChild(mainInput);
+        inputGroup.appendChild(secondaryInput);
+        colInput.appendChild(inputGroup);
+
+        // --- COLUMNA 5: MONEDA Y ACCIONES ---
+        const colActions = document.createElement('div');
+        colActions.className = 'col-md-1 d-flex gap-1';
+        
+        const monedaSelect = document.createElement('select');
+        monedaSelect.name = 'cuenta_moneda[]';
+        monedaSelect.className = 'form-select form-select-sm px-1 text-center';
+        ['PEN', 'USD'].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m === 'PEN' ? 'S/' : '$';
+            if(m === moneda) opt.selected = true;
+            monedaSelect.appendChild(opt);
+        });
 
         const removeBtn = createRemoveButton(() => {
             wrapper.remove();
             if (typeof onRemove === 'function') onRemove();
         });
 
-        inputGroup.appendChild(numeroInput);
-        inputGroup.appendChild(removeBtn);
-        col4.appendChild(inputGroup);
+        colActions.appendChild(monedaSelect);
+        colActions.appendChild(removeBtn);
 
-        // Fila 2: CCI y Moneda
-        const row2 = document.createElement('div');
-        row2.className = 'row g-2 mt-1';
-        
-        // CCI / Teléfono
-        const colCci = document.createElement('div');
-        colCci.className = 'col-md-4';
-        const cciLabel = document.createElement('small');
-        cciLabel.className = 'text-muted d-block mb-1';
-        colCci.appendChild(cciLabel);
-        const cciInput = document.createElement('input');
-        cciInput.type = 'text';
-        cciInput.name = 'cuenta_cci[]';
-        cciInput.className = 'form-control form-control-sm';
-        cciInput.placeholder = 'CCI o número de cuenta';
-        cciInput.value = cci;
-        cciInput.inputMode = 'numeric';
-        colCci.appendChild(cciInput);
-
-        // Moneda
-        const colMoneda = document.createElement('div');
-        colMoneda.className = 'col-md-3';
-        const monedaSelect = document.createElement('select');
-        monedaSelect.name = 'cuenta_moneda[]';
-        monedaSelect.className = 'form-select form-select-sm';
-        ['PEN', 'USD'].forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            if(m === moneda) opt.selected = true;
-            monedaSelect.appendChild(opt);
-        });
-        colMoneda.appendChild(monedaSelect);
-
-        const colResumen = document.createElement('div');
-        colResumen.className = 'col-md-5';
-        const resumenCuenta = document.createElement('small');
-        resumenCuenta.className = 'text-muted d-block pt-2';
-        colResumen.appendChild(resumenCuenta);
-
-        row2.appendChild(colCci);
-        row2.appendChild(colMoneda);
-        row2.appendChild(colResumen);
-
-        row.appendChild(col1);
-        row.appendChild(col2);
-        row.appendChild(col3);
-        row.appendChild(col4);
-        
+        // --- ARMADO DE FILA ---
+        row.appendChild(colType);
+        row.appendChild(colEntidad);
+        row.appendChild(colTipoCta);
+        row.appendChild(colInput);
+        row.appendChild(colActions);
         cardBody.appendChild(row);
-        cardBody.appendChild(row2);
         wrapper.appendChild(cardBody);
+
+        // ==========================================
+        // LÓGICA DINÁMICA (Aquí ocurre la magia)
+        // ==========================================
 
         const renderEntidadOptions = (tipoEntidad, currentValue) => {
             const opciones = ENTIDADES_FINANCIERAS[tipoEntidad] || [];
             entidadSelect.innerHTML = '';
-            const emptyOpt = document.createElement('option');
-            emptyOpt.value = '';
-            emptyOpt.textContent = tipoEntidad === 'Billetera Digital' ? 'Seleccione billetera' : 'Seleccione entidad';
-            entidadSelect.appendChild(emptyOpt);
+            
+            // Opcion vacia o por defecto
+            if (!currentValue && opciones.length > 0) {
+                 // Si es billetera y no hay valor, pre-seleccionar Yape
+                 if(tipoEntidad === 'Billetera Digital') currentValue = 'Yape';
+                 // Si es Banco y no hay valor, pre-seleccionar BCP
+                 if(tipoEntidad === 'Banco') currentValue = 'BCP';
+            }
 
             opciones.forEach(nombre => {
                 const option = document.createElement('option');
@@ -372,20 +379,21 @@
                 entidadSelect.appendChild(option);
             });
 
+            // Mantener valor custom si existía
             if (currentValue && !opciones.includes(currentValue)) {
                 const custom = document.createElement('option');
                 custom.value = currentValue;
-                custom.textContent = `${currentValue} (actual)`;
+                custom.textContent = currentValue;
                 entidadSelect.appendChild(custom);
             }
-
-            entidadSelect.value = currentValue || '';
+            entidadSelect.value = currentValue || opciones[0] || '';
         };
 
         const renderTipoCuenta = (tipoEntidad, currentValue) => {
             tipoCuentaSelect.innerHTML = '';
             const isBilletera = isBilleteraTipo(tipoEntidad);
             const opciones = isBilletera ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
+            
             opciones.forEach(opt => {
                 const option = document.createElement('option');
                 option.value = opt;
@@ -393,64 +401,73 @@
                 tipoCuentaSelect.appendChild(option);
             });
 
-            const valueToUse = currentValue || (isBilletera ? 'N/A' : 'Ahorros');
+            // Si es billetera, forzamos "N/A" o "Personal" y ocultamos visualmente
+            if (isBilletera) {
+                colTipoCta.classList.add('d-none'); // OCULTAR SELECTOR
+                colInput.classList.remove('col-md-4'); 
+                colInput.classList.add('col-md-6'); // EXPANDIR INPUT
+            } else {
+                colTipoCta.classList.remove('d-none'); // MOSTRAR SELECTOR
+                colInput.classList.remove('col-md-6');
+                colInput.classList.add('col-md-4'); // CONTRAER INPUT
+            }
+
+            let valueToUse = currentValue;
             if (!opciones.includes(valueToUse)) {
-                const custom = document.createElement('option');
-                custom.value = valueToUse;
-                custom.textContent = valueToUse;
-                tipoCuentaSelect.appendChild(custom);
+                valueToUse = isBilletera ? 'N/A' : 'Ahorros';
             }
             tipoCuentaSelect.value = valueToUse;
-            tipoCuentaHelp.textContent = isBilletera ? 'Tipo opcional para billeteras digitales.' : '';
-            col3.classList.toggle('opacity-75', isBilletera);
         };
 
         const applyCuentaMode = () => {
             const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
-            tipoEntSelect.value = tipoEntidad;
             const isBilletera = isBilleteraTipo(tipoEntidad);
+            
+            // 1. Renderizar Selects
             renderEntidadOptions(tipoEntidad, entidadSelect.value || entidad);
-            renderTipoCuenta(tipoEntidad, tipoCuentaSelect.value || tipo_cta);
+            renderTipoCuenta(tipoEntidad, tipoCuentaSelect.value || tipo_cuenta);
 
-            cciLabel.textContent = isBilletera ? 'Número de Teléfono (9 dígitos)' : 'CCI o Número de Cuenta';
-            cciInput.placeholder = isBilletera ? '999999999' : 'CCI de 20 dígitos o número de cuenta';
-            cciInput.maxLength = isBilletera ? 9 : 20;
-
-            numeroInput.placeholder = isBilletera ? 'Opcional (respaldo)' : 'Número de cuenta (opcional)';
-            billeteraHidden.value = isBilletera ? '1' : '0';
-
-            if (!isBilletera && cciInput.value && sanitizeDigits(cciInput.value).length > 20) {
-                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 20);
+            // 2. Configurar Input Principal
+            if (isBilletera) {
+                iconSpan.innerHTML = '<i class="bi bi-phone"></i>';
+                mainInput.placeholder = 'Número de celular (9 dígitos)';
+                mainInput.maxLength = 9;
+                billeteraHidden.value = '1';
+                
+                // Limpieza de caracteres no numéricos para billeteras
+                if (mainInput.value) {
+                    mainInput.value = sanitizeDigits(mainInput.value).slice(0, 9);
+                }
+            } else {
+                iconSpan.innerHTML = '<i class="bi bi-bank"></i>';
+                mainInput.placeholder = 'CCI (20 dígitos) o Cuenta';
+                mainInput.maxLength = 20;
+                billeteraHidden.value = '0';
             }
-
-            if (isBilletera && cciInput.value) {
-                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 9);
-            }
-
-            const icon = isBilletera ? '📱' : '🏦';
-            const identificador = (cciInput.value || numeroInput.value || 'sin número').trim();
-            const tipoCuentaTxt = tipoCuentaSelect.value || 'N/A';
-            resumenCuenta.textContent = isBilletera
-                ? `${icon} ${entidadSelect.value || 'Billetera'} - ${identificador} (${monedaSelect.value})`
-                : `${icon} ${entidadSelect.value || 'Entidad'} - ${tipoCuentaTxt} - ${identificador}`;
+            
+            // Sincronizar input oculto
+            secondaryInput.value = mainInput.value;
         };
 
-        tipoEntSelect.addEventListener('change', applyCuentaMode);
-        cciInput.addEventListener('input', () => {
-            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
-            if (isBilleteraTipo(tipoEntidad)) {
-                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 9);
-            }
+        // Listeners
+        tipoEntSelect.addEventListener('change', () => {
+            entidadSelect.value = ''; // Resetear entidad al cambiar tipo
             applyCuentaMode();
         });
-        numeroInput.addEventListener('input', applyCuentaMode);
-        entidadSelect.addEventListener('change', applyCuentaMode);
-        tipoCuentaSelect.addEventListener('change', applyCuentaMode);
-        monedaSelect.addEventListener('change', applyCuentaMode);
+        
+        mainInput.addEventListener('input', function() {
+            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
+            if (isBilleteraTipo(tipoEntidad)) {
+                this.value = sanitizeDigits(this.value).slice(0, 9);
+            }
+            secondaryInput.value = this.value; // Sincronizar siempre
+        });
+
+        // Inicializar
         applyCuentaMode();
-        if (entidad) {
-            entidadSelect.value = entidad;
-        }
+        
+        // Si venía un valor de entidad, intentamos setearlo de nuevo tras el render
+        if (entidad) entidadSelect.value = entidad;
 
         return wrapper;
     }

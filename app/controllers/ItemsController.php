@@ -18,6 +18,7 @@ class ItemsController extends Controlador
 
     public function index(): void
     {
+        
         AuthMiddleware::handle();
         require_permiso('items.ver');
 

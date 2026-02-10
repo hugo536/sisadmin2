@@ -545,7 +545,25 @@ class TercerosModel extends Modelo
     {
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db()->prepare("SELECT tercero_id, tipo_entidad AS tipo, entidad, tipo_cuenta, tipo_cuenta AS tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones FROM terceros_cuentas_bancarias WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
+        
+        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
+        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
+        $sql = "SELECT tercero_id, 
+                       tipo_entidad, 
+                       entidad, 
+                       tipo_cuenta, 
+                       numero_cuenta, 
+                       cci, 
+                       alias, 
+                       moneda, 
+                       principal, 
+                       billetera_digital, 
+                       observaciones 
+                FROM terceros_cuentas_bancarias 
+                WHERE tercero_id IN ($inQuery) 
+                ORDER BY id ASC";
+
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute($ids);
         $result = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -570,27 +588,37 @@ class TercerosModel extends Modelo
 
     private function sincronizarCuentasBancarias(int $terceroId, array $cuentas, int $userId): void
     {
+        // Primero limpiamos las cuentas anteriores
         $this->db()->prepare("DELETE FROM terceros_cuentas_bancarias WHERE tercero_id = ?")->execute([$terceroId]);
+        
         if (empty($cuentas)) return;
 
-        $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo_entidad, entidad, tipo_cuenta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
+        $sql = "INSERT INTO terceros_cuentas_bancarias (
+                    tercero_id, tipo_entidad, entidad, tipo_cuenta, 
+                    numero_cuenta, cci, alias, moneda, principal, 
+                    billetera_digital, observaciones, created_by, updated_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db()->prepare($sql);
+        
         foreach ($cuentas as $cta) {
-            // Validar que al menos tenga un identificador
+            // Validación básica: si está vacía, saltar
             if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['alias']) && empty($cta['numero_cuenta'])) continue;
 
-            $tipoEntidad = $cta['tipo_entidad'] ?? null;
-            $tipoCuenta = $cta['tipo_cuenta'] ?? null;
+            // Aseguramos leer las claves correctas que vienen del Controller ($prepared['cuentas_bancarias'])
+            // El controller ahora manda 'tipo_entidad' y 'tipo_cuenta', así que las leemos tal cual.
+            $tipoEntidad = $cta['tipo_entidad'] ?? null; 
+            $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
 
             $params = [
                 $terceroId,
                 $tipoEntidad,
                 $cta['entidad'] ?? '',
                 $tipoCuenta,
-                trim($cta['numero_cuenta'] ?? ''),
-                trim($cta['cci'] ?? ''),
-                trim($cta['alias'] ?? ''),
+                trim((string)($cta['numero_cuenta'] ?? '')),
+                trim((string)($cta['cci'] ?? '')),
+                trim((string)($cta['alias'] ?? '')),
                 $cta['moneda'] ?? 'PEN',
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,

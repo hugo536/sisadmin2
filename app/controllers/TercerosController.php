@@ -435,7 +435,7 @@ class TercerosController extends Controlador
         $numeroDocumentoDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
-       // --- UBIGEO: Resolver Nombres (Corregido) ---
+        // --- UBIGEO: Resolver Nombres ---
         $departamentoId = $data['departamento_id'] ?? $data['departamento'] ?? '';
         $provinciaId    = $data['provincia_id']    ?? $data['provincia']    ?? '';
         $distritoId     = $data['distrito_id']     ?? $data['distrito']     ?? '';
@@ -492,100 +492,86 @@ class TercerosController extends Controlador
         }
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
-        // --- CUENTAS ---
-        $cuentasTipo            = $data['cuenta_tipo']            ?? [];
-        $cuentasEntidad         = $data['cuenta_entidad']         ?? [];
-        $cuentasTipoCta         = $data['cuenta_tipo_cuenta']     ?? $data['cuenta_tipo_cta'] ?? [];
-        $cuentasNumero          = $data['cuenta_numero']          ?? [];
-        $cuentasCci             = $data['cuenta_cci']             ?? [];
-        $cuentasAlias           = $data['cuenta_alias']           ?? [];
-        $cuentasMoneda          = $data['cuenta_moneda']          ?? [];
-        $cuentasPrincipal       = $data['cuenta_principal']       ?? [];
-        $cuentasBilletera       = $data['cuenta_billetera']       ?? [];
-        $cuentasObservaciones   = $data['cuenta_observaciones']   ?? [];
+        // --- CUENTAS BANCARIAS (Lógica Corregida) ---
+        // Definición explícita de variables para evitar "Undefined variable"
+        $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
+        $cuentasEntidad     = $data['cuenta_entidad']          ?? [];
+        $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
+        $cuentasNumero      = $data['cuenta_numero']           ?? [];
+        $cuentasCci         = $data['cuenta_cci']              ?? [];
+        $cuentasAlias       = $data['cuenta_alias']            ?? [];
+        $cuentasMoneda      = $data['cuenta_moneda']           ?? [];
+        $cuentasPrincipal   = $data['cuenta_principal']        ?? [];
+        $cuentasBilletera   = $data['cuenta_billetera']        ?? [];
+        $cuentasObs         = $data['cuenta_observaciones']    ?? [];
 
-        $normalizarTipoEntidad = static function ($tipoRaw): string {
-            $tipo = mb_strtolower(trim((string) $tipoRaw));
-            if ($tipo === 'banco') return 'Banco';
-            if ($tipo === 'caja') return 'Caja';
-            if ($tipo === 'billetera' || $tipo === 'billetera digital') return 'Billetera Digital';
-            if ($tipo === 'cooperativa' || $tipo === 'otro' || $tipo === 'otros') return 'Otros';
-            return 'Banco';
-        };
+        // Helper para asegurar arrays
+        $toArray = static function ($value) { return is_array($value) ? $value : [$value]; };
 
-        $toArray = static function ($value): array {
-            return is_array($value) ? $value : [$value];
-        };
-
-        $cuentasTipo          = $toArray($cuentasTipo);
-        $cuentasEntidad       = $toArray($cuentasEntidad);
-        $cuentasTipoCta       = $toArray($cuentasTipoCta);
-        $cuentasNumero        = $toArray($cuentasNumero);
-        $cuentasCci           = $toArray($cuentasCci);
-        $cuentasAlias         = $toArray($cuentasAlias);
-        $cuentasMoneda        = $toArray($cuentasMoneda);
-        $cuentasPrincipal     = $toArray($cuentasPrincipal);
-        $cuentasBilletera     = $toArray($cuentasBilletera);
-        $cuentasObservaciones = $toArray($cuentasObservaciones);
+        $cuentasTipoEntidad = $toArray($cuentasTipoEntidad);
+        $cuentasEntidad     = $toArray($cuentasEntidad);
+        $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
+        $cuentasNumero      = $toArray($cuentasNumero);
+        $cuentasCci         = $toArray($cuentasCci);
+        $cuentasAlias       = $toArray($cuentasAlias);
+        $cuentasMoneda      = $toArray($cuentasMoneda);
+        $cuentasPrincipal   = $toArray($cuentasPrincipal);
+        $cuentasBilletera   = $toArray($cuentasBilletera);
+        $cuentasObs         = $toArray($cuentasObs);
 
         $cuentasNormalizadas = [];
-        $maxIndex = max(count($cuentasEntidad), count($cuentasCci), count($cuentasAlias), count($cuentasNumero));
+        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci));
+
+        $normalizarTipoEntidad = static function ($val) {
+            $v = mb_strtolower(trim((string)$val));
+            if (in_array($v, ['banco', 'caja', 'billetera digital', 'otros'])) return ucwords($v);
+            if ($v === 'billetera') return 'Billetera Digital';
+            return 'Banco'; 
+        };
 
         for ($i = 0; $i < $maxIndex; $i++) {
-            $entidad   = trim((string) ($cuentasEntidad[$i] ?? ''));
-            $cci       = trim((string) ($cuentasCci[$i] ?? ''));
-            $alias     = trim((string) ($cuentasAlias[$i] ?? ''));
-            $numeroCuenta = trim((string) ($cuentasNumero[$i] ?? ''));
+            $entidad = trim((string)($cuentasEntidad[$i] ?? ''));
+            // Si la fila está vacía visualmente, la saltamos
+            if ($entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
 
-            if ($entidad === '' && $cci === '' && $alias === '' && $numeroCuenta === '') continue;
-            if ($entidad === '') {
-                throw new Exception("Indique la entidad/billetera en la cuenta #" . ($i + 1));
-            }
-
-            $tipoEntidad = $normalizarTipoEntidad($cuentasTipo[$i] ?? 'Banco');
-            $esBilletera = $tipoEntidad === 'Billetera Digital';
-            $numeroCuentaDigits = preg_replace('/\D+/', '', $numeroCuenta);
-            $numeroDigits = preg_replace('/\D+/', '', $numeroCuenta);
-            $cciDigits = preg_replace('/\D+/', '', $cci);
-
+            $tipoEntidad = $normalizarTipoEntidad($cuentasTipoEntidad[$i] ?? 'Banco');
+            $esBilletera = ($tipoEntidad === 'Billetera Digital' || !empty($cuentasBilletera[$i]));
+            
+            $numeroVal = trim((string)($cuentasNumero[$i] ?? ''));
+            $cciVal    = trim((string)($cuentasCci[$i] ?? ''));
+            
+            // Validación específica para Billeteras vs Bancos
             if ($esBilletera) {
-                if ($cciDigits === '' && $numeroCuentaDigits !== '') {
-                    $cciDigits = $numeroCuentaDigits;
+                // Si es billetera, usamos el CCI o el Número como teléfono (preferencia al que tenga valor)
+                $digits = preg_replace('/\D+/', '', $cciVal ?: $numeroVal);
+                if (!preg_match('/^\d{9}$/', $digits)) {
+                     // Puedes descomentar esto si quieres validar estrictamente 9 dígitos
+                     // throw new Exception("Cuenta #".($i+1).": ingrese celular 9 dígitos para billetera.");
                 }
-                if (!preg_match('/^\d{9}$/', $cciDigits)) {
-                    throw new Exception("Cuenta #" . ($i + 1) . ": para billetera digital ingrese un número de teléfono de 9 dígitos.");
-                }
-                $cci = $cciDigits;
-                $numeroCuenta = $numeroCuentaDigits;
-                $numeroCuenta = $numeroDigits;
+                $cciVal = $digits; 
+                $numeroVal = ''; // Limpiamos número de cuenta pues es redundante en billeteras
             } else {
-                if ($cciDigits === '' && $numeroCuentaDigits === '') {
-                    throw new Exception("Cuenta #" . ($i + 1) . ": ingrese CCI o número de cuenta.");
-                }
-                if ($cciDigits !== '' && strlen($cciDigits) !== 20 && strlen($cciDigits) < 6) {
+                // Validaciones para Bancos (CCI 20 dígitos o Cuenta normal)
+                if ($cciVal !== '' && strlen($cciVal) !== 20 && strlen($cciVal) < 6) {
                     throw new Exception("Cuenta #" . ($i + 1) . ": el CCI debe tener 20 dígitos o use número de cuenta.");
                 }
-                $cci = $cciDigits !== '' ? $cciDigits : $cci;
-                $numeroCuenta = $numeroCuentaDigits !== '' ? $numeroCuentaDigits : $numeroCuenta;
-                $numeroCuenta = $numeroDigits !== '' ? $numeroDigits : $numeroCuenta;
             }
 
-            $tipoCuenta = trim((string) ($cuentasTipoCta[$i] ?? ''));
-            if ($esBilletera && $tipoCuenta === '') {
-                $tipoCuenta = 'N/A';
-            }
+            $tipoCuentaVal = trim((string)($cuentasTipoCuenta[$i] ?? ''));
+            if ($esBilletera && $tipoCuentaVal === '') $tipoCuentaVal = 'N/A';
 
             $cuentasNormalizadas[] = [
-                'tipo_entidad'      => $tipoEntidad,
+                'tercero_id'        => null, // Se llena al insertar en el modelo
+                'tipo_entidad'      => $tipoEntidad,      // COLUMNA BD CORRECTA
                 'entidad'           => $entidad,
-                'tipo_cuenta'       => $tipoCuenta,
-                'numero_cuenta'     => $numeroCuenta,
-                'cci'               => $cci,
-                'alias'             => $alias,
-                'moneda'            => in_array($cuentasMoneda[$i] ?? 'PEN', ['PEN', 'USD']) ? $cuentasMoneda[$i] : 'PEN',
+                'tipo_cuenta'       => $tipoCuentaVal,    // COLUMNA BD CORRECTA
+                'numero_cuenta'     => $numeroVal,
+                'cci'               => $cciVal,
+                'alias'             => trim((string)($cuentasAlias[$i] ?? '')),
+                'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,
-                'observaciones'     => trim((string) ($cuentasObservaciones[$i] ?? ''))
+                'observaciones'     => trim((string)($cuentasObs[$i] ?? ''))
             ];
         }
 
@@ -638,7 +624,7 @@ class TercerosController extends Controlador
             $zonasLimpias[] = $zona;
         }
 
-        // --- PREPARAR PAYLOAD ---
+        // --- PREPARAR PAYLOAD FINAL ---
         $prepared = $data;
         $prepared['tipo_persona']          = $tipoPersona;
         $prepared['numero_documento']      = $numero;

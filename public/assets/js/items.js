@@ -4,9 +4,20 @@
     const ROWS_PER_PAGE = 5;
     let currentPage = 1;
 
+    // --- NUEVA FUNCIÓN AGREGADA (PARCHE) ---
+    function getItemsEndpoint(extraParams = {}) {
+        const url = new URL(window.location.href);
+
+        Object.entries(extraParams).forEach(([key, value]) => {
+            url.searchParams.set(key, value);
+        });
+
+        return `${url.pathname}${url.search}`;
+    }
+
     async function postAction(payload) {
         const body = new URLSearchParams(payload);
-        const response = await fetch(window.location.pathname, {
+        const response = await fetch(getItemsEndpoint(), {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -24,7 +35,8 @@
     }
 
     async function fetchOpcionesAtributos() {
-        const response = await fetch(`${window.location.pathname}?accion=opciones_atributos_items`, {
+        // MODIFICADO: Usa getItemsEndpoint con parámetros
+        const response = await fetch(getItemsEndpoint({ accion: 'opciones_atributos_items' }), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
 
@@ -301,7 +313,9 @@
         });
     }
 
-    function initTableManager() {
+    
+
+        function initTableManager() {
         const searchInput = document.getElementById('itemSearch');
         const filtroTipo = document.getElementById('itemFiltroTipo');
         const filtroEstado = document.getElementById('itemFiltroEstado');
