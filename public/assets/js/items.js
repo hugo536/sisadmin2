@@ -146,7 +146,8 @@
         const apply = () => {
             const value = tipo.value;
             const isProducto = value === 'producto';
-            const isInsumo = value === 'insumo';
+            const isMateriaPrima = value === 'materia_prima';
+            const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
 
             marcaContainer?.classList.toggle('d-none', isServicio);
@@ -170,12 +171,21 @@
                 requiereVencimiento.checked = false;
             }
 
+            if (isMateriaPrima) {
+                permiteDecimales.checked = true;
+                requiereLote.checked = true;
+            }
+
+            if (isMaterialEmpaque) {
+                permiteDecimales.checked = false;
+            }
+
             stockContainer?.classList.toggle('d-none', isServicio);
             permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
             requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
 
-            if (isInsumo || isServicio || value === '') {
+            if (isMateriaPrima || isMaterialEmpaque || isServicio || value === '') {
                 if (saborSelect) saborSelect.value = '';
                 if (presentacionSelect) presentacionSelect.value = '';
             }
