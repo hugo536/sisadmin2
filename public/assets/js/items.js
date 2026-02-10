@@ -95,7 +95,32 @@
             }
         };
 
-        trigger.addEventListener('change', applyVisibility);
+        if (!trigger.dataset.toggleAlertaBound) {
+            trigger.addEventListener('change', applyVisibility);
+            trigger.dataset.toggleAlertaBound = '1';
+        }
+        applyVisibility();
+    }
+
+    function toggleStockMinimo(controlaStockId, stockContainerId, stockInputId) {
+        const controlaStock = document.getElementById(controlaStockId);
+        const stockContainer = document.getElementById(stockContainerId);
+        const stockInput = document.getElementById(stockInputId);
+        if (!controlaStock || !stockContainer || !stockInput) return;
+
+        const applyVisibility = () => {
+            const visible = controlaStock.checked;
+            stockContainer.classList.toggle('d-none', !visible);
+            stockInput.disabled = !visible;
+            if (!visible) {
+                stockInput.value = '0.0000';
+            }
+        };
+
+        if (!controlaStock.dataset.toggleStockMinimoBound) {
+            controlaStock.addEventListener('change', applyVisibility);
+            controlaStock.dataset.toggleStockMinimoBound = '1';
+        }
         applyVisibility();
     }
 
@@ -107,6 +132,7 @@
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
             toggleAlertaVencimiento('newRequiereVencimiento', 'newDiasAlertaContainer', 'newDiasAlerta');
+            toggleStockMinimo('newControlaStock', 'newStockMinContainer', 'newStockMin');
         });
     }
 
@@ -156,6 +182,7 @@
             });
 
             toggleAlertaVencimiento('editRequiereVencimiento', 'editDiasAlertaContainer', 'editDiasAlerta');
+            toggleStockMinimo('editControlaStock', 'editStockMinimoContainer', 'editStockMinimo');
         });
     }
 
