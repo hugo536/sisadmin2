@@ -124,6 +124,73 @@
         applyVisibility();
     }
 
+    function applyTipoItemRules(config) {
+        const tipo = document.getElementById(config.tipoId);
+        if (!tipo) return;
+
+        const marcaContainer = document.getElementById(config.marcaContainerId);
+        const saborContainer = document.getElementById(config.saborContainerId);
+        const presentacionContainer = document.getElementById(config.presentacionContainerId);
+        const saborSelect = document.getElementById(config.saborId);
+        const presentacionSelect = document.getElementById(config.presentacionId);
+        const stockContainer = document.getElementById(config.stockContainerId);
+        const permiteDecimalesContainer = document.getElementById(config.permiteDecimalesContainerId);
+        const requiereLoteContainer = document.getElementById(config.requiereLoteContainerId);
+        const requiereVencimientoContainer = document.getElementById(config.requiereVencimientoContainerId);
+        const controlaStock = document.getElementById(config.controlaStockId);
+        const stockInput = document.getElementById(config.stockInputId);
+        const permiteDecimales = document.getElementById(config.permiteDecimalesId);
+        const requiereLote = document.getElementById(config.requiereLoteId);
+        const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
+
+        const apply = () => {
+            const value = tipo.value;
+            const isProducto = value === 'producto';
+            const isInsumo = value === 'insumo';
+            const isServicio = value === 'servicio';
+
+            marcaContainer?.classList.toggle('d-none', isServicio);
+            saborContainer?.classList.toggle('d-none', !(isProducto));
+            presentacionContainer?.classList.toggle('d-none', !(isProducto));
+
+            if (saborSelect) {
+                saborSelect.required = isProducto;
+                if (!isProducto) saborSelect.value = '';
+            }
+            if (presentacionSelect) {
+                presentacionSelect.required = isProducto;
+                if (!isProducto) presentacionSelect.value = '';
+            }
+
+            if (isServicio) {
+                controlaStock.checked = false;
+                stockInput.value = '0.0000';
+                permiteDecimales.checked = false;
+                requiereLote.checked = false;
+                requiereVencimiento.checked = false;
+            }
+
+            stockContainer?.classList.toggle('d-none', isServicio);
+            permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
+            requiereLoteContainer?.classList.toggle('d-none', isServicio);
+            requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
+
+            if (isInsumo || isServicio || value === '' || value === 'activo' || value === 'gasto') {
+                if (saborSelect) saborSelect.value = '';
+                if (presentacionSelect) presentacionSelect.value = '';
+            }
+
+            toggleStockMinimo(config.controlaStockId, config.stockContainerId, config.stockInputId);
+            toggleAlertaVencimiento(config.requiereVencimientoId, config.diasAlertaContainerId, config.diasAlertaId);
+        };
+
+        if (!tipo.dataset.tipoRulesBound) {
+            tipo.addEventListener('change', apply);
+            tipo.dataset.tipoRulesBound = '1';
+        }
+        apply();
+    }
+
     function initCreateModal() {
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
@@ -131,8 +198,35 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
-            toggleAlertaVencimiento('newRequiereVencimiento', 'newDiasAlertaContainer', 'newDiasAlerta');
-            toggleStockMinimo('newControlaStock', 'newStockMinContainer', 'newStockMin');
+            applyTipoItemRules({
+                tipoId: 'newTipo',
+                marcaContainerId: 'newMarcaContainer',
+                saborContainerId: 'newSaborContainer',
+                presentacionContainerId: 'newPresentacionContainer',
+                saborId: 'newSabor',
+                presentacionId: 'newPresentacion',
+                controlaStockId: 'newControlaStock',
+                stockContainerId: 'newStockMinContainer',
+                stockInputId: 'newStockMin',
+                permiteDecimalesContainerId: 'newPermiteDecimalesContainer',
+                requiereLoteContainerId: 'newRequiereLoteContainer',
+                requiereVencimientoContainerId: 'newRequiereVencimientoContainer',
+                permiteDecimalesId: 'newPermiteDecimales',
+                requiereLoteId: 'newRequiereLote',
+                requiereVencimientoId: 'newRequiereVencimiento',
+                diasAlertaContainerId: 'newDiasAlertaContainer',
+                diasAlertaId: 'newDiasAlerta'
+            });
+        });
+
+        document.getElementById('formCrearItem')?.addEventListener('submit', () => {
+            const tipo = document.getElementById('newTipo')?.value;
+            if (tipo !== 'producto') {
+                const sabor = document.getElementById('newSabor');
+                const presentacion = document.getElementById('newPresentacion');
+                if (sabor) sabor.value = '';
+                if (presentacion) presentacion.value = '';
+            }
         });
     }
 
@@ -181,8 +275,35 @@
                 if (el) el.checked = btn.getAttribute(checks[id]) === '1';
             });
 
-            toggleAlertaVencimiento('editRequiereVencimiento', 'editDiasAlertaContainer', 'editDiasAlerta');
-            toggleStockMinimo('editControlaStock', 'editStockMinimoContainer', 'editStockMinimo');
+            applyTipoItemRules({
+                tipoId: 'editTipo',
+                marcaContainerId: 'editMarcaContainer',
+                saborContainerId: 'editSaborContainer',
+                presentacionContainerId: 'editPresentacionContainer',
+                saborId: 'editSabor',
+                presentacionId: 'editPresentacion',
+                controlaStockId: 'editControlaStock',
+                stockContainerId: 'editStockMinimoContainer',
+                stockInputId: 'editStockMinimo',
+                permiteDecimalesContainerId: 'editPermiteDecimalesContainer',
+                requiereLoteContainerId: 'editRequiereLoteContainer',
+                requiereVencimientoContainerId: 'editRequiereVencimientoContainer',
+                permiteDecimalesId: 'editPermiteDecimales',
+                requiereLoteId: 'editRequiereLote',
+                requiereVencimientoId: 'editRequiereVencimiento',
+                diasAlertaContainerId: 'editDiasAlertaContainer',
+                diasAlertaId: 'editDiasAlerta'
+            });
+        });
+
+        document.getElementById('formEditarItem')?.addEventListener('submit', () => {
+            const tipo = document.getElementById('editTipo')?.value;
+            if (tipo !== 'producto') {
+                const sabor = document.getElementById('editSabor');
+                const presentacion = document.getElementById('editPresentacion');
+                if (sabor) sabor.value = '';
+                if (presentacion) presentacion.value = '';
+            }
         });
     }
 
@@ -426,7 +547,43 @@
         initTableManager();
         initCategoriasModal();
         initGestionItemsModal();
-        toggleAlertaVencimiento('newRequiereVencimiento', 'newDiasAlertaContainer', 'newDiasAlerta');
-        toggleAlertaVencimiento('editRequiereVencimiento', 'editDiasAlertaContainer', 'editDiasAlerta');
+        applyTipoItemRules({
+            tipoId: 'newTipo',
+            marcaContainerId: 'newMarcaContainer',
+            saborContainerId: 'newSaborContainer',
+            presentacionContainerId: 'newPresentacionContainer',
+            saborId: 'newSabor',
+            presentacionId: 'newPresentacion',
+            controlaStockId: 'newControlaStock',
+            stockContainerId: 'newStockMinContainer',
+            stockInputId: 'newStockMin',
+            permiteDecimalesContainerId: 'newPermiteDecimalesContainer',
+            requiereLoteContainerId: 'newRequiereLoteContainer',
+            requiereVencimientoContainerId: 'newRequiereVencimientoContainer',
+            permiteDecimalesId: 'newPermiteDecimales',
+            requiereLoteId: 'newRequiereLote',
+            requiereVencimientoId: 'newRequiereVencimiento',
+            diasAlertaContainerId: 'newDiasAlertaContainer',
+            diasAlertaId: 'newDiasAlerta'
+        });
+        applyTipoItemRules({
+            tipoId: 'editTipo',
+            marcaContainerId: 'editMarcaContainer',
+            saborContainerId: 'editSaborContainer',
+            presentacionContainerId: 'editPresentacionContainer',
+            saborId: 'editSabor',
+            presentacionId: 'editPresentacion',
+            controlaStockId: 'editControlaStock',
+            stockContainerId: 'editStockMinimoContainer',
+            stockInputId: 'editStockMinimo',
+            permiteDecimalesContainerId: 'editPermiteDecimalesContainer',
+            requiereLoteContainerId: 'editRequiereLoteContainer',
+            requiereVencimientoContainerId: 'editRequiereVencimientoContainer',
+            permiteDecimalesId: 'editPermiteDecimales',
+            requiereLoteId: 'editRequiereLote',
+            requiereVencimientoId: 'editRequiereVencimiento',
+            diasAlertaContainerId: 'editDiasAlertaContainer',
+            diasAlertaId: 'editDiasAlerta'
+        });
     });
 })();

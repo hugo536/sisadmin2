@@ -428,7 +428,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newTipo">Tipo de ítem</label>
                     </div>
-                    <div class="col-md-6"><div class="form-floating"><input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca"><label for="newMarca">Marca</label></div></div>
+                    <div class="col-md-6" id="newMarcaContainer"><div class="form-floating"><input type="text" class="form-control" id="newMarca" name="id_marca" placeholder="Marca"><label for="newMarca">Marca</label></div></div>
                     <div class="col-md-3 form-floating">
                         <select class="form-select" id="newUnidad" name="unidad_base">
                             <option value="UND" selected>UND</option>
@@ -460,7 +460,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newCategoria">Categoría</label>
                     </div>
-                    <div class="col-md-4 form-floating">
+                    <div class="col-md-4 form-floating" id="newSaborContainer">
                         <select class="form-select" id="newSabor" name="id_sabor">
                             <option value="" selected>Seleccionar sabor...</option>
                             <?php foreach ($sabores as $sabor): ?>
@@ -469,7 +469,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newSabor">Sabor</label>
                     </div>
-                    <div class="col-md-4 form-floating">
+                    <div class="col-md-4 form-floating" id="newPresentacionContainer">
                         <select class="form-select" id="newPresentacion" name="id_presentacion">
                             <option value="" selected>Seleccionar presentación...</option>
                             <?php foreach ($presentaciones as $presentacion): ?>
@@ -479,10 +479,10 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         <label for="newPresentacion">Presentación</label>
                     </div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="newStockMinContainer"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
+                    <div class="col-md-4 form-floating d-none" id="newStockMinContainer"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000" disabled><label for="newStockMin">Stock mín.</label></div>
+                    <div class="col-md-4 d-flex align-items-center" id="newPermiteDecimalesContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center" id="newRequiereLoteContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center" id="newRequiereVencimientoContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
                     <div class="col-md-4 form-floating d-none" id="newDiasAlertaContainer">
                         <input type="number" min="0" class="form-control" id="newDiasAlerta" name="dias_alerta_vencimiento" value="30">
                         <label for="newDiasAlerta">Días de alerta</label>
@@ -522,7 +522,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="editTipo">Tipo</label>
                     </div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editMarca" name="marca"><label for="editMarca">Marca</label></div>
+                    <div class="col-md-4 form-floating" id="editMarcaContainer"><input class="form-control" id="editMarca" name="id_marca"><label for="editMarca">Marca</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editUnidad" name="unidad_base">
                             <option value="UND">UND</option>
@@ -553,7 +553,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="editCategoria">Categoría</label>
                     </div>
-                    <div class="col-md-4 form-floating">
+                    <div class="col-md-4 form-floating" id="editSaborContainer">
                         <select class="form-select" id="editSabor" name="id_sabor">
                             <option value="">Seleccionar sabor...</option>
                             <?php foreach ($sabores as $sabor): ?>
@@ -562,7 +562,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="editSabor">Sabor</label>
                     </div>
-                    <div class="col-md-4 form-floating">
+                    <div class="col-md-4 form-floating" id="editPresentacionContainer">
                         <select class="form-select" id="editPresentacion" name="id_presentacion">
                             <option value="">Seleccionar presentación...</option>
                             <?php foreach ($presentaciones as $presentacion): ?>
@@ -573,10 +573,10 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     </div>
 
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="editStockMinimoContainer"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001"><label for="editStockMinimo">Stock mín.</label></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
+                    <div class="col-md-4 form-floating d-none" id="editStockMinimoContainer"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001" disabled><label for="editStockMinimo">Stock mín.</label></div>
+                    <div class="col-md-4 d-flex align-items-center" id="editPermiteDecimalesContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center" id="editRequiereLoteContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
+                    <div class="col-md-4 d-flex align-items-center" id="editRequiereVencimientoContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
                     <div class="col-md-4 form-floating d-none" id="editDiasAlertaContainer">
                         <input type="number" min="0" class="form-control" id="editDiasAlerta" name="dias_alerta_vencimiento" value="30">
                         <label for="editDiasAlerta">Días de alerta</label>
