@@ -1,4 +1,7 @@
-<?php $items = $items ?? []; ?>
+<?php
+$items = $items ?? [];
+$categorias = $categorias ?? [];
+?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -24,14 +27,11 @@
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
-                        <option value="INSUMO">Insumo</option>
-                        <option value="PRODUCTO_TERMINADO">Producto terminado</option>
-                        <option value="PRODUCTO_PROCESO">Producto en proceso</option>
-                        <option value="EMPAQUE">Empaque</option>
-                        <option value="ENVASE_RETORNABLE">Envase retornable</option>
-                        <option value="REPUESTO_MRO">Repuesto / MRO</option>
-                        <option value="ACTIVO">Activo</option>
-                        <option value="SERVICIO">Servicio</option>
+                        <option value="producto">Producto</option>
+                        <option value="servicio">Servicio</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="activo">Activo</option>
+                        <option value="gasto">Gasto</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
@@ -93,7 +93,7 @@
                                             data-marca="<?php echo e($item['marca'] ?? ''); ?>"
                                             data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
                                             data-moneda="<?php echo e($item['moneda'] ?? ''); ?>"
-                                            data-impuesto="<?php echo e((string) ($item['impuesto'] ?? '')); ?>"
+                                            data-impuesto="<?php echo e((string) ($item['impuesto'] ?? '18.00')); ?>"
                                             data-precio="<?php echo e((string) $item['precio_venta']); ?>"
                                             data-stock-minimo="<?php echo e((string) $item['stock_minimo']); ?>"
                                             data-costo="<?php echo e((string) $item['costo_referencial']); ?>"
@@ -101,6 +101,7 @@
                                             data-permite-decimales="<?php echo (int) ($item['permite_decimales'] ?? 0); ?>"
                                             data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
                                             data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
+                                            data-dias-alerta-vencimiento="<?php echo e((string) ($item['dias_alerta_vencimiento'] ?? '')); ?>"
                                             data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
@@ -137,76 +138,61 @@
             <div class="modal-body p-4">
                 <form method="post" class="row g-3" id="formCrearItem">
                     <input type="hidden" name="accion" value="crear">
-                    <div class="col-md-3">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
-                            <label for="newSku">SKU (opcional)</label>
-                        </div>
+                    <div class="col-md-3"><div class="form-floating"><input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU"><label for="newSku">SKU (opcional)</label></div></div>
+                    <div class="col-md-5"><div class="form-floating"><input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required><label for="newNombre">Nombre</label></div></div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="newTipo" name="tipo_item" required>
+                            <option value="" selected>Seleccionar...</option>
+                            <option value="producto">Producto</option>
+                            <option value="servicio">Servicio</option>
+                            <option value="insumo">Insumo</option>
+                            <option value="activo">Activo</option>
+                            <option value="gasto">Gasto</option>
+                        </select>
+                        <label for="newTipo">Tipo de ítem</label>
                     </div>
-                    <div class="col-md-5">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required>
-                            <label for="newNombre">Nombre</label>
-                        </div>
+                    <div class="col-md-6"><div class="form-floating"><input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca"><label for="newMarca">Marca</label></div></div>
+                    <div class="col-md-3 form-floating">
+                        <select class="form-select" id="newUnidad" name="unidad_base">
+                            <option value="UND" selected>UND</option>
+                            <option value="KG">KG</option>
+                            <option value="LT">LT</option>
+                            <option value="M">M</option>
+                            <option value="CAJA">CAJA</option>
+                            <option value="PAQ">PAQ (Paquete)</option>
+                        </select>
+                        <label for="newUnidad">Unidad base</label>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <select class="form-select" id="newTipo" name="tipo_item" required>
-                                <option value="" selected>Seleccionar...</option>
-                                <option value="INSUMO">Insumo</option>
-                                <option value="PRODUCTO_TERMINADO">Producto terminado</option>
-                                <option value="PRODUCTO_PROCESO">Producto en proceso</option>
-                                <option value="EMPAQUE">Empaque</option>
-                                <option value="ENVASE_RETORNABLE">Envase retornable</option>
-                                <option value="REPUESTO_MRO">Repuesto / MRO</option>
-                                <option value="ACTIVO">Activo</option>
-                                <option value="SERVICIO">Servicio</option>
-                            </select>
-                            <label for="newTipo">Tipo de ítem</label>
-                        </div>
+                    <div class="col-md-3 form-floating">
+                        <select class="form-select" id="newMoneda" name="moneda">
+                            <option value="PEN" selected>PEN (Soles)</option>
+                            <option value="USD">USD (Dólares)</option>
+                        </select>
+                        <label for="newMoneda">Moneda</label>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-floating"><input type="text" class="form-control" id="newMarca" name="marca" placeholder="Marca"><label for="newMarca">Marca</label></div>
+                    <div class="col-md-3"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div></div>
+                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000"><label for="newPrecio">Precio venta</label></div></div>
+                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000"><label for="newCosto">Costo referencial</label></div></div>
+                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00"><label for="newImpuesto">Impuesto (%)</label></div></div>
+                    <div class="col-md-12"><div class="form-floating"><input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción"><label for="newDescripcion">Descripción</label></div></div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="newCategoria" name="id_categoria">
+                            <option value="" selected>Seleccionar categoría...</option>
+                            <?php foreach ($categorias as $categoria): ?>
+                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="newCategoria">Categoría</label>
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-floating"><input type="text" class="form-control" id="newUnidad" name="unidad_base" value="UND"><label for="newUnidad">Unidad base</label></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating"><input type="text" class="form-control" id="newMoneda" name="moneda" value="PEN"><label for="newMoneda">Moneda</label></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000"><label for="newStockMin">Stock mín.</label></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000"><label for="newPrecio">Precio venta</label></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000"><label for="newCosto">Costo referencial</label></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="0.0000"><label for="newImpuesto">Impuesto (%)</label></div>
-                    </div>
-                    <div class="col-md-12">
-                        <div class="form-floating"><input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción"><label for="newDescripcion">Descripción</label></div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-floating"><input type="number" class="form-control" id="newCategoria" name="id_categoria" placeholder="Categoría"><label for="newCategoria">ID Categoría</label></div>
-                    </div>
-                    
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
-                    
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <select class="form-select" id="newEstado" name="estado">
-                                <option value="1" selected>Activo</option>
-                                <option value="0">Inactivo</option>
-                            </select>
-                            <label for="newEstado">Estado</label>
-                        </div>
+                    <div class="col-md-4 form-floating d-none" id="newDiasAlertaContainer">
+                        <input type="number" min="0" class="form-control" id="newDiasAlerta" name="dias_alerta_vencimiento" value="30">
+                        <label for="newDiasAlerta">Días de alerta</label>
                     </div>
+                    <div class="col-md-4 form-floating"><select class="form-select" id="newEstado" name="estado"><option value="1" selected>Activo</option><option value="0">Inactivo</option></select><label for="newEstado">Estado</label></div>
                     <div class="col-12 d-flex justify-content-end pt-3">
                         <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
                         <button class="btn btn-primary px-4" type="submit"><i class="bi bi-save me-2"></i>Guardar</button>
@@ -233,30 +219,56 @@
                     <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
-                            <option value="INSUMO">Insumo</option>
-                            <option value="PRODUCTO_TERMINADO">Producto terminado</option>
-                            <option value="PRODUCTO_PROCESO">Producto en proceso</option>
-                            <option value="EMPAQUE">Empaque</option>
-                            <option value="ENVASE_RETORNABLE">Envase retornable</option>
-                            <option value="REPUESTO_MRO">Repuesto / MRO</option>
-                            <option value="ACTIVO">Activo</option>
-                            <option value="SERVICIO">Servicio</option>
+                            <option value="producto">Producto</option>
+                            <option value="servicio">Servicio</option>
+                            <option value="insumo">Insumo</option>
+                            <option value="activo">Activo</option>
+                            <option value="gasto">Gasto</option>
                         </select>
                         <label for="editTipo">Tipo</label>
                     </div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editMarca" name="marca"><label for="editMarca">Marca</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editUnidad" name="unidad_base"><label for="editUnidad">Unidad base</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editMoneda" name="moneda"><label for="editMoneda">Moneda</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001"><label for="editImpuesto">Impuesto (%)</label></div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editUnidad" name="unidad_base">
+                            <option value="UND">UND</option>
+                            <option value="KG">KG</option>
+                            <option value="LT">LT</option>
+                            <option value="M">M</option>
+                            <option value="CAJA">CAJA</option>
+                            <option value="PAQ">PAQ (Paquete)</option>
+                        </select>
+                        <label for="editUnidad">Unidad base</label>
+                    </div>
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editMoneda" name="moneda">
+                            <option value="PEN">PEN (Soles)</option>
+                            <option value="USD">USD (Dólares)</option>
+                        </select>
+                        <label for="editMoneda">Moneda</label>
+                    </div>
+                    <div class="col-md-4 form-floating"><input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001" value="18.00"><label for="editImpuesto">Impuesto (%)</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001"><label for="editPrecio">Precio</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001"><label for="editStockMinimo">Stock mín.</label></div>
                     <div class="col-md-4 form-floating"><input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001"><label for="editCosto">Costo referencial</label></div>
-                    
+                    <div class="col-md-4 form-floating">
+                        <select class="form-select" id="editCategoria" name="id_categoria">
+                            <option value="">Seleccionar categoría...</option>
+                            <?php foreach ($categorias as $categoria): ?>
+                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="editCategoria">Categoría</label>
+                    </div>
+
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
                     <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
-                    
+                    <div class="col-md-4 form-floating d-none" id="editDiasAlertaContainer">
+                        <input type="number" min="0" class="form-control" id="editDiasAlerta" name="dias_alerta_vencimiento" value="30">
+                        <label for="editDiasAlerta">Días de alerta</label>
+                    </div>
+
                     <div class="col-md-4 form-floating"><select class="form-select" id="editEstado" name="estado"><option value="1">Activo</option><option value="0">Inactivo</option></select><label for="editEstado">Estado</label></div>
                     <div class="col-12 d-flex justify-content-end pt-3"><button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary px-4" type="submit">Actualizar</button></div>
                 </form>
