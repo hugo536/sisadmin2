@@ -634,9 +634,19 @@ class TercerosModel extends Modelo
             return $this->hasRepresentanteLegalColumn;
         }
 
-        $stmt = $this->db()->prepare('SHOW COLUMNS FROM terceros LIKE :column');
-        $stmt->execute(['column' => 'representante_legal']);
-        $this->hasRepresentanteLegalColumn = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $this->db()->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
+        );
+        $stmt->execute([
+            'table_name' => 'terceros',
+            'column_name' => 'representante_legal',
+        ]);
+        $this->hasRepresentanteLegalColumn = (bool) $stmt->fetchColumn();
 
         return $this->hasRepresentanteLegalColumn;
     }
