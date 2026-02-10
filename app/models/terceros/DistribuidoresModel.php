@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 class DistribuidoresModel extends Modelo
 {
+    /** @var array<string,bool> */
+    private array $columnCache = [];
+
     public function guardar(int $idTercero, array $data, int $userId): void
     {
         $sql = "INSERT INTO distribuidores (id_tercero, created_by, updated_by)
@@ -24,8 +27,15 @@ class DistribuidoresModel extends Modelo
     public function eliminar(int $idTercero, int $userId): void
     {
         $this->db()->prepare('DELETE FROM distribuidores_zonas WHERE distribuidor_id = ?')->execute([$idTercero]);
-        $this->db()->prepare('UPDATE distribuidores SET deleted_at = NOW(), deleted_by = ?, updated_by = ? WHERE id_tercero = ?')
-            ->execute([$userId, $userId, $idTercero]);
+
+        if ($this->hasColumn('distribuidores', 'deleted_by')) {
+            $this->db()->prepare('UPDATE distribuidores SET deleted_at = NOW(), deleted_by = ?, updated_by = ? WHERE id_tercero = ?')
+                ->execute([$userId, $userId, $idTercero]);
+            return;
+        }
+
+        $this->db()->prepare('UPDATE distribuidores SET deleted_at = NOW(), updated_by = ? WHERE id_tercero = ?')
+            ->execute([$userId, $idTercero]);
     }
 
     public function sincronizarZonasExclusivas(int $idTercero, array $zonas, int $userId): void
@@ -36,9 +46,15 @@ class DistribuidoresModel extends Modelo
             return;
         }
 
+        $usaAuditoria = $this->hasColumn('distribuidores_zonas', 'created_by')
+            && $this->hasColumn('distribuidores_zonas', 'updated_by');
+
         $stmt = $this->db()->prepare(
-            'INSERT INTO distribuidores_zonas (distribuidor_id, departamento_id, provincia_id, distrito_id, created_by, updated_by)
-             VALUES (:distribuidor_id, :departamento_id, :provincia_id, :distrito_id, :created_by, :updated_by)'
+            $usaAuditoria
+                ? 'INSERT INTO distribuidores_zonas (distribuidor_id, departamento_id, provincia_id, distrito_id, created_by, updated_by)
+                   VALUES (:distribuidor_id, :departamento_id, :provincia_id, :distrito_id, :created_by, :updated_by)'
+                : 'INSERT INTO distribuidores_zonas (distribuidor_id, departamento_id, provincia_id, distrito_id)
+                   VALUES (:distribuidor_id, :departamento_id, :provincia_id, :distrito_id)'
         );
 
         $insertadas = [];
@@ -61,14 +77,19 @@ class DistribuidoresModel extends Modelo
             }
             $insertadas[$key] = true;
 
-            $stmt->execute([
+            $params = [
                 'distribuidor_id' => $idTercero,
                 'departamento_id' => $departamentoId,
                 'provincia_id'    => $provinciaId !== '' ? $provinciaId : null,
                 'distrito_id'     => $distritoId !== '' ? $distritoId : null,
-                'created_by'      => $userId,
-                'updated_by'      => $userId,
-            ]);
+            ];
+
+            if ($usaAuditoria) {
+                $params['created_by'] = $userId;
+                $params['updated_by'] = $userId;
+            }
+
+            $stmt->execute($params);
         }
     }
 
@@ -130,6 +151,7 @@ class DistribuidoresModel extends Modelo
                 $conflictos[$key] = [
                     'valor' => $key,
                     'label' => trim(($row['departamento_nombre'] ?? '') . ' - ' . ($row['provincia_nombre'] ?? '') . ' - ' . ($row['distrito_nombre'] ?? '')),
+                    'tercero_id' => (int)($row['distribuidor_id'] ?? 0),
                     'distribuidor_id' => (int)($row['distribuidor_id'] ?? 0),
                     'distribuidor_nombre' => $row['distribuidor_nombre'] ?? ''
                 ];
@@ -203,5 +225,29 @@ class DistribuidoresModel extends Modelo
         }
 
         return $rows;
+    }
+
+    private function hasColumn(string $tableName, string $columnName): bool
+    {
+        $cacheKey = $tableName . '.' . $columnName;
+        if (array_key_exists($cacheKey, $this->columnCache)) {
+            return $this->columnCache[$cacheKey];
+        }
+
+        $stmt = $this->db()->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table_name
+               AND COLUMN_NAME = :column_name
+             LIMIT 1'
+        );
+        $stmt->execute([
+            'table_name' => $tableName,
+            'column_name' => $columnName,
+        ]);
+
+        $this->columnCache[$cacheKey] = (bool) $stmt->fetchColumn();
+        return $this->columnCache[$cacheKey];
     }
 }
