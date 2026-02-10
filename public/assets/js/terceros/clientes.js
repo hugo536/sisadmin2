@@ -52,7 +52,9 @@
             map: null,
             geoLayer: null,
             drawnLayer: null,
-            conflicts: new Set()
+            conflicts: new Set(),
+            focusKey: '',
+            validationSeq: 0
         };
 
         zoneManagers[prefix] = manager;
@@ -126,7 +128,7 @@
         return `${dep || ''}|${prov || ''}|${dist || ''}`;
     }
 
-    function addZone(manager, zona, status = ZONE_STATUS.TEMP) {
+    function addZone(manager, zona, status = ZONE_STATUS.TEMP, options = {}) {
         const key = zoneKey(zona.departamento_id, zona.provincia_id, zona.distrito_id);
         if (!zona.departamento_id || manager.zones.has(key)) return;
 
@@ -136,8 +138,14 @@
             label: zona.label || buildLabel(zona),
             status
         });
+
+        if (options.focus !== false) {
+            manager.focusKey = key;
+        }
         renderZones(manager);
-        validateConflicts(manager);
+        if (options.validate !== false) {
+            validateConflicts(manager);
+        }
     }
 
     function removeZone(manager, key) {
@@ -223,7 +231,7 @@
             manager.list.appendChild(tr);
         });
 
-        repaintMap(manager);
+        repaintMap(manager, manager.focusKey);
     }
 
     function getDistribuidorId(manager) {
@@ -237,6 +245,8 @@
         fd.append('distribuidor_id', getDistribuidorId(manager));
         zones.forEach(z => fd.append('zonas[]', z));
 
+        const currentSeq = ++manager.validationSeq;
+
         return fetch(window.location.href, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -244,6 +254,7 @@
         })
             .then(r => r.json())
             .then(r => {
+                if (currentSeq !== manager.validationSeq) return;
                 manager.conflicts.clear();
                 (r.conflictos || []).forEach(item => manager.conflicts.add(item.valor));
                 renderZones(manager);
@@ -264,9 +275,14 @@
             provincia_nombre: z.provincia_nombre || '',
             distrito_nombre: z.distrito_nombre || '',
             label: z.label || buildLabel(z)
-        }, status));
+        }, status, { validate: false, focus: false }));
+
+        if (manager.zones.size > 0) {
+            manager.focusKey = Array.from(manager.zones.keys())[0];
+        }
 
         renderZones(manager);
+        validateConflicts(manager);
     }
 
     function resetDistribuidorZones(prefix) {
@@ -285,7 +301,13 @@
         }).addTo(manager.map);
 
         getGeoJsonData().then(data => {
-            manager.geoLayer = L.geoJSON(data, { style: { opacity: 0, fillOpacity: 0 } });
+            const features = Array.isArray(data?.features) ? data.features : [];
+            manager.geoLayer = L.geoJSON({ type: 'FeatureCollection', features }, { style: { opacity: 0, fillOpacity: 0 } });
+
+            if (!features.length) {
+                console.warn('[Distribuidores] El GeoJSON de distritos está vacío. No se podrán pintar zonas en el mapa.');
+            }
+
             repaintMap(manager);
         });
     }
