@@ -19,6 +19,9 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionItems">
                 <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
             </button>
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionItems">
+                <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
+            </button>
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
                 <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
             </button>
@@ -135,6 +138,127 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
             <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
                 <small class="text-muted" id="itemsPaginationInfo">Cargando...</small>
                 <nav><ul class="pagination pagination-sm mb-0 justify-content-end" id="itemsPaginationControls"></ul></nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalGestionItems" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title mb-0"><i class="bi bi-sliders me-2"></i>Configuración de ítems</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="tabsGestionItems" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="sabores-tab" data-bs-toggle="tab" data-bs-target="#tabSabores" type="button" role="tab">Sabores</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="presentaciones-tab" data-bs-toggle="tab" data-bs-target="#tabPresentaciones" type="button" role="tab">Presentaciones</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="marcas-tab" data-bs-toggle="tab" data-bs-target="#tabMarcas" type="button" role="tab">Marcas</button>
+                    </li>
+                </ul>
+                <div class="tab-content border border-top-0 rounded-bottom p-3" id="tabsGestionItemsContent">
+                    <div class="tab-pane fade show active" id="tabSabores" role="tabpanel">
+                        <form method="post" id="formAgregarSabor" class="row g-2 mb-3">
+                            <input type="hidden" name="accion" value="crear_sabor">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="nombre" placeholder="Agregar nuevo sabor" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Agregar</button>
+                            </div>
+                        </form>
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control" id="buscarSabores" placeholder="Buscar sabor...">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="tablaSaboresGestion">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($saboresGestion as $sabor): ?>
+                                        <tr data-search="<?php echo e(mb_strtolower((string) $sabor['nombre'])); ?>">
+                                            <td class="fw-semibold"><?php echo e((string) $sabor['nombre']); ?></td>
+                                            <td>
+                                                <div class="form-check form-switch m-0">
+                                                    <input class="form-check-input js-toggle-atributo" type="checkbox"
+                                                        data-accion="editar_sabor"
+                                                        data-id="<?php echo (int) $sabor['id']; ?>"
+                                                        data-nombre="<?php echo e((string) $sabor['nombre']); ?>"
+                                                        <?php echo ((int) ($sabor['estado'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="sabor" data-id="<?php echo (int) $sabor['id']; ?>" data-nombre="<?php echo e((string) $sabor['nombre']); ?>" data-estado="<?php echo (int) ($sabor['estado'] ?? 1); ?>">Editar</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_sabor" data-id="<?php echo (int) $sabor['id']; ?>">Eliminar</button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabPresentaciones" role="tabpanel">
+                        <form method="post" id="formAgregarPresentacion" class="row g-2 mb-3">
+                            <input type="hidden" name="accion" value="crear_presentacion">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="nombre" placeholder="Agregar nueva presentación" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Agregar</button>
+                            </div>
+                        </form>
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control" id="buscarPresentaciones" placeholder="Buscar presentación...">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="tablaPresentacionesGestion">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($presentacionesGestion as $presentacion): ?>
+                                        <tr data-search="<?php echo e(mb_strtolower((string) $presentacion['nombre'])); ?>">
+                                            <td class="fw-semibold"><?php echo e((string) $presentacion['nombre']); ?></td>
+                                            <td>
+                                                <div class="form-check form-switch m-0">
+                                                    <input class="form-check-input js-toggle-atributo" type="checkbox"
+                                                        data-accion="editar_presentacion"
+                                                        data-id="<?php echo (int) $presentacion['id']; ?>"
+                                                        data-nombre="<?php echo e((string) $presentacion['nombre']); ?>"
+                                                        <?php echo ((int) ($presentacion['estado'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="presentacion" data-id="<?php echo (int) $presentacion['id']; ?>" data-nombre="<?php echo e((string) $presentacion['nombre']); ?>" data-estado="<?php echo (int) ($presentacion['estado'] ?? 1); ?>">Editar</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_presentacion" data-id="<?php echo (int) $presentacion['id']; ?>">Eliminar</button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabMarcas" role="tabpanel">
+                        <div class="alert alert-light border mb-0">La marca sigue siendo un campo libre en el formulario de ítems.</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
