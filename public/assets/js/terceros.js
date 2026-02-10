@@ -1,14 +1,17 @@
 (function () {
     'use strict';
 
-    // ENTIDADES FINANCIERAS (Estáticas para el ejemplo)
+    const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
+
     const ENTIDADES_FINANCIERAS = {
-        BANCO: ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Pichincha'],
-        BILLETERA: ['Yape', 'Plin', 'Tunki', 'Agora Pay', 'BIM'],
-        CAJA: ['Caja Huancayo', 'Caja Piura', 'Caja Arequipa', 'Caja Sullana'],
-        COOPERATIVA: ['Coopac Pacífico', 'Coopac San Cristóbal'],
-        OTRO: []
+        Banco: ['BCP', 'Interbank', 'BBVA Continental', 'Scotiabank', 'Banco de la Nación', 'BanBif', 'Pichincha'],
+        Caja: ['Caja Arequipa', 'Caja Huancayo', 'Caja Piura', 'Caja Trujillo', 'Caja Sullana', 'Caja Tacna', 'Caja Ica'],
+        'Billetera Digital': ['Yape', 'Plin', 'Tunki', 'Bim', 'Lukita', 'Mercado Pago', 'Otros'],
+        Otros: []
     };
+
+    const TIPOS_CUENTA_BANCO = ['Ahorros', 'Corriente', 'CTS', 'Detracción', 'Sueldo', 'Otros'];
+    const TIPOS_CUENTA_BILLETERA = ['N/A', 'Personal', 'Empresarial'];
 
     // =========================================================================
     // UTILIDADES GENERALES
@@ -66,6 +69,19 @@
 
     function sanitizeDigits(value) {
         return (value || '').replace(/\D/g, '');
+    }
+
+    function normalizeTipoEntidad(value) {
+        const normalized = (value || '').toString().trim().toLowerCase();
+        if (normalized === 'banco') return 'Banco';
+        if (normalized === 'caja') return 'Caja';
+        if (normalized === 'billetera' || normalized === 'billetera digital') return 'Billetera Digital';
+        if (normalized === 'cooperativa' || normalized === 'otro' || normalized === 'otros') return 'Otros';
+        return 'Banco';
+    }
+
+    function isBilleteraTipo(tipoEntidad) {
+        return normalizeTipoEntidad(tipoEntidad) === 'Billetera Digital';
     }
 
     function isPeruPhone(value) {
@@ -218,7 +234,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'card mb-2 bg-light border';
 
-        const tipoEntidadVal = tipo || ''; 
+        const tipoEntidadVal = normalizeTipoEntidad(tipo || (Number(billetera_digital) === 1 ? 'Billetera Digital' : 'Banco'));
 
         const cardBody = document.createElement('div');
         cardBody.className = 'card-body p-2';
@@ -232,31 +248,22 @@
         const tipoEntSelect = document.createElement('select');
         tipoEntSelect.name = 'cuenta_tipo[]';
         tipoEntSelect.className = 'form-select form-select-sm';
-        ['', 'BANCO', 'BILLETERA', 'CAJA', 'COOPERATIVA', 'OTRO'].forEach(opt => {
+        TIPOS_ENTIDAD_CUENTA.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt;
-            option.textContent = opt === '' ? 'Tipo' : opt;
+            option.textContent = opt;
             if (opt === tipoEntidadVal) option.selected = true;
             tipoEntSelect.appendChild(option);
         });
         col1.appendChild(tipoEntSelect);
 
-        // Col 2: Entidad (Input con Datalist)
+        // Col 2: Entidad (Select dinámico)
         const col2 = document.createElement('div');
         col2.className = 'col-md-3';
-        const entidadInput = document.createElement('input');
-        entidadInput.name = 'cuenta_entidad[]';
-        entidadInput.className = 'form-control form-control-sm';
-        entidadInput.placeholder = 'Entidad';
-        entidadInput.value = entidad;
-        
-        const datalist = document.createElement('datalist');
-        const datalistId = `entidad-list-${Math.random().toString(36).slice(2)}`;
-        datalist.id = datalistId;
-        entidadInput.setAttribute('list', datalistId);
-        
-        col2.appendChild(entidadInput);
-        col2.appendChild(datalist);
+        const entidadSelect = document.createElement('select');
+        entidadSelect.name = 'cuenta_entidad[]';
+        entidadSelect.className = 'form-select form-select-sm';
+        col2.appendChild(entidadSelect);
 
         // Col 3: Tipo Cuenta
         const col3 = document.createElement('div');
@@ -264,14 +271,17 @@
         const tipoCuentaSelect = document.createElement('select');
         tipoCuentaSelect.name = 'cuenta_tipo_cta[]';
         tipoCuentaSelect.className = 'form-select form-select-sm';
-        ['', 'AHORROS', 'CORRIENTE', 'MAESTRA'].forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt === '' ? 'Tipo Cta.' : opt;
-            if (opt === tipo_cta) option.selected = true;
-            tipoCuentaSelect.appendChild(option);
-        });
         col3.appendChild(tipoCuentaSelect);
+
+        const tipoCuentaHelp = document.createElement('small');
+        tipoCuentaHelp.className = 'text-muted d-block mt-1';
+        col3.appendChild(tipoCuentaHelp);
+
+        const billeteraHidden = document.createElement('input');
+        billeteraHidden.type = 'hidden';
+        billeteraHidden.name = 'cuenta_billetera[]';
+        billeteraHidden.value = Number(billetera_digital) === 1 ? '1' : '0';
+        col3.appendChild(billeteraHidden);
 
         // Col 4: Número y Botón
         const col4 = document.createElement('div');
@@ -282,7 +292,7 @@
         const numeroInput = document.createElement('input');
         numeroInput.name = 'cuenta_numero[]';
         numeroInput.className = 'form-control';
-        numeroInput.placeholder = 'N° Cuenta';
+        numeroInput.placeholder = 'CCI o número de cuenta';
         numeroInput.value = numero_cuenta;
 
         const removeBtn = createRemoveButton(() => {
@@ -298,15 +308,19 @@
         const row2 = document.createElement('div');
         row2.className = 'row g-2 mt-1';
         
-        // CCI
+        // CCI / Teléfono
         const colCci = document.createElement('div');
         colCci.className = 'col-md-4';
+        const cciLabel = document.createElement('small');
+        cciLabel.className = 'text-muted d-block mb-1';
+        colCci.appendChild(cciLabel);
         const cciInput = document.createElement('input');
         cciInput.type = 'text';
         cciInput.name = 'cuenta_cci[]';
         cciInput.className = 'form-control form-control-sm';
-        cciInput.placeholder = 'CCI / Celular Yape';
+        cciInput.placeholder = 'CCI o número de cuenta';
         cciInput.value = cci;
+        cciInput.inputMode = 'numeric';
         colCci.appendChild(cciInput);
 
         // Moneda
@@ -324,8 +338,15 @@
         });
         colMoneda.appendChild(monedaSelect);
 
+        const colResumen = document.createElement('div');
+        colResumen.className = 'col-md-5';
+        const resumenCuenta = document.createElement('small');
+        resumenCuenta.className = 'text-muted d-block pt-2';
+        colResumen.appendChild(resumenCuenta);
+
         row2.appendChild(colCci);
         row2.appendChild(colMoneda);
+        row2.appendChild(colResumen);
 
         row.appendChild(col1);
         row.appendChild(col2);
@@ -336,18 +357,100 @@
         cardBody.appendChild(row2);
         wrapper.appendChild(cardBody);
 
-        const updateEntidadList = () => {
-            const opciones = ENTIDADES_FINANCIERAS[tipoEntSelect.value] || [];
-            datalist.innerHTML = '';
+        const renderEntidadOptions = (tipoEntidad, currentValue) => {
+            const opciones = ENTIDADES_FINANCIERAS[tipoEntidad] || [];
+            entidadSelect.innerHTML = '';
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = tipoEntidad === 'Billetera Digital' ? 'Seleccione billetera' : 'Seleccione entidad';
+            entidadSelect.appendChild(emptyOpt);
+
             opciones.forEach(nombre => {
                 const option = document.createElement('option');
                 option.value = nombre;
-                datalist.appendChild(option);
+                option.textContent = nombre;
+                entidadSelect.appendChild(option);
             });
+
+            if (currentValue && !opciones.includes(currentValue)) {
+                const custom = document.createElement('option');
+                custom.value = currentValue;
+                custom.textContent = `${currentValue} (actual)`;
+                entidadSelect.appendChild(custom);
+            }
+
+            entidadSelect.value = currentValue || '';
         };
 
-        tipoEntSelect.addEventListener('change', updateEntidadList);
-        updateEntidadList();
+        const renderTipoCuenta = (tipoEntidad, currentValue) => {
+            tipoCuentaSelect.innerHTML = '';
+            const isBilletera = isBilleteraTipo(tipoEntidad);
+            const opciones = isBilletera ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
+            opciones.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                tipoCuentaSelect.appendChild(option);
+            });
+
+            const valueToUse = currentValue || (isBilletera ? 'N/A' : 'Ahorros');
+            if (!opciones.includes(valueToUse)) {
+                const custom = document.createElement('option');
+                custom.value = valueToUse;
+                custom.textContent = valueToUse;
+                tipoCuentaSelect.appendChild(custom);
+            }
+            tipoCuentaSelect.value = valueToUse;
+            tipoCuentaHelp.textContent = isBilletera ? 'Tipo opcional para billeteras digitales.' : '';
+            col3.classList.toggle('opacity-75', isBilletera);
+        };
+
+        const applyCuentaMode = () => {
+            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
+            tipoEntSelect.value = tipoEntidad;
+            const isBilletera = isBilleteraTipo(tipoEntidad);
+            renderEntidadOptions(tipoEntidad, entidadSelect.value || entidad);
+            renderTipoCuenta(tipoEntidad, tipoCuentaSelect.value || tipo_cta);
+
+            cciLabel.textContent = isBilletera ? 'Número de Teléfono (9 dígitos)' : 'CCI o Número de Cuenta';
+            cciInput.placeholder = isBilletera ? '999999999' : 'CCI de 20 dígitos o número de cuenta';
+            cciInput.maxLength = isBilletera ? 9 : 20;
+
+            numeroInput.placeholder = isBilletera ? 'Opcional (respaldo)' : 'Número de cuenta (opcional)';
+            billeteraHidden.value = isBilletera ? '1' : '0';
+
+            if (!isBilletera && cciInput.value && sanitizeDigits(cciInput.value).length > 20) {
+                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 20);
+            }
+
+            if (isBilletera && cciInput.value) {
+                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 9);
+            }
+
+            const icon = isBilletera ? '📱' : '🏦';
+            const identificador = (cciInput.value || numeroInput.value || 'sin número').trim();
+            const tipoCuentaTxt = tipoCuentaSelect.value || 'N/A';
+            resumenCuenta.textContent = isBilletera
+                ? `${icon} ${entidadSelect.value || 'Billetera'} - ${identificador} (${monedaSelect.value})`
+                : `${icon} ${entidadSelect.value || 'Entidad'} - ${tipoCuentaTxt} - ${identificador}`;
+        };
+
+        tipoEntSelect.addEventListener('change', applyCuentaMode);
+        cciInput.addEventListener('input', () => {
+            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
+            if (isBilleteraTipo(tipoEntidad)) {
+                cciInput.value = sanitizeDigits(cciInput.value).slice(0, 9);
+            }
+            applyCuentaMode();
+        });
+        numeroInput.addEventListener('input', applyCuentaMode);
+        entidadSelect.addEventListener('change', applyCuentaMode);
+        tipoCuentaSelect.addEventListener('change', applyCuentaMode);
+        monedaSelect.addEventListener('change', applyCuentaMode);
+        applyCuentaMode();
+        if (entidad) {
+            entidadSelect.value = entidad;
+        }
 
         return wrapper;
     }
@@ -582,7 +685,7 @@
 
         [tipoPersona, tipoDoc, numeroDoc, nombre, representanteLegal, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
-        form.querySelectorAll('select[name="cuenta_tipo[]"], input[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"]').forEach(clearInvalid);
+        form.querySelectorAll('select[name="cuenta_tipo[]"], select[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"], input[name="cuenta_cci[]"]').forEach(clearInvalid);
 
         if (!tipoPersona?.value) { if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.'); valid = false; }
         if (!tipoDoc?.value) { if (showErrors) setInvalid(tipoDoc, 'Seleccione el tipo de documento.'); valid = false; }
@@ -658,16 +761,47 @@
         }
 
         const cTipos = form.querySelectorAll('select[name="cuenta_tipo[]"]');
-        const cEntidades = form.querySelectorAll('input[name="cuenta_entidad[]"]');
+        const cEntidades = form.querySelectorAll('select[name="cuenta_entidad[]"]');
+        const cTipoCta = form.querySelectorAll('select[name="cuenta_tipo_cta[]"]');
         const cNumeros = form.querySelectorAll('input[name="cuenta_numero[]"]');
+        const cCci = form.querySelectorAll('input[name="cuenta_cci[]"]');
 
         cTipos.forEach((tipoEl, i) => {
             const entidadEl = cEntidades[i];
+            const tipoCtaEl = cTipoCta[i];
             const numEl = cNumeros[i];
+            const cciEl = cCci[i];
+            const tipoEntidad = normalizeTipoEntidad(tipoEl.value);
+            const isBilletera = isBilleteraTipo(tipoEntidad);
+            const cciDigits = sanitizeDigits(cciEl?.value || '');
+            const numeroDigits = sanitizeDigits(numEl?.value || '');
             
             if (!tipoEl.value) { if(showErrors) setInvalid(tipoEl, 'Requerido'); valid = false; }
             if (!entidadEl.value.trim()) { if(showErrors) setInvalid(entidadEl, 'Requerido'); valid = false; }
-            if (!numEl.value.trim()) { if(showErrors) setInvalid(numEl, 'Requerido'); valid = false; }
+
+            if (isBilletera) {
+                if (!/^\d{9}$/.test(cciDigits)) {
+                    if (showErrors) setInvalid(cciEl, 'Para billetera ingrese un celular de 9 dígitos.');
+                    valid = false;
+                }
+            } else {
+                if (!cciDigits && !numeroDigits) {
+                    if (showErrors) {
+                        setInvalid(cciEl, 'Ingrese CCI o número de cuenta.');
+                        setInvalid(numEl, 'Ingrese CCI o número de cuenta.');
+                    }
+                    valid = false;
+                }
+                if (cciDigits && cciDigits.length !== 20 && cciDigits.length < 6) {
+                    if (showErrors) setInvalid(cciEl, 'El CCI debe tener 20 dígitos (o use número de cuenta).');
+                    valid = false;
+                }
+            }
+
+            if (!tipoCtaEl.value.trim()) {
+                if (showErrors) setInvalid(tipoCtaEl, 'Requerido');
+                valid = false;
+            }
         });
 
         return valid;
