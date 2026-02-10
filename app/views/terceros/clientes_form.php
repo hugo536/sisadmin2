@@ -21,19 +21,4 @@ $prefix = $prefix ?? 'crear';
             <label for="<?php echo $prefix; ?>ClienteCondicionPago">Condición de pago</label>
         </div>
     </div>
-    <div class="col-12">
-        <div class="form-floating">
-            <input type="text" class="form-control" name="cliente_ruta_reparto" id="<?php echo $prefix; ?>ClienteRutaReparto" placeholder="Ruta de reparto">
-            <label for="<?php echo $prefix; ?>ClienteRutaReparto">Ruta de reparto</label>
-        </div>
-    </div>
 </div>
-
-<div class="mt-3">
-    <div class="form-check form-switch p-2 border rounded bg-white d-flex align-items-center">
-        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>EsDistribuidor" name="es_distribuidor" value="1" style="margin-top: 0;">
-        <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>EsDistribuidor">Es distribuidor</label>
-    </div>
-</div>
-
-<?php require __DIR__ . '/distribuidores_form.php'; ?>

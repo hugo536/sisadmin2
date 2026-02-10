@@ -28,7 +28,7 @@ class TercerosModel extends Modelo
     {
         // Agregado t.telefono para tener el número principal disponible en la lista
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, 
+                       t.direccion, t.telefono, t.email, t.representante_legal,
                        t.departamento, t.provincia, t.distrito,
                        t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
                        
@@ -36,7 +36,6 @@ class TercerosModel extends Modelo
                        tc.dias_credito AS cliente_dias_credito,
                        tc.limite_credito AS cliente_limite_credito,
                        tc.condicion_pago AS cliente_condicion_pago,
-                       tc.ruta_reparto AS cliente_ruta_reparto,
                        
                        -- Datos proveedor desde tabla hija
                        tp.dias_credito AS proveedor_dias_credito,
@@ -50,8 +49,6 @@ class TercerosModel extends Modelo
                        te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato,
 
                        -- Datos distribuidor
-                       d.zona_exclusiva AS distribuidor_zona_exclusiva,
-                       d.meta_volumen AS distribuidor_meta_volumen,
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
                 FROM terceros t
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
@@ -72,11 +69,14 @@ class TercerosModel extends Modelo
         $ids = array_column($rows, 'id');
         $telefonos = $this->obtenerTelefonosPorTerceros($ids);
         $cuentas   = $this->obtenerCuentasPorTerceros($ids);
+        $zonas     = $this->distribuidoresModel->obtenerZonasPorTerceros(array_map('intval', $ids));
 
         foreach ($rows as &$row) {
             $id = (int) $row['id'];
             $row['telefonos']         = $telefonos[$id] ?? [];
             $row['cuentas_bancarias'] = $cuentas[$id]   ?? [];
+            $row['zonas_exclusivas'] = $zonas[$id] ?? [];
+            $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
             
             // Helpers de ubicación (compatibilidad visual)
             $row['departamento_nombre'] = $row['departamento'];
@@ -95,7 +95,6 @@ class TercerosModel extends Modelo
                        tc.dias_credito AS cliente_dias_credito,
                        tc.limite_credito AS cliente_limite_credito,
                        tc.condicion_pago AS cliente_condicion_pago,
-                       tc.ruta_reparto AS cliente_ruta_reparto,
                        
                        -- Proveedor
                        tp.dias_credito AS proveedor_dias_credito,
@@ -109,8 +108,6 @@ class TercerosModel extends Modelo
                        te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
 
                        -- Distribuidor
-                       d.zona_exclusiva AS distribuidor_zona_exclusiva,
-                       d.meta_volumen AS distribuidor_meta_volumen,
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
                 FROM terceros t
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
@@ -129,6 +126,8 @@ class TercerosModel extends Modelo
 
         $row['telefonos']         = $this->obtenerTelefonosPorTerceros([$id])[$id] ?? [];
         $row['cuentas_bancarias'] = $this->obtenerCuentasPorTerceros([$id])[$id]   ?? [];
+        $row['zonas_exclusivas'] = $this->distribuidoresModel->obtenerZonasPorTerceros([$id])[$id] ?? [];
+        $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
 
         return $row;
     }
@@ -154,6 +153,7 @@ class TercerosModel extends Modelo
                             tipo_persona = :tipo_persona, 
                             nombre_completo = :nombre_completo, 
                             direccion = :direccion,
+                            representante_legal = :representante_legal,
                             telefono = :telefono, 
                             email = :email, 
                             departamento = :departamento, provincia = :provincia, distrito = :distrito,
@@ -170,11 +170,11 @@ class TercerosModel extends Modelo
                 $this->db()->prepare($sql)->execute($params);
             } else {
                 $sql = "INSERT INTO terceros (tipo_persona, tipo_documento, numero_documento, nombre_completo,
-                                            direccion, telefono, email, departamento, provincia, distrito,
+                                            direccion, representante_legal, telefono, email, departamento, provincia, distrito,
                                             rubro_sector, observaciones, es_cliente, es_proveedor, es_empleado,
                                             estado, created_by, updated_by)
                         VALUES (:tipo_persona, :tipo_documento, :numero_documento, :nombre_completo,
-                                :direccion, :telefono, :email, :departamento, :provincia, :distrito,
+                                :direccion, :representante_legal, :telefono, :email, :departamento, :provincia, :distrito,
                                 :rubro_sector, :observaciones, :es_cliente, :es_proveedor, :es_empleado,
                                 :estado, :created_by, :updated_by)";
                 
@@ -198,6 +198,8 @@ class TercerosModel extends Modelo
             }
             if (!empty($payload['es_distribuidor'])) {
                 $this->distribuidoresModel->guardar($idTercero, $payload, $userId);
+            } else {
+                $this->distribuidoresModel->eliminar($idTercero, $userId);
             }
 
             $this->sincronizarTelefonos($idTercero, $payload['telefonos'] ?? [], $userId);
@@ -223,7 +225,8 @@ class TercerosModel extends Modelo
             $sql = "UPDATE terceros SET 
                         tipo_persona = :tipo_persona, tipo_documento = :tipo_documento, numero_documento = :numero_documento,
                         nombre_completo = :nombre_completo, 
-                        direccion = :direccion, 
+                        direccion = :direccion,
+                        representante_legal = :representante_legal,
                         telefono = :telefono,
                         email = :email,
                         departamento = :departamento, provincia = :provincia, distrito = :distrito,
@@ -251,6 +254,8 @@ class TercerosModel extends Modelo
             }
             if (!empty($payload['es_distribuidor'])) {
                 $this->distribuidoresModel->guardar($id, $payload, $userId);
+            } else {
+                $this->distribuidoresModel->eliminar($id, $userId);
             }
 
             $this->sincronizarTelefonos($id, $payload['telefonos'] ?? [], $userId);
@@ -405,6 +410,7 @@ class TercerosModel extends Modelo
             'numero_documento' => $payload['numero_documento'],
             'nombre_completo'  => $payload['nombre_completo'],
             'direccion'        => $payload['direccion'],
+            'representante_legal' => $payload['representante_legal'],
             'telefono'         => $payload['telefono_principal'], // Extraído en mapPayload
             'email'            => $payload['email'],
             'departamento'     => $payload['departamento'],
@@ -448,6 +454,7 @@ class TercerosModel extends Modelo
             'numero_documento' => $numeroDocumento,
             'nombre_completo'  => trim((string)($data['nombre_completo'] ?? '')),
             'direccion'        => trim((string)($data['direccion'] ?? '')),
+            'representante_legal' => trim((string)($data['representante_legal'] ?? '')),
             'telefono_principal' => $telefonoPrincipal, // Nuevo campo derivado
             'email'            => trim((string)($data['email'] ?? '')),
             'departamento'     => !empty($data['departamento']) ? (string)$data['departamento'] : null,
@@ -465,7 +472,6 @@ class TercerosModel extends Modelo
             'cliente_dias_credito'     => (int)($data['cliente_dias_credito'] ?? 0),
             'cliente_limite_credito'   => (float)($data['cliente_limite_credito'] ?? 0),
             'cliente_condicion_pago'   => trim((string)($data['cliente_condicion_pago'] ?? '')),
-            'cliente_ruta_reparto'     => trim((string)($data['cliente_ruta_reparto'] ?? '')),
 
             // Campos proveedor
             'proveedor_dias_credito'   => (int)($data['proveedor_dias_credito'] ?? 0),
@@ -490,8 +496,9 @@ class TercerosModel extends Modelo
             'essalud'         => !empty($data['essalud']) ? 1 : 0,
 
             // Distribuidores
-            'distribuidor_zona_exclusiva' => trim((string)($data['distribuidor_zona_exclusiva'] ?? '')),
-            'distribuidor_meta_volumen'   => (float)($data['distribuidor_meta_volumen'] ?? 0),
+            'zonas_exclusivas' => is_array($data['zonas_exclusivas'] ?? null)
+                ? array_values(array_filter(array_map('trim', $data['zonas_exclusivas'])))
+                : [],
             
             'telefonos'         => $listaTelefonos,
             'cuentas_bancarias' => $data['cuentas_bancarias'] ?? $data['cuentas_bancarias_list'] ?? []

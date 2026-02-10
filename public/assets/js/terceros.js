@@ -557,7 +557,7 @@
             }
         });
         
-        const hasRole = Array.from(form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"]')).some(el => el.checked);
+        const hasRole = Array.from(form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"], input[name="es_distribuidor"]')).some(el => el.checked);
         const rolesFeedback = document.getElementById(rolesFeedbackId);
         if (!hasRole) {
             if (showErrors && rolesFeedback) {
@@ -749,6 +749,7 @@
                 document.getElementById('crearEsDistribuidor'),
                 document.getElementById('crearDistribuidorFields')
             );
+            window.TercerosClientes?.resetDistribuidorZones('crear');
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
             togglePagoFields(document.getElementById('crearTipoPago'));
             toggleRegimenFields(document.getElementById('crearRegimen'), form);
@@ -789,12 +790,12 @@
                 'editDireccion': 'data-direccion',
                 'editEmail': 'data-email',
                 'editObservaciones': 'data-observaciones',
+                'editRepresentanteLegal': 'data-representante-legal',
                 
                 // Comercial
                 'editClienteDiasCredito': 'data-cliente-dias-credito',
                 'editClienteLimiteCredito': 'data-cliente-limite-credito',
                 'editClienteCondicionPago': 'data-cliente-condicion-pago',
-                'editClienteRutaReparto': 'data-cliente-ruta-reparto',
                 'editProvCondicion': 'data-proveedor-condicion-pago',
                 'editProvDiasCredito': 'data-proveedor-dias-credito',
                 'editProvFormaPago': 'data-proveedor-forma-pago',
@@ -814,9 +815,6 @@
                 'editTipoPago': 'data-tipo-pago',
                 'editPagoDiario': 'data-pago-diario',
 
-                // Distribuidor
-                'editDistribuidorZona': 'data-distribuidor-zona-exclusiva',
-                'editDistribuidorMeta': 'data-distribuidor-meta-volumen'
             };
 
             for (let id in fields) {
@@ -861,6 +859,9 @@
                 document.getElementById('editEsDistribuidor'),
                 document.getElementById('editDistribuidorFields')
             );
+            let zonas = [];
+            try { zonas = JSON.parse(button.getAttribute('data-zonas-exclusivas') || '[]'); } catch(e){}
+            window.TercerosClientes?.setDistribuidorZones('edit', zonas);
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
             toggleRegimenFields(document.getElementById('editRegimen'), form);
@@ -912,6 +913,7 @@
             if(esCliente) esCliente.addEventListener('change', updateCom);
             if(esProv) esProv.addEventListener('change', updateCom);
             window.TercerosClientes?.bindDistribuidorToggle(prefix);
+            window.TercerosClientes?.initDistribuidorZones(prefix);
 
             const tipoPago = document.getElementById(`${prefix}TipoPago`);
             if(tipoPago) tipoPago.addEventListener('change', () => {
