@@ -545,13 +545,7 @@ class TercerosModel extends Modelo
     {
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
-        $usaTipoCuenta = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_cuenta');
-        $usaTipoEntidad = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_entidad');
-        $tipoCuentaSelect = $usaTipoCuenta
-            ? 'COALESCE(tipo_cuenta, tipo_cta) AS tipo_cuenta, COALESCE(tipo_cuenta, tipo_cta) AS tipo_cta'
-            : 'tipo_cta AS tipo_cuenta, tipo_cta';
-        $tipoEntidadSelect = $usaTipoEntidad ? 'COALESCE(tipo_entidad, tipo) AS tipo' : 'tipo';
-        $stmt = $this->db()->prepare("SELECT tercero_id, {$tipoEntidadSelect}, entidad, {$tipoCuentaSelect}, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones FROM terceros_cuentas_bancarias WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
+        $stmt = $this->db()->prepare("SELECT tercero_id, tipo_entidad AS tipo, entidad, tipo_cuenta, tipo_cuenta AS tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones FROM terceros_cuentas_bancarias WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
         $stmt->execute($ids);
         $result = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -579,56 +573,31 @@ class TercerosModel extends Modelo
         $this->db()->prepare("DELETE FROM terceros_cuentas_bancarias WHERE tercero_id = ?")->execute([$terceroId]);
         if (empty($cuentas)) return;
 
-        $usaTipoCuenta = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_cuenta');
-        $usaTipoEntidad = $this->hasColumn('terceros_cuentas_bancarias', 'tipo_entidad');
-
-        if ($usaTipoCuenta && $usaTipoEntidad) {
-            $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, tipo_entidad, entidad, tipo_cta, tipo_cuenta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        } elseif ($usaTipoCuenta) {
-            $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, entidad, tipo_cta, tipo_cuenta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        } elseif ($usaTipoEntidad) {
-            $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, tipo_entidad, entidad, tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        } else {
-            $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo, entidad, tipo_cta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        }
+        $sql = "INSERT INTO terceros_cuentas_bancarias (tercero_id, tipo_entidad, entidad, tipo_cuenta, numero_cuenta, cci, alias, moneda, principal, billetera_digital, observaciones, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db()->prepare($sql);
         foreach ($cuentas as $cta) {
             // Validar que al menos tenga un identificador
             if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['alias']) && empty($cta['numero_cuenta'])) continue;
 
-            $tipoEntidad = $cta['tipo_entidad'] ?? $cta['tipo'] ?? null;
-            $tipoCuenta = $cta['tipo_cuenta'] ?? $cta['tipo_cta'] ?? null;
+            $tipoEntidad = $cta['tipo_entidad'] ?? null;
+            $tipoCuenta = $cta['tipo_cuenta'] ?? null;
 
-            if ($usaTipoCuenta && $usaTipoEntidad) {
-                $params = [
-                    $terceroId, $tipoEntidad, $tipoEntidad, $cta['entidad'] ?? '', $tipoCuenta, $tipoCuenta,
-                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
-                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
-                    $cta['observaciones'] ?? null, $userId, $userId
-                ];
-            } elseif ($usaTipoCuenta) {
-                $params = [
-                    $terceroId, $tipoEntidad, $cta['entidad'] ?? '', $tipoCuenta, $tipoCuenta,
-                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
-                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
-                    $cta['observaciones'] ?? null, $userId, $userId
-                ];
-            } elseif ($usaTipoEntidad) {
-                $params = [
-                    $terceroId, $tipoEntidad, $tipoEntidad, $cta['entidad'] ?? '', $tipoCuenta,
-                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
-                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
-                    $cta['observaciones'] ?? null, $userId, $userId
-                ];
-            } else {
-                $params = [
-                    $terceroId, $tipoEntidad, $cta['entidad'] ?? '', $tipoCuenta,
-                    trim($cta['numero_cuenta'] ?? ''), trim($cta['cci'] ?? ''), trim($cta['alias'] ?? ''),
-                    $cta['moneda'] ?? 'PEN', !empty($cta['principal']) ? 1 : 0, !empty($cta['billetera_digital']) ? 1 : 0,
-                    $cta['observaciones'] ?? null, $userId, $userId
-                ];
-            }
+            $params = [
+                $terceroId,
+                $tipoEntidad,
+                $cta['entidad'] ?? '',
+                $tipoCuenta,
+                trim($cta['numero_cuenta'] ?? ''),
+                trim($cta['cci'] ?? ''),
+                trim($cta['alias'] ?? ''),
+                $cta['moneda'] ?? 'PEN',
+                !empty($cta['principal']) ? 1 : 0,
+                !empty($cta['billetera_digital']) ? 1 : 0,
+                $cta['observaciones'] ?? null,
+                $userId,
+                $userId
+            ];
             
             $stmt->execute($params);
         }

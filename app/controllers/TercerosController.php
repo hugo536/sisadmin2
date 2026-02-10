@@ -576,9 +576,8 @@ class TercerosController extends Controlador
             }
 
             $cuentasNormalizadas[] = [
-                'tipo'              => $tipoEntidad,
+                'tipo_entidad'      => $tipoEntidad,
                 'entidad'           => $entidad,
-                'tipo_cta'          => $tipoCuenta,
                 'tipo_cuenta'       => $tipoCuenta,
                 'numero_cuenta'     => $numeroCuenta,
                 'cci'               => $cci,
