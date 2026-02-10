@@ -327,15 +327,39 @@ class ItemsModel extends Modelo
             throw new RuntimeException('Ya existe un registro con ese nombre.');
         }
 
-        $sql = "INSERT INTO {$tabla} (nombre, estado, created_by, updated_by)
-                VALUES (:nombre, :estado, :created_by, :updated_by)";
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
+        $columnas = ['nombre', 'estado'];
+        $valores = [':nombre', ':estado'];
+        $params = [
             'nombre' => $nombre,
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
-            'created_by' => $userId,
-            'updated_by' => $userId,
-        ]);
+        ];
+
+        if ($this->tablaTieneColumna($tabla, 'created_by')) {
+            $columnas[] = 'created_by';
+            $valores[] = ':created_by';
+            $params['created_by'] = $userId;
+        }
+
+        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
+            $columnas[] = 'updated_by';
+            $valores[] = ':updated_by';
+            $params['updated_by'] = $userId;
+        }
+
+        if ($this->tablaTieneColumna($tabla, 'created_at')) {
+            $columnas[] = 'created_at';
+            $valores[] = 'NOW()';
+        }
+
+        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
+            $columnas[] = 'updated_at';
+            $valores[] = 'NOW()';
+        }
+
+        $sql = "INSERT INTO {$tabla} (" . implode(', ', $columnas) . ")
+                VALUES (" . implode(', ', $valores) . ")";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
 
         return (int) $this->db()->lastInsertId();
     }
