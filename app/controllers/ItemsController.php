@@ -211,6 +211,10 @@ class ItemsController extends Controlador
 
     private function normalizarBanderas(array $data): array
     {
+        if (isset($data['id_marca']) && !isset($data['marca'])) {
+            $data['marca'] = $data['id_marca'];
+        }
+
         foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento'] as $flag) {
             $data[$flag] = isset($data[$flag]) ? 1 : 0;
         }
@@ -240,6 +244,40 @@ class ItemsController extends Controlador
 
         if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
+        }
+
+        if ($tipo === 'producto') {
+            if (empty($data['id_marca']) && empty($data['marca'])) {
+                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto.');
+            }
+
+            if (empty($data['id_sabor'])) {
+                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto.');
+            }
+
+            if (empty($data['id_presentacion'])) {
+                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto.');
+            }
+        }
+
+        if ($tipo !== 'producto') {
+            $data['id_sabor'] = null;
+            $data['id_presentacion'] = null;
+        }
+
+        if ($tipo === 'servicio') {
+            $data['marca'] = null;
+            $data['id_marca'] = null;
+            $data['controla_stock'] = 0;
+            $data['stock_minimo'] = 0;
+            $data['permite_decimales'] = 0;
+            $data['requiere_lote'] = 0;
+            $data['requiere_vencimiento'] = 0;
+            $data['dias_alerta_vencimiento'] = null;
+        }
+
+        if ((int) ($data['controla_stock'] ?? 0) !== 1) {
+            $data['stock_minimo'] = 0;
         }
 
         return $data;
