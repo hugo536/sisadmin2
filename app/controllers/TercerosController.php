@@ -435,10 +435,10 @@ class TercerosController extends Controlador
         $numeroDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
-        // --- UBIGEO: Resolver Nombres ---
-        $departamentoId = !empty($data['departamento_id'] ?? $data['departamento']) ? (string) ($data['departamento_id'] ?? $data['departamento']) : '';
-        $provinciaId    = !empty($data['provincia_id'] ?? $data['provincia'])    ? (string) ($data['provincia_id'] ?? $data['provincia'])    : '';
-        $distritoId     = !empty($data['distrito_id'] ?? $data['distrito'])     ? (string) ($data['distrito_id'] ?? $data['distrito'])     : '';
+       // --- UBIGEO: Resolver Nombres (Corregido) ---
+        $departamentoId = $data['departamento_id'] ?? $data['departamento'] ?? '';
+        $provinciaId    = $data['provincia_id']    ?? $data['provincia']    ?? '';
+        $distritoId     = $data['distrito_id']     ?? $data['distrito']     ?? '';
 
         $departamentoNombre = null;
         $provinciaNombre    = null;

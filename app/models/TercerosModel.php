@@ -29,13 +29,9 @@ class TercerosModel extends Modelo
 
     public function listar(): array
     {
-        $representanteLegalSelect = $this->hasRepresentanteLegalColumn()
-            ? 't.representante_legal'
-            : "'' AS representante_legal";
-
-        // Agregado t.telefono para tener el número principal disponible en la lista
+        // Consulta SQL corregida con el campo representante_legal explícito
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
-                       t.direccion, t.telefono, t.email, {$representanteLegalSelect},
+                       t.direccion, t.telefono, t.email, t.representante_legal,
                        t.departamento, t.provincia, t.distrito,
                        t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
                        
@@ -82,7 +78,7 @@ class TercerosModel extends Modelo
             $id = (int) $row['id'];
             $row['telefonos']         = $telefonos[$id] ?? [];
             $row['cuentas_bancarias'] = $cuentas[$id]   ?? [];
-            $row['zonas_exclusivas'] = $zonas[$id] ?? [];
+            $row['zonas_exclusivas']  = $zonas[$id] ?? [];
             $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
             
             // Helpers de ubicación (compatibilidad visual)

@@ -45,8 +45,7 @@ if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
     $dotenv->safeLoad();
 }
 
-// FORZAR MODO DESARROLLO (Para ver errores si algo falla ahora)
-// Cuando termines todo, puedes cambiar esto a 'production'
+// FORZAR MODO DESARROLLO
 $env = 'development'; 
 
 if ($env === 'development') {
@@ -67,7 +66,9 @@ if (file_exists($helpers)) {
     require_once $helpers;
 }
 
+// ⚠️ AQUÍ ESTABA EL ERROR: Faltaba Conexion.php
 $coreFiles = [
+    BASE_PATH . '/app/config/Conexion.php', // <--- ¡ESTA LÍNEA ES CRUCIAL!
     BASE_PATH . '/app/core/Modelo.php',
     BASE_PATH . '/app/core/Controlador.php',
     BASE_PATH . '/app/core/Router.php'
@@ -76,6 +77,8 @@ $coreFiles = [
 foreach ($coreFiles as $file) {
     if (file_exists($file)) {
         require_once $file;
+    } else {
+        die("<h1>Error Crítico</h1><p>No se encuentra el archivo del núcleo: <code>" . htmlspecialchars($file) . "</code></p>");
     }
 }
 
