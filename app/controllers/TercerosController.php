@@ -545,6 +545,7 @@ class TercerosController extends Controlador
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipo[$i] ?? 'Banco');
             $esBilletera = $tipoEntidad === 'Billetera Digital';
             $numeroCuentaDigits = preg_replace('/\D+/', '', $numeroCuenta);
+            $numeroDigits = preg_replace('/\D+/', '', $numeroCuenta);
             $cciDigits = preg_replace('/\D+/', '', $cci);
 
             if ($esBilletera) {
@@ -556,6 +557,7 @@ class TercerosController extends Controlador
                 }
                 $cci = $cciDigits;
                 $numeroCuenta = $numeroCuentaDigits;
+                $numeroCuenta = $numeroDigits;
             } else {
                 if ($cciDigits === '' && $numeroCuentaDigits === '') {
                     throw new Exception("Cuenta #" . ($i + 1) . ": ingrese CCI o número de cuenta.");
@@ -565,6 +567,7 @@ class TercerosController extends Controlador
                 }
                 $cci = $cciDigits !== '' ? $cciDigits : $cci;
                 $numeroCuenta = $numeroCuentaDigits !== '' ? $numeroCuentaDigits : $numeroCuenta;
+                $numeroCuenta = $numeroDigits !== '' ? $numeroDigits : $numeroCuenta;
             }
 
             $tipoCuenta = trim((string) ($cuentasTipoCta[$i] ?? ''));
