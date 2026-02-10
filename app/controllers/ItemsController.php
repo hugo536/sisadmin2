@@ -26,6 +26,15 @@ class ItemsController extends Controlador
             return;
         }
 
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'opciones_atributos_items') {
+            json_response([
+                'ok' => true,
+                'sabores' => $this->itemsModel->listarSabores(true),
+                'presentaciones' => $this->itemsModel->listarPresentaciones(true),
+            ]);
+            return;
+        }
+
         $flash = ['tipo' => '', 'texto' => ''];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -111,6 +120,68 @@ class ItemsController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría eliminada correctamente.'];
                 }
 
+                if ($accion === 'crear_sabor') {
+                    require_permiso('configuracion.editar');
+                    $data = $this->validarAtributoItem($_POST);
+                    $id = $this->itemsModel->crearSabor($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Sabor creado correctamente.', 'id' => $id];
+                    $flash = ['tipo' => 'success', 'texto' => 'Sabor creado correctamente.'];
+                }
+
+                if ($accion === 'editar_sabor') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de sabor inválido.');
+                    }
+                    $data = $this->validarAtributoItem($_POST);
+                    $this->itemsModel->actualizarSabor($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Sabor actualizado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Sabor actualizado correctamente.'];
+                }
+
+                if ($accion === 'eliminar_sabor') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de sabor inválido.');
+                    }
+                    $this->itemsModel->eliminarSabor($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Sabor eliminado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Sabor eliminado correctamente.'];
+                }
+
+                if ($accion === 'crear_presentacion') {
+                    require_permiso('configuracion.editar');
+                    $data = $this->validarAtributoItem($_POST);
+                    $id = $this->itemsModel->crearPresentacion($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Presentación creada correctamente.', 'id' => $id];
+                    $flash = ['tipo' => 'success', 'texto' => 'Presentación creada correctamente.'];
+                }
+
+                if ($accion === 'editar_presentacion') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de presentación inválido.');
+                    }
+                    $data = $this->validarAtributoItem($_POST);
+                    $this->itemsModel->actualizarPresentacion($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Presentación actualizada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Presentación actualizada correctamente.'];
+                }
+
+                if ($accion === 'eliminar_presentacion') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de presentación inválido.');
+                    }
+                    $this->itemsModel->eliminarPresentacion($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Presentación eliminada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Presentación eliminada correctamente.'];
+                }
+
                 if (isset($respuesta) && es_ajax()) {
                     json_response($respuesta);
                     return;
@@ -128,6 +199,10 @@ class ItemsController extends Controlador
             'items' => $this->itemsModel->listar(),
             'categorias' => $this->itemsModel->listarCategoriasActivas(),
             'categorias_gestion' => $this->itemsModel->listarCategorias(),
+            'sabores' => $this->itemsModel->listarSabores(true),
+            'sabores_gestion' => $this->itemsModel->listarSabores(),
+            'presentaciones' => $this->itemsModel->listarPresentaciones(true),
+            'presentaciones_gestion' => $this->itemsModel->listarPresentaciones(),
             'flash' => $flash,
             'ruta_actual' => 'items', 
         ]);
@@ -179,6 +254,19 @@ class ItemsController extends Controlador
         return [
             'nombre' => $nombre,
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+        ];
+    }
+
+    private function validarAtributoItem(array $data): array
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre es obligatorio.');
+        }
+
+        return [
+            'nombre' => $nombre,
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
     }

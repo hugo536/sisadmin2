@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 class ItemsModel extends Modelo
 {
+    private const TABLA_SABORES = 'item_sabores';
+    private const TABLA_PRESENTACIONES = 'item_presentaciones';
+
     public function listar(): array
     {
         // CORREGIDO: Usamos un alias (AS impuesto) para evitar errores en la vista
@@ -252,6 +255,142 @@ class ItemsModel extends Modelo
             'recordsTotal' => count($data),
             'recordsFiltered' => count($data),
         ];
+    }
+
+    public function listarSabores(bool $soloActivos = false): array
+    {
+        return $this->listarAtributos(self::TABLA_SABORES, $soloActivos);
+    }
+
+    public function listarPresentaciones(bool $soloActivos = false): array
+    {
+        return $this->listarAtributos(self::TABLA_PRESENTACIONES, $soloActivos);
+    }
+
+    public function crearSabor(array $data, int $userId): int
+    {
+        return $this->crearAtributo(self::TABLA_SABORES, $data, $userId);
+    }
+
+    public function crearPresentacion(array $data, int $userId): int
+    {
+        return $this->crearAtributo(self::TABLA_PRESENTACIONES, $data, $userId);
+    }
+
+    public function actualizarSabor(int $id, array $data, int $userId): bool
+    {
+        return $this->actualizarAtributo(self::TABLA_SABORES, $id, $data, $userId);
+    }
+
+    public function actualizarPresentacion(int $id, array $data, int $userId): bool
+    {
+        return $this->actualizarAtributo(self::TABLA_PRESENTACIONES, $id, $data, $userId);
+    }
+
+    public function eliminarSabor(int $id, int $userId): bool
+    {
+        return $this->eliminarAtributo(self::TABLA_SABORES, $id, $userId);
+    }
+
+    public function eliminarPresentacion(int $id, int $userId): bool
+    {
+        return $this->eliminarAtributo(self::TABLA_PRESENTACIONES, $id, $userId);
+    }
+
+    private function listarAtributos(string $tabla, bool $soloActivos = false): array
+    {
+        $sql = "SELECT id, nombre, estado
+                FROM {$tabla}
+                WHERE deleted_at IS NULL";
+
+        if ($soloActivos) {
+            $sql .= ' AND estado = 1';
+        }
+
+        $sql .= ' ORDER BY nombre ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function crearAtributo(string $tabla, array $data, int $userId): int
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($this->atributoDuplicado($tabla, $nombre)) {
+            throw new RuntimeException('Ya existe un registro con ese nombre.');
+        }
+
+        $sql = "INSERT INTO {$tabla} (nombre, estado, created_by, updated_by)
+                VALUES (:nombre, :estado, :created_by, :updated_by)";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'nombre' => $nombre,
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+
+        return (int) $this->db()->lastInsertId();
+    }
+
+    private function actualizarAtributo(string $tabla, int $id, array $data, int $userId): bool
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($this->atributoDuplicado($tabla, $nombre, $id)) {
+            throw new RuntimeException('Ya existe un registro con ese nombre.');
+        }
+
+        $sql = "UPDATE {$tabla}
+                SET nombre = :nombre,
+                    estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL";
+
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'nombre' => $nombre,
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function eliminarAtributo(string $tabla, int $id, int $userId): bool
+    {
+        $sql = "UPDATE {$tabla}
+                SET deleted_at = NOW(),
+                    updated_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL";
+
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'deleted_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function atributoDuplicado(string $tabla, string $nombre, ?int $excludeId = null): bool
+    {
+        $sql = "SELECT 1 FROM {$tabla} WHERE LOWER(nombre) = LOWER(:nombre) AND deleted_at IS NULL";
+        $params = ['nombre' => $nombre];
+
+        if ($excludeId !== null) {
+            $sql .= ' AND id <> :id';
+            $params['id'] = $excludeId;
+        }
+
+        $sql .= ' LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     private function mapPayload(array $data): array
