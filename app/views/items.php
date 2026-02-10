@@ -419,12 +419,10 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-5"><div class="form-floating"><input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required><label for="newNombre">Nombre</label></div></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="newTipo" name="tipo_item" required>
-                            <option value="" selected>Seleccionar...</option>
-                            <option value="producto">Producto</option>
-                            <option value="servicio">Servicio</option>
-                            <option value="insumo">Insumo</option>
-                            <option value="activo">Activo</option>
-                            <option value="gasto">Gasto</option>
+                            <option value="" selected disabled>Seleccionar tipo...</option>
+                            <option value="producto">Producto Terminado (Gaseosas)</option>
+                            <option value="insumo">Insumo / Materia Prima (Tapas, Químicos)</option>
+                            <option value="servicio">Servicio (Fletes, Mantenimiento)</option>
                         </select>
                         <label for="newTipo">Tipo de ítem</label>
                     </div>

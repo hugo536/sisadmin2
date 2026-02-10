@@ -175,7 +175,7 @@
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
             requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
 
-            if (isInsumo || isServicio || value === '' || value === 'activo' || value === 'gasto') {
+            if (isInsumo || isServicio || value === '') {
                 if (saborSelect) saborSelect.value = '';
                 if (presentacionSelect) presentacionSelect.value = '';
             }
