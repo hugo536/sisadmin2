@@ -21,9 +21,6 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
             </button>
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores" aria-label="Abrir configuración de ítems">
                 <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
-        <div class="d-flex gap-2">
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
-                <i class="bi bi-tags me-2 text-info"></i>Categorías
             </button>
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
                 <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
