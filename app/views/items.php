@@ -98,6 +98,9 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                                 </td>
                                 <td class="text-end pe-4">
                                     <div class="d-flex align-items-center justify-content-end gap-2">
+                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Expediente digital">
+                                            <i class="bi bi-folder2-open fs-5"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
                                             data-sku="<?php echo e($item['sku']); ?>"
