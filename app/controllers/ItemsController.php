@@ -30,6 +30,7 @@ class ItemsController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'opciones_atributos_items') {
             json_response([
                 'ok' => true,
+                'marcas' => $this->itemsModel->listarMarcas(true),
                 'sabores' => $this->itemsModel->listarSabores(true),
                 'presentaciones' => $this->itemsModel->listarPresentaciones(true),
             ]);
@@ -128,6 +129,38 @@ class ItemsController extends Controlador
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría eliminada correctamente.'];
                 }
 
+                if ($accion === 'crear_marca') {
+                    require_permiso('configuracion.editar');
+                    $data = $this->validarAtributoItem($_POST);
+                    $id = $this->itemsModel->crearMarca($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Marca creada correctamente.', 'id' => $id];
+                    $flash = ['tipo' => 'success', 'texto' => 'Marca creada correctamente.'];
+                }
+
+                if ($accion === 'editar_marca') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de marca inválido.');
+                    }
+                    $data = $this->validarAtributoItem($_POST);
+                    $this->itemsModel->actualizarMarca($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Marca actualizada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Marca actualizada correctamente.'];
+                }
+
+                if ($accion === 'eliminar_marca') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de marca inválido.');
+                    }
+                    $this->itemsModel->eliminarMarca($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Marca eliminada correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Marca eliminada correctamente.'];
+                }
+
+
                 if ($accion === 'crear_sabor') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarAtributoItem($_POST);
@@ -213,6 +246,8 @@ class ItemsController extends Controlador
             'items' => $this->itemsModel->listar(),
             'categorias' => $this->itemsModel->listarCategoriasActivas(),
             'categorias_gestion' => $this->itemsModel->listarCategorias(),
+            'marcas' => $this->itemsModel->listarMarcas(true),
+            'marcas_gestion' => $this->itemsModel->listarMarcas(),
             'sabores' => $this->itemsModel->listarSabores(true),
             'sabores_gestion' => $this->itemsModel->listarSabores(),
             'presentaciones' => $this->itemsModel->listarPresentaciones(true),

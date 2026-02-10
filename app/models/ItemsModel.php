@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 class ItemsModel extends Modelo
 {
+    private const TABLA_MARCAS = 'item_marcas';
     private const TABLA_SABORES = 'item_sabores';
     private const TABLA_PRESENTACIONES = 'item_presentaciones';
     private array $cacheColumnasPorTabla = [];
@@ -258,6 +259,12 @@ class ItemsModel extends Modelo
         ];
     }
 
+
+    public function listarMarcas(bool $soloActivos = false): array
+    {
+        return $this->listarAtributos(self::TABLA_MARCAS, $soloActivos);
+    }
+
     public function listarSabores(bool $soloActivos = false): array
     {
         return $this->listarAtributos(self::TABLA_SABORES, $soloActivos);
@@ -266,6 +273,11 @@ class ItemsModel extends Modelo
     public function listarPresentaciones(bool $soloActivos = false): array
     {
         return $this->listarAtributos(self::TABLA_PRESENTACIONES, $soloActivos);
+    }
+
+    public function crearMarca(array $data, int $userId): int
+    {
+        return $this->crearAtributo(self::TABLA_MARCAS, $data, $userId);
     }
 
     public function crearSabor(array $data, int $userId): int
@@ -278,6 +290,11 @@ class ItemsModel extends Modelo
         return $this->crearAtributo(self::TABLA_PRESENTACIONES, $data, $userId);
     }
 
+    public function actualizarMarca(int $id, array $data, int $userId): bool
+    {
+        return $this->actualizarAtributo(self::TABLA_MARCAS, $id, $data, $userId);
+    }
+
     public function actualizarSabor(int $id, array $data, int $userId): bool
     {
         return $this->actualizarAtributo(self::TABLA_SABORES, $id, $data, $userId);
@@ -286,6 +303,11 @@ class ItemsModel extends Modelo
     public function actualizarPresentacion(int $id, array $data, int $userId): bool
     {
         return $this->actualizarAtributo(self::TABLA_PRESENTACIONES, $id, $data, $userId);
+    }
+
+    public function eliminarMarca(int $id, int $userId): bool
+    {
+        return $this->eliminarAtributo(self::TABLA_MARCAS, $id, $userId);
     }
 
     public function eliminarSabor(int $id, int $userId): bool

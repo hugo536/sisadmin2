@@ -70,8 +70,35 @@
         }
     }
 
+
+    function fillSelectMapped(selectId, items, placeholder, mapValue, mapLabel) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const selected = select.value;
+        select.innerHTML = '';
+
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = placeholder;
+        select.appendChild(option);
+
+        items.forEach((item) => {
+            const opt = document.createElement('option');
+            opt.value = String(mapValue(item));
+            opt.textContent = String(mapLabel(item));
+            select.appendChild(opt);
+        });
+
+        if ([...select.options].some((opt) => opt.value === selected)) {
+            select.value = selected;
+        }
+    }
+
     async function refreshAtributosSelectores() {
         const data = await fetchOpcionesAtributos();
+        fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
+        fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
         fillSelect('newSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('editSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('newPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
@@ -387,16 +414,24 @@
             });
         };
 
+        bindCreateForm('formAgregarMarca');
         bindCreateForm('formAgregarSabor');
         bindCreateForm('formAgregarPresentacion');
 
         document.querySelectorAll('.js-editar-atributo').forEach((btn) => {
             btn.addEventListener('click', () => {
-                document.getElementById('editarAtributoAccion').value = btn.dataset.target === 'sabor' ? 'editar_sabor' : 'editar_presentacion';
+                const configByTarget = {
+                    marca: { accion: 'editar_marca', titulo: 'Editar marca' },
+                    sabor: { accion: 'editar_sabor', titulo: 'Editar sabor' },
+                    presentacion: { accion: 'editar_presentacion', titulo: 'Editar presentación' }
+                };
+                const targetConfig = configByTarget[btn.dataset.target || ''] || configByTarget.presentacion;
+
+                document.getElementById('editarAtributoAccion').value = targetConfig.accion;
                 document.getElementById('editarAtributoId').value = btn.dataset.id || '';
                 document.getElementById('editarAtributoNombre').value = btn.dataset.nombre || '';
                 document.getElementById('editarAtributoEstado').checked = (btn.dataset.estado || '1') === '1';
-                document.getElementById('tituloEditarAtributo').textContent = btn.dataset.target === 'sabor' ? 'Editar sabor' : 'Editar presentación';
+                document.getElementById('tituloEditarAtributo').textContent = targetConfig.titulo;
                 editModal?.show();
             });
         });
@@ -459,6 +494,7 @@
             });
         };
 
+        bindSearch('buscarMarcas', 'tablaMarcasGestion');
         bindSearch('buscarSabores', 'tablaSaboresGestion');
         bindSearch('buscarPresentaciones', 'tablaPresentacionesGestion');
 

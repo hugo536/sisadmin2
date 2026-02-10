@@ -2,6 +2,8 @@
 $items = $items ?? [];
 $categorias = $categorias ?? [];
 $categoriasGestion = $categorias_gestion ?? [];
+$marcas = $marcas ?? [];
+$marcasGestion = $marcas_gestion ?? [];
 $sabores = $sabores ?? [];
 $saboresGestion = $sabores_gestion ?? [];
 $presentaciones = $presentaciones ?? [];
@@ -157,6 +159,9 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="presentaciones-tab" data-bs-toggle="tab" data-bs-target="#tabPresentaciones" type="button" role="tab" aria-controls="tabPresentaciones" aria-selected="false">Presentaciones</button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="marcas-tab" data-bs-toggle="tab" data-bs-target="#tabMarcas" type="button" role="tab" aria-controls="tabMarcas" aria-selected="false">Marcas</button>
+                    </li>
                 </ul>
 
                 <div class="tab-content pt-3">
@@ -293,6 +298,74 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                             </table>
                         </div>
                     </div>
+
+                    <div class="tab-pane fade" id="tabMarcas" role="tabpanel" aria-labelledby="marcas-tab">
+                        <form method="post" id="formAgregarMarca" class="row g-2 align-items-end mb-3 border rounded-3 p-3 bg-light">
+                            <input type="hidden" name="accion" value="crear_marca">
+                            <div class="col-md-7 form-floating">
+                                <input type="text" class="form-control" id="nuevaMarcaNombre" name="nombre" placeholder="Nombre de la marca" required>
+                                <label for="nuevaMarcaNombre">Nombre de la marca</label>
+                            </div>
+                            <div class="col-md-3 form-check form-switch d-flex align-items-center justify-content-center h-100 pt-4">
+                                <input class="form-check-input" type="checkbox" id="nuevaMarcaEstado" name="estado" value="1" checked>
+                                <label class="form-check-label ms-2" for="nuevaMarcaEstado">Activo</label>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Agregar</button>
+                            </div>
+                        </form>
+
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control" id="buscarMarcas" placeholder="Buscar marca...">
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="tablaMarcasGestion">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($marcasGestion as $marca): ?>
+                                        <tr data-search="<?php echo e(mb_strtolower((string) ($marca['nombre'] ?? ''))); ?>">
+                                            <td class="fw-semibold"><?php echo e((string) ($marca['nombre'] ?? '')); ?></td>
+                                            <td>
+                                                <div class="form-check form-switch m-0">
+                                                    <input
+                                                        class="form-check-input js-toggle-atributo"
+                                                        type="checkbox"
+                                                        data-accion="editar_marca"
+                                                        data-id="<?php echo (int) ($marca['id'] ?? 0); ?>"
+                                                        data-nombre="<?php echo e((string) ($marca['nombre'] ?? '')); ?>"
+                                                        <?php echo (int) ($marca['estado'] ?? 0) === 1 ? 'checked' : ''; ?>
+                                                    >
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo"
+                                                    data-target="marca"
+                                                    data-id="<?php echo (int) ($marca['id'] ?? 0); ?>"
+                                                    data-nombre="<?php echo e((string) ($marca['nombre'] ?? '')); ?>"
+                                                    data-estado="<?php echo (int) ($marca['estado'] ?? 1); ?>">
+                                                    Editar
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo"
+                                                    data-accion="eliminar_marca"
+                                                    data-id="<?php echo (int) ($marca['id'] ?? 0); ?>">
+                                                    Eliminar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -426,7 +499,15 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="newTipo">Tipo de ítem</label>
                     </div>
-                    <div class="col-md-6" id="newMarcaContainer"><div class="form-floating"><input type="text" class="form-control" id="newMarca" name="id_marca" placeholder="Marca"><label for="newMarca">Marca</label></div></div>
+                    <div class="col-md-6 form-floating" id="newMarcaContainer">
+                        <select class="form-select" id="newMarca" name="id_marca">
+                            <option value="" selected>Seleccionar marca...</option>
+                            <?php foreach ($marcas as $marca): ?>
+                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="newMarca">Marca</label>
+                    </div>
                     <div class="col-md-3 form-floating">
                         <select class="form-select" id="newUnidad" name="unidad_base">
                             <option value="UND" selected>UND</option>
@@ -519,7 +600,15 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                         </select>
                         <label for="editTipo">Tipo</label>
                     </div>
-                    <div class="col-md-4 form-floating" id="editMarcaContainer"><input class="form-control" id="editMarca" name="id_marca"><label for="editMarca">Marca</label></div>
+                    <div class="col-md-4 form-floating" id="editMarcaContainer">
+                        <select class="form-select" id="editMarca" name="id_marca">
+                            <option value="">Seleccionar marca...</option>
+                            <?php foreach ($marcas as $marca): ?>
+                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="editMarca">Marca</label>
+                    </div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editUnidad" name="unidad_base">
                             <option value="UND">UND</option>
