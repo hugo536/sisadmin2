@@ -442,7 +442,7 @@
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-link text-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary px-4 fw-bold" id="crearGuardarBtn">
-                        <i class="bi bi-save me-2"></i>Guardar Tercero
+                        <i class="bi bi-save me-2"></i>Guardar
                     </button>
                 </div>
             </form>
@@ -650,7 +650,7 @@
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-link text-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary px-4 fw-bold" id="editGuardarBtn">
-                        <i class="bi bi-save me-2"></i>Actualizar Tercero
+                        <i class="bi bi-save me-2"></i>Actualizar
                     </button>
                 </div>
             </form>
