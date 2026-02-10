@@ -236,17 +236,38 @@
             });
 
             btn.addEventListener('click', () => {
-                if (!dep.value) return;
+                // 1. VALIDACIÓN: Asegurar que los 3 campos tengan valor
+                if (!dep.value || !prov.value || !dist.value) {
+                    // Si tienes SweetAlert cargado (como vi en tu otro archivo):
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Datos incompletos',
+                            text: 'Por favor seleccione Departamento, Provincia y Distrito.'
+                        });
+                    } else {
+                        alert('Por favor seleccione Departamento, Provincia y Distrito.');
+                    }
+                    return; // Detiene la ejecución aquí
+                }
+
                 const zona = {
                     departamento_id: dep.value,
-                    provincia_id: prov.value || '',
-                    distrito_id: dist.value || '',
+                    provincia_id: prov.value,
+                    distrito_id: dist.value,
+                    // Al validar arriba, ya nos aseguramos de que no tome el texto "Seleccionar..."
                     departamento_nombre: dep.options[dep.selectedIndex]?.text || '',
                     provincia_nombre: prov.options[prov.selectedIndex]?.text || '',
                     distrito_nombre: dist.options[dist.selectedIndex]?.text || ''
                 };
+                
                 zona.label = buildLabel(zona);
                 addZone(manager, zona, ZONE_STATUS.TEMP);
+                
+                // Opcional: Limpiar los selectores después de agregar para evitar duplicados rápidos
+                // prov.value = ""; 
+                // dist.value = "";
+                // dist.disabled = true;
             });
 
             dep.dataset.bound = '1';
