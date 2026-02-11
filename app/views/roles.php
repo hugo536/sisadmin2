@@ -108,9 +108,11 @@ foreach ($permisos as $permiso) {
                                 <?php
                                 $rolId = (int)($rol['id'] ?? 0);
                                 $rolNombre = (string)($rol['nombre'] ?? '');
+                                $rolSlug = (string)($rol['slug'] ?? '');
                                 $rolEstado = (int)($rol['estado'] ?? 0);
                                 $rolUpdated = (string)($rol['updated_at'] ?? $rol['created_at'] ?? '-');
-                                $dataSearch = mb_strtolower($rolNombre);
+                                $rolUpdatedBy = (string)($rol['updated_by_nombre'] ?? $rol['created_by_nombre'] ?? 'Sistema');
+                                $dataSearch = mb_strtolower(trim($rolNombre . ' ' . $rolSlug));
                                 ?>
 
                                 <tr class="role-row-main"
@@ -127,6 +129,9 @@ foreach ($permisos as $permiso) {
                                             <div>
                                                 <div class="fw-bold text-dark"><?php echo e($rolNombre); ?></div>
                                                 <div class="small text-muted">ID: <?php echo $rolId; ?></div>
+                                                <?php if ($rolSlug !== ''): ?>
+                                                    <code class="small text-primary bg-primary bg-opacity-10 px-2 py-1 rounded-2"><?php echo e($rolSlug); ?></code>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </td>
@@ -140,7 +145,8 @@ foreach ($permisos as $permiso) {
                                     </td>
 
                                     <td class="text-muted small">
-                                        <i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?>
+                                        <div><i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?></div>
+                                        <div class="text-secondary">Por: <?php echo e($rolUpdatedBy); ?></div>
                                     </td>
 
                                     <td class="text-end pe-4">
@@ -295,6 +301,7 @@ foreach ($permisos as $permiso) {
                                 <th class="ps-4">Módulo</th>
                                 <th>Slug Técnico</th>
                                 <th>Descripción</th>
+                                <th>Auditoría</th>
                                 <th class="text-center">Estado</th>
                             </tr>
                             </thead>
@@ -305,8 +312,11 @@ foreach ($permisos as $permiso) {
                                     $mod  = (string)$modulo;
                                     $slug = (string)($permiso['slug'] ?? '');
                                     $nom  = (string)($permiso['nombre'] ?? '');
+                                    $desc = (string)($permiso['descripcion'] ?? '');
                                     $est  = (int)($permiso['estado'] ?? 0);
-                                    $search = mb_strtolower($mod . ' ' . $slug . ' ' . $nom);
+                                    $updatedAt = (string)($permiso['updated_at'] ?? $permiso['created_at'] ?? '-');
+                                    $updatedBy = (string)($permiso['updated_by_nombre'] ?? $permiso['created_by_nombre'] ?? 'Sistema');
+                                    $search = mb_strtolower(trim($mod . ' ' . $slug . ' ' . $nom . ' ' . $desc));
                                     ?>
                                     <tr data-search="<?php echo e($search); ?>">
                                         <td class="ps-4">
@@ -315,7 +325,18 @@ foreach ($permisos as $permiso) {
                                             </span>
                                         </td>
                                         <td><code class="text-primary"><?php echo e($slug); ?></code></td>
-                                        <td><?php echo e($nom); ?></td>
+                                        <td>
+                                            <span class="fw-medium text-dark"><?php echo e($nom); ?></span>
+                                            <?php if ($desc !== ''): ?>
+                                                <div class="small text-muted mt-1"><?php echo e($desc); ?></div>
+                                            <?php endif; ?>
+                                        </td>
+
+                                        <td class="small text-muted">
+                                            <div><i class="bi bi-clock me-1"></i><?php echo e($updatedAt); ?></div>
+                                            <div class="text-secondary">Por: <?php echo e($updatedBy); ?></div>
+                                        </td>
+
                                         <td class="text-center">
                                             <?php if ($est === 1): ?>
                                                 <span class="badge-status status-active">Activo</span>
