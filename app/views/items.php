@@ -109,8 +109,6 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
 
                                         <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver Perfil y Documentos">
                                             <i class="bi bi-person-badge fs-5"></i>
-                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Expediente digital">
-                                            <i class="bi bi-folder2-open fs-5"></i>
                                         </a>
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
