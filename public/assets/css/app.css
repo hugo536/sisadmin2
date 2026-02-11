@@ -376,3 +376,51 @@ tr[data-estado="0"] .avatar-circle {
     margin: 0 auto;
   }
 }
+
+/* =======================
+   DASHBOARD
+   ======================= */
+.dashboard-page .dashboard-pill {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.dashboard-stat-card {
+  border-radius: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1) !important;
+}
+
+.dashboard-stat-card .dashboard-stat-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.dashboard-stat-card.stat-items .dashboard-stat-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+
+.dashboard-stat-card.stat-terceros .dashboard-stat-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+.dashboard-stat-card.stat-usuarios .dashboard-stat-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}

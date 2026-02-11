@@ -81,6 +81,7 @@ class DashboardModel extends Modelo
                 'area' => (string) ($row['area'] ?? ''),
                 'fecha_nacimiento' => (string) ($row['fecha_nacimiento'] ?? ''),
                 'fecha_cumple' => $cumpleAnioActual->format('Y-m-d'),
+                'edad_cumple' => max(0, (int) $cumpleAnioActual->format('Y') - (int) $fecha->format('Y')),
                 'dias_restantes' => (int) $hoy->diff($cumpleAnioActual)->days,
             ];
         }
