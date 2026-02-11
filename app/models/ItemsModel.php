@@ -42,6 +42,26 @@ class ItemsModel extends Modelo
         return $row ?: [];
     }
 
+    public function obtenerPerfil(int $id): array
+    {
+        $sql = 'SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_categoria,
+                       c.nombre AS categoria_nombre,
+                       i.marca, i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                       i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
+                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
+                       i.created_at, i.updated_at
+                FROM items i
+                LEFT JOIN categorias c ON c.id = i.id_categoria
+                WHERE i.id = :id
+                  AND i.deleted_at IS NULL
+                LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: [];
+    }
+
     public function skuExiste(string $sku, ?int $excludeId = null): bool
     {
         $sql = 'SELECT 1 FROM items WHERE sku = :sku AND deleted_at IS NULL';
@@ -224,6 +244,23 @@ class ItemsModel extends Modelo
         ]);
     }
 
+
+    public function actualizarEstado(int $id, int $estado, int $userId): bool
+    {
+        $sql = 'UPDATE items
+                SET estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute([
+            'estado' => $estado === 1 ? 1 : 0,
+            'updated_by' => $userId,
+            'id' => $id,
+        ]);
+    }
+
     public function datatable(): array
     {
         $items = $this->listar();
@@ -273,6 +310,50 @@ class ItemsModel extends Modelo
     public function listarPresentaciones(bool $soloActivos = false): array
     {
         return $this->listarAtributos(self::TABLA_PRESENTACIONES, $soloActivos);
+    }
+
+    public function listarDocumentos(int $itemId): array
+    {
+        $sql = 'SELECT * FROM item_documentos WHERE id_item = :id_item AND estado = 1 ORDER BY created_at DESC';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $itemId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function guardarDocumento(array $docData): bool
+    {
+        $sql = 'INSERT INTO item_documentos (id_item, tipo_documento, nombre_archivo, ruta_archivo, extension, created_by)
+                VALUES (:id_item, :tipo_documento, :nombre_archivo, :ruta_archivo, :extension, :created_by)';
+
+        return $this->db()->prepare($sql)->execute($docData);
+    }
+
+    public function actualizarDocumento(int $id, string $tipo): bool
+    {
+        $sql = 'UPDATE item_documentos SET tipo_documento = :tipo WHERE id = :id';
+
+        return $this->db()->prepare($sql)->execute([
+            'tipo' => $tipo,
+            'id' => $id,
+        ]);
+    }
+
+    public function eliminarDocumento(int $docId): bool
+    {
+        $stmt = $this->db()->prepare('SELECT ruta_archivo FROM item_documentos WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $docId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (is_array($row) && !empty($row['ruta_archivo'])) {
+            $rutaPublica = ltrim((string) $row['ruta_archivo'], '/');
+            $rutaFisica = BASE_PATH . '/public/' . $rutaPublica;
+            if (is_file($rutaFisica)) {
+                @unlink($rutaFisica);
+            }
+        }
+
+        return $this->db()->prepare('DELETE FROM item_documentos WHERE id = :id')->execute(['id' => $docId]);
     }
 
     public function crearMarca(array $data, int $userId): int

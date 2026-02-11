@@ -89,6 +89,11 @@ window.ROLES_FLASH = {
 <script src="<?php echo e(asset_url('js/items.js')); ?>"></script>
 <?php endif; ?>
 
+
+<?php if (($ruta_actual ?? '') === 'items/perfil'): ?>
+<script src="<?php echo e(asset_url('js/items_perfil.js')); ?>"></script>
+<?php endif; ?>
+
 <?php if (str_starts_with(($ruta_actual ?? ''), 'terceros')): ?>
 <script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
 <?php endif; ?>

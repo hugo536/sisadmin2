@@ -91,13 +91,25 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                                 <td><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
                                 <td class="text-center">
                                     <?php if ((int) $item['estado'] === 1): ?>
-                                        <span class="badge-status status-active">Activo</span>
+                                        <span class="badge-status status-active" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
                                     <?php else: ?>
-                                        <span class="badge-status status-inactive">Inactivo</span>
+                                        <span class="badge-status status-inactive" id="badge_status_item_<?php echo (int) $item['id']; ?>">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
                                     <div class="d-flex align-items-center justify-content-end gap-2">
+                                        <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                            <input class="form-check-input switch-estado-item" type="checkbox" role="switch"
+                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                   data-id="<?php echo (int) $item['id']; ?>"
+                                                   <?php echo ((int) $item['estado'] === 1) ? 'checked' : ''; ?>>
+                                        </div>
+
+                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver Perfil y Documentos">
+                                            <i class="bi bi-person-badge fs-5"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
                                             data-sku="<?php echo e($item['sku']); ?>"
