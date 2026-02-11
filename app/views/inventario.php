@@ -19,13 +19,9 @@ $items = $items ?? [];
                 <span class="d-none d-sm-inline">Nuevo Movimiento</span>
             </button>
         <?php endif; ?>
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h4 class="fw-bold mb-1">Inventario - Stock Actual</h4>
-        <p class="text-muted mb-0">Control de existencias por ítem y almacén.</p>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3 fade-in">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-4">
@@ -53,7 +49,7 @@ $items = $items ?? [];
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm fade-in">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaInventarioStock">
