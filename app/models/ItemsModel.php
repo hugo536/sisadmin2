@@ -244,6 +244,23 @@ class ItemsModel extends Modelo
         ]);
     }
 
+
+    public function actualizarEstado(int $id, int $estado, int $userId): bool
+    {
+        $sql = 'UPDATE items
+                SET estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute([
+            'estado' => $estado === 1 ? 1 : 0,
+            'updated_by' => $userId,
+            'id' => $id,
+        ]);
+    }
+
     public function datatable(): array
     {
         $items = $this->listar();

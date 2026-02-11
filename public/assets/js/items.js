@@ -587,12 +587,52 @@
         updateTable();
     }
 
+
+    function initEstadoSwitches() {
+        document.querySelectorAll('.switch-estado-item').forEach((switchInput) => {
+            if (switchInput.dataset.boundEstado === '1') return;
+            switchInput.dataset.boundEstado = '1';
+
+            switchInput.addEventListener('change', async function () {
+                const id = Number(this.getAttribute('data-id') || 0);
+                if (id <= 0) return;
+
+                const nuevoEstado = this.checked ? 1 : 0;
+                this.disabled = true;
+
+                try {
+                    await postAction({ accion: 'toggle_estado_item', id: String(id), estado: String(nuevoEstado) });
+
+                    const row = this.closest('tr');
+                    if (row) row.setAttribute('data-estado', String(nuevoEstado));
+
+                    const badge = document.getElementById(`badge_status_item_${id}`);
+                    if (badge) {
+                        badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                        badge.classList.toggle('status-active', nuevoEstado === 1);
+                        badge.classList.toggle('status-inactive', nuevoEstado !== 1);
+                    }
+                } catch (error) {
+                    this.checked = !this.checked;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error?.message || 'No se pudo actualizar el estado.'
+                    });
+                } finally {
+                    this.disabled = false;
+                }
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         initCreateModal();
         initEditModal();
         initTableManager();
         initCategoriasModal();
         initGestionItemsModal();
+        initEstadoSwitches();
         applyTipoItemRules({
             tipoId: 'newTipo',
             marcaContainerId: 'newMarcaContainer',

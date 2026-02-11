@@ -37,6 +37,23 @@ class ItemsController extends Controlador
             return;
         }
 
+        if (es_ajax() && (string) ($_POST['accion'] ?? '') === 'toggle_estado_item') {
+            require_permiso('items.editar');
+            $id = (int) ($_POST['id'] ?? 0);
+            $estado = ((int) ($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+
+            if ($id <= 0) {
+                json_response(['ok' => false, 'mensaje' => 'ID inválido.'], 400);
+                return;
+            }
+
+            $userId = (int) ($_SESSION['id'] ?? 0);
+            $this->itemsModel->actualizarEstado($id, $estado, $userId);
+            json_response(['ok' => true, 'mensaje' => 'Estado actualizado.']);
+            return;
+        }
+
+
         $flash = ['tipo' => '', 'texto' => ''];
         if (isset($_SESSION['items_flash']) && is_array($_SESSION['items_flash'])) {
             $flash = [
