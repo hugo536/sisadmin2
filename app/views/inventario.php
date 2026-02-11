@@ -19,6 +19,10 @@ $items = $items ?? [];
                 <span class="d-none d-sm-inline">Nuevo Movimiento</span>
             </button>
         <?php endif; ?>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-1">Inventario - Stock Actual</h4>
+        <p class="text-muted mb-0">Control de existencias por ítem y almacén.</p>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
