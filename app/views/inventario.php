@@ -1,5 +1,3 @@
-<?php require_once 'app/views/layout.php'; ?>
-
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h4 class="fw-bold mb-1">Inventario - Stock Actual</h4>
