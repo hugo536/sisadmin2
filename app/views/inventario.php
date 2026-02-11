@@ -6,19 +6,26 @@ $items = $items ?? [];
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
         <div class="flex-grow-1">
-            <h1 class="h4 fw-bold mb-1 text-dark d-flex align-items-center">
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-box-seam-fill me-2 text-primary fs-5"></i>
-                <span>Inventario - Stock Actual</span>
+                <span>Inventario de Productos</span>
             </h1>
-            <p class="text-muted small mb-0 ms-1">Control de existencias por ítem y almacén.</p>
+            <p class="text-muted small mb-0 ms-1">Control de existencias por producto y almacén.</p>
         </div>
 
-        <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
-            <button type="button" class="btn btn-primary shadow-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
-                <i class="bi bi-plus-circle-fill me-0 me-sm-2"></i>
-                <span class="d-none d-sm-inline">Nuevo Movimiento</span>
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" disabled title="Próximamente">
+                <i class="bi bi-journal-text me-2 text-info"></i>Kardex
             </button>
-        <?php endif; ?>
+            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" disabled title="Próximamente">
+                <i class="bi bi-file-earmark-arrow-down me-2 text-info"></i>Exportar
+            </button>
+            <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
+                <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
+                    <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Movimiento
+                </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3 fade-in">
@@ -27,7 +34,7 @@ $items = $items ?? [];
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar por SKU o producto...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar producto por SKU, nombre o almacén...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
@@ -59,6 +66,8 @@ $items = $items ?? [];
                             <th>Producto</th>
                             <th>Almacén</th>
                             <th class="text-end pe-4">Stock Actual</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -76,17 +85,36 @@ $items = $items ?? [];
                                     data-almacen="<?php echo e($almacenNombre); ?>"
                                     data-estado="<?php echo e($estadoStock); ?>"
                                 >
-                                    <td class="ps-4 fw-semibold"><?php echo e($sku); ?></td>
-                                    <td><?php echo e($itemNombre); ?></td>
-                                    <td><?php echo e($almacenNombre); ?></td>
-                                    <td class="text-end pe-4 fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>">
+                                    <td class="ps-4 fw-semibold" data-label="SKU"><?php echo e($sku); ?></td>
+                                    <td data-label="Producto">
+                                        <div class="fw-bold text-dark"><?php echo e($itemNombre); ?></div>
+                                        <div class="small text-muted">SKU: <?php echo e($sku); ?></div>
+                                    </td>
+                                    <td data-label="Almacén"><?php echo e($almacenNombre); ?></td>
+                                    <td class="text-end pe-4 fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>" data-label="Stock actual">
                                         <?php echo number_format($stockActualItem, 4, '.', ','); ?>
+                                    </td>
+                                    <td class="text-center" data-label="Estado">
+                                        <?php if ($stockActualItem <= 0): ?>
+                                            <span class="badge-status status-inactive">Sin stock</span>
+                                        <?php else: ?>
+                                            <span class="badge-status status-active">Disponible</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end pe-4" data-label="Acciones">
+                                        <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
+                                            <button type="button" class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario" title="Registrar movimiento">
+                                                <i class="bi bi-arrow-left-right fs-5"></i>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted small">Sin acciones</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No hay registros de stock disponibles.</td>
+                                <td colspan="6" class="text-center text-muted py-4">No hay registros de stock disponibles.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
