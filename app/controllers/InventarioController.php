@@ -53,12 +53,18 @@ class InventarioController extends Controlador
             $idItem = (int) ($_POST['id_item'] ?? 0);
             $cantidad = (float) ($_POST['cantidad'] ?? 0);
             $referencia = trim((string) ($_POST['referencia'] ?? ''));
+            $lote = trim((string) ($_POST['lote'] ?? ''));
+            $fechaVencimiento = trim((string) ($_POST['fecha_vencimiento'] ?? ''));
+            $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
 
             $datos = [
                 'tipo_movimiento' => $tipo,
                 'id_item' => $idItem,
                 'cantidad' => $cantidad,
                 'referencia' => $referencia,
+                'lote' => $lote,
+                'fecha_vencimiento' => $fechaVencimiento,
+                'costo_unitario' => $costoUnitario,
                 'created_by' => (int) ($_SESSION['id'] ?? 0),
             ];
 
