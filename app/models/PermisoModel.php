@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 class PermisoModel extends Modelo
 {
+    /** @var array<string, array<int, string>> */
+    private array $cacheColumnas = [];
+
     /**
      * Obtiene los slugs de permisos activos para un rol específico.
      * Utilizado por el AuthMiddleware y Helpers para validar acceso.
@@ -39,14 +42,7 @@ class PermisoModel extends Modelo
      */
     public function listar_agrupados_modulo(): array
     {
-        // Nota: Como la tabla no tiene 'estado', inyectamos '1 as estado' 
-        // para que la vista los renderice como "Activos" visualmente.
-        $sql = 'SELECT id, slug, nombre, modulo, 1 as estado
-                FROM permisos_def
-                WHERE deleted_at IS NULL
-                ORDER BY modulo ASC, nombre ASC';
-                
-        $rows = $this->db()->query($sql)->fetchAll();
+        $rows = $this->listar_activos();
         $grupos = [];
 
         foreach ($rows as $row) {
@@ -63,11 +59,63 @@ class PermisoModel extends Modelo
      */
     public function listar_activos(): array
     {
-        $sql = 'SELECT id, slug, nombre, modulo, 1 as estado
-                FROM permisos_def
-                WHERE deleted_at IS NULL
-                ORDER BY modulo ASC, nombre ASC';
-                
-        return $this->db()->query($sql)->fetchAll();
+        $select = [
+            'pd.id',
+            'pd.slug',
+            'pd.nombre',
+        ];
+
+        if ($this->tablaTieneColumna('permisos_def', 'descripcion')) {
+            $select[] = 'pd.descripcion';
+        }
+
+        $select[] = $this->tablaTieneColumna('permisos_def', 'modulo') ? 'pd.modulo' : "'General' AS modulo";
+        $select[] = $this->tablaTieneColumna('permisos_def', 'estado') ? 'pd.estado' : '1 AS estado';
+
+        if ($this->tablaTieneColumna('permisos_def', 'created_at')) {
+            $select[] = 'pd.created_at';
+        }
+
+        if ($this->tablaTieneColumna('permisos_def', 'updated_at')) {
+            $select[] = 'pd.updated_at';
+        }
+
+        if ($this->tablaTieneColumna('permisos_def', 'created_by')) {
+            $select[] = 'pd.created_by';
+            $select[] = 'uc.nombre_completo AS created_by_nombre';
+        }
+
+        if ($this->tablaTieneColumna('permisos_def', 'updated_by')) {
+            $select[] = 'pd.updated_by';
+            $select[] = 'uu.nombre_completo AS updated_by_nombre';
+        }
+
+        $sql = 'SELECT ' . implode(', ', $select) . '
+                FROM permisos_def pd';
+
+        if ($this->tablaTieneColumna('permisos_def', 'created_by')) {
+            $sql .= ' LEFT JOIN usuarios uc ON uc.id = pd.created_by';
+        }
+
+        if ($this->tablaTieneColumna('permisos_def', 'updated_by')) {
+            $sql .= ' LEFT JOIN usuarios uu ON uu.id = pd.updated_by';
+        }
+
+        $sql .= ' WHERE pd.deleted_at IS NULL
+                  ORDER BY pd.modulo ASC, pd.nombre ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        if (!isset($this->cacheColumnas[$tabla])) {
+            $stmt = $this->db()->prepare('SHOW COLUMNS FROM ' . $tabla);
+            $stmt->execute();
+            $cols = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $this->cacheColumnas[$tabla] = array_map('strtolower', $cols ?: []);
+        }
+
+        return in_array(strtolower($columna), $this->cacheColumnas[$tabla], true);
     }
 }

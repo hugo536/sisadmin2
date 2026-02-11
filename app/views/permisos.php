@@ -44,13 +44,14 @@ $permisosAgrupados = $permisosAgrupados ?? [];
                             <th class="ps-4">Módulo</th>
                             <th>Slug Técnico</th>
                             <th>Nombre Descriptivo</th>
+                            <th>Auditoría</th>
                             <th class="text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php if (empty($permisosAgrupados)): ?>
                         <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
+                            <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No hay permisos registrados en el sistema.
                             </td>
@@ -62,10 +63,13 @@ $permisosAgrupados = $permisosAgrupados ?? [];
                                 $mod  = (string)$modulo;
                                 $slug = (string)($permiso['slug'] ?? '');
                                 $nom  = (string)($permiso['nombre'] ?? '');
+                                $desc = (string)($permiso['descripcion'] ?? '');
                                 $est  = (int)($permiso['estado'] ?? 0);
+                                $updatedAt = (string)($permiso['updated_at'] ?? $permiso['created_at'] ?? '-');
+                                $updatedBy = (string)($permiso['updated_by_nombre'] ?? $permiso['created_by_nombre'] ?? 'Sistema');
                                 
                                 // String de búsqueda para filtrado JS
-                                $search = mb_strtolower(trim($mod . ' ' . $slug . ' ' . $nom));
+                                $search = mb_strtolower(trim($mod . ' ' . $slug . ' ' . $nom . ' ' . $desc));
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>">
                                     
@@ -85,6 +89,15 @@ $permisosAgrupados = $permisosAgrupados ?? [];
 
                                     <td data-label="Descripción">
                                         <span class="fw-medium text-dark"><?php echo e($nom); ?></span>
+                                        <?php if ($desc !== ''): ?>
+                                            <div class="small text-muted mt-1"><?php echo e($desc); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+
+
+                                    <td data-label="Auditoría">
+                                        <div class="small text-muted"><i class="bi bi-clock me-1"></i><?php echo e($updatedAt); ?></div>
+                                        <div class="small text-secondary">Por: <?php echo e($updatedBy); ?></div>
                                     </td>
 
                                     <td class="text-center" data-label="Estado">

@@ -3,16 +3,62 @@ declare(strict_types=1);
 
 class RolModel extends Modelo
 {
+    /** @var array<string, array<int, string>> */
+    private array $cacheColumnas = [];
+
     /**
      * Lista todos los roles activos (no eliminados).
      */
     public function listar(): array
     {
-        $sql = 'SELECT id, nombre, estado, created_at, updated_at 
-                FROM roles 
-                WHERE deleted_at IS NULL 
-                ORDER BY id DESC';
-        return $this->db()->query($sql)->fetchAll();
+        $select = [
+            'r.id',
+            'r.nombre',
+        ];
+
+        if ($this->tablaTieneColumna('roles', 'slug')) {
+            $select[] = 'r.slug';
+        }
+
+        if ($this->tablaTieneColumna('roles', 'descripcion')) {
+            $select[] = 'r.descripcion';
+        }
+
+        $select[] = $this->tablaTieneColumna('roles', 'estado') ? 'r.estado' : '1 AS estado';
+
+        if ($this->tablaTieneColumna('roles', 'created_at')) {
+            $select[] = 'r.created_at';
+        }
+
+        if ($this->tablaTieneColumna('roles', 'updated_at')) {
+            $select[] = 'r.updated_at';
+        }
+
+        if ($this->tablaTieneColumna('roles', 'created_by')) {
+            $select[] = 'r.created_by';
+        }
+
+        if ($this->tablaTieneColumna('roles', 'updated_by')) {
+            $select[] = 'r.updated_by';
+        }
+
+        $join = '';
+        if ($this->tablaTieneColumna('roles', 'created_by')) {
+            $select[] = 'uc.nombre_completo AS created_by_nombre';
+            $join .= ' LEFT JOIN usuarios uc ON uc.id = r.created_by';
+        }
+
+        if ($this->tablaTieneColumna('roles', 'updated_by')) {
+            $select[] = 'uu.nombre_completo AS updated_by_nombre';
+            $join .= ' LEFT JOIN usuarios uu ON uu.id = r.updated_by';
+        }
+
+        $sql = 'SELECT ' . implode(', ', $select) . '
+                FROM roles r' . $join . '
+                WHERE r.deleted_at IS NULL
+                ORDER BY r.id DESC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -247,5 +293,17 @@ class RolModel extends Modelo
             $slug = $base . '-' . $suffix;
             $suffix++;
         }
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        if (!isset($this->cacheColumnas[$tabla])) {
+            $stmt = $this->db()->prepare('SHOW COLUMNS FROM ' . $tabla);
+            $stmt->execute();
+            $cols = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $this->cacheColumnas[$tabla] = array_map('strtolower', $cols ?: []);
+        }
+
+        return in_array(strtolower($columna), $this->cacheColumnas[$tabla], true);
     }
 }
