@@ -30,6 +30,10 @@ class TercerosModel extends Modelo
 
     public function listar(): array
     {
+        $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
+            ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
+            : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
+
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
                        t.direccion, t.telefono, t.email, t.representante_legal,
                        t.departamento, t.provincia, t.distrito,
@@ -50,6 +54,7 @@ class TercerosModel extends Modelo
                        te.sueldo_basico, te.moneda, te.asignacion_familiar,
                        te.tipo_pago, te.pago_diario, te.regimen_pensionario, 
                        te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato,
+                       {$selectCumple}
 
                        -- Datos distribuidor
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
@@ -103,6 +108,10 @@ class TercerosModel extends Modelo
 
     public function obtener(int $id): array
     {
+        $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
+            ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
+            : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
+
         $sql = "SELECT t.*, 
                        -- Cliente
                        tc.dias_credito AS cliente_dias_credito,
@@ -119,6 +128,7 @@ class TercerosModel extends Modelo
                        te.sueldo_basico, te.moneda, te.asignacion_familiar,
                        te.tipo_pago, te.pago_diario, te.tipo_contrato, te.fecha_cese,
                        te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
+                       {$selectCumple}
 
                        -- Distribuidor
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
@@ -517,6 +527,8 @@ class TercerosModel extends Modelo
             'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
             'cuspp'           => $data['cuspp'] ?? null,
             'essalud'         => !empty($data['essalud']) ? 1 : 0,
+            'recordar_cumpleanos' => !empty($data['recordar_cumpleanos']) ? 1 : 0,
+            'fecha_nacimiento' => !empty($data['recordar_cumpleanos']) && !empty($data['fecha_nacimiento']) ? $data['fecha_nacimiento'] : null,
 
             // Distribuidores
             'zonas_exclusivas' => is_array($data['zonas_exclusivas'] ?? null)

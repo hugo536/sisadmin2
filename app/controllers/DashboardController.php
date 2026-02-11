@@ -21,6 +21,7 @@ class DashboardController extends Controlador
         $this->render('dashboard', [
             'totales' => $this->dashboardModel->obtener_totales(),
             'eventos' => $this->dashboardModel->obtener_ultimos_eventos(10),
+            'cumpleanosSemana' => $this->dashboardModel->obtener_cumpleanos_semana(),
             'ruta_actual' => 'dashboard/index',
         ]);
     }

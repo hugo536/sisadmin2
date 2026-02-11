@@ -183,6 +183,24 @@
         }
     }
 
+    function toggleCumpleanosFields(recordarEl, form) {
+        if (!form || !recordarEl) return;
+        const fechaNacimiento = form.querySelector('[name="fecha_nacimiento"]');
+        if (!fechaNacimiento) return;
+
+        const wrapper = fechaNacimiento.closest('[id$="FechaNacimientoWrapper"]') || fechaNacimiento.closest('.col-md-4');
+        const mostrar = recordarEl.checked;
+
+        if (wrapper) wrapper.classList.toggle('d-none', !mostrar);
+        fechaNacimiento.disabled = !mostrar;
+        fechaNacimiento.required = mostrar;
+
+        if (!mostrar) {
+            fechaNacimiento.value = '';
+            clearInvalid(fechaNacimiento);
+        }
+    }
+
     // =========================================================================
     // GENERADORES DE FILAS (Teléfonos y Cuentas)
     // =========================================================================
@@ -699,8 +717,10 @@
         const tipoPago = form.querySelector('[name="tipo_pago"]');
         const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
         const pagoDiario = form.querySelector('[name="pago_diario"]');
+        const recordarCumpleanos = form.querySelector('[name="recordar_cumpleanos"]');
+        const fechaNacimiento = form.querySelector('[name="fecha_nacimiento"]');
 
-        [tipoPersona, tipoDoc, numeroDoc, nombre, representanteLegal, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario].forEach(clearInvalid);
+        [tipoPersona, tipoDoc, numeroDoc, nombre, representanteLegal, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario, fechaNacimiento].forEach(clearInvalid);
         form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
         form.querySelectorAll('select[name="cuenta_tipo[]"], select[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"], input[name="cuenta_cci[]"]').forEach(clearInvalid);
 
@@ -773,6 +793,26 @@
                 }
                 if (tp === 'DIARIO' && !pagoDiario?.value) {
                      if(showErrors) setInvalid(pagoDiario, 'Requerido'); valid = false;
+                }
+            }
+
+            if (recordarCumpleanos?.checked) {
+                const fechaNacimientoVal = (fechaNacimiento?.value || '').trim();
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+
+                if (!fechaNacimientoVal) {
+                    if (showErrors) setInvalid(fechaNacimiento, 'Ingrese la fecha de nacimiento.');
+                    valid = false;
+                } else {
+                    const fechaNac = new Date(`${fechaNacimientoVal}T00:00:00`);
+                    if (Number.isNaN(fechaNac.getTime())) {
+                        if (showErrors) setInvalid(fechaNacimiento, 'Ingrese una fecha válida.');
+                        valid = false;
+                    } else if (fechaNac > hoy) {
+                        if (showErrors) setInvalid(fechaNacimiento, 'La fecha de nacimiento no puede ser mayor a hoy.');
+                        valid = false;
+                    }
                 }
             }
         }
@@ -1035,6 +1075,7 @@
                 'editTipoContrato': 'data-tipo-contrato',
                 'editFechaIngreso': 'data-fecha-ingreso',
                 'editFechaCese': 'data-fecha-cese',
+                'editFechaNacimiento': 'data-fecha-nacimiento',
                 'editEstadoLaboral': 'data-estado-laboral',
                 'editMoneda': 'data-moneda',
                 'editSueldoBasico': 'data-sueldo-basico',
@@ -1056,6 +1097,9 @@
             
             const asigFam = document.getElementById('editAsignacionFamiliar');
             if (asigFam) asigFam.checked = button.getAttribute('data-asignacion-familiar') === '1';
+
+            const recordarCumpleanos = document.getElementById('editRecordarCumpleanos');
+            if (recordarCumpleanos) recordarCumpleanos.checked = button.getAttribute('data-recordar-cumpleanos') === '1';
 
             ['editEsCliente', 'editEsProveedor', 'editEsEmpleado', 'editEsDistribuidor'].forEach(id => {
                 const el = document.getElementById(id);
@@ -1095,6 +1139,7 @@
                 window.TercerosClientes?.setDistribuidorZones('edit', zonas);
             });
             toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
+            toggleCumpleanosFields(document.getElementById('editRecordarCumpleanos'), form);
             togglePagoFields(document.getElementById('editTipoPago'));
             toggleRegimenFields(document.getElementById('editRegimen'), form);
             toggleRepresentanteLegal(form, 'edit');
@@ -1173,6 +1218,15 @@
             if(estadoLaboral) estadoLaboral.addEventListener('change', () => {
                 updateLaboralState(form);
             });
+
+            const recordarCumpleanos = document.getElementById(`${prefix}RecordarCumpleanos`);
+            if (recordarCumpleanos) {
+                recordarCumpleanos.addEventListener('change', () => {
+                    toggleCumpleanosFields(recordarCumpleanos, form);
+                    refreshValidationOnChange(form, fbId);
+                });
+                toggleCumpleanosFields(recordarCumpleanos, form);
+            }
         };
 
         setup('crear');
