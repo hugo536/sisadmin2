@@ -8,9 +8,12 @@
   const itemInput = document.getElementById('itemMovimiento');
   const itemIdInput = document.getElementById('idItemMovimiento');
   const itemList = document.getElementById('listaItemsInventario');
+  const grupoLote = document.getElementById('grupoLoteMovimiento');
+  const inputLote = document.getElementById('loteMovimiento');
+  const grupoVencimiento = document.getElementById('grupoVencimientoMovimiento');
+  const inputVencimiento = document.getElementById('vencimientoMovimiento');
 
   const searchInput = document.getElementById('inventarioSearch');
-  const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
@@ -28,7 +31,6 @@
     }
 
     const termino = normalizarTexto(searchInput ? searchInput.value : '');
-    const almacen = (filtroAlmacen ? filtroAlmacen.value : '').trim();
     const estado = (filtroEstado ? filtroEstado.value : '').trim();
     const filas = Array.from(tablaStock.querySelectorAll('tbody tr'));
 
@@ -38,20 +40,63 @@
       }
 
       const coincideTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
-      const coincideAlmacen = almacen === '' || (fila.dataset.almacen || '') === almacen;
       const coincideEstado = estado === '' || (fila.dataset.estado || '') === estado;
 
-      fila.classList.toggle('d-none', !(coincideTexto && coincideAlmacen && coincideEstado));
+      fila.classList.toggle('d-none', !(coincideTexto && coincideEstado));
     });
   }
 
+  function obtenerItemSeleccionado() {
+    if (!itemInput || !itemList) {
+      return null;
+    }
+
+    const valor = (itemInput.value || '').trim();
+    const opciones = Array.from(itemList.options || []);
+    return opciones.find((option) => option.value.trim() === valor) || null;
+  }
+
+  function resolverIdItem() {
+    if (!itemInput || !itemIdInput || !itemList) {
+      return true;
+    }
+
+    const match = obtenerItemSeleccionado();
+    if (!match) {
+      itemIdInput.value = '';
+      return false;
+    }
+
+    itemIdInput.value = match.dataset.id || '';
+    return itemIdInput.value !== '';
+  }
+
+  function toggleCamposLoteVencimiento() {
+    if (!grupoLote || !inputLote || !grupoVencimiento || !inputVencimiento || !tipo) {
+      return;
+    }
+
+    const item = obtenerItemSeleccionado();
+    const requiereLote = item ? Number(item.dataset.requiereLote || '0') === 1 : false;
+    const requiereVencimiento = item ? Number(item.dataset.requiereVencimiento || '0') === 1 : false;
+    const movimientoEntrada = ['INI', 'AJ+'].includes(tipo.value || '');
+
+    grupoLote.classList.toggle('d-none', !requiereLote);
+    inputLote.required = requiereLote;
+    if (!requiereLote) {
+      inputLote.value = '';
+    }
+
+    const mostrarVencimiento = requiereVencimiento && movimientoEntrada;
+    grupoVencimiento.classList.toggle('d-none', !mostrarVencimiento);
+    inputVencimiento.required = mostrarVencimiento;
+    if (!mostrarVencimiento) {
+      inputVencimiento.value = '';
+    }
+  }
 
   if (searchInput) {
     searchInput.addEventListener('input', filtrarStock);
-  }
-
-  if (filtroAlmacen) {
-    filtroAlmacen.addEventListener('change', filtrarStock);
   }
 
   if (filtroEstado) {
@@ -74,31 +119,25 @@
     }
   }
 
-  function resolverIdItem() {
-    if (!itemInput || !itemIdInput || !itemList) {
-      return true;
-    }
-
-    const valor = (itemInput.value || '').trim();
-    const opciones = Array.from(itemList.options || []);
-    const match = opciones.find((option) => option.value.trim() === valor);
-
-    if (!match) {
-      itemIdInput.value = '';
-      return false;
-    }
-
-    itemIdInput.value = match.dataset.id || '';
-    return itemIdInput.value !== '';
-  }
-
   if (itemInput) {
-    itemInput.addEventListener('input', resolverIdItem);
-    itemInput.addEventListener('change', resolverIdItem);
+    itemInput.addEventListener('input', function () {
+      resolverIdItem();
+      toggleCamposLoteVencimiento();
+    });
+
+    itemInput.addEventListener('change', function () {
+      resolverIdItem();
+      toggleCamposLoteVencimiento();
+    });
   }
 
-  tipo.addEventListener('change', toggleTransferencia);
+  tipo.addEventListener('change', function () {
+    toggleTransferencia();
+    toggleCamposLoteVencimiento();
+  });
+
   toggleTransferencia();
+  toggleCamposLoteVencimiento();
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();

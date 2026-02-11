@@ -2,6 +2,7 @@
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
 $items = $items ?? [];
+$hoy = new DateTimeImmutable('today');
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
@@ -34,16 +35,8 @@ $items = $items ?? [];
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar producto por SKU, nombre o almacén...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar producto por SKU o nombre...">
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <select class="form-select bg-light" id="inventarioFiltroAlmacen">
-                        <option value="">Todos los almacenes</option>
-                        <?php foreach ($almacenes as $almacen): ?>
-                            <option value="<?php echo e((string) ($almacen['nombre'] ?? '')); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
-                        <?php endforeach; ?>
-                    </select>
                 </div>
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
@@ -64,9 +57,9 @@ $items = $items ?? [];
                         <tr>
                             <th class="ps-4">SKU</th>
                             <th>Producto</th>
-                            <th>Almacén</th>
                             <th class="text-end pe-4">Stock Actual</th>
-                            <th class="text-center">Estado</th>
+                            <th class="text-center">Estado Stock</th>
+                            <th class="text-center">Vencimiento</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
@@ -75,14 +68,51 @@ $items = $items ?? [];
                             <?php foreach ($stockActual as $stock): ?>
                                 <?php
                                 $stockActualItem = (float) ($stock['stock_actual'] ?? 0);
+                                $stockMinimo = (float) ($stock['stock_minimo'] ?? 0);
                                 $sku = (string) ($stock['sku'] ?? '');
                                 $itemNombre = (string) ($stock['item_nombre'] ?? '');
-                                $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
                                 $estadoStock = $stockActualItem <= 0 ? 'agotado' : 'disponible';
+                                $estadoCantidadClase = 'bg-success';
+                                $estadoCantidadTexto = 'Normal';
+
+                                if ($stockActualItem <= $stockMinimo) {
+                                    $estadoCantidadClase = 'bg-danger';
+                                    $estadoCantidadTexto = 'Crítico';
+                                } elseif ($stockActualItem <= ($stockMinimo * 1.5)) {
+                                    $estadoCantidadClase = 'bg-warning text-dark';
+                                    $estadoCantidadTexto = 'Bajo';
+                                }
+
+                                $requiereVencimiento = (int) ($stock['requiere_vencimiento'] ?? 0) === 1;
+                                $diasAlerta = (int) ($stock['dias_alerta_vencimiento'] ?? 0);
+                                $proximoVencimiento = (string) ($stock['proximo_vencimiento'] ?? '');
+                                $textoVencimiento = '-';
+                                $badgeVencimiento = 'bg-secondary';
+                                $etiquetaVencimiento = '-';
+
+                                if ($requiereVencimiento && $proximoVencimiento !== '') {
+                                    $textoVencimiento = $proximoVencimiento;
+                                    $fechaVencimiento = DateTimeImmutable::createFromFormat('Y-m-d', $proximoVencimiento);
+                                    $limiteAlerta = $hoy->modify('+' . $diasAlerta . ' days');
+
+                                    if ($fechaVencimiento instanceof DateTimeImmutable) {
+                                        if ($fechaVencimiento < $hoy) {
+                                            $badgeVencimiento = 'bg-dark';
+                                            $etiquetaVencimiento = 'VENCIDO';
+                                        } elseif ($fechaVencimiento <= $limiteAlerta) {
+                                            $badgeVencimiento = 'bg-warning text-dark';
+                                            $etiquetaVencimiento = 'Por Vencer';
+                                        } else {
+                                            $badgeVencimiento = 'bg-success';
+                                            $etiquetaVencimiento = 'OK';
+                                        }
+
+                                        $textoVencimiento = $fechaVencimiento->format('d/m/Y');
+                                    }
+                                }
                                 ?>
                                 <tr
-                                    data-search="<?php echo e(mb_strtolower(trim($sku . ' ' . $itemNombre . ' ' . $almacenNombre))); ?>"
-                                    data-almacen="<?php echo e($almacenNombre); ?>"
+                                    data-search="<?php echo e(mb_strtolower(trim($sku . ' ' . $itemNombre))); ?>"
                                     data-estado="<?php echo e($estadoStock); ?>"
                                 >
                                     <td class="ps-4 fw-semibold" data-label="SKU"><?php echo e($sku); ?></td>
@@ -90,15 +120,18 @@ $items = $items ?? [];
                                         <div class="fw-bold text-dark"><?php echo e($itemNombre); ?></div>
                                         <div class="small text-muted">SKU: <?php echo e($sku); ?></div>
                                     </td>
-                                    <td data-label="Almacén"><?php echo e($almacenNombre); ?></td>
-                                    <td class="text-end pe-4 fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>" data-label="Stock actual">
+                                    <td class="text-end pe-4 fw-semibold <?php echo $stockActualItem <= $stockMinimo ? 'text-danger' : 'text-success'; ?>" data-label="Stock actual">
                                         <?php echo number_format($stockActualItem, 4, '.', ','); ?>
                                     </td>
-                                    <td class="text-center" data-label="Estado">
-                                        <?php if ($stockActualItem <= 0): ?>
-                                            <span class="badge-status status-inactive">Sin stock</span>
+                                    <td class="text-center" data-label="Estado Stock">
+                                        <span class="badge <?php echo e($estadoCantidadClase); ?>"><?php echo e($estadoCantidadTexto); ?></span>
+                                    </td>
+                                    <td class="text-center" data-label="Vencimiento">
+                                        <?php if (!$requiereVencimiento): ?>
+                                            <span class="text-muted">-</span>
                                         <?php else: ?>
-                                            <span class="badge-status status-active">Disponible</span>
+                                            <div class="small text-muted"><?php echo e($textoVencimiento); ?></div>
+                                            <span class="badge <?php echo e($badgeVencimiento); ?>"><?php echo e($etiquetaVencimiento); ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end pe-4" data-label="Acciones">
@@ -170,6 +203,8 @@ $items = $items ?? [];
                             <?php foreach ($items as $item): ?>
                                 <option
                                     data-id="<?php echo (int) ($item['id'] ?? 0); ?>"
+                                    data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
+                                    data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
                                     value="<?php echo e((string) ($item['sku'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>"
                                 ></option>
                             <?php endforeach; ?>
@@ -178,6 +213,18 @@ $items = $items ?? [];
                     <div class="col-md-6">
                         <label for="cantidadMovimiento" class="form-label">Cantidad</label>
                         <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
+                    </div>
+                    <div class="col-md-6 d-none" id="grupoLoteMovimiento">
+                        <label for="loteMovimiento" class="form-label">Lote</label>
+                        <input type="text" class="form-control" id="loteMovimiento" name="lote" maxlength="100" placeholder="Código de lote">
+                    </div>
+                    <div class="col-md-6 d-none" id="grupoVencimientoMovimiento">
+                        <label for="vencimientoMovimiento" class="form-label">Fecha de vencimiento</label>
+                        <input type="date" class="form-control" id="vencimientoMovimiento" name="fecha_vencimiento">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="costoUnitarioMovimiento" class="form-label">Costo unitario</label>
+                        <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                     </div>
                     <div class="col-12">
                         <label for="referenciaMovimiento" class="form-label">Referencia</label>

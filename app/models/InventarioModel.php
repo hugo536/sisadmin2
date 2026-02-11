@@ -5,16 +5,25 @@ class InventarioModel extends Modelo
 {
     public function obtenerStock(): array
     {
-        $sql = 'SELECT s.id_item,
-                       s.id_almacen,
-                       s.stock_actual,
+        $sql = 'SELECT i.id AS id_item,
                        i.sku,
                        i.nombre AS item_nombre,
-                       a.nombre AS almacen_nombre
-                FROM inventario_stock s
-                INNER JOIN items i ON i.id = s.id_item
-                INNER JOIN almacenes a ON a.id = s.id_almacen
-                ORDER BY i.nombre ASC, a.nombre ASC';
+                       i.stock_minimo,
+                       i.requiere_vencimiento,
+                       i.dias_alerta_vencimiento,
+                       COALESCE(SUM(s.stock_actual), 0) AS stock_actual,
+                       (
+                           SELECT MIN(l.fecha_vencimiento)
+                           FROM inventario_lotes l
+                           WHERE l.id_item = i.id
+                             AND l.stock_lote > 0
+                             AND l.fecha_vencimiento IS NOT NULL
+                       ) AS proximo_vencimiento
+                FROM items i
+                LEFT JOIN inventario_stock s ON s.id_item = i.id
+                WHERE i.controla_stock = 1
+                GROUP BY i.id, i.sku, i.nombre, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento
+                ORDER BY i.nombre ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -22,7 +31,7 @@ class InventarioModel extends Modelo
 
     public function listarItems(): array
     {
-        $sql = 'SELECT id, sku, nombre, controla_stock
+        $sql = 'SELECT id, sku, nombre, controla_stock, requiere_lote, requiere_vencimiento
                 FROM items
                 WHERE estado = 1
                 ORDER BY nombre ASC';
@@ -45,6 +54,9 @@ class InventarioModel extends Modelo
         $idAlmacenDestino = isset($datos['id_almacen_destino']) ? (int) $datos['id_almacen_destino'] : 0;
         $cantidad = (float) ($datos['cantidad'] ?? 0);
         $referencia = trim((string) ($datos['referencia'] ?? ''));
+        $lote = trim((string) ($datos['lote'] ?? ''));
+        $fechaVencimiento = isset($datos['fecha_vencimiento']) ? trim((string) $datos['fecha_vencimiento']) : '';
+        $costoUnitario = isset($datos['costo_unitario']) ? (float) $datos['costo_unitario'] : 0.0;
         $createdBy = (int) ($datos['created_by'] ?? 0);
 
         if ($idItem <= 0 || $cantidad <= 0 || $createdBy <= 0) {
@@ -72,7 +84,22 @@ class InventarioModel extends Modelo
         $db->beginTransaction();
 
         try {
-            $this->validarItemControlaStock($db, $idItem);
+            $configItem = $this->obtenerConfiguracionItem($db, $idItem);
+
+            if ((int) ($configItem['requiere_lote'] ?? 0) === 1 && $lote === '') {
+                throw new InvalidArgumentException('El ítem requiere lote para registrar movimientos.');
+            }
+
+            if ((int) ($configItem['requiere_vencimiento'] ?? 0) === 1 && in_array($tipo, ['INI', 'AJ+'], true) && $fechaVencimiento === '') {
+                throw new InvalidArgumentException('El ítem requiere fecha de vencimiento para entradas de stock.');
+            }
+
+            if ($fechaVencimiento !== '' && !$this->esFechaValida($fechaVencimiento)) {
+                throw new InvalidArgumentException('La fecha de vencimiento no tiene un formato válido (YYYY-MM-DD).');
+            }
+
+            $costoTotal = $cantidad * $costoUnitario;
+            $referenciaFinal = $this->construirReferencia($referencia, $lote, $fechaVencimiento, $costoUnitario, $costoTotal);
 
             $sqlMovimiento = 'INSERT INTO inventario_movimientos
                                 (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by)
@@ -85,17 +112,19 @@ class InventarioModel extends Modelo
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                 'tipo_movimiento' => $tipo,
                 'cantidad' => $cantidad,
-                'referencia' => $referencia !== '' ? $referencia : null,
+                'referencia' => $referenciaFinal !== '' ? $referenciaFinal : null,
                 'created_by' => $createdBy,
             ]);
 
             if (in_array($tipo, ['INI', 'AJ+'], true)) {
                 $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
+                $this->incrementarStockLote($db, $idItem, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
             }
 
             if (in_array($tipo, ['AJ-', 'CON'], true)) {
                 $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
                 $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
+                $this->decrementarStockLote($db, $idItem, $lote, $cantidad);
             }
 
             if ($tipo === 'TRF') {
@@ -155,6 +184,152 @@ class InventarioModel extends Modelo
         if ((int) $controlaStock !== 1) {
             throw new RuntimeException('El ítem seleccionado no controla stock.');
         }
+    }
+
+    private function obtenerConfiguracionItem(PDO $db, int $idItem): array
+    {
+        $sql = 'SELECT controla_stock, requiere_lote, requiere_vencimiento
+                FROM items
+                WHERE id = :id_item
+                LIMIT 1';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($item === false) {
+            throw new RuntimeException('El ítem seleccionado no existe.');
+        }
+
+        if ((int) ($item['controla_stock'] ?? 0) !== 1) {
+            throw new RuntimeException('El ítem seleccionado no controla stock.');
+        }
+
+        return $item;
+    }
+
+    private function incrementarStockLote(PDO $db, int $idItem, string $lote, ?string $fechaVencimiento, float $cantidad): void
+    {
+        if ($lote === '') {
+            return;
+        }
+
+        $sql = 'INSERT INTO inventario_lotes (id_item, lote, fecha_vencimiento, stock_lote)
+                VALUES (:id_item, :lote, :fecha_vencimiento, :stock_lote)
+                ON DUPLICATE KEY UPDATE
+                    stock_lote = stock_lote + VALUES(stock_lote),
+                    fecha_vencimiento = COALESCE(VALUES(fecha_vencimiento), fecha_vencimiento)';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'lote' => $lote,
+            'fecha_vencimiento' => $fechaVencimiento,
+            'stock_lote' => $cantidad,
+        ]);
+    }
+
+    private function decrementarStockLote(PDO $db, int $idItem, string $lote, float $cantidad): void
+    {
+        if ($lote !== '') {
+            $this->decrementarStockLoteEspecifico($db, $idItem, $lote, $cantidad);
+            return;
+        }
+
+        $pendiente = $cantidad;
+        $sql = 'SELECT lote, stock_lote
+                FROM inventario_lotes
+                WHERE id_item = :id_item
+                  AND stock_lote > 0
+                ORDER BY CASE WHEN fecha_vencimiento IS NULL THEN 1 ELSE 0 END, fecha_vencimiento ASC, id ASC';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+        $lotes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($lotes as $loteItem) {
+            if ($pendiente <= 0) {
+                break;
+            }
+
+            $stockLote = (float) ($loteItem['stock_lote'] ?? 0);
+            if ($stockLote <= 0) {
+                continue;
+            }
+
+            $consumo = min($stockLote, $pendiente);
+            $this->decrementarStockLoteEspecifico($db, $idItem, (string) ($loteItem['lote'] ?? ''), $consumo);
+            $pendiente -= $consumo;
+        }
+
+        if ($pendiente > 0) {
+            throw new RuntimeException('Stock de lotes insuficiente para realizar la salida.');
+        }
+    }
+
+    private function decrementarStockLoteEspecifico(PDO $db, int $idItem, string $lote, float $cantidad): void
+    {
+        if ($lote === '') {
+            throw new RuntimeException('Debe seleccionar un lote válido para la salida.');
+        }
+
+        $sqlStock = 'SELECT stock_lote
+                     FROM inventario_lotes
+                     WHERE id_item = :id_item
+                       AND lote = :lote
+                     LIMIT 1';
+        $stmtStock = $db->prepare($sqlStock);
+        $stmtStock->execute([
+            'id_item' => $idItem,
+            'lote' => $lote,
+        ]);
+        $stockLote = (float) ($stmtStock->fetchColumn() ?: 0);
+
+        if ($stockLote < $cantidad) {
+            throw new RuntimeException('Stock insuficiente en el lote seleccionado.');
+        }
+
+        $sql = 'UPDATE inventario_lotes
+                SET stock_lote = stock_lote - :cantidad
+                WHERE id_item = :id_item
+                  AND lote = :lote';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'cantidad' => $cantidad,
+            'id_item' => $idItem,
+            'lote' => $lote,
+        ]);
+    }
+
+    private function esFechaValida(string $fecha): bool
+    {
+        $dt = DateTime::createFromFormat('Y-m-d', $fecha);
+        return $dt instanceof DateTime && $dt->format('Y-m-d') === $fecha;
+    }
+
+    private function construirReferencia(string $referencia, string $lote, string $fechaVencimiento, float $costoUnitario, float $costoTotal): string
+    {
+        $partes = [];
+
+        if ($referencia !== '') {
+            $partes[] = $referencia;
+        }
+
+        if ($lote !== '') {
+            $partes[] = 'Lote: ' . $lote;
+        }
+
+        if ($fechaVencimiento !== '') {
+            $partes[] = 'Vence: ' . $fechaVencimiento;
+        }
+
+        if ($costoUnitario > 0) {
+            $partes[] = 'C.Unit: ' . number_format($costoUnitario, 4, '.', '');
+            $partes[] = 'C.Total: ' . number_format($costoTotal, 4, '.', '');
+        }
+
+        return implode(' | ', $partes);
     }
 
     private function ajustarStock(PDO $db, int $idItem, int $idAlmacen, float $delta): void
