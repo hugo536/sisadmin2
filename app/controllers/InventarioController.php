@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/InventarioModel.php';
 require_once BASE_PATH . '/app/models/AlmacenModel.php';
+require_once BASE_PATH . '/app/controllers/PermisosController.php';
 
 class InventarioController extends Controlador
 {
@@ -19,11 +20,13 @@ class InventarioController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
-        require_permiso('inventario.ver');
+        if (!PermisosController::tienePermiso('inventario.ver')) {
+            require_permiso('inventario.ver');
+        }
 
         $datos = [
             'ruta_actual' => 'inventario',
-            'stockActual' => $this->inventarioModel->obtenerStockActual(),
+            'stockActual' => $this->inventarioModel->obtenerStock(),
             'almacenes' => $this->almacenModel->listarActivos(),
             'items' => $this->inventarioModel->listarItems(),
             'flash' => ['tipo' => '', 'texto' => ''],
@@ -35,7 +38,9 @@ class InventarioController extends Controlador
     public function guardarMovimiento(): void
     {
         AuthMiddleware::handle();
-        require_permiso('inventario.movimiento.crear');
+        if (!PermisosController::tienePermiso('inventario.movimiento.crear')) {
+            require_permiso('inventario.movimiento.crear');
+        }
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
@@ -47,14 +52,12 @@ class InventarioController extends Controlador
             $idAlmacen = (int) ($_POST['id_almacen'] ?? 0);
             $idItem = (int) ($_POST['id_item'] ?? 0);
             $cantidad = (float) ($_POST['cantidad'] ?? 0);
-            $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
             $referencia = trim((string) ($_POST['referencia'] ?? ''));
 
             $datos = [
                 'tipo_movimiento' => $tipo,
                 'id_item' => $idItem,
                 'cantidad' => $cantidad,
-                'costo_unitario' => $costoUnitario,
                 'referencia' => $referencia,
                 'created_by' => (int) ($_SESSION['id'] ?? 0),
             ];

@@ -120,6 +120,12 @@ function renderSidebarInner(
             </a>
         <?php endif; ?>
 
+        <?php if (tiene_permiso('inventario.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('inventario'); ?>" href="<?php echo e(route_url('inventario')); ?>">
+                <i class="bi bi-clipboard-data"></i> <span>Inventario</span>
+            </a>
+        <?php endif; ?>
+
         <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
@@ -127,39 +133,6 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
             </a>
-        <?php endif; ?>
-
-        <?php if (tiene_permiso('inventario.ver')): ?>
-            <div class="nav-label mt-3">Operaciones</div>
-
-            <!-- Grupo Inventario -->
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['inventario', 'stock', 'movimientos']); ?>"
-               data-bs-toggle="collapse"
-               href="#menuInventario"
-               role="button"
-               aria-expanded="<?php echo $grupoActivo(['inventario', 'stock', 'movimientos']) ? 'true' : 'false'; ?>"
-               aria-controls="menuInventario">
-                <i class="bi bi-clipboard-data"></i> <span>Inventario</span>
-                <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-            </a>
-
-            <div class="collapse<?php echo $grupoActivo(['inventario', 'stock', 'movimientos']); ?>" id="menuInventario">
-                <ul class="nav flex-column ps-3">
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('stock'); ?>" href="<?php echo e(route_url('stock')); ?>">
-                            <span>Stock Actual</span>
-                        </a>
-                    </li>
-
-                    <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
-                        <li class="nav-item">
-                            <a class="sidebar-link<?php echo $activo('movimientos'); ?>" href="<?php echo e(route_url('movimientos')); ?>">
-                                <span>Movimientos</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
-            </div>
         <?php endif; ?>
 
         <div class="nav-label mt-3">Sistema</div>

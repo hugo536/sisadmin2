@@ -13,6 +13,12 @@ class PermisosController extends Controlador
         $this->model = new PermisoModel();
     }
 
+
+    public static function tienePermiso(string $slug): bool
+    {
+        return function_exists('tiene_permiso') && tiene_permiso($slug);
+    }
+
     public function index(): void
     {
         // 1. Seguridad

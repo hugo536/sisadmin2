@@ -7,7 +7,7 @@
     </div>
     <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
-            <i class="fas fa-edit me-2"></i> Nuevo movimiento
+            <i class="fas fa-edit me-2"></i> Nuevo Movimiento
         </button>
     <?php endif; ?>
 </div>
@@ -18,10 +18,10 @@
             <table class="table table-striped align-middle mb-0" id="tablaInventarioStock">
                 <thead>
                     <tr>
-                        <th>Código</th>
-                        <th>Ítem</th>
+                        <th>SKU</th>
+                        <th>Producto</th>
                         <th>Almacén</th>
-                        <th class="text-end">Stock</th>
+                        <th class="text-end">Stock Actual</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -29,7 +29,7 @@
                     <?php foreach ($stockActual as $stock): ?>
                         <?php $stockActualItem = (float) ($stock['stock_actual'] ?? 0); ?>
                         <tr>
-                            <td><?php echo e((string) ($stock['codigo'] ?? '')); ?></td>
+                            <td><?php echo e((string) ($stock['sku'] ?? '')); ?></td>
                             <td><?php echo e((string) ($stock['item_nombre'] ?? '')); ?></td>
                             <td><?php echo e((string) ($stock['almacen_nombre'] ?? '')); ?></td>
                             <td class="text-end fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>">
@@ -87,23 +87,21 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label for="itemMovimiento" class="form-label">Ítem</label>
-                        <select id="itemMovimiento" name="id_item" class="form-select" required>
-                            <option value="">Seleccione...</option>
+                        <label for="itemMovimiento" class="form-label">Ítem (SKU / Nombre)</label>
+                        <input type="text" id="itemMovimiento" class="form-control" list="listaItemsInventario" placeholder="Buscar por SKU o nombre" required>
+                        <input type="hidden" id="idItemMovimiento" name="id_item" required>
+                        <datalist id="listaItemsInventario">
                             <?php foreach ($items as $item): ?>
-                                <option value="<?php echo (int) ($item['id'] ?? 0); ?>">
-                                    <?php echo e((string) ($item['codigo'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>
-                                </option>
+                                <option
+                                    data-id="<?php echo (int) ($item['id'] ?? 0); ?>"
+                                    value="<?php echo e((string) ($item['sku'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>"
+                                ></option>
                             <?php endforeach; ?>
-                        </select>
+                        </datalist>
                     </div>
                     <div class="col-md-6">
                         <label for="cantidadMovimiento" class="form-label">Cantidad</label>
                         <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="costoUnitarioMovimiento" class="form-label">Costo unitario</label>
-                        <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                     </div>
                     <div class="col-12">
                         <label for="referenciaMovimiento" class="form-label">Referencia</label>
