@@ -178,6 +178,9 @@ function showVal($val, $suffix = '') {
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Ingreso</label><div><?php echo showVal($t['fecha_ingreso']); ?></div></div>
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo</label><div class="fw-bold"><?php echo ($t['moneda']??'PEN')==='USD'?'$':'S/'; ?> <?php echo number_format((float)($t['sueldo_basico']??0),2); ?></div></div>
                                 <div class="col-md-4"><label class="text-muted small fw-bold">AFP/ONP</label><div><?php echo showVal(str_replace('_',' ',$t['regimen_pensionario']??'')); ?></div></div>
+                                <?php if (!empty($t['recordar_cumpleanos'])): ?>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Nacimiento</label><div><?php echo showVal($t['fecha_nacimiento']); ?></div></div>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <?php endif; ?>

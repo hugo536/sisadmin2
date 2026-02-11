@@ -2,6 +2,7 @@
 $prefix = $prefix ?? 'crear';
 $cargos_list = $cargos_list ?? [];
 $areas_list = $areas_list ?? [];
+$today = date('Y-m-d');
 ?>
 <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
 <div class="row g-3">
@@ -59,6 +60,18 @@ $areas_list = $areas_list ?? [];
         <div class="form-floating">
             <input type="date" class="form-control" name="fecha_cese" id="<?php echo $prefix; ?>FechaCese">
             <label for="<?php echo $prefix; ?>FechaCese">Fecha de Cese</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>RecordarCumpleanos" name="recordar_cumpleanos" value="1" style="margin-top: 0;">
+            <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>RecordarCumpleanos">Recordar cumpleaños</label>
+        </div>
+    </div>
+    <div class="col-md-4 d-none" id="<?php echo $prefix; ?>FechaNacimientoWrapper">
+        <div class="form-floating">
+            <input type="date" class="form-control" name="fecha_nacimiento" id="<?php echo $prefix; ?>FechaNacimiento" max="<?php echo $today; ?>" disabled>
+            <label for="<?php echo $prefix; ?>FechaNacimiento">Fecha de Nacimiento</label>
         </div>
     </div>
     <div class="col-md-4">

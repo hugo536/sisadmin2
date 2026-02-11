@@ -195,6 +195,8 @@
                                             data-tipo-contrato="<?php echo htmlspecialchars($tercero['tipo_contrato'] ?? ''); ?>"
                                             data-fecha-ingreso="<?php echo htmlspecialchars($tercero['fecha_ingreso'] ?? ''); ?>"
                                             data-fecha-cese="<?php echo htmlspecialchars($tercero['fecha_cese'] ?? ''); ?>"
+                                            data-recordar-cumpleanos="<?php echo (int) ($tercero['recordar_cumpleanos'] ?? 0); ?>"
+                                            data-fecha-nacimiento="<?php echo htmlspecialchars($tercero['fecha_nacimiento'] ?? ''); ?>"
                                             data-estado-laboral="<?php echo htmlspecialchars($tercero['estado_laboral'] ?? ''); ?>"
                                             data-moneda="<?php echo htmlspecialchars($tercero['moneda'] ?? 'PEN'); ?>"
                                             data-sueldo-basico="<?php echo (float) ($tercero['sueldo_basico'] ?? 0); ?>"

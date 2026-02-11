@@ -611,6 +611,27 @@ class TercerosController extends Controlador
             throw new Exception('Seleccione al menos un rol (Cliente, Proveedor, Empleado o Distribuidor).');
         }
 
+        $recordarCumpleanos = !empty($data['recordar_cumpleanos']);
+        $fechaNacimientoRaw = trim((string) ($data['fecha_nacimiento'] ?? ''));
+        $fechaNacimientoNormalizada = null;
+
+        if ($recordarCumpleanos) {
+            if ($fechaNacimientoRaw === '') {
+                throw new Exception('Si activa recordar cumpleaños, debe registrar la fecha de nacimiento.');
+            }
+
+            $fechaNacimiento = DateTimeImmutable::createFromFormat('Y-m-d', $fechaNacimientoRaw);
+            $hoy = new DateTimeImmutable('today');
+            if (!$fechaNacimiento || $fechaNacimiento->format('Y-m-d') !== $fechaNacimientoRaw) {
+                throw new Exception('La fecha de nacimiento no tiene un formato válido.');
+            }
+            if ($fechaNacimiento > $hoy) {
+                throw new Exception('La fecha de nacimiento no puede ser mayor a la fecha actual.');
+            }
+
+            $fechaNacimientoNormalizada = $fechaNacimiento->format('Y-m-d');
+        }
+
         $zonas = $data['zonas_exclusivas'] ?? [];
         if (!is_array($zonas)) {
             $zonas = [$zonas];
@@ -640,6 +661,8 @@ class TercerosController extends Controlador
         $prepared['provincia_id']          = $provinciaId !== '' ? $provinciaId : null;
         $prepared['distrito_id']           = $distritoId !== '' ? $distritoId : null;
         $prepared['zonas_exclusivas']      = $zonasLimpias;
+        $prepared['recordar_cumpleanos']    = $recordarCumpleanos ? 1 : 0;
+        $prepared['fecha_nacimiento']        = $fechaNacimientoNormalizada;
 
         return $prepared;
     }
