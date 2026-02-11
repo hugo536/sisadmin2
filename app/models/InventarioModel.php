@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 class InventarioModel extends Modelo
 {
-    public function obtenerStockActual(): array
+    public function obtenerStock(): array
     {
         $sql = 'SELECT s.id_item,
                        s.id_almacen,
                        s.stock_actual,
-                       i.codigo,
+                       i.sku,
                        i.nombre AS item_nombre,
                        a.nombre AS almacen_nombre
                 FROM inventario_stock s
@@ -22,8 +22,9 @@ class InventarioModel extends Modelo
 
     public function listarItems(): array
     {
-        $sql = 'SELECT id, codigo, nombre, controla_stock
+        $sql = 'SELECT id, sku, nombre, controla_stock
                 FROM items
+                WHERE estado = 1
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
@@ -43,7 +44,6 @@ class InventarioModel extends Modelo
         $idAlmacenOrigen = isset($datos['id_almacen_origen']) ? (int) $datos['id_almacen_origen'] : 0;
         $idAlmacenDestino = isset($datos['id_almacen_destino']) ? (int) $datos['id_almacen_destino'] : 0;
         $cantidad = (float) ($datos['cantidad'] ?? 0);
-        $costoUnitario = (float) ($datos['costo_unitario'] ?? 0);
         $referencia = trim((string) ($datos['referencia'] ?? ''));
         $createdBy = (int) ($datos['created_by'] ?? 0);
 
@@ -72,10 +72,12 @@ class InventarioModel extends Modelo
         $db->beginTransaction();
 
         try {
+            $this->validarItemControlaStock($db, $idItem);
+
             $sqlMovimiento = 'INSERT INTO inventario_movimientos
-                                (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, costo_unitario, referencia, created_by)
+                                (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by)
                               VALUES
-                                (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :costo_unitario, :referencia, :created_by)';
+                                (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :referencia, :created_by)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItem,
@@ -83,7 +85,6 @@ class InventarioModel extends Modelo
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                 'tipo_movimiento' => $tipo,
                 'cantidad' => $cantidad,
-                'costo_unitario' => $costoUnitario,
                 'referencia' => $referencia !== '' ? $referencia : null,
                 'created_by' => $createdBy,
             ]);
@@ -135,11 +136,32 @@ class InventarioModel extends Modelo
         }
     }
 
+    private function validarItemControlaStock(PDO $db, int $idItem): void
+    {
+        $sql = 'SELECT controla_stock
+                FROM items
+                WHERE id = :id_item
+                LIMIT 1';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+
+        $controlaStock = $stmt->fetchColumn();
+
+        if ($controlaStock === false) {
+            throw new RuntimeException('El ítem seleccionado no existe.');
+        }
+
+        if ((int) $controlaStock !== 1) {
+            throw new RuntimeException('El ítem seleccionado no controla stock.');
+        }
+    }
+
     private function ajustarStock(PDO $db, int $idItem, int $idAlmacen, float $delta): void
     {
         $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
                 VALUES (:id_item, :id_almacen, :stock_actual)
-                ON DUPLICATE KEY UPDATE stock_actual = stock_actual + VALUES(stock_actual), updated_at = NOW()';
+                ON DUPLICATE KEY UPDATE stock_actual = stock_actual + VALUES(stock_actual)';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([

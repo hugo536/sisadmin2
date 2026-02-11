@@ -5,6 +5,9 @@
   const tipo = document.getElementById('tipoMovimiento');
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
   const almacenDestino = document.getElementById('almacenDestinoMovimiento');
+  const itemInput = document.getElementById('itemMovimiento');
+  const itemIdInput = document.getElementById('idItemMovimiento');
+  const itemList = document.getElementById('listaItemsInventario');
 
   if (!form || !tipo) {
     return;
@@ -20,11 +23,57 @@
     }
   }
 
+  function resolverIdItem() {
+    if (!itemInput || !itemIdInput || !itemList) {
+      return true;
+    }
+
+    const valor = (itemInput.value || '').trim();
+    const opciones = Array.from(itemList.options || []);
+    const match = opciones.find((option) => option.value.trim() === valor);
+
+    if (!match) {
+      itemIdInput.value = '';
+      return false;
+    }
+
+    itemIdInput.value = match.dataset.id || '';
+    return itemIdInput.value !== '';
+  }
+
+  if (itemInput) {
+    itemInput.addEventListener('input', resolverIdItem);
+    itemInput.addEventListener('change', resolverIdItem);
+  }
+
   tipo.addEventListener('change', toggleTransferencia);
   toggleTransferencia();
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
+
+    if (!resolverIdItem()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Ítem inválido',
+        text: 'Selecciona un ítem válido desde la lista (SKU / Nombre).',
+        confirmButtonText: 'Entendido'
+      });
+      return;
+    }
+
+    const confirmacion = await Swal.fire({
+      icon: 'question',
+      title: '¿Registrar movimiento?',
+      text: 'Se actualizará el stock del inventario.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, guardar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmacion.isConfirmed) {
+      return;
+    }
 
     const data = new FormData(form);
 
