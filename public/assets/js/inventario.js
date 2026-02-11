@@ -9,6 +9,57 @@
   const itemIdInput = document.getElementById('idItemMovimiento');
   const itemList = document.getElementById('listaItemsInventario');
 
+  const searchInput = document.getElementById('inventarioSearch');
+  const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
+  const filtroEstado = document.getElementById('inventarioFiltroEstado');
+  const tablaStock = document.getElementById('tablaInventarioStock');
+
+  function normalizarTexto(valor) {
+    return (valor || '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+  }
+
+  function filtrarStock() {
+    if (!tablaStock) {
+      return;
+    }
+
+    const termino = normalizarTexto(searchInput ? searchInput.value : '');
+    const almacen = (filtroAlmacen ? filtroAlmacen.value : '').trim();
+    const estado = (filtroEstado ? filtroEstado.value : '').trim();
+    const filas = Array.from(tablaStock.querySelectorAll('tbody tr'));
+
+    filas.forEach(function (fila) {
+      if (!fila.dataset.search) {
+        return;
+      }
+
+      const coincideTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
+      const coincideAlmacen = almacen === '' || (fila.dataset.almacen || '') === almacen;
+      const coincideEstado = estado === '' || (fila.dataset.estado || '') === estado;
+
+      fila.classList.toggle('d-none', !(coincideTexto && coincideAlmacen && coincideEstado));
+    });
+  }
+
+
+  if (searchInput) {
+    searchInput.addEventListener('input', filtrarStock);
+  }
+
+  if (filtroAlmacen) {
+    filtroAlmacen.addEventListener('change', filtrarStock);
+  }
+
+  if (filtroEstado) {
+    filtroEstado.addEventListener('change', filtrarStock);
+  }
+
+  filtrarStock();
+
   if (!form || !tipo) {
     return;
   }

@@ -1,49 +1,97 @@
-<?php require_once 'app/views/layout.php'; ?>
+<?php
+$stockActual = $stockActual ?? [];
+$almacenes = $almacenes ?? [];
+$items = $items ?? [];
+?>
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
+        <div class="flex-grow-1">
+            <h1 class="h4 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-box-seam-fill me-2 text-primary fs-5"></i>
+                <span>Inventario - Stock Actual</span>
+            </h1>
+            <p class="text-muted small mb-0 ms-1">Control de existencias por ítem y almacén.</p>
+        </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h4 class="fw-bold mb-1">Inventario - Stock Actual</h4>
-        <p class="text-muted mb-0">Control de existencias por ítem y almacén.</p>
+        <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
+            <button type="button" class="btn btn-primary shadow-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
+                <i class="bi bi-plus-circle-fill me-0 me-sm-2"></i>
+                <span class="d-none d-sm-inline">Nuevo Movimiento</span>
+            </button>
+        <?php endif; ?>
     </div>
-    <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
-            <i class="fas fa-edit me-2"></i> Nuevo Movimiento
-        </button>
-    <?php endif; ?>
-</div>
 
-<div class="card shadow-sm border-0">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped align-middle mb-0" id="tablaInventarioStock">
-                <thead>
-                    <tr>
-                        <th>SKU</th>
-                        <th>Producto</th>
-                        <th>Almacén</th>
-                        <th class="text-end">Stock Actual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php if (!empty($stockActual)): ?>
-                    <?php foreach ($stockActual as $stock): ?>
-                        <?php $stockActualItem = (float) ($stock['stock_actual'] ?? 0); ?>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar por SKU o producto...">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="inventarioFiltroAlmacen">
+                        <option value="">Todos los almacenes</option>
+                        <?php foreach ($almacenes as $almacen): ?>
+                            <option value="<?php echo e((string) ($almacen['nombre'] ?? '')); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="inventarioFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="disponible">Con stock</option>
+                        <option value="agotado">Sin stock</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 table-pro" id="tablaInventarioStock">
+                    <thead>
                         <tr>
-                            <td><?php echo e((string) ($stock['sku'] ?? '')); ?></td>
-                            <td><?php echo e((string) ($stock['item_nombre'] ?? '')); ?></td>
-                            <td><?php echo e((string) ($stock['almacen_nombre'] ?? '')); ?></td>
-                            <td class="text-end fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>">
-                                <?php echo number_format($stockActualItem, 4, '.', ','); ?>
-                            </td>
+                            <th class="ps-4">SKU</th>
+                            <th>Producto</th>
+                            <th>Almacén</th>
+                            <th class="text-end pe-4">Stock Actual</th>
                         </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">No hay registros de stock disponibles.</td>
-                    </tr>
-                <?php endif; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($stockActual)): ?>
+                            <?php foreach ($stockActual as $stock): ?>
+                                <?php
+                                $stockActualItem = (float) ($stock['stock_actual'] ?? 0);
+                                $sku = (string) ($stock['sku'] ?? '');
+                                $itemNombre = (string) ($stock['item_nombre'] ?? '');
+                                $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
+                                $estadoStock = $stockActualItem <= 0 ? 'agotado' : 'disponible';
+                                ?>
+                                <tr
+                                    data-search="<?php echo e(mb_strtolower(trim($sku . ' ' . $itemNombre . ' ' . $almacenNombre))); ?>"
+                                    data-almacen="<?php echo e($almacenNombre); ?>"
+                                    data-estado="<?php echo e($estadoStock); ?>"
+                                >
+                                    <td class="ps-4 fw-semibold"><?php echo e($sku); ?></td>
+                                    <td><?php echo e($itemNombre); ?></td>
+                                    <td><?php echo e($almacenNombre); ?></td>
+                                    <td class="text-end pe-4 fw-semibold <?php echo $stockActualItem <= 0 ? 'text-danger' : 'text-success'; ?>">
+                                        <?php echo number_format($stockActualItem, 4, '.', ','); ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No hay registros de stock disponibles.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
