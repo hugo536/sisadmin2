@@ -4,20 +4,14 @@ declare(strict_types=1);
 
 class ComprasOrdenModel extends Modelo
 {
-    private ?bool $hasFechaOrden = null;
-    private ?bool $hasFechaEntrega = null;
-
     public function listar(array $filtros = []): array
     {
-        $fechaOrdenExpr = $this->fechaOrdenExpr('o');
-        $fechaEntregaExpr = $this->fechaEntregaExpr('o');
-
         $sql = 'SELECT o.id,
                        o.codigo,
                        o.id_proveedor,
                        t.nombre_completo AS proveedor,
-                       ' . $fechaOrdenExpr . ' AS fecha_orden,
-                       ' . $fechaEntregaExpr . ' AS fecha_entrega,
+                       o.fecha_emision AS fecha_orden,
+                       o.fecha_entrega_estimada AS fecha_entrega,
                        o.total,
                        o.estado,
                        o.created_at
@@ -39,12 +33,12 @@ class ComprasOrdenModel extends Modelo
         }
 
         if (!empty($filtros['fecha_desde'])) {
-            $sql .= ' AND DATE(' . $fechaOrdenExpr . ') >= :fecha_desde';
+            $sql .= ' AND o.fecha_emision >= :fecha_desde';
             $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND DATE(' . $fechaOrdenExpr . ') <= :fecha_hasta';
+            $sql .= ' AND o.fecha_emision <= :fecha_hasta';
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
@@ -58,10 +52,10 @@ class ComprasOrdenModel extends Modelo
 
     public function obtener(int $id): array
     {
-        $fechaOrdenExpr = $this->fechaOrdenExpr();
-        $fechaEntregaExpr = $this->fechaEntregaExpr();
-
-        $sql = 'SELECT id, codigo, id_proveedor, ' . $fechaOrdenExpr . ' AS fecha_orden, ' . $fechaEntregaExpr . ' AS fecha_entrega, observaciones, subtotal, total, estado
+        $sql = 'SELECT id, codigo, id_proveedor, 
+                       fecha_emision AS fecha_orden, 
+                       fecha_entrega_estimada AS fecha_entrega, 
+                       observaciones, subtotal, total, estado
                 FROM compras_ordenes
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -74,13 +68,15 @@ class ComprasOrdenModel extends Modelo
             return [];
         }
 
+        // Corregido: Seleccionamos los campos correctos de la BD (cantidad_solicitada, costo_unitario_pactado)
+        // Calculamos el subtotal al vuelo ya que no existe en la tabla detalle
         $detalleSql = 'SELECT d.id,
                               d.id_item,
                               i.sku,
                               i.nombre AS item_nombre,
-                              d.cantidad,
-                              d.costo_unitario,
-                              d.subtotal
+                              d.cantidad_solicitada AS cantidad,
+                              d.costo_unitario_pactado AS costo_unitario,
+                              (d.cantidad_solicitada * d.costo_unitario_pactado) AS subtotal
                        FROM compras_ordenes_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
                        WHERE d.id_orden = :id_orden
@@ -110,6 +106,10 @@ class ComprasOrdenModel extends Modelo
         try {
             $idOrden = (int) ($cabecera['id'] ?? 0);
             $estado = array_key_exists('estado', $cabecera) ? (int) $cabecera['estado'] : 0;
+            
+            // Preparar fecha de entrega (puede ser null)
+            $fechaEntrega = !empty($cabecera['fecha_entrega']) ? $cabecera['fecha_entrega'] : null;
+
             if ($idOrden > 0) {
                 $actual = $this->obtener($idOrden);
                 if ($actual === []) {
@@ -122,6 +122,7 @@ class ComprasOrdenModel extends Modelo
 
                 $sqlUpdate = 'UPDATE compras_ordenes
                               SET id_proveedor = :id_proveedor,
+                                  fecha_entrega_estimada = :fecha_entrega,
                                   observaciones = :observaciones,
                                   subtotal = :subtotal,
                                   total = :total,
@@ -131,14 +132,10 @@ class ComprasOrdenModel extends Modelo
                               WHERE id = :id
                                 AND deleted_at IS NULL';
 
-                if ($this->hasFechaEntregaColumn()) {
-                    $sqlUpdate = str_replace('SET id_proveedor = :id_proveedor,', 'SET id_proveedor = :id_proveedor,\n                                  fecha_entrega = :fecha_entrega,', $sqlUpdate);
-                }
-
                 $db->prepare($sqlUpdate)->execute([
                     'id' => $idOrden,
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
-                    'fecha_entrega' => $cabecera['fecha_entrega'] ?: null,
+                    'fecha_entrega' => $fechaEntrega,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'subtotal' => (float) $cabecera['subtotal'],
                     'total' => (float) $cabecera['total'],
@@ -146,20 +143,17 @@ class ComprasOrdenModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
+                // Borrado lógico del detalle anterior para reinsertar
                 $db->prepare('UPDATE compras_ordenes_detalle SET deleted_at = NOW(), deleted_by = :user WHERE id_orden = :id_orden AND deleted_at IS NULL')
                     ->execute(['user' => $userId, 'id_orden' => $idOrden]);
             } else {
                 $codigo = $this->generarCodigo($db);
-                $fechaOrdenColumn = $this->hasFechaOrdenColumn() ? 'fecha_orden,' : '';
-                $fechaOrdenValue = $this->hasFechaOrdenColumn() ? 'NOW(),' : '';
-                $fechaEntregaColumn = $this->hasFechaEntregaColumn() ? 'fecha_entrega,' : '';
-                $fechaEntregaValue = $this->hasFechaEntregaColumn() ? ':fecha_entrega,' : '';
 
                 $sqlInsert = 'INSERT INTO compras_ordenes (
                                 codigo,
                                 id_proveedor,
-                                ' . $fechaOrdenColumn . '
-                                ' . $fechaEntregaColumn . '
+                                fecha_emision,
+                                fecha_entrega_estimada,
                                 observaciones,
                                 subtotal,
                                 total,
@@ -171,8 +165,8 @@ class ComprasOrdenModel extends Modelo
                               ) VALUES (
                                 :codigo,
                                 :id_proveedor,
-                                ' . $fechaOrdenValue . '
-                                ' . $fechaEntregaValue . '
+                                NOW(),
+                                :fecha_entrega,
                                 :observaciones,
                                 :subtotal,
                                 :total,
@@ -183,32 +177,27 @@ class ComprasOrdenModel extends Modelo
                                 NOW()
                               )';
 
-                $paramsInsert = [
+                $db->prepare($sqlInsert)->execute([
                     'codigo' => $codigo,
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
+                    'fecha_entrega' => $fechaEntrega,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'subtotal' => (float) $cabecera['subtotal'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
                     'created_by' => $userId,
                     'updated_by' => $userId,
-                ];
-
-                if ($this->hasFechaEntregaColumn()) {
-                    $paramsInsert['fecha_entrega'] = $cabecera['fecha_entrega'] ?: null;
-                }
-
-                $db->prepare($sqlInsert)->execute($paramsInsert);
+                ]);
 
                 $idOrden = (int) $db->lastInsertId();
             }
 
+            // Inserción del detalle corregida (usando nombres de columna correctos y sin subtotal)
             $sqlDet = 'INSERT INTO compras_ordenes_detalle (
                             id_orden,
                             id_item,
-                            cantidad,
-                            costo_unitario,
-                            subtotal,
+                            cantidad_solicitada,
+                            costo_unitario_pactado,
                             created_by,
                             updated_by,
                             created_at,
@@ -218,7 +207,6 @@ class ComprasOrdenModel extends Modelo
                             :id_item,
                             :cantidad,
                             :costo_unitario,
-                            :subtotal,
                             :created_by,
                             :updated_by,
                             NOW(),
@@ -226,9 +214,11 @@ class ComprasOrdenModel extends Modelo
                        )';
 
             $stmtDet = $db->prepare($sqlDet);
+            
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $costo = (float) ($linea['costo_unitario'] ?? 0);
+                
                 if ($cantidad <= 0 || $costo < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o costo inválido.');
                 }
@@ -238,7 +228,6 @@ class ComprasOrdenModel extends Modelo
                     'id_item' => (int) ($linea['id_item'] ?? 0),
                     'cantidad' => $cantidad,
                     'costo_unitario' => $costo,
-                    'subtotal' => round($cantidad * $costo, 2),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -332,59 +321,5 @@ class ComprasOrdenModel extends Modelo
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM compras_ordenes')->fetchColumn() + 1;
         return sprintf('OC-%s-%05d', date('Ymd'), $correlativo);
-    }
-
-    private function fechaOrdenExpr(string $alias = ''): string
-    {
-        $prefix = $alias !== '' ? $alias . '.' : '';
-
-        return $this->hasFechaOrdenColumn() ? $prefix . 'fecha_orden' : $prefix . 'created_at';
-    }
-
-    private function hasFechaOrdenColumn(): bool
-    {
-        if ($this->hasFechaOrden !== null) {
-            return $this->hasFechaOrden;
-        }
-
-        $stmt = $this->db()->prepare('SELECT COUNT(*)
-                                    FROM information_schema.COLUMNS
-                                    WHERE TABLE_SCHEMA = DATABASE()
-                                      AND TABLE_NAME = :table_name
-                                      AND COLUMN_NAME = :column_name');
-        $stmt->execute([
-            'table_name' => 'compras_ordenes',
-            'column_name' => 'fecha_orden',
-        ]);
-        $this->hasFechaOrden = (int) $stmt->fetchColumn() > 0;
-
-        return $this->hasFechaOrden;
-    }
-
-    private function fechaEntregaExpr(string $alias = ''): string
-    {
-        $prefix = $alias !== '' ? $alias . '.' : '';
-
-        return $this->hasFechaEntregaColumn() ? $prefix . 'fecha_entrega' : 'NULL';
-    }
-
-    private function hasFechaEntregaColumn(): bool
-    {
-        if ($this->hasFechaEntrega !== null) {
-            return $this->hasFechaEntrega;
-        }
-
-        $stmt = $this->db()->prepare('SELECT COUNT(*)
-                                    FROM information_schema.COLUMNS
-                                    WHERE TABLE_SCHEMA = DATABASE()
-                                      AND TABLE_NAME = :table_name
-                                      AND COLUMN_NAME = :column_name');
-        $stmt->execute([
-            'table_name' => 'compras_ordenes',
-            'column_name' => 'fecha_entrega',
-        ]);
-        $this->hasFechaEntrega = (int) $stmt->fetchColumn() > 0;
-
-        return $this->hasFechaEntrega;
     }
 }

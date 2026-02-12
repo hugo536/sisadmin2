@@ -7,7 +7,7 @@ $almacenes = $almacenes ?? [];
 
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary'],
-    1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning text-dark'],
+    1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning text-dark'], // Opcional si usas flujo de 3 pasos
     2 => ['texto' => 'Aprobada', 'clase' => 'bg-primary'],
     3 => ['texto' => 'Recepcionada', 'clase' => 'bg-success'],
     9 => ['texto' => 'Anulada', 'clase' => 'bg-danger'],
@@ -46,7 +46,6 @@ $estadoLabels = [
                     <select class="form-select bg-light" id="filtroEstado">
                         <option value="">Estado</option>
                         <option value="0" <?php echo ($filtros['estado'] ?? '') === '0' ? 'selected' : ''; ?>>Borrador</option>
-                        <option value="1" <?php echo ($filtros['estado'] ?? '') === '1' ? 'selected' : ''; ?>>Pendiente</option>
                         <option value="2" <?php echo ($filtros['estado'] ?? '') === '2' ? 'selected' : ''; ?>>Aprobada</option>
                         <option value="3" <?php echo ($filtros['estado'] ?? '') === '3' ? 'selected' : ''; ?>>Recepcionada</option>
                         <option value="9" <?php echo ($filtros['estado'] ?? '') === '9' ? 'selected' : ''; ?>>Anulada</option>
@@ -65,12 +64,12 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm fade-in">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaCompras">
-                    <thead>
+                <table class="table align-middle mb-0 table-hover" id="tablaCompras">
+                    <thead class="bg-light">
                     <tr>
                         <th class="ps-4">Código</th>
                         <th>Proveedor</th>
-                        <th>Fecha</th>
+                        <th>Fecha Emisión</th>
                         <th class="text-end">Total</th>
                         <th class="text-center">Estado</th>
                         <th class="text-end pe-4">Acciones</th>
@@ -81,37 +80,47 @@ $estadoLabels = [
                         <?php foreach ($ordenes as $orden): ?>
                             <?php $estado = (int) ($orden['estado'] ?? 0); $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; ?>
                             <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>">
-                                <td class="ps-4 fw-semibold"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
+                                <td class="ps-4 fw-semibold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                 <td><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
                                 <td><?php echo e((string) ($orden['fecha_orden'] ?? '')); ?></td>
-                                <td class="text-end">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
-                                <td class="text-center"><span class="badge <?php echo e($badge['clase']); ?>"><?php echo e($badge['texto']); ?></span></td>
+                                <td class="text-end fw-bold">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
+                                <td class="text-center"><span class="badge rounded-pill <?php echo e($badge['clase']); ?>"><?php echo e($badge['texto']); ?></span></td>
                                 <td class="text-end pe-4">
                                     <div class="d-inline-flex align-items-center gap-1 acciones-compra">
+                                        
                                         <?php if ($estado === 0): ?>
-                                            <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar" title="Editar">
+                                            <button class="btn btn-sm btn-light text-primary border-0 btn-editar" title="Editar" data-bs-toggle="tooltip">
                                                 <i class="bi bi-pencil-square fs-5"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-light text-danger border-0 bg-transparent btn-anular" title="Anular">
-                                                <i class="bi bi-trash fs-5"></i>
-                                            </button>
-                                        <?php elseif ($estado === 1): ?>
-                                            <button class="btn btn-sm btn-light text-success border-0 bg-transparent btn-aprobar" title="Aprobar">
+                                            <button class="btn btn-sm btn-light text-success border-0 btn-aprobar" title="Aprobar Orden" data-bs-toggle="tooltip">
                                                 <i class="bi bi-check2-circle fs-5"></i>
                                             </button>
-                                        <?php elseif ($estado === 2): ?>
-                                            <button class="btn btn-sm btn-light text-info border-0 bg-transparent btn-recepcionar" title="Recibir mercadería">
-                                                <i class="bi bi-truck fs-5"></i>
+                                            <button class="btn btn-sm btn-light text-danger border-0 btn-anular" title="Anular" data-bs-toggle="tooltip">
+                                                <i class="bi bi-trash fs-5"></i>
                                             </button>
+                                        
+                                        <?php elseif ($estado === 2): ?>
+                                            <button class="btn btn-sm btn-light text-info border-0 btn-recepcionar" title="Recepcionar Mercadería" data-bs-toggle="tooltip">
+                                                <i class="bi bi-box-seam fs-5"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-light text-secondary border-0 btn-editar" title="Ver Detalle" data-bs-toggle="tooltip">
+                                                <i class="bi bi-eye fs-5"></i>
+                                            </button>
+
                                         <?php else: ?>
-                                            <span class="text-muted small">Sin acciones</span>
+                                            <button class="btn btn-sm btn-light text-secondary border-0 btn-editar" title="Ver Detalle" data-bs-toggle="tooltip">
+                                                <i class="bi bi-eye fs-5"></i>
+                                            </button>
                                         <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">No hay órdenes de compra registradas.</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            No se encontraron órdenes de compra.
+                        </td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -120,18 +129,19 @@ $estadoLabels = [
     </div>
 </div>
 
-<div class="modal fade" id="modalOrdenCompra" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalOrdenCompra" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="bi bi-receipt-cutoff me-2"></i>Orden de Compra</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body bg-light">
                 <form id="formOrdenCompra" class="row g-3" autocomplete="off">
                     <input type="hidden" id="ordenId" value="0">
+                    
                     <div class="col-md-6">
-                        <label class="form-label">Proveedor</label>
+                        <label class="form-label fw-bold">Proveedor <span class="text-danger">*</span></label>
                         <select id="idProveedor" class="form-select" required>
                             <option value="">Seleccione...</option>
                             <?php foreach ($proveedores as $proveedor): ?>
@@ -140,42 +150,55 @@ $estadoLabels = [
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Fecha de Entrega</label>
+                        <label class="form-label fw-bold">F. Entrega Estimada</label>
                         <input type="date" class="form-control" id="fechaEntrega">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Observaciones</label>
-                        <input type="text" class="form-control" id="observaciones" maxlength="180">
+                        <label class="form-label fw-bold">Observaciones</label>
+                        <input type="text" class="form-control" id="observaciones" maxlength="180" placeholder="Opcional">
                     </div>
 
                     <div class="col-12">
-                        <div class="table-responsive border rounded">
-                            <table class="table table-sm align-middle mb-0" id="tablaDetalleCompra">
-                                <thead class="table-light">
-                                <tr>
-                                    <th style="min-width:280px;">Ítem</th>
-                                    <th style="width: 140px;">Cantidad</th>
-                                    <th style="width: 160px;">Costo</th>
-                                    <th style="width: 160px;" class="text-end">Subtotal</th>
-                                    <th style="width: 80px;"></th>
-                                </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold text-muted">Detalle de Productos</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarFila">
+                                    <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0" id="tablaDetalleCompra">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th style="min-width:300px;" class="ps-3">Ítem / Producto</th>
+                                            <th style="width: 120px;">Cantidad</th>
+                                            <th style="width: 140px;">Costo Unit.</th>
+                                            <th style="width: 140px;" class="text-end">Subtotal</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                        <tfoot class="table-light">
+                                            <tr>
+                                                <td colspan="3" class="text-end fw-bold py-3">TOTAL ESTIMADO:</td>
+                                                <td class="text-end fw-bold py-3 fs-5 text-primary" id="ordenTotal">S/ 0.00</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" class="btn btn-white border mt-2" id="btnAgregarFila">
-                            <i class="bi bi-plus-circle me-2 text-primary"></i>Agregar ítem
-                        </button>
-                    </div>
-
-                    <div class="col-12 text-end">
-                        <h5 class="mb-0">Total: <span class="text-primary" id="ordenTotal">S/ 0.00</span></h5>
+                        <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i> Los costos deben incluir impuestos si aplica.</div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" id="btnGuardarOrden"><i class="bi bi-save me-2"></i>Guardar</button>
+                <button class="btn btn-light border" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-primary" id="btnGuardarOrden">
+                    <i class="bi bi-save me-2"></i>Guardar Borrador
+                </button>
             </div>
         </div>
     </div>
@@ -185,15 +208,21 @@ $estadoLabels = [
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Recepcionar Orden</h5>
+                <h5 class="modal-title"><i class="bi bi-box-seam me-2"></i>Recepcionar Mercadería</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info d-flex align-items-center" role="alert">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 me-2"></i>
+                    <div>
+                        Esta acción ingresará el stock al almacén y cerrará la orden de compra.
+                    </div>
+                </div>
                 <input type="hidden" id="recepcionOrdenId" value="0">
                 <div class="mb-3">
-                    <label class="form-label">Almacén de ingreso</label>
-                    <select id="recepcionAlmacen" class="form-select" required>
-                        <option value="">Seleccione...</option>
+                    <label class="form-label fw-bold">Almacén de Destino</label>
+                    <select id="recepcionAlmacen" class="form-select form-select-lg" required>
+                        <option value="">Seleccione almacén...</option>
                         <?php foreach ($almacenes as $almacen): ?>
                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                         <?php endforeach; ?>
@@ -202,8 +231,8 @@ $estadoLabels = [
             </div>
             <div class="modal-footer">
                 <button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-info text-white" id="btnConfirmarRecepcion">
-                    <i class="bi bi-check2-circle me-2"></i>Confirmar ingreso
+                <button class="btn btn-info text-white fw-bold" id="btnConfirmarRecepcion">
+                    <i class="bi bi-check-lg me-2"></i>Confirmar Ingreso
                 </button>
             </div>
         </div>
@@ -212,19 +241,32 @@ $estadoLabels = [
 
 <template id="templateFilaDetalle">
     <tr>
-        <td>
+        <td class="ps-3">
             <select class="form-select form-select-sm detalle-item" required>
-                <option value="">Seleccione un ítem...</option>
+                <option value="">Buscar ítem...</option>
                 <?php foreach ($items as $item): ?>
-                    <option value="<?php echo (int) ($item['id'] ?? 0); ?>"><?php echo e((string) ($item['sku'] ?? '') . ' - ' . (string) ($item['nombre'] ?? '')); ?></option>
+                    <option value="<?php echo (int) ($item['id'] ?? 0); ?>">
+                        <?php echo htmlspecialchars((string) ($item['sku'] ?? '') . ' - ' . (string) ($item['nombre'] ?? '')); ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </td>
-        <td><input type="number" class="form-control form-control-sm detalle-cantidad" min="0.01" step="0.01" value="1" required></td>
-        <td><input type="number" class="form-control form-control-sm detalle-costo" min="0" step="0.01" value="0" required></td>
-        <td class="text-end detalle-subtotal">S/ 0.00</td>
-        <td class="text-center"><button class="btn btn-sm btn-link text-danger btn-quitar-fila" type="button"><i class="bi bi-x-circle"></i></button></td>
+        <td>
+            <input type="number" class="form-control form-control-sm text-center detalle-cantidad" min="0.01" step="0.01" value="1" required>
+        </td>
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text border-end-0 text-muted">S/</span>
+                <input type="number" class="form-control border-start-0 text-end detalle-costo" min="0" step="0.01" value="0" required>
+            </div>
+        </td>
+        <td class="text-end align-middle fw-semibold detalle-subtotal">S/ 0.00</td>
+        <td class="text-center align-middle">
+            <button class="btn btn-sm btn-link text-danger p-0 btn-quitar-fila" type="button" title="Quitar">
+                <i class="bi bi-x-circle-fill fs-6"></i>
+            </button>
+        </td>
     </tr>
 </template>
 
-<script src="<?php echo e(base_url()); ?>/js/compras.js"></script>
+<script src="<?php echo asset_url('js/compras.js'); ?>"></script>

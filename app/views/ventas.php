@@ -17,6 +17,11 @@ $estadoLabels = [
      data-url-aprobar="<?php echo e(route_url('ventas/aprobar')); ?>"
      data-url-anular="<?php echo e(route_url('ventas/anular')); ?>"
      data-url-despachar="<?php echo e(route_url('ventas/despachar')); ?>">
+     data-url-index="<?php echo e(route_url('venta/index')); ?>"
+     data-url-guardar="<?php echo e(route_url('venta/guardar')); ?>"
+     data-url-aprobar="<?php echo e(route_url('venta/aprobar')); ?>"
+     data-url-anular="<?php echo e(route_url('venta/anular')); ?>"
+     data-url-despachar="<?php echo e(route_url('venta/despachar')); ?>">
 
     <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
         <div class="flex-grow-1">
