@@ -127,6 +127,39 @@
         });
     }
 
+
+    function initSweetConfirmForms() {
+        document.querySelectorAll('.js-swal-confirm').forEach((form) => {
+            form.addEventListener('submit', async (event) => {
+                if (form.dataset.confirmed === '1') {
+                    form.dataset.confirmed = '0';
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (typeof Swal === 'undefined' || typeof Swal.fire !== 'function') {
+                    console.warn('SweetAlert2 no está disponible para confirmar la acción.');
+                    return;
+                }
+
+                const result = await Swal.fire({
+                    icon: 'warning',
+                    title: form.dataset.confirmTitle || '¿Confirmar acción?',
+                    text: form.dataset.confirmText || 'Esta acción no se puede deshacer.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                });
+
+                if (!result.isConfirmed) return;
+                form.dataset.confirmed = '1';
+                form.requestSubmit();
+            });
+        });
+    }
+
     // =========================================================================
     // LÓGICA DE ESTADO LABORAL (Reglas de Negocio)
     // =========================================================================
@@ -1393,6 +1426,7 @@
         initStatusSwitch();
         initDocumentoValidation();
         initMaestrosManagement(); 
+        initSweetConfirmForms();
 
         const crearBtn = document.getElementById('crearGuardarBtn');
         if (crearBtn) {

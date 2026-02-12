@@ -221,7 +221,7 @@
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
 
-                                    <form method="post" class="delete-form d-inline m-0" onsubmit="return confirm('¿Eliminar este tercero?');">
+                                    <form method="post" class="delete-form d-inline m-0 js-swal-confirm" data-confirm-title="¿Eliminar tercero?" data-confirm-text="Esta acción no se puede deshacer.">
                                         <input type="hidden" name="accion" value="eliminar">
                                         <input type="hidden" name="id" value="<?php echo (int) $tercero['id']; ?>">
                                         <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">

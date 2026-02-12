@@ -15,6 +15,37 @@
         return `${url.pathname}${url.search}`;
     }
 
+
+    function showError(message) {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            return window.Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: message || 'Ocurrió un error inesperado.'
+            });
+        }
+        console.error(message);
+        return Promise.resolve();
+    }
+
+    async function confirmAction(options = {}) {
+        const { title = '¿Confirmar acción?', text = 'Esta acción no se puede deshacer.' } = options;
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            const result = await window.Swal.fire({
+                icon: 'warning',
+                title,
+                text,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545'
+            });
+            return !!result.isConfirmed;
+        }
+        console.warn(title);
+        return false;
+    }
+
     async function postAction(payload) {
         const body = new URLSearchParams(payload);
         const response = await fetch(getItemsEndpoint(), {
@@ -409,7 +440,7 @@
                     form.reset();
                     window.location.reload();
                 } catch (error) {
-                    alert(error.message);
+                    showError(error.message);
                 }
             });
         };
@@ -448,19 +479,20 @@
                 await refreshAtributosSelectores();
                 window.location.reload();
             } catch (error) {
-                alert(error.message);
+                showError(error.message);
             }
         });
 
         document.querySelectorAll('.js-eliminar-atributo').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                if (!confirm('¿Eliminar este registro?')) return;
+                const confirmed = await confirmAction({ title: '¿Eliminar este registro?', text: 'Esta acción no se puede deshacer.' });
+                if (!confirmed) return;
                 try {
                     await postAction({ accion: btn.dataset.accion, id: btn.dataset.id });
                     await refreshAtributosSelectores();
                     window.location.reload();
                 } catch (error) {
-                    alert(error.message);
+                    showError(error.message);
                 }
             });
         });
@@ -477,8 +509,26 @@
                     await refreshAtributosSelectores();
                 } catch (error) {
                     input.checked = !input.checked;
-                    alert(error.message);
+                    showError(error.message);
                 }
+            });
+        });
+
+
+        document.querySelectorAll('.js-swal-confirm').forEach((form) => {
+            form.addEventListener('submit', async (event) => {
+                if (form.dataset.confirmed === '1') {
+                    form.dataset.confirmed = '0';
+                    return;
+                }
+                event.preventDefault();
+                const confirmed = await confirmAction({
+                    title: form.dataset.confirmTitle || '¿Confirmar acción?',
+                    text: form.dataset.confirmText || 'Esta acción no se puede deshacer.'
+                });
+                if (!confirmed) return;
+                form.dataset.confirmed = '1';
+                form.requestSubmit();
             });
         });
 

@@ -246,7 +246,7 @@
                             text: 'Por favor seleccione Departamento, Provincia y Distrito.'
                         });
                     } else {
-                        alert('Por favor seleccione Departamento, Provincia y Distrito.');
+                        console.warn('Por favor seleccione Departamento, Provincia y Distrito.');
                     }
                     return; // Detiene la ejecución aquí
                 }
