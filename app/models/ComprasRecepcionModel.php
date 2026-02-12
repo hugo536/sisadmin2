@@ -90,25 +90,19 @@ class ComprasRecepcionModel extends Modelo
             $sqlMov = 'INSERT INTO inventario_movimientos (
                             tipo_movimiento,
                             id_item,
+                            id_almacen_origen,
                             id_almacen_destino,
                             cantidad,
                             referencia,
-                            costo_unitario,
-                            costo_total,
-                            created_by,
-                            created_at,
-                            updated_at
+                            created_by
                        ) VALUES (
                             :tipo_movimiento,
                             :id_item,
+                            :id_almacen_origen,
                             :id_almacen_destino,
                             :cantidad,
                             :referencia,
-                            :costo_unitario,
-                            :costo_total,
-                            :created_by,
-                            NOW(),
-                            NOW()
+                            :created_by
                        )';
             $stmtMov = $db->prepare($sqlMov);
 
@@ -125,7 +119,6 @@ class ComprasRecepcionModel extends Modelo
                 // Si la recepción es parcial, la lógica del frontend debe enviar 'cantidad_recibir'
                 $cantidad = (float) $linea['cantidad']; 
                 $costo = (float) $linea['costo_unitario'];
-                $subtotal = round($cantidad * $costo, 2);
                 
                 // Campos opcionales
                 $lote = isset($linea['lote']) ? $linea['lote'] : null;
@@ -147,11 +140,10 @@ class ComprasRecepcionModel extends Modelo
                 $stmtMov->execute([
                     'tipo_movimiento' => 'INI', // O 'COM' (Compra) según tu lógica
                     'id_item' => (int) $linea['id_item'],
+                    'id_almacen_origen' => null,
                     'id_almacen_destino' => $idAlmacen,
                     'cantidad' => $cantidad,
                     'referencia' => 'Recepción ' . $codigo . ' - OC ' . (string) $orden['codigo'],
-                    'costo_unitario' => $costo,
-                    'costo_total' => $subtotal,
                     'created_by' => $userId,
                 ]);
 
