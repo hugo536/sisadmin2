@@ -485,10 +485,15 @@
 
         document.querySelectorAll('.js-eliminar-atributo').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const confirmed = await confirmAction({ title: '¿Eliminar este registro?', text: 'Esta acción no se puede deshacer.' });
+                const confirmed = await confirmAction({ title: '¿Estás seguro?', text: 'Esta acción no se puede deshacer.' });
                 if (!confirmed) return;
                 try {
-                    await postAction({ accion: btn.dataset.accion, id: btn.dataset.id });
+                    const result = await postAction({ accion: btn.dataset.accion, id: btn.dataset.id });
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '¡Eliminado!',
+                        text: result?.mensaje || 'Registro eliminado correctamente.'
+                    });
                     await refreshAtributosSelectores();
                     window.location.reload();
                 } catch (error) {
