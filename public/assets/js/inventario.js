@@ -75,14 +75,24 @@
   async function eliminarItemInventario(button) {
     const id = Number(button.dataset.id || '0');
     const nombreItem = (button.dataset.item || 'este registro').trim();
+    const stockActual = Number(button.dataset.stock || '0');
     if (id <= 0) {
       await Swal.fire({ icon: 'error', title: 'Error', text: 'No se encontró el ítem a eliminar.' });
       return;
     }
 
+    if (stockActual > 0) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'No se puede eliminar',
+        text: `No se puede eliminar porque este ítem tiene stock físico (${stockActual.toFixed(4)} unidades). Realiza un ajuste de salida primero`
+      });
+      return;
+    }
+
     const confirmacion = await Swal.fire({
       icon: 'warning',
-      title: '¿Estás seguro?',
+      title: '¿Estás seguro de eliminar este registro vacío?',
       text: `Se eliminará ${nombreItem}. Esta acción no se puede deshacer.`,
       showCancelButton: true,
       confirmButtonText: 'Sí, eliminar',

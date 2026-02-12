@@ -185,6 +185,11 @@ class InventarioModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
+        if (!empty($filtros['lote'])) {
+            $sql .= ' AND m.referencia LIKE :lote';
+            $params['lote'] = '%Lote: ' . (string) $filtros['lote'] . '%';
+        }
+
         $sql .= ' ORDER BY m.created_at DESC LIMIT 1000';
 
         $stmt = $this->db()->prepare($sql);

@@ -181,18 +181,17 @@ $hoy = new DateTimeImmutable('today');
                                                        <?php echo tiene_permiso('items.editar') ? '' : 'disabled'; ?>>
                                             </div>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
-                                            <?php if (tiene_permiso('items.editar')): ?>
-                                            <a href="?ruta=items"
+                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>&lote=<?php echo rawurlencode($loteActual); ?>"
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent"
-                                               title="Editar datos del ítem">
-                                                <i class="bi bi-pencil-square fs-5"></i>
+                                               title="Ver movimientos del lote">
+                                                <i class="bi bi-eye fs-5"></i>
                                             </a>
-                                            <?php endif; ?>
                                             <?php if (tiene_permiso('items.eliminar')): ?>
                                             <button type="button"
                                                     class="btn btn-sm btn-light text-danger border-0 bg-transparent btn-eliminar-item-inventario"
                                                     data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                                     data-item="<?php echo e($itemNombre); ?>"
+                                                    data-stock="<?php echo number_format($stockActualItem, 4, '.', ''); ?>"
                                                     title="Eliminar">
                                                 <i class="bi bi-trash fs-5"></i>
                                             </button>
