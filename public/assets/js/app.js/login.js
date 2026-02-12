@@ -18,7 +18,7 @@
         }
       });
     } else {
-      alert(mensaje);
+      console.error(mensaje);
     }
   }
 

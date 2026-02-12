@@ -134,7 +134,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
-                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ítem?');">
+                                        <form method="post" class="d-inline m-0 js-swal-confirm" data-confirm-title="¿Eliminar ítem?" data-confirm-text="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="accion" value="eliminar">
                                             <input type="hidden" name="id" value="<?php echo (int) $item['id']; ?>">
                                             <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent">
@@ -446,7 +446,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                                             data-estado="<?php echo (int) ($categoria['estado'] ?? 1); ?>">
                                             Editar
                                         </button>
-                                        <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta categoría?');">
+                                        <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar categoría?" data-confirm-text="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="accion" value="eliminar_categoria">
                                             <input type="hidden" name="id" value="<?php echo (int) $categoria['id']; ?>">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
