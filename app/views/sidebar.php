@@ -130,6 +130,11 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
+            <?php if (tiene_permiso('ventas.ver')): ?>
+                <a class="sidebar-link<?php echo $activo('ventas'); ?>" href="<?php echo e(route_url('ventas')); ?>">
+                    <i class="bi bi-bag-check"></i> <span>Ventas</span>
+                </a>
+            <?php endif; ?>
             <?php if (tiene_permiso('compras.ver')): ?>
                 <a class="sidebar-link<?php echo $activo('compras'); ?>" href="<?php echo e(route_url('compras')); ?>">
                     <i class="bi bi-cart-check"></i> <span>Compras</span>
