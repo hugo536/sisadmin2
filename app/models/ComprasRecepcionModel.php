@@ -26,46 +26,48 @@ class ComprasRecepcionModel extends Modelo
 
             $codigo = $this->generarCodigoRecepcion($db);
 
+            // INSERT Cabecera Recepción
+            // Corregido: id_orden_compra en lugar de id_orden. Sin campo 'total'.
             $sqlRecep = 'INSERT INTO compras_recepciones (
                             codigo,
-                            id_orden,
+                            id_orden_compra,
                             id_almacen,
                             fecha_recepcion,
-                            total,
                             created_by,
                             updated_by,
                             created_at,
                             updated_at
-                         ) VALUES (
+                          ) VALUES (
                             :codigo,
                             :id_orden,
                             :id_almacen,
                             NOW(),
-                            :total,
                             :created_by,
                             :updated_by,
                             NOW(),
                             NOW()
-                         )';
+                          )';
 
             $stmtRecep = $db->prepare($sqlRecep);
             $stmtRecep->execute([
                 'codigo' => $codigo,
                 'id_orden' => $idOrden,
                 'id_almacen' => $idAlmacen,
-                'total' => (float) $orden['total'],
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
 
             $idRecepcion = (int) $db->lastInsertId();
 
+            // INSERT Detalle Recepción
+            // Corregido: nombres de columnas (cantidad_recibida, costo_unitario_real) y sin subtotal.
             $sqlDet = 'INSERT INTO compras_recepciones_detalle (
                         id_recepcion,
                         id_item,
-                        cantidad,
-                        costo_unitario,
-                        subtotal,
+                        cantidad_recibida,
+                        costo_unitario_real,
+                        lote,
+                        fecha_vencimiento,
                         created_by,
                         updated_by,
                         created_at,
@@ -75,7 +77,8 @@ class ComprasRecepcionModel extends Modelo
                         :id_item,
                         :cantidad,
                         :costo_unitario,
-                        :subtotal,
+                        :lote,
+                        :fecha_vencimiento,
                         :created_by,
                         :updated_by,
                         NOW(),
@@ -83,6 +86,7 @@ class ComprasRecepcionModel extends Modelo
                        )';
             $stmtDet = $db->prepare($sqlDet);
 
+            // INSERT Movimiento Inventario
             $sqlMov = 'INSERT INTO inventario_movimientos (
                             tipo_movimiento,
                             id_item,
@@ -108,23 +112,40 @@ class ComprasRecepcionModel extends Modelo
                        )';
             $stmtMov = $db->prepare($sqlMov);
 
+            // UPDATE Orden de Compra Detalle (Para actualizar lo recibido)
+            $sqlUpdateOrdenDet = 'UPDATE compras_ordenes_detalle 
+                                  SET cantidad_recibida = cantidad_recibida + :cantidad 
+                                  WHERE id_orden = :id_orden AND id_item = :id_item';
+            $stmtUpdateOrdenDet = $db->prepare($sqlUpdateOrdenDet);
+
+
             foreach ($detalle as $linea) {
-                $cantidad = (float) $linea['cantidad'];
+                // Mapeo de datos (asumiendo que $linea viene con los datos correctos del frontend o de la orden)
+                // Nota: Aquí se asume que recibimos todo lo de la orden.
+                // Si la recepción es parcial, la lógica del frontend debe enviar 'cantidad_recibir'
+                $cantidad = (float) $linea['cantidad']; 
                 $costo = (float) $linea['costo_unitario'];
                 $subtotal = round($cantidad * $costo, 2);
+                
+                // Campos opcionales
+                $lote = isset($linea['lote']) ? $linea['lote'] : null;
+                $fechaVencimiento = isset($linea['fecha_vencimiento']) ? $linea['fecha_vencimiento'] : null;
 
+                // 1. Guardar detalle de recepción
                 $stmtDet->execute([
                     'id_recepcion' => $idRecepcion,
                     'id_item' => (int) $linea['id_item'],
                     'cantidad' => $cantidad,
                     'costo_unitario' => $costo,
-                    'subtotal' => $subtotal,
+                    'lote' => $lote,
+                    'fecha_vencimiento' => $fechaVencimiento,
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
 
+                // 2. Generar Movimiento (Kardex)
                 $stmtMov->execute([
-                    'tipo_movimiento' => 'INI',
+                    'tipo_movimiento' => 'INI', // O 'COM' (Compra) según tu lógica
                     'id_item' => (int) $linea['id_item'],
                     'id_almacen_destino' => $idAlmacen,
                     'cantidad' => $cantidad,
@@ -134,9 +155,19 @@ class ComprasRecepcionModel extends Modelo
                     'created_by' => $userId,
                 ]);
 
+                // 3. Actualizar Stock Físico
                 $this->actualizarStock($db, (int) $linea['id_item'], $idAlmacen, $cantidad);
+
+                // 4. Actualizar acumulado recibido en la Orden de Compra
+                $stmtUpdateOrdenDet->execute([
+                    'cantidad' => $cantidad,
+                    'id_orden' => $idOrden,
+                    'id_item' => (int) $linea['id_item']
+                ]);
             }
 
+            // Cambiar estado de Orden a 3 (Recepcionado / Cerrado)
+            // Nota: En un sistema más complejo, validarías si ya se recibió todo antes de cerrar la orden.
             $db->prepare('UPDATE compras_ordenes SET estado = 3, updated_by = :user, updated_at = NOW() WHERE id = :id_orden AND deleted_at IS NULL')
                 ->execute(['user' => $userId, 'id_orden' => $idOrden]);
 
@@ -193,7 +224,9 @@ class ComprasRecepcionModel extends Modelo
 
     private function obtenerDetalleOrden(PDO $db, int $idOrden): array
     {
-        $sql = 'SELECT id_item, cantidad, costo_unitario
+        // Se corrige para traer cantidad_solicitada como 'cantidad' y costo_unitario_pactado como 'costo_unitario'
+        // para mantener compatibilidad con el loop de inserción
+        $sql = 'SELECT id_item, cantidad_solicitada as cantidad, costo_unitario_pactado as costo_unitario
                 FROM compras_ordenes_detalle
                 WHERE id_orden = :id_orden
                   AND deleted_at IS NULL
