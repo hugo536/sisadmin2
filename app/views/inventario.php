@@ -230,6 +230,7 @@ $hoy = new DateTimeImmutable('today');
                             <option value="CON">CON - Consumo</option>
                         </select>
                     </div>
+                    
                     <div class="col-md-6">
                         <label for="almacenMovimiento" class="form-label">Almacén</label>
                         <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
@@ -239,6 +240,7 @@ $hoy = new DateTimeImmutable('today');
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                     <div class="col-md-6 d-none" id="grupoAlmacenDestino">
                         <label for="almacenDestinoMovimiento" class="form-label">Almacén destino</label>
                         <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
@@ -248,39 +250,59 @@ $hoy = new DateTimeImmutable('today');
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                     <div class="col-md-6 position-relative">
                         <label for="itemMovimiento" class="form-label">Ítem (SKU / Nombre)</label>
-                        <input type="text" id="itemMovimiento" class="form-control" list="listaItemsInventario" placeholder="Buscar por SKU o nombre" required>
+                        <input type="text" id="itemMovimiento" class="form-control" list="listaItemsInventario" placeholder="Buscar..." required>
                         <input type="hidden" id="idItemMovimiento" name="id_item" required>
                         <datalist id="listaItemsInventario">
                             <?php foreach ($items as $item): ?>
-                                <option data-id="<?php echo (int) ($item['id'] ?? 0); ?>" data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>" data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>" value="<?php echo e((string) ($item['sku'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>"></option>
+                                <option 
+                                    data-id="<?php echo (int) ($item['id'] ?? 0); ?>" 
+                                    data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>" 
+                                    data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>" 
+                                    value="<?php echo e((string) ($item['sku'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>">
+                                </option>
                             <?php endforeach; ?>
                         </datalist>
-                        <div id="sugerenciasItemsInventario" class="list-group position-absolute w-100 mt-1 d-none" style="z-index: 1060;"></div>
                     </div>
+
                     <div class="col-md-6">
                         <label for="cantidadMovimiento" class="form-label">Cantidad</label>
                         <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
                         <div id="stockDisponibleHint" class="form-text text-muted"></div>
                     </div>
-                    <div class="col-md-6 d-none" id="grupoLoteMovimiento">
-                        <label for="loteMovimiento" class="form-label">Lote</label>
-                        <input type="text" class="form-control" id="loteMovimiento" name="lote" maxlength="100" placeholder="Código de lote">
+
+                    <div class="col-md-6 d-none" id="grupoLoteInput">
+                        <label for="loteMovimientoInput" class="form-label">Nuevo Lote</label>
+                        <input type="text" class="form-control" id="loteMovimientoInput" maxlength="100" placeholder="Código de lote nuevo">
                     </div>
+
+                    <div class="col-md-6 d-none" id="grupoLoteSelect">
+                        <label for="loteMovimientoSelect" class="form-label">Seleccionar Lote</label>
+                        <select class="form-select" id="loteMovimientoSelect">
+                            <option value="">Seleccione lote...</option>
+                        </select>
+                        <div class="form-text small text-warning d-none" id="msgSinLotes">Sin lotes en este almacén.</div>
+                    </div>
+
                     <div class="col-md-6 d-none" id="grupoVencimientoMovimiento">
                         <label for="vencimientoMovimiento" class="form-label">Fecha de vencimiento</label>
                         <input type="date" class="form-control" id="vencimientoMovimiento" name="fecha_vencimiento">
                     </div>
+
                     <div class="col-md-6">
                         <label for="costoUnitarioMovimiento" class="form-label">Costo unitario</label>
                         <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                     </div>
+
                     <div class="col-12">
                         <label for="referenciaMovimiento" class="form-label">Referencia</label>
                         <input type="text" class="form-control" id="referenciaMovimiento" name="referencia" maxlength="255" placeholder="N° documento / comentario">
-                        <div class="small text-muted mt-1">Salidas sin lote específico usan FEFO: primero vence, primero sale.</div>
                     </div>
+
+                    <input type="hidden" name="lote" id="loteFinalEnviar">
+
                     <div class="col-12 d-flex justify-content-end gap-2 pt-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary">Guardar movimiento</button>

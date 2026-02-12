@@ -5,6 +5,7 @@ class InventarioModel extends Modelo
 {
     public function obtenerStock(): array
     {
+        // CORRECCIÓN PRINCIPAL: Ahora la subconsulta de lotes se filtra por 'a.id' (el almacén actual de la fila)
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
                        COALESCE(NULLIF(TRIM(i.nombre), \'\'), NULLIF(TRIM(i.descripcion), \'\')) AS item_nombre,
@@ -21,6 +22,7 @@ class InventarioModel extends Modelo
                            SELECT l.lote
                            FROM inventario_lotes l
                            WHERE l.id_item = i.id
+                             AND l.id_almacen = a.id  -- AHORA SÍ: Lote específico de este almacén
                              AND l.stock_lote > 0
                            ORDER BY (l.fecha_vencimiento IS NULL) ASC,
                                     l.fecha_vencimiento ASC,
@@ -31,6 +33,7 @@ class InventarioModel extends Modelo
                            SELECT MIN(l.fecha_vencimiento)
                            FROM inventario_lotes l
                            WHERE l.id_item = i.id
+                             AND l.id_almacen = a.id  -- AHORA SÍ: Vencimiento específico de este almacén
                              AND l.stock_lote > 0
                              AND l.fecha_vencimiento IS NOT NULL
                        ) AS proximo_vencimiento
@@ -214,21 +217,38 @@ class InventarioModel extends Modelo
                 'created_by' => $createdBy,
             ]);
 
+            // LÓGICA ACTUALIZADA PARA MANEJAR LOTES POR ALMACÉN
+
             if (in_array($tipo, ['INI', 'AJ+'], true)) {
                 $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
-                $this->incrementarStockLote($db, $idItem, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
+                // Ahora pasamos el ID del almacén destino
+                $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
             }
 
             if (in_array($tipo, ['AJ-', 'CON'], true)) {
                 $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
                 $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
-                $this->decrementarStockLote($db, $idItem, $lote, $cantidad);
+                // Ahora pasamos el ID del almacén origen para descontar del lote correcto
+                $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
             }
 
             if ($tipo === 'TRF') {
                 $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
+                
+                // 1. Sacar de Origen
                 $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
+                $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
+                
+                // 2. Ingresar a Destino (La transferencia mueve el lote tal cual)
                 $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
+                
+                // NOTA: En transferencia, mantenemos el vencimiento original del lote si ya existe,
+                // si es nuevo en destino, deberíamos saber el vencimiento. 
+                // Aquí asumimos que el lote se mueve con sus propiedades.
+                // Idealmente deberías recuperar el vencimiento del lote origen si no viene en el form.
+                $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idItem, $idAlmacenOrigen, $lote);
+                
+                $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
             }
 
             $idMovimiento = (int) $db->lastInsertId();
@@ -263,27 +283,6 @@ class InventarioModel extends Modelo
         }
     }
 
-    private function validarItemControlaStock(PDO $db, int $idItem): void
-    {
-        $sql = 'SELECT controla_stock
-                FROM items
-                WHERE id = :id_item
-                LIMIT 1';
-
-        $stmt = $db->prepare($sql);
-        $stmt->execute(['id_item' => $idItem]);
-
-        $controlaStock = $stmt->fetchColumn();
-
-        if ($controlaStock === false) {
-            throw new RuntimeException('El ítem seleccionado no existe.');
-        }
-
-        if ((int) $controlaStock !== 1) {
-            throw new RuntimeException('El ítem seleccionado no controla stock.');
-        }
-    }
-
     private function obtenerConfiguracionItem(PDO $db, int $idItem): array
     {
         $sql = 'SELECT controla_stock, requiere_lote, requiere_vencimiento
@@ -306,14 +305,27 @@ class InventarioModel extends Modelo
         return $item;
     }
 
-    private function incrementarStockLote(PDO $db, int $idItem, string $lote, ?string $fechaVencimiento, float $cantidad): void
+    // NUEVO HELPER PARA OBTENER VENCIMIENTO EN TRANSFERENCIAS
+    private function obtenerVencimientoLote(PDO $db, int $idItem, int $idAlmacen, string $lote): ?string
+    {
+        if ($lote === '') return null;
+        
+        $sql = 'SELECT fecha_vencimiento FROM inventario_lotes 
+                WHERE id_item = :id_item AND id_almacen = :id_almacen AND lote = :lote LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_item' => $idItem, 'id_almacen' => $idAlmacen, 'lote' => $lote]);
+        return $stmt->fetchColumn() ?: null;
+    }
+
+    // AHORA RECIBE ID_ALMACEN
+    private function incrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, ?string $fechaVencimiento, float $cantidad): void
     {
         if ($lote === '') {
             return;
         }
 
-        $sql = 'INSERT INTO inventario_lotes (id_item, lote, fecha_vencimiento, stock_lote)
-                VALUES (:id_item, :lote, :fecha_vencimiento, :stock_lote)
+        $sql = 'INSERT INTO inventario_lotes (id_item, id_almacen, lote, fecha_vencimiento, stock_lote)
+                VALUES (:id_item, :id_almacen, :lote, :fecha_vencimiento, :stock_lote)
                 ON DUPLICATE KEY UPDATE
                     stock_lote = stock_lote + VALUES(stock_lote),
                     fecha_vencimiento = COALESCE(VALUES(fecha_vencimiento), fecha_vencimiento)';
@@ -321,28 +333,35 @@ class InventarioModel extends Modelo
         $stmt = $db->prepare($sql);
         $stmt->execute([
             'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
             'lote' => $lote,
             'fecha_vencimiento' => $fechaVencimiento,
             'stock_lote' => $cantidad,
         ]);
     }
 
-    private function decrementarStockLote(PDO $db, int $idItem, string $lote, float $cantidad): void
+    // AHORA RECIBE ID_ALMACEN PARA DESCONTAR DEL LUGAR CORRECTO
+    private function decrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad): void
     {
         if ($lote !== '') {
-            $this->decrementarStockLoteEspecifico($db, $idItem, $lote, $cantidad);
+            $this->decrementarStockLoteEspecifico($db, $idItem, $idAlmacen, $lote, $cantidad);
             return;
         }
 
+        // Si no se especifica lote, aplicamos FIFO pero SOLO dentro del almacén origen
         $pendiente = $cantidad;
         $sql = 'SELECT lote, stock_lote
                 FROM inventario_lotes
                 WHERE id_item = :id_item
+                  AND id_almacen = :id_almacen
                   AND stock_lote > 0
                 ORDER BY CASE WHEN fecha_vencimiento IS NULL THEN 1 ELSE 0 END, fecha_vencimiento ASC, id ASC';
 
         $stmt = $db->prepare($sql);
-        $stmt->execute(['id_item' => $idItem]);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_almacen' => $idAlmacen
+        ]);
         $lotes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($lotes as $loteItem) {
@@ -356,46 +375,51 @@ class InventarioModel extends Modelo
             }
 
             $consumo = min($stockLote, $pendiente);
-            $this->decrementarStockLoteEspecifico($db, $idItem, (string) ($loteItem['lote'] ?? ''), $consumo);
+            $this->decrementarStockLoteEspecifico($db, $idItem, $idAlmacen, (string) ($loteItem['lote'] ?? ''), $consumo);
             $pendiente -= $consumo;
         }
 
         if ($pendiente > 0) {
-            throw new RuntimeException('Stock de lotes insuficiente para realizar la salida.');
+            throw new RuntimeException('Stock de lotes insuficiente en este almacén para realizar la salida.');
         }
     }
 
-    private function decrementarStockLoteEspecifico(PDO $db, int $idItem, string $lote, float $cantidad): void
+    private function decrementarStockLoteEspecifico(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad): void
     {
         if ($lote === '') {
             throw new RuntimeException('Debe seleccionar un lote válido para la salida.');
         }
 
+        // Validación estricta por almacén
         $sqlStock = 'SELECT stock_lote
                      FROM inventario_lotes
                      WHERE id_item = :id_item
+                       AND id_almacen = :id_almacen
                        AND lote = :lote
                      LIMIT 1';
         $stmtStock = $db->prepare($sqlStock);
         $stmtStock->execute([
             'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
             'lote' => $lote,
         ]);
         $stockLote = (float) ($stmtStock->fetchColumn() ?: 0);
 
         if ($stockLote < $cantidad) {
-            throw new RuntimeException('Stock insuficiente en el lote seleccionado.');
+            throw new RuntimeException('Stock insuficiente en el lote seleccionado de este almacén.');
         }
 
         $sql = 'UPDATE inventario_lotes
                 SET stock_lote = stock_lote - :cantidad
                 WHERE id_item = :id_item
+                  AND id_almacen = :id_almacen
                   AND lote = :lote';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
             'cantidad' => $cantidad,
             'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
             'lote' => $lote,
         ]);
     }

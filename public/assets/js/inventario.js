@@ -1,23 +1,39 @@
 (function () {
   'use strict';
 
+  // --- REFERENCIAS AL DOM ---
   const form = document.getElementById('formMovimientoInventario');
   const modalEl = document.getElementById('modalMovimientoInventario');
+  
+  // Selects principales
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
+  
+  // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
   const almacenDestino = document.getElementById('almacenDestinoMovimiento');
+  
+  // Ítem
   const itemInput = document.getElementById('itemMovimiento');
   const itemIdInput = document.getElementById('idItemMovimiento');
-  const itemList = document.getElementById('listaItemsInventario');
-  const sugerenciasItems = document.getElementById('sugerenciasItemsInventario');
-  const grupoLote = document.getElementById('grupoLoteMovimiento');
-  const inputLote = document.getElementById('loteMovimiento');
+  const itemList = document.getElementById('listaItemsInventario'); // Datalist
+  const sugerenciasItems = document.getElementById('sugerenciasItemsInventario'); // Div sugerencias
+  
+  // Lotes (NUEVA LÓGICA)
+  const grupoLoteInput = document.getElementById('grupoLoteInput');
+  const inputLoteNuevo = document.getElementById('loteMovimientoInput');
+  const grupoLoteSelect = document.getElementById('grupoLoteSelect');
+  const selectLoteExistente = document.getElementById('loteMovimientoSelect');
+  const msgSinLotes = document.getElementById('msgSinLotes');
+  const loteFinalEnviar = document.getElementById('loteFinalEnviar'); // Hidden
+  
+  // Vencimiento y Costo
   const grupoVencimiento = document.getElementById('grupoVencimientoMovimiento');
   const inputVencimiento = document.getElementById('vencimientoMovimiento');
   const cantidadInput = document.getElementById('cantidadMovimiento');
   const stockHint = document.getElementById('stockDisponibleHint');
 
+  // Filtros de la tabla principal
   const searchInput = document.getElementById('inventarioSearch');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const filtroCriticidad = document.getElementById('inventarioFiltroCriticidad');
@@ -25,6 +41,7 @@
   const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
+  // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
 
   async function toggleEstadoItemInventario(switchInput) {
     const id = Number(switchInput.dataset.id || '0');
@@ -48,51 +65,12 @@
       }
     } catch (error) {
       switchInput.checked = !switchInput.checked;
-      Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo actualizar el estado.' });
-    }
-  }
-
-  async function eliminarItemInventario(button) {
-    const id = Number(button.dataset.id || '0');
-    const nombre = (button.dataset.item || 'este producto').trim();
-    if (id <= 0) return;
-
-    const confirmacion = await Swal.fire({
-      icon: 'warning',
-      title: '¿Eliminar producto?',
-      text: `Se eliminará ${nombre} y ya no estará disponible.`,
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (!confirmacion.isConfirmed) return;
-
-    const data = new FormData();
-    data.append('accion', 'eliminar');
-    data.append('id', String(id));
-
-    try {
-      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-        body: data
-      });
-      const result = await response.json();
-      if (!response.ok || !result || !result.ok) {
-        throw new Error((result && result.mensaje) || 'No se pudo eliminar el producto.');
-      }
-
-      document.querySelectorAll(`tr[data-item-id="${id}"]`).forEach((row) => row.remove());
-      await Swal.fire({ icon: 'success', title: 'Producto eliminado', text: result.mensaje || 'El producto fue eliminado correctamente.' });
-      filtrarStock();
-    } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo eliminar el producto.' });
+      Swal.fire({ icon: 'error', title: 'Error', text: error.message });
     }
   }
 
   function normalizarTexto(valor) {
-    return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
   function filtrarStock() {
@@ -116,56 +94,121 @@
     });
   }
 
-  function obtenerItemSeleccionado() {
+  // --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
+
+  // 1. Obtener datos del ítem seleccionado en el input/datalist
+  function obtenerDataDelItem() {
     if (!itemInput || !itemList) return null;
     const valor = (itemInput.value || '').trim();
-    return Array.from(itemList.options || []).find((option) => option.value.trim() === valor) || null;
-  }
-
-  function resolverIdItem() {
-    if (!itemInput || !itemIdInput || !itemList) return true;
-    const match = obtenerItemSeleccionado();
-    if (!match) {
-      itemIdInput.value = '';
-      return false;
+    // Buscar en las opciones del datalist
+    const opcion = Array.from(itemList.options || []).find((option) => option.value === valor);
+    
+    if (opcion) {
+      return {
+        id: opcion.dataset.id,
+        requiereLote: opcion.dataset.requiereLote == '1',
+        requiereVencimiento: opcion.dataset.requiereVencimiento == '1'
+      };
     }
-    itemIdInput.value = match.dataset.id || '';
-    return itemIdInput.value !== '';
+    return null;
   }
 
-  function toggleCamposLoteVencimiento() {
-    if (!grupoLote || !inputLote || !grupoVencimiento || !inputVencimiento || !tipo) return;
+  // 2. Control Central de la UI del Modal
+  function actualizarUIModal() {
+    if (!tipo) return;
+    
+    const tipoVal = tipo.value;
+    const itemData = obtenerDataDelItem();
+    
+    // A. Visibilidad Transferencia
+    const esTransferencia = tipoVal === 'TRF';
+    if(grupoDestino) grupoDestino.classList.toggle('d-none', !esTransferencia);
+    if(almacenDestino) {
+        almacenDestino.required = esTransferencia;
+        if(!esTransferencia) almacenDestino.value = '';
+    }
 
-    const item = obtenerItemSeleccionado();
-    const requiereLote = item ? Number(item.dataset.requiereLote || '0') === 1 : false;
-    const requiereVencimiento = item ? Number(item.dataset.requiereVencimiento || '0') === 1 : false;
-    const movimientoEntrada = ['INI', 'AJ+'].includes(tipo.value || '');
+    // B. Visibilidad Lotes y Vencimiento
+    const esEntrada = ['INI', 'AJ+'].includes(tipoVal);
+    const esSalida = ['AJ-', 'CON', 'TRF'].includes(tipoVal);
+    const requiereLote = itemData ? itemData.requiereLote : false;
+    const requiereVenc = itemData ? itemData.requiereVencimiento : false;
 
-    grupoLote.classList.toggle('d-none', !requiereLote);
-    inputLote.required = requiereLote;
-    if (!requiereLote) inputLote.value = '';
+    // Resetear visibilidad lotes
+    if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
+    if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
+    
+    if (requiereLote) {
+        if (esEntrada) {
+            // ENTRADA: Muestro Input Texto para crear lote nuevo
+            if(grupoLoteInput) grupoLoteInput.classList.remove('d-none');
+        } else if (esSalida) {
+            // SALIDA: Muestro Select para elegir existente
+            if(grupoLoteSelect) grupoLoteSelect.classList.remove('d-none');
+            // IMPORTANTE: Disparar carga de lotes si ya tenemos ítem y almacén
+            cargarLotesDisponibles();
+        }
+    }
 
-    const mostrarVencimiento = requiereVencimiento && movimientoEntrada;
-    grupoVencimiento.classList.toggle('d-none', !mostrarVencimiento);
-    inputVencimiento.required = mostrarVencimiento;
-    if (!mostrarVencimiento) inputVencimiento.value = '';
+    // C. Visibilidad Fecha Vencimiento (Solo tiene sentido en Entradas)
+    if(grupoVencimiento) {
+        const mostrarVenc = (esEntrada && (requiereVenc || (requiereLote && esEntrada))); 
+        // Nota: A veces se pide vencimiento al crear un lote aunque el item no lo exija estrictamente, 
+        // pero respetaremos la config del item.
+        const visible = esEntrada && requiereVenc;
+        
+        grupoVencimiento.classList.toggle('d-none', !visible);
+        if(inputVencimiento) inputVencimiento.required = visible;
+    }
   }
 
-  function toggleTransferencia() {
-    if (!tipo || !grupoDestino || !almacenDestino) return;
-    const esTransferencia = tipo.value === 'TRF';
-    grupoDestino.classList.toggle('d-none', !esTransferencia);
-    almacenDestino.required = esTransferencia;
-    if (!esTransferencia) almacenDestino.value = '';
+  // 3. Cargar Lotes vía AJAX (NUEVO)
+  let timerLotes = null;
+  async function cargarLotesDisponibles() {
+    // Solo cargar si es una salida y el select es visible
+    if (grupoLoteSelect.classList.contains('d-none')) return;
+
+    const idItem = itemIdInput.value;
+    const idAlmacen = almacen.value;
+
+    // Limpiar select
+    selectLoteExistente.innerHTML = '<option value="">Seleccione lote...</option>';
+    msgSinLotes.classList.add('d-none');
+
+    if (!idItem || !idAlmacen || idItem <= 0 || idAlmacen <= 0) return;
+
+    try {
+        const response = await fetch(`${window.BASE_URL}?ruta=inventario/buscarLotes&id_item=${idItem}&id_almacen=${idAlmacen}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await response.json();
+
+        if (data.ok && data.lotes && data.lotes.length > 0) {
+            data.lotes.forEach(l => {
+                const stock = parseFloat(l.stock_lote);
+                const venc = l.fecha_vencimiento ? l.fecha_vencimiento : 'N/A';
+                const texto = `${l.lote} | Vence: ${venc} | Disp: ${stock}`;
+                
+                const option = document.createElement('option');
+                option.value = l.lote;
+                option.textContent = texto;
+                selectLoteExistente.appendChild(option);
+            });
+        } else {
+            msgSinLotes.classList.remove('d-none');
+        }
+    } catch (error) {
+        console.error("Error cargando lotes", error);
+    }
   }
 
-  function esSalida() {
-    return ['AJ-', 'CON', 'TRF'].includes((tipo && tipo.value) || '');
-  }
-
+  // 4. Actualizar Hint de Stock General
   async function actualizarStockHint() {
     if (!stockHint || !itemIdInput || !almacen) return;
-    if (!esSalida()) {
+    
+    // Solo mostrar hint en salidas
+    const esSalida = ['AJ-', 'CON', 'TRF'].includes((tipo && tipo.value) || '');
+    if (!esSalida) {
       stockHint.textContent = '';
       return;
     }
@@ -173,7 +216,7 @@
     const idItem = Number(itemIdInput.value || '0');
     const idAlmacen = Number(almacen.value || '0');
     if (idItem <= 0 || idAlmacen <= 0) {
-      stockHint.textContent = 'Selecciona ítem y almacén para ver stock disponible.';
+      stockHint.textContent = '';
       return;
     }
 
@@ -182,13 +225,14 @@
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await response.json();
       const stock = Number((data && data.stock) || 0);
-      stockHint.textContent = `Stock disponible en almacén: ${stock.toFixed(4)}`;
-      stockHint.classList.toggle('text-danger', stock <= 0);
+      stockHint.textContent = `Stock total en almacén: ${stock.toFixed(4)}`;
+      stockHint.className = stock <= 0 ? 'form-text text-danger fw-bold' : 'form-text text-success';
     } catch (error) {
-      stockHint.textContent = 'No se pudo obtener stock en tiempo real.';
+      stockHint.textContent = '';
     }
   }
 
+  // 5. Buscador de ítems remoto
   let timerBusqueda = null;
   async function buscarItemsRemoto() {
     if (!itemInput || !sugerenciasItems) return;
@@ -213,23 +257,29 @@
         btn.type = 'button';
         btn.className = 'list-group-item list-group-item-action';
         btn.textContent = texto;
+        
         btn.addEventListener('click', function () {
-          itemInput.value = texto;
-          itemIdInput.value = String(item.id || '');
+            // Rellenar Input
+            itemInput.value = texto;
+            itemIdInput.value = String(item.id || '');
+            
+            // Verificar si existe en datalist, si no, agregarlo para que funcione obtenerDataDelItem()
+            let option = Array.from(itemList.options).find(o => o.value === texto);
+            if (!option) {
+                option = document.createElement('option');
+                option.value = texto;
+                itemList.appendChild(option);
+            }
+            // Actualizar dataset vital para la lógica
+            option.dataset.id = item.id;
+            option.dataset.requiereLote = item.requiere_lote;
+            option.dataset.requiereVencimiento = item.requiere_vencimiento;
 
-          let option = Array.from(itemList.options || []).find((o) => o.value === texto);
-          if (!option) {
-            option = document.createElement('option');
-            option.value = texto;
-            itemList.appendChild(option);
-          }
-          option.dataset.id = String(item.id || '');
-          option.dataset.requiereLote = String(item.requiere_lote || 0);
-          option.dataset.requiereVencimiento = String(item.requiere_vencimiento || 0);
-
-          sugerenciasItems.classList.add('d-none');
-          toggleCamposLoteVencimiento();
-          actualizarStockHint();
+            sugerenciasItems.classList.add('d-none');
+            
+            // Disparar actualizaciones
+            actualizarUIModal();
+            actualizarStockHint();
         });
         sugerenciasItems.appendChild(btn);
       });
@@ -240,29 +290,11 @@
     }
   }
 
-  function limpiarFormularioMovimiento() {
-    if (!form) return;
-    form.reset();
-    if (itemIdInput) itemIdInput.value = '';
-    if (stockHint) stockHint.textContent = '';
-    if (sugerenciasItems) {
-      sugerenciasItems.classList.add('d-none');
-      sugerenciasItems.innerHTML = '';
-    }
-    toggleTransferencia();
-    toggleCamposLoteVencimiento();
-  }
+  // --- LISTENERS ---
 
+  // Listeners Tabla Principal
   document.querySelectorAll('.switch-estado-item-inventario').forEach((switchInput) => {
-    switchInput.addEventListener('change', function () {
-      toggleEstadoItemInventario(switchInput);
-    });
-  });
-
-  document.querySelectorAll('.btn-eliminar-item-inventario').forEach((button) => {
-    button.addEventListener('click', function () {
-      eliminarItemInventario(button);
-    });
+    switchInput.addEventListener('change', () => toggleEstadoItemInventario(switchInput));
   });
 
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
@@ -272,100 +304,129 @@
   if (filtroVencimiento) filtroVencimiento.addEventListener('change', filtrarStock);
   filtrarStock();
 
-  if (!form || !tipo) return;
-
-  if (itemInput) {
-    itemInput.addEventListener('input', function () {
-      resolverIdItem();
-      toggleCamposLoteVencimiento();
-      actualizarStockHint();
-      clearTimeout(timerBusqueda);
-      timerBusqueda = setTimeout(buscarItemsRemoto, 250);
-    });
-    itemInput.addEventListener('change', function () {
-      resolverIdItem();
-      toggleCamposLoteVencimiento();
-      actualizarStockHint();
-    });
-  }
-
-  if (almacen) almacen.addEventListener('change', actualizarStockHint);
-  if (cantidadInput) cantidadInput.addEventListener('input', actualizarStockHint);
-
-  tipo.addEventListener('change', function () {
-    toggleTransferencia();
-    toggleCamposLoteVencimiento();
-    actualizarStockHint();
-  });
-
-  document.querySelectorAll('.btn-movimiento-rapido').forEach((btn) => {
-    btn.addEventListener('click', function () {
-      if (itemInput) itemInput.value = btn.dataset.itemTexto || '';
-      if (itemIdInput) itemIdInput.value = btn.dataset.itemId || '';
-      if (almacen) almacen.value = btn.dataset.almacenId || '';
-      toggleCamposLoteVencimiento();
-      actualizarStockHint();
-    });
-  });
-
-  if (modalEl) {
-    modalEl.addEventListener('hidden.bs.modal', limpiarFormularioMovimiento);
-    modalEl.addEventListener('show.bs.modal', function (event) {
-      const trigger = event.relatedTarget;
-      if (!trigger || !trigger.classList.contains('btn-movimiento-rapido')) {
-        limpiarFormularioMovimiento();
-      }
-    });
-  }
-
-  toggleTransferencia();
-  toggleCamposLoteVencimiento();
-
-  form.addEventListener('submit', async function (event) {
-    event.preventDefault();
-
-    if (!resolverIdItem()) {
-      Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem válido desde la lista o sugerencias.' });
-      return;
+  // Listeners Modal Movimiento
+  if (form) {
+    // Cambio en tipo de movimiento
+    if (tipo) {
+        tipo.addEventListener('change', () => {
+            actualizarUIModal();
+            actualizarStockHint();
+        });
     }
 
-    const confirmacion = await Swal.fire({
-      icon: 'question',
-      title: '¿Registrar movimiento?',
-      text: 'Se actualizará el stock del inventario.',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, guardar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!confirmacion.isConfirmed) return;
+    // Cambio en almacén
+    if (almacen) {
+        almacen.addEventListener('change', () => {
+            // Si es salida, al cambiar almacén cambian los lotes disponibles
+            if (!grupoLoteSelect.classList.contains('d-none')) {
+                cargarLotesDisponibles();
+            }
+            actualizarStockHint();
+        });
+    }
 
-    const data = new FormData(form);
+    // Input Item
+    if (itemInput) {
+        itemInput.addEventListener('input', function () {
+            // Si el usuario borra, limpiar ID
+            const val = this.value;
+            const itemData = obtenerDataDelItem();
+            if(!itemData && val === '') itemIdInput.value = '';
+            
+            actualizarUIModal();
+            
+            clearTimeout(timerBusqueda);
+            timerBusqueda = setTimeout(buscarItemsRemoto, 300);
+        });
+        
+        // Al perder foco o seleccionar del datalist nativo
+        itemInput.addEventListener('change', function() {
+             const itemData = obtenerDataDelItem();
+             if(itemData) itemIdInput.value = itemData.id;
+             actualizarUIModal();
+             actualizarStockHint();
+        });
+    }
 
-    try {
-      const response = await fetch(`${window.BASE_URL}?ruta=inventario/guardarMovimiento`, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-        body: data
+    // Limpieza al cerrar modal
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            form.reset();
+            itemIdInput.value = '';
+            stockHint.textContent = '';
+            sugerenciasItems.innerHTML = '';
+            sugerenciasItems.classList.add('d-none');
+            // Resetear visibilidades por defecto
+            if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
+            if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
+            if(grupoDestino) grupoDestino.classList.add('d-none');
+            if(grupoVencimiento) grupoVencimiento.classList.add('d-none');
+        });
+    }
+
+    // SUBMIT DEL FORMULARIO
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+
+      if (!itemIdInput.value || itemIdInput.value <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem de la lista.' });
+        return;
+      }
+
+      // PREPARAR LOTE FINAL
+      // Copiar valor del input o del select al hidden según corresponda
+      if (!grupoLoteInput.classList.contains('d-none')) {
+          loteFinalEnviar.value = inputLoteNuevo.value; // Entrada: Nuevo lote
+      } else if (!grupoLoteSelect.classList.contains('d-none')) {
+          loteFinalEnviar.value = selectLoteExistente.value; // Salida: Lote existente
+      } else {
+          loteFinalEnviar.value = ''; // No requiere lote
+      }
+
+      // Validar Lote si es requerido
+      const itemData = obtenerDataDelItem();
+      if (itemData && itemData.requiereLote && loteFinalEnviar.value.trim() === '') {
+          Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
+          return;
+      }
+
+      const confirmacion = await Swal.fire({
+        icon: 'question',
+        title: '¿Confirmar movimiento?',
+        text: 'Se actualizará el inventario.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
       });
 
-      const contentType = (response.headers.get('content-type') || '').toLowerCase();
-      let result = null;
-      if (contentType.includes('application/json')) {
-        result = await response.json();
-      } else {
-        const raw = await response.text();
-        throw new Error(`Respuesta no JSON del servidor (${response.status}).` + (raw ? ' Revisa sesión/permisos o errores PHP.' : ''));
-      }
+      if (!confirmacion.isConfirmed) return;
 
-      if (!response.ok || !result || !result.ok) {
-        throw new Error((result && result.mensaje) || 'No se pudo registrar el movimiento.');
-      }
+      const data = new FormData(form);
 
-      await Swal.fire({ icon: 'success', title: 'Movimiento guardado', text: result.mensaje || 'Registro completado correctamente.' });
-      limpiarFormularioMovimiento();
-      window.location.reload();
-    } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Ocurrió un error inesperado.' });
-    }
-  });
+      try {
+        const response = await fetch(`${window.BASE_URL}?ruta=inventario/guardarMovimiento`, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+          body: data
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result || !result.ok) {
+          throw new Error((result && result.mensaje) || 'Error al guardar.');
+        }
+
+        await Swal.fire({ icon: 'success', title: 'Guardado', text: result.mensaje });
+        
+        // Cerrar modal y recargar
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if(modalInstance) modalInstance.hide();
+        window.location.reload();
+
+      } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Error', text: error.message });
+      }
+    });
+  }
+
 })();
