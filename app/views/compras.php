@@ -268,5 +268,3 @@ $estadoLabels = [
         </td>
     </tr>
 </template>
-
-<script src="<?php echo asset_url('js/compras.js'); ?>"></script>
