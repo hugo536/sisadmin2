@@ -499,7 +499,7 @@ class TercerosController extends Controlador
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
         $cuentasNumero      = $data['cuenta_numero']           ?? [];
         $cuentasCci         = $data['cuenta_cci']              ?? [];
-        $cuentasAlias       = $data['cuenta_alias']            ?? [];
+        $cuentasTitular     = $data['cuenta_titular']          ?? $data['cuenta_alias'] ?? [];
         $cuentasMoneda      = $data['cuenta_moneda']           ?? [];
         $cuentasPrincipal   = $data['cuenta_principal']        ?? [];
         $cuentasBilletera   = $data['cuenta_billetera']        ?? [];
@@ -513,7 +513,7 @@ class TercerosController extends Controlador
         $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
         $cuentasNumero      = $toArray($cuentasNumero);
         $cuentasCci         = $toArray($cuentasCci);
-        $cuentasAlias       = $toArray($cuentasAlias);
+        $cuentasTitular     = $toArray($cuentasTitular);
         $cuentasMoneda      = $toArray($cuentasMoneda);
         $cuentasPrincipal   = $toArray($cuentasPrincipal);
         $cuentasBilletera   = $toArray($cuentasBilletera);
@@ -560,6 +560,11 @@ class TercerosController extends Controlador
             $tipoCuentaVal = trim((string)($cuentasTipoCuenta[$i] ?? ''));
             if ($esBilletera && $tipoCuentaVal === '') $tipoCuentaVal = 'N/A';
 
+            $titularVal = trim((string)($cuentasTitular[$i] ?? ''));
+            if ($titularVal === '') {
+                throw new Exception("Cuenta #" . ($i + 1) . ": el titular de la cuenta es obligatorio.");
+            }
+
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, // Se llena al insertar en el modelo
                 'tipo_entidad'      => $tipoEntidad,      // COLUMNA BD CORRECTA
@@ -567,7 +572,7 @@ class TercerosController extends Controlador
                 'tipo_cuenta'       => $tipoCuentaVal,    // COLUMNA BD CORRECTA
                 'numero_cuenta'     => $numeroVal,
                 'cci'               => $cciVal,
-                'alias'             => trim((string)($cuentasAlias[$i] ?? '')),
+                'titular'           => $titularVal,
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,

@@ -581,7 +581,7 @@ class TercerosModel extends Modelo
                        tipo_cuenta, 
                        numero_cuenta, 
                        cci, 
-                       alias, 
+                       titular, 
                        moneda, 
                        principal, 
                        billetera_digital, 
@@ -673,7 +673,7 @@ class TercerosModel extends Modelo
         // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
         $sql = "INSERT INTO terceros_cuentas_bancarias (
                     tercero_id, tipo_entidad, entidad, tipo_cuenta, 
-                    numero_cuenta, cci, alias, moneda, principal, 
+                    numero_cuenta, cci, titular, moneda, principal, 
                     billetera_digital, observaciones, created_by, updated_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -681,7 +681,7 @@ class TercerosModel extends Modelo
         
         foreach ($cuentas as $cta) {
             // Validación básica: si está vacía, saltar
-            if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['alias']) && empty($cta['numero_cuenta'])) continue;
+            if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['titular']) && empty($cta['numero_cuenta'])) continue;
 
             // Aseguramos leer las claves correctas que vienen del Controller ($prepared['cuentas_bancarias'])
             // El controller ahora manda 'tipo_entidad' y 'tipo_cuenta', así que las leemos tal cual.
@@ -695,7 +695,7 @@ class TercerosModel extends Modelo
                 $tipoCuenta,
                 trim((string)($cta['numero_cuenta'] ?? '')),
                 trim((string)($cta['cci'] ?? '')),
-                trim((string)($cta['alias'] ?? '')),
+                trim((string)($cta['titular'] ?? '')),
                 $cta['moneda'] ?? 'PEN',
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,
