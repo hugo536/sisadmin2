@@ -336,6 +336,16 @@ class CompraOrdenModel extends Modelo
             return $this->hasFechaOrden;
         }
 
+        $stmt = $this->db()->prepare('SELECT COUNT(*)
+                                    FROM information_schema.COLUMNS
+                                    WHERE TABLE_SCHEMA = DATABASE()
+                                      AND TABLE_NAME = :table_name
+                                      AND COLUMN_NAME = :column_name');
+        $stmt->execute([
+            'table_name' => 'compras_ordenes',
+            'column_name' => 'fecha_orden',
+        ]);
+        $this->hasFechaOrden = (int) $stmt->fetchColumn() > 0;
         $stmt = $this->db()->prepare('SHOW COLUMNS FROM compras_ordenes LIKE :column_name');
         $stmt->execute(['column_name' => 'fecha_orden']);
         $this->hasFechaOrden = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
