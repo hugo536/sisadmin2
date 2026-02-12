@@ -1043,7 +1043,8 @@
                 document.getElementById('crearEsProveedor'),
                 document.getElementById('crearComercialFields'),
                 document.getElementById('crearComercialClienteSection'),
-                document.getElementById('crearComercialProveedorSection')
+                document.getElementById('crearComercialProveedorSection'),
+                document.getElementById('crearComercialDistribuidorSection')
             );
             window.TercerosClientes?.toggleDistribuidorFields(
                 document.getElementById('crearEsDistribuidor'),
@@ -1122,7 +1123,16 @@
 
             for (let id in fields) {
                 const el = document.getElementById(id);
-                if (el) el.value = button.getAttribute(fields[id]) || '';
+                if (el) {
+                    const rawValue = button.getAttribute(fields[id]);
+                    if (id === 'editEstadoLaboral') {
+                        el.value = rawValue || 'activo';
+                    } else if (id === 'editMoneda') {
+                        el.value = rawValue || 'PEN';
+                    } else {
+                        el.value = rawValue || '';
+                    }
+                }
             }
 
             const essalud = document.getElementById('editEssalud');
@@ -1159,7 +1169,8 @@
                 document.getElementById('editEsProveedor'),
                 document.getElementById('editComercialFields'),
                 document.getElementById('editComercialClienteSection'),
-                document.getElementById('editComercialProveedorSection')
+                document.getElementById('editComercialProveedorSection'),
+                document.getElementById('editComercialDistribuidorSection')
             );
             window.TercerosClientes?.toggleDistribuidorFields(
                 document.getElementById('editEsDistribuidor'),
@@ -1217,7 +1228,8 @@
                     esProv,
                     document.getElementById(`${prefix}ComercialFields`),
                     document.getElementById(`${prefix}ComercialClienteSection`),
-                    document.getElementById(`${prefix}ComercialProveedorSection`)
+                    document.getElementById(`${prefix}ComercialProveedorSection`),
+                    document.getElementById(`${prefix}ComercialDistribuidorSection`)
                 );
                 refreshValidationOnChange(form, fbId);
             };
