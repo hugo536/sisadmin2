@@ -344,6 +344,9 @@ class ComprasOrdenModel extends Modelo
             'column_name' => 'fecha_orden',
         ]);
         $this->hasFechaOrden = (int) $stmt->fetchColumn() > 0;
+        $stmt = $this->db()->prepare('SHOW COLUMNS FROM compras_ordenes LIKE :column_name');
+        $stmt->execute(['column_name' => 'fecha_orden']);
+        $this->hasFechaOrden = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $this->hasFechaOrden;
     }
