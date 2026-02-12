@@ -23,7 +23,7 @@ class InventarioModel extends Modelo
                                SELECT l.lote
                                FROM inventario_lotes l
                                WHERE l.id_item = i.id
-                                 AND l.id_almacen = :id_almacen
+                                 AND l.id_almacen = :id_almacen_lote
                                  AND l.stock_lote > 0
                                ORDER BY (l.fecha_vencimiento IS NULL) ASC,
                                         l.fecha_vencimiento ASC,
@@ -34,19 +34,22 @@ class InventarioModel extends Modelo
                                SELECT MIN(l.fecha_vencimiento)
                                FROM inventario_lotes l
                                WHERE l.id_item = i.id
-                                 AND l.id_almacen = :id_almacen
+                                 AND l.id_almacen = :id_almacen_venc
                                  AND l.stock_lote > 0
                                  AND l.fecha_vencimiento IS NOT NULL
                            ) AS proximo_vencimiento
                     FROM items i
                     INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
-                    LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen
+                    LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
                     WHERE i.controla_stock = 1
                       AND i.deleted_at IS NULL
                     ORDER BY i.nombre ASC';
 
             $stmt = $this->db()->prepare($sql);
             $stmt->bindValue(':id_almacen', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_lote', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
