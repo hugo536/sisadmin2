@@ -383,6 +383,9 @@
         const titularLabel = document.createElement('label');
         titularLabel.className = 'form-label small fw-semibold mb-1';
         titularLabel.textContent = 'Titular de la cuenta *';
+        // --- COLUMNA 5: TITULAR ---
+        const colTitular = document.createElement('div');
+        colTitular.className = 'col-md-4';
         const titularInput = document.createElement('input');
         titularInput.type = 'text';
         titularInput.name = 'cuenta_titular[]';
@@ -391,6 +394,8 @@
         titularInput.value = titular;
         titularInput.required = true;
         colTitular.appendChild(titularLabel);
+        titularInput.placeholder = 'Titular de la cuenta (Opcional)';
+        titularInput.value = titular;
         colTitular.appendChild(titularInput);
 
         // --- COLUMNA 6: OBSERVACIONES ---
@@ -406,6 +411,8 @@
         observacionesInput.rows = 2;
         observacionesInput.value = observaciones;
         colObservaciones.appendChild(observacionesLabel);
+        observacionesInput.rows = 1;
+        observacionesInput.value = observaciones;
         colObservaciones.appendChild(observacionesInput);
 
         // --- COLUMNA 7: MONEDA Y ACCIONES ---

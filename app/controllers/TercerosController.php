@@ -573,6 +573,7 @@ class TercerosController extends Controlador
                 'numero_cuenta'     => $numeroVal,
                 'cci'               => $cciVal,
                 'titular'           => $titularVal,
+                'titular'           => trim((string)($cuentasTitular[$i] ?? '')),
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,

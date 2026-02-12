@@ -397,6 +397,7 @@
                             <hr class="my-3">
                             <h6 class="fw-bold mb-1">Cuentas Bancarias / Billeteras Digitales</h6>
                             <p class="text-muted small mb-3">Complete los campos de <strong>Titular de la cuenta</strong> (obligatorio si registra cuenta) y <strong>Observaciones</strong> cuando aplique.</p>
+                            <p class="text-muted small mb-3">Complete los campos de <strong>Titular de la cuenta (Opcional)</strong> y <strong>Observaciones</strong> cuando aplique.</p>
                             <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
                             <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
                                 <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
@@ -606,6 +607,7 @@
                             <hr class="my-3">
                             <h6 class="fw-bold mb-1">Cuentas Bancarias / Billeteras Digitales</h6>
                             <p class="text-muted small mb-3">Complete los campos de <strong>Titular de la cuenta</strong> (obligatorio si registra cuenta) y <strong>Observaciones</strong> cuando aplique.</p>
+                            <p class="text-muted small mb-3">Complete los campos de <strong>Titular de la cuenta (Opcional)</strong> y <strong>Observaciones</strong> cuando aplique.</p>
                             <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
                             <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAgregarCuenta">
                                 <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
