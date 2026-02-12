@@ -2,7 +2,6 @@
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
 $items = $items ?? [];
-$kpis = $kpis ?? ['total_items' => 0, 'sin_stock' => 0, 'critico' => 0, 'por_vencer' => 0];
 $hoy = new DateTimeImmutable('today');
 ?>
 <div class="container-fluid p-4">
@@ -35,13 +34,6 @@ $hoy = new DateTimeImmutable('today');
                 </button>
             <?php endif; ?>
         </div>
-    </div>
-
-    <div class="row g-3 mb-3 fade-in">
-        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><div class="text-muted small">Productos</div><div class="h4 mb-0 fw-bold"><?php echo (int) ($kpis['total_items'] ?? 0); ?></div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><div class="text-muted small">Registros sin stock</div><div class="h4 mb-0 fw-bold text-danger"><?php echo (int) ($kpis['sin_stock'] ?? 0); ?></div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><div class="text-muted small">Stock crítico</div><div class="h4 mb-0 fw-bold text-warning"><?php echo (int) ($kpis['critico'] ?? 0); ?></div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><div class="text-muted small">Por vencer</div><div class="h4 mb-0 fw-bold text-dark"><?php echo (int) ($kpis['por_vencer'] ?? 0); ?></div></div></div></div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3 fade-in">
