@@ -183,7 +183,7 @@ class InventarioController extends Controlador
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
         $out = fopen('php://output', 'wb');
-        $headers = ['SKU', 'Producto', 'Almacén', 'Stock actual', 'Stock mínimo', 'Estado'];
+        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock actual', 'Stock mínimo', 'Estado', 'Vencimiento'];
         fputcsv($out, $headers, $separator);
 
         foreach ($filas as $fila) {
@@ -195,9 +195,11 @@ class InventarioController extends Controlador
                 (string) ($fila['sku'] ?? ''),
                 (string) ($fila['item_nombre'] ?? ''),
                 (string) ($fila['almacen_nombre'] ?? ''),
+                (string) ($fila['lote_actual'] ?? ''),
                 number_format($stock, 4, '.', ''),
                 number_format($stockMin, 4, '.', ''),
                 $estado,
+                (string) ($fila['proximo_vencimiento'] ?? ''),
             ], $separator);
         }
 
