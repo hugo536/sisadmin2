@@ -7,7 +7,9 @@ class InventarioModel extends Modelo
     {
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
-                       i.nombre AS item_nombre,
+                       COALESCE(NULLIF(TRIM(i.descripcion), \'\'), i.nombre) AS item_nombre,
+                       i.nombre AS item_nombre_base,
+                       i.descripcion AS item_descripcion,
                        i.estado AS item_estado,
                        a.id AS id_almacen,
                        a.nombre AS almacen_nombre,
