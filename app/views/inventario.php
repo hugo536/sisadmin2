@@ -160,6 +160,7 @@ $hoy = new DateTimeImmutable('today');
                                 ?>
                                 <tr
                                     data-search="<?php echo e($search); ?>"
+                                    data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                     data-estado="<?php echo e($estadoStock); ?>"
                                     data-criticidad="<?php echo e($criticidad); ?>"
                                     data-almacen="<?php echo (int) $idAlmacen; ?>"
@@ -176,18 +177,28 @@ $hoy = new DateTimeImmutable('today');
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
-                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&id_item=<?php echo (int) ($stock['id_item'] ?? 0); ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver kardex">
-                                                <i class="bi bi-journal-text fs-5"></i>
-                                            </a>
+                                            <div class="form-check form-switch pt-1" title="Cambiar estado del producto">
+                                                <input class="form-check-input switch-estado-item-inventario" type="checkbox" role="switch"
+                                                       style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                       data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                                       <?php echo ((int) ($stock['item_estado'] ?? 0) === 1) ? 'checked' : ''; ?>
+                                                       <?php echo tiene_permiso('items.editar') ? '' : 'disabled'; ?>>
+                                            </div>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
-                                            <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
-                                            <button type="button" class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-movimiento-rapido"
-                                                    data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario"
-                                                    data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                                    data-item-texto="<?php echo e($sku . ' - ' . $itemNombre); ?>"
-                                                    data-almacen-id="<?php echo (int) $idAlmacen; ?>"
-                                                    title="Registrar movimiento">
-                                                <i class="bi bi-arrow-left-right fs-5"></i>
+                                            <?php if (tiene_permiso('items.editar')): ?>
+                                            <a href="?ruta=items/perfil&id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                               class="btn btn-sm btn-light text-primary border-0 bg-transparent"
+                                               title="Editar">
+                                                <i class="bi bi-pencil-square fs-5"></i>
+                                            </a>
+                                            <?php endif; ?>
+                                            <?php if (tiene_permiso('items.eliminar')): ?>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-light text-danger border-0 bg-transparent btn-eliminar-item-inventario"
+                                                    data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                                    data-item="<?php echo e($itemNombre); ?>"
+                                                    title="Eliminar">
+                                                <i class="bi bi-trash fs-5"></i>
                                             </button>
                                             <?php endif; ?>
                                         </div>
