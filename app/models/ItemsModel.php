@@ -74,7 +74,7 @@ class ItemsModel extends Modelo
 
         $sql .= ' LIMIT 1';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute($this->filtrarParametrosSql($sql, $params));
 
         return (bool) $stmt->fetchColumn();
     }
@@ -193,7 +193,7 @@ class ItemsModel extends Modelo
                         :dias_alerta_vencimiento, :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($payload);
+        $stmt->execute($this->filtrarParametrosSql($sql, $payload));
 
         return (int) $this->db()->lastInsertId();
     }
@@ -227,7 +227,7 @@ class ItemsModel extends Modelo
         $payload['id'] = $id;
         $payload['updated_by'] = $userId;
 
-        return $this->db()->prepare($sql)->execute($payload);
+        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $payload));
     }
 
     public function eliminar(int $id, int $userId): bool
@@ -462,7 +462,7 @@ class ItemsModel extends Modelo
         $sql = "INSERT INTO {$tabla} (" . implode(', ', $columnas) . ")
                 VALUES (" . implode(', ', $valores) . ")";
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute($this->filtrarParametrosSql($sql, $params));
 
         return (int) $this->db()->lastInsertId();
     }
@@ -507,7 +507,7 @@ class ItemsModel extends Modelo
             unset($params['updated_by']);
         }
 
-        return $this->db()->prepare($sql)->execute($params);
+        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
     }
 
     private function eliminarAtributo(string $tabla, int $id, int $userId): bool
@@ -538,7 +538,7 @@ class ItemsModel extends Modelo
                 WHERE id = :id
                   AND deleted_at IS NULL";
 
-        return $this->db()->prepare($sql)->execute($params);
+        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
     }
 
     private function atributoDuplicado(string $tabla, string $nombre, ?int $excludeId = null): bool
@@ -559,7 +559,7 @@ class ItemsModel extends Modelo
         $sql .= ' LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute($this->filtrarParametrosSql($sql, $params));
 
         return (bool) $stmt->fetchColumn();
     }
@@ -601,6 +601,23 @@ class ItemsModel extends Modelo
             'impuesto_porcentaje' => (float) ($data['impuesto'] ?? 0),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
+    }
+
+
+    private function filtrarParametrosSql(string $sql, array $params): array
+    {
+        if ($params === []) {
+            return [];
+        }
+
+        preg_match_all('/:([a-zA-Z_][a-zA-Z0-9_]*)/', $sql, $coincidencias);
+        $placeholders = array_flip($coincidencias[1] ?? []);
+
+        if ($placeholders === []) {
+            return [];
+        }
+
+        return array_intersect_key($params, $placeholders);
     }
 
     private function generarSku(): string
