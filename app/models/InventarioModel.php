@@ -3,26 +3,71 @@ declare(strict_types=1);
 
 class InventarioModel extends Modelo
 {
-    public function obtenerStock(): array
+
+    public function obtenerStock(int $idAlmacen = 0): array
     {
-        // CORRECCIÓN PRINCIPAL: Ahora la subconsulta de lotes se filtra por 'a.id' (el almacén actual de la fila)
+        if ($idAlmacen > 0) {
+            $sql = 'SELECT i.id AS id_item,
+                           i.sku,
+                           COALESCE(NULLIF(TRIM(i.nombre), \'\'), NULLIF(TRIM(i.descripcion), \'\')) AS item_nombre,
+                           i.nombre AS item_nombre_base,
+                           i.descripcion AS item_descripcion,
+                           i.estado AS item_estado,
+                           a.id AS id_almacen,
+                           a.nombre AS almacen_nombre,
+                           i.stock_minimo,
+                           i.requiere_vencimiento,
+                           i.dias_alerta_vencimiento,
+                           COALESCE(s.stock_actual, 0) AS stock_actual,
+                           (
+                               SELECT l.lote
+                               FROM inventario_lotes l
+                               WHERE l.id_item = i.id
+                                 AND l.id_almacen = :id_almacen
+                                 AND l.stock_lote > 0
+                               ORDER BY (l.fecha_vencimiento IS NULL) ASC,
+                                        l.fecha_vencimiento ASC,
+                                        l.id ASC
+                               LIMIT 1
+                           ) AS lote_actual,
+                           (
+                               SELECT MIN(l.fecha_vencimiento)
+                               FROM inventario_lotes l
+                               WHERE l.id_item = i.id
+                                 AND l.id_almacen = :id_almacen
+                                 AND l.stock_lote > 0
+                                 AND l.fecha_vencimiento IS NOT NULL
+                           ) AS proximo_vencimiento
+                    FROM items i
+                    INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1
+                    LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen
+                    WHERE i.controla_stock = 1
+                    ORDER BY i.nombre ASC';
+
+            $stmt = $this->db()->prepare($sql);
+            $stmt->bindValue(':id_almacen', $idAlmacen, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
                        COALESCE(NULLIF(TRIM(i.nombre), \'\'), NULLIF(TRIM(i.descripcion), \'\')) AS item_nombre,
                        i.nombre AS item_nombre_base,
                        i.descripcion AS item_descripcion,
                        i.estado AS item_estado,
-                       a.id AS id_almacen,
-                       a.nombre AS almacen_nombre,
+                       0 AS id_almacen,
+                       \'Global / Todos\' AS almacen_nombre,
                        i.stock_minimo,
                        i.requiere_vencimiento,
                        i.dias_alerta_vencimiento,
-                       COALESCE(s.stock_actual, 0) AS stock_actual,
+                       COALESCE(SUM(CASE WHEN a.estado = 1 THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
                        (
                            SELECT l.lote
                            FROM inventario_lotes l
+                           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
                            WHERE l.id_item = i.id
-                             AND l.id_almacen = a.id  -- AHORA SÍ: Lote específico de este almacén
                              AND l.stock_lote > 0
                            ORDER BY (l.fecha_vencimiento IS NULL) ASC,
                                     l.fecha_vencimiento ASC,
@@ -32,17 +77,17 @@ class InventarioModel extends Modelo
                        (
                            SELECT MIN(l.fecha_vencimiento)
                            FROM inventario_lotes l
+                           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
                            WHERE l.id_item = i.id
-                             AND l.id_almacen = a.id  -- AHORA SÍ: Vencimiento específico de este almacén
                              AND l.stock_lote > 0
                              AND l.fecha_vencimiento IS NOT NULL
                        ) AS proximo_vencimiento
                 FROM items i
-                CROSS JOIN almacenes a
-                LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = a.id
+                LEFT JOIN inventario_stock s ON s.id_item = i.id
+                LEFT JOIN almacenes a ON a.id = s.id_almacen
                 WHERE i.controla_stock = 1
-                  AND a.estado = 1
-                ORDER BY i.nombre ASC, a.nombre ASC';
+                GROUP BY i.id, i.sku, i.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento
+                ORDER BY i.nombre ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
