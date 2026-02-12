@@ -179,8 +179,10 @@ class InventarioController extends Controlador
         AuthMiddleware::handle();
         require_permiso('inventario.ver');
 
+        $idItemFiltro = (int) ($_GET['id_item'] ?? ($_GET['item_id'] ?? 0));
         $filtros = [
-            'id_item' => (int) ($_GET['id_item'] ?? 0),
+            'id_item' => $idItemFiltro,
+            'lote' => trim((string) ($_GET['lote'] ?? '')),
             'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];

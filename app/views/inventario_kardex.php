@@ -25,8 +25,9 @@ $filtros = $filtros ?? [];
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-3"><label class="form-label">Desde</label><input class="form-control" type="date" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>"></div>
-                    <div class="col-md-3"><label class="form-label">Hasta</label><input class="form-control" type="date" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>"></div>
+                    <div class="col-md-2"><label class="form-label">Lote</label><input class="form-control" type="text" name="lote" value="<?php echo e((string) ($filtros['lote'] ?? '')); ?>" placeholder="Ej: LOTE-001"></div>
+                    <div class="col-md-2"><label class="form-label">Desde</label><input class="form-control" type="date" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>"></div>
+                    <div class="col-md-2"><label class="form-label">Hasta</label><input class="form-control" type="date" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>"></div>
                     <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
                 </div>
             </form>
