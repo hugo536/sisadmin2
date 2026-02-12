@@ -32,6 +32,9 @@
   const inputVencimiento = document.getElementById('vencimientoMovimiento');
   const cantidadInput = document.getElementById('cantidadMovimiento');
   const stockHint = document.getElementById('stockDisponibleHint');
+  const costoUnitarioInput = document.getElementById('costoUnitarioMovimiento');
+  const costoPromedioActualLabel = document.getElementById('costoPromedioActual');
+  const stockActualItemLabel = document.getElementById('stockActualItemSeleccionado');
 
   // Filtros de la tabla principal
   const searchInput = document.getElementById('inventarioSearch');
@@ -234,6 +237,56 @@
         grupoVencimiento.classList.toggle('d-none', !visible);
         if(inputVencimiento) inputVencimiento.required = visible;
     }
+
+    // D. Costo unitario editable solo para INI
+    if (costoUnitarioInput) {
+      const habilitarCostoManual = tipoVal === 'INI';
+      costoUnitarioInput.readOnly = !habilitarCostoManual;
+      costoUnitarioInput.classList.toggle('bg-light', !habilitarCostoManual);
+      costoUnitarioInput.classList.toggle('text-muted', !habilitarCostoManual);
+    }
+  }
+
+  // Simulación AJAX para traer costo promedio y stock del ítem.
+  function obtenerResumenItemSimulado(idItem) {
+    return new Promise((resolve) => {
+      window.setTimeout(() => {
+        const semilla = Number(idItem || '0');
+        const costoPromedio = semilla > 0 ? ((semilla * 1.732) % 250) + 1 : 0;
+        const stockActual = semilla > 0 ? ((semilla * 7) % 500) + 3 : 0;
+        resolve({
+          costo_promedio_actual: costoPromedio,
+          stock_actual: stockActual
+        });
+      }, 350);
+    });
+  }
+
+  async function cargarResumenItem() {
+    if (!itemIdInput) return;
+    const idItem = Number(itemIdInput.value || '0');
+
+    if (!costoPromedioActualLabel || !stockActualItemLabel) return;
+
+    if (idItem <= 0) {
+      costoPromedioActualLabel.textContent = '$0.0000';
+      stockActualItemLabel.textContent = '0.0000';
+      return;
+    }
+
+    costoPromedioActualLabel.textContent = 'Consultando...';
+    stockActualItemLabel.textContent = 'Consultando...';
+
+    const resumen = await obtenerResumenItemSimulado(idItem);
+    const costoPromedio = Number(resumen.costo_promedio_actual || 0);
+    const stock = Number(resumen.stock_actual || 0);
+
+    costoPromedioActualLabel.textContent = `$${costoPromedio.toFixed(4)}`;
+    stockActualItemLabel.textContent = stock.toFixed(4);
+
+    if (tipo && tipo.value !== 'INI' && costoUnitarioInput) {
+      costoUnitarioInput.value = costoPromedio.toFixed(4);
+    }
   }
 
   // 3. Cargar Lotes vía AJAX (NUEVO)
@@ -354,6 +407,7 @@
             // Disparar actualizaciones
             actualizarUIModal();
             actualizarStockHint();
+            cargarResumenItem();
         });
         sugerenciasItems.appendChild(btn);
       });
@@ -389,6 +443,9 @@
         tipo.addEventListener('change', () => {
             actualizarUIModal();
             actualizarStockHint();
+            if (itemIdInput && Number(itemIdInput.value || '0') > 0) {
+              cargarResumenItem();
+            }
         });
     }
 
@@ -423,6 +480,7 @@
              if(itemData) itemIdInput.value = itemData.id;
              actualizarUIModal();
              actualizarStockHint();
+             cargarResumenItem();
         });
     }
 
@@ -432,6 +490,8 @@
             form.reset();
             if (itemIdInput) itemIdInput.value = '';
             if (stockHint) stockHint.textContent = '';
+            if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
+            if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
             if (sugerenciasItems) {
               sugerenciasItems.innerHTML = '';
               sugerenciasItems.classList.add('d-none');
@@ -441,6 +501,10 @@
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
             if(grupoDestino) grupoDestino.classList.add('d-none');
             if(grupoVencimiento) grupoVencimiento.classList.add('d-none');
+            if(costoUnitarioInput) {
+              costoUnitarioInput.readOnly = false;
+              costoUnitarioInput.classList.remove('bg-light', 'text-muted');
+            }
         });
     }
 

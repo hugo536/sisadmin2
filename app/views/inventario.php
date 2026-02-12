@@ -233,7 +233,7 @@ $hoy = new DateTimeImmutable('today');
                     </div>
                     
                     <div class="col-md-6">
-                        <label for="almacenMovimiento" class="form-label">Almacén</label>
+                        <label for="almacenMovimiento" class="form-label">Almacén origen</label>
                         <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
                             <option value="">Seleccione...</option>
                             <?php foreach ($almacenes as $almacen): ?>
@@ -268,6 +268,23 @@ $hoy = new DateTimeImmutable('today');
                         </datalist>
                     </div>
 
+                    <div class="col-12">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="border rounded-3 p-2 bg-light-subtle">
+                                    <small class="text-muted d-block">Costo Promedio Actual</small>
+                                    <span class="fw-semibold text-dark" id="costoPromedioActual">$0.0000</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="border rounded-3 p-2 bg-light-subtle">
+                                    <small class="text-muted d-block">Stock Actual del Ítem</small>
+                                    <span class="fw-semibold text-dark" id="stockActualItemSeleccionado">0.0000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="col-md-6">
                         <label for="cantidadMovimiento" class="form-label">Cantidad</label>
                         <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
@@ -299,7 +316,7 @@ $hoy = new DateTimeImmutable('today');
 
                     <div class="col-12">
                         <label for="referenciaMovimiento" class="form-label">Referencia</label>
-                        <input type="text" class="form-control" id="referenciaMovimiento" name="referencia" maxlength="255" placeholder="N° documento / comentario">
+                        <textarea class="form-control" id="referenciaMovimiento" name="referencia" rows="2" maxlength="255" placeholder="N° documento / comentario"></textarea>
                     </div>
 
                     <input type="hidden" name="lote" id="loteFinalEnviar">
