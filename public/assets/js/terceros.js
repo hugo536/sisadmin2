@@ -383,19 +383,14 @@
         const titularLabel = document.createElement('label');
         titularLabel.className = 'form-label small fw-semibold mb-1';
         titularLabel.textContent = 'Titular de la cuenta *';
-        // --- COLUMNA 5: TITULAR ---
-        const colTitular = document.createElement('div');
-        colTitular.className = 'col-md-4';
         const titularInput = document.createElement('input');
         titularInput.type = 'text';
         titularInput.name = 'cuenta_titular[]';
         titularInput.className = 'form-control form-control-sm';
-        titularInput.placeholder = 'Titular de la cuenta';
+        titularInput.placeholder = 'Titular de la cuenta *';
         titularInput.value = titular;
         titularInput.required = true;
         colTitular.appendChild(titularLabel);
-        titularInput.placeholder = 'Titular de la cuenta (Opcional)';
-        titularInput.value = titular;
         colTitular.appendChild(titularInput);
 
         // --- COLUMNA 6: OBSERVACIONES ---
