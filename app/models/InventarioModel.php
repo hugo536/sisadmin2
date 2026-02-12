@@ -16,6 +16,16 @@ class InventarioModel extends Modelo
                        i.dias_alerta_vencimiento,
                        COALESCE(s.stock_actual, 0) AS stock_actual,
                        (
+                           SELECT l.lote
+                           FROM inventario_lotes l
+                           WHERE l.id_item = i.id
+                             AND l.stock_lote > 0
+                           ORDER BY (l.fecha_vencimiento IS NULL) ASC,
+                                    l.fecha_vencimiento ASC,
+                                    l.id ASC
+                           LIMIT 1
+                       ) AS lote_actual,
+                       (
                            SELECT MIN(l.fecha_vencimiento)
                            FROM inventario_lotes l
                            WHERE l.id_item = i.id

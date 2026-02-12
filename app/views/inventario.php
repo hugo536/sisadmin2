@@ -88,6 +88,7 @@ $hoy = new DateTimeImmutable('today');
                             <th class="ps-4">SKU</th>
                             <th>Producto</th>
                             <th>Almacén</th>
+                            <th>Lote</th>
                             <th class="text-end pe-4">Stock Actual</th>
                             <th class="text-center">Estado Stock</th>
                             <th class="text-center">Vencimiento</th>
@@ -103,6 +104,7 @@ $hoy = new DateTimeImmutable('today');
                                 $sku = (string) ($stock['sku'] ?? '');
                                 $itemNombre = (string) ($stock['item_nombre'] ?? '');
                                 $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
+                                $loteActual = trim((string) ($stock['lote_actual'] ?? ''));
                                 $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
                                 $estadoStock = $stockActualItem <= 0 ? 'agotado' : 'disponible';
                                 $criticidad = 'normal';
@@ -148,7 +150,7 @@ $hoy = new DateTimeImmutable('today');
                                     }
                                 }
 
-                                $search = $sku . ' ' . $itemNombre . ' ' . $almacenNombre;
+                                $search = $sku . ' ' . $itemNombre . ' ' . $almacenNombre . ' ' . $loteActual;
                                 ?>
                                 <tr
                                     data-search="<?php echo e($search); ?>"
@@ -161,6 +163,7 @@ $hoy = new DateTimeImmutable('today');
                                     <td class="ps-4 fw-semibold"><?php echo e($sku); ?></td>
                                     <td><?php echo e($itemNombre); ?></td>
                                     <td><?php echo e($almacenNombre); ?></td>
+                                    <td><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     <td class="text-end pe-4 fw-bold"><?php echo number_format($stockActualItem, 4, '.', ''); ?></td>
                                     <td class="text-center"><span class="badge <?php echo e($estadoCantidadClase); ?>"><?php echo e($estadoCantidadTexto); ?></span></td>
                                     <td class="text-center">
@@ -198,7 +201,7 @@ $hoy = new DateTimeImmutable('today');
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="7" class="text-center text-muted py-4">No hay registros de stock disponibles.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">No hay registros de stock disponibles.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
