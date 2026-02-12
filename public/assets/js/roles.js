@@ -278,24 +278,32 @@ document.addEventListener('DOMContentLoaded', function () {
     // =========================================================
     const formCrear = document.getElementById('formCrearRol');
     if (formCrear) {
-        formCrear.addEventListener('submit', function (e) {
+        formCrear.addEventListener('submit', async function (e) {
             e.preventDefault();
-            submitAction(new FormData(this), () => {
-                document.querySelector('#modalCrearRol .btn-close').click();
-                this.reset();
-                Swal.fire('Creado', 'Rol creado.', 'success').then(() => window.location.reload());
-            });
+            try {
+                await submitAction(new FormData(this), () => {
+                    document.querySelector('#modalCrearRol .btn-close').click();
+                    this.reset();
+                    Swal.fire('Creado', 'Rol creado.', 'success').then(() => window.location.reload());
+                });
+            } catch (error) {
+                Swal.fire('Error', error.message || 'No se pudo crear el rol.', 'error');
+            }
         });
     }
 
     const formEditar = document.getElementById('formEditarRol');
     if (formEditar) {
-        formEditar.addEventListener('submit', function (e) {
+        formEditar.addEventListener('submit', async function (e) {
             e.preventDefault();
-            submitAction(new FormData(this), () => {
-                document.querySelector('#modalEditarRol .btn-close').click();
-                Swal.fire('Actualizado', 'Rol actualizado.', 'success').then(() => window.location.reload());
-            });
+            try {
+                await submitAction(new FormData(this), () => {
+                    document.querySelector('#modalEditarRol .btn-close').click();
+                    Swal.fire('Actualizado', 'Rol actualizado.', 'success').then(() => window.location.reload());
+                });
+            } catch (error) {
+                Swal.fire('Error', error.message || 'No se pudo actualizar el rol.', 'error');
+            }
         });
     }
 
@@ -318,35 +326,45 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             Swal.fire({
-                title: '¿Eliminar rol?',
-                text: "Irreversible.",
+                title: '¿Estás seguro?',
+                text: 'Se eliminará este rol de forma irreversible.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                confirmButtonText: 'Eliminar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    submitAction(new FormData(e.target), () => {
-                        Swal.fire('Eliminado', 'Rol eliminado.', 'success').then(() => window.location.reload());
-                    });
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then(async (result) => {
+                if (!result.isConfirmed) return;
+
+                try {
+                    const deleted = await submitAction(new FormData(e.target));
+                    await Swal.fire('¡Eliminado!', deleted.mensaje || 'Rol eliminado.', 'success');
+                    window.location.reload();
+                } catch (error) {
+                    Swal.fire('Error', error.message || 'No se pudo eliminar el rol.', 'error');
                 }
             });
         }
     });
 
-    function submitAction(formData, onSuccess) {
-        fetch(window.location.href, {
-            method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.ok) onSuccess(data);
-            else Swal.fire('Error', data.mensaje, 'error');
-        })
-        .catch(err => {
-            console.error(err);
-            Swal.fire('Error', 'Error de conexión', 'error');
+    async function submitAction(formData, onSuccess) {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo completar la acción.');
+        }
+
+        if (typeof onSuccess === 'function') {
+            onSuccess(data);
+            return data;
+        }
+
+        return data;
     }
 
     initTable();

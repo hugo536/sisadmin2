@@ -69,6 +69,66 @@
     }
   }
 
+  async function eliminarItemInventario(button) {
+    const id = Number(button.dataset.id || '0');
+    const nombreItem = (button.dataset.item || 'este registro').trim();
+    if (id <= 0) {
+      await Swal.fire({ icon: 'error', title: 'Error', text: 'No se encontró el ítem a eliminar.' });
+      return;
+    }
+
+    const confirmacion = await Swal.fire({
+      icon: 'warning',
+      title: '¿Estás seguro?',
+      text: `Se eliminará ${nombreItem}. Esta acción no se puede deshacer.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc3545'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const payload = new URLSearchParams({
+      accion: 'eliminar',
+      id: String(id)
+    });
+
+    try {
+      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        },
+        body: payload.toString()
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data || !data.ok) {
+        throw new Error((data && data.mensaje) || 'No se pudo eliminar el ítem.');
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Eliminado!',
+        text: data.mensaje || 'Registro eliminado correctamente.'
+      });
+
+      const fila = button.closest('tr');
+      if (fila) {
+        fila.remove();
+        filtrarStock();
+        return;
+      }
+
+      window.location.reload();
+    } catch (error) {
+      await Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo eliminar el ítem.' });
+    }
+  }
+
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
@@ -311,6 +371,10 @@
     switchInput.addEventListener('change', () => toggleEstadoItemInventario(switchInput));
   });
 
+  document.querySelectorAll('.btn-eliminar-item-inventario').forEach((button) => {
+    button.addEventListener('click', () => eliminarItemInventario(button));
+  });
+
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
   if (filtroEstado) filtroEstado.addEventListener('change', filtrarStock);
   if (filtroCriticidad) filtroCriticidad.addEventListener('change', filtrarStock);
@@ -366,10 +430,12 @@
     if (modalEl) {
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
-            itemIdInput.value = '';
-            stockHint.textContent = '';
-            sugerenciasItems.innerHTML = '';
-            sugerenciasItems.classList.add('d-none');
+            if (itemIdInput) itemIdInput.value = '';
+            if (stockHint) stockHint.textContent = '';
+            if (sugerenciasItems) {
+              sugerenciasItems.innerHTML = '';
+              sugerenciasItems.classList.add('d-none');
+            }
             // Resetear visibilidades por defecto
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
