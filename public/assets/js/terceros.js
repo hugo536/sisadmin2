@@ -287,12 +287,14 @@
         tipo_cuenta = '', 
         numero_cuenta = '', 
         cci = '', 
-        alias = '', 
+        titular = '', 
+        alias = '',
         moneda = 'PEN', 
         principal = 0, 
         billetera_digital = 0, 
         observaciones = '' 
     } = {}, onRemove) {
+        titular = titular || alias;
         
         const wrapper = document.createElement('div');
         wrapper.className = 'card mb-2 border shadow-sm';
@@ -375,7 +377,29 @@
         inputGroup.appendChild(secondaryInput);
         colInput.appendChild(inputGroup);
 
-        // --- COLUMNA 5: MONEDA Y ACCIONES ---
+        // --- COLUMNA 5: TITULAR ---
+        const colTitular = document.createElement('div');
+        colTitular.className = 'col-md-4';
+        const titularInput = document.createElement('input');
+        titularInput.type = 'text';
+        titularInput.name = 'cuenta_titular[]';
+        titularInput.className = 'form-control form-control-sm';
+        titularInput.placeholder = 'Titular de la cuenta (Opcional)';
+        titularInput.value = titular;
+        colTitular.appendChild(titularInput);
+
+        // --- COLUMNA 6: OBSERVACIONES ---
+        const colObservaciones = document.createElement('div');
+        colObservaciones.className = 'col-md-8';
+        const observacionesInput = document.createElement('textarea');
+        observacionesInput.name = 'cuenta_observaciones[]';
+        observacionesInput.className = 'form-control form-control-sm';
+        observacionesInput.placeholder = 'Observaciones (ej: cobra comisión, solo dólares)';
+        observacionesInput.rows = 1;
+        observacionesInput.value = observaciones;
+        colObservaciones.appendChild(observacionesInput);
+
+        // --- COLUMNA 7: MONEDA Y ACCIONES ---
         const colActions = document.createElement('div');
         colActions.className = 'col-md-1 d-flex gap-1';
         
@@ -404,7 +428,14 @@
         row.appendChild(colTipoCta);
         row.appendChild(colInput);
         row.appendChild(colActions);
+
+        const detailsRow = document.createElement('div');
+        detailsRow.className = 'row g-2 align-items-start mt-1';
+        detailsRow.appendChild(colTitular);
+        detailsRow.appendChild(colObservaciones);
+
         cardBody.appendChild(row);
+        cardBody.appendChild(detailsRow);
         wrapper.appendChild(cardBody);
 
         // ==========================================

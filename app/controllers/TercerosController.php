@@ -499,7 +499,7 @@ class TercerosController extends Controlador
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
         $cuentasNumero      = $data['cuenta_numero']           ?? [];
         $cuentasCci         = $data['cuenta_cci']              ?? [];
-        $cuentasAlias       = $data['cuenta_alias']            ?? [];
+        $cuentasTitular     = $data['cuenta_titular']          ?? $data['cuenta_alias'] ?? [];
         $cuentasMoneda      = $data['cuenta_moneda']           ?? [];
         $cuentasPrincipal   = $data['cuenta_principal']        ?? [];
         $cuentasBilletera   = $data['cuenta_billetera']        ?? [];
@@ -513,7 +513,7 @@ class TercerosController extends Controlador
         $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
         $cuentasNumero      = $toArray($cuentasNumero);
         $cuentasCci         = $toArray($cuentasCci);
-        $cuentasAlias       = $toArray($cuentasAlias);
+        $cuentasTitular     = $toArray($cuentasTitular);
         $cuentasMoneda      = $toArray($cuentasMoneda);
         $cuentasPrincipal   = $toArray($cuentasPrincipal);
         $cuentasBilletera   = $toArray($cuentasBilletera);
@@ -567,7 +567,7 @@ class TercerosController extends Controlador
                 'tipo_cuenta'       => $tipoCuentaVal,    // COLUMNA BD CORRECTA
                 'numero_cuenta'     => $numeroVal,
                 'cci'               => $cciVal,
-                'alias'             => trim((string)($cuentasAlias[$i] ?? '')),
+                'titular'           => trim((string)($cuentasTitular[$i] ?? '')),
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,
