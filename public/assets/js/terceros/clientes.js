@@ -46,7 +46,7 @@
         });
     }
 
-    function toggleComercialFields(clienteEl, proveedorEl, containerEl, clienteSectionEl, proveedorSectionEl) {
+    function toggleComercialFields(clienteEl, proveedorEl, containerEl, clienteSectionEl, proveedorSectionEl, distribuidorSectionEl) {
         if (!containerEl) return;
         const showCliente = Boolean(clienteEl?.checked);
         const showProveedor = Boolean(proveedorEl?.checked);
@@ -55,6 +55,12 @@
         containerEl.classList.toggle('d-none', !showAny);
         if (!showAny) {
             resetFields(containerEl);
+            if (distribuidorSectionEl) {
+                const checkboxEl = distribuidorSectionEl.querySelector('[name="es_distribuidor"]');
+                const distribuidorFieldsEl = distribuidorSectionEl.querySelector('[id$="DistribuidorFields"]');
+                if (checkboxEl) checkboxEl.checked = false;
+                if (distribuidorFieldsEl) toggleDistribuidorFields(checkboxEl, distribuidorFieldsEl);
+            }
             return;
         }
 
@@ -66,6 +72,16 @@
         if (proveedorSectionEl) {
             proveedorSectionEl.classList.toggle('d-none', !showProveedor);
             if (!showProveedor) resetFields(proveedorSectionEl);
+        }
+
+        if (distribuidorSectionEl) {
+            distribuidorSectionEl.classList.toggle('d-none', !showCliente);
+            if (!showCliente) {
+                const checkboxEl = distribuidorSectionEl.querySelector('[name="es_distribuidor"]');
+                const distribuidorFieldsEl = distribuidorSectionEl.querySelector('[id$="DistribuidorFields"]');
+                if (checkboxEl) checkboxEl.checked = false;
+                if (distribuidorFieldsEl) toggleDistribuidorFields(checkboxEl, distribuidorFieldsEl);
+            }
         }
     }
 

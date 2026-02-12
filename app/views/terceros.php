@@ -392,6 +392,16 @@
                             </div>
                         </div>
 
+                        <!-- Cuentas Bancarias -->
+                        <div class="col-12" id="crearCuentasBancariasSection">
+                            <hr class="my-3">
+                            <h6 class="fw-bold mb-3">Cuentas Bancarias / Billeteras Digitales</h6>
+                            <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
+                            </button>
+                        </div>
+
                         <!-- Estado -->
                         <div class="col-md-4">
                             <div class="form-floating">
@@ -401,16 +411,6 @@
                                 </select>
                                 <label for="crearEstado">Estado</label>
                             </div>
-                        </div>
-
-                        <!-- Cuentas Bancarias -->
-                        <div class="col-12" id="crearCuentasBancariasSection">
-                            <hr class="my-3">
-                            <h6 class="fw-bold mb-3">Cuentas Bancarias / Billeteras Digitales</h6>
-                            <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
-                            </button>
                         </div>
 
                         <!-- Campos Comerciales -->
@@ -426,7 +426,7 @@
                                     <?php $prefix = 'crear'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
-                                <div class="col-12">
+                                <div class="col-12" id="crearComercialDistribuidorSection">
                                     <?php $prefix = 'crear'; ?>
                                     <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
                                 </div>
@@ -600,6 +600,16 @@
                             </div>
                         </div>
 
+                        <!-- Cuentas Bancarias -->
+                        <div class="col-12" id="editCuentasBancariasSection">
+                            <hr class="my-3">
+                            <h6 class="fw-bold mb-3">Cuentas Bancarias / Billeteras Digitales</h6>
+                            <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAgregarCuenta">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
+                            </button>
+                        </div>
+
                         <!-- Estado -->
                         <div class="col-md-4">
                             <div class="form-floating">
@@ -609,16 +619,6 @@
                                 </select>
                                 <label for="editEstado">Estado</label>
                             </div>
-                        </div>
-
-                        <!-- Cuentas Bancarias -->
-                        <div class="col-12" id="editCuentasBancariasSection">
-                            <hr class="my-3">
-                            <h6 class="fw-bold mb-3">Cuentas Bancarias / Billeteras Digitales</h6>
-                            <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAgregarCuenta">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
-                            </button>
                         </div>
 
                         <!-- Campos Comerciales -->
@@ -634,7 +634,7 @@
                                     <?php $prefix = 'edit'; ?>
                                     <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
                                 </div>
-                                <div class="col-12">
+                                <div class="col-12" id="editComercialDistribuidorSection">
                                     <?php $prefix = 'edit'; ?>
                                     <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
                                 </div>

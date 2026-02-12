@@ -58,7 +58,7 @@ $today = date('Y-m-d');
     </div>
     <div class="col-md-4">
         <div class="form-floating">
-            <input type="date" class="form-control" name="fecha_cese" id="<?php echo $prefix; ?>FechaCese">
+            <input type="date" class="form-control" name="fecha_cese" id="<?php echo $prefix; ?>FechaCese" disabled>
             <label for="<?php echo $prefix; ?>FechaCese">Fecha de Cese</label>
         </div>
     </div>
@@ -77,7 +77,7 @@ $today = date('Y-m-d');
     <div class="col-md-4">
         <div class="form-floating">
             <select class="form-select" name="estado_laboral" id="<?php echo $prefix; ?>EstadoLaboral">
-                <option value="activo">Activo</option>
+                <option value="activo" selected>Activo</option>
                 <option value="cesado">Cesado</option>
                 <option value="suspendido">Suspendido</option>
             </select>
@@ -88,7 +88,7 @@ $today = date('Y-m-d');
     <div class="col-md-3">
         <div class="form-floating">
             <select class="form-select" name="moneda" id="<?php echo $prefix; ?>Moneda">
-                <option value="PEN">S/ (Soles)</option>
+                <option value="PEN" selected>S/ (Soles)</option>
                 <option value="USD">$ (Dólares)</option>
             </select>
             <label for="<?php echo $prefix; ?>Moneda">Moneda</label>
