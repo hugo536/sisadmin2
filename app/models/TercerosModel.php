@@ -312,19 +312,19 @@ class TercerosModel extends Modelo
 
     public function listarCargos(): array
     {
-        $sql = "SELECT id, nombre FROM cargos WHERE estado = 1 ORDER BY nombre ASC";
+        $sql = "SELECT id, nombre, estado FROM cargos WHERE deleted_at IS NULL ORDER BY nombre ASC";
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function listarAreas(): array
     {
-        $sql = "SELECT id, nombre FROM areas WHERE estado = 1 ORDER BY nombre ASC";
+        $sql = "SELECT id, nombre, estado FROM areas WHERE deleted_at IS NULL ORDER BY nombre ASC";
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function guardarCargo(string $nombre): int
     {
-        $stmt = $this->db()->prepare("SELECT id FROM cargos WHERE nombre = ? LIMIT 1");
+        $stmt = $this->db()->prepare("SELECT id FROM cargos WHERE nombre = ? AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([trim($nombre)]);
         if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) return (int) $row['id'];
 
@@ -335,17 +335,22 @@ class TercerosModel extends Modelo
 
     public function actualizarCargo(int $id, string $nombre): bool
     {
-        return $this->db()->prepare("UPDATE cargos SET nombre = ? WHERE id = ?")->execute([trim($nombre), $id]);
+        return $this->db()->prepare("UPDATE cargos SET nombre = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $id]);
     }
 
     public function eliminarCargo(int $id): bool
     {
-        return $this->db()->prepare("UPDATE cargos SET estado = 0 WHERE id = ?")->execute([$id]);
+        return $this->db()->prepare("UPDATE cargos SET deleted_at = NOW(), estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$id]);
+    }
+
+    public function cambiarEstadoCargo(int $id, int $estado): bool
+    {
+        return $this->db()->prepare("UPDATE cargos SET estado = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $id]);
     }
 
     public function guardarArea(string $nombre): int
     {
-        $stmt = $this->db()->prepare("SELECT id FROM areas WHERE nombre = ? LIMIT 1");
+        $stmt = $this->db()->prepare("SELECT id FROM areas WHERE nombre = ? AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([trim($nombre)]);
         if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) return (int) $row['id'];
 
@@ -356,12 +361,17 @@ class TercerosModel extends Modelo
 
     public function actualizarArea(int $id, string $nombre): bool
     {
-        return $this->db()->prepare("UPDATE areas SET nombre = ? WHERE id = ?")->execute([trim($nombre), $id]);
+        return $this->db()->prepare("UPDATE areas SET nombre = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $id]);
     }
 
     public function eliminarArea(int $id): bool
     {
-        return $this->db()->prepare("UPDATE areas SET estado = 0 WHERE id = ?")->execute([$id]);
+        return $this->db()->prepare("UPDATE areas SET deleted_at = NOW(), estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$id]);
+    }
+
+    public function cambiarEstadoArea(int $id, int $estado): bool
+    {
+        return $this->db()->prepare("UPDATE areas SET estado = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $id]);
     }
 
     // ==========================================
@@ -544,7 +554,12 @@ class TercerosModel extends Modelo
     {
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db()->prepare("SELECT tercero_id, telefono, tipo FROM terceros_telefonos WHERE tercero_id IN ($inQuery) ORDER BY id ASC");
+        $sql = "SELECT tercero_id, telefono, tipo FROM terceros_telefonos WHERE tercero_id IN ($inQuery)";
+        if ($this->hasColumn('terceros_telefonos', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $sql .= ' ORDER BY id ASC';
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute($ids);
         $result = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -572,8 +587,11 @@ class TercerosModel extends Modelo
                        billetera_digital, 
                        observaciones 
                 FROM terceros_cuentas_bancarias 
-                WHERE tercero_id IN ($inQuery) 
-                ORDER BY id ASC";
+                WHERE tercero_id IN ($inQuery)";
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $sql .= " ORDER BY id ASC";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($ids);
@@ -586,14 +604,46 @@ class TercerosModel extends Modelo
 
     private function sincronizarTelefonos(int $terceroId, array $telefonos, int $userId): void
     {
-        $this->db()->prepare("DELETE FROM terceros_telefonos WHERE tercero_id = ?")->execute([$terceroId]);
+        if ($this->hasColumn('terceros_telefonos', 'deleted_at')) {
+            $set = ['deleted_at = NOW()'];
+            $params = ['tercero_id' => $terceroId];
+            if ($this->hasColumn('terceros_telefonos', 'deleted_by')) {
+                $set[] = 'deleted_by = :deleted_by';
+                $params['deleted_by'] = $userId;
+            }
+            if ($this->hasColumn('terceros_telefonos', 'updated_by')) {
+                $set[] = 'updated_by = :updated_by';
+                $params['updated_by'] = $userId;
+            }
+            $sql = 'UPDATE terceros_telefonos SET ' . implode(', ', $set) . ' WHERE tercero_id = :tercero_id';
+            $this->db()->prepare($sql)->execute($params);
+        } else {
+            $this->db()->prepare("DELETE FROM terceros_telefonos WHERE tercero_id = ?")->execute([$terceroId]);
+        }
         if (empty($telefonos)) return;
 
-        $sql = "INSERT INTO terceros_telefonos (tercero_id, telefono, tipo, created_by, updated_by) VALUES (?, ?, ?, ?, ?)";
+        $columnas = ['tercero_id', 'telefono', 'tipo'];
+        $placeholders = ['?', '?', '?'];
+        if ($this->hasColumn('terceros_telefonos', 'created_by')) {
+            $columnas[] = 'created_by';
+            $placeholders[] = '?';
+        }
+        if ($this->hasColumn('terceros_telefonos', 'updated_by')) {
+            $columnas[] = 'updated_by';
+            $placeholders[] = '?';
+        }
+        $sql = 'INSERT INTO terceros_telefonos (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $placeholders) . ')';
         $stmt = $this->db()->prepare($sql);
         foreach ($telefonos as $tel) {
             if (!empty($tel['telefono'])) {
-                $stmt->execute([$terceroId, trim($tel['telefono']), $tel['tipo'] ?? 'Móvil', $userId, $userId]);
+                $params = [$terceroId, trim($tel['telefono']), $tel['tipo'] ?? 'Móvil'];
+                if ($this->hasColumn('terceros_telefonos', 'created_by')) {
+                    $params[] = $userId;
+                }
+                if ($this->hasColumn('terceros_telefonos', 'updated_by')) {
+                    $params[] = $userId;
+                }
+                $stmt->execute($params);
             }
         }
     }
@@ -601,7 +651,22 @@ class TercerosModel extends Modelo
     private function sincronizarCuentasBancarias(int $terceroId, array $cuentas, int $userId): void
     {
         // Primero limpiamos las cuentas anteriores
-        $this->db()->prepare("DELETE FROM terceros_cuentas_bancarias WHERE tercero_id = ?")->execute([$terceroId]);
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
+            $set = ['deleted_at = NOW()'];
+            $params = ['tercero_id' => $terceroId];
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_by')) {
+                $set[] = 'deleted_by = :deleted_by';
+                $params['deleted_by'] = $userId;
+            }
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) {
+                $set[] = 'updated_by = :updated_by';
+                $params['updated_by'] = $userId;
+            }
+            $sql = 'UPDATE terceros_cuentas_bancarias SET ' . implode(', ', $set) . ' WHERE tercero_id = :tercero_id';
+            $this->db()->prepare($sql)->execute($params);
+        } else {
+            $this->db()->prepare("DELETE FROM terceros_cuentas_bancarias WHERE tercero_id = ?")->execute([$terceroId]);
+        }
         
         if (empty($cuentas)) return;
 

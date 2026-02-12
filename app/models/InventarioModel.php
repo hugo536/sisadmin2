@@ -39,9 +39,10 @@ class InventarioModel extends Modelo
                                  AND l.fecha_vencimiento IS NOT NULL
                            ) AS proximo_vencimiento
                     FROM items i
-                    INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1
+                    INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
                     LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen
                     WHERE i.controla_stock = 1
+                      AND i.deleted_at IS NULL
                     ORDER BY i.nombre ASC';
 
             $stmt = $this->db()->prepare($sql);
@@ -62,7 +63,7 @@ class InventarioModel extends Modelo
                        i.stock_minimo,
                        i.requiere_vencimiento,
                        i.dias_alerta_vencimiento,
-                       COALESCE(SUM(CASE WHEN a.estado = 1 THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
+                           COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
                        (
                            SELECT l.lote
                            FROM inventario_lotes l
@@ -86,6 +87,7 @@ class InventarioModel extends Modelo
                 LEFT JOIN inventario_stock s ON s.id_item = i.id
                 LEFT JOIN almacenes a ON a.id = s.id_almacen
                 WHERE i.controla_stock = 1
+                  AND i.deleted_at IS NULL
                 GROUP BY i.id, i.sku, i.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento
                 ORDER BY i.nombre ASC';
 
@@ -98,6 +100,7 @@ class InventarioModel extends Modelo
         $sql = 'SELECT id, sku, nombre, controla_stock, requiere_lote, requiere_vencimiento
                 FROM items
                 WHERE estado = 1
+                  AND deleted_at IS NULL
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
@@ -109,6 +112,7 @@ class InventarioModel extends Modelo
         $sql = 'SELECT id, sku, nombre, requiere_lote, requiere_vencimiento
                 FROM items
                 WHERE estado = 1
+                  AND deleted_at IS NULL
                   AND controla_stock = 1
                   AND (
                     sku LIKE :termino
