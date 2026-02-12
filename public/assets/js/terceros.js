@@ -377,6 +377,12 @@
         inputGroup.appendChild(secondaryInput);
         colInput.appendChild(inputGroup);
 
+        // --- COLUMNA 5: TITULAR (OBLIGATORIO SI EXISTE CUENTA) ---
+        const colTitular = document.createElement('div');
+        colTitular.className = 'col-md-4';
+        const titularLabel = document.createElement('label');
+        titularLabel.className = 'form-label small fw-semibold mb-1';
+        titularLabel.textContent = 'Titular de la cuenta *';
         // --- COLUMNA 5: TITULAR ---
         const colTitular = document.createElement('div');
         colTitular.className = 'col-md-4';
@@ -384,6 +390,10 @@
         titularInput.type = 'text';
         titularInput.name = 'cuenta_titular[]';
         titularInput.className = 'form-control form-control-sm';
+        titularInput.placeholder = 'Titular de la cuenta';
+        titularInput.value = titular;
+        titularInput.required = true;
+        colTitular.appendChild(titularLabel);
         titularInput.placeholder = 'Titular de la cuenta (Opcional)';
         titularInput.value = titular;
         colTitular.appendChild(titularInput);
@@ -391,10 +401,16 @@
         // --- COLUMNA 6: OBSERVACIONES ---
         const colObservaciones = document.createElement('div');
         colObservaciones.className = 'col-md-8';
+        const observacionesLabel = document.createElement('label');
+        observacionesLabel.className = 'form-label small fw-semibold mb-1';
+        observacionesLabel.textContent = 'Observaciones';
         const observacionesInput = document.createElement('textarea');
         observacionesInput.name = 'cuenta_observaciones[]';
         observacionesInput.className = 'form-control form-control-sm';
         observacionesInput.placeholder = 'Observaciones (ej: cobra comisión, solo dólares)';
+        observacionesInput.rows = 2;
+        observacionesInput.value = observaciones;
+        colObservaciones.appendChild(observacionesLabel);
         observacionesInput.rows = 1;
         observacionesInput.value = observaciones;
         colObservaciones.appendChild(observacionesInput);
@@ -886,12 +902,14 @@
         const cTipoCta = form.querySelectorAll('select[name="cuenta_tipo_cta[]"]');
         const cNumeros = form.querySelectorAll('input[name="cuenta_numero[]"]');
         const cCci = form.querySelectorAll('input[name="cuenta_cci[]"]');
+        const cTitulares = form.querySelectorAll('input[name="cuenta_titular[]"]');
 
         cTipos.forEach((tipoEl, i) => {
             const entidadEl = cEntidades[i];
             const tipoCtaEl = cTipoCta[i];
             const numEl = cNumeros[i];
             const cciEl = cCci[i];
+            const titularEl = cTitulares[i];
             const tipoEntidad = normalizeTipoEntidad(tipoEl.value);
             const isBilletera = isBilleteraTipo(tipoEntidad);
             const cciDigits = sanitizeDigits(cciEl?.value || '');
@@ -921,6 +939,11 @@
 
             if (!tipoCtaEl.value.trim()) {
                 if (showErrors) setInvalid(tipoCtaEl, 'Requerido');
+                valid = false;
+            }
+
+            if (!titularEl?.value.trim()) {
+                if (showErrors) setInvalid(titularEl, 'Ingrese titular de la cuenta.');
                 valid = false;
             }
         });

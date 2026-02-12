@@ -560,6 +560,11 @@ class TercerosController extends Controlador
             $tipoCuentaVal = trim((string)($cuentasTipoCuenta[$i] ?? ''));
             if ($esBilletera && $tipoCuentaVal === '') $tipoCuentaVal = 'N/A';
 
+            $titularVal = trim((string)($cuentasTitular[$i] ?? ''));
+            if ($titularVal === '') {
+                throw new Exception("Cuenta #" . ($i + 1) . ": el titular de la cuenta es obligatorio.");
+            }
+
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, // Se llena al insertar en el modelo
                 'tipo_entidad'      => $tipoEntidad,      // COLUMNA BD CORRECTA
@@ -567,6 +572,7 @@ class TercerosController extends Controlador
                 'tipo_cuenta'       => $tipoCuentaVal,    // COLUMNA BD CORRECTA
                 'numero_cuenta'     => $numeroVal,
                 'cci'               => $cciVal,
+                'titular'           => $titularVal,
                 'titular'           => trim((string)($cuentasTitular[$i] ?? '')),
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
