@@ -11,7 +11,7 @@ class ItemsModel extends Modelo
     public function listar(): array
     {
         // CORREGIDO: Usamos un alias (AS impuesto) para evitar errores en la vista
-        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
+        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, id_sabor, id_presentacion, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
@@ -27,7 +27,7 @@ class ItemsModel extends Modelo
     public function obtener(int $id): array
     {
         // CORREGIDO: Usamos un alias aquí también
-        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, marca,
+        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, id_sabor, id_presentacion, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
@@ -46,6 +46,7 @@ class ItemsModel extends Modelo
     {
         $sql = 'SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_categoria,
                        c.nombre AS categoria_nombre,
+                       i.id_sabor, i.id_presentacion,
                        i.marca, i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
                        i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
@@ -184,11 +185,11 @@ class ItemsModel extends Modelo
         $payload['updated_by'] = $userId;
 
         // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
-        $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, marca,
+        $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, id_sabor, id_presentacion, marca,
                                    unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                                    dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                                    moneda, impuesto_porcentaje, estado, created_by, updated_by)
-                VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :marca,
+                VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :id_sabor, :id_presentacion, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
                         :dias_alerta_vencimiento, :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
@@ -206,6 +207,8 @@ class ItemsModel extends Modelo
                     descripcion = :descripcion,
                     tipo_item = :tipo_item,
                     id_categoria = :id_categoria,
+                    id_sabor = :id_sabor,
+                    id_presentacion = :id_presentacion,
                     marca = :marca,
                     unidad_base = :unidad_base,
                     permite_decimales = :permite_decimales,
@@ -272,6 +275,8 @@ class ItemsModel extends Modelo
                 'descripcion' => (string) ($item['descripcion'] ?? ''),
                 'tipo_item' => (string) $item['tipo_item'],
                 'id_categoria' => $item['id_categoria'] !== null ? (int) $item['id_categoria'] : null,
+                'id_sabor' => $item['id_sabor'] !== null ? (int) $item['id_sabor'] : null,
+                'id_presentacion' => $item['id_presentacion'] !== null ? (int) $item['id_presentacion'] : null,
                 'marca' => (string) ($item['marca'] ?? ''),
                 'unidad_base' => (string) ($item['unidad_base'] ?? ''),
                 'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
@@ -584,6 +589,8 @@ class ItemsModel extends Modelo
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
             'tipo_item' => trim((string) ($data['tipo_item'] ?? '')),
             'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? $data['id_categoria'] : null,
+            'id_sabor' => (isset($data['id_sabor']) && $data['id_sabor'] !== '') ? (int) $data['id_sabor'] : null,
+            'id_presentacion' => (isset($data['id_presentacion']) && $data['id_presentacion'] !== '') ? (int) $data['id_presentacion'] : null,
             'marca' => trim((string) ($data['marca'] ?? '')),
             'unidad_base' => trim((string) ($data['unidad_base'] ?? 'UND')),
             'permite_decimales' => !empty($data['permite_decimales']) ? 1 : 0,
