@@ -8,10 +8,12 @@ class InventarioModel extends Modelo
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
                        i.nombre AS item_nombre,
+                       a.id AS id_almacen,
+                       a.nombre AS almacen_nombre,
                        i.stock_minimo,
                        i.requiere_vencimiento,
                        i.dias_alerta_vencimiento,
-                       COALESCE(SUM(s.stock_actual), 0) AS stock_actual,
+                       COALESCE(s.stock_actual, 0) AS stock_actual,
                        (
                            SELECT MIN(l.fecha_vencimiento)
                            FROM inventario_lotes l
@@ -20,10 +22,11 @@ class InventarioModel extends Modelo
                              AND l.fecha_vencimiento IS NOT NULL
                        ) AS proximo_vencimiento
                 FROM items i
-                LEFT JOIN inventario_stock s ON s.id_item = i.id
+                CROSS JOIN almacenes a
+                LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = a.id
                 WHERE i.controla_stock = 1
-                GROUP BY i.id, i.sku, i.nombre, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento
-                ORDER BY i.nombre ASC';
+                  AND a.estado = 1
+                ORDER BY i.nombre ASC, a.nombre ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -37,6 +40,88 @@ class InventarioModel extends Modelo
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function buscarItems(string $termino, int $limite = 20): array
+    {
+        $sql = 'SELECT id, sku, nombre, requiere_lote, requiere_vencimiento
+                FROM items
+                WHERE estado = 1
+                  AND controla_stock = 1
+                  AND (
+                    sku LIKE :termino
+                    OR nombre LIKE :termino
+                  )
+                ORDER BY nombre ASC
+                LIMIT :limite';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':termino', '%' . $termino . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':limite', max(5, min(100, $limite)), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerStockPorItemAlmacen(int $idItem, int $idAlmacen): float
+    {
+        $sql = 'SELECT stock_actual
+                FROM inventario_stock
+                WHERE id_item = :id_item
+                  AND id_almacen = :id_almacen
+                LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
+        ]);
+
+        return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    public function obtenerKardex(array $filtros = []): array
+    {
+        $sql = 'SELECT m.id,
+                       m.created_at,
+                       m.tipo_movimiento,
+                       m.cantidad,
+                       m.referencia,
+                       i.sku,
+                       i.nombre AS item_nombre,
+                       ao.nombre AS almacen_origen,
+                       ad.nombre AS almacen_destino,
+                       u.nombre_completo AS usuario
+                FROM inventario_movimientos m
+                INNER JOIN items i ON i.id = m.id_item
+                LEFT JOIN almacenes ao ON ao.id = m.id_almacen_origen
+                LEFT JOIN almacenes ad ON ad.id = m.id_almacen_destino
+                LEFT JOIN usuarios u ON u.id = m.created_by
+                WHERE 1=1';
+
+        $params = [];
+
+        if (!empty($filtros['id_item'])) {
+            $sql .= ' AND m.id_item = :id_item';
+            $params['id_item'] = (int) $filtros['id_item'];
+        }
+
+        if (!empty($filtros['fecha_desde'])) {
+            $sql .= ' AND DATE(m.created_at) >= :fecha_desde';
+            $params['fecha_desde'] = (string) $filtros['fecha_desde'];
+        }
+
+        if (!empty($filtros['fecha_hasta'])) {
+            $sql .= ' AND DATE(m.created_at) <= :fecha_hasta';
+            $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
+        }
+
+        $sql .= ' ORDER BY m.created_at DESC LIMIT 1000';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
