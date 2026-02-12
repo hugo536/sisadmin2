@@ -182,9 +182,9 @@ $hoy = new DateTimeImmutable('today');
                                             </div>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
                                             <?php if (tiene_permiso('items.editar')): ?>
-                                            <a href="?ruta=items/perfil&id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                            <a href="?ruta=items"
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent"
-                                               title="Editar">
+                                               title="Editar datos del ítem">
                                                 <i class="bi bi-pencil-square fs-5"></i>
                                             </a>
                                             <?php endif; ?>
