@@ -181,9 +181,9 @@ $hoy = new DateTimeImmutable('today');
                                                        <?php echo tiene_permiso('items.editar') ? '' : 'disabled'; ?>>
                                             </div>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
-                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>&lote=<?php echo rawurlencode($loteActual); ?>"
+                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent"
-                                               title="Ver movimientos del lote">
+                                               title="Ver movimientos del ítem">
                                                 <i class="bi bi-eye fs-5"></i>
                                             </a>
                                             <?php if (tiene_permiso('items.eliminar')): ?>
