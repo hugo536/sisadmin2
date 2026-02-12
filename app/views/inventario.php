@@ -2,6 +2,7 @@
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
 $items = $items ?? [];
+$idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 $hoy = new DateTimeImmutable('today');
 ?>
 <div class="container-fluid p-4">
@@ -23,9 +24,9 @@ $hoy = new DateTimeImmutable('today');
                     <i class="bi bi-file-earmark-arrow-down me-2 text-info"></i>Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=csv">CSV</a></li>
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=excel">Excel</a></li>
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=pdf">PDF (texto)</a></li>
+                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=csv&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>">CSV</a></li>
+                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=excel&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>">Excel</a></li>
+                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=pdf&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>">PDF (texto)</a></li>
                 </ul>
             </div>
             <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
@@ -62,9 +63,9 @@ $hoy = new DateTimeImmutable('today');
                 </div>
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="inventarioFiltroAlmacen">
-                        <option value="">Todos los almacenes</option>
+                        <option value="" <?php echo $idAlmacenFiltro === 0 ? 'selected' : ''; ?>>Todos los almacenes</option>
                         <?php foreach ($almacenes as $almacen): ?>
-                            <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                            <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>" <?php echo $idAlmacenFiltro === (int) ($almacen['id'] ?? 0) ? 'selected' : ''; ?>><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

@@ -24,8 +24,8 @@ class InventarioController extends Controlador
             require_permiso('inventario.ver');
         }
 
-        // Obtiene el stock general corregido (ya filtra por lotes de almacén en el modelo)
-        $stockActual = $this->inventarioModel->obtenerStock();
+        $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
+        $stockActual = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
 
         $datos = [
             'ruta_actual' => 'inventario',
@@ -35,6 +35,7 @@ class InventarioController extends Controlador
             // pero si son pocos está bien dejarlo así.
             'items' => $this->inventarioModel->listarItems(),
             'flash' => ['tipo' => '', 'texto' => ''],
+            'id_almacen_filtro' => $idAlmacenFiltro,
         ];
 
         $this->vista('inventario', $datos);
@@ -202,7 +203,8 @@ class InventarioController extends Controlador
         require_permiso('inventario.ver');
 
         $formato = strtolower(trim((string) ($_GET['formato'] ?? 'csv')));
-        $filas = $this->inventarioModel->obtenerStock();
+        $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
+        $filas = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
 
         if ($formato === 'pdf') {
             header('Content-Type: text/plain; charset=utf-8');

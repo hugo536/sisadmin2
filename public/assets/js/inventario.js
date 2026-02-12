@@ -79,7 +79,6 @@
     const termino = normalizarTexto(searchInput ? searchInput.value : '');
     const estado = (filtroEstado ? filtroEstado.value : '').trim();
     const criticidad = (filtroCriticidad ? filtroCriticidad.value : '').trim();
-    const almacenSel = (filtroAlmacen ? filtroAlmacen.value : '').trim();
     const vencimiento = (filtroVencimiento ? filtroVencimiento.value : '').trim();
 
     const filas = Array.from(tablaStock.querySelectorAll('tbody tr'));
@@ -88,10 +87,25 @@
       const okTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
       const okEstado = estado === '' || (fila.dataset.estado || '') === estado;
       const okCrit = criticidad === '' || (fila.dataset.criticidad || '') === criticidad;
-      const okAlm = almacenSel === '' || (fila.dataset.almacen || '') === almacenSel;
       const okVenc = vencimiento === '' || (fila.dataset.vencimiento || '') === vencimiento;
-      fila.classList.toggle('d-none', !(okTexto && okEstado && okCrit && okAlm && okVenc));
+      fila.classList.toggle('d-none', !(okTexto && okEstado && okCrit && okVenc));
     });
+  }
+
+
+  function aplicarFiltroAlmacenServidor() {
+    if (!filtroAlmacen) return;
+
+    const url = new URL(window.location.href);
+    const valor = (filtroAlmacen.value || '').trim();
+
+    if (valor === '') {
+      url.searchParams.delete('id_almacen');
+    } else {
+      url.searchParams.set('id_almacen', valor);
+    }
+
+    window.location.href = url.toString();
   }
 
   // --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
@@ -300,7 +314,7 @@
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
   if (filtroEstado) filtroEstado.addEventListener('change', filtrarStock);
   if (filtroCriticidad) filtroCriticidad.addEventListener('change', filtrarStock);
-  if (filtroAlmacen) filtroAlmacen.addEventListener('change', filtrarStock);
+  if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
   if (filtroVencimiento) filtroVencimiento.addEventListener('change', filtrarStock);
   filtrarStock();
 
