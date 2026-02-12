@@ -5,17 +5,19 @@ declare(strict_types=1);
 class ComprasOrdenModel extends Modelo
 {
     private ?bool $hasFechaOrden = null;
+    private ?bool $hasFechaEntrega = null;
 
     public function listar(array $filtros = []): array
     {
         $fechaOrdenExpr = $this->fechaOrdenExpr('o');
+        $fechaEntregaExpr = $this->fechaEntregaExpr('o');
 
         $sql = 'SELECT o.id,
                        o.codigo,
                        o.id_proveedor,
                        t.nombre_completo AS proveedor,
                        ' . $fechaOrdenExpr . ' AS fecha_orden,
-                       o.fecha_entrega,
+                       ' . $fechaEntregaExpr . ' AS fecha_entrega,
                        o.total,
                        o.estado,
                        o.created_at
@@ -57,8 +59,9 @@ class ComprasOrdenModel extends Modelo
     public function obtener(int $id): array
     {
         $fechaOrdenExpr = $this->fechaOrdenExpr();
+        $fechaEntregaExpr = $this->fechaEntregaExpr();
 
-        $sql = 'SELECT id, codigo, id_proveedor, ' . $fechaOrdenExpr . ' AS fecha_orden, fecha_entrega, observaciones, subtotal, total, estado
+        $sql = 'SELECT id, codigo, id_proveedor, ' . $fechaOrdenExpr . ' AS fecha_orden, ' . $fechaEntregaExpr . ' AS fecha_entrega, observaciones, subtotal, total, estado
                 FROM compras_ordenes
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -119,7 +122,6 @@ class ComprasOrdenModel extends Modelo
 
                 $sqlUpdate = 'UPDATE compras_ordenes
                               SET id_proveedor = :id_proveedor,
-                                  fecha_entrega = :fecha_entrega,
                                   observaciones = :observaciones,
                                   subtotal = :subtotal,
                                   total = :total,
@@ -128,6 +130,10 @@ class ComprasOrdenModel extends Modelo
                                   updated_at = NOW()
                               WHERE id = :id
                                 AND deleted_at IS NULL';
+
+                if ($this->hasFechaEntregaColumn()) {
+                    $sqlUpdate = str_replace('SET id_proveedor = :id_proveedor,', 'SET id_proveedor = :id_proveedor,\n                                  fecha_entrega = :fecha_entrega,', $sqlUpdate);
+                }
 
                 $db->prepare($sqlUpdate)->execute([
                     'id' => $idOrden,
@@ -146,12 +152,14 @@ class ComprasOrdenModel extends Modelo
                 $codigo = $this->generarCodigo($db);
                 $fechaOrdenColumn = $this->hasFechaOrdenColumn() ? 'fecha_orden,' : '';
                 $fechaOrdenValue = $this->hasFechaOrdenColumn() ? 'NOW(),' : '';
+                $fechaEntregaColumn = $this->hasFechaEntregaColumn() ? 'fecha_entrega,' : '';
+                $fechaEntregaValue = $this->hasFechaEntregaColumn() ? ':fecha_entrega,' : '';
 
                 $sqlInsert = 'INSERT INTO compras_ordenes (
                                 codigo,
                                 id_proveedor,
                                 ' . $fechaOrdenColumn . '
-                                fecha_entrega,
+                                ' . $fechaEntregaColumn . '
                                 observaciones,
                                 subtotal,
                                 total,
@@ -164,7 +172,7 @@ class ComprasOrdenModel extends Modelo
                                 :codigo,
                                 :id_proveedor,
                                 ' . $fechaOrdenValue . '
-                                :fecha_entrega,
+                                ' . $fechaEntregaValue . '
                                 :observaciones,
                                 :subtotal,
                                 :total,
@@ -175,17 +183,22 @@ class ComprasOrdenModel extends Modelo
                                 NOW()
                               )';
 
-                $db->prepare($sqlInsert)->execute([
+                $paramsInsert = [
                     'codigo' => $codigo,
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
-                    'fecha_entrega' => $cabecera['fecha_entrega'] ?: null,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'subtotal' => (float) $cabecera['subtotal'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
                     'created_by' => $userId,
                     'updated_by' => $userId,
-                ]);
+                ];
+
+                if ($this->hasFechaEntregaColumn()) {
+                    $paramsInsert['fecha_entrega'] = $cabecera['fecha_entrega'] ?: null;
+                }
+
+                $db->prepare($sqlInsert)->execute($paramsInsert);
 
                 $idOrden = (int) $db->lastInsertId();
             }
@@ -346,5 +359,32 @@ class ComprasOrdenModel extends Modelo
         $this->hasFechaOrden = (int) $stmt->fetchColumn() > 0;
 
         return $this->hasFechaOrden;
+    }
+
+    private function fechaEntregaExpr(string $alias = ''): string
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+
+        return $this->hasFechaEntregaColumn() ? $prefix . 'fecha_entrega' : 'NULL';
+    }
+
+    private function hasFechaEntregaColumn(): bool
+    {
+        if ($this->hasFechaEntrega !== null) {
+            return $this->hasFechaEntrega;
+        }
+
+        $stmt = $this->db()->prepare('SELECT COUNT(*)
+                                    FROM information_schema.COLUMNS
+                                    WHERE TABLE_SCHEMA = DATABASE()
+                                      AND TABLE_NAME = :table_name
+                                      AND COLUMN_NAME = :column_name');
+        $stmt->execute([
+            'table_name' => 'compras_ordenes',
+            'column_name' => 'fecha_entrega',
+        ]);
+        $this->hasFechaEntrega = (int) $stmt->fetchColumn() > 0;
+
+        return $this->hasFechaEntrega;
     }
 }
