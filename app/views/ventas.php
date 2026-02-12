@@ -12,6 +12,11 @@ $estadoLabels = [
 ];
 ?>
 <div class="container-fluid p-4" id="ventasApp"
+     data-url-index="<?php echo e(route_url('ventas/index')); ?>"
+     data-url-guardar="<?php echo e(route_url('ventas/guardar')); ?>"
+     data-url-aprobar="<?php echo e(route_url('ventas/aprobar')); ?>"
+     data-url-anular="<?php echo e(route_url('ventas/anular')); ?>"
+     data-url-despachar="<?php echo e(route_url('ventas/despachar')); ?>">
      data-url-index="<?php echo e(route_url('venta/index')); ?>"
      data-url-guardar="<?php echo e(route_url('venta/guardar')); ?>"
      data-url-aprobar="<?php echo e(route_url('venta/aprobar')); ?>"

@@ -131,6 +131,7 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
             <?php if (tiene_permiso('ventas.ver')): ?>
+                <a class="sidebar-link<?php echo $activo('ventas'); ?>" href="<?php echo e(route_url('ventas')); ?>">
                 <a class="sidebar-link<?php echo $activo('venta'); ?>" href="<?php echo e(route_url('venta')); ?>">
                     <i class="bi bi-bag-check"></i> <span>Ventas</span>
                 </a>
