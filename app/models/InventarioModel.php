@@ -7,7 +7,9 @@ class InventarioModel extends Modelo
     {
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
-                       i.nombre AS item_nombre,
+                       COALESCE(NULLIF(TRIM(i.descripcion), \'\'), i.nombre) AS item_nombre,
+                       i.nombre AS item_nombre_base,
+                       i.descripcion AS item_descripcion,
                        i.estado AS item_estado,
                        a.id AS id_almacen,
                        a.nombre AS almacen_nombre,
@@ -15,6 +17,16 @@ class InventarioModel extends Modelo
                        i.requiere_vencimiento,
                        i.dias_alerta_vencimiento,
                        COALESCE(s.stock_actual, 0) AS stock_actual,
+                       (
+                           SELECT l.lote
+                           FROM inventario_lotes l
+                           WHERE l.id_item = i.id
+                             AND l.stock_lote > 0
+                           ORDER BY (l.fecha_vencimiento IS NULL) ASC,
+                                    l.fecha_vencimiento ASC,
+                                    l.id ASC
+                           LIMIT 1
+                       ) AS lote_actual,
                        (
                            SELECT MIN(l.fecha_vencimiento)
                            FROM inventario_lotes l
