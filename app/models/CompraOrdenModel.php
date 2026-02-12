@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 class CompraOrdenModel extends Modelo
 {
+    private ?bool $hasFechaOrden = null;
+
     public function listar(array $filtros = []): array
     {
+        $fechaOrdenExpr = $this->fechaOrdenExpr('o');
+
         $sql = 'SELECT o.id,
                        o.codigo,
                        o.id_proveedor,
                        t.nombre_completo AS proveedor,
-                       o.fecha_orden,
+                       ' . $fechaOrdenExpr . ' AS fecha_orden,
                        o.fecha_entrega,
                        o.total,
                        o.estado,
@@ -33,12 +37,12 @@ class CompraOrdenModel extends Modelo
         }
 
         if (!empty($filtros['fecha_desde'])) {
-            $sql .= ' AND DATE(o.fecha_orden) >= :fecha_desde';
+            $sql .= ' AND DATE(' . $fechaOrdenExpr . ') >= :fecha_desde';
             $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND DATE(o.fecha_orden) <= :fecha_hasta';
+            $sql .= ' AND DATE(' . $fechaOrdenExpr . ') <= :fecha_hasta';
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
@@ -52,7 +56,9 @@ class CompraOrdenModel extends Modelo
 
     public function obtener(int $id): array
     {
-        $sql = 'SELECT id, codigo, id_proveedor, fecha_orden, fecha_entrega, observaciones, subtotal, total, estado
+        $fechaOrdenExpr = $this->fechaOrdenExpr();
+
+        $sql = 'SELECT id, codigo, id_proveedor, ' . $fechaOrdenExpr . ' AS fecha_orden, fecha_entrega, observaciones, subtotal, total, estado
                 FROM compras_ordenes
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -138,10 +144,14 @@ class CompraOrdenModel extends Modelo
                     ->execute(['user' => $userId, 'id_orden' => $idOrden]);
             } else {
                 $codigo = $this->generarCodigo($db);
+                $fechaOrdenColumn = $this->hasFechaOrdenColumn() ? 'fecha_orden,' : '';
+                $fechaOrdenValue = $this->hasFechaOrdenColumn() ? 'NOW(),' : '';
+
                 $sqlInsert = 'INSERT INTO compras_ordenes (
                                 codigo,
                                 id_proveedor,
-                                fecha_orden,
+                                ' . $fechaOrdenColumn . '
+
                                 fecha_entrega,
                                 observaciones,
                                 subtotal,
@@ -154,7 +164,8 @@ class CompraOrdenModel extends Modelo
                               ) VALUES (
                                 :codigo,
                                 :id_proveedor,
-                                NOW(),
+                                ' . $fechaOrdenValue . '
+
                                 :fecha_entrega,
                                 :observaciones,
                                 :subtotal,
@@ -310,5 +321,25 @@ class CompraOrdenModel extends Modelo
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM compras_ordenes')->fetchColumn() + 1;
         return sprintf('OC-%s-%05d', date('Ymd'), $correlativo);
+    }
+
+    private function fechaOrdenExpr(string $alias = ''): string
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+
+        return $this->hasFechaOrdenColumn() ? $prefix . 'fecha_orden' : $prefix . 'created_at';
+    }
+
+    private function hasFechaOrdenColumn(): bool
+    {
+        if ($this->hasFechaOrden !== null) {
+            return $this->hasFechaOrden;
+        }
+
+        $stmt = $this->db()->prepare('SHOW COLUMNS FROM compras_ordenes LIKE :column_name');
+        $stmt->execute(['column_name' => 'fecha_orden']);
+        $this->hasFechaOrden = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $this->hasFechaOrden;
     }
 }
