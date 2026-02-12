@@ -14,6 +14,11 @@ $estadoLabels = [
 ];
 ?>
 <div class="container-fluid p-4" id="comprasApp"
+     data-url-index="<?php echo e(route_url('compras/index')); ?>"
+     data-url-guardar="<?php echo e(route_url('compras/guardar')); ?>"
+     data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
+     data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
+     data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>">
      data-url-index="<?php echo e(route_url('compra/index')); ?>"
      data-url-guardar="<?php echo e(route_url('compra/guardar')); ?>"
      data-url-aprobar="<?php echo e(route_url('compra/aprobar')); ?>"
