@@ -25,6 +25,72 @@
   const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
+
+  async function toggleEstadoItemInventario(switchInput) {
+    const id = Number(switchInput.dataset.id || '0');
+    if (id <= 0) return;
+
+    const estado = switchInput.checked ? 1 : 0;
+    const data = new FormData();
+    data.append('accion', 'toggle_estado_item');
+    data.append('id', String(id));
+    data.append('estado', String(estado));
+
+    try {
+      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        body: data
+      });
+      const result = await response.json();
+      if (!response.ok || !result || !result.ok) {
+        throw new Error((result && result.mensaje) || 'No se pudo actualizar el estado.');
+      }
+    } catch (error) {
+      switchInput.checked = !switchInput.checked;
+      Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo actualizar el estado.' });
+    }
+  }
+
+  async function eliminarItemInventario(button) {
+    const id = Number(button.dataset.id || '0');
+    const nombre = (button.dataset.item || 'este producto').trim();
+    if (id <= 0) return;
+
+    const confirmacion = await Swal.fire({
+      icon: 'warning',
+      title: '¿Eliminar producto?',
+      text: `Se eliminará ${nombre} y ya no estará disponible.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const data = new FormData();
+    data.append('accion', 'eliminar');
+    data.append('id', String(id));
+
+    try {
+      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        body: data
+      });
+      const result = await response.json();
+      if (!response.ok || !result || !result.ok) {
+        throw new Error((result && result.mensaje) || 'No se pudo eliminar el producto.');
+      }
+
+      document.querySelectorAll(`tr[data-item-id="${id}"]`).forEach((row) => row.remove());
+      await Swal.fire({ icon: 'success', title: 'Producto eliminado', text: result.mensaje || 'El producto fue eliminado correctamente.' });
+      filtrarStock();
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo eliminar el producto.' });
+    }
+  }
+
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
@@ -186,6 +252,18 @@
     toggleTransferencia();
     toggleCamposLoteVencimiento();
   }
+
+  document.querySelectorAll('.switch-estado-item-inventario').forEach((switchInput) => {
+    switchInput.addEventListener('change', function () {
+      toggleEstadoItemInventario(switchInput);
+    });
+  });
+
+  document.querySelectorAll('.btn-eliminar-item-inventario').forEach((button) => {
+    button.addEventListener('click', function () {
+      eliminarItemInventario(button);
+    });
+  });
 
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
   if (filtroEstado) filtroEstado.addEventListener('change', filtrarStock);

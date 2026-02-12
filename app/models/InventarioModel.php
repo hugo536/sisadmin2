@@ -8,6 +8,7 @@ class InventarioModel extends Modelo
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
                        i.nombre AS item_nombre,
+                       i.estado AS item_estado,
                        a.id AS id_almacen,
                        a.nombre AS almacen_nombre,
                        i.stock_minimo,
