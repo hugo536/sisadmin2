@@ -10,64 +10,76 @@ document.addEventListener('DOMContentLoaded', () => {
         despachar: app.dataset.urlDespachar,
     };
 
-    // Referencias a Modales
+    // --- 1. CLIENTES (Tom Select con AJAX) ---
+    let tomSelectCliente = null;
+    if (document.getElementById('idCliente')) {
+        tomSelectCliente = new TomSelect("#idCliente", {
+            valueField: 'id',
+            labelField: 'text',
+            searchField: 'text',
+            placeholder: "Buscar cliente por nombre o documento...",
+            dropdownParent: 'body',
+            load: function(query, callback) {
+                const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(json => {
+                        const items = (json.data || []).map(item => ({
+                            id: item.id,
+                            text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
+                        }));
+                        callback(items);
+                    }).catch(() => callback());
+            },
+            render: {
+                no_results: (data, escape) => '<div class="no-results">No encontrado</div>',
+                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div>'
+            }
+        });
+    }
+
+    // --- 2. ALMACÉN DESPACHO (Tom Select Simple) ---
+    let tomSelectDespacho = null;
+    if (document.getElementById('despachoAlmacen')) {
+        tomSelectDespacho = new TomSelect("#despachoAlmacen", {
+            create: false,
+            sortField: { field: "text", direction: "asc" },
+            placeholder: "Seleccione almacén...",
+            dropdownParent: 'body'
+        });
+    }
+
+    // --- REFERENCIAS DOM ---
     const modalVentaEl = document.getElementById('modalVenta');
     const modalVenta = new bootstrap.Modal(modalVentaEl);
-    
     const modalDespachoEl = document.getElementById('modalDespacho');
     const modalDespacho = new bootstrap.Modal(modalDespachoEl);
 
-    // Referencias DOM - Venta
     const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
     const templateFilaVenta = document.getElementById('templateFilaVenta');
+    
     const ventaId = document.getElementById('ventaId');
     const idCliente = document.getElementById('idCliente');
-    const buscarCliente = document.getElementById('buscarCliente');
-    const fechaEmision = document.getElementById('fechaEmision'); // NUEVO
+    const fechaEmision = document.getElementById('fechaEmision');
     const ventaObservaciones = document.getElementById('ventaObservaciones');
     const ventaTotal = document.getElementById('ventaTotal');
 
-    // Referencias DOM - Despacho
     const tbodyDespacho = document.querySelector('#tablaDetalleDespacho tbody');
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
     const despachoAlmacen = document.getElementById('despachoAlmacen');
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
 
-    // Filtros
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     const filtroEstado = document.getElementById('filtroEstado');
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
 
-    let tomSelectCliente = null;
-    let tomSelectDespachoAlmacen = null;
-
-    if (idCliente) {
-        tomSelectCliente = new TomSelect('#idCliente', {
-            create: false,
-            sortField: { field: 'text', direction: 'asc' },
-            placeholder: 'Buscar...',
-            dropdownParent: 'body'
-        });
-    }
-
-    if (despachoAlmacen) {
-        tomSelectDespachoAlmacen = new TomSelect('#despachoAlmacen', {
-            create: false,
-            sortField: { field: 'text', direction: 'asc' },
-            placeholder: 'Buscar...',
-            dropdownParent: 'body'
-        });
-    }
-
-    // --- Helpers de Red ---
+    // --- HELPERS ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const payload = await res.json();
-        if (!res.ok || !payload.ok) {
-            throw new Error(payload.mensaje || 'Error de comunicación con el servidor');
-        }
+        if (!res.ok || !payload.ok) throw new Error(payload.mensaje || 'Error del servidor');
         return payload;
     }
 
@@ -78,13 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify(data),
         });
         const payload = await res.json();
-        if (!res.ok || !payload.ok) {
-            throw new Error(payload.mensaje || 'Error al procesar la solicitud');
-        }
+        if (!res.ok || !payload.ok) throw new Error(payload.mensaje || 'Error al procesar');
         return payload;
     }
-
-    // --- Lógica de Venta ---
 
     function filaVentaPayload(fila) {
         return {
@@ -105,104 +113,90 @@ document.addEventListener('DOMContentLoaded', () => {
         ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
 
-    async function buscarClientes(term = '') {
-        const payload = await getJson(`${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(term)}`);
-        if (tomSelectCliente) {
-            tomSelectCliente.clear();
-            tomSelectCliente.clearOptions();
-            (payload.data || []).forEach((cliente) => {
-                tomSelectCliente.addOption({
-                    value: String(cliente.id),
-                    text: `${cliente.nombre_completo}${cliente.num_doc ? ` (${cliente.num_doc})` : ''}`,
-                });
-            });
-            tomSelectCliente.refreshOptions(false);
-            return;
-        }
-
-        idCliente.innerHTML = '<option value="">Seleccione cliente...</option>';
-        (payload.data || []).forEach((cliente) => {
-            const opt = document.createElement('option');
-            opt.value = cliente.id;
-            opt.textContent = `${cliente.nombre_completo}${cliente.num_doc ? ` (${cliente.num_doc})` : ''}`;
-            idCliente.appendChild(opt);
-        });
-    }
-
-    async function cargarItemsFila(fila, termino = '') {
-        const payload = await getJson(`${urls.index}&accion=buscar_items&q=${encodeURIComponent(termino)}`);
-        const select = fila.querySelector('.detalle-item');
-        
-        // Guardar valor actual si existe para no perderlo al refrescar
-        const valorActual = select.value;
-        
-        select.innerHTML = '<option value="">Seleccione...</option>';
-        (payload.data || []).forEach((item) => {
-            const opt = document.createElement('option');
-            opt.value = item.id;
-            opt.dataset.stock = Number(item.stock_actual || 0);
-            opt.dataset.precio = Number(item.precio_venta || 0); // Asumiendo que el back devuelve precio sugerido
-            opt.textContent = `${item.sku || ''} - ${item.nombre}`;
-            select.appendChild(opt);
-        });
-
-        if (valorActual) select.value = valorActual;
-    }
-
+    // --- 3. LÓGICA DE FILAS (PRODUCTOS) CON TOM SELECT ---
+    
     async function agregarFilaVenta(item = null) {
         const fragment = templateFilaVenta.content.cloneNode(true);
         const fila = fragment.querySelector('tr');
-        tbodyVenta.appendChild(fragment); // Añadir al DOM primero para tener contexto
+        tbodyVenta.appendChild(fragment); // Insertamos en el DOM primero
         const filaReal = tbodyVenta.lastElementChild;
 
-        // Eventos de la fila
-        filaReal.querySelector('.detalle-cantidad').addEventListener('input', recalcularTotalVenta);
-        filaReal.querySelector('.detalle-precio').addEventListener('input', recalcularTotalVenta);
+        // Inputs Numéricos
+        const inputCantidad = filaReal.querySelector('.detalle-cantidad');
+        const inputPrecio = filaReal.querySelector('.detalle-precio');
+        const selectItem = filaReal.querySelector('.detalle-item');
+
+        inputCantidad.addEventListener('input', recalcularTotalVenta);
+        inputPrecio.addEventListener('input', recalcularTotalVenta);
         
         filaReal.querySelector('.btn-quitar-fila').addEventListener('click', () => {
+            // Destruir instancia Tom Select para limpiar memoria
+            if (selectItem.tomselect) selectItem.tomselect.destroy();
             filaReal.remove();
             recalcularTotalVenta();
         });
 
-        // Buscador de items dentro de la fila
-        const buscador = filaReal.querySelector('.detalle-item-search');
-        buscador.addEventListener('keydown', async (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                await cargarItemsFila(filaReal, buscador.value.trim());
+        // --- INICIALIZAR TOM SELECT EN EL SELECT DE LA FILA ---
+        const tom = new TomSelect(selectItem, {
+            valueField: 'id',
+            labelField: 'text',
+            searchField: 'text',
+            placeholder: "Buscar producto...",
+            dropdownParent: 'body', // Clave para que se vea sobre el modal
+            load: function(query, callback) {
+                const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(json => {
+                        // Guardamos precio y stock dentro del objeto item para usarlo al seleccionar
+                        const items = (json.data || []).map(prod => ({
+                            id: prod.id,
+                            text: `${prod.sku || ''} - ${prod.nombre}`,
+                            stock: parseFloat(prod.stock_actual || 0),
+                            precio: parseFloat(prod.precio_venta || 0)
+                        }));
+                        callback(items);
+                    }).catch(() => callback());
+            },
+            onChange: function(value) {
+                // Al seleccionar, recuperamos los datos del item desde las opciones cargadas
+                const selectedOption = this.options[value];
+                if (selectedOption) {
+                    filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
+                    
+                    // Si el precio está en 0, sugerimos el precio de venta
+                    if (Number(inputPrecio.value) === 0) {
+                        inputPrecio.value = selectedOption.precio.toFixed(2);
+                    }
+                }
+                recalcularTotalVenta();
+            },
+            render: {
+                no_results: (data, escape) => '<div class="no-results">Sin resultados</div>',
+                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div>',
+                // Opcional: Personalizar cómo se ve cada opción en la lista
+                option: function(data, escape) {
+                    return `<div>
+                        <div class="fw-bold">${escape(data.text)}</div>
+                        <div class="small text-muted">Stock: ${escape(data.stock)} | Precio: S/ ${escape(data.precio)}</div>
+                    </div>`;
+                }
             }
         });
-        // También cargar al perder el foco si hubo cambios
-        buscador.addEventListener('change', () => cargarItemsFila(filaReal, buscador.value.trim()));
 
-        // Selección de item
-        const selectItem = filaReal.querySelector('.detalle-item');
-        selectItem.addEventListener('change', () => {
-            const opt = selectItem.selectedOptions[0];
-            const stock = Number(opt?.dataset?.stock || 0);
-            const precio = Number(opt?.dataset?.precio || 0);
-            
-            filaReal.querySelector('.detalle-stock').textContent = stock.toFixed(2);
-            
-            // Si es nuevo item y precio está en 0, sugerir precio
-            const inputPrecio = filaReal.querySelector('.detalle-precio');
-            if (Number(inputPrecio.value) === 0) {
-                inputPrecio.value = precio.toFixed(2);
-            }
-            recalcularTotalVenta();
-        });
-
-        // Carga inicial de items (vacío o predefinido)
-        await cargarItemsFila(filaReal);
-
-        // Si estamos editando y viene data
+        // --- SI ESTAMOS EDITANDO (CARGAR DATOS) ---
         if (item) {
-            selectItem.value = item.id_item;
-            filaReal.querySelector('.detalle-cantidad').value = Number(item.cantidad || 0).toFixed(2);
-            filaReal.querySelector('.detalle-precio').value = Number(item.precio_unitario || 0).toFixed(2);
+            // Agregamos la opción manualmente para que Tom Select sepa qué mostrar sin buscar de nuevo
+            tom.addOption({
+                id: item.id_item,
+                text: `${item.sku || ''} - ${item.item_nombre}`,
+                stock: 0, // En edición, el stock real requeriría otra consulta, lo dejamos visualmente simple o 0
+                precio: Number(item.precio_unitario)
+            });
+            tom.setValue(item.id_item);
             
-            // Forzar evento change para actualizar stock visual
-            selectItem.dispatchEvent(new Event('change'));
+            inputCantidad.value = Number(item.cantidad || 0).toFixed(2);
+            inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
         }
 
         recalcularTotalVenta();
@@ -210,31 +204,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function limpiarModalVenta() {
         ventaId.value = 0;
-        buscarCliente.value = '';
+        
+        // Limpiar Cliente
         if (tomSelectCliente) {
             tomSelectCliente.clear();
             tomSelectCliente.clearOptions();
-        } else {
-            idCliente.innerHTML = '<option value="">Buscar y seleccionar cliente...</option>';
         }
-        fechaEmision.value = new Date().toISOString().split('T')[0]; // Fecha de hoy
+        
+        fechaEmision.value = new Date().toISOString().split('T')[0];
         ventaObservaciones.value = '';
+        
+        // Limpiar filas (y destruir sus instancias Tom Select si fuera necesario manual)
         tbodyVenta.innerHTML = '';
         ventaTotal.textContent = 'S/ 0.00';
     }
 
-    // --- Lógica de Despacho ---
-
+    // --- LÓGICA DESPACHO ---
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
 
         despachoDocumentoId.value = venta.id;
-        if (tomSelectDespachoAlmacen) {
-            tomSelectDespachoAlmacen.clear();
-        } else {
-            despachoAlmacen.value = '';
-        }
+        
+        if (tomSelectDespacho) tomSelectDespacho.clear();
+        else despachoAlmacen.value = '';
+        
         despachoObservaciones.value = '';
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
@@ -244,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const despachado = Number(linea.cantidad_despachada || 0);
             const pendiente = Number(linea.cantidad_pendiente || 0);
 
-            // Solo mostramos lo que falta por despachar
             if (pendiente <= 0.0001) return;
 
             const tr = document.createElement('tr');
@@ -262,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbodyDespacho.appendChild(tr);
         });
-
         modalDespacho.show();
     }
 
@@ -270,7 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const idAlmacen = Number(despachoAlmacen.value || 0);
         if (idAlmacen <= 0) return;
 
-        // Traemos items de este almacén para ver stocks reales
         const payload = await getJson(`${urls.index}&accion=buscar_items&id_almacen=${idAlmacen}`);
         const stockMap = new Map((payload.data || []).map((item) => [Number(item.id), Number(item.stock_actual || 0)]));
 
@@ -279,41 +270,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const pendiente = Number(fila.dataset.pendiente || 0);
             const stock = stockMap.get(idItem) || 0;
             
-            // Visualizar Stock
             const celdaStock = fila.querySelector('.despacho-stock');
             celdaStock.textContent = stock.toFixed(2);
             celdaStock.classList.toggle('text-danger', stock < pendiente);
             celdaStock.classList.toggle('text-success', stock >= pendiente);
             celdaStock.classList.remove('text-muted');
 
-            // Sugerir cantidad (Máximo entre Pendiente y Stock)
             const sugerida = Math.max(0, Math.min(pendiente, stock));
-            const input = fila.querySelector('.despacho-cantidad');
-            input.value = sugerida.toFixed(2);
-
-            // Validaciones visuales
-            if (sugerida < pendiente) {
-                input.classList.add('border-warning', 'text-warning');
-            } else {
-                input.classList.remove('border-warning', 'text-warning');
-            }
+            fila.querySelector('.despacho-cantidad').value = sugerida.toFixed(2);
         });
     }
 
-    // --- Listeners Principales ---
+    // --- EVENT LISTENERS ---
 
     document.getElementById('btnNuevaVenta').addEventListener('click', async () => {
         limpiarModalVenta();
-        // Cargar todos los clientes por defecto (opcional, o esperar búsqueda)
-        // await buscarClientes(); 
-        await agregarFilaVenta(); // Una fila vacía
+        await agregarFilaVenta();
+        document.getElementById('btnGuardarVenta').style.display = 'block';
         modalVenta.show();
-    });
-
-    document.getElementById('btnBuscarCliente').addEventListener('click', () => buscarClientes(buscarCliente.value.trim()));
-    // Buscar cliente al dar enter
-    buscarCliente.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter') { e.preventDefault(); buscarClientes(buscarCliente.value.trim()); }
     });
 
     document.getElementById('btnAgregarFilaVenta').addEventListener('click', () => agregarFilaVenta());
@@ -324,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const idCli = Number(idCliente.value);
 
             if (!idCli) throw new Error('Debe buscar y seleccionar un cliente.');
-            if (detalle.length === 0) throw new Error('Debe haber al menos un ítem.');
+            if (!detalle.length) throw new Error('Debe haber al menos un ítem.');
             if (detalle.some((l) => l.id_item <= 0 || l.cantidad <= 0 || l.precio_unitario < 0)) {
                 throw new Error('Revise el detalle (producto, cantidad > 0, precio >= 0).');
             }
@@ -332,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = await postJson(urls.guardar, {
                 id: Number(ventaId.value || 0),
                 id_cliente: idCli,
-                fecha_emision: fechaEmision.value, // Se envía la fecha seleccionada
+                fecha_emision: fechaEmision.value,
                 observaciones: ventaObservaciones.value,
                 detalle,
             });
@@ -345,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Despacho
     despachoAlmacen.addEventListener('change', actualizarStockDespacho);
 
     document.getElementById('btnGuardarDespacho').addEventListener('click', async () => {
@@ -356,24 +329,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const detalle = [...tbodyDespacho.querySelectorAll('tr')].map((fila) => ({
                 id_documento_detalle: Number(fila.dataset.idDetalle || 0),
                 cantidad: parseFloat(fila.querySelector('.despacho-cantidad').value || 0),
-            })).filter((linea) => linea.cantidad > 0); // Solo enviar lo que tenga cantidad > 0
+            })).filter((linea) => linea.cantidad > 0);
 
-            if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
+            if (!detalle.length) throw new Error('Ingrese cantidades a despachar.');
 
-            // Validar despacho parcial
             const esParcial = [...tbodyDespacho.querySelectorAll('tr')].some((fila) => {
                 const pend = Number(fila.dataset.pendiente || 0);
                 const cant = Number(fila.querySelector('.despacho-cantidad').value || 0);
-                return cant < pend; // Si despacha menos de lo pendiente
+                return cant < pend;
             });
 
             if (esParcial && !cerrarForzado.checked) {
                 const resp = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Despacho Parcial',
-                    text: 'Algunos ítems no se despacharán completos. El pedido quedará "Aprobado" (con saldo pendiente). ¿Continuar?',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, despachar parcial'
+                    icon: 'warning', title: 'Despacho Parcial', text: '¿Continuar sin cerrar pedido?', 
+                    showCancelButton: true, confirmButtonText: 'Sí'
                 });
                 if (!resp.isConfirmed) return;
             }
@@ -394,75 +363,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Filtros y Recarga
-    function filtrosQuery() {
+    function recargarTabla() {
         const params = new URLSearchParams({ accion: 'listar' });
         if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim());
         if (filtroEstado.value !== '') params.set('estado', filtroEstado.value);
         if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value);
         if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value);
-        return params.toString();
+        window.location.href = `${urls.index}&${params.toString()}`;
     }
 
-    function recargarTabla() {
-        window.location.href = `${urls.index}&${filtrosQuery()}`;
-    }
-
-    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach((el) => {
+    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
         el.addEventListener('change', recargarTabla);
     });
+    
+    filtroBusqueda.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); recargarTabla(); }
+    });
 
-    // Delegación de eventos en tabla principal
     document.querySelector('#tablaVentas tbody').addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
         const tr = btn.closest('tr');
         const id = Number(tr.dataset.id || 0);
 
-        // Editar / Ver
         if (btn.classList.contains('btn-editar')) {
             try {
                 const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
                 const venta = payload.data;
                 
                 limpiarModalVenta();
-                
-                // Llenar datos
                 ventaId.value = venta.id;
-                // Pre-cargar el cliente en el select
-                await buscarClientes('');
+                
+                const nombreCliente = tr.querySelector('td:nth-child(2)').textContent;
                 if (tomSelectCliente) {
-                    tomSelectCliente.setValue(String(venta.id_cliente));
+                    tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
+                    tomSelectCliente.setValue(venta.id_cliente);
                 } else {
+                    idCliente.innerHTML = `<option value="${venta.id_cliente}">${nombreCliente}</option>`;
                     idCliente.value = venta.id_cliente;
                 }
                 
-                fechaEmision.value = venta.fecha_emision || venta.fecha_documento || '';
+                fechaEmision.value = venta.fecha_emision || '';
                 ventaObservaciones.value = venta.observaciones || '';
 
-                // Llenar detalle
                 if (venta.detalle && venta.detalle.length) {
-                    for (const linea of venta.detalle) {
-                        await agregarFilaVenta(linea);
-                    }
+                    for (const linea of venta.detalle) await agregarFilaVenta(linea);
                 } else {
                     await agregarFilaVenta();
                 }
 
-                // Control de solo lectura si no es borrador (Estado 0)
                 const esBorrador = Number(venta.estado) === 0;
                 document.getElementById('btnGuardarVenta').style.display = esBorrador ? 'block' : 'none';
-                
                 modalVenta.show();
-            } catch (error) {
-                console.error(error);
-                Swal.fire('Error', 'No se pudo cargar el pedido', 'error');
-            }
+            } catch (err) { Swal.fire('Error', 'No se pudo cargar', 'error'); }
         }
 
-        // Anular
         if (btn.classList.contains('btn-anular')) {
-            const ok = await Swal.fire({ icon: 'warning', title: '¿Anular pedido?', text: 'Esta acción es irreversible.', showCancelButton: true, confirmButtonText: 'Sí, anular', confirmButtonColor: '#d33' });
+            const ok = await Swal.fire({ icon: 'warning', title: '¿Anular pedido?', showCancelButton: true, confirmButtonText: 'Sí, anular', confirmButtonColor: '#d33' });
             if (ok.isConfirmed) {
                 try {
                     const res = await postJson(urls.anular, { id });
@@ -472,9 +429,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Aprobar
         if (btn.classList.contains('btn-aprobar')) {
-            const ok = await Swal.fire({ icon: 'question', title: '¿Aprobar pedido?', text: 'El pedido pasará a estado pendiente de despacho.', showCancelButton: true, confirmButtonText: 'Sí, aprobar' });
+            const ok = await Swal.fire({ icon: 'question', title: '¿Aprobar pedido?', showCancelButton: true, confirmButtonText: 'Sí, aprobar' });
             if (ok.isConfirmed) {
                 try {
                     const res = await postJson(urls.aprobar, { id });
@@ -484,12 +440,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Despachar
         if (btn.classList.contains('btn-despachar')) {
-            try {
-                await abrirModalDespacho(id);
-            } catch (err) { Swal.fire('Error', err.message, 'error'); }
+            try { await abrirModalDespacho(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
     });
-
 });
