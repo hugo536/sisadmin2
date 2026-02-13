@@ -142,10 +142,12 @@ $estadoLabels = [
                     
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Proveedor <span class="text-danger">*</span></label>
-                        <select id="idProveedor" class="form-select" required>
+                        <select id="idProveedor" class="form-select" autocomplete="off" placeholder="Buscar proveedor...">
                             <option value="">Seleccione...</option>
                             <?php foreach ($proveedores as $proveedor): ?>
-                                <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>"><?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?></option>
+                                <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>">
+                                    <?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>

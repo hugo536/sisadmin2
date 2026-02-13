@@ -3,10 +3,7 @@
 // sidebar.php (Bootstrap Offcanvas Responsive) — LISTO PARA COPIAR (CORREGIDO)
 // - Desktop (>= lg): Sidebar fijo
 // - Mobile (< lg): Sidebar OFFCANVAS
-// - NO incluye el botón toggle mobile (muévelo a tu topbar/layout)
-// - Sin IDs duplicados (se quitaron sidebarCompanyLogo/sidebarCompanyName)
-// - Persistencia de scroll: Desktop sí / Mobile opcional (por defecto NO persiste)
-// - Cierra offcanvas al hacer click en link real (no en toggles collapse)
+// - Link de Ventas arreglado (eliminado duplicado singular)
 // =====================================================================================
 
 // -----------------------------
@@ -67,7 +64,6 @@ function renderSidebarInner(
 ?>
     <div class="sidebar-header">
 
-        <!-- BRAND -->
         <div class="sidebar-brand" aria-label="Empresa">
             <div class="brand-icon">
                 <?php if ($logoUrl !== ''): ?>
@@ -94,7 +90,6 @@ function renderSidebarInner(
             </div>
         </div>
 
-        <!-- USER CARD -->
         <div class="user-card" aria-label="Usuario">
             <div class="user-avatar"><?php echo htmlspecialchars($userInitial); ?></div>
             <div class="user-info">
@@ -105,7 +100,6 @@ function renderSidebarInner(
 
     </div>
 
-    <!-- NAV -->
     <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
 
         <div class="nav-label">Principal</div>
@@ -130,17 +124,19 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
+            
             <?php if (tiene_permiso('ventas.ver')): ?>
                 <a class="sidebar-link<?php echo $activo('ventas'); ?>" href="<?php echo e(route_url('ventas')); ?>">
-                <a class="sidebar-link<?php echo $activo('venta'); ?>" href="<?php echo e(route_url('venta')); ?>">
                     <i class="bi bi-bag-check"></i> <span>Ventas</span>
                 </a>
             <?php endif; ?>
+
             <?php if (tiene_permiso('compras.ver')): ?>
                 <a class="sidebar-link<?php echo $activo('compras'); ?>" href="<?php echo e(route_url('compras')); ?>">
                     <i class="bi bi-cart-check"></i> <span>Compras</span>
                 </a>
             <?php endif; ?>
+            
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
             </a>
@@ -167,7 +163,6 @@ function renderSidebarInner(
         <?php endif; ?>
 
         <?php if (tiene_permiso('config.ver')): ?>
-            <!-- Grupo Configuración -->
             <a class="sidebar-link<?php echo $linkGrupoActivo(['config']); ?>"
                data-bs-toggle="collapse"
                href="#menuConfiguracion"
@@ -200,9 +195,6 @@ function renderSidebarInner(
 }
 ?>
 
-<!-- =========================================================
-     DESKTOP SIDEBAR (>= lg): fijo
-========================================================= -->
 <aside class="sidebar sidebar-desktop position-fixed top-0 start-0 h-100 d-none d-lg-flex flex-column" id="appSidebarDesktop">
     <?php
       renderSidebarInner(
@@ -219,9 +211,6 @@ function renderSidebarInner(
     ?>
 </aside>
 
-<!-- =========================================================
-     MOBILE SIDEBAR (< lg): OFFCANVAS
-========================================================= -->
 <div class="offcanvas offcanvas-start d-lg-none sidebar-offcanvas" tabindex="-1" id="appSidebarOffcanvas" aria-labelledby="appSidebarOffcanvasLabel">
   <div class="offcanvas-header">
     <h5 class="offcanvas-title" id="appSidebarOffcanvasLabel"><?php echo htmlspecialchars($empresaNombre); ?></h5>

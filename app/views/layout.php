@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SISADMIN</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
     
@@ -15,6 +18,17 @@
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">
     <?php endif; ?>
     
+    <style>
+        /* Hace que el desplegable de Tom Select tenga prioridad sobre el Modal de Bootstrap */
+        .ts-dropdown, .ts-dropdown.form-control {
+            z-index: 2000 !important; 
+        }
+        /* Ajuste visual opcional para que se vea integrado */
+        .ts-control {
+            border-radius: 0.375rem; /* Igual que form-control */
+        }
+    </style>
+
     <?php
     $baseUrl = base_url();
     $baseUrl = $baseUrl === '' ? '/' : rtrim($baseUrl, '/') . '/';
@@ -50,6 +64,8 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
@@ -102,6 +118,10 @@ window.ROLES_FLASH = {
 
 <?php if (str_starts_with(($ruta_actual ?? ''), 'compras')): ?>
 <script src="<?php echo e(asset_url('js/compras.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with(($ruta_actual ?? ''), 'ventas')): ?>
+<script src="<?php echo e(asset_url('js/ventas.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>

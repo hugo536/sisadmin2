@@ -6,11 +6,12 @@ class VentasDocumentoModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
+        // CORREGIDO: fecha_emision en lugar de created_at para filtrar fechas
         $sql = 'SELECT v.id,
                        v.codigo,
                        v.id_cliente,
                        t.nombre_completo AS cliente,
-                       DATE(v.created_at) AS fecha_documento,
+                       v.fecha_emision,
                        v.total,
                        v.estado,
                        v.created_at
@@ -31,12 +32,12 @@ class VentasDocumentoModel extends Modelo
         }
 
         if (!empty($filtros['fecha_desde'])) {
-            $sql .= ' AND DATE(v.created_at) >= :fecha_desde';
+            $sql .= ' AND v.fecha_emision >= :fecha_desde';
             $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND DATE(v.created_at) <= :fecha_hasta';
+            $sql .= ' AND v.fecha_emision <= :fecha_hasta';
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
@@ -50,7 +51,8 @@ class VentasDocumentoModel extends Modelo
 
     public function obtener(int $idDocumento): array
     {
-        $sql = 'SELECT id, codigo, id_cliente, observaciones, subtotal, total, estado
+        // CORREGIDO: Agregado fecha_emision
+        $sql = 'SELECT id, codigo, id_cliente, fecha_emision, observaciones, subtotal, total, estado
                 FROM ventas_documentos
                 WHERE id = :id
                   AND deleted_at IS NULL
@@ -64,23 +66,18 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
+        // CORREGIDO: id_documento_venta y total_linea
         $sqlDetalle = 'SELECT d.id,
                               d.id_item,
                               i.sku,
                               i.nombre AS item_nombre,
                               d.cantidad,
                               d.precio_unitario,
-                              d.subtotal,
-                              COALESCE((
-                                  SELECT SUM(dd.cantidad)
-                                  FROM ventas_despachos_detalle dd
-                                  INNER JOIN ventas_despachos ds ON ds.id = dd.id_despacho AND ds.deleted_at IS NULL
-                                  WHERE dd.id_documento_detalle = d.id
-                                    AND dd.deleted_at IS NULL
-                              ), 0) AS cantidad_despachada
+                              d.total_linea AS subtotal,
+                              d.cantidad_despachada
                        FROM ventas_documentos_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
-                       WHERE d.id_documento = :id_documento
+                       WHERE d.id_documento_venta = :id_documento
                          AND d.deleted_at IS NULL
                        ORDER BY d.id ASC';
 
@@ -110,6 +107,9 @@ class VentasDocumentoModel extends Modelo
 
         try {
             $idDocumento = (int) ($cabecera['id'] ?? 0);
+            // Default fecha hoy si no viene
+            $fechaEmision = !empty($cabecera['fecha_emision']) ? $cabecera['fecha_emision'] : date('Y-m-d');
+
             if ($idDocumento > 0) {
                 $actual = $this->obtener($idDocumento);
                 if ($actual === []) {
@@ -120,8 +120,10 @@ class VentasDocumentoModel extends Modelo
                     throw new RuntimeException('Solo se pueden editar pedidos en borrador.');
                 }
 
+                // CORREGIDO: Agregado fecha_emision
                 $sqlUpdate = 'UPDATE ventas_documentos
                               SET id_cliente = :id_cliente,
+                                  fecha_emision = :fecha_emision,
                                   observaciones = :observaciones,
                                   subtotal = :subtotal,
                                   total = :total,
@@ -133,21 +135,26 @@ class VentasDocumentoModel extends Modelo
                 $db->prepare($sqlUpdate)->execute([
                     'id' => $idDocumento,
                     'id_cliente' => (int) $cabecera['id_cliente'],
+                    'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'subtotal' => (float) $cabecera['subtotal'],
                     'total' => (float) $cabecera['total'],
                     'updated_by' => $userId,
                 ]);
 
+                // Borrado lógico del detalle anterior
                 $db->prepare('UPDATE ventas_documentos_detalle
                               SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
-                              WHERE id_documento = :id_documento AND deleted_at IS NULL')
+                              WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
                     ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
             } else {
                 $codigo = $this->generarCodigo($db);
+                
+                // CORREGIDO: Agregado fecha_emision
                 $sqlInsert = 'INSERT INTO ventas_documentos (
                                 codigo,
                                 id_cliente,
+                                fecha_emision,
                                 observaciones,
                                 subtotal,
                                 total,
@@ -159,6 +166,7 @@ class VentasDocumentoModel extends Modelo
                               ) VALUES (
                                 :codigo,
                                 :id_cliente,
+                                :fecha_emision,
                                 :observaciones,
                                 :subtotal,
                                 :total,
@@ -172,6 +180,7 @@ class VentasDocumentoModel extends Modelo
                 $db->prepare($sqlInsert)->execute([
                     'codigo' => $codigo,
                     'id_cliente' => (int) $cabecera['id_cliente'],
+                    'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'subtotal' => (float) $cabecera['subtotal'],
                     'total' => (float) $cabecera['total'],
@@ -182,27 +191,28 @@ class VentasDocumentoModel extends Modelo
                 $idDocumento = (int) $db->lastInsertId();
             }
 
+            // CORREGIDO: id_documento_venta y total_linea en lugar de subtotal
             $sqlDet = 'INSERT INTO ventas_documentos_detalle (
-                            id_documento,
+                            id_documento_venta,
                             id_item,
                             cantidad,
                             precio_unitario,
-                            subtotal,
+                            total_linea,
                             created_by,
                             updated_by,
                             created_at,
                             updated_at
-                       ) VALUES (
+                        ) VALUES (
                             :id_documento,
                             :id_item,
                             :cantidad,
                             :precio_unitario,
-                            :subtotal,
+                            :total_linea,
                             :created_by,
                             :updated_by,
                             NOW(),
                             NOW()
-                       )';
+                        )';
 
             $stmtDet = $db->prepare($sqlDet);
             foreach ($detalle as $linea) {
@@ -218,7 +228,7 @@ class VentasDocumentoModel extends Modelo
                     'id_item' => (int) ($linea['id_item'] ?? 0),
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
-                    'subtotal' => round($cantidad * $precio, 2),
+                    'total_linea' => round($cantidad * $precio, 2),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -269,9 +279,10 @@ class VentasDocumentoModel extends Modelo
                 throw new RuntimeException('No se pudo anular el pedido.');
             }
 
+            // CORREGIDO: id_documento_venta
             $db->prepare('UPDATE ventas_documentos_detalle
                           SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
-                          WHERE id_documento = :id_documento
+                          WHERE id_documento_venta = :id_documento
                             AND deleted_at IS NULL')
                 ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
 
@@ -317,7 +328,8 @@ class VentasDocumentoModel extends Modelo
                        i.nombre,
                        COALESCE(' . ($idAlmacen > 0
                 ? '(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = :id_almacen LIMIT 1)'
-                : '(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)') . ', 0) AS stock_actual
+                : '(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)') . ', 0) AS stock_actual,
+                       i.precio_venta
                 FROM items i
                 WHERE i.estado = 1
                   AND i.deleted_at IS NULL';
@@ -358,7 +370,8 @@ class VentasDocumentoModel extends Modelo
 
     private function generarCodigo(PDO $db): string
     {
+        // Genera formato PED-2026-000001
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_documentos')->fetchColumn() + 1;
-        return 'VTA-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
+        return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
 }

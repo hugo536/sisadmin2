@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-class VentaDespachoModel extends Modelo
+class VentasDespachoModel extends Modelo
 {
     public function registrarDespacho(int $idDocumento, int $idAlmacen, array $lineas, bool $cerrarForzado, string $observaciones, int $userId): int
     {
@@ -56,7 +56,9 @@ class VentaDespachoModel extends Modelo
 
                 $detalle = $mapaDetalle[$idDetalle];
                 $pendiente = (float) ($detalle['cantidad_pendiente'] ?? 0);
-                if ($cantidad > $pendiente) {
+                
+                // Permitir un pequeño margen de error por decimales
+                if ($cantidad > ($pendiente + 0.0001)) {
                     throw new RuntimeException('La cantidad a despachar excede el pendiente del ítem ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
@@ -77,23 +79,23 @@ class VentaDespachoModel extends Modelo
             }
 
             $codigoDespacho = $this->generarCodigo($db);
+            
+            // CORREGIDO: id_documento_venta en lugar de id_documento
             $sqlDesp = 'INSERT INTO ventas_despachos (
                             codigo,
-                            id_documento,
+                            id_documento_venta,
                             id_almacen,
-                            observaciones,
+                            fecha_despacho,
+                            documento_referencia,
                             created_by,
-                            updated_by,
-                            created_at,
-                            updated_at
+                            created_at
                         ) VALUES (
                             :codigo,
                             :id_documento,
                             :id_almacen,
+                            NOW(),
                             :observaciones,
                             :created_by,
-                            :updated_by,
-                            NOW(),
                             NOW()
                         )';
 
@@ -101,91 +103,103 @@ class VentaDespachoModel extends Modelo
                 'codigo' => $codigoDespacho,
                 'id_documento' => $idDocumento,
                 'id_almacen' => $idAlmacen,
-                'observaciones' => $observaciones !== '' ? $observaciones : null,
+                'observaciones' => $observaciones !== '' ? $observaciones : null, // Usamos observaciones como referencia o guía
                 'created_by' => $userId,
-                'updated_by' => $userId,
             ]);
 
             $idDespacho = (int) $db->lastInsertId();
 
             $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
                                             id_despacho,
-                                            id_documento_detalle,
                                             id_item,
-                                            cantidad,
-                                            created_by,
-                                            updated_by,
-                                            created_at,
-                                            updated_at
+                                            cantidad_despachada,
+                                            created_at
                                          ) VALUES (
                                             :id_despacho,
-                                            :id_documento_detalle,
                                             :id_item,
                                             :cantidad,
-                                            :created_by,
-                                            :updated_by,
-                                            NOW(),
                                             NOW()
                                          )');
+
+            // Actualizar acumulado en ventas_documentos_detalle
+            $stmtUpdateDocDetalle = $db->prepare('UPDATE ventas_documentos_detalle 
+                                                  SET cantidad_despachada = cantidad_despachada + :cantidad,
+                                                      updated_at = NOW()
+                                                  WHERE id = :id_detalle');
 
             $stmtStock = $db->prepare('INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
                                        VALUES (:id_item, :id_almacen, 0)
                                        ON DUPLICATE KEY UPDATE stock_actual = stock_actual');
+                                       
             $stmtDescuento = $db->prepare('UPDATE inventario_stock
-                                           SET stock_actual = stock_actual - :cantidad
+                                           SET stock_actual = stock_actual - :cantidad,
+                                               updated_at = NOW()
                                            WHERE id_item = :id_item
                                              AND id_almacen = :id_almacen');
 
             $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
-                                        (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by)
+                                        (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at)
                                      VALUES
-                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by)');
+                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, NOW())');
 
             foreach ($lineasValidas as $lineaValida) {
+                // 1. Insertar detalle despacho
                 $stmtDetalle->execute([
                     'id_despacho' => $idDespacho,
-                    'id_documento_detalle' => $lineaValida['id_documento_detalle'],
                     'id_item' => $lineaValida['id_item'],
                     'cantidad' => $lineaValida['cantidad'],
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
                 ]);
 
+                // 2. Actualizar acumulado en documento origen
+                $stmtUpdateDocDetalle->execute([
+                    'cantidad' => $lineaValida['cantidad'],
+                    'id_detalle' => $lineaValida['id_documento_detalle']
+                ]);
+
+                // 3. Asegurar registro de stock
                 $stmtStock->execute([
                     'id_item' => $lineaValida['id_item'],
                     'id_almacen' => $idAlmacen,
                 ]);
 
+                // 4. Descontar stock físico
                 $stmtDescuento->execute([
                     'cantidad' => $lineaValida['cantidad'],
                     'id_item' => $lineaValida['id_item'],
                     'id_almacen' => $idAlmacen,
                 ]);
 
+                // 5. Registrar Kardex
                 $stmtMov->execute([
                     'id_item' => $lineaValida['id_item'],
                     'id_almacen_origen' => $idAlmacen,
-                    'tipo' => 'CON',
+                    'tipo' => 'VTA', // Venta / Salida
                     'cantidad' => $lineaValida['cantidad'],
                     'referencia' => 'Despacho ' . $codigoDespacho,
                     'created_by' => $userId,
                 ]);
             }
 
+            // Verificar si se completó todo el pedido
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
-            $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.00001) ? 3 : 2;
+            
+            // Estado 3: Despachado Totalmente, Estado 2: Aprobado/Parcial
+            $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
 
-            $db->prepare('UPDATE ventas_documentos
-                          SET estado = :estado,
-                              updated_by = :user,
-                              updated_at = NOW()
-                          WHERE id = :id
-                            AND deleted_at IS NULL')
-                ->execute([
-                    'estado' => $nuevoEstado,
-                    'user' => $userId,
-                    'id' => $idDocumento,
-                ]);
+            // Si cambió a despachado total, actualizamos la cabecera
+            if ($nuevoEstado === 3) {
+                $db->prepare('UPDATE ventas_documentos
+                              SET estado = :estado,
+                                  updated_by = :user,
+                                  updated_at = NOW()
+                              WHERE id = :id
+                                AND deleted_at IS NULL')
+                    ->execute([
+                        'estado' => $nuevoEstado,
+                        'user' => $userId,
+                        'id' => $idDocumento,
+                    ]);
+            }
 
             $db->commit();
             return $idDespacho;
@@ -206,28 +220,18 @@ class VentaDespachoModel extends Modelo
 
     private function obtenerDetallePendiente(PDO $db, int $idDocumento): array
     {
+        // CORREGIDO: nombres de columnas id_documento_venta y cantidad_despachada
         $sql = 'SELECT d.id,
                        d.id_item,
                        i.nombre AS item_nombre,
                        d.cantidad,
-                       COALESCE((
-                           SELECT SUM(dd.cantidad)
-                           FROM ventas_despachos_detalle dd
-                           INNER JOIN ventas_despachos ds ON ds.id = dd.id_despacho AND ds.deleted_at IS NULL
-                           WHERE dd.id_documento_detalle = d.id
-                             AND dd.deleted_at IS NULL
-                       ), 0) AS cantidad_despachada,
-                       (d.cantidad - COALESCE((
-                           SELECT SUM(dd2.cantidad)
-                           FROM ventas_despachos_detalle dd2
-                           INNER JOIN ventas_despachos ds2 ON ds2.id = dd2.id_despacho AND ds2.deleted_at IS NULL
-                           WHERE dd2.id_documento_detalle = d.id
-                             AND dd2.deleted_at IS NULL
-                       ), 0)) AS cantidad_pendiente
+                       d.cantidad_despachada,
+                       (d.cantidad - d.cantidad_despachada) AS cantidad_pendiente
                 FROM ventas_documentos_detalle d
                 INNER JOIN items i ON i.id = d.id_item
-                WHERE d.id_documento = :id_documento
-                  AND d.deleted_at IS NULL';
+                WHERE d.id_documento_venta = :id_documento
+                  AND d.deleted_at IS NULL
+                  AND (d.cantidad - d.cantidad_despachada) > 0';
 
         $stmt = $db->prepare($sql);
         $stmt->execute(['id_documento' => $idDocumento]);
@@ -247,20 +251,12 @@ class VentaDespachoModel extends Modelo
 
     private function obtenerPendienteTotal(PDO $db, int $idDocumento): float
     {
-        $stmt = $db->prepare('SELECT COALESCE(SUM(d.cantidad), 0) - COALESCE((
-                                SELECT SUM(dd.cantidad)
-                                FROM ventas_despachos_detalle dd
-                                INNER JOIN ventas_despachos ds ON ds.id = dd.id_despacho AND ds.deleted_at IS NULL
-                                INNER JOIN ventas_documentos_detalle d2 ON d2.id = dd.id_documento_detalle AND d2.id_documento = :id_documento2
-                                WHERE dd.deleted_at IS NULL
-                              ), 0)
-                              FROM ventas_documentos_detalle d
-                              WHERE d.id_documento = :id_documento
-                                AND d.deleted_at IS NULL');
-        $stmt->execute([
-            'id_documento' => $idDocumento,
-            'id_documento2' => $idDocumento,
-        ]);
+        // CORREGIDO: Cálculo simple basado en la columna acumulativa ya existente
+        $stmt = $db->prepare('SELECT COALESCE(SUM(cantidad - cantidad_despachada), 0)
+                              FROM ventas_documentos_detalle
+                              WHERE id_documento_venta = :id_documento
+                                AND deleted_at IS NULL');
+        $stmt->execute(['id_documento' => $idDocumento]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
     }
@@ -268,6 +264,6 @@ class VentaDespachoModel extends Modelo
     private function generarCodigo(PDO $db): string
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_despachos')->fetchColumn() + 1;
-        return 'DSP-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
+        return 'GUIA-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
 }

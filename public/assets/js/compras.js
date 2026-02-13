@@ -1,4 +1,4 @@
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
     // 1. Inicialización y Referencias
     const app = document.getElementById('comprasApp');
     if (!app) return;
@@ -10,6 +10,20 @@
         anular: app.dataset.urlAnular,
         recepcionar: app.dataset.urlRecepcionar,
     };
+
+    // --- AQUI ESTÁ LA MAGIA (PASO 3: Tom Select) ---
+    // Esto convierte el select normal en uno con buscador
+    let tomSelectProveedor = null;
+
+    if (document.getElementById('idProveedor')) {
+        tomSelectProveedor = new TomSelect("#idProveedor", {
+            create: false, // No permite crear nombres nuevos, solo seleccionar existentes
+            sortField: { field: "text", direction: "asc" },
+            placeholder: "Escribe para buscar proveedor...",
+            dropdownParent: 'body' // Evita que el menú quede oculto dentro del modal
+        });
+    }
+    // -----------------------------------------------
 
     // Modales
     const modalOrdenEl = document.getElementById('modalOrdenCompra');
@@ -28,7 +42,7 @@
     // Elementos del Formulario Orden
     const formOrden = document.getElementById('formOrdenCompra');
     const ordenId = document.getElementById('ordenId');
-    const idProveedor = document.getElementById('idProveedor');
+    const idProveedor = document.getElementById('idProveedor'); // El select original (ahora oculto por Tom Select)
     const fechaEntrega = document.getElementById('fechaEntrega');
     const observaciones = document.getElementById('observaciones');
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -105,7 +119,15 @@
     function limpiarModalOrden() {
         formOrden.reset();
         ordenId.value = 0;
-        idProveedor.value = '';
+        
+        // --- LIMPIEZA DEL BUSCADOR ---
+        if (tomSelectProveedor) {
+            tomSelectProveedor.clear(); // Borra la selección visualmente
+        } else {
+            idProveedor.value = '';
+        }
+        // -----------------------------
+
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
         agregarFila(); // Agregar una fila vacía por defecto
@@ -242,7 +264,15 @@
                     
                     // Llenar cabecera
                     ordenId.value = d.id;
-                    idProveedor.value = d.id_proveedor;
+                    
+                    // --- CARGAR DATO EN EL BUSCADOR ---
+                    if (tomSelectProveedor) {
+                        tomSelectProveedor.setValue(d.id_proveedor);
+                    } else {
+                        idProveedor.value = d.id_proveedor;
+                    }
+                    // ----------------------------------
+
                     fechaEntrega.value = d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
                     
@@ -257,8 +287,6 @@
                     // Si el estado NO es borrador (0), deshabilitar inputs para modo "Solo Lectura"
                     const esEditable = Number(d.estado) === 0;
                     btnGuardarOrden.style.display = esEditable ? 'block' : 'none';
-                    // (Opcional) Deshabilitar inputs si no es editable
-                    // formOrden.querySelectorAll('input, select, button').forEach(el => el.disabled = !esEditable);
                     
                     modalOrden.show();
                 }
@@ -333,7 +361,6 @@
     // Filtros (Recarga simple)
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
         el.addEventListener('change', recargarPagina);
-        // Para búsqueda, mejor usar 'enter' o un botón, pero 'change' funciona al perder foco
     });
     
     // Búsqueda con Enter
@@ -344,4 +371,4 @@
         }
     });
 
-})();
+});
