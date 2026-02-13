@@ -301,6 +301,11 @@ class VentasDocumentoModel extends Modelo
         $sql = 'SELECT t.id,
                        t.nombre_completo,
                        t.numero_documento AS num_doc
+                FROM terceros t
+                LEFT JOIN terceros_clientes tc ON tc.id_tercero = t.id AND tc.deleted_at IS NULL
+                WHERE t.es_cliente = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL';
                 FROM terceros_clientes tc
                 INNER JOIN terceros t ON t.id = tc.id_tercero
                 WHERE t.estado = 1
@@ -309,11 +314,11 @@ class VentasDocumentoModel extends Modelo
 
         $params = [];
         if ($q !== '') {
-            $sql .= ' AND (nombre_completo LIKE :q OR num_doc LIKE :q)';
+            $sql .= ' AND (t.nombre_completo LIKE :q OR t.numero_documento LIKE :q)';
             $params['q'] = '%' . $q . '%';
         }
 
-        $sql .= ' ORDER BY nombre_completo ASC LIMIT :limite';
+        $sql .= ' ORDER BY t.nombre_completo ASC LIMIT :limite';
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v);
@@ -331,6 +336,9 @@ class VentasDocumentoModel extends Modelo
         }
 
         $sql = 'SELECT 1
+                FROM terceros t
+                WHERE t.id = :id
+                  AND t.es_cliente = 1
                 FROM terceros_clientes tc
                 INNER JOIN terceros t ON t.id = tc.id_tercero
                 WHERE tc.id_tercero = :id

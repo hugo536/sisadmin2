@@ -297,6 +297,10 @@ class ComprasOrdenModel extends Modelo
     public function listarProveedoresActivos(): array
     {
         $sql = 'SELECT t.id, t.nombre_completo
+                FROM terceros t
+                LEFT JOIN terceros_proveedores tp ON tp.id_tercero = t.id AND tp.deleted_at IS NULL
+                WHERE t.es_proveedor = 1
+                  AND t.estado = 1
                 FROM terceros_proveedores tp
                 INNER JOIN terceros t ON t.id = tp.id_tercero
                 WHERE t.estado = 1
@@ -314,6 +318,9 @@ class ComprasOrdenModel extends Modelo
         }
 
         $sql = 'SELECT 1
+                FROM terceros t
+                WHERE t.id = :id
+                  AND t.es_proveedor = 1
                 FROM terceros_proveedores tp
                 INNER JOIN terceros t ON t.id = tp.id_tercero
                 WHERE tp.id_tercero = :id
