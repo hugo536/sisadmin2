@@ -306,6 +306,11 @@ class VentasDocumentoModel extends Modelo
                 WHERE t.es_cliente = 1
                   AND t.estado = 1
                   AND t.deleted_at IS NULL';
+                FROM terceros_clientes tc
+                INNER JOIN terceros t ON t.id = tc.id_tercero
+                WHERE t.estado = 1
+                  AND t.deleted_at IS NULL
+                  AND tc.deleted_at IS NULL';
 
         $params = [];
         if ($q !== '') {
@@ -334,6 +339,10 @@ class VentasDocumentoModel extends Modelo
                 FROM terceros t
                 WHERE t.id = :id
                   AND t.es_cliente = 1
+                FROM terceros_clientes tc
+                INNER JOIN terceros t ON t.id = tc.id_tercero
+                WHERE tc.id_tercero = :id
+                  AND tc.deleted_at IS NULL
                   AND t.estado = 1
                   AND t.deleted_at IS NULL
                 LIMIT 1';

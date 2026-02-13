@@ -123,13 +123,8 @@ $estadoLabels = [
                     
                     <div class="col-md-5">
                         <label class="form-label fw-bold">Cliente <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <input type="search" class="form-control" id="buscarCliente" placeholder="Buscar por nombre o DNI/RUC...">
-                            <button class="btn btn-secondary" type="button" id="btnBuscarCliente"><i class="bi bi-search"></i></button>
-                        </div>
-                        <select id="idCliente" class="form-select mt-1" required>
-                            <option value="">Buscar y seleccionar cliente...</option>
-                        </select>
+                        <select id="idCliente" class="form-select" placeholder="Escriba para buscar cliente..." required>
+                            </select>
                     </div>
                     
                     <div class="col-md-3">
@@ -265,10 +260,7 @@ $estadoLabels = [
 <template id="templateFilaVenta">
     <tr>
         <td class="ps-3">
-            <input type="search" class="form-control form-control-sm mb-1 detalle-item-search" placeholder="Escriba para buscar...">
-            <select class="form-select form-select-sm detalle-item" required>
-                <option value="">Seleccione...</option>
-            </select>
+            <select class="form-select form-select-sm detalle-item" placeholder="Buscar producto..." required></select>
         </td>
         <td class="text-end text-muted small detalle-stock">0.00</td>
         <td>

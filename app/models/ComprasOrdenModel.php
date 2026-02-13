@@ -301,7 +301,11 @@ class ComprasOrdenModel extends Modelo
                 LEFT JOIN terceros_proveedores tp ON tp.id_tercero = t.id AND tp.deleted_at IS NULL
                 WHERE t.es_proveedor = 1
                   AND t.estado = 1
+                FROM terceros_proveedores tp
+                INNER JOIN terceros t ON t.id = tp.id_tercero
+                WHERE t.estado = 1
                   AND t.deleted_at IS NULL
+                  AND tp.deleted_at IS NULL
                 ORDER BY t.nombre_completo ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -317,6 +321,10 @@ class ComprasOrdenModel extends Modelo
                 FROM terceros t
                 WHERE t.id = :id
                   AND t.es_proveedor = 1
+                FROM terceros_proveedores tp
+                INNER JOIN terceros t ON t.id = tp.id_tercero
+                WHERE tp.id_tercero = :id
+                  AND tp.deleted_at IS NULL
                   AND t.estado = 1
                   AND t.deleted_at IS NULL
                 LIMIT 1';
