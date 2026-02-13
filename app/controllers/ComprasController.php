@@ -83,7 +83,7 @@ class ComprasController extends Controlador
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
-            if ($idProveedor <= 0) {
+            if ($idProveedor <= 0 || !$this->ordenModel->proveedorEsValido($idProveedor)) {
                 throw new RuntimeException('Seleccione un proveedor válido.');
             }
 
