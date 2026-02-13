@@ -8,6 +8,15 @@ $sabores = $sabores ?? [];
 $saboresGestion = $sabores_gestion ?? [];
 $presentaciones = $presentaciones ?? [];
 $presentacionesGestion = $presentaciones_gestion ?? [];
+$tipoItemLabel = static function (string $tipo): string {
+    return match ($tipo) {
+        'producto', 'producto_terminado' => 'Producto terminado',
+        'materia_prima' => 'Materia prima',
+        'material_empaque' => 'Material de empaque',
+        'servicio' => 'Servicio',
+        default => $tipo,
+    };
+};
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -42,7 +51,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
-                        <option value="producto">Producto</option>
+                        <option value="producto">Producto terminado</option>
                         <option value="materia_prima">Materia prima</option>
                         <option value="material_empaque">Material de empaque</option>
                         <option value="servicio">Servicio</option>
@@ -85,7 +94,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                                     <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
-                                <td><span class="badge bg-light text-dark border"><?php echo e($item['tipo_item']); ?></span></td>
+                                <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
                                 <td><?php echo e(number_format((float) $item['precio_venta'], 4)); ?></td>
                                 <td><?php echo e($item['moneda'] ?? ''); ?></td>
                                 <td><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
@@ -504,7 +513,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="newTipo" name="tipo_item" required>
                             <option value="" selected disabled>Seleccionar...</option>
-                            <option value="producto">Producto Terminado</option>
+                            <option value="producto">Producto terminado</option>
                             <option value="materia_prima">Materia Prima</option>
                             <option value="material_empaque">Material de Empaque</option>
                             <option value="servicio">Servicios / Otros</option>
@@ -605,7 +614,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
-                            <option value="producto">Producto</option>
+                            <option value="producto">Producto terminado</option>
                             <option value="materia_prima">Materia prima</option>
                             <option value="material_empaque">Material de empaque</option>
                             <option value="servicio">Servicio</option>

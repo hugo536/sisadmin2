@@ -408,7 +408,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'materia_prima', 'material_empaque', 'servicio'];
+        $tiposPermitidos = ['producto', 'producto_terminado', 'materia_prima', 'material_empaque', 'servicio'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
@@ -416,6 +416,11 @@ class ItemsController extends Controlador
 
         if (!in_array($tipo, $tiposPermitidos, true)) {
             throw new RuntimeException('El tipo de ítem no es válido.');
+        }
+
+        if ($tipo === 'producto_terminado') {
+            // Compatibilidad: persistimos el valor histórico "producto" hasta migrar BD.
+            $tipo = 'producto';
         }
 
         $data['tipo_item'] = $tipo;
@@ -428,21 +433,23 @@ class ItemsController extends Controlador
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        if ($tipo === 'producto') {
+        $esProductoTerminado = ($tipo === 'producto');
+
+        if ($esProductoTerminado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
-                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto.');
+                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado.');
             }
 
             if (empty($data['id_sabor'])) {
-                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto.');
+                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto terminado.');
             }
 
             if (empty($data['id_presentacion'])) {
-                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto.');
+                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado.');
             }
         }
 
-        if ($tipo !== 'producto') {
+        if (!$esProductoTerminado) {
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
         }
