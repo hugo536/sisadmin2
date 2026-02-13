@@ -605,7 +605,7 @@ $presentacionesGestion = $presentaciones_gestion ?? [];
                     <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
-                            <option value="producto">Producto</option>
+                            <option value="producto">Producto Terminado</option>
                             <option value="materia_prima">Materia prima</option>
                             <option value="material_empaque">Material de empaque</option>
                             <option value="servicio">Servicio</option>
