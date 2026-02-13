@@ -203,7 +203,7 @@
 
         const apply = () => {
             const value = tipo.value;
-            const isProducto = value === 'producto';
+            const isProducto = value === 'producto' || value === 'producto_terminado';
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
@@ -289,7 +289,7 @@
 
         document.getElementById('formCrearItem')?.addEventListener('submit', () => {
             const tipo = document.getElementById('newTipo')?.value;
-            if (tipo !== 'producto') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('newSabor');
                 const presentacion = document.getElementById('newPresentacion');
                 if (sabor) sabor.value = '';
@@ -366,7 +366,7 @@
 
         document.getElementById('formEditarItem')?.addEventListener('submit', () => {
             const tipo = document.getElementById('editTipo')?.value;
-            if (tipo !== 'producto') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('editSabor');
                 const presentacion = document.getElementById('editPresentacion');
                 if (sabor) sabor.value = '';
