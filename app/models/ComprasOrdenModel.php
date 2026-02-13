@@ -298,12 +298,33 @@ class ComprasOrdenModel extends Modelo
     {
         $sql = 'SELECT t.id, t.nombre_completo
                 FROM terceros t
+                LEFT JOIN terceros_proveedores tp ON tp.id_tercero = t.id AND tp.deleted_at IS NULL
                 WHERE t.es_proveedor = 1
                   AND t.estado = 1
                   AND t.deleted_at IS NULL
                 ORDER BY t.nombre_completo ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function proveedorEsValido(int $idProveedor): bool
+    {
+        if ($idProveedor <= 0) {
+            return false;
+        }
+
+        $sql = 'SELECT 1
+                FROM terceros t
+                WHERE t.id = :id
+                  AND t.es_proveedor = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
+                LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idProveedor]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     public function listarItemsActivos(): array

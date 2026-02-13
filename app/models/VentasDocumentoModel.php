@@ -298,19 +298,22 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20): array
     {
-        $sql = 'SELECT id, nombre_completo, num_doc
-                FROM terceros
-                WHERE es_cliente = 1
-                  AND estado = 1
-                  AND deleted_at IS NULL';
+        $sql = 'SELECT t.id,
+                       t.nombre_completo,
+                       t.numero_documento AS num_doc
+                FROM terceros t
+                LEFT JOIN terceros_clientes tc ON tc.id_tercero = t.id AND tc.deleted_at IS NULL
+                WHERE t.es_cliente = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL';
 
         $params = [];
         if ($q !== '') {
-            $sql .= ' AND (nombre_completo LIKE :q OR num_doc LIKE :q)';
+            $sql .= ' AND (t.nombre_completo LIKE :q OR t.numero_documento LIKE :q)';
             $params['q'] = '%' . $q . '%';
         }
 
-        $sql .= ' ORDER BY nombre_completo ASC LIMIT :limite';
+        $sql .= ' ORDER BY t.nombre_completo ASC LIMIT :limite';
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v);
@@ -319,6 +322,26 @@ class VentasDocumentoModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function clienteEsValido(int $idCliente): bool
+    {
+        if ($idCliente <= 0) {
+            return false;
+        }
+
+        $sql = 'SELECT 1
+                FROM terceros t
+                WHERE t.id = :id
+                  AND t.es_cliente = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
+                LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idCliente]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     public function buscarItems(string $q = '', int $idAlmacen = 0, int $limit = 30): array

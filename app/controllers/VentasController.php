@@ -87,7 +87,7 @@ class VentasController extends Controlador
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
-            if ($idCliente <= 0) {
+            if ($idCliente <= 0 || !$this->documentoModel->clienteEsValido($idCliente)) {
                 throw new RuntimeException('Seleccione un cliente válido.');
             }
 
