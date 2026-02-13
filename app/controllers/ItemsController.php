@@ -435,6 +435,8 @@ class ItemsController extends Controlador
 
         $esProductoTerminado = ($tipo === 'producto');
 
+        $esProductoTerminado = in_array($tipo, ['producto', 'producto_terminado'], true);
+
         if ($esProductoTerminado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
                 throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado.');
