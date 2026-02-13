@@ -418,6 +418,11 @@ class ItemsController extends Controlador
             throw new RuntimeException('El tipo de ítem no es válido.');
         }
 
+        if ($tipo === 'producto_terminado') {
+            // Compatibilidad: persistimos el valor histórico "producto" hasta migrar BD.
+            $tipo = 'producto';
+        }
+
         $data['tipo_item'] = $tipo;
 
         $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== ''
@@ -427,6 +432,8 @@ class ItemsController extends Controlador
         if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
+
+        $esProductoTerminado = ($tipo === 'producto');
 
         $esProductoTerminado = in_array($tipo, ['producto', 'producto_terminado'], true);
 
