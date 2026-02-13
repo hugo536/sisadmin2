@@ -298,11 +298,14 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20): array
     {
-        $sql = 'SELECT id, nombre_completo, num_doc
-                FROM terceros
-                WHERE es_cliente = 1
-                  AND estado = 1
-                  AND deleted_at IS NULL';
+        $sql = 'SELECT t.id,
+                       t.nombre_completo,
+                       t.numero_documento AS num_doc
+                FROM terceros_clientes tc
+                INNER JOIN terceros t ON t.id = tc.id_tercero
+                WHERE t.estado = 1
+                  AND t.deleted_at IS NULL
+                  AND tc.deleted_at IS NULL';
 
         $params = [];
         if ($q !== '') {
@@ -319,6 +322,27 @@ class VentasDocumentoModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function clienteEsValido(int $idCliente): bool
+    {
+        if ($idCliente <= 0) {
+            return false;
+        }
+
+        $sql = 'SELECT 1
+                FROM terceros_clientes tc
+                INNER JOIN terceros t ON t.id = tc.id_tercero
+                WHERE tc.id_tercero = :id
+                  AND tc.deleted_at IS NULL
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
+                LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idCliente]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     public function buscarItems(string $q = '', int $idAlmacen = 0, int $limit = 30): array
