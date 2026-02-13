@@ -204,7 +204,6 @@
         const apply = () => {
             const value = tipo.value;
             const isProducto = value === 'producto' || value === 'producto_terminado';
-            const isProducto = value === 'producto_terminado';
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
