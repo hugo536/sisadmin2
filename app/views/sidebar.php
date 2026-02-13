@@ -127,6 +127,8 @@ function renderSidebarInner(
             </a>
             <a class="sidebar-link<?php echo $activo('produccion/ordenes'); ?>" href="<?php echo e(route_url('produccion/ordenes')); ?>">
                 <i class="bi bi-gear-wide-connected"></i> <span>Órdenes de Producción</span>
+            <a class="sidebar-link<?php echo $activo('produccion'); ?>" href="<?php echo e(route_url('produccion')); ?>">
+                <i class="bi bi-gear-wide-connected"></i> <span>Producción</span>
             </a>
         <?php endif; ?>
 

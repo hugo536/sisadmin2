@@ -18,6 +18,9 @@ class ProduccionModel extends Modelo
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.deleted_at IS NULL
+                       ) AS total_insumos
+                FROM produccion_recetas r
+                INNER JOIN items i ON i.id = r.id_producto
                 ORDER BY r.id DESC';
 
         $stmt = $this->db()->query($sql);
@@ -38,6 +41,10 @@ class ProduccionModel extends Modelo
                 INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen AND ao.deleted_at IS NULL
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino AND ad.deleted_at IS NULL
                 WHERE o.deleted_at IS NULL
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta
+                INNER JOIN items p ON p.id = r.id_producto
+                INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen
+                INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                 ORDER BY o.id DESC';
 
         $stmt = $this->db()->query($sql);
@@ -50,6 +57,7 @@ class ProduccionModel extends Modelo
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.estado = 1
+
                   AND r.deleted_at IS NULL
                 ORDER BY i.nombre ASC';
 
@@ -102,6 +110,10 @@ class ProduccionModel extends Modelo
                                     (id_producto, codigo, version, descripcion, estado, created_by, updated_by)
                                   VALUES
                                     (:id_producto, :codigo, :version, :descripcion, 1, :created_by, :updated_by)');
+
+        try {
+            $stmt = $db->prepare('INSERT INTO produccion_recetas (id_producto, codigo, version, descripcion, estado, created_by)
+                                  VALUES (:id_producto, :codigo, :version, :descripcion, 1, :created_by)');
             $stmt->execute([
                 'id_producto' => $idProducto,
                 'codigo' => $codigo,
@@ -117,6 +129,8 @@ class ProduccionModel extends Modelo
                                         (id_receta, id_insumo, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
                                      VALUES
                                         (:id_receta, :id_insumo, :cantidad_por_unidad, :merma_porcentaje, :created_by, :updated_by)');
+            $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle (id_receta, id_insumo, cantidad_por_unidad, merma_porcentaje)
+                                     VALUES (:id_receta, :id_insumo, :cantidad_por_unidad, :merma_porcentaje)');
 
             foreach ($detalles as $detalle) {
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
@@ -164,6 +178,9 @@ class ProduccionModel extends Modelo
                     (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, updated_by, observaciones)
                 VALUES
                     (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
+                    (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, observaciones)
+                VALUES
+                    (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
@@ -181,6 +198,7 @@ class ProduccionModel extends Modelo
     }
 
     public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = ''): void
+    public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = '', array $lotesConsumo = []): void
     {
         if ($idOrden <= 0 || $cantidadProducida <= 0) {
             throw new RuntimeException('Datos inválidos para ejecutar la orden.');
@@ -204,6 +222,7 @@ class ProduccionModel extends Modelo
             $detalle = $this->obtenerDetalleReceta((int) $orden['id_receta']);
             if ($detalle === []) {
                 throw new RuntimeException('La receta no tiene detalle activo.');
+                throw new RuntimeException('La receta no tiene detalle.');
             }
 
             $inventarioModel = new InventarioModel();
@@ -215,12 +234,16 @@ class ProduccionModel extends Modelo
                                             (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario, created_by, updated_by)
                                          VALUES
                                             (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario)
+                                         VALUES (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario)');
 
             foreach ($detalle as $linea) {
                 $idInsumo = (int) $linea['id_insumo'];
                 $qtyBase = (float) $linea['cantidad_por_unidad'];
                 $merma = (float) $linea['merma_porcentaje'];
                 $cantidadRequerida = (float) number_format($qtyBase * $cantidadProducida * (1 + ($merma / 100)), 4, '.', '');
+                $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
+                $cantidadRequerida = (float) number_format($cantidadRequerida, 4, '.', '');
 
                 $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
                 if ($stock < $cantidadRequerida) {
@@ -229,13 +252,14 @@ class ProduccionModel extends Modelo
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $costoTotalConsumo += $costoUnitario * $cantidadRequerida;
-
+                $loteConsumo = isset($lotesConsumo[$idInsumo]) ? trim((string) $lotesConsumo[$idInsumo]) : '';
                 $inventarioModel->registrarMovimiento([
                     'tipo_movimiento' => 'CON',
                     'id_item' => $idInsumo,
                     'id_almacen_origen' => $idAlmacenOrigen,
                     'cantidad' => $cantidadRequerida,
                     'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
+                    'lote' => $loteConsumo,
                     'costo_unitario' => $costoUnitario,
                     'created_by' => $userId,
                 ]);
@@ -252,6 +276,11 @@ class ProduccionModel extends Modelo
             }
 
             $costoUnitarioIngreso = (float) number_format($costoTotalConsumo / $cantidadProducida, 4, '.', '');
+                ]);
+            }
+
+            $costoUnitarioIngreso = $cantidadProducida > 0 ? ($costoTotalConsumo / $cantidadProducida) : 0;
+            $costoUnitarioIngreso = (float) number_format($costoUnitarioIngreso, 4, '.', '');
 
             $inventarioModel->registrarMovimiento([
                 'tipo_movimiento' => 'AJ+',
@@ -268,6 +297,8 @@ class ProduccionModel extends Modelo
                                             (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
                                          VALUES
                                             (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado)
+                                         VALUES (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado)');
             $stmtIngreso->execute([
                 'id_orden_produccion' => $idOrden,
                 'id_item' => (int) $orden['id_producto'],
@@ -298,11 +329,20 @@ class ProduccionModel extends Modelo
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+                                            updated_at = NOW()
+                                        WHERE id = :id');
+            $stmtUpdate->execute([
+                'cantidad_producida' => number_format($cantidadProducida, 4, '.', ''),
+                'id' => $idOrden,
+            ]);
+
+        } catch (Throwable $e) {
             throw $e;
         }
     }
 
     public function anularOrden(int $idOrden, int $userId): void
+    public function anularOrden(int $idOrden): void
     {
         $stmt = $this->db()->prepare('UPDATE produccion_ordenes
                                       SET estado = 9,
@@ -316,6 +356,10 @@ class ProduccionModel extends Modelo
             'id' => $idOrden,
             'updated_by' => $userId,
         ]);
+                                          updated_at = NOW()
+                                      WHERE id = :id
+                                        AND estado IN (0, 1)');
+        $stmt->execute(['id' => $idOrden]);
     }
 
     public function obtenerDetalleReceta(int $idReceta): array
@@ -335,6 +379,7 @@ class ProduccionModel extends Modelo
     private function obtenerOrdenPorId(int $idOrden): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.id_almacen_origen, o.id_almacen_destino, o.estado,
+        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.id_almacen_origen, o.id_almacen_destino,
                        r.id_producto
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
