@@ -203,7 +203,11 @@
 
         const apply = () => {
             const value = tipo.value;
+<<<<<<< HEAD
             const isProducto = value === 'producto_terminado';
+=======
+            const isProducto = value === 'producto' || value === 'producto_terminado';
+>>>>>>> 831e8a8ce76f7eda292bf6e84774c7681a048321
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
@@ -289,7 +293,7 @@
 
         document.getElementById('formCrearItem')?.addEventListener('submit', () => {
             const tipo = document.getElementById('newTipo')?.value;
-            if (tipo !== 'producto') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('newSabor');
                 const presentacion = document.getElementById('newPresentacion');
                 if (sabor) sabor.value = '';
@@ -366,7 +370,7 @@
 
         document.getElementById('formEditarItem')?.addEventListener('submit', () => {
             const tipo = document.getElementById('editTipo')?.value;
-            if (tipo !== 'producto') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('editSabor');
                 const presentacion = document.getElementById('editPresentacion');
                 if (sabor) sabor.value = '';
