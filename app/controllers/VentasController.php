@@ -182,47 +182,48 @@ class VentasController extends Controlador
         }
     }
 
-    public function despachar(): void
+    public function despachar()
     {
-        AuthMiddleware::handle();
-        require_permiso('ventas.despachar');
-
+        // Verificar si es AJAX
         if (!es_ajax()) {
-            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            http_response_code(400); // Bad Request
+            echo json_encode(['ok' => false, 'mensaje' => 'Acceso denegado']);
             return;
         }
 
+        $data = json_decode(file_get_contents('php://input'), true);
+        
+        $idDocumento = (int) ($data['id_documento'] ?? 0);
+        $cerrarForzado = (bool) ($data['cerrar_forzado'] ?? false);
+        $observaciones = trim($data['observaciones'] ?? '');
+        $detalle = $data['detalle'] ?? [];
+
+        // VALIDACIÓN MODIFICADA: Ya no exigimos 'id_almacen' global
+        if ($idDocumento <= 0) {
+            echo json_encode(['ok' => false, 'mensaje' => 'Documento inválido']);
+            return;
+        }
+
+        if (empty($detalle) || !is_array($detalle)) {
+            echo json_encode(['ok' => false, 'mensaje' => 'No hay ítems para despachar']);
+            return;
+        }
+
+        // Validamos que CADA línea tenga su almacén
+        foreach ($detalle as $linea) {
+            if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {
+                echo json_encode(['ok' => false, 'mensaje' => 'Error: Hay filas sin almacén seleccionado.']);
+                return;
+            }
+        }
+
         try {
-            $payload = $this->leerJson();
-            $userId = $this->obtenerUsuarioId();
-
-            $idDocumento = (int) ($payload['id_documento'] ?? 0);
-            $idAlmacen = (int) ($payload['id_almacen'] ?? 0);
+            // Llamamos al modelo (Nota: ya no pasamos un ID Almacén único)
+            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $_SESSION['user_id'] ?? 1);
             
-            // Checkbox para forzar cierre (si quedan decimales o el usuario decide terminar)
-            $cerrarForzado = !empty($payload['cerrar_forzado']); 
-            
-            $observaciones = trim((string) ($payload['observaciones'] ?? ''));
-            $lineas = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
-
-            $idDespacho = $this->despachoModel->registrarDespacho(
-                $idDocumento,
-                $idAlmacen,
-                $lineas,
-                $cerrarForzado,
-                $observaciones,
-                $userId
-            );
-
-            json_response([
-                'ok' => true,
-                'mensaje' => $cerrarForzado
-                    ? 'Despacho registrado y pedido cerrado (saldos cancelados).'
-                    : 'Despacho registrado correctamente.',
-                'id' => $idDespacho,
-            ]);
-        } catch (Throwable $e) {
-            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+            echo json_encode(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
+        } catch (Exception $e) {
+            echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()]);
         }
     }
 

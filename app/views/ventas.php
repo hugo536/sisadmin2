@@ -181,7 +181,7 @@ $estadoLabels = [
     </div>
 </div>
 
-<div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white">
@@ -190,27 +190,26 @@ $estadoLabels = [
             </div>
             <div class="modal-body bg-light">
                 <input type="hidden" id="despachoDocumentoId" value="0">
+                
+                <select id="despachoAlmacen" class="d-none">
+                    <option value="">Seleccione...</option>
+                    <?php foreach ($almacenes as $almacen): ?>
+                        <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                    <?php endforeach; ?>
+                </select>
+
                 <div class="alert alert-info d-flex align-items-center mb-3">
                     <i class="bi bi-info-circle-fill me-2 fs-4"></i>
                     <div>
-                        Seleccione el almacén de salida y verifique las cantidades a despachar.
-                        <br><small>Las cantidades no pueden superar el stock disponible ni lo pendiente por entregar.</small>
+                        <strong>Modo Multi-Almacén:</strong> Puede seleccionar diferentes almacenes para completar el pedido.
+                        <br><small>Use el botón (+) si necesita sacar un mismo producto de dos lugares distintos.</small>
                     </div>
                 </div>
                 
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Almacén de Salida <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-lg" id="despachoAlmacen" required>
-                            <option value="">Seleccione almacén...</option>
-                            <?php foreach ($almacenes as $almacen): ?>
-                                <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-8">
+                    <div class="col-12">
                         <label class="form-label fw-bold">Observaciones / Guía Remisión</label>
-                        <input type="text" class="form-control form-control-lg" id="despachoObservaciones" maxlength="180" placeholder="Ej: Guía de Remisión 001-456">
+                        <input type="text" class="form-control" id="despachoObservaciones" maxlength="180" placeholder="Ej: Guía de Remisión 001-456">
                     </div>
                 </div>
 
@@ -220,38 +219,33 @@ $estadoLabels = [
                             <table class="table table-hover align-middle mb-0" id="tablaDetalleDespacho">
                                 <thead class="table-light">
                                 <tr>
-                                    <th class="ps-3">Producto</th>
-                                    <th class="text-center bg-light border-start">Solicitado</th>
-                                    <th class="text-center bg-light">Entregado</th>
-                                    <th class="text-center bg-warning bg-opacity-10 fw-bold border-end">Pendiente</th>
-                                    <th class="text-center">Stock Disp.</th>
-                                    <th style="width:160px;" class="pe-3 text-end">A Despachar</th>
+                                    <th class="ps-3" style="min-width: 250px;">Producto / Pendiente</th>
+                                    <th class="text-center" style="width: 200px;">Almacén Origen</th>
+                                    <th class="text-center" style="width: 100px;">Stock</th>
+                                    <th style="width: 160px;" class="text-end pe-3">A Despachar</th>
                                 </tr>
                                 </thead>
-                                <tbody></tbody>
+                                <tbody>
+                                    </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-
-                <div class="mt-3">
-                    <div class="form-check form-switch p-3 bg-white border rounded shadow-sm">
-                        <input class="form-check-input" type="checkbox" id="cerrarForzado">
-                        <label class="form-check-label fw-bold text-danger" for="cerrarForzado">
-                            Forzar cierre del pedido (Cancelar saldos pendientes)
-                        </label>
-                        <div class="small text-muted mt-1">
-                            Si marca esto, el pedido pasará a estado <b>Cerrado</b> aunque queden productos pendientes por entregar.
-                            Úselo si el cliente ya no desea el saldo restante.
-                        </div>
-                    </div>
-                </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-info text-white fw-bold" id="btnGuardarDespacho">
-                    <i class="bi bi-check2-circle me-2"></i>Confirmar Despacho
-                </button>
+            
+            <div class="modal-footer bg-white d-flex justify-content-between align-items-center">
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="cerrarForzado">
+                    <label class="form-check-label fw-bold text-danger" for="cerrarForzado" style="cursor:pointer;">
+                        Forzar cierre (Cancelar pendientes)
+                    </label>
+                </div>
+                <div>
+                    <button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-info text-white fw-bold" id="btnGuardarDespacho">
+                        <i class="bi bi-check2-circle me-2"></i>Confirmar Despacho
+                    </button>
+                </div>
             </div>
         </div>
     </div>

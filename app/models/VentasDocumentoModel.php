@@ -289,7 +289,6 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20): array
     {
-        // 1. Base de la consulta
         $sql = 'SELECT id, nombre_completo, numero_documento AS num_doc
                 FROM terceros
                 WHERE es_cliente = 1
@@ -298,15 +297,13 @@ class VentasDocumentoModel extends Modelo
 
         $params = [];
 
-        // 2. Si hay búsqueda, usamos "?" en lugar de nombres
         if ($q !== '') {
             $sql .= ' AND (nombre_completo LIKE ? OR numero_documento LIKE ?)';
             $term = '%' . $q . '%';
-            $params[] = $term; // Primer ?
-            $params[] = $term; // Segundo ?
+            $params[] = $term;
+            $params[] = $term;
         }
 
-        // 3. El limite lo ponemos directo como entero para evitar líos con PDO en el LIMIT
         $sql .= ' ORDER BY nombre_completo ASC LIMIT ' . (int)$limit;
         
         $stmt = $this->db()->prepare($sql);
@@ -321,7 +318,6 @@ class VentasDocumentoModel extends Modelo
             return false;
         }
 
-        // CORREGIDO: Consulta limpia, eliminada la duplicidad
         $sql = 'SELECT 1
                 FROM terceros
                 WHERE id = :id
@@ -340,17 +336,13 @@ class VentasDocumentoModel extends Modelo
     {
         $params = [];
         
-        // 1. Construimos la subconsulta de stock de forma dinámica
         if ($idAlmacen > 0) {
-            // Si hay almacén, usamos un "?" para el ID del almacén
             $stockSql = "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = ? LIMIT 1)";
             $params[] = $idAlmacen;
         } else {
-            // Si no hay almacén, sumamos todo
             $stockSql = "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
         }
 
-        // 2. Base de la consulta (Corregido a 'producto' según tu DB)
         $sql = "SELECT i.id, 
                     i.sku, 
                     i.nombre, 
@@ -360,22 +352,18 @@ class VentasDocumentoModel extends Modelo
                 FROM items i
                 WHERE i.estado = 1 
                 AND i.deleted_at IS NULL
-                AND i.tipo_item = 'producto'"; // <--- CAMBIO CLAVE: 'producto'
+                AND i.tipo_item = 'producto'"; 
 
-        // 3. Filtro de búsqueda por nombre o SKU
         if ($q !== '') {
             $sql .= ' AND (i.nombre LIKE ? OR i.sku LIKE ?)';
             $term = '%' . $q . '%';
-            $params[] = $term; // Para el nombre
-            $params[] = $term; // Para el SKU
+            $params[] = $term;
+            $params[] = $term;
         }
 
-        // 4. Orden y Límite (Inyectado como entero para evitar líos de PDO)
         $sql .= ' ORDER BY i.nombre ASC LIMIT ' . (int)$limit;
 
         $stmt = $this->db()->prepare($sql);
-        
-        // Ejecutamos pasando el array de parámetros en el orden exacto de los "?"
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -396,5 +384,99 @@ class VentasDocumentoModel extends Modelo
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_documentos')->fetchColumn() + 1;
         return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Registra el despacho de mercadería (Salida de Almacén)
+     * Soporta múltiples filas con diferentes almacenes.
+     */
+    public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId): void
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            // 1. Validar estado actual del pedido
+            $stmt = $db->prepare("SELECT estado FROM ventas_documentos WHERE id = ?");
+            $stmt->execute([$idDoc]);
+            $estadoActual = $stmt->fetchColumn();
+
+            if ($estadoActual == 3 || $estadoActual == 9) {
+                throw new Exception("El pedido ya está cerrado o anulado.");
+            }
+
+            // 2. Sentencias Preparadas (Para optimizar dentro del bucle)
+            // Actualizar cantidad despachada en el detalle del pedido
+            $sqlUpdateDetalle = "UPDATE ventas_documentos_detalle 
+                                 SET cantidad_despachada = cantidad_despachada + ? 
+                                 WHERE id = ?";
+            
+            // Restar Stock (Validando que exista en ese almacén específico)
+            $sqlRestarStock = "UPDATE inventario_stock 
+                               SET stock_actual = stock_actual - ?, updated_at = NOW() 
+                               WHERE id_item = (SELECT id_item FROM ventas_documentos_detalle WHERE id = ?) 
+                               AND id_almacen = ?";
+
+            // Registrar movimiento en Kardex
+            $sqlKardex = "INSERT INTO inventario_movimientos 
+                          (id_almacen, id_item, tipo_movimiento, cantidad, referencia, created_at, created_by) 
+                          SELECT ?, id_item, 'SALIDA', ?, CONCAT('Despacho Pedido #', ?), NOW(), ? 
+                          FROM ventas_documentos_detalle WHERE id = ?";
+
+            $stmtUpdDet = $db->prepare($sqlUpdateDetalle);
+            $stmtStock  = $db->prepare($sqlRestarStock);
+            $stmtKardex = $db->prepare($sqlKardex);
+
+            foreach ($detalle as $item) {
+                $idDetalle = (int)$item['id_documento_detalle'];
+                $idAlmacen = (int)$item['id_almacen']; // Aquí obtenemos el almacén de la fila
+                $cantidad  = (float)$item['cantidad'];
+
+                if ($cantidad <= 0) continue;
+
+                // A. Actualizar lo despachado en el pedido
+                $stmtUpdDet->execute([$cantidad, $idDetalle]);
+
+                // B. Restar Stock
+                $stmtStock->execute([$cantidad, $idDetalle, $idAlmacen]);
+                
+                // Si rowCount es 0, significa que no encontró el ítem en ese almacén en la tabla de stock
+                if ($stmtStock->rowCount() === 0) {
+                    throw new Exception("Error de stock: El producto no existe o no está asignado al almacén seleccionado (ID: $idAlmacen).");
+                }
+
+                // C. Kardex
+                $stmtKardex->execute([$idAlmacen, $cantidad, $idDoc, $userId, $idDetalle]);
+            }
+
+            // 3. Actualizar Observaciones de cabecera si hay nuevas
+            if (!empty($obs)) {
+                $db->prepare("UPDATE ventas_documentos SET observaciones = CONCAT(COALESCE(observaciones, ''), ' | Despacho: ', ?) WHERE id = ?")
+                   ->execute([$obs, $idDoc]);
+            }
+
+            // 4. Calcular si se cierra el pedido
+            $sqlPendiente = "SELECT SUM(cantidad - cantidad_despachada) as pendiente 
+                             FROM ventas_documentos_detalle 
+                             WHERE id_documento_venta = ? AND deleted_at IS NULL";
+            $stmtPen = $db->prepare($sqlPendiente);
+            $stmtPen->execute([$idDoc]);
+            $pendienteTotal = (float)$stmtPen->fetchColumn();
+
+            $nuevoEstado = 2; // Aprobado (Parcial)
+            if ($pendienteTotal <= 0.01 || $cerrarForzado) {
+                $nuevoEstado = 3; // Cerrado / Entregado
+            }
+
+            $db->prepare("UPDATE ventas_documentos SET estado = ? WHERE id = ?")->execute([$nuevoEstado, $idDoc]);
+
+            $db->commit();
+
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
     }
 }
