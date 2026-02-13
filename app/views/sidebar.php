@@ -120,6 +120,16 @@ function renderSidebarInner(
             </a>
         <?php endif; ?>
 
+        <?php if (tiene_permiso('inventario.ver')): ?>
+            <div class="nav-label mt-3">Producción</div>
+            <a class="sidebar-link<?php echo $activo('produccion/recetas'); ?>" href="<?php echo e(route_url('produccion/recetas')); ?>">
+                <i class="bi bi-journal-check"></i> <span>Recetas (BOM)</span>
+            </a>
+            <a class="sidebar-link<?php echo $activo('produccion/ordenes'); ?>" href="<?php echo e(route_url('produccion/ordenes')); ?>">
+                <i class="bi bi-gear-wide-connected"></i> <span>Órdenes de Producción</span>
+            </a>
+        <?php endif; ?>
+
         <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
