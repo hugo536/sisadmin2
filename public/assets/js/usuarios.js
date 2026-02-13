@@ -12,6 +12,11 @@
 (function () {
   'use strict';
 
+  let tomSelectCrearRol = null;
+  let tomSelectEditRol = null;
+  let tomSelectFiltroRol = null;
+  let tomSelectFiltroEstado = null;
+
   // ---------- Config SweetAlert (solo usuarios) ----------
   const swalBootstrap = Swal.mixin({
     customClass: {
@@ -89,6 +94,7 @@
   window.abrirModalCrear = function () {
     const form = document.getElementById('formCrearUsuario');
     if (form) form.reset();
+    if (tomSelectCrearRol) tomSelectCrearRol.clear();
     const modalEl = document.getElementById('modalCrearUsuario');
     if (!modalEl) return;
     new bootstrap.Modal(modalEl).show();
@@ -101,7 +107,11 @@
     byId('editNombreCompleto').value = nombreCompleto;
     byId('editUsuario').value = usuario;
     byId('editEmail').value = email;
-    byId('editRol').value = idRol;
+    if (tomSelectEditRol) {
+      tomSelectEditRol.setValue(String(idRol));
+    } else {
+      byId('editRol').value = idRol;
+    }
 
     const passField = document.querySelector('#formEditarUsuario input[name="clave"]');
     if (passField) passField.value = '';
@@ -113,6 +123,42 @@
 
   // ---------- 4) Init ----------
   document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('crearRol')) {
+      tomSelectCrearRol = new TomSelect('#crearRol', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (document.getElementById('editRol')) {
+      tomSelectEditRol = new TomSelect('#editRol', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (document.getElementById('filtroRol')) {
+      tomSelectFiltroRol = new TomSelect('#filtroRol', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (document.getElementById('filtroEstado')) {
+      tomSelectFiltroEstado = new TomSelect('#filtroEstado', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
     // Tooltips
     if (window.ERPTable) {
       window.ERPTable.initTooltips();

@@ -44,6 +44,80 @@
   const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
+
+  let tomSelectTipo = null;
+  let tomSelectAlmacen = null;
+  let tomSelectAlmacenDestino = null;
+  let tomSelectFiltroEstado = null;
+  let tomSelectFiltroCriticidad = null;
+  let tomSelectFiltroAlmacen = null;
+  let tomSelectFiltroVencimiento = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (tipo) {
+      tomSelectTipo = new TomSelect('#tipoMovimiento', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (almacen) {
+      tomSelectAlmacen = new TomSelect('#almacenMovimiento', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (almacenDestino) {
+      tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (filtroEstado) {
+      tomSelectFiltroEstado = new TomSelect('#inventarioFiltroEstado', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (filtroCriticidad) {
+      tomSelectFiltroCriticidad = new TomSelect('#inventarioFiltroCriticidad', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (filtroAlmacen) {
+      tomSelectFiltroAlmacen = new TomSelect('#inventarioFiltroAlmacen', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (filtroVencimiento) {
+      tomSelectFiltroVencimiento = new TomSelect('#inventarioFiltroVencimiento', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+  });
+
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
 
   async function toggleEstadoItemInventario(switchInput) {
@@ -212,7 +286,13 @@
     if(grupoDestino) grupoDestino.classList.toggle('d-none', !esTransferencia);
     if(almacenDestino) {
         almacenDestino.required = esTransferencia;
-        if(!esTransferencia) almacenDestino.value = '';
+        if (!esTransferencia) {
+            if (tomSelectAlmacenDestino) {
+              tomSelectAlmacenDestino.clear();
+            } else {
+              almacenDestino.value = '';
+            }
+        }
     }
 
     // B. Visibilidad Lotes y Vencimiento
@@ -498,6 +578,9 @@
     if (modalEl) {
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
+            if (tomSelectTipo) tomSelectTipo.clear();
+            if (tomSelectAlmacen) tomSelectAlmacen.clear();
+            if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
             if (itemIdInput) itemIdInput.value = '';
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';

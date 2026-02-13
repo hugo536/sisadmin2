@@ -40,6 +40,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
 
+    let tomSelectCliente = null;
+    let tomSelectDespachoAlmacen = null;
+
+    if (idCliente) {
+        tomSelectCliente = new TomSelect('#idCliente', {
+            create: false,
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Buscar...',
+            dropdownParent: 'body'
+        });
+    }
+
+    if (despachoAlmacen) {
+        tomSelectDespachoAlmacen = new TomSelect('#despachoAlmacen', {
+            create: false,
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Buscar...',
+            dropdownParent: 'body'
+        });
+    }
+
     // --- Helpers de Red ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -86,6 +107,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function buscarClientes(term = '') {
         const payload = await getJson(`${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(term)}`);
+        if (tomSelectCliente) {
+            tomSelectCliente.clear();
+            tomSelectCliente.clearOptions();
+            (payload.data || []).forEach((cliente) => {
+                tomSelectCliente.addOption({
+                    value: String(cliente.id),
+                    text: `${cliente.nombre_completo}${cliente.num_doc ? ` (${cliente.num_doc})` : ''}`,
+                });
+            });
+            tomSelectCliente.refreshOptions(false);
+            return;
+        }
+
         idCliente.innerHTML = '<option value="">Seleccione cliente...</option>';
         (payload.data || []).forEach((cliente) => {
             const opt = document.createElement('option');
@@ -177,7 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function limpiarModalVenta() {
         ventaId.value = 0;
         buscarCliente.value = '';
-        idCliente.innerHTML = '<option value="">Buscar y seleccionar cliente...</option>';
+        if (tomSelectCliente) {
+            tomSelectCliente.clear();
+            tomSelectCliente.clearOptions();
+        } else {
+            idCliente.innerHTML = '<option value="">Buscar y seleccionar cliente...</option>';
+        }
         fechaEmision.value = new Date().toISOString().split('T')[0]; // Fecha de hoy
         ventaObservaciones.value = '';
         tbodyVenta.innerHTML = '';
@@ -191,7 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const venta = payload.data;
 
         despachoDocumentoId.value = venta.id;
-        despachoAlmacen.value = '';
+        if (tomSelectDespachoAlmacen) {
+            tomSelectDespachoAlmacen.clear();
+        } else {
+            despachoAlmacen.value = '';
+        }
         despachoObservaciones.value = '';
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
@@ -387,19 +430,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Llenar datos
                 ventaId.value = venta.id;
                 // Pre-cargar el cliente en el select
-                idCliente.innerHTML = `<option value="${venta.id_cliente}" selected>Cargando cliente...</option>`;
-                // Hacemos una búsqueda dummy para llenar el select correctamente con el nombre
-                await buscarClientes(''); // Carga genérica o específica si tuvieras el nombre
-                // Ajuste rápido: poner el nombre si viene del backend en 'cliente'
-                // Mejor aproximación: Crear la opción manualmente
-                /* Nota: Como buscarClientes limpia el select, lo ideal es crear la option manualmente 
-                   con los datos que ya tenemos en la tabla o payload. 
-                */
-                const optCliente = document.createElement('option');
-                optCliente.value = venta.id_cliente;
-                optCliente.textContent = '(Cliente Seleccionado)'; // O el nombre real si viene en payload
-                optCliente.selected = true;
-                idCliente.appendChild(optCliente);
+                await buscarClientes('');
+                if (tomSelectCliente) {
+                    tomSelectCliente.setValue(String(venta.id_cliente));
+                } else {
+                    idCliente.value = venta.id_cliente;
+                }
                 
                 fechaEmision.value = venta.fecha_emision || venta.fecha_documento || '';
                 ventaObservaciones.value = venta.observaciones || '';
