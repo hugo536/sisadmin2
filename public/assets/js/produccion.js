@@ -1,7 +1,5 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción
- * Archivo: public/assets/js/produccion.js
- * Descripción: Maneja la lógica de recetas dinámicas, filtros y ejecución de órdenes.
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -10,22 +8,14 @@ document.addEventListener('DOMContentLoaded', function() {
     initModalEjecucion();
 });
 
-// --------------------------------------------------------------------------
-// 1. Lógica para Filtros de Búsqueda (Recetas y Órdenes)
-// --------------------------------------------------------------------------
 function initFiltrosTablas() {
-    // Configuración para Recetas
     setupFiltro('recetaSearch', 'recetaFiltroEstado', 'tablaRecetas');
-    
-    // Configuración para Órdenes
     setupFiltro('opSearch', 'opFiltroEstado', 'tablaOrdenes');
 }
 
 function setupFiltro(inputId, selectId, tableId) {
     const input = document.getElementById(inputId);
     const select = document.getElementById(selectId);
-    
-    // Si no existen los elementos en esta vista, salimos (evita errores)
     if (!input || !select) return;
 
     const filterFn = () => {
@@ -34,12 +24,8 @@ function setupFiltro(inputId, selectId, tableId) {
         const rows = document.querySelectorAll(`#${tableId} tbody tr`);
 
         rows.forEach(row => {
-            const searchData = row.getAttribute('data-search') || '';
-            const estadoData = row.getAttribute('data-estado') || '';
-            
-            const matchText = searchData.includes(term);
-            const matchEstado = estado === '' || estadoData === estado;
-
+            const matchText = (row.getAttribute('data-search') || '').includes(term);
+            const matchEstado = estado === '' || (row.getAttribute('data-estado') || '') === estado;
             row.style.display = (matchText && matchEstado) ? '' : 'none';
         });
     };
@@ -48,74 +34,78 @@ function setupFiltro(inputId, selectId, tableId) {
     select.addEventListener('change', filterFn);
 }
 
-// --------------------------------------------------------------------------
-// 2. Lógica para Formulario de Recetas (Filas Dinámicas)
-// --------------------------------------------------------------------------
 function initFormularioRecetas() {
     const btnAdd = document.getElementById('btnAgregarDetalleReceta');
-    const wrapper = document.getElementById('detalleRecetaWrapper');
+    const template = document.getElementById('detalleRecetaTemplate');
+    const resumen = document.getElementById('bomResumen');
+    const buttonsEtapa = document.querySelectorAll('[data-add-etapa]');
+    const etapaContainers = document.querySelectorAll('[data-etapa-container]');
 
-    if (!btnAdd || !wrapper) return;
+    if (!btnAdd || !template || etapaContainers.length === 0) return;
 
-    // Agregar nueva fila
+    const crearFila = (etapa) => {
+        const fragment = template.content.cloneNode(true);
+        const row = fragment.querySelector('.detalle-row');
+        row.dataset.etapa = etapa;
+        const etapaInput = row.querySelector('input[name="detalle_etapa[]"]');
+        etapaInput.value = etapa;
+
+        row.querySelectorAll('input, select').forEach(el => {
+            if (el.name === 'detalle_etapa[]') return;
+            el.value = el.name === 'detalle_merma[]' ? '0' : '';
+        });
+
+        const container = document.querySelector(`[data-etapa-container="${CSS.escape(etapa)}"]`);
+        if (container) container.appendChild(fragment);
+        actualizarResumen();
+    };
+
+    const actualizarResumen = () => {
+        const rows = document.querySelectorAll('.detalle-row');
+        resumen.textContent = `${rows.length} líneas cargadas.`;
+    };
+
     btnAdd.addEventListener('click', function() {
-        const rowTemplate = wrapper.querySelector('.detalle-row');
-        if (!rowTemplate) return;
-
-        const newRow = rowTemplate.cloneNode(true);
-        
-        // Limpiar inputs de la nueva fila
-        newRow.querySelectorAll('input').forEach(input => input.value = '');
-        newRow.querySelectorAll('select').forEach(select => select.value = '');
-        
-        // Resetear merma a 0 por defecto
-        const mermaInput = newRow.querySelector('input[name="detalle_merma[]"]');
-        if(mermaInput) mermaInput.value = '0';
-
-        wrapper.appendChild(newRow);
+        const primerContenedor = etapaContainers[0];
+        if (primerContenedor) crearFila(primerContenedor.dataset.etapaContainer);
     });
 
-    // Eliminar fila (Delegación de eventos para elementos dinámicos)
-    wrapper.addEventListener('click', function(e) {
-        if (e.target.closest('.js-remove-row')) {
-            const rows = wrapper.querySelectorAll('.detalle-row');
-            if (rows.length > 1) {
-                e.target.closest('.detalle-row').remove();
-            } else {
-                // Opcional: Mostrar alerta si intenta borrar la única fila
-                // alert("La receta debe tener al menos un insumo.");
-            }
+    buttonsEtapa.forEach(btn => {
+        btn.addEventListener('click', function() {
+            crearFila(btn.dataset.addEtapa);
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        const btnRemove = e.target.closest('.js-remove-row');
+        if (btnRemove) {
+            btnRemove.closest('.detalle-row')?.remove();
+            actualizarResumen();
+        }
+    });
+
+    etapaContainers.forEach(c => {
+        if (c.dataset.etapaContainer === 'Tratamiento Agua') {
+            crearFila('Tratamiento Agua');
         }
     });
 }
 
-// --------------------------------------------------------------------------
-// 3. Lógica para Modal de Ejecución de Órdenes
-// --------------------------------------------------------------------------
 function initModalEjecucion() {
-    // Detectamos si el modal existe en el DOM
     const modalEl = document.getElementById('modalEjecutarOP');
     if (!modalEl) return;
-
-    // Usamos la API de Bootstrap 5
     const modalEjecutar = new bootstrap.Modal(modalEl);
 
-    // Delegación de eventos para botones "Ejecutar" en la tabla
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.js-abrir-ejecucion');
-        if (btn) {
-            // Llenar datos en el modal
-            document.getElementById('execIdOrden').value = btn.getAttribute('data-id');
-            document.getElementById('execCodigo').value = btn.getAttribute('data-codigo');
-            document.getElementById('execCantidad').value = btn.getAttribute('data-planificada');
-            
-            // Generar sugerencia de Lote (Fecha invertida + ID)
-            // Formato: LYYMMDD-ID
-            const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-            document.getElementById('execLote').value = 'L' + today + '-' + btn.getAttribute('data-id');
+        if (!btn) return;
 
-            // Mostrar modal
-            modalEjecutar.show();
-        }
+        document.getElementById('execIdOrden').value = btn.getAttribute('data-id');
+        document.getElementById('execCodigo').value = btn.getAttribute('data-codigo');
+        document.getElementById('execCantidad').value = btn.getAttribute('data-planificada');
+
+        const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+        document.getElementById('execLote').value = 'L' + today + '-' + btn.getAttribute('data-id');
+        modalEjecutar.show();
     });
 }

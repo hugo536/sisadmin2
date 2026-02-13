@@ -1,9 +1,16 @@
 <?php
 $recetas = $recetas ?? [];
 $itemsStockeables = $items_stockeables ?? [];
+$etapasProduccion = [
+    'Tratamiento Agua',
+    'Jarabe',
+    'Mezclado',
+    'Pasteurización',
+    'Carbonatación',
+    'Envasado',
+];
 ?>
 <div class="container-fluid p-4">
-    
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
@@ -48,26 +55,23 @@ $itemsStockeables = $items_stockeables ?? [];
                             <th>Producto Terminado</th>
                             <th>Versión</th>
                             <th>N° Insumos</th>
+                            <th>Costo Teórico</th>
                             <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($recetas as $receta): ?>
-                            <tr data-search="<?php echo mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']); ?>" 
+                            <tr data-search="<?php echo mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']); ?>"
                                 data-estado="<?php echo (int) ($receta['estado'] ?? 0); ?>">
-                                
                                 <td class="ps-4 fw-semibold text-primary"><?php echo e((string) $receta['codigo']); ?></td>
-                                
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
                                     <div class="small text-muted"><?php echo e((string) ($receta['descripcion'] ?? '')); ?></div>
                                 </td>
-                                
                                 <td><span class="badge bg-light text-dark border">v.<?php echo (int) $receta['version']; ?></span></td>
-                                
                                 <td><?php echo (int) $receta['total_insumos']; ?> ítems</td>
-                                
+                                <td>S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?></td>
                                 <td class="text-center">
                                     <?php if ((int) ($receta['estado'] ?? 0) === 1): ?>
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-3 rounded-pill">Activa</span>
@@ -75,11 +79,14 @@ $itemsStockeables = $items_stockeables ?? [];
                                         <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Inactiva</span>
                                     <?php endif; ?>
                                 </td>
-
                                 <td class="text-end pe-4">
-                                    <button class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver detalles">
-                                        <i class="bi bi-eye fs-5"></i>
-                                    </button>
+                                    <form method="post" class="d-inline">
+                                        <input type="hidden" name="accion" value="nueva_version">
+                                        <input type="hidden" name="id_receta_base" value="<?php echo (int) $receta['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Crear nueva versión">
+                                            <i class="bi bi-files me-1"></i>Nueva Versión
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -94,7 +101,7 @@ $itemsStockeables = $items_stockeables ?? [];
 </div>
 
 <div class="modal fade" id="modalCrearReceta" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nueva receta</h5>
@@ -103,12 +110,12 @@ $itemsStockeables = $items_stockeables ?? [];
             <div class="modal-body p-4 bg-light">
                 <form method="post" id="formCrearReceta">
                     <input type="hidden" name="accion" value="crear_receta">
-                    
+
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <h6 class="fw-bold text-muted mb-3">Información General</h6>
                             <div class="row g-2">
-                                <div class="col-md-4 form-floating">
+                                <div class="col-md-3 form-floating">
                                     <input type="text" class="form-control" id="newCodigo" name="codigo" placeholder="Código" required>
                                     <label for="newCodigo">Código</label>
                                 </div>
@@ -116,18 +123,24 @@ $itemsStockeables = $items_stockeables ?? [];
                                     <input type="number" class="form-control" id="newVersion" name="version" value="1" min="1">
                                     <label for="newVersion">Versión</label>
                                 </div>
-                                <div class="col-md-6 form-floating">
+                                <div class="col-md-4 form-floating">
                                     <select class="form-select" id="newProducto" name="id_producto" required>
                                         <option value="" selected>Seleccionar...</option>
                                         <?php foreach ($itemsStockeables as $item): ?>
-                                            <option value="<?php echo (int) $item['id']; ?>">
-                                                <?php echo e((string) $item['nombre']); ?> (<?php echo e((string) $item['tipo_item']); ?>)
-                                            </option>
+                                            <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                     <label for="newProducto">Producto Destino</label>
                                 </div>
-                                <div class="col-12 form-floating mt-2">
+                                <div class="col-md-3 form-floating">
+                                    <input type="number" step="0.0001" min="0" class="form-control" id="newRendimientoBase" name="rendimiento_base" placeholder="Rendimiento base">
+                                    <label for="newRendimientoBase">Rendimiento base</label>
+                                </div>
+                                <div class="col-md-3 form-floating">
+                                    <input type="text" class="form-control" id="newUnidadRendimiento" name="unidad_rendimiento" placeholder="Unidad">
+                                    <label for="newUnidadRendimiento">Unidad rendimiento</label>
+                                </div>
+                                <div class="col-md-9 form-floating">
                                     <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
                                     <label for="newDescripcion">Descripción / Observaciones</label>
                                 </div>
@@ -135,41 +148,83 @@ $itemsStockeables = $items_stockeables ?? [];
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm">
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-muted mb-3">Parámetros Finales</h6>
+                            <div class="row g-2">
+                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="brix_objetivo" placeholder="Brix"><label>Brix objetivo</label></div>
+                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="ph_objetivo" placeholder="pH"><label>pH objetivo</label></div>
+                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="carbonatacion_vol" placeholder="CO2"><label>Carbonatación (vol)</label></div>
+                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="temp_pasteurizacion" placeholder="Temperatura"><label>Temp. pasteurización</label></div>
+                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="tiempo_pasteurizacion" placeholder="Tiempo"><label>Tiempo pasteurización</label></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0">Detalle de Insumos (BOM)</h6>
+                                <h6 class="fw-bold text-muted mb-0">Etapas</h6>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarDetalleReceta">
                                     <i class="bi bi-plus-lg me-1"></i>Agregar línea
                                 </button>
                             </div>
-                            
-                            <div id="detalleRecetaWrapper">
-                                <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2">
-                                    <div class="col-md-5">
-                                        <label class="form-label small text-muted mb-0">Insumo</label>
-                                        <select class="form-select form-select-sm" name="detalle_id_insumo[]" required>
-                                            <option value="">Seleccione...</option>
-                                            <?php foreach ($itemsStockeables as $item): ?>
-                                                <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
+                            <div class="accordion" id="accordionEtapasReceta">
+                                <?php foreach ($etapasProduccion as $index => $etapa): ?>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading-<?php echo $index; ?>">
+                                            <button class="accordion-button <?php echo $index > 0 ? 'collapsed' : ''; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $index; ?>">
+                                                <?php echo e($etapa); ?>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-<?php echo $index; ?>" class="accordion-collapse collapse <?php echo $index === 0 ? 'show' : ''; ?>" data-bs-parent="#accordionEtapasReceta">
+                                            <div class="accordion-body">
+                                                <div class="d-flex justify-content-end mb-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-add-etapa="<?php echo e($etapa); ?>">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar insumo
+                                                    </button>
+                                                </div>
+                                                <div data-etapa-container="<?php echo e($etapa); ?>"></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted mb-0">Cantidad Base</label>
-                                        <input step="0.0001" min="0.0001" type="number" required name="detalle_cantidad[]" class="form-control form-control-sm" placeholder="0.00">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted mb-0">Merma %</label>
-                                        <input step="0.01" min="0" type="number" name="detalle_merma[]" value="0" class="form-control form-control-sm">
-                                    </div>
-                                    <div class="col-md-1 text-end">
-                                        <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-row" title="Quitar"><i class="bi bi-trash"></i></button>
-                                    </div>
-                                </div>
+                                <?php endforeach; ?>
                             </div>
                         </div>
                     </div>
+
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-muted mb-2">BOM resumen</h6>
+                            <div id="bomResumen" class="small text-muted">0 líneas cargadas.</div>
+                        </div>
+                    </div>
+
+                    <template id="detalleRecetaTemplate">
+                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2" data-etapa="">
+                            <input type="hidden" name="detalle_etapa[]" value="">
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted mb-0">Insumo</label>
+                                <select class="form-select form-select-sm" name="detalle_id_insumo[]" required>
+                                    <option value="">Seleccione...</option>
+                                    <?php foreach ($itemsStockeables as $item): ?>
+                                        <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-0">Cantidad Base</label>
+                                <input step="0.0001" min="0.0001" type="number" required name="detalle_cantidad[]" class="form-control form-control-sm" placeholder="0.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-0">Merma %</label>
+                                <input step="0.01" min="0" type="number" name="detalle_merma[]" value="0" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-row" title="Quitar"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </template>
 
                     <div class="d-flex justify-content-end pt-3">
                         <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
@@ -181,4 +236,4 @@ $itemsStockeables = $items_stockeables ?? [];
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.0"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.1"></script>
