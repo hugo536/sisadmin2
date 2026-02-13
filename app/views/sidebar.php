@@ -122,13 +122,13 @@ function renderSidebarInner(
 
         <?php if (tiene_permiso('inventario.ver')): ?>
             <div class="nav-label mt-3">Producción</div>
+            
             <a class="sidebar-link<?php echo $activo('produccion/recetas'); ?>" href="<?php echo e(route_url('produccion/recetas')); ?>">
                 <i class="bi bi-journal-check"></i> <span>Recetas (BOM)</span>
             </a>
+            
             <a class="sidebar-link<?php echo $activo('produccion/ordenes'); ?>" href="<?php echo e(route_url('produccion/ordenes')); ?>">
                 <i class="bi bi-gear-wide-connected"></i> <span>Órdenes de Producción</span>
-            <a class="sidebar-link<?php echo $activo('produccion'); ?>" href="<?php echo e(route_url('produccion')); ?>">
-                <i class="bi bi-gear-wide-connected"></i> <span>Producción</span>
             </a>
         <?php endif; ?>
 

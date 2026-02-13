@@ -1,102 +1,121 @@
-(function () {
-  'use strict';
+/**
+ * SISTEMA SISADMIN2 - Módulo de Producción
+ * Archivo: public/assets/js/produccion.js
+ * Descripción: Maneja la lógica de recetas dinámicas, filtros y ejecución de órdenes.
+ */
 
-  const tablaRecetas = document.getElementById('tablaRecetas');
-  const tablaOrdenes = document.getElementById('tablaOrdenes');
+document.addEventListener('DOMContentLoaded', function() {
+    initFiltrosTablas();
+    initFormularioRecetas();
+    initModalEjecucion();
+});
 
-  if (window.ERPTable && tablaRecetas) {
-    window.ERPTable.createTableManager({ tableSelector: '#tablaRecetas', rowsPerPage: 8 }).init();
-  }
-  if (window.ERPTable && tablaOrdenes) {
-    window.ERPTable.createTableManager({ tableSelector: '#tablaOrdenes', rowsPerPage: 8 }).init();
-  }
+// --------------------------------------------------------------------------
+// 1. Lógica para Filtros de Búsqueda (Recetas y Órdenes)
+// --------------------------------------------------------------------------
+function initFiltrosTablas() {
+    // Configuración para Recetas
+    setupFiltro('recetaSearch', 'recetaFiltroEstado', 'tablaRecetas');
+    
+    // Configuración para Órdenes
+    setupFiltro('opSearch', 'opFiltroEstado', 'tablaOrdenes');
+}
 
-  const btnAgregarDetalle = document.getElementById('btnAgregarDetalleReceta');
-  const detalleWrapper = document.getElementById('detalleRecetaWrapper');
-  if (btnAgregarDetalle && detalleWrapper) {
-    btnAgregarDetalle.addEventListener('click', () => {
-      const first = detalleWrapper.querySelector('.detalle-row');
-      if (!first) return;
-      const clone = first.cloneNode(true);
-      clone.querySelectorAll('input').forEach((input) => {
-        input.value = input.name.includes('merma') ? '0' : '';
-      });
-      clone.querySelectorAll('select').forEach((select) => {
-        select.selectedIndex = 0;
-      });
-      detalleWrapper.appendChild(clone);
+function setupFiltro(inputId, selectId, tableId) {
+    const input = document.getElementById(inputId);
+    const select = document.getElementById(selectId);
+    
+    // Si no existen los elementos en esta vista, salimos (evita errores)
+    if (!input || !select) return;
+
+    const filterFn = () => {
+        const term = input.value.toLowerCase();
+        const estado = select.value;
+        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+
+        rows.forEach(row => {
+            const searchData = row.getAttribute('data-search') || '';
+            const estadoData = row.getAttribute('data-estado') || '';
+            
+            const matchText = searchData.includes(term);
+            const matchEstado = estado === '' || estadoData === estado;
+
+            row.style.display = (matchText && matchEstado) ? '' : 'none';
+        });
+    };
+
+    input.addEventListener('keyup', filterFn);
+    select.addEventListener('change', filterFn);
+}
+
+// --------------------------------------------------------------------------
+// 2. Lógica para Formulario de Recetas (Filas Dinámicas)
+// --------------------------------------------------------------------------
+function initFormularioRecetas() {
+    const btnAdd = document.getElementById('btnAgregarDetalleReceta');
+    const wrapper = document.getElementById('detalleRecetaWrapper');
+
+    if (!btnAdd || !wrapper) return;
+
+    // Agregar nueva fila
+    btnAdd.addEventListener('click', function() {
+        const rowTemplate = wrapper.querySelector('.detalle-row');
+        if (!rowTemplate) return;
+
+        const newRow = rowTemplate.cloneNode(true);
+        
+        // Limpiar inputs de la nueva fila
+        newRow.querySelectorAll('input').forEach(input => input.value = '');
+        newRow.querySelectorAll('select').forEach(select => select.value = '');
+        
+        // Resetear merma a 0 por defecto
+        const mermaInput = newRow.querySelector('input[name="detalle_merma[]"]');
+        if(mermaInput) mermaInput.value = '0';
+
+        wrapper.appendChild(newRow);
     });
-  }
 
-  const formAccion = document.getElementById('formAccionOP');
-  const accionField = document.getElementById('accionOP');
-  const idField = document.getElementById('idOrdenOP');
-  const cantField = document.getElementById('cantidadProducidaOP');
-  const loteField = document.getElementById('loteIngresoOP');
-
-  document.querySelectorAll('.js-ejecutar-op').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      const codigo = btn.dataset.codigo || '';
-      const planificada = Number(btn.dataset.planificada || '0');
-
-      const response = await Swal.fire({
-        title: `Ejecutar OP ${codigo}`,
-        html: `
-          <div class="text-start">
-            <label class="form-label">Cantidad producida</label>
-            <input id="swalCantidad" type="number" min="0.0001" step="0.0001" class="form-control" value="${planificada > 0 ? planificada : ''}">
-            <label class="form-label mt-2">Lote de ingreso (opcional)</label>
-            <input id="swalLote" type="text" class="form-control" placeholder="LOTE-OP">
-          </div>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, ejecutar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#2563eb',
-        preConfirm: () => {
-          const cantidad = Number(document.getElementById('swalCantidad').value || '0');
-          const lote = document.getElementById('swalLote').value || '';
-          if (cantidad <= 0) {
-            Swal.showValidationMessage('Ingresa una cantidad válida.');
-            return false;
-          }
-          return { cantidad, lote };
+    // Eliminar fila (Delegación de eventos para elementos dinámicos)
+    wrapper.addEventListener('click', function(e) {
+        if (e.target.closest('.js-remove-row')) {
+            const rows = wrapper.querySelectorAll('.detalle-row');
+            if (rows.length > 1) {
+                e.target.closest('.detalle-row').remove();
+            } else {
+                // Opcional: Mostrar alerta si intenta borrar la única fila
+                // alert("La receta debe tener al menos un insumo.");
+            }
         }
-      });
-
-      if (!response.isConfirmed || !response.value) return;
-
-      accionField.value = 'ejecutar_orden';
-      idField.value = String(id);
-      cantField.value = String(response.value.cantidad);
-      loteField.value = String(response.value.lote || '');
-      formAccion.submit();
     });
-  });
+}
 
-  document.querySelectorAll('.js-anular-op').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      const codigo = btn.dataset.codigo || '';
+// --------------------------------------------------------------------------
+// 3. Lógica para Modal de Ejecución de Órdenes
+// --------------------------------------------------------------------------
+function initModalEjecucion() {
+    // Detectamos si el modal existe en el DOM
+    const modalEl = document.getElementById('modalEjecutarOP');
+    if (!modalEl) return;
 
-      const ok = await Swal.fire({
-        title: `¿Anular OP ${codigo}?`,
-        text: 'La orden quedará en estado anulada.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, anular',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#dc2626'
-      });
+    // Usamos la API de Bootstrap 5
+    const modalEjecutar = new bootstrap.Modal(modalEl);
 
-      if (!ok.isConfirmed) return;
-      accionField.value = 'anular_orden';
-      idField.value = String(id);
-      cantField.value = '';
-      loteField.value = '';
-      formAccion.submit();
+    // Delegación de eventos para botones "Ejecutar" en la tabla
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-abrir-ejecucion');
+        if (btn) {
+            // Llenar datos en el modal
+            document.getElementById('execIdOrden').value = btn.getAttribute('data-id');
+            document.getElementById('execCodigo').value = btn.getAttribute('data-codigo');
+            document.getElementById('execCantidad').value = btn.getAttribute('data-planificada');
+            
+            // Generar sugerencia de Lote (Fecha invertida + ID)
+            // Formato: LYYMMDD-ID
+            const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+            document.getElementById('execLote').value = 'L' + today + '-' + btn.getAttribute('data-id');
+
+            // Mostrar modal
+            modalEjecutar.show();
+        }
     });
-  });
-})();
+}
