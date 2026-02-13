@@ -408,7 +408,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'materia_prima', 'material_empaque', 'servicio'];
+        $tiposPermitidos = ['producto', 'producto_terminado', 'materia_prima', 'material_empaque', 'servicio'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
@@ -428,21 +428,23 @@ class ItemsController extends Controlador
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        if ($tipo === 'producto') {
+        $esProductoTerminado = in_array($tipo, ['producto', 'producto_terminado'], true);
+
+        if ($esProductoTerminado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
-                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto.');
+                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado.');
             }
 
             if (empty($data['id_sabor'])) {
-                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto.');
+                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto terminado.');
             }
 
             if (empty($data['id_presentacion'])) {
-                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto.');
+                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado.');
             }
         }
 
-        if ($tipo !== 'producto') {
+        if (!$esProductoTerminado) {
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
         }
