@@ -36,10 +36,12 @@ class ProduccionController extends Controlador
                     $insumos = $_POST['detalle_id_insumo'] ?? [];
                     $cantidades = $_POST['detalle_cantidad'] ?? [];
                     $mermas = $_POST['detalle_merma'] ?? [];
+                    $etapas = $_POST['detalle_etapa'] ?? [];
 
                     foreach ((array) $insumos as $idx => $idInsumo) {
                         $detalles[] = [
                             'id_insumo' => (int) $idInsumo,
+                            'etapa' => (string) ($etapas[$idx] ?? ''),
                             'cantidad_por_unidad' => (float) ($cantidades[$idx] ?? 0),
                             'merma_porcentaje' => (float) ($mermas[$idx] ?? 0),
                         ];
@@ -50,10 +52,24 @@ class ProduccionController extends Controlador
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'version' => (int) ($_POST['version'] ?? 1),
                         'descripcion' => (string) ($_POST['descripcion'] ?? ''),
+                        'rendimiento_base' => (float) ($_POST['rendimiento_base'] ?? 0),
+                        'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? ''),
+                        'brix_objetivo' => (float) ($_POST['brix_objetivo'] ?? 0),
+                        'ph_objetivo' => (float) ($_POST['ph_objetivo'] ?? 0),
+                        'carbonatacion_vol' => (float) ($_POST['carbonatacion_vol'] ?? 0),
+                        'temp_pasteurizacion' => (float) ($_POST['temp_pasteurizacion'] ?? 0),
+                        'tiempo_pasteurizacion' => (float) ($_POST['tiempo_pasteurizacion'] ?? 0),
                         'detalles' => $detalles,
                     ], $userId);
 
                     $this->setFlash('success', 'Receta creada correctamente.');
+                    header('Location: ' . route_url('produccion/recetas'));
+                    exit;
+                }
+
+                if ($accion === 'nueva_version') {
+                    $this->produccionModel->crearNuevaVersion((int) ($_POST['id_receta_base'] ?? 0), $userId);
+                    $this->setFlash('success', 'Nueva versión creada y activada correctamente.');
                     header('Location: ' . route_url('produccion/recetas'));
                     exit;
                 }

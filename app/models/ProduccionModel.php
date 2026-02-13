@@ -7,15 +7,24 @@ class ProduccionModel extends Modelo
 {
     public function listarRecetas(): array
     {
-        // Se corrigió el SQL duplicado
         $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
+                       r.rendimiento_base, r.unidad_rendimiento,
+                       r.brix_objetivo, r.ph_objetivo, r.carbonatacion_vol,
+                       r.temp_pasteurizacion, r.tiempo_pasteurizacion,
                        i.id AS id_producto, i.sku AS producto_sku, i.nombre AS producto_nombre,
                        (
                            SELECT COUNT(*)
                            FROM produccion_recetas_detalle d
                            WHERE d.id_receta = r.id
                              AND d.deleted_at IS NULL
-                       ) AS total_insumos
+                       ) AS total_insumos,
+                       (
+                            SELECT COALESCE(SUM((d.cantidad_por_unidad * (1 + (d.merma_porcentaje / 100))) * i2.costo_referencial), 0)
+                            FROM produccion_recetas_detalle d
+                            INNER JOIN items i2 ON i2.id = d.id_insumo
+                            WHERE d.id_receta = r.id
+                              AND d.deleted_at IS NULL
+                       ) AS costo_teorico
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.deleted_at IS NULL
@@ -90,6 +99,13 @@ class ProduccionModel extends Modelo
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $version = max(1, (int) ($payload['version'] ?? 1));
         $descripcion = trim((string) ($payload['descripcion'] ?? ''));
+        $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
+        $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
+        $brixObjetivo = (float) ($payload['brix_objetivo'] ?? 0);
+        $phObjetivo = (float) ($payload['ph_objetivo'] ?? 0);
+        $carbonatacionVol = (float) ($payload['carbonatacion_vol'] ?? 0);
+        $tempPasteurizacion = (float) ($payload['temp_pasteurizacion'] ?? 0);
+        $tiempoPasteurizacion = (float) ($payload['tiempo_pasteurizacion'] ?? 0);
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
 
         if ($idProducto <= 0 || $codigo === '' || $detalles === []) {
@@ -101,38 +117,66 @@ class ProduccionModel extends Modelo
 
         try {
             $stmt = $db->prepare('INSERT INTO produccion_recetas
-                                    (id_producto, codigo, version, descripcion, estado, created_by, updated_by)
+                                    (id_producto, codigo, version, descripcion,
+                                     rendimiento_base, unidad_rendimiento,
+                                     brix_objetivo, ph_objetivo, carbonatacion_vol, temp_pasteurizacion, tiempo_pasteurizacion,
+                                     estado, created_by, updated_by)
                                   VALUES
-                                    (:id_producto, :codigo, :version, :descripcion, 1, :created_by, :updated_by)');
+                                    (:id_producto, :codigo, :version, :descripcion,
+                                     :rendimiento_base, :unidad_rendimiento,
+                                     :brix_objetivo, :ph_objetivo, :carbonatacion_vol, :temp_pasteurizacion, :tiempo_pasteurizacion,
+                                     1, :created_by, :updated_by)');
             
             $stmt->execute([
                 'id_producto' => $idProducto,
                 'codigo' => $codigo,
                 'version' => $version,
                 'descripcion' => $descripcion !== '' ? $descripcion : null,
+                'rendimiento_base' => $rendimientoBase > 0 ? number_format($rendimientoBase, 4, '.', '') : null,
+                'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                'brix_objetivo' => $brixObjetivo > 0 ? number_format($brixObjetivo, 4, '.', '') : null,
+                'ph_objetivo' => $phObjetivo > 0 ? number_format($phObjetivo, 4, '.', '') : null,
+                'carbonatacion_vol' => $carbonatacionVol > 0 ? number_format($carbonatacionVol, 4, '.', '') : null,
+                'temp_pasteurizacion' => $tempPasteurizacion > 0 ? number_format($tempPasteurizacion, 4, '.', '') : null,
+                'tiempo_pasteurizacion' => $tiempoPasteurizacion > 0 ? number_format($tiempoPasteurizacion, 4, '.', '') : null,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
 
             $idReceta = (int) $db->lastInsertId();
 
+            $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
+                                            SET estado = 0,
+                                                updated_at = NOW(),
+                                                updated_by = :updated_by
+                                            WHERE id_producto = :id_producto
+                                              AND id <> :id_receta
+                                              AND deleted_at IS NULL');
+            $stmtDesactivar->execute([
+                'updated_by' => $userId,
+                'id_producto' => $idProducto,
+                'id_receta' => $idReceta,
+            ]);
+
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
-                                        (id_receta, id_insumo, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
+                                        (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
                                      VALUES
-                                        (:id_receta, :id_insumo, :cantidad_por_unidad, :merma_porcentaje, :created_by, :updated_by)');
+                                        (:id_receta, :id_insumo, :etapa, :cantidad_por_unidad, :merma_porcentaje, :created_by, :updated_by)');
 
             foreach ($detalles as $detalle) {
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
                 $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
+                $etapa = trim((string) ($detalle['etapa'] ?? ''));
 
-                if ($idInsumo <= 0 || $cantidad <= 0) {
+                if ($idInsumo <= 0 || $cantidad <= 0 || $etapa === '') {
                     throw new RuntimeException('Detalle de receta inválido.');
                 }
 
                 $stmtDet->execute([
                     'id_receta' => $idReceta,
                     'id_insumo' => $idInsumo,
+                    'etapa' => $etapa,
                     'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
                     'merma_porcentaje' => number_format($merma, 2, '.', ''),
                     'created_by' => $userId,
@@ -348,7 +392,7 @@ class ProduccionModel extends Modelo
 
     public function obtenerDetalleReceta(int $idReceta): array
     {
-        $sql = 'SELECT d.id_insumo, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre
+        $sql = 'SELECT d.id_insumo, d.etapa, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre
                 FROM produccion_recetas_detalle d
                 INNER JOIN items i ON i.id = d.id_insumo
                 WHERE d.id_receta = :id_receta
@@ -402,5 +446,61 @@ class ProduccionModel extends Modelo
         $stmt->execute(['id' => $idItem]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    public function crearNuevaVersion(int $idRecetaBase, int $userId): int
+    {
+        $receta = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($receta === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $detalles = $this->obtenerDetalleReceta($idRecetaBase);
+        if ($detalles === []) {
+            throw new RuntimeException('La receta base no tiene detalles.');
+        }
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int) $receta['id_producto']);
+
+        return $this->crearReceta([
+            'id_producto' => (int) $receta['id_producto'],
+            'codigo' => $this->generarCodigoVersion((string) $receta['codigo'], $siguienteVersion),
+            'version' => $siguienteVersion,
+            'descripcion' => (string) ($receta['descripcion'] ?? ''),
+            'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
+            'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
+            'brix_objetivo' => (float) ($receta['brix_objetivo'] ?? 0),
+            'ph_objetivo' => (float) ($receta['ph_objetivo'] ?? 0),
+            'carbonatacion_vol' => (float) ($receta['carbonatacion_vol'] ?? 0),
+            'temp_pasteurizacion' => (float) ($receta['temp_pasteurizacion'] ?? 0),
+            'tiempo_pasteurizacion' => (float) ($receta['tiempo_pasteurizacion'] ?? 0),
+            'detalles' => array_map(static fn (array $d): array => [
+                'id_insumo' => (int) $d['id_insumo'],
+                'etapa' => (string) ($d['etapa'] ?? ''),
+                'cantidad_por_unidad' => (float) $d['cantidad_por_unidad'],
+                'merma_porcentaje' => (float) $d['merma_porcentaje'],
+            ], $detalles),
+        ], $userId);
+    }
+
+    private function obtenerRecetaPorId(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM produccion_recetas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id' => $idReceta]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: [];
+    }
+
+    private function obtenerSiguienteVersion(int $idProducto): int
+    {
+        $stmt = $this->db()->prepare('SELECT COALESCE(MAX(version), 0) + 1 FROM produccion_recetas WHERE id_producto = :id_producto AND deleted_at IS NULL');
+        $stmt->execute(['id_producto' => $idProducto]);
+        return max(1, (int) $stmt->fetchColumn());
+    }
+
+    private function generarCodigoVersion(string $codigoBase, int $version): string
+    {
+        $codigoLimpio = preg_replace('/-V\d+$/', '', trim($codigoBase));
+        return sprintf('%s-V%d', $codigoLimpio ?: 'REC', $version);
     }
 }
