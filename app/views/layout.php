@@ -124,6 +124,11 @@ window.ROLES_FLASH = {
 <script src="<?php echo e(asset_url('js/ventas.js')); ?>"></script>
 <?php endif; ?>
 
+
+<?php if (str_starts_with(($ruta_actual ?? ''), 'produccion')): ?>
+<script src="<?php echo e(asset_url('js/produccion.js')); ?>"></script>
+<?php endif; ?>
+
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>
 <script>
 Swal.fire({

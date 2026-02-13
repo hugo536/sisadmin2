@@ -408,7 +408,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'producto_terminado', 'materia_prima', 'material_empaque', 'servicio'];
+        $tiposPermitidos = ['producto', 'producto_terminado', 'materia_prima', 'material_empaque', 'servicio', 'insumo', 'semielaborado'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
@@ -423,6 +423,11 @@ class ItemsController extends Controlador
             $tipo = 'producto';
         }
 
+        if ($tipo === 'insumo') {
+            // Alias funcional para mantener catálogos históricos.
+            $tipo = 'materia_prima';
+        }
+
         $data['tipo_item'] = $tipo;
 
         $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== ''
@@ -432,8 +437,6 @@ class ItemsController extends Controlador
         if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
-
-        $esProductoTerminado = ($tipo === 'producto');
 
         $esProductoTerminado = in_array($tipo, ['producto', 'producto_terminado'], true);
 
@@ -454,6 +457,14 @@ class ItemsController extends Controlador
         if (!$esProductoTerminado) {
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
+        }
+
+
+        if ($tipo === 'semielaborado') {
+            $data['controla_stock'] = 1;
+            if (!isset($data['permite_decimales'])) {
+                $data['permite_decimales'] = 0;
+            }
         }
 
         if ($tipo === 'servicio') {

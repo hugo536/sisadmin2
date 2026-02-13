@@ -1,0 +1,114 @@
+<?php
+declare(strict_types=1);
+
+require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
+require_once BASE_PATH . '/app/models/ProduccionModel.php';
+
+class ProduccionController extends Controlador
+{
+    private ProduccionModel $produccionModel;
+
+    public function __construct()
+    {
+        $this->produccionModel = new ProduccionModel();
+    }
+
+    public function index(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('inventario.ver');
+
+        $flash = ['tipo' => '', 'texto' => ''];
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $accion = (string) ($_POST['accion'] ?? '');
+            $userId = (int) ($_SESSION['id'] ?? 0);
+
+            try {
+                if ($accion === 'crear_receta') {
+                    $detalles = [];
+                    $insumos = $_POST['detalle_id_insumo'] ?? [];
+                    $cantidades = $_POST['detalle_cantidad'] ?? [];
+                    $mermas = $_POST['detalle_merma'] ?? [];
+
+                    foreach ((array) $insumos as $idx => $idInsumo) {
+                        $detalles[] = [
+                            'id_insumo' => (int) $idInsumo,
+                            'cantidad_por_unidad' => (float) ($cantidades[$idx] ?? 0),
+                            'merma_porcentaje' => (float) ($mermas[$idx] ?? 0),
+                        ];
+                    }
+
+                    $this->produccionModel->crearReceta([
+                        'id_producto' => (int) ($_POST['id_producto'] ?? 0),
+                        'codigo' => (string) ($_POST['codigo'] ?? ''),
+                        'version' => (int) ($_POST['version'] ?? 1),
+                        'descripcion' => (string) ($_POST['descripcion'] ?? ''),
+                        'detalles' => $detalles,
+                    ], $userId);
+
+                    $flash = ['tipo' => 'success', 'texto' => 'Receta creada correctamente.'];
+                }
+
+                if ($accion === 'crear_orden') {
+                    $this->produccionModel->crearOrden([
+                        'codigo' => (string) ($_POST['codigo'] ?? ''),
+                        'id_receta' => (int) ($_POST['id_receta'] ?? 0),
+                        'id_almacen_origen' => (int) ($_POST['id_almacen_origen'] ?? 0),
+                        'id_almacen_destino' => (int) ($_POST['id_almacen_destino'] ?? 0),
+                        'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
+                        'observaciones' => (string) ($_POST['observaciones'] ?? ''),
+                    ], $userId);
+
+                    $flash = ['tipo' => 'success', 'texto' => 'Orden de producción creada correctamente.'];
+                }
+
+                if ($accion === 'ejecutar_orden') {
+                    $lotesConsumo = [];
+                    foreach ((array) ($_POST['lote_consumo_item'] ?? []) as $idItem => $lote) {
+                        $lotesConsumo[(int) $idItem] = (string) $lote;
+                    }
+
+                    $this->produccionModel->ejecutarOrden(
+                        (int) ($_POST['id_orden'] ?? 0),
+                        (float) ($_POST['cantidad_producida'] ?? 0),
+                        $userId,
+                        trim((string) ($_POST['lote_ingreso'] ?? '')),
+                        $lotesConsumo
+                    );
+
+                    $flash = ['tipo' => 'success', 'texto' => 'Orden ejecutada correctamente.'];
+                }
+
+                if ($accion === 'anular_orden') {
+                    $this->produccionModel->anularOrden((int) ($_POST['id_orden'] ?? 0));
+                    $flash = ['tipo' => 'success', 'texto' => 'Orden anulada correctamente.'];
+                }
+
+                $_SESSION['produccion_flash'] = $flash;
+                header('Location: ' . route_url('produccion'));
+                exit;
+            } catch (Throwable $e) {
+                $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
+            }
+        }
+
+        if (isset($_SESSION['produccion_flash']) && is_array($_SESSION['produccion_flash'])) {
+            $flash = [
+                'tipo' => (string) ($_SESSION['produccion_flash']['tipo'] ?? ''),
+                'texto' => (string) ($_SESSION['produccion_flash']['texto'] ?? ''),
+            ];
+            unset($_SESSION['produccion_flash']);
+        }
+
+        $this->render('produccion', [
+            'flash' => $flash,
+            'recetas' => $this->produccionModel->listarRecetas(),
+            'ordenes' => $this->produccionModel->listarOrdenes(),
+            'recetas_activas' => $this->produccionModel->listarRecetasActivas(),
+            'items_stockeables' => $this->produccionModel->listarItemsStockeables(),
+            'almacenes' => $this->produccionModel->listarAlmacenesActivos(),
+            'ruta_actual' => 'produccion',
+        ]);
+    }
+}

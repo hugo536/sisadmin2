@@ -14,6 +14,8 @@ $tipoItemLabel = static function (string $tipo): string {
         'materia_prima' => 'Materia prima',
         'material_empaque' => 'Material de empaque',
         'servicio' => 'Servicio',
+        'semielaborado' => 'Semielaborado',
+        'insumo' => 'Insumo',
         default => $tipo,
     };
 };
@@ -53,6 +55,8 @@ $tipoItemLabel = static function (string $tipo): string {
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado">Producto terminado</option>
                         <option value="materia_prima">Materia prima</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="semielaborado">Semielaborado</option>
                         <option value="material_empaque">Material de empaque</option>
                         <option value="servicio">Servicio</option>
                     </select>
@@ -515,6 +519,8 @@ $tipoItemLabel = static function (string $tipo): string {
                             <option value="" selected disabled>Seleccionar...</option>
                             <option value="producto_terminado">Producto terminado</option>
                             <option value="materia_prima">Materia Prima</option>
+                            <option value="insumo">Insumo</option>
+                            <option value="semielaborado">Semielaborado</option>
                             <option value="material_empaque">Material de Empaque</option>
                             <option value="servicio">Servicios / Otros</option>
                         </select>
@@ -616,6 +622,8 @@ $tipoItemLabel = static function (string $tipo): string {
                         <select class="form-select" id="editTipo" name="tipo_item" required>
                             <option value="producto_terminado">Producto terminado</option>
                             <option value="materia_prima">Materia prima</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="semielaborado">Semielaborado</option>
                             <option value="material_empaque">Material de empaque</option>
                             <option value="servicio">Servicio</option>
                         </select>

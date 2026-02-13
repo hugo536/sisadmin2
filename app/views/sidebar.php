@@ -120,6 +120,12 @@ function renderSidebarInner(
             </a>
         <?php endif; ?>
 
+        <?php if (tiene_permiso('inventario.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('produccion'); ?>" href="<?php echo e(route_url('produccion')); ?>">
+                <i class="bi bi-gear-wide-connected"></i> <span>Producción</span>
+            </a>
+        <?php endif; ?>
+
         <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
