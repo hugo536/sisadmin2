@@ -203,11 +203,10 @@
 
         const apply = () => {
             const value = tipo.value;
-<<<<<<< HEAD
+
             const isProducto = value === 'producto_terminado';
-=======
-            const isProducto = value === 'producto' || value === 'producto_terminado';
->>>>>>> 831e8a8ce76f7eda292bf6e84774c7681a048321
+
+
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
