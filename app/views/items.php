@@ -51,9 +51,7 @@ $tipoItemLabel = static function (string $tipo): string {
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
-                        <option value="producto">Producto terminado</option>
                         <option value="producto_terminado">Producto terminado</option>
-                        <option value="producto">Producto (legado)</option>
                         <option value="materia_prima">Materia prima</option>
                         <option value="material_empaque">Material de empaque</option>
                         <option value="servicio">Servicio</option>
@@ -515,9 +513,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="newTipo" name="tipo_item" required>
                             <option value="" selected disabled>Seleccionar...</option>
-                            <option value="producto">Producto terminado</option>
                             <option value="producto_terminado">Producto terminado</option>
-                            <option value="producto">Producto (legado)</option>
                             <option value="materia_prima">Materia Prima</option>
                             <option value="material_empaque">Material de Empaque</option>
                             <option value="servicio">Servicios / Otros</option>
@@ -618,10 +614,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
                     <div class="col-md-4 form-floating">
                         <select class="form-select" id="editTipo" name="tipo_item" required>
-                            <option value="producto">Producto terminado</option>
-                            <option value="producto">Producto Terminado</option>
                             <option value="producto_terminado">Producto terminado</option>
-                            <option value="producto">Producto (legado)</option>
                             <option value="materia_prima">Materia prima</option>
                             <option value="material_empaque">Material de empaque</option>
                             <option value="servicio">Servicio</option>

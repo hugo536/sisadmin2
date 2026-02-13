@@ -338,36 +338,45 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarItems(string $q = '', int $idAlmacen = 0, int $limit = 30): array
     {
-        $sql = 'SELECT i.id,
-                       i.sku,
-                       i.nombre,
-                       COALESCE(' . ($idAlmacen > 0
-                ? '(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = :id_almacen LIMIT 1)'
-                : '(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)') . ', 0) AS stock_actual,
-                       i.precio_venta
-                FROM items i
-                WHERE i.estado = 1
-                  AND i.deleted_at IS NULL';
-
         $params = [];
+        
+        // 1. Construimos la subconsulta de stock de forma dinámica
         if ($idAlmacen > 0) {
-            $params['id_almacen'] = $idAlmacen;
+            // Si hay almacén, usamos un "?" para el ID del almacén
+            $stockSql = "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = ? LIMIT 1)";
+            $params[] = $idAlmacen;
+        } else {
+            // Si no hay almacén, sumamos todo
+            $stockSql = "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
         }
 
+        // 2. Base de la consulta (Corregido a 'producto' según tu DB)
+        $sql = "SELECT i.id, 
+                    i.sku, 
+                    i.nombre, 
+                    i.precio_venta,
+                    i.tipo_item,
+                    COALESCE($stockSql, 0) AS stock_actual
+                FROM items i
+                WHERE i.estado = 1 
+                AND i.deleted_at IS NULL
+                AND i.tipo_item = 'producto'"; // <--- CAMBIO CLAVE: 'producto'
+
+        // 3. Filtro de búsqueda por nombre o SKU
         if ($q !== '') {
-            $sql .= ' AND (i.sku LIKE :q OR i.nombre LIKE :q)';
-            $params['q'] = '%' . $q . '%';
+            $sql .= ' AND (i.nombre LIKE ? OR i.sku LIKE ?)';
+            $term = '%' . $q . '%';
+            $params[] = $term; // Para el nombre
+            $params[] = $term; // Para el SKU
         }
 
-        $sql .= ' ORDER BY i.nombre ASC LIMIT :limite';
+        // 4. Orden y Límite (Inyectado como entero para evitar líos de PDO)
+        $sql .= ' ORDER BY i.nombre ASC LIMIT ' . (int)$limit;
 
         $stmt = $this->db()->prepare($sql);
-        foreach ($params as $key => $value) {
-            $type = $key === 'id_almacen' ? PDO::PARAM_INT : PDO::PARAM_STR;
-            $stmt->bindValue(':' . $key, $value, $type);
-        }
-        $stmt->bindValue(':limite', $limit, PDO::PARAM_INT);
-        $stmt->execute();
+        
+        // Ejecutamos pasando el array de parámetros en el orden exacto de los "?"
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }

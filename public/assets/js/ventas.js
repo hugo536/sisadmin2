@@ -168,12 +168,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 recalcularTotalVenta();
             },
             render: {
-                no_results: (data, escape) => '<div class="no-results">Sin resultados</div>',
-                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div>',
+                no_results: (data, escape) => '<div class="no-results">No se encontró producto terminado con ese nombre</div>',
+                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> buscando...',
                 option: function(data, escape) {
-                    return `<div>
-                        <div class="fw-bold">${escape(data.text)}</div>
-                        <div class="small text-muted">Stock: ${escape(data.stock)} | Precio: S/ ${escape(data.precio)}</div>
+                    // Lógica para color de stock
+                    const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
+                    const stockLabel = data.stock <= 0 ? 'SIN STOCK' : data.stock;
+
+                    return `<div class="py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark">${escape(data.text)}</div>
+                            <div class="small text-muted">${escape(data.sku || 'Sin SKU')}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small ${stockColor}">Stock: ${stockLabel}</div>
+                            <div class="fw-bold text-primary">S/ ${escape(Number(data.precio).toFixed(2))}</div>
+                        </div>
                     </div>`;
                 }
             }
