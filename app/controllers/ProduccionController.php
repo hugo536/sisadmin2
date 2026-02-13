@@ -15,6 +15,16 @@ class ProduccionController extends Controlador
 
     public function index(): void
     {
+        header('Location: ' . route_url('produccion/recetas'));
+        exit;
+    }
+
+    public function recetas(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('inventario.ver');
+
+        $flash = $this->obtenerFlash();
         AuthMiddleware::handle();
         require_permiso('inventario.ver');
 
@@ -47,9 +57,38 @@ class ProduccionController extends Controlador
                         'detalles' => $detalles,
                     ], $userId);
 
+                    $this->setFlash('success', 'Receta creada correctamente.');
+                    header('Location: ' . route_url('produccion/recetas'));
+                    exit;
+                }
+            } catch (Throwable $e) {
+                $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
+            }
+        }
+
+        $this->render('produccion_recetas', [
+            'flash' => $flash,
+            'recetas' => $this->produccionModel->listarRecetas(),
+            'items_stockeables' => $this->produccionModel->listarItemsStockeables(),
+            'ruta_actual' => 'produccion/recetas',
+        ]);
+    }
+
+    public function ordenes(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('inventario.ver');
+
+        $flash = $this->obtenerFlash();
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $accion = (string) ($_POST['accion'] ?? '');
+            $userId = (int) ($_SESSION['id'] ?? 0);
+
+            try {
                     $flash = ['tipo' => 'success', 'texto' => 'Receta creada correctamente.'];
                 }
-
+          
                 if ($accion === 'crear_orden') {
                     $this->produccionModel->crearOrden([
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
@@ -60,6 +99,12 @@ class ProduccionController extends Controlador
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
 
+                    $this->setFlash('success', 'Orden de producción creada correctamente.');
+                    header('Location: ' . route_url('produccion/ordenes'));
+                    exit;
+                }
+
+                if ($accion === 'ejecutar_orden') {
                     $flash = ['tipo' => 'success', 'texto' => 'Orden de producción creada correctamente.'];
                 }
 
@@ -73,6 +118,21 @@ class ProduccionController extends Controlador
                         (int) ($_POST['id_orden'] ?? 0),
                         (float) ($_POST['cantidad_producida'] ?? 0),
                         $userId,
+                        trim((string) ($_POST['lote_ingreso'] ?? ''))
+                    );
+
+                    $this->setFlash('success', 'Orden ejecutada correctamente.');
+                    header('Location: ' . route_url('produccion/ordenes'));
+                    exit;
+                }
+
+                if ($accion === 'anular_orden') {
+                    $this->produccionModel->anularOrden((int) ($_POST['id_orden'] ?? 0), $userId);
+
+                    $this->setFlash('success', 'Orden anulada correctamente.');
+                    header('Location: ' . route_url('produccion/ordenes'));
+                    exit;
+                }
                         trim((string) ($_POST['lote_ingreso'] ?? '')),
                         $lotesConsumo
                     );
@@ -93,6 +153,23 @@ class ProduccionController extends Controlador
             }
         }
 
+        $this->render('produccion_ordenes', [
+            'flash' => $flash,
+            'ordenes' => $this->produccionModel->listarOrdenes(),
+            'recetas_activas' => $this->produccionModel->listarRecetasActivas(),
+            'almacenes' => $this->produccionModel->listarAlmacenesActivos(),
+            'ruta_actual' => 'produccion/ordenes',
+        ]);
+    }
+
+    private function setFlash(string $tipo, string $texto): void
+    {
+        $_SESSION['produccion_flash'] = ['tipo' => $tipo, 'texto' => $texto];
+    }
+
+    private function obtenerFlash(): array
+    {
+        $flash = ['tipo' => '', 'texto' => ''];
         if (isset($_SESSION['produccion_flash']) && is_array($_SESSION['produccion_flash'])) {
             $flash = [
                 'tipo' => (string) ($_SESSION['produccion_flash']['tipo'] ?? ''),
@@ -101,6 +178,7 @@ class ProduccionController extends Controlador
             unset($_SESSION['produccion_flash']);
         }
 
+        return $flash;
         $this->render('produccion', [
             'flash' => $flash,
             'recetas' => $this->produccionModel->listarRecetas(),

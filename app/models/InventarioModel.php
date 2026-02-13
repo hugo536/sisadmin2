@@ -239,7 +239,10 @@ class InventarioModel extends Modelo
         }
 
         $db = $this->db();
-        $db->beginTransaction();
+        $iniciaTransaccion = !$db->inTransaction();
+        if ($iniciaTransaccion) {
+            $db->beginTransaction();
+        }
 
         try {
             $configItem = $this->obtenerConfiguracionItem($db, $idItem);
@@ -309,11 +312,14 @@ class InventarioModel extends Modelo
             }
 
             $idMovimiento = (int) $db->lastInsertId();
-            $db->commit();
+
+            if ($iniciaTransaccion && $db->inTransaction()) {
+                $db->commit();
+            }
 
             return $idMovimiento;
         } catch (Throwable $e) {
-            if ($db->inTransaction()) {
+            if ($iniciaTransaccion && $db->inTransaction()) {
                 $db->rollBack();
             }
             throw $e;

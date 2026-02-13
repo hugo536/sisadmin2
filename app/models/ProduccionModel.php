@@ -13,6 +13,11 @@ class ProduccionModel extends Modelo
                            SELECT COUNT(*)
                            FROM produccion_recetas_detalle d
                            WHERE d.id_receta = r.id
+                             AND d.deleted_at IS NULL
+                       ) AS total_insumos
+                FROM produccion_recetas r
+                INNER JOIN items i ON i.id = r.id_producto
+                WHERE r.deleted_at IS NULL
                        ) AS total_insumos
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
@@ -31,6 +36,11 @@ class ProduccionModel extends Modelo
                        ao.nombre AS almacen_origen_nombre,
                        ad.nombre AS almacen_destino_nombre
                 FROM produccion_ordenes o
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
+                INNER JOIN items p ON p.id = r.id_producto
+                INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen AND ao.deleted_at IS NULL
+                INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino AND ad.deleted_at IS NULL
+                WHERE o.deleted_at IS NULL
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
                 INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen
@@ -47,6 +57,8 @@ class ProduccionModel extends Modelo
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.estado = 1
+
+                  AND r.deleted_at IS NULL
                 ORDER BY i.nombre ASC';
 
         $stmt = $this->db()->query($sql);
@@ -91,6 +103,13 @@ class ProduccionModel extends Modelo
         }
 
         $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            $stmt = $db->prepare('INSERT INTO produccion_recetas
+                                    (id_producto, codigo, version, descripcion, estado, created_by, updated_by)
+                                  VALUES
+                                    (:id_producto, :codigo, :version, :descripcion, 1, :created_by, :updated_by)');
 
         try {
             $stmt = $db->prepare('INSERT INTO produccion_recetas (id_producto, codigo, version, descripcion, estado, created_by)
@@ -101,10 +120,15 @@ class ProduccionModel extends Modelo
                 'version' => $version,
                 'descripcion' => $descripcion !== '' ? $descripcion : null,
                 'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
 
             $idReceta = (int) $db->lastInsertId();
 
+            $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
+                                        (id_receta, id_insumo, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
+                                     VALUES
+                                        (:id_receta, :id_insumo, :cantidad_por_unidad, :merma_porcentaje, :created_by, :updated_by)');
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle (id_receta, id_insumo, cantidad_por_unidad, merma_porcentaje)
                                      VALUES (:id_receta, :id_insumo, :cantidad_por_unidad, :merma_porcentaje)');
 
@@ -122,6 +146,8 @@ class ProduccionModel extends Modelo
                     'id_insumo' => $idInsumo,
                     'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
                     'merma_porcentaje' => number_format($merma, 2, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
                 ]);
             }
 
@@ -149,6 +175,9 @@ class ProduccionModel extends Modelo
         }
 
         $sql = 'INSERT INTO produccion_ordenes
+                    (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, updated_by, observaciones)
+                VALUES
+                    (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
                     (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, observaciones)
                 VALUES
                     (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :observaciones)';
@@ -161,12 +190,14 @@ class ProduccionModel extends Modelo
             'id_almacen_destino' => $idAlmacenDestino,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'created_by' => $userId,
+            'updated_by' => $userId,
             'observaciones' => $observaciones !== '' ? $observaciones : null,
         ]);
 
         return (int) $this->db()->lastInsertId();
     }
 
+    public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = ''): void
     public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = '', array $lotesConsumo = []): void
     {
         if ($idOrden <= 0 || $cantidadProducida <= 0) {
@@ -174,6 +205,7 @@ class ProduccionModel extends Modelo
         }
 
         $db = $this->db();
+        $db->beginTransaction();
 
         try {
             $orden = $this->obtenerOrdenPorId($idOrden);
@@ -189,6 +221,7 @@ class ProduccionModel extends Modelo
 
             $detalle = $this->obtenerDetalleReceta((int) $orden['id_receta']);
             if ($detalle === []) {
+                throw new RuntimeException('La receta no tiene detalle activo.');
                 throw new RuntimeException('La receta no tiene detalle.');
             }
 
@@ -197,6 +230,10 @@ class ProduccionModel extends Modelo
             $idAlmacenDestino = (int) $orden['id_almacen_destino'];
             $costoTotalConsumo = 0.0;
 
+            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
+                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario, created_by, updated_by)
+                                         VALUES
+                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario)
                                          VALUES (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario)');
 
@@ -204,6 +241,7 @@ class ProduccionModel extends Modelo
                 $idInsumo = (int) $linea['id_insumo'];
                 $qtyBase = (float) $linea['cantidad_por_unidad'];
                 $merma = (float) $linea['merma_porcentaje'];
+                $cantidadRequerida = (float) number_format($qtyBase * $cantidadProducida * (1 + ($merma / 100)), 4, '.', '');
                 $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
                 $cantidadRequerida = (float) number_format($cantidadRequerida, 4, '.', '');
 
@@ -214,9 +252,7 @@ class ProduccionModel extends Modelo
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $costoTotalConsumo += $costoUnitario * $cantidadRequerida;
-
                 $loteConsumo = isset($lotesConsumo[$idInsumo]) ? trim((string) $lotesConsumo[$idInsumo]) : '';
-
                 $inventarioModel->registrarMovimiento([
                     'tipo_movimiento' => 'CON',
                     'id_item' => $idInsumo,
@@ -234,6 +270,12 @@ class ProduccionModel extends Modelo
                     'id_lote' => null,
                     'cantidad' => $cantidadRequerida,
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            }
+
+            $costoUnitarioIngreso = (float) number_format($costoTotalConsumo / $cantidadProducida, 4, '.', '');
                 ]);
             }
 
@@ -251,6 +293,10 @@ class ProduccionModel extends Modelo
                 'created_by' => $userId,
             ]);
 
+            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
+                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
+                                         VALUES
+                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado)
                                          VALUES (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado)');
             $stmtIngreso->execute([
@@ -259,6 +305,8 @@ class ProduccionModel extends Modelo
                 'id_lote' => null,
                 'cantidad' => number_format($cantidadProducida, 4, '.', ''),
                 'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
 
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
@@ -266,6 +314,21 @@ class ProduccionModel extends Modelo
                                             estado = 2,
                                             fecha_inicio = COALESCE(fecha_inicio, NOW()),
                                             fecha_fin = NOW(),
+                                            updated_at = NOW(),
+                                            updated_by = :updated_by
+                                        WHERE id = :id
+                                          AND deleted_at IS NULL');
+            $stmtUpdate->execute([
+                'cantidad_producida' => number_format($cantidadProducida, 4, '.', ''),
+                'updated_by' => $userId,
+                'id' => $idOrden,
+            ]);
+
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
                                             updated_at = NOW()
                                         WHERE id = :id');
             $stmtUpdate->execute([
@@ -278,11 +341,21 @@ class ProduccionModel extends Modelo
         }
     }
 
+    public function anularOrden(int $idOrden, int $userId): void
     public function anularOrden(int $idOrden): void
     {
         $stmt = $this->db()->prepare('UPDATE produccion_ordenes
                                       SET estado = 9,
                                           fecha_fin = NOW(),
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id
+                                        AND estado IN (0, 1)
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $idOrden,
+            'updated_by' => $userId,
+        ]);
                                           updated_at = NOW()
                                       WHERE id = :id
                                         AND estado IN (0, 1)');
@@ -295,6 +368,7 @@ class ProduccionModel extends Modelo
                 FROM produccion_recetas_detalle d
                 INNER JOIN items i ON i.id = d.id_insumo
                 WHERE d.id_receta = :id_receta
+                  AND d.deleted_at IS NULL
                 ORDER BY d.id ASC';
 
         $stmt = $this->db()->prepare($sql);
@@ -304,11 +378,14 @@ class ProduccionModel extends Modelo
 
     private function obtenerOrdenPorId(int $idOrden): array
     {
+        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.id_almacen_origen, o.id_almacen_destino, o.estado,
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.id_almacen_origen, o.id_almacen_destino,
                        r.id_producto
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 WHERE o.id = :id
+                  AND o.deleted_at IS NULL
+                  AND r.deleted_at IS NULL
                 LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
