@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         despachar: app.dataset.urlDespachar,
     };
 
-    // --- 1. CLIENTES (Tom Select con AJAX) ---
+    // --- 1. CLIENTES (Tom Select con AJAX - CORREGIDO) ---
     let tomSelectCliente = null;
     if (document.getElementById('idCliente')) {
         tomSelectCliente = new TomSelect("#idCliente", {
@@ -20,20 +20,24 @@ document.addEventListener('DOMContentLoaded', () => {
             placeholder: "Buscar cliente por nombre o documento...",
             dropdownParent: 'body',
             load: function(query, callback) {
+                if (!query.length) return callback();
                 const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
-                fetch(url)
-                    .then(response => response.json())
-                    .then(json => {
-                        const items = (json.data || []).map(item => ({
-                            id: item.id,
-                            text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
-                        }));
-                        callback(items);
-                    }).catch(() => callback());
+                
+                fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(json => {
+                    const items = (json.data || []).map(item => ({
+                        id: item.id,
+                        text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
+                    }));
+                    callback(items);
+                }).catch(() => callback());
             },
             render: {
-                no_results: (data, escape) => '<div class="no-results">No encontrado</div>',
-                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div>'
+                no_results: (data, escape) => '<div class="no-results">No se encontraron coincidencias</div>',
+                loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> Buscando...'
             }
         });
     }
@@ -75,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
 
-    // --- HELPERS ---
+    // --- HELPERS DE RED ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const payload = await res.json();
@@ -113,15 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
 
-    // --- 3. LÓGICA DE FILAS (PRODUCTOS) CON TOM SELECT ---
-    
+    // --- 3. LÓGICA DE FILAS (PRODUCTOS) CON AJAX ---
     async function agregarFilaVenta(item = null) {
         const fragment = templateFilaVenta.content.cloneNode(true);
         const fila = fragment.querySelector('tr');
-        tbodyVenta.appendChild(fragment); // Insertamos en el DOM primero
+        tbodyVenta.appendChild(fragment);
         const filaReal = tbodyVenta.lastElementChild;
 
-        // Inputs Numéricos
         const inputCantidad = filaReal.querySelector('.detalle-cantidad');
         const inputPrecio = filaReal.querySelector('.detalle-precio');
         const selectItem = filaReal.querySelector('.detalle-item');
@@ -130,25 +132,22 @@ document.addEventListener('DOMContentLoaded', () => {
         inputPrecio.addEventListener('input', recalcularTotalVenta);
         
         filaReal.querySelector('.btn-quitar-fila').addEventListener('click', () => {
-            // Destruir instancia Tom Select para limpiar memoria
             if (selectItem.tomselect) selectItem.tomselect.destroy();
             filaReal.remove();
             recalcularTotalVenta();
         });
 
-        // --- INICIALIZAR TOM SELECT EN EL SELECT DE LA FILA ---
         const tom = new TomSelect(selectItem, {
             valueField: 'id',
             labelField: 'text',
             searchField: 'text',
             placeholder: "Buscar producto...",
-            dropdownParent: 'body', // Clave para que se vea sobre el modal
+            dropdownParent: 'body',
             load: function(query, callback) {
                 const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}`;
-                fetch(url)
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(response => response.json())
                     .then(json => {
-                        // Guardamos precio y stock dentro del objeto item para usarlo al seleccionar
                         const items = (json.data || []).map(prod => ({
                             id: prod.id,
                             text: `${prod.sku || ''} - ${prod.nombre}`,
@@ -159,12 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }).catch(() => callback());
             },
             onChange: function(value) {
-                // Al seleccionar, recuperamos los datos del item desde las opciones cargadas
                 const selectedOption = this.options[value];
                 if (selectedOption) {
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
-                    
-                    // Si el precio está en 0, sugerimos el precio de venta
                     if (Number(inputPrecio.value) === 0) {
                         inputPrecio.value = selectedOption.precio.toFixed(2);
                     }
@@ -174,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             render: {
                 no_results: (data, escape) => '<div class="no-results">Sin resultados</div>',
                 loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div>',
-                // Opcional: Personalizar cómo se ve cada opción en la lista
                 option: function(data, escape) {
                     return `<div>
                         <div class="fw-bold">${escape(data.text)}</div>
@@ -184,37 +179,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- SI ESTAMOS EDITANDO (CARGAR DATOS) ---
         if (item) {
-            // Agregamos la opción manualmente para que Tom Select sepa qué mostrar sin buscar de nuevo
             tom.addOption({
                 id: item.id_item,
                 text: `${item.sku || ''} - ${item.item_nombre}`,
-                stock: 0, // En edición, el stock real requeriría otra consulta, lo dejamos visualmente simple o 0
+                stock: 0,
                 precio: Number(item.precio_unitario)
             });
             tom.setValue(item.id_item);
-            
             inputCantidad.value = Number(item.cantidad || 0).toFixed(2);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
         }
-
         recalcularTotalVenta();
     }
 
     function limpiarModalVenta() {
         ventaId.value = 0;
-        
-        // Limpiar Cliente
         if (tomSelectCliente) {
             tomSelectCliente.clear();
             tomSelectCliente.clearOptions();
         }
-        
         fechaEmision.value = new Date().toISOString().split('T')[0];
         ventaObservaciones.value = '';
-        
-        // Limpiar filas (y destruir sus instancias Tom Select si fuera necesario manual)
         tbodyVenta.innerHTML = '';
         ventaTotal.textContent = 'S/ 0.00';
     }
@@ -225,7 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const venta = payload.data;
 
         despachoDocumentoId.value = venta.id;
-        
         if (tomSelectDespacho) tomSelectDespacho.clear();
         else despachoAlmacen.value = '';
         
@@ -237,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const solicitado = Number(linea.cantidad || 0);
             const despachado = Number(linea.cantidad_despachada || 0);
             const pendiente = Number(linea.cantidad_pendiente || 0);
-
             if (pendiente <= 0.0001) return;
 
             const tr = document.createElement('tr');
@@ -282,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- EVENT LISTENERS ---
-
     document.getElementById('btnNuevaVenta').addEventListener('click', async () => {
         limpiarModalVenta();
         await agregarFilaVenta();
@@ -376,10 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('change', recargarTabla);
     });
     
-    filtroBusqueda.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); recargarTabla(); }
-    });
-
     document.querySelector('#tablaVentas tbody').addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
@@ -390,7 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
                 const venta = payload.data;
-                
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 

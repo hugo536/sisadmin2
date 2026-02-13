@@ -1,98 +1,77 @@
 <?php
-// 1. CONFIGURACIÓN DE CABECERAS PARA FORZAR JSON
-// Esto es vital. Si ves HTML en la respuesta de este archivo, 
-// tu servidor web (Apache/Nginx) está inyectando cosas antes de PHP.
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST');
+// check.php V3 - EL ULTIMATUM
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// 2. CAPTURA DE ERRORES (Buffer de Salida)
-// Iniciamos un buffer para que si hay un "Notice" o "Warning", 
-// no rompa el JSON, sino que lo capturemos.
-ob_start();
+define('BASE_PATH', dirname(__DIR__));
 
-$debug = [
-    'status' => 'pending',
-    'timestamp' => date('Y-m-d H:i:s'),
-    'system' => [],
-    'session' => [],
-    'database' => [],
-    'request' => [],
-    'errors' => []
-];
+echo "<body style='background:#f4f4f9; font-family:sans-serif; padding:20px; line-height:1.6;'>";
+echo "<h1 style='color:#2c3e50;'>🕵️‍♂️ Super-Check de Búsqueda (V3)</h1>";
+echo "<a href='check.php' style='background:#3498db; color:white; padding:8px 15px; text-decoration:none; border-radius:5px;'>🔄 Volver a Probar</a><hr>";
 
 try {
-    // --- A. CHEQUEO DEL SISTEMA ---
-    $debug['system']['php_version'] = phpversion();
-    $debug['system']['server_software'] = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
-    $debug['system']['document_root'] = $_SERVER['DOCUMENT_ROOT'];
-
-    // --- B. CHEQUEO DE SESIÓN ---
-    // Intentamos iniciar sesión. Si falla, sabremos que el directorio de sesiones no tiene permisos.
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    // --- 1. CARGAR ENTORNO ---
+    require_once BASE_PATH . '/vendor/autoload.php';
+    if (file_exists(BASE_PATH . '/.env')) {
+        $dotenv = \Dotenv\Dotenv::createImmutable(BASE_PATH);
+        $dotenv->safeLoad();
     }
-    $debug['session']['status'] = 'Active';
-    $debug['session']['id'] = session_id();
-    $debug['session']['data'] = $_SESSION; // Muestra qué datos tiene el usuario actual
+
+    require_once BASE_PATH . '/app/config/Conexion.php';
+    require_once BASE_PATH . '/app/core/Modelo.php';
+    require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
+
+    $model = new VentasDocumentoModel();
+    $termino = "wa"; // Término que sabemos que existe: "Walter"
+
+    echo "<h3>1. Prueba de Datos Crudos (Directo a MySQL)</h3>";
+    $db = Conexion::get(); // Usamos tu clase real de conexión
     
-    // Prueba de escritura en sesión
-    $_SESSION['check_test'] = 'Funciona: ' . time();
+    // Consulta para ver TODO lo que hay de Walter sin filtros
+    $stmtRaw = $db->prepare("SELECT id, nombre_completo, es_cliente, estado, deleted_at FROM terceros WHERE nombre_completo LIKE ?");
+    $stmtRaw->execute(["%$termino%"]);
+    $rawRows = $stmtRaw->fetchAll(PDO::FETCH_ASSOC);
 
-    // --- C. CHEQUEO DE BASE DE DATOS ---
-    // ADVERTENCIA: Rellena esto con tus datos reales del config
-    $dbHost = 'localhost';     // <--- CAMBIAR SI ES NECESARIO
-    $dbName = 'nombre_de_tu_bd'; // <--- PON EL NOMBRE DE TU BD AQUÍ
-    $dbUser = 'root';          // <--- TU USUARIO
-    $dbPass = '';              // <--- TU CONTRASEÑA
-
-    try {
-        $dsn = "mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4";
-        $pdo = new PDO($dsn, $dbUser, $dbPass);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        $debug['database']['connection'] = 'SUCCESS';
-        $debug['database']['info'] = 'Conectado a ' . $dbName;
-        
-        // Prueba simple de consulta
-        $stmt = $pdo->query("SELECT 1 as test");
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $debug['database']['query_test'] = $result;
-
-    } catch (PDOException $e) {
-        $debug['database']['connection'] = 'ERROR';
-        $debug['database']['error_msg'] = $e->getMessage();
+    echo "<table border='1' style='width:100%; border-collapse:collapse; background:white;'>";
+    echo "<tr style='background:#ecf0f1;'><th>ID</th><th>Nombre</th><th>es_cliente</th><th>estado</th><th>deleted_at</th><th>¿Visible para el Sistema?</th></tr>";
+    
+    foreach ($rawRows as $r) {
+        $visible = ($r['es_cliente'] == 1 && $r['estado'] == 1 && $r['deleted_at'] == null);
+        $color = $visible ? "#d4edda" : "#f8d7da";
+        $txt = $visible ? "✅ SÍ" : "❌ NO (Revisar campos)";
+        echo "<tr style='background:$color;'>
+                <td>{$r['id']}</td>
+                <td>{$r['nombre_completo']}</td>
+                <td align='center'>{$r['es_cliente']}</td>
+                <td align='center'>{$r['estado']}</td>
+                <td>" . ($r['deleted_at'] ?? 'NULL') . "</td>
+                <td><strong>$txt</strong></td>
+              </tr>";
     }
+    echo "</table>";
 
-    // --- D. CHEQUEO DE LA SOLICITUD (REQUEST) ---
-    // Esto verifica si el servidor recibe bien los datos JSON o POST
-    $rawInput = file_get_contents('php://input');
-    $debug['request']['method'] = $_SERVER['REQUEST_METHOD'];
-    $debug['request']['raw_input'] = $rawInput;
-    $debug['request']['json_decoded'] = json_decode($rawInput, true);
-    $debug['request']['post_data'] = $_POST;
+    echo "<h3>2. Prueba de la Función buscarClientes('$termino')</h3>";
+    $resultados = $model->buscarClientes($termino);
 
-    $debug['status'] = 'ok';
+    if (empty($resultados)) {
+        echo "<div style='padding:20px; background:#e74c3c; color:white; border-radius:5px;'>";
+        echo "<strong>¡PROBLEMA DETECTADO!</strong> El modelo devuelve un array VACÍO.<br>";
+        echo "Esto significa que aunque los datos existen, la consulta SQL del Modelo los está filtrando o tiene un error de lógica.";
+        echo "</div>";
+    } else {
+        echo "<div style='padding:20px; background:#27ae60; color:white; border-radius:5px;'>";
+        echo "<strong>✅ EL BACKEND FUNCIONA:</strong> Se encontraron " . count($resultados) . " registros.<br>";
+        echo "Si en la web sigue saliendo 'No encontrado', el problema está en <strong>ventas.js</strong> o el <strong>Controlador</strong>.";
+        echo "</div>";
+        echo "<h4>Datos que el sistema está intentando enviar al navegador:</h4>";
+        echo "<pre style='background:#2c3e50; color:#bdc3c7; padding:15px; border-radius:5px;'>" . json_encode($resultados, JSON_PRETTY_PRINT) . "</pre>";
+    }
 
 } catch (Throwable $e) {
-    $debug['status'] = 'error';
-    $debug['errors'][] = [
-        'type' => 'Exception',
-        'message' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
-    ];
+    echo "<div style='padding:20px; background:#c0392b; color:white;'>";
+    echo "<h2>🔥 ERROR DE PHP</h2>";
+    echo "<b>Mensaje:</b> " . $e->getMessage() . "<br>";
+    echo "<b>Línea:</b> " . $e->getLine() . "<br>";
+    echo "<b>Archivo:</b> " . $e->getFile() . "</div>";
 }
-
-// 3. LIMPIEZA DEL BUFFER
-// Si hubo algún echo, print o warning de PHP antes de esto, lo guardamos en 'output_buffer'
-$outputBuffer = ob_get_clean();
-if (!empty($outputBuffer)) {
-    $debug['errors'][] = [
-        'type' => 'Output Buffer (Unexpected Content)',
-        'content' => $outputBuffer // <--- AQUÍ APARECERÁ EL HTML "COLADO" SI LO HAY
-    ];
-}
-
-// 4. SALIDA FINAL
-echo json_encode($debug, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+echo "</body>";

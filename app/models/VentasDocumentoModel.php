@@ -6,7 +6,6 @@ class VentasDocumentoModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        // CORREGIDO: fecha_emision en lugar de created_at para filtrar fechas
         $sql = 'SELECT v.id,
                        v.codigo,
                        v.id_cliente,
@@ -51,7 +50,6 @@ class VentasDocumentoModel extends Modelo
 
     public function obtener(int $idDocumento): array
     {
-        // CORREGIDO: Agregado fecha_emision
         $sql = 'SELECT id, codigo, id_cliente, fecha_emision, observaciones, subtotal, total, estado
                 FROM ventas_documentos
                 WHERE id = :id
@@ -66,7 +64,6 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
-        // CORREGIDO: id_documento_venta y total_linea
         $sqlDetalle = 'SELECT d.id,
                               d.id_item,
                               i.sku,
@@ -107,7 +104,6 @@ class VentasDocumentoModel extends Modelo
 
         try {
             $idDocumento = (int) ($cabecera['id'] ?? 0);
-            // Default fecha hoy si no viene
             $fechaEmision = !empty($cabecera['fecha_emision']) ? $cabecera['fecha_emision'] : date('Y-m-d');
 
             if ($idDocumento > 0) {
@@ -120,7 +116,6 @@ class VentasDocumentoModel extends Modelo
                     throw new RuntimeException('Solo se pueden editar pedidos en borrador.');
                 }
 
-                // CORREGIDO: Agregado fecha_emision
                 $sqlUpdate = 'UPDATE ventas_documentos
                               SET id_cliente = :id_cliente,
                                   fecha_emision = :fecha_emision,
@@ -142,7 +137,6 @@ class VentasDocumentoModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                // Borrado lógico del detalle anterior
                 $db->prepare('UPDATE ventas_documentos_detalle
                               SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
                               WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
@@ -150,7 +144,6 @@ class VentasDocumentoModel extends Modelo
             } else {
                 $codigo = $this->generarCodigo($db);
                 
-                // CORREGIDO: Agregado fecha_emision
                 $sqlInsert = 'INSERT INTO ventas_documentos (
                                 codigo,
                                 id_cliente,
@@ -191,7 +184,6 @@ class VentasDocumentoModel extends Modelo
                 $idDocumento = (int) $db->lastInsertId();
             }
 
-            // CORREGIDO: id_documento_venta y total_linea en lugar de subtotal
             $sqlDet = 'INSERT INTO ventas_documentos_detalle (
                             id_documento_venta,
                             id_item,
@@ -279,7 +271,6 @@ class VentasDocumentoModel extends Modelo
                 throw new RuntimeException('No se pudo anular el pedido.');
             }
 
-            // CORREGIDO: id_documento_venta
             $db->prepare('UPDATE ventas_documentos_detalle
                           SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
                           WHERE id_documento_venta = :id_documento
@@ -298,28 +289,28 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20): array
     {
-        $sql = 'SELECT t.id,
-                       t.nombre_completo,
-                       t.numero_documento AS num_doc
-                FROM terceros t
-                LEFT JOIN terceros_clientes tc ON tc.id_tercero = t.id AND tc.deleted_at IS NULL
-                WHERE t.es_cliente = 1
-                  AND t.estado = 1
-                  AND t.deleted_at IS NULL';
+        // 1. Base de la consulta
+        $sql = 'SELECT id, nombre_completo, numero_documento AS num_doc
+                FROM terceros
+                WHERE es_cliente = 1
+                  AND estado = 1
+                  AND deleted_at IS NULL';
 
         $params = [];
+
+        // 2. Si hay búsqueda, usamos "?" en lugar de nombres
         if ($q !== '') {
-            $sql .= ' AND (t.nombre_completo LIKE :q OR t.numero_documento LIKE :q)';
-            $params['q'] = '%' . $q . '%';
+            $sql .= ' AND (nombre_completo LIKE ? OR numero_documento LIKE ?)';
+            $term = '%' . $q . '%';
+            $params[] = $term; // Primer ?
+            $params[] = $term; // Segundo ?
         }
 
-        $sql .= ' ORDER BY t.nombre_completo ASC LIMIT :limite';
+        // 3. El limite lo ponemos directo como entero para evitar líos con PDO en el LIMIT
+        $sql .= ' ORDER BY nombre_completo ASC LIMIT ' . (int)$limit;
+        
         $stmt = $this->db()->prepare($sql);
-        foreach ($params as $k => $v) {
-            $stmt->bindValue(':' . $k, $v);
-        }
-        $stmt->bindValue(':limite', $limit, PDO::PARAM_INT);
-        $stmt->execute();
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -330,16 +321,13 @@ class VentasDocumentoModel extends Modelo
             return false;
         }
 
+        // CORREGIDO: Consulta limpia, eliminada la duplicidad
         $sql = 'SELECT 1
-                FROM terceros t
-                WHERE t.id = :id
-                  AND t.es_cliente = 1
-                FROM terceros_clientes tc
-                INNER JOIN terceros t ON t.id = tc.id_tercero
-                WHERE tc.id_tercero = :id
-                  AND tc.deleted_at IS NULL
-                  AND t.estado = 1
-                  AND t.deleted_at IS NULL
+                FROM terceros
+                WHERE id = :id
+                  AND es_cliente = 1
+                  AND estado = 1
+                  AND deleted_at IS NULL
                 LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
@@ -397,7 +385,6 @@ class VentasDocumentoModel extends Modelo
 
     private function generarCodigo(PDO $db): string
     {
-        // Genera formato PED-2026-000001
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_documentos')->fetchColumn() + 1;
         return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
