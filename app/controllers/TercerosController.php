@@ -157,8 +157,8 @@ class TercerosController extends Controlador
                     $id = (int)($_POST['id'] ?? 0);
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
-
                     $this->tercerosModel->cambiarEstadoCargo($id, $estado, $userId);
+                    $this->tercerosModel->cambiarEstadoCargo($id, $estado);
                     json_response(['ok' => true, 'mensaje' => 'Estado de cargo actualizado']);
                     return;
                 }
@@ -206,8 +206,8 @@ class TercerosController extends Controlador
                     $id = (int)($_POST['id'] ?? 0);
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
-
                     $this->tercerosModel->cambiarEstadoArea($id, $estado, $userId);
+                    $this->tercerosModel->cambiarEstadoArea($id, $estado);
                     json_response(['ok' => true, 'mensaje' => 'Estado de área actualizado']);
                     return;
                 }
