@@ -322,56 +322,56 @@ class TercerosModel extends Modelo
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function guardarCargo(string $nombre): int
+    public function guardarCargo(string $nombre, int $userId = 0): int
     {
         $stmt = $this->db()->prepare("SELECT id FROM cargos WHERE nombre = ? AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([trim($nombre)]);
         if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) return (int) $row['id'];
 
-        $stmt = $this->db()->prepare("INSERT INTO cargos (nombre, estado) VALUES (?, 1)");
-        $stmt->execute([trim($nombre)]);
+        $stmt = $this->db()->prepare("INSERT INTO cargos (nombre, estado, created_by) VALUES (?, 1, ?)");
+        $stmt->execute([trim($nombre), $userId > 0 ? $userId : null]);
         return (int) $this->db()->lastInsertId();
     }
 
-    public function actualizarCargo(int $id, string $nombre): bool
+    public function actualizarCargo(int $id, string $nombre, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE cargos SET nombre = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $id]);
+        return $this->db()->prepare("UPDATE cargos SET nombre = ?, updated_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $userId > 0 ? $userId : null, $id]);
     }
 
-    public function eliminarCargo(int $id): bool
+    public function eliminarCargo(int $id, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE cargos SET deleted_at = NOW(), estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$id]);
+        return $this->db()->prepare("UPDATE cargos SET deleted_at = NOW(), deleted_by = ?, estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$userId > 0 ? $userId : null, $id]);
     }
 
-    public function cambiarEstadoCargo(int $id, int $estado): bool
+    public function cambiarEstadoCargo(int $id, int $estado, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE cargos SET estado = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $id]);
+        return $this->db()->prepare("UPDATE cargos SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $userId > 0 ? $userId : null, $id]);
     }
 
-    public function guardarArea(string $nombre): int
+    public function guardarArea(string $nombre, int $userId = 0): int
     {
         $stmt = $this->db()->prepare("SELECT id FROM areas WHERE nombre = ? AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([trim($nombre)]);
         if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) return (int) $row['id'];
 
-        $stmt = $this->db()->prepare("INSERT INTO areas (nombre, estado) VALUES (?, 1)");
-        $stmt->execute([trim($nombre)]);
+        $stmt = $this->db()->prepare("INSERT INTO areas (nombre, estado, created_by) VALUES (?, 1, ?)");
+        $stmt->execute([trim($nombre), $userId > 0 ? $userId : null]);
         return (int) $this->db()->lastInsertId();
     }
 
-    public function actualizarArea(int $id, string $nombre): bool
+    public function actualizarArea(int $id, string $nombre, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE areas SET nombre = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $id]);
+        return $this->db()->prepare("UPDATE areas SET nombre = ?, updated_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL")->execute([trim($nombre), $userId > 0 ? $userId : null, $id]);
     }
 
-    public function eliminarArea(int $id): bool
+    public function eliminarArea(int $id, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE areas SET deleted_at = NOW(), estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$id]);
+        return $this->db()->prepare("UPDATE areas SET deleted_at = NOW(), deleted_by = ?, estado = 0 WHERE id = ? AND deleted_at IS NULL")->execute([$userId > 0 ? $userId : null, $id]);
     }
 
-    public function cambiarEstadoArea(int $id, int $estado): bool
+    public function cambiarEstadoArea(int $id, int $estado, int $userId = 0): bool
     {
-        return $this->db()->prepare("UPDATE areas SET estado = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $id]);
+        return $this->db()->prepare("UPDATE areas SET estado = ?, updated_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL")->execute([$estado === 1 ? 1 : 0, $userId > 0 ? $userId : null, $id]);
     }
 
     // ==========================================

@@ -1328,54 +1328,256 @@
     }
 
     function initMaestrosManagement() {
-        const handleMaestroSubmit = (formId, listId, endpoint, selectsToUpdate) => {
-            const form = document.getElementById(formId);
-            if (!form) return;
+        const cfgByType = {
+            cargo: {
+                formId: 'formCrearCargo',
+                listId: 'listaCargosConfig',
+                inputId: 'cargoNombre',
+                idId: 'cargoId',
+                actionId: 'cargoAccion',
+                cancelBtnId: 'btnCancelCargo',
+                saveBtnId: 'btnSaveCargo',
+                defaultAction: 'guardar_cargo',
+                listAction: 'listar_cargos',
+                deleteAction: 'eliminar_cargo',
+                toggleAction: 'toggle_estado_cargo',
+                saveLabel: 'Guardar cargo',
+                editLabel: 'Actualizar cargo',
+                deleteText: '¿Deseas eliminar este cargo?',
+                confirmDeleteText: 'Sí, eliminar cargo',
+                selectsToUpdate: ['crearCargo', 'editCargo']
+            },
+            area: {
+                formId: 'formCrearArea',
+                listId: 'listaAreasConfig',
+                inputId: 'areaNombre',
+                idId: 'areaId',
+                actionId: 'areaAccion',
+                cancelBtnId: 'btnCancelArea',
+                saveBtnId: 'btnSaveArea',
+                defaultAction: 'guardar_area',
+                listAction: 'listar_areas',
+                deleteAction: 'eliminar_area',
+                toggleAction: 'toggle_estado_area',
+                saveLabel: 'Guardar área',
+                editLabel: 'Actualizar área',
+                deleteText: '¿Deseas eliminar esta área?',
+                confirmDeleteText: 'Sí, eliminar área',
+                selectsToUpdate: ['crearArea', 'editArea']
+            }
+        };
 
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const input = form.querySelector('input[type="text"]');
-                const val = input.value.trim();
-                if(!val) return;
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
 
-                const fd = new FormData(form);
-                fetch(window.location.href, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: fd
-                })
-                .then(parseJsonResponse)
-                .then(({ data: res }) => {
-                    if (res.ok) {
-                        const list = document.getElementById(listId);
-                        if(list) {
-                            const item = document.createElement('div');
-                            item.className = 'list-group-item d-flex justify-content-between align-items-center';
-                            item.innerHTML = `<span>${res.nombre}</span>`;
-                            list.appendChild(item);
-                        }
-                        selectsToUpdate.forEach(selId => {
-                            const sel = document.getElementById(selId);
-                            if(sel) {
-                                const opt = document.createElement('option');
-                                opt.value = res.nombre;
-                                opt.textContent = res.nombre;
-                                sel.appendChild(opt);
-                            }
-                        });
-                        input.value = '';
-                        Swal.fire('Guardado', res.mensaje, 'success');
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        Swal.fire('Error', res.mensaje || 'Error desconocido', 'error');
-                    }
-                })
-                .catch(err => console.error(err));
+        const sendMaestroAction = async (payload) => {
+            const fd = new FormData();
+            Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
+            const { data } = await parseJsonResponse(await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            }));
+
+            if (!data.ok) {
+                throw new Error(data.mensaje || 'No se pudo completar la operación.');
+            }
+            return data;
+        };
+
+        const syncSelectOptions = (type, items) => {
+            const cfg = cfgByType[type];
+            cfg.selectsToUpdate.forEach((selectId) => {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+
+                const selectedValue = select.value;
+                const defaultOption = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (defaultOption) {
+                    select.appendChild(defaultOption.cloneNode(true));
+                } else {
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Seleccionar...';
+                    select.appendChild(placeholder);
+                }
+
+                items
+                    .filter((item) => Number(item.estado) === 1)
+                    .forEach((item) => {
+                        const option = document.createElement('option');
+                        option.value = item.nombre;
+                        option.textContent = item.nombre;
+                        select.appendChild(option);
+                    });
+
+                const stillExists = Array.from(select.options).some((opt) => opt.value === selectedValue);
+                if (stillExists) {
+                    select.value = selectedValue;
+                }
             });
         };
 
-        handleMaestroSubmit('formCrearCargo', 'listaCargosConfig', 'guardar_cargo', ['crearCargo', 'editCargo']);
-        handleMaestroSubmit('formCrearArea', 'listaAreasConfig', 'guardar_area', ['crearArea', 'editArea']);
+        const renderList = (type, items) => {
+            const cfg = cfgByType[type];
+            const listEl = document.getElementById(cfg.listId);
+            if (!listEl) return;
+
+            if (!Array.isArray(items) || items.length === 0) {
+                listEl.innerHTML = '<div class="list-group-item text-muted small">Sin registros.</div>';
+                syncSelectOptions(type, []);
+                return;
+            }
+
+            listEl.innerHTML = items.map((item) => {
+                const activo = Number(item.estado) === 1;
+                return `
+                    <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro" data-id="${Number(item.id)}" data-nombre="${escapeHtml(item.nombre)}" data-estado="${activo ? 1 : 0}">
+                        <div class="d-flex align-items-center gap-2 text-truncate">
+                            <span class="text-truncate fw-medium">${escapeHtml(item.nombre)}</span>
+                            <span class="badge ${activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${activo ? 'Activo' : 'Inactivo'}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="form-check form-switch m-0" title="Activar / desactivar">
+                                <input class="form-check-input maestro-switch" type="checkbox" data-tipo="${type}" data-id="${Number(item.id)}" ${activo ? 'checked' : ''}>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" data-tipo="${type}" data-id="${Number(item.id)}" data-nombre="${escapeHtml(item.nombre)}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-light text-danger btn-del-maestro" data-tipo="${type}" data-id="${Number(item.id)}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            syncSelectOptions(type, items);
+        };
+
+        const resetFormState = (type) => {
+            const cfg = cfgByType[type];
+            const form = document.getElementById(cfg.formId);
+            if (!form) return;
+            const input = document.getElementById(cfg.inputId);
+            const idInput = document.getElementById(cfg.idId);
+            const actionInput = document.getElementById(cfg.actionId);
+            const cancelBtn = document.getElementById(cfg.cancelBtnId);
+            const saveBtn = document.getElementById(cfg.saveBtnId);
+            if (input) input.value = '';
+            if (idInput) idInput.value = '';
+            if (actionInput) actionInput.value = cfg.defaultAction;
+            if (cancelBtn) cancelBtn.classList.add('d-none');
+            if (saveBtn) saveBtn.setAttribute('title', cfg.saveLabel);
+        };
+
+        const loadList = async (type) => {
+            const cfg = cfgByType[type];
+            const data = await sendMaestroAction({ accion: cfg.listAction });
+            renderList(type, data.data || []);
+        };
+
+        const setupType = (type) => {
+            const cfg = cfgByType[type];
+            const form = document.getElementById(cfg.formId);
+            const list = document.getElementById(cfg.listId);
+            const cancelBtn = document.getElementById(cfg.cancelBtnId);
+            const saveBtn = document.getElementById(cfg.saveBtnId);
+            const input = document.getElementById(cfg.inputId);
+            const idInput = document.getElementById(cfg.idId);
+            const actionInput = document.getElementById(cfg.actionId);
+            if (!form || !list || !input || !idInput || !actionInput) return;
+
+            resetFormState(type);
+            loadList(type).catch((error) => {
+                console.error(error);
+                Swal.fire('Error', error.message || 'No se pudo cargar la lista.', 'error');
+            });
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const nombre = input.value.trim();
+                if (!nombre) return;
+
+                try {
+                    await sendMaestroAction({
+                        accion: actionInput.value || cfg.defaultAction,
+                        id: idInput.value || 0,
+                        nombre
+                    });
+                    await loadList(type);
+                    resetFormState(type);
+                    Swal.fire('Listo', 'Registro guardado correctamente.', 'success');
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire('Error', error.message || 'No se pudo guardar.', 'error');
+                }
+            });
+
+            cancelBtn?.addEventListener('click', () => resetFormState(type));
+
+            list.addEventListener('click', async (event) => {
+                const editBtn = event.target.closest('.btn-edit-maestro');
+                const delBtn = event.target.closest('.btn-del-maestro');
+
+                if (editBtn) {
+                    input.value = editBtn.dataset.nombre || '';
+                    idInput.value = editBtn.dataset.id || '';
+                    actionInput.value = `editar_${type}`;
+                    cancelBtn?.classList.remove('d-none');
+                    if (saveBtn) saveBtn.setAttribute('title', cfg.editLabel);
+                    input.focus();
+                    return;
+                }
+
+                if (!delBtn) return;
+
+                const result = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Confirmar',
+                    text: cfg.deleteText,
+                    showCancelButton: true,
+                    confirmButtonText: cfg.confirmDeleteText,
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                });
+                if (!result.isConfirmed) return;
+
+                try {
+                    await sendMaestroAction({ accion: cfg.deleteAction, id: delBtn.dataset.id || 0 });
+                    await loadList(type);
+                    resetFormState(type);
+                    Swal.fire('Eliminado', 'Registro desactivado correctamente.', 'success');
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire('Error', error.message || 'No se pudo eliminar.', 'error');
+                }
+            });
+
+            list.addEventListener('change', async (event) => {
+                const switchEl = event.target.closest('.maestro-switch');
+                if (!switchEl) return;
+
+                const estado = switchEl.checked ? 1 : 0;
+                try {
+                    await sendMaestroAction({ accion: cfg.toggleAction, id: switchEl.dataset.id || 0, estado });
+                    await loadList(type);
+                } catch (error) {
+                    console.error(error);
+                    switchEl.checked = !switchEl.checked;
+                    Swal.fire('Error', error.message || 'No se pudo actualizar el estado.', 'error');
+                }
+            });
+        };
+
+        setupType('cargo');
+        setupType('area');
     }
 
     function initStatusSwitch() {

@@ -126,7 +126,7 @@ class TercerosController extends Controlador
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($nombre === '') throw new Exception('El nombre del cargo es obligatorio');
                     
-                    $id = $this->tercerosModel->guardarCargo($nombre);
+                    $id = $this->tercerosModel->guardarCargo($nombre, $userId);
                     json_response(['ok' => true, 'id' => $id, 'nombre' => $nombre, 'mensaje' => 'Cargo guardado']);
                     return;
                 }
@@ -137,7 +137,7 @@ class TercerosController extends Controlador
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
                     
-                    $this->tercerosModel->actualizarCargo($id, $nombre);
+                    $this->tercerosModel->actualizarCargo($id, $nombre, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Cargo actualizado']);
                     return;
                 }
@@ -147,8 +147,19 @@ class TercerosController extends Controlador
                     $id = (int)($_POST['id'] ?? 0);
                     if ($id <= 0) throw new Exception('ID inválido');
                     
-                    $this->tercerosModel->eliminarCargo($id);
+                    $this->tercerosModel->eliminarCargo($id, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Cargo desactivado']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'toggle_estado_cargo') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+                    if ($id <= 0) throw new Exception('ID inválido');
+
+                    $this->tercerosModel->cambiarEstadoCargo($id, $estado, $userId);
+                    json_response(['ok' => true, 'mensaje' => 'Estado de cargo actualizado']);
                     return;
                 }
 
@@ -164,7 +175,7 @@ class TercerosController extends Controlador
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($nombre === '') throw new Exception('El nombre del área es obligatorio');
                     
-                    $id = $this->tercerosModel->guardarArea($nombre);
+                    $id = $this->tercerosModel->guardarArea($nombre, $userId);
                     json_response(['ok' => true, 'id' => $id, 'nombre' => $nombre, 'mensaje' => 'Área guardada']);
                     return;
                 }
@@ -175,7 +186,7 @@ class TercerosController extends Controlador
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
                     
-                    $this->tercerosModel->actualizarArea($id, $nombre);
+                    $this->tercerosModel->actualizarArea($id, $nombre, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Área actualizada']);
                     return;
                 }
@@ -185,8 +196,19 @@ class TercerosController extends Controlador
                     $id = (int)($_POST['id'] ?? 0);
                     if ($id <= 0) throw new Exception('ID inválido');
                     
-                    $this->tercerosModel->eliminarArea($id);
+                    $this->tercerosModel->eliminarArea($id, $userId);
                     json_response(['ok' => true, 'mensaje' => 'Área desactivada']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'toggle_estado_area') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+                    if ($id <= 0) throw new Exception('ID inválido');
+
+                    $this->tercerosModel->cambiarEstadoArea($id, $estado, $userId);
+                    json_response(['ok' => true, 'mensaje' => 'Estado de área actualizado']);
                     return;
                 }
 
