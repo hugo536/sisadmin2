@@ -152,6 +152,17 @@ class TercerosController extends Controlador
                     return;
                 }
 
+                if (es_ajax() && $accion === 'toggle_estado_cargo') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+                    if ($id <= 0) throw new Exception('ID inválido');
+
+                    $this->tercerosModel->cambiarEstadoCargo($id, $estado);
+                    json_response(['ok' => true, 'mensaje' => 'Estado de cargo actualizado']);
+                    return;
+                }
+
                 // --- ÁREAS ---
                 if (es_ajax() && $accion === 'listar_areas') {
                     $data = $this->tercerosModel->listarAreas();
@@ -187,6 +198,17 @@ class TercerosController extends Controlador
                     
                     $this->tercerosModel->eliminarArea($id);
                     json_response(['ok' => true, 'mensaje' => 'Área desactivada']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'toggle_estado_area') {
+                    require_permiso('configuracion.editar');
+                    $id = (int)($_POST['id'] ?? 0);
+                    $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+                    if ($id <= 0) throw new Exception('ID inválido');
+
+                    $this->tercerosModel->cambiarEstadoArea($id, $estado);
+                    json_response(['ok' => true, 'mensaje' => 'Estado de área actualizado']);
                     return;
                 }
 
