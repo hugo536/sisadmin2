@@ -685,23 +685,34 @@
                     </div>
                 </form>
                 
-                <h6 class="small text-muted fw-bold">Listado Activo</h6>
+                <h6 class="small text-muted fw-bold">Listado de cargos</h6>
                 <div class="list-group list-group-flush border rounded" id="listaCargosConfig" style="max-height: 300px; overflow-y: auto;">
                     <?php foreach($cargos_list as $c): ?>
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro">
-                            <span class="text-truncate fw-medium"><?php echo htmlspecialchars($c['nombre']); ?></span>
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
-                                        data-tipo="cargo" 
-                                        data-id="<?php echo (int)$c['id']; ?>" 
-                                        data-nombre="<?php echo htmlspecialchars($c['nombre']); ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-light text-danger btn-del-maestro" 
-                                        data-tipo="cargo" 
-                                        data-id="<?php echo (int)$c['id']; ?>">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                        <?php $cargoActivo = (int)($c['estado'] ?? 1) === 1; ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro" data-id="<?php echo (int)$c['id']; ?>" data-estado="<?php echo $cargoActivo ? 1 : 0; ?>">
+                            <div class="d-flex align-items-center gap-2 text-truncate">
+                                <span class="text-truncate fw-medium"><?php echo htmlspecialchars($c['nombre']); ?></span>
+                                <span class="badge <?php echo $cargoActivo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'; ?>">
+                                    <?php echo $cargoActivo ? 'Activo' : 'Inactivo'; ?>
+                                </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check form-switch m-0" title="Activar / desactivar">
+                                    <input class="form-check-input maestro-switch" type="checkbox" data-tipo="cargo" data-id="<?php echo (int)$c['id']; ?>" <?php echo $cargoActivo ? 'checked' : ''; ?>>
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
+                                            data-tipo="cargo" 
+                                            data-id="<?php echo (int)$c['id']; ?>" 
+                                            data-nombre="<?php echo htmlspecialchars($c['nombre']); ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light text-danger btn-del-maestro" 
+                                            data-tipo="cargo" 
+                                            data-id="<?php echo (int)$c['id']; ?>">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -734,23 +745,34 @@
                     </div>
                 </form>
                 
-                <h6 class="small text-muted fw-bold">Listado Activo</h6>
+                <h6 class="small text-muted fw-bold">Listado de áreas</h6>
                 <div class="list-group list-group-flush border rounded" id="listaAreasConfig" style="max-height: 300px; overflow-y: auto;">
                     <?php foreach($areas_list as $a): ?>
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro">
-                            <span class="text-truncate fw-medium"><?php echo htmlspecialchars($a['nombre']); ?></span>
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
-                                        data-tipo="area" 
-                                        data-id="<?php echo (int)$a['id']; ?>" 
-                                        data-nombre="<?php echo htmlspecialchars($a['nombre']); ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-light text-danger btn-del-maestro" 
-                                        data-tipo="area" 
-                                        data-id="<?php echo (int)$a['id']; ?>">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                        <?php $areaActiva = (int)($a['estado'] ?? 1) === 1; ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro" data-id="<?php echo (int)$a['id']; ?>" data-estado="<?php echo $areaActiva ? 1 : 0; ?>">
+                            <div class="d-flex align-items-center gap-2 text-truncate">
+                                <span class="text-truncate fw-medium"><?php echo htmlspecialchars($a['nombre']); ?></span>
+                                <span class="badge <?php echo $areaActiva ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'; ?>">
+                                    <?php echo $areaActiva ? 'Activo' : 'Inactivo'; ?>
+                                </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check form-switch m-0" title="Activar / desactivar">
+                                    <input class="form-check-input maestro-switch" type="checkbox" data-tipo="area" data-id="<?php echo (int)$a['id']; ?>" <?php echo $areaActiva ? 'checked' : ''; ?>>
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-light text-primary btn-edit-maestro" 
+                                            data-tipo="area" 
+                                            data-id="<?php echo (int)$a['id']; ?>" 
+                                            data-nombre="<?php echo htmlspecialchars($a['nombre']); ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light text-danger btn-del-maestro" 
+                                            data-tipo="area" 
+                                            data-id="<?php echo (int)$a['id']; ?>">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
