@@ -33,6 +33,9 @@ class TercerosModel extends Modelo
         $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
             ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
             : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
+        $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
+            ? 'te.genero, te.estado_civil, te.nivel_educativo, te.contacto_emergencia_nombre, te.contacto_emergencia_telf, te.tipo_sangre,'
+            : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
 
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
                        t.direccion, t.telefono, t.email, t.representante_legal,
@@ -55,6 +58,7 @@ class TercerosModel extends Modelo
                        te.tipo_pago, te.pago_diario, te.regimen_pensionario, 
                        te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato,
                        {$selectCumple}
+                       {$selectPerfilEmpleado}
 
                        -- Datos distribuidor
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
@@ -111,6 +115,9 @@ class TercerosModel extends Modelo
         $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
             ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
             : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
+        $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
+            ? 'te.genero, te.estado_civil, te.nivel_educativo, te.contacto_emergencia_nombre, te.contacto_emergencia_telf, te.tipo_sangre,'
+            : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
 
         $sql = "SELECT t.*, 
                        -- Cliente
@@ -129,6 +136,7 @@ class TercerosModel extends Modelo
                        te.tipo_pago, te.pago_diario, te.tipo_contrato, te.fecha_cese,
                        te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
                        {$selectCumple}
+                       {$selectPerfilEmpleado}
 
                        -- Distribuidor
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
@@ -537,6 +545,12 @@ class TercerosModel extends Modelo
             'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
             'cuspp'           => $data['cuspp'] ?? null,
             'essalud'         => !empty($data['essalud']) ? 1 : 0,
+            'genero'          => !empty($data['genero']) ? trim((string) $data['genero']) : null,
+            'estado_civil'    => !empty($data['estado_civil']) ? trim((string) $data['estado_civil']) : null,
+            'nivel_educativo' => !empty($data['nivel_educativo']) ? trim((string) $data['nivel_educativo']) : null,
+            'contacto_emergencia_nombre' => !empty($data['contacto_emergencia_nombre']) ? trim((string) $data['contacto_emergencia_nombre']) : null,
+            'contacto_emergencia_telf'   => !empty($data['contacto_emergencia_telf']) ? trim((string) $data['contacto_emergencia_telf']) : null,
+            'tipo_sangre'     => !empty($data['tipo_sangre']) ? trim((string) $data['tipo_sangre']) : null,
             'recordar_cumpleanos' => !empty($data['recordar_cumpleanos']) ? 1 : 0,
             'fecha_nacimiento' => !empty($data['recordar_cumpleanos']) && !empty($data['fecha_nacimiento']) ? $data['fecha_nacimiento'] : null,
 

@@ -15,7 +15,13 @@ class TercerosEmpleadosModel extends Modelo
             'id_tercero', 'cargo', 'area', 'fecha_ingreso', 'fecha_cese', 'estado_laboral',
             'tipo_contrato', 'sueldo_basico', 'moneda', 'asignacion_familiar',
             'tipo_pago', 'pago_diario', 'regimen_pensionario', 'tipo_comision_afp', 'cuspp', 'essalud',
+            'genero', 'estado_civil', 'nivel_educativo',
+            'contacto_emergencia_nombre', 'contacto_emergencia_telf', 'tipo_sangre',
         ];
+
+        if ($this->hasColumn('terceros_empleados', 'created_by')) {
+            $columnas[] = 'created_by';
+        }
 
         if ($tieneCumpleanos) {
             $columnas[] = 'recordar_cumpleanos';
@@ -25,7 +31,7 @@ class TercerosEmpleadosModel extends Modelo
         $columnas[] = 'updated_by';
 
         $placeholders = array_map(static fn (string $col): string => ':' . $col, $columnas);
-        $updates = array_map(static fn (string $col): string => $col . ' = VALUES(' . $col . ')', array_filter($columnas, static fn (string $col): bool => $col !== 'id_tercero'));
+        $updates = array_map(static fn (string $col): string => $col . ' = VALUES(' . $col . ')', array_filter($columnas, static fn (string $col): bool => !in_array($col, ['id_tercero', 'created_by'], true)));
         $updates[] = 'updated_at = NOW()';
 
         $sql = 'INSERT INTO terceros_empleados (' . implode(', ', $columnas) . ')
@@ -49,8 +55,18 @@ class TercerosEmpleadosModel extends Modelo
             'tipo_comision_afp' => $data['tipo_comision_afp'] ?? null,
             'cuspp' => $data['cuspp'] ?? null,
             'essalud' => !empty($data['essalud']) ? 1 : 0,
+            'genero' => $data['genero'] ?? null,
+            'estado_civil' => $data['estado_civil'] ?? null,
+            'nivel_educativo' => $data['nivel_educativo'] ?? null,
+            'contacto_emergencia_nombre' => $data['contacto_emergencia_nombre'] ?? null,
+            'contacto_emergencia_telf' => $data['contacto_emergencia_telf'] ?? null,
+            'tipo_sangre' => $data['tipo_sangre'] ?? null,
             'updated_by' => $userId,
         ];
+
+        if ($this->hasColumn('terceros_empleados', 'created_by')) {
+            $params['created_by'] = $userId;
+        }
 
         if ($tieneCumpleanos) {
             $params['recordar_cumpleanos'] = !empty($data['recordar_cumpleanos']) ? 1 : 0;
