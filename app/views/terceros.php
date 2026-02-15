@@ -270,6 +270,10 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="crear-tab-contacto" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-contacto" type="button" role="tab" aria-controls="crear-tab-pane-contacto" aria-selected="false">Contacto</button>
                         </li>
+                        <li class="nav-item d-none" id="crearTabComercialItem" role="presentation">
+                            <button class="nav-link" id="crear-tab-comercial" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-comercial" type="button" role="tab" aria-controls="crear-tab-pane-comercial" aria-selected="false">Comercial y Finanzas</button>
+                        </li>
+                        <li class="nav-item d-none" id="crearTabEmpleadoItem" role="presentation">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="crear-tab-comercial" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-comercial" type="button" role="tab" aria-controls="crear-tab-pane-comercial" aria-selected="false">Comercial y Finanzas</button>
                         </li>
