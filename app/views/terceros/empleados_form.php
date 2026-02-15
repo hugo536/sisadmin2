@@ -6,14 +6,66 @@ $today = date('Y-m-d');
 ?>
 <h6 class="fw-bold mb-3 text-success">Datos Laborales</h6>
 <div class="row g-3">
+    <div class="col-12">
+        <h6 class="text-uppercase text-muted small mb-1">Bloque 1: Perfil Personal</h6>
+        <hr class="mt-0 mb-2">
+    </div>
+    <div class="col-md-4 d-none" id="<?php echo $prefix; ?>FechaNacimientoWrapper">
+        <div class="form-floating">
+            <input type="date" class="form-control" name="fecha_nacimiento" id="<?php echo $prefix; ?>FechaNacimiento" max="<?php echo $today; ?>" disabled>
+            <label for="<?php echo $prefix; ?>FechaNacimiento">Fecha de Nacimiento</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-floating">
+            <select class="form-select" name="genero" id="<?php echo $prefix; ?>Genero">
+                <option value="">Seleccionar...</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+                <option value="Otro">Otro</option>
+            </select>
+            <label for="<?php echo $prefix; ?>Genero">Género</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-floating">
+            <select class="form-select" name="estado_civil" id="<?php echo $prefix; ?>EstadoCivil">
+                <option value="">Seleccionar...</option>
+                <option value="Soltero">Soltero</option>
+                <option value="Casado">Casado</option>
+                <option value="Divorciado">Divorciado</option>
+                <option value="Viudo">Viudo</option>
+                <option value="Conviviente">Conviviente</option>
+            </select>
+            <label for="<?php echo $prefix; ?>EstadoCivil">Estado Civil</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-floating">
+            <input type="text" class="form-control" name="nivel_educativo" id="<?php echo $prefix; ?>NivelEducativo" placeholder="Nivel educativo">
+            <label for="<?php echo $prefix; ?>NivelEducativo">Nivel Educativo / Grado</label>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>RecordarCumpleanos" name="recordar_cumpleanos" value="1" style="margin-top: 0;">
+            <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>RecordarCumpleanos">Recordar cumpleaños</label>
+        </div>
+    </div>
+
+    <div class="col-12 mt-4">
+        <h6 class="text-uppercase text-muted small mb-1">Bloque 2: Contrato y Cargo</h6>
+        <hr class="mt-0 mb-2">
+    </div>
     <div class="col-md-4">
         <div class="form-floating">
             <select class="form-select" name="cargo" id="<?php echo $prefix; ?>Cargo">
                 <option value="" disabled selected>Seleccione Cargo...</option>
-                <?php if(empty($cargos_list)): ?>
+                <?php if (empty($cargos_list)): ?>
                     <option value="" disabled>-- No hay cargos registrados --</option>
                 <?php else: ?>
-                    <?php foreach($cargos_list as $c): ?>
+                    <?php foreach ($cargos_list as $c): ?>
                         <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -25,10 +77,10 @@ $today = date('Y-m-d');
         <div class="form-floating">
             <select class="form-select" name="area" id="<?php echo $prefix; ?>Area">
                 <option value="" disabled selected>Seleccione Área...</option>
-                <?php if(empty($areas_list)): ?>
+                <?php if (empty($areas_list)): ?>
                     <option value="" disabled>-- No hay áreas registradas --</option>
                 <?php else: ?>
-                    <?php foreach($areas_list as $a): ?>
+                    <?php foreach ($areas_list as $a): ?>
                         <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -49,32 +101,19 @@ $today = date('Y-m-d');
             <label for="<?php echo $prefix; ?>TipoContrato">Tipo de Contrato</label>
         </div>
     </div>
-
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="form-floating">
             <input type="date" class="form-control" name="fecha_ingreso" id="<?php echo $prefix; ?>FechaIngreso">
             <label for="<?php echo $prefix; ?>FechaIngreso">Fecha de Ingreso</label>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="form-floating">
             <input type="date" class="form-control" name="fecha_cese" id="<?php echo $prefix; ?>FechaCese" disabled>
             <label for="<?php echo $prefix; ?>FechaCese">Fecha de Cese</label>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>RecordarCumpleanos" name="recordar_cumpleanos" value="1" style="margin-top: 0;">
-            <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>RecordarCumpleanos">Recordar cumpleaños</label>
-        </div>
-    </div>
-    <div class="col-md-4 d-none" id="<?php echo $prefix; ?>FechaNacimientoWrapper">
-        <div class="form-floating">
-            <input type="date" class="form-control" name="fecha_nacimiento" id="<?php echo $prefix; ?>FechaNacimiento" max="<?php echo $today; ?>" disabled>
-            <label for="<?php echo $prefix; ?>FechaNacimiento">Fecha de Nacimiento</label>
-        </div>
-    </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="form-floating">
             <select class="form-select" name="estado_laboral" id="<?php echo $prefix; ?>EstadoLaboral">
                 <option value="activo" selected>Activo</option>
@@ -84,7 +123,6 @@ $today = date('Y-m-d');
             <label for="<?php echo $prefix; ?>EstadoLaboral">Estado Laboral</label>
         </div>
     </div>
-
     <div class="col-md-3">
         <div class="form-floating">
             <select class="form-select" name="moneda" id="<?php echo $prefix; ?>Moneda">
@@ -100,31 +138,11 @@ $today = date('Y-m-d');
             <label for="<?php echo $prefix; ?>SueldoBasico">Sueldo Básico</label>
         </div>
     </div>
-    <div class="col-md-5">
-        <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>AsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
-            <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>AsignacionFamiliar">Asignación Familiar (Hijos)</label>
-        </div>
-    </div>
 
-    <div class="col-md-6">
-        <div class="form-floating">
-            <select class="form-select" name="tipo_pago" id="<?php echo $prefix; ?>TipoPago">
-                <option value="">Seleccionar...</option>
-                <option value="MENSUAL">Mensual</option>
-                <option value="QUINCENAL">Quincenal</option>
-                <option value="DIARIO">Diario</option>
-            </select>
-            <label for="<?php echo $prefix; ?>TipoPago">Frecuencia Pago</label>
-        </div>
+    <div class="col-12 mt-4">
+        <h6 class="text-uppercase text-muted small mb-1">Bloque 3: Régimen y Seguridad Social</h6>
+        <hr class="mt-0 mb-2">
     </div>
-    <div class="col-md-6">
-        <div class="form-floating">
-            <input type="number" step="0.01" class="form-control" name="pago_diario" id="<?php echo $prefix; ?>PagoDiario" placeholder="0.00">
-            <label for="<?php echo $prefix; ?>PagoDiario">Pago Diario (si aplica)</label>
-        </div>
-    </div>
-
     <div class="col-md-4">
         <div class="form-floating">
             <select class="form-select" name="regimen_pensionario" id="<?php echo $prefix; ?>Regimen">
@@ -154,11 +172,56 @@ $today = date('Y-m-d');
             <label for="<?php echo $prefix; ?>Cuspp">CUSPP (Código AFP)</label>
         </div>
     </div>
-
-    <div class="col-md-12">
+    <div class="col-md-6">
+        <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>AsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
+            <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>AsignacionFamiliar">Asignación Familiar (Hijos)</label>
+        </div>
+    </div>
+    <div class="col-md-6">
         <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
             <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>Essalud" name="essalud" value="1" style="margin-top: 0;">
             <label class="form-check-label small" for="<?php echo $prefix; ?>Essalud">Aportante EsSalud (9%)</label>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-floating">
+            <select class="form-select" name="tipo_pago" id="<?php echo $prefix; ?>TipoPago">
+                <option value="">Seleccionar...</option>
+                <option value="MENSUAL">Mensual</option>
+                <option value="QUINCENAL">Quincenal</option>
+                <option value="DIARIO">Diario</option>
+            </select>
+            <label for="<?php echo $prefix; ?>TipoPago">Frecuencia Pago</label>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-floating">
+            <input type="number" step="0.01" class="form-control" name="pago_diario" id="<?php echo $prefix; ?>PagoDiario" placeholder="0.00">
+            <label for="<?php echo $prefix; ?>PagoDiario">Pago Diario (si aplica)</label>
+        </div>
+    </div>
+
+    <div class="col-12 mt-4">
+        <h6 class="text-uppercase text-muted small mb-1">Bloque 4: Seguridad y Emergencia (SST)</h6>
+        <hr class="mt-0 mb-2">
+    </div>
+    <div class="col-md-5">
+        <div class="form-floating">
+            <input type="text" class="form-control" name="contacto_emergencia_nombre" id="<?php echo $prefix; ?>ContactoEmergenciaNombre" placeholder="Nombre de contacto">
+            <label for="<?php echo $prefix; ?>ContactoEmergenciaNombre">Contacto de Emergencia</label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-floating">
+            <input type="text" class="form-control" name="contacto_emergencia_telf" id="<?php echo $prefix; ?>ContactoEmergenciaTelf" placeholder="Teléfono de emergencia">
+            <label for="<?php echo $prefix; ?>ContactoEmergenciaTelf">Teléfono de Emergencia</label>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="form-floating">
+            <input type="text" class="form-control" name="tipo_sangre" id="<?php echo $prefix; ?>TipoSangre" placeholder="O+" maxlength="5">
+            <label for="<?php echo $prefix; ?>TipoSangre">Tipo de Sangre</label>
         </div>
     </div>
 </div>

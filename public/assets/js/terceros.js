@@ -1070,6 +1070,11 @@
                 // Asegurar que campos se reseteen al estado inicial (activo)
                 updateLaboralState(form);
             }
+
+            const firstTab = document.querySelector('#crearTerceroTabs button[data-bs-target="#crear-tab-pane-identificacion"]');
+            if (firstTab && window.bootstrap?.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(firstTab).show();
+            }
             
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
             
@@ -1159,6 +1164,12 @@
                 'editFechaIngreso': 'data-fecha-ingreso',
                 'editFechaCese': 'data-fecha-cese',
                 'editFechaNacimiento': 'data-fecha-nacimiento',
+                'editGenero': 'data-genero',
+                'editEstadoCivil': 'data-estado-civil',
+                'editNivelEducativo': 'data-nivel-educativo',
+                'editContactoEmergenciaNombre': 'data-contacto-emergencia-nombre',
+                'editContactoEmergenciaTelf': 'data-contacto-emergencia-telf',
+                'editTipoSangre': 'data-tipo-sangre',
                 'editEstadoLaboral': 'data-estado-laboral',
                 'editMoneda': 'data-moneda',
                 'editSueldoBasico': 'data-sueldo-basico',

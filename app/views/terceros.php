@@ -197,6 +197,12 @@
                                             data-fecha-cese="<?php echo htmlspecialchars($tercero['fecha_cese'] ?? ''); ?>"
                                             data-recordar-cumpleanos="<?php echo (int) ($tercero['recordar_cumpleanos'] ?? 0); ?>"
                                             data-fecha-nacimiento="<?php echo htmlspecialchars($tercero['fecha_nacimiento'] ?? ''); ?>"
+                                            data-genero="<?php echo htmlspecialchars($tercero['genero'] ?? ''); ?>"
+                                            data-estado-civil="<?php echo htmlspecialchars($tercero['estado_civil'] ?? ''); ?>"
+                                            data-nivel-educativo="<?php echo htmlspecialchars($tercero['nivel_educativo'] ?? ''); ?>"
+                                            data-contacto-emergencia-nombre="<?php echo htmlspecialchars($tercero['contacto_emergencia_nombre'] ?? ''); ?>"
+                                            data-contacto-emergencia-telf="<?php echo htmlspecialchars($tercero['contacto_emergencia_telf'] ?? ''); ?>"
+                                            data-tipo-sangre="<?php echo htmlspecialchars($tercero['tipo_sangre'] ?? ''); ?>"
                                             data-estado-laboral="<?php echo htmlspecialchars($tercero['estado_laboral'] ?? ''); ?>"
                                             data-moneda="<?php echo htmlspecialchars($tercero['moneda'] ?? 'PEN'); ?>"
                                             data-sueldo-basico="<?php echo (float) ($tercero['sueldo_basico'] ?? 0); ?>"
@@ -257,187 +263,203 @@
             <form id="formCrearTercero" method="POST" novalidate>
                 <input type="hidden" name="accion" value="crear">
                 <div class="modal-body p-4">
-                    <div class="row g-3">
-                        <!-- Roles -->
-                        <div class="col-12">
-                            <div class="border rounded-3 p-3 bg-light">
-                                <label class="form-label fw-semibold mb-2">Roles <span class="text-danger">*</span></label>
-                                <div class="d-flex flex-wrap gap-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input role-checkbox" type="checkbox" id="crearEsCliente" name="es_cliente" value="1">
-                                        <label class="form-check-label" for="crearEsCliente">Cliente</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input role-checkbox" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1">
-                                        <label class="form-check-label" for="crearEsProveedor">Proveedor</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input role-checkbox" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1">
-                                        <label class="form-check-label" for="crearEsEmpleado">Empleado</label>
-                                    </div>
-                                </div>
-                                <div class="invalid-feedback d-none" id="crearRolesFeedback">Seleccione al menos un rol.</div>
-                            </div>
-                        </div>
+                    <ul class="nav nav-tabs mb-3" id="crearTerceroTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="crear-tab-identificacion" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-identificacion" type="button" role="tab" aria-controls="crear-tab-pane-identificacion" aria-selected="true">Identificación</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="crear-tab-contacto" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-contacto" type="button" role="tab" aria-controls="crear-tab-pane-contacto" aria-selected="false">Contacto</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="crear-tab-comercial" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-comercial" type="button" role="tab" aria-controls="crear-tab-pane-comercial" aria-selected="false">Comercial y Finanzas</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="crear-tab-empleado" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-empleado" type="button" role="tab" aria-controls="crear-tab-pane-empleado" aria-selected="false">Empleado</button>
+                        </li>
+                    </ul>
 
-                        <!-- Tipo Persona / Documento -->
-                        <div class="col-md-3">
-                            <div class="form-floating">
-                                <select class="form-select" name="tipo_persona" id="crearTipoPersona" required>
-                                    <option value="" selected>Seleccionar...</option>
-                                    <option value="NATURAL">Natural</option>
-                                    <option value="JURIDICA">JURÍDICA</option>
-                                </select>
-                                <label for="crearTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-floating">
-                                <select class="form-select" name="tipo_documento" id="crearTipoDoc" required>
-                                    <option value="" selected>Seleccionar...</option>
-                                    <option value="DNI">DNI</option>
-                                    <option value="RUC">RUC</option>
-                                    <option value="CE">CE</option>
-                                    <option value="PASAPORTE">Pasaporte</option>
-                                </select>
-                                <label for="crearTipoDoc">Tipo documento <span class="text-danger">*</span></label>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
-                                <label for="crearNumeroDoc">Número <span class="text-danger">*</span></label>
-                                <div class="invalid-feedback">Ingrese un número válido.</div>
-                            </div>
-                        </div>
-
-                        <!-- Nombre / Dirección / Email -->
-                        <div class="col-md-12">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="nombre_completo" id="crearNombre" placeholder="Nombre completo" required>
-                                <label for="crearNombre" id="crearNombreLabel">Nombre completo <span class="text-danger">*</span></label>
-                            </div>
-                        </div>
-                        <div class="col-md-12 representante-legal-section d-none" id="crearRepresentanteLegalSection">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante legal / Encargado">
-                                <label for="crearRepresentanteLegal">Representante legal / Encargado <span class="text-danger">*</span></label>
-                                <div class="invalid-feedback">Representante legal es obligatorio para empresas.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" name="direccion" id="crearDireccion" placeholder="Dirección">
-                                <label for="crearDireccion">Dirección</label>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-floating">
-                                <input type="email" class="form-control" name="email" id="crearEmail" placeholder="Correo electrónico">
-                                <label for="crearEmail">Email</label>
-                            </div>
-                        </div>
-
-                        <!-- Ubigeo -->
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold">Ubicación</label>
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="departamento" id="crearDepartamento">
-                                            <option value="">Seleccionar departamento...</option>
-                                            <?php foreach ($departamentos_list as $dep): ?>
-                                                <option value="<?php echo (int) $dep['id']; ?>">
-                                                    <?php echo htmlspecialchars($dep['nombre']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <label for="crearDepartamento">Departamento</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="provincia" id="crearProvincia" disabled>
-                                            <option value="">Primero seleccione departamento</option>
-                                        </select>
-                                        <label for="crearProvincia">Provincia</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-floating">
-                                        <select class="form-select" name="distrito" id="crearDistrito" disabled>
-                                            <option value="">Primero seleccione provincia</option>
-                                        </select>
-                                        <label for="crearDistrito">Distrito</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Teléfonos -->
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Teléfonos</label>
-                            <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarTelefono">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar teléfono
-                            </button>
-                        </div>
-
-                        <!-- Observaciones -->
-                        <div class="col-12">
-                            <div class="form-floating">
-                                <textarea class="form-control" name="observaciones" id="crearObservaciones" style="height: 80px;"></textarea>
-                                <label for="crearObservaciones">Observaciones</label>
-                            </div>
-                        </div>
-
-                        <!-- Cuentas Bancarias -->
-                        <div class="col-12" id="crearCuentasBancariasSection">
-                            <hr class="my-3">
-                            <h6 class="fw-bold mb-1">Cuentas Bancarias / Billeteras Digitales</h6>
-                            <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
-                            </button>
-                        </div>
-
-                        <!-- Estado -->
-                        <div class="col-md-4">
-                            <div class="form-floating">
-                                <select class="form-select" name="estado" id="crearEstado">
-                                    <option value="1" selected>Activo</option>
-                                    <option value="0">Inactivo</option>
-                                </select>
-                                <label for="crearEstado">Estado</label>
-                            </div>
-                        </div>
-
-                        <!-- Campos Comerciales -->
-                        <div class="col-12 comercial-fields d-none" id="crearComercialFields">
-                            <hr class="my-3">
-                            <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
+                    <div class="tab-content" id="crearTerceroTabsContent">
+                        <div class="tab-pane fade show active" id="crear-tab-pane-identificacion" role="tabpanel" aria-labelledby="crear-tab-identificacion" tabindex="0">
                             <div class="row g-3">
-                                <div class="col-md-6 border-end" id="crearComercialClienteSection">
-                                    <?php $prefix = 'crear'; ?>
-                                    <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
+                                <div class="col-12">
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <label class="form-label fw-semibold mb-2">Roles <span class="text-danger">*</span></label>
+                                        <div class="d-flex flex-wrap gap-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input role-checkbox" type="checkbox" id="crearEsCliente" name="es_cliente" value="1">
+                                                <label class="form-check-label" for="crearEsCliente">Cliente</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input role-checkbox" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1">
+                                                <label class="form-check-label" for="crearEsProveedor">Proveedor</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input role-checkbox" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1">
+                                                <label class="form-check-label" for="crearEsEmpleado">Empleado</label>
+                                            </div>
+                                        </div>
+                                        <div class="invalid-feedback d-none" id="crearRolesFeedback">Seleccione al menos un rol.</div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6" id="crearComercialProveedorSection">
-                                    <?php $prefix = 'crear'; ?>
-                                    <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
+
+                                <div class="col-md-3">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="tipo_persona" id="crearTipoPersona" required>
+                                            <option value="" selected>Seleccionar...</option>
+                                            <option value="NATURAL">Natural</option>
+                                            <option value="JURIDICA">JURÍDICA</option>
+                                        </select>
+                                        <label for="crearTipoPersona">Tipo de persona <span class="text-danger">*</span></label>
+                                    </div>
                                 </div>
-                                <div class="col-12" id="crearComercialDistribuidorSection">
-                                    <?php $prefix = 'crear'; ?>
-                                    <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
+                                <div class="col-md-3">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="tipo_documento" id="crearTipoDoc" required>
+                                            <option value="" selected>Seleccionar...</option>
+                                            <option value="DNI">DNI</option>
+                                            <option value="RUC">RUC</option>
+                                            <option value="CE">CE</option>
+                                            <option value="PASAPORTE">Pasaporte</option>
+                                        </select>
+                                        <label for="crearTipoDoc">Tipo documento <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
+                                        <label for="crearNumeroDoc">Número <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Ingrese un número válido.</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-12">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="nombre_completo" id="crearNombre" placeholder="Nombre completo" required>
+                                        <label for="crearNombre" id="crearNombreLabel">Nombre completo <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12 representante-legal-section d-none" id="crearRepresentanteLegalSection">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante legal / Encargado">
+                                        <label for="crearRepresentanteLegal">Representante legal / Encargado <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback">Representante legal es obligatorio para empresas.</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Campos Laborales (COMPLETOS Y ACOMODADOS) -->
-                        <div class="col-12 laboral-fields d-none" id="crearLaboralFields">
-                            <hr class="my-3">
-                            <?php $prefix = 'crear'; ?>
-                            <?php require __DIR__ . '/terceros/empleados_form.php'; ?>
+                        <div class="tab-pane fade" id="crear-tab-pane-contacto" role="tabpanel" aria-labelledby="crear-tab-contacto" tabindex="0">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="direccion" id="crearDireccion" placeholder="Dirección">
+                                        <label for="crearDireccion">Dirección</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="email" class="form-control" name="email" id="crearEmail" placeholder="Correo electrónico">
+                                        <label for="crearEmail">Email</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-12">
+                                    <label class="form-label fw-semibold">Ubicación</label>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <div class="form-floating">
+                                                <select class="form-select" name="departamento" id="crearDepartamento">
+                                                    <option value="">Seleccionar departamento...</option>
+                                                    <?php foreach ($departamentos_list as $dep): ?>
+                                                        <option value="<?php echo (int) $dep['id']; ?>">
+                                                            <?php echo htmlspecialchars($dep['nombre']); ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <label for="crearDepartamento">Departamento</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-floating">
+                                                <select class="form-select" name="provincia" id="crearProvincia" disabled>
+                                                    <option value="">Primero seleccione departamento</option>
+                                                </select>
+                                                <label for="crearProvincia">Provincia</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-floating">
+                                                <select class="form-select" name="distrito" id="crearDistrito" disabled>
+                                                    <option value="">Primero seleccione provincia</option>
+                                                </select>
+                                                <label for="crearDistrito">Distrito</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Teléfonos</label>
+                                    <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarTelefono">
+                                        <i class="bi bi-plus-circle me-1"></i>Agregar teléfono
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="crear-tab-pane-comercial" role="tabpanel" aria-labelledby="crear-tab-comercial" tabindex="0">
+                            <div class="row g-3">
+                                <div class="col-12" id="crearCuentasBancariasSection">
+                                    <h6 class="fw-bold mb-1">Cuentas Bancarias / Billeteras Digitales</h6>
+                                    <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="crearAgregarCuenta">
+                                        <i class="bi bi-plus-circle me-1"></i>Agregar cuenta / billetera
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        <select class="form-select" name="estado" id="crearEstado">
+                                            <option value="1" selected>Activo</option>
+                                            <option value="0">Inactivo</option>
+                                        </select>
+                                        <label for="crearEstado">Estado</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 comercial-fields d-none" id="crearComercialFields">
+                                    <h6 class="fw-bold mb-3 text-primary">Datos Comerciales</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6 border-end" id="crearComercialClienteSection">
+                                            <?php $prefix = 'crear'; ?>
+                                            <?php require __DIR__ . '/terceros/clientes_form.php'; ?>
+                                        </div>
+                                        <div class="col-md-6" id="crearComercialProveedorSection">
+                                            <?php $prefix = 'crear'; ?>
+                                            <?php require __DIR__ . '/terceros/proveedores_form.php'; ?>
+                                        </div>
+                                        <div class="col-12" id="crearComercialDistribuidorSection">
+                                            <?php $prefix = 'crear'; ?>
+                                            <?php require __DIR__ . '/terceros/distribuidores_form.php'; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="crear-tab-pane-empleado" role="tabpanel" aria-labelledby="crear-tab-empleado" tabindex="0">
+                            <div class="row g-3">
+                                <div class="col-12 laboral-fields d-none" id="crearLaboralFields">
+                                    <?php $prefix = 'crear'; ?>
+                                    <?php require __DIR__ . '/terceros/empleados_form.php'; ?>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating">
+                                        <textarea class="form-control" name="observaciones" id="crearObservaciones" style="height: 80px;"></textarea>
+                                        <label for="crearObservaciones">Observaciones</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
