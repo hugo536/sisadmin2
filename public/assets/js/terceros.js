@@ -1070,6 +1070,11 @@
                 // Asegurar que campos se reseteen al estado inicial (activo)
                 updateLaboralState(form);
             }
+
+            const firstTab = document.querySelector('#crearTerceroTabs button[data-bs-target="#crear-tab-pane-identificacion"]');
+            if (firstTab && window.bootstrap?.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(firstTab).show();
+            }
             
             document.getElementById('crearRolesFeedback')?.classList.add('d-none');
             
@@ -1101,6 +1106,7 @@
             );
             window.TercerosClientes?.setDistribuidorZones('crear', []);
             toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
+            syncCreateRoleTabs();
             togglePagoFields(document.getElementById('crearTipoPago'));
             toggleRegimenFields(document.getElementById('crearRegimen'), form);
             toggleRepresentanteLegal(form, 'crear');
@@ -1116,6 +1122,32 @@
                 form, 'crearRolesFeedback', []
             );
         });
+    }
+
+    function syncCreateRoleTabs() {
+        const cliente = document.getElementById('crearEsCliente')?.checked;
+        const proveedor = document.getElementById('crearEsProveedor')?.checked;
+        const empleado = document.getElementById('crearEsEmpleado')?.checked;
+
+        const comercialTabItem = document.getElementById('crearTabComercialItem');
+        const empleadoTabItem = document.getElementById('crearTabEmpleadoItem');
+        const comercialTabBtn = document.getElementById('crear-tab-comercial');
+        const empleadoTabBtn = document.getElementById('crear-tab-empleado');
+        const identificacionTabBtn = document.getElementById('crear-tab-identificacion');
+
+        const showComercial = Boolean(cliente || proveedor);
+        const showEmpleado = Boolean(empleado);
+
+        comercialTabItem?.classList.toggle('d-none', !showComercial);
+        empleadoTabItem?.classList.toggle('d-none', !showEmpleado);
+
+        const comercialActive = comercialTabBtn?.classList.contains('active');
+        const empleadoActive = empleadoTabBtn?.classList.contains('active');
+        if ((!showComercial && comercialActive) || (!showEmpleado && empleadoActive)) {
+            if (identificacionTabBtn && window.bootstrap?.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(identificacionTabBtn).show();
+            }
+        }
     }
 
     function initEditModal() {
@@ -1159,6 +1191,12 @@
                 'editFechaIngreso': 'data-fecha-ingreso',
                 'editFechaCese': 'data-fecha-cese',
                 'editFechaNacimiento': 'data-fecha-nacimiento',
+                'editGenero': 'data-genero',
+                'editEstadoCivil': 'data-estado-civil',
+                'editNivelEducativo': 'data-nivel-educativo',
+                'editContactoEmergenciaNombre': 'data-contacto-emergencia-nombre',
+                'editContactoEmergenciaTelf': 'data-contacto-emergencia-telf',
+                'editTipoSangre': 'data-tipo-sangre',
                 'editEstadoLaboral': 'data-estado-laboral',
                 'editMoneda': 'data-moneda',
                 'editSueldoBasico': 'data-sueldo-basico',
@@ -1266,6 +1304,7 @@
             const esEmpleado = document.getElementById(`${prefix}EsEmpleado`);
             if(esEmpleado) esEmpleado.addEventListener('change', () => {
                 toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`), form);
+                if (prefix === 'crear') syncCreateRoleTabs();
                 refreshValidationOnChange(form, fbId);
             });
 
@@ -1280,6 +1319,7 @@
                     document.getElementById(`${prefix}ComercialProveedorSection`),
                     document.getElementById(`${prefix}ComercialDistribuidorSection`)
                 );
+                if (prefix === 'crear') syncCreateRoleTabs();
                 refreshValidationOnChange(form, fbId);
             };
             if(esCliente) esCliente.addEventListener('change', updateCom);

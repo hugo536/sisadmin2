@@ -691,6 +691,12 @@ class TercerosController extends Controlador
         $prepared['zonas_exclusivas']      = $zonasLimpias;
         $prepared['recordar_cumpleanos']    = $recordarCumpleanos ? 1 : 0;
         $prepared['fecha_nacimiento']        = $fechaNacimientoNormalizada;
+        $prepared['genero']                  = trim((string) ($data['genero'] ?? ''));
+        $prepared['estado_civil']            = trim((string) ($data['estado_civil'] ?? ''));
+        $prepared['nivel_educativo']         = trim((string) ($data['nivel_educativo'] ?? ''));
+        $prepared['contacto_emergencia_nombre'] = trim((string) ($data['contacto_emergencia_nombre'] ?? ''));
+        $prepared['contacto_emergencia_telf']   = trim((string) ($data['contacto_emergencia_telf'] ?? ''));
+        $prepared['tipo_sangre']             = strtoupper(trim((string) ($data['tipo_sangre'] ?? '')));
 
         return $prepared;
     }
