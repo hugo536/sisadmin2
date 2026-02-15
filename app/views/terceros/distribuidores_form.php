@@ -1,52 +1,68 @@
-<?php
-$prefix = $prefix ?? 'crear';
-?>
-<h6 class="small text-muted fw-bold mb-2">DISTRIBUIDOR</h6>
-<div class="mt-2">
-    <div class="form-check form-switch p-2 border rounded bg-white d-flex align-items-center">
-        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>EsDistribuidor" name="es_distribuidor" value="1" style="margin-top: 0;">
-        <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>EsDistribuidor">Es Distribuidor Autorizado</label>
-    </div>
-</div>
+<?php $p = $prefix ?? 'crear'; ?>
 
-<div class="border rounded-3 p-3 bg-light mt-3 d-none" id="<?php echo $prefix; ?>DistribuidorFields">
-    <h6 class="small text-muted fw-bold mb-3">ZONAS EXCLUSIVAS</h6>
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-lg-4">
-            <label class="form-label">Departamento <span class="text-danger">*</span></label>
-            <select class="form-select" id="<?php echo $prefix; ?>ZonaDepartamento">
-                <option value="">Seleccionar...</option>
-            </select>
-        </div>
-        <div class="col-12 col-lg-4">
-            <label class="form-label">Provincia</label>
-            <select class="form-select" id="<?php echo $prefix; ?>ZonaProvincia" disabled>
-                <option value="">Seleccionar...</option>
-            </select>
-        </div>
-        <div class="col-12 col-lg-4">
-            <label class="form-label">Distrito</label>
-            <select class="form-select" id="<?php echo $prefix; ?>ZonaDistrito" disabled>
-                <option value="">Seleccionar...</option>
-            </select>
-        </div>
-        <div class="col-12 d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-outline-primary" id="<?php echo $prefix; ?>AgregarZonaBtn">
-                <i class="bi bi-plus-circle me-1"></i>Agregar zona
-            </button>
-        </div>
+<div id="<?php echo $p; ?>DistribuidorFields">
+    <div class="alert alert-light border shadow-sm mb-3">
+        <i class="bi bi-geo-alt-fill text-danger me-2"></i>
+        <strong>Zonas Exclusivas:</strong> Defina las ubicaciones geográficas donde este distribuidor tiene exclusividad operativa.
     </div>
 
-    <div class="table-responsive mt-3">
-        <table class="table table-sm align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Zona</th>
-                    <th>Estado</th>
-                    <th class="text-end" style="width:90px;">Acción</th>
-                </tr>
-            </thead>
-            <tbody id="<?php echo $prefix; ?>ZonasList"></tbody>
-        </table>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body bg-light-subtle">
+            <div class="row g-2 mb-3">
+                <div class="col-12 col-md-4">
+                    <div class="form-floating">
+                        <select class="form-select" id="<?php echo $p; ?>ZonaDepartamento">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                        <label for="<?php echo $p; ?>ZonaDepartamento">Departamento</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="form-floating">
+                        <select class="form-select" id="<?php echo $p; ?>ZonaProvincia" disabled>
+                            <option value="">Seleccionar...</option>
+                        </select>
+                        <label for="<?php echo $p; ?>ZonaProvincia">Provincia</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="form-floating">
+                        <select class="form-select" id="<?php echo $p; ?>ZonaDistrito" disabled>
+                            <option value="">Seleccionar...</option>
+                        </select>
+                        <label for="<?php echo $p; ?>ZonaDistrito">Distrito (Opcional)</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-outline-primary" id="<?php echo $p; ?>AgregarZonaBtn">
+                    <i class="bi bi-plus-lg me-2"></i>Agregar Zona
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Zona Geográfica</th>
+                            <th style="width: 120px;">Estado</th>
+                            <th class="text-end pe-3" style="width: 80px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="<?php echo $p; ?>ZonasList">
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-3 small">
+                                No hay zonas asignadas. Seleccione ubicación arriba y pulse "Agregar".
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

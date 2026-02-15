@@ -1,70 +1,28 @@
 (function () {
     'use strict';
 
+    // Configuraciones y Constantes
     const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
-
     const ENTIDADES_FINANCIERAS = {
-        Banco: ['BCP', 'Interbank', 'BBVA Continental', 'Scotiabank', 'Banco de la Nación', 'BanBif', 'Pichincha'],
+        Banco: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco de la Nación', 'BanBif', 'Pichincha'],
         Caja: ['Caja Arequipa', 'Caja Huancayo', 'Caja Piura', 'Caja Trujillo', 'Caja Sullana', 'Caja Tacna', 'Caja Ica'],
-        'Billetera Digital': ['Yape', 'Plin', 'Tunki', 'Bim', 'Lukita', 'Mercado Pago', 'Otros'],
+        'Billetera Digital': ['Yape', 'Plin', 'Tunki', 'Bim', 'Lukita', 'Mercado Pago'],
         Otros: []
     };
-
-    const TIPOS_CUENTA_BANCO = ['Ahorros', 'Corriente', 'CTS', 'Detracción', 'Sueldo', 'Otros'];
-    const TIPOS_CUENTA_BILLETERA = ['N/A', 'Personal', 'Empresarial'];
+    const TIPOS_CUENTA_BANCO = ['Ahorros', 'Corriente', 'CTS', 'Detracción', 'Sueldo'];
+    const TIPOS_CUENTA_BILLETERA = ['Personal', 'Empresarial'];
 
     // =========================================================================
-    // UTILIDADES GENERALES
+    // 1. UTILIDADES
     // =========================================================================
-
 
     async function parseJsonResponse(response) {
-        const contentType = response.headers.get('content-type') || '';
-        const bodyText = await response.text();
-
-        if (!bodyText) {
-            return { ok: response.ok, data: {} };
-        }
-
-        if (contentType.includes('application/json')) {
-            return { ok: response.ok, data: JSON.parse(bodyText) };
-        }
-
+        const text = await response.text();
         try {
-            return { ok: response.ok, data: JSON.parse(bodyText) };
-        } catch (error) {
-            const plainText = bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            const details = plainText ? `Respuesta del servidor: ${plainText.slice(0, 180)}` : 'El servidor devolvió una respuesta no válida.';
-            throw new Error(`No se pudo procesar la respuesta del servidor. ${details}`);
+            return { ok: response.ok, data: JSON.parse(text) };
+        } catch (e) {
+            return { ok: false, data: { mensaje: 'Error respuesta servidor: ' + text.substring(0, 50) } };
         }
-    }
-
-    function getFeedbackElement(input) {
-        if (!input) return null;
-        const floatingFeedback = input.closest('.form-floating')?.querySelector('.invalid-feedback');
-        if (floatingFeedback) return floatingFeedback;
-        const inputGroup = input.closest('.input-group');
-        if (inputGroup && inputGroup.nextElementSibling?.classList.contains('invalid-feedback')) {
-            return inputGroup.nextElementSibling;
-        }
-        const parentFeedback = input.parentElement?.querySelector('.invalid-feedback');
-        if (parentFeedback) return parentFeedback;
-        if (input.nextElementSibling?.classList.contains('invalid-feedback')) return input.nextElementSibling;
-        return null;
-    }
-
-    function setInvalid(input, message) {
-        if (!input) return;
-        input.classList.add('is-invalid');
-        const feedback = getFeedbackElement(input);
-        if (message && feedback) {
-            feedback.textContent = message;
-        }
-    }
-
-    function clearInvalid(input) {
-        if (!input) return;
-        input.classList.remove('is-invalid');
     }
 
     function sanitizeDigits(value) {
@@ -72,170 +30,80 @@
     }
 
     function normalizeTipoEntidad(value) {
-        const normalized = (value || '').toString().trim().toLowerCase();
-        if (normalized === 'banco') return 'Banco';
-        if (normalized === 'caja') return 'Caja';
-        if (normalized === 'billetera' || normalized === 'billetera digital') return 'Billetera Digital';
-        if (normalized === 'cooperativa' || normalized === 'otro' || normalized === 'otros') return 'Otros';
-        return 'Banco';
+        const v = (value || '').toString().trim();
+        if (v.match(/banco/i)) return 'Banco';
+        if (v.match(/caja/i)) return 'Caja';
+        if (v.match(/billetera/i)) return 'Billetera Digital';
+        return 'Otros';
     }
 
-    function isBilleteraTipo(tipoEntidad) {
-        return normalizeTipoEntidad(tipoEntidad) === 'Billetera Digital';
+    function isBilleteraTipo(tipo) {
+        return normalizeTipoEntidad(tipo) === 'Billetera Digital';
     }
 
-    function isPeruPhone(value) {
-        if (!value) return true;
-        const digits = sanitizeDigits(value);
-        if (digits.startsWith('51')) {
-            return /^51\d{9}$/.test(digits);
-        }
-        return /^9\d{8}$/.test(digits);
+    function setInvalid(input, msg) {
+        if (!input) return;
+        input.classList.add('is-invalid');
+        const feedback = input.nextElementSibling?.classList.contains('invalid-feedback') 
+            ? input.nextElementSibling 
+            : input.parentNode.querySelector('.invalid-feedback');
+        if (feedback) feedback.textContent = msg;
     }
 
-    function isValidEmail(value) {
-        if (!value) return true;
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    }
-
-    function getDocumentoError(tipo, numero) {
-        const valor = (numero || '').trim();
-        if (!valor) return 'Ingrese el número de documento.';
-        
-        if (tipo === 'RUC') {
-            if (!/^\d+$/.test(valor)) return 'El RUC debe contener solo números.';
-            if (sanitizeDigits(valor).length !== 11) return 'El RUC debe tener 11 dígitos.';
-            return null;
-        }
-        if (tipo === 'DNI') {
-            if (!/^\d+$/.test(valor)) return 'El DNI debe contener solo números.';
-            if (sanitizeDigits(valor).length !== 8) return 'El DNI debe tener 8 dígitos.';
-        }
-        return null;
-    }
-
-    function resetFields(containerEl) {
-        if (!containerEl) return;
-        containerEl.querySelectorAll('input, select, textarea').forEach(el => {
-            if (el.type === 'checkbox' || el.type === 'radio') {
-                el.checked = false;
-            } else {
-                el.value = '';
-            }
-            el.classList.remove('is-invalid');
-            el.disabled = false; // Reset disabled state
-        });
-    }
-
-
-    function initSweetConfirmForms() {
-        document.querySelectorAll('.js-swal-confirm').forEach((form) => {
-            form.addEventListener('submit', async (event) => {
-                if (form.dataset.confirmed === '1') {
-                    form.dataset.confirmed = '0';
-                    return;
-                }
-
-                event.preventDefault();
-
-                if (typeof Swal === 'undefined' || typeof Swal.fire !== 'function') {
-                    console.warn('SweetAlert2 no está disponible para confirmar la acción.');
-                    return;
-                }
-
-                const result = await Swal.fire({
-                    icon: 'warning',
-                    title: form.dataset.confirmTitle || '¿Confirmar acción?',
-                    text: form.dataset.confirmText || 'Esta acción no se puede deshacer.',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, eliminar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc3545'
-                });
-
-                if (!result.isConfirmed) return;
-                form.dataset.confirmed = '1';
-                form.requestSubmit();
-            });
-        });
+    function clearInvalid(input) {
+        if (!input) return;
+        input.classList.remove('is-invalid');
     }
 
     // =========================================================================
-    // LÓGICA DE ESTADO LABORAL (Reglas de Negocio)
+    // 2. LÓGICA DE PESTAÑAS DINÁMICAS (CORE)
     // =========================================================================
 
-    function updateLaboralState(form) {
-        if (!form) return;
-        
-        const estadoEl = form.querySelector('[name="estado_laboral"]');
-        if (!estadoEl) return; // Si no es empleado, no existe este campo
+    function syncRoleTabs(prefix) {
+        // Mapeo: ID del Checkbox -> ID de la Pestaña
+        const map = [
+            { check: `${prefix}EsCliente`, tab: `${prefix}-tab-header-cliente` },
+            { check: `${prefix}EsDistribuidor`, tab: `${prefix}-tab-header-distribuidor` },
+            { check: `${prefix}EsProveedor`, tab: `${prefix}-tab-header-proveedor` },
+            { check: `${prefix}EsEmpleado`, tab: `${prefix}-tab-header-empleado` }
+        ];
 
-        const estado = estadoEl.value; // 'activo', 'cesado', 'suspendido'
-        const fechaCese = form.querySelector('[name="fecha_cese"]');
-        
-        // Campos que se bloquean si no está activo
-        // Nota: Incluimos los selects y inputs de la sección económica/pensionaria
-        const fieldsToToggle = form.querySelectorAll(
-            '[name="tipo_pago"], [name="moneda"], [name="sueldo_basico"], ' +
-            '[name="asignacion_familiar"], [name="regimen_pensionario"], ' +
-            '[name="tipo_comision_afp"], [name="cuspp"], [name="essalud"], [name="pago_diario"]'
-        );
+        let activeTabHidden = false;
 
-        if (estado === 'activo') {
-            // Caso Activo: Limpiar y bloquear fecha cese
-            if (fechaCese) {
-                fechaCese.value = '';
-                fechaCese.disabled = true;
-                fechaCese.required = false;
-                clearInvalid(fechaCese);
-            }
+        map.forEach(item => {
+            const checkbox = document.getElementById(item.check);
+            const tabItem = document.getElementById(item.tab);
             
-            // Habilitar campos económicos
-            fieldsToToggle.forEach(el => el.disabled = false);
-            
-            // Re-ejecutar lógicas internas (toggle de pagos y afp) para estado correcto
-            const tipoPago = form.querySelector('[name="tipo_pago"]');
-            if (tipoPago) tipoPago.dispatchEvent(new Event('change'));
-            
-            const regimen = form.querySelector('[name="regimen_pensionario"]');
-            if (regimen) regimen.dispatchEvent(new Event('change'));
-
-        } else {
-            // Caso Cesado o Suspendido
-            if (fechaCese) {
-                fechaCese.disabled = false;
-                if (estado === 'cesado') {
-                    fechaCese.required = true;
+            if (checkbox && tabItem) {
+                const show = checkbox.checked;
+                
+                // Mostrar u ocultar el LI del nav-tab
+                if (show) {
+                    tabItem.classList.remove('d-none');
                 } else {
-                    fechaCese.required = false; // Suspendido puede ser indefinido
+                    tabItem.classList.add('d-none');
+                }
+
+                // Si ocultamos una pestaña que estaba activa, marcamos flag para redirigir
+                const link = tabItem.querySelector('.nav-link');
+                if (!show && link && link.classList.contains('active')) {
+                    activeTabHidden = true;
                 }
             }
+        });
 
-            // Deshabilitar campos económicos (Histórico congelado)
-            fieldsToToggle.forEach(el => el.disabled = true);
-        }
-    }
-
-    function toggleCumpleanosFields(recordarEl, form) {
-        if (!form || !recordarEl) return;
-        const fechaNacimiento = form.querySelector('[name="fecha_nacimiento"]');
-        if (!fechaNacimiento) return;
-
-        const wrapper = fechaNacimiento.closest('[id$="FechaNacimientoWrapper"]') || fechaNacimiento.closest('.col-md-4');
-        const mostrar = recordarEl.checked;
-
-        if (wrapper) wrapper.classList.toggle('d-none', !mostrar);
-        fechaNacimiento.disabled = !mostrar;
-        fechaNacimiento.required = mostrar;
-
-        if (!mostrar) {
-            fechaNacimiento.value = '';
-            clearInvalid(fechaNacimiento);
+        // Si el usuario estaba viendo una pestaña que se acaba de ocultar, lo mandamos a Identificación
+        if (activeTabHidden) {
+            const firstTabBtn = document.getElementById(`${prefix}-tab-identificacion`);
+            if (firstTabBtn) {
+                const tabInstance = bootstrap.Tab.getOrCreateInstance(firstTabBtn);
+                tabInstance.show();
+            }
         }
     }
 
     // =========================================================================
-    // GENERADORES DE FILAS (Teléfonos y Cuentas)
+    // 3. GENERADORES DE FILAS (Teléfonos y Cuentas)
     // =========================================================================
 
     function createRemoveButton(onClick) {
@@ -243,1525 +111,460 @@
         btn.type = 'button';
         btn.className = 'btn btn-outline-danger btn-sm';
         btn.innerHTML = '<i class="bi bi-trash"></i>';
-        btn.title = 'Eliminar';
-        btn.addEventListener('click', onClick);
+        btn.onclick = onClick;
         return btn;
     }
 
-    function buildTelefonoRow({ telefono = '', tipo = '' } = {}, onRemove) {
+    function buildTelefonoRow(data = {}, onRemove) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'input-group mb-2';
+        wrapper.className = 'input-group input-group-sm mb-1';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.name = 'telefonos[]';
+        input.placeholder = 'Número';
+        input.value = data.telefono || '';
 
-        const telefonoInput = document.createElement('input');
-        telefonoInput.type = 'text';
-        telefonoInput.name = 'telefonos[]';
-        telefonoInput.className = 'form-control';
-        telefonoInput.placeholder = 'Número';
-        telefonoInput.value = telefono;
-
-        const tipoSelect = document.createElement('select');
-        tipoSelect.name = 'telefono_tipos[]';
-        tipoSelect.className = 'form-select';
-        ['', 'Móvil', 'Fijo', 'WhatsApp', 'Trabajo'].forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt === '' ? 'Tipo' : opt;
-            if (opt === tipo) option.selected = true;
-            tipoSelect.appendChild(option);
+        const select = document.createElement('select');
+        select.className = 'form-select';
+        select.name = 'telefono_tipos[]';
+        ['Móvil', 'Fijo', 'WhatsApp', 'Trabajo'].forEach(t => {
+            const opt = new Option(t, t);
+            if (t === data.tipo) opt.selected = true;
+            select.add(opt);
         });
 
-        const removeBtn = createRemoveButton(() => {
-            wrapper.remove();
-            if (typeof onRemove === 'function') onRemove();
-        });
-
-        wrapper.appendChild(telefonoInput);
-        wrapper.appendChild(tipoSelect);
-        wrapper.appendChild(removeBtn);
+        wrapper.appendChild(input);
+        wrapper.appendChild(select);
+        wrapper.appendChild(createRemoveButton(() => { wrapper.remove(); if(onRemove) onRemove(); }));
         return wrapper;
     }
 
-    function buildCuentaRow({ 
-        tipo_entidad = '', 
-        entidad = '', 
-        tipo_cuenta = '', 
-        numero_cuenta = '', 
-        cci = '', 
-        titular = '', 
-        alias = '',
-        moneda = 'PEN', 
-        principal = 0, 
-        billetera_digital = 0, 
-        observaciones = '' 
-    } = {}, onRemove) {
-        titular = titular || alias;
+    function buildCuentaRow(data = {}, onRemove) {
+        const card = document.createElement('div');
+        card.className = 'card mb-2 border shadow-sm';
         
-        const wrapper = document.createElement('div');
-        wrapper.className = 'card mb-2 border shadow-sm';
-
-        // Determinar tipo inicial
-        const tipoEntidadVal = normalizeTipoEntidad(tipo_entidad || (Number(billetera_digital) === 1 ? 'Billetera Digital' : 'Banco'));
-
-        const cardBody = document.createElement('div');
-        cardBody.className = 'card-body p-2';
-
+        const tipoEntidadVal = normalizeTipoEntidad(data.tipo_entidad || (data.billetera_digital == 1 ? 'Billetera Digital' : 'Banco'));
+        
+        const body = document.createElement('div');
+        body.className = 'card-body p-2';
+        
         const row = document.createElement('div');
         row.className = 'row g-2 align-items-center';
 
-        // --- COLUMNA 1: TIPO DE ENTIDAD (Banco, Billetera...) ---
-        const colType = document.createElement('div');
-        colType.className = 'col-md-2'; // Más angosto
-        const tipoEntSelect = document.createElement('select');
-        tipoEntSelect.name = 'cuenta_tipo[]';
-        tipoEntSelect.className = 'form-select form-select-sm fw-bold bg-light';
-        TIPOS_ENTIDAD_CUENTA.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt;
-            if (opt === tipoEntidadVal) option.selected = true;
-            tipoEntSelect.appendChild(option);
-        });
-        colType.appendChild(tipoEntSelect);
+        // 1. Tipo Entidad
+        const colType = document.createElement('div'); colType.className = 'col-md-2';
+        const selType = document.createElement('select'); 
+        selType.className = 'form-select form-select-sm fw-bold bg-light';
+        selType.name = 'cuenta_tipo[]';
+        TIPOS_ENTIDAD_CUENTA.forEach(t => selType.add(new Option(t, t, false, t === tipoEntidadVal)));
+        colType.appendChild(selType);
 
-        // --- COLUMNA 2: ENTIDAD (BCP, Yape...) ---
-        const colEntidad = document.createElement('div');
-        colEntidad.className = 'col-md-3';
-        const entidadSelect = document.createElement('select');
-        entidadSelect.name = 'cuenta_entidad[]';
-        entidadSelect.className = 'form-select form-select-sm';
-        colEntidad.appendChild(entidadSelect);
+        // 2. Entidad
+        const colEnt = document.createElement('div'); colEnt.className = 'col-md-3';
+        const selEnt = document.createElement('select');
+        selEnt.className = 'form-select form-select-sm';
+        selEnt.name = 'cuenta_entidad[]';
+        colEnt.appendChild(selEnt);
 
-        // --- COLUMNA 3: TIPO DE CUENTA (Ahorros, Corriente...) ---
-        // Este contenedor se ocultará si es Billetera
-        const colTipoCta = document.createElement('div');
-        colTipoCta.className = 'col-md-2';
-        const tipoCuentaSelect = document.createElement('select');
-        tipoCuentaSelect.name = 'cuenta_tipo_cta[]';
-        tipoCuentaSelect.className = 'form-select form-select-sm';
-        colTipoCta.appendChild(tipoCuentaSelect);
+        // 3. Tipo Cuenta
+        const colTipoCta = document.createElement('div'); colTipoCta.className = 'col-md-2';
+        const selTipoCta = document.createElement('select');
+        selTipoCta.className = 'form-select form-select-sm';
+        selTipoCta.name = 'cuenta_tipo_cta[]';
+        colTipoCta.appendChild(selTipoCta);
 
-        // Input oculto para identificar billetera en backend
-        const billeteraHidden = document.createElement('input');
-        billeteraHidden.type = 'hidden';
-        billeteraHidden.name = 'cuenta_billetera[]';
-        billeteraHidden.value = '0';
-        colTipoCta.appendChild(billeteraHidden);
+        const hidBill = document.createElement('input');
+        hidBill.type = 'hidden';
+        hidBill.name = 'cuenta_billetera[]';
+        hidBill.value = '0';
+        colTipoCta.appendChild(hidBill);
 
-        // --- COLUMNA 4: NÚMERO / CCI / TELÉFONO (El campo principal) ---
-        const colInput = document.createElement('div');
-        colInput.className = 'col-md-4'; // Ocupa el espacio restante
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'input-group input-group-sm';
-
-        // Icono dinámico
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'input-group-text bg-white text-muted border-end-0';
-        iconSpan.innerHTML = '<i class="bi bi-hash"></i>';
+        // 4. Número / CCI
+        const colNum = document.createElement('div'); colNum.className = 'col-md-4';
+        const grpNum = document.createElement('div'); grpNum.className = 'input-group input-group-sm';
+        const icon = document.createElement('span'); icon.className = 'input-group-text bg-white text-muted border-end-0';
+        const inpNum = document.createElement('input'); 
+        inpNum.className = 'form-control border-start-0'; 
+        inpNum.name = 'cuenta_cci[]';
+        inpNum.value = data.cci || data.numero_cuenta || '';
         
-        // Input principal (CCI o Teléfono)
-        const mainInput = document.createElement('input');
-        mainInput.type = 'text';
-        mainInput.name = 'cuenta_cci[]'; // Usamos CCI como campo principal de valor
-        mainInput.className = 'form-control border-start-0';
-        mainInput.placeholder = 'Número de cuenta';
-        mainInput.value = cci || numero_cuenta; // Preferimos CCI/Teléfono
+        const inpSec = document.createElement('input');
+        inpSec.type = 'hidden';
+        inpSec.name = 'cuenta_numero[]';
+        inpSec.value = data.numero_cuenta || '';
 
-        // Input secundario oculto (para compatibilidad si el backend pide ambos)
-        const secondaryInput = document.createElement('input');
-        secondaryInput.type = 'hidden';
-        secondaryInput.name = 'cuenta_numero[]';
-        secondaryInput.value = numero_cuenta;
+        grpNum.append(icon, inpNum, inpSec);
+        colNum.appendChild(grpNum);
 
-        inputGroup.appendChild(iconSpan);
-        inputGroup.appendChild(mainInput);
-        inputGroup.appendChild(secondaryInput);
-        colInput.appendChild(inputGroup);
-
-        // --- COLUMNA 5: TITULAR (OBLIGATORIO SI EXISTE CUENTA) ---
-        const colTitular = document.createElement('div');
-        colTitular.className = 'col-md-4';
-        const titularLabel = document.createElement('label');
-        titularLabel.className = 'form-label small fw-semibold mb-1';
-        titularLabel.textContent = 'Titular de la cuenta *';
-        const titularInput = document.createElement('input');
-        titularInput.type = 'text';
-        titularInput.name = 'cuenta_titular[]';
-        titularInput.className = 'form-control form-control-sm';
-        titularInput.placeholder = 'Titular de la cuenta *';
-        titularInput.value = titular;
-        titularInput.required = true;
-        colTitular.appendChild(titularLabel);
-        colTitular.appendChild(titularInput);
-
-        // --- COLUMNA 6: OBSERVACIONES ---
-        const colObservaciones = document.createElement('div');
-        colObservaciones.className = 'col-md-8';
-        const observacionesLabel = document.createElement('label');
-        observacionesLabel.className = 'form-label small fw-semibold mb-1';
-        observacionesLabel.textContent = 'Observaciones';
-        const observacionesInput = document.createElement('textarea');
-        observacionesInput.name = 'cuenta_observaciones[]';
-        observacionesInput.className = 'form-control form-control-sm';
-        observacionesInput.placeholder = 'Observaciones (ej: cobra comisión, solo dólares)';
-        observacionesInput.rows = 2;
-        observacionesInput.value = observaciones;
-        colObservaciones.appendChild(observacionesLabel);
-        observacionesInput.rows = 1;
-        observacionesInput.value = observaciones;
-        colObservaciones.appendChild(observacionesInput);
-
-        // --- COLUMNA 7: MONEDA Y ACCIONES ---
-        const colActions = document.createElement('div');
-        colActions.className = 'col-md-1 d-flex gap-1';
+        // 5. Moneda y Acciones
+        const colAct = document.createElement('div'); colAct.className = 'col-md-1 d-flex gap-1';
+        const selMon = document.createElement('select');
+        selMon.className = 'form-select form-select-sm px-1 text-center';
+        selMon.name = 'cuenta_moneda[]';
+        selMon.add(new Option('S/', 'PEN', false, data.moneda === 'PEN'));
+        selMon.add(new Option('$', 'USD', false, data.moneda === 'USD'));
         
-        const monedaSelect = document.createElement('select');
-        monedaSelect.name = 'cuenta_moneda[]';
-        monedaSelect.className = 'form-select form-select-sm px-1 text-center';
-        ['PEN', 'USD'].forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m === 'PEN' ? 'S/' : '$';
-            if(m === moneda) opt.selected = true;
-            monedaSelect.appendChild(opt);
-        });
+        const btnDel = createRemoveButton(() => { card.remove(); if(onRemove) onRemove(); });
+        colAct.append(selMon, btnDel);
 
-        const removeBtn = createRemoveButton(() => {
-            wrapper.remove();
-            if (typeof onRemove === 'function') onRemove();
-        });
+        const rowDet = document.createElement('div'); rowDet.className = 'row g-2 mt-1';
+        
+        const colTit = document.createElement('div'); colTit.className = 'col-md-5';
+        const inpTit = document.createElement('input');
+        inpTit.className = 'form-control form-control-sm';
+        inpTit.placeholder = 'Titular (si es diferente)';
+        inpTit.name = 'cuenta_titular[]';
+        inpTit.value = data.titular || '';
+        colTit.appendChild(inpTit);
 
-        colActions.appendChild(monedaSelect);
-        colActions.appendChild(removeBtn);
+        const colObs = document.createElement('div'); colObs.className = 'col-md-7';
+        const inpObs = document.createElement('input');
+        inpObs.className = 'form-control form-control-sm';
+        inpObs.placeholder = 'Observaciones';
+        inpObs.name = 'cuenta_observaciones[]';
+        inpObs.value = data.observaciones || '';
+        colObs.appendChild(inpObs);
 
-        // --- ARMADO DE FILA ---
-        row.appendChild(colType);
-        row.appendChild(colEntidad);
-        row.appendChild(colTipoCta);
-        row.appendChild(colInput);
-        row.appendChild(colActions);
-
-        const detailsRow = document.createElement('div');
-        detailsRow.className = 'row g-2 align-items-start mt-1';
-        detailsRow.appendChild(colTitular);
-        detailsRow.appendChild(colObservaciones);
-
-        cardBody.appendChild(row);
-        cardBody.appendChild(detailsRow);
-        wrapper.appendChild(cardBody);
-
-        // ==========================================
-        // LÓGICA DINÁMICA (Aquí ocurre la magia)
-        // ==========================================
-
-        const renderEntidadOptions = (tipoEntidad, currentValue) => {
-            const opciones = ENTIDADES_FINANCIERAS[tipoEntidad] || [];
-            entidadSelect.innerHTML = '';
+        rowDet.append(colTit, colObs);
+        
+        const updateRow = () => {
+            const tipo = normalizeTipoEntidad(selType.value);
+            const isBill = isBilleteraTipo(tipo);
             
-            // Opcion vacia o por defecto
-            if (!currentValue && opciones.length > 0) {
-                 // Si es billetera y no hay valor, pre-seleccionar Yape
-                 if(tipoEntidad === 'Billetera Digital') currentValue = 'Yape';
-                 // Si es Banco y no hay valor, pre-seleccionar BCP
-                 if(tipoEntidad === 'Banco') currentValue = 'BCP';
+            selEnt.innerHTML = '';
+            (ENTIDADES_FINANCIERAS[tipo] || []).forEach(e => selEnt.add(new Option(e, e)));
+            if(data.entidad && !Array.from(selEnt.options).some(o=>o.value===data.entidad)){
+                selEnt.add(new Option(data.entidad, data.entidad, false, true));
+            } else if(data.entidad) {
+                selEnt.value = data.entidad;
             }
 
-            opciones.forEach(nombre => {
-                const option = document.createElement('option');
-                option.value = nombre;
-                option.textContent = nombre;
-                entidadSelect.appendChild(option);
-            });
+            selTipoCta.innerHTML = '';
+            const optsCta = isBill ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
+            optsCta.forEach(t => selTipoCta.add(new Option(t, t)));
+            if(data.tipo_cuenta) selTipoCta.value = data.tipo_cuenta;
 
-            // Mantener valor custom si existía
-            if (currentValue && !opciones.includes(currentValue)) {
-                const custom = document.createElement('option');
-                custom.value = currentValue;
-                custom.textContent = currentValue;
-                entidadSelect.appendChild(custom);
-            }
-            entidadSelect.value = currentValue || opciones[0] || '';
-        };
-
-        const renderTipoCuenta = (tipoEntidad, currentValue) => {
-            tipoCuentaSelect.innerHTML = '';
-            const isBilletera = isBilleteraTipo(tipoEntidad);
-            const opciones = isBilletera ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
-            
-            opciones.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt;
-                option.textContent = opt;
-                tipoCuentaSelect.appendChild(option);
-            });
-
-            // Si es billetera, forzamos "N/A" o "Personal" y ocultamos visualmente
-            if (isBilletera) {
-                colTipoCta.classList.add('d-none'); // OCULTAR SELECTOR
-                colInput.classList.remove('col-md-4'); 
-                colInput.classList.add('col-md-6'); // EXPANDIR INPUT
+            if (isBill) {
+                colTipoCta.classList.add('d-none');
+                colNum.classList.remove('col-md-4'); colNum.classList.add('col-md-6');
+                icon.innerHTML = '<i class="bi bi-phone"></i>';
+                inpNum.placeholder = 'Celular (9 dígitos)';
+                inpNum.maxLength = 9;
+                hidBill.value = '1';
             } else {
-                colTipoCta.classList.remove('d-none'); // MOSTRAR SELECTOR
-                colInput.classList.remove('col-md-6');
-                colInput.classList.add('col-md-4'); // CONTRAER INPUT
+                colTipoCta.classList.remove('d-none');
+                colNum.classList.remove('col-md-6'); colNum.classList.add('col-md-4');
+                icon.innerHTML = '<i class="bi bi-bank"></i>';
+                inpNum.placeholder = 'CCI o Cuenta';
+                inpNum.maxLength = 20;
+                hidBill.value = '0';
             }
-
-            let valueToUse = currentValue;
-            if (!opciones.includes(valueToUse)) {
-                valueToUse = isBilletera ? 'N/A' : 'Ahorros';
-            }
-            tipoCuentaSelect.value = valueToUse;
         };
 
-        const applyCuentaMode = () => {
-            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
-            const isBilletera = isBilleteraTipo(tipoEntidad);
-            
-            // 1. Renderizar Selects
-            renderEntidadOptions(tipoEntidad, entidadSelect.value || entidad);
-            renderTipoCuenta(tipoEntidad, tipoCuentaSelect.value || tipo_cuenta);
-
-            // 2. Configurar Input Principal
-            if (isBilletera) {
-                iconSpan.innerHTML = '<i class="bi bi-phone"></i>';
-                mainInput.placeholder = 'Número de celular (9 dígitos)';
-                mainInput.maxLength = 9;
-                billeteraHidden.value = '1';
-                
-                // Limpieza de caracteres no numéricos para billeteras
-                if (mainInput.value) {
-                    mainInput.value = sanitizeDigits(mainInput.value).slice(0, 9);
-                }
-            } else {
-                iconSpan.innerHTML = '<i class="bi bi-bank"></i>';
-                mainInput.placeholder = 'CCI (20 dígitos) o Cuenta';
-                mainInput.maxLength = 20;
-                billeteraHidden.value = '0';
-            }
-            
-            // Sincronizar input oculto
-            secondaryInput.value = mainInput.value;
-        };
-
-        // Listeners
-        tipoEntSelect.addEventListener('change', () => {
-            entidadSelect.value = ''; // Resetear entidad al cambiar tipo
-            applyCuentaMode();
-        });
-        
-        mainInput.addEventListener('input', function() {
-            const tipoEntidad = normalizeTipoEntidad(tipoEntSelect.value);
-            if (isBilleteraTipo(tipoEntidad)) {
-                this.value = sanitizeDigits(this.value).slice(0, 9);
-            }
-            secondaryInput.value = this.value; // Sincronizar siempre
+        selType.addEventListener('change', updateRow);
+        inpNum.addEventListener('input', function() {
+            if(hidBill.value === '1') this.value = sanitizeDigits(this.value).slice(0,9);
+            inpSec.value = this.value; 
         });
 
-        // Inicializar
-        applyCuentaMode();
-        
-        // Si venía un valor de entidad, intentamos setearlo de nuevo tras el render
-        if (entidad) entidadSelect.value = entidad;
+        row.append(colType, colEnt, colTipoCta, colNum, colAct);
+        body.append(row, rowDet);
+        card.appendChild(body);
 
-        return wrapper;
+        updateRow(); 
+        return card;
     }
 
     // =========================================================================
-    // LÓGICA DE UI Y TOGGLES
+    // 4. INICIALIZACIÓN DE FORMULARIOS Y MODALES
     // =========================================================================
-
-    function toggleLaboralFields(checkboxEl, containerEl, form) {
-        if (!checkboxEl || !containerEl) return;
-        const show = checkboxEl.checked;
-        containerEl.classList.toggle('d-none', !show);
-        
-        if (show) {
-            // Si se activa, revisar estado para aplicar reglas de bloqueo
-            updateLaboralState(form);
-        } else {
-            resetFields(containerEl);
-        }
-    }
-
-    function togglePagoFields(tipoPagoEl) {
-        if (!tipoPagoEl) return;
-        
-        const form = tipoPagoEl.closest('form');
-        const sueldoInput = form.querySelector('[name="sueldo_basico"]');
-        const pagoDiarioInput = form.querySelector('[name="pago_diario"]');
-        
-        const sueldoCol = sueldoInput?.closest('.col-md-6') || sueldoInput?.closest('.col-md-4'); 
-        const diarioCol = pagoDiarioInput?.closest('.col-md-6') || pagoDiarioInput?.closest('.col-md-4');
-
-        if (!sueldoCol || !diarioCol) return;
-
-        const tipo = tipoPagoEl.value;
-        const showSueldo = tipo === 'MENSUAL' || tipo === 'QUINCENAL'; 
-        const showDiario = tipo === 'DIARIO';
-
-        // Resetear visualización
-        sueldoCol.style.display = 'none';
-        diarioCol.style.display = 'none';
-
-        if (showSueldo) {
-            sueldoCol.style.display = '';
-            pagoDiarioInput.value = '';
-        } else if (showDiario) {
-            diarioCol.style.display = '';
-            sueldoInput.value = '';
-        }
-    }
-
-    function toggleRegimenFields(regimenEl, form) {
-        if(!regimenEl || !form) return;
-        const comisionSelect = form.querySelector('[name="tipo_comision_afp"]');
-        const cusppInput = form.querySelector('[name="cuspp"]');
-        
-        if(comisionSelect && cusppInput) {
-            const val = regimenEl.value;
-            // Si es ONP o Ninguno, deshabilitar AFP fields
-            const isAfp = val && val !== 'Ninguno' && val !== 'ONP';
-            
-            comisionSelect.disabled = !isAfp;
-            cusppInput.disabled = !isAfp;
-            
-            if(!isAfp) {
-                comisionSelect.value = '';
-                cusppInput.value = '';
-            }
-        }
-    }
-
-    // =========================================================================
-    // LÓGICA DE UBIGEO CON AJAX
-    // =========================================================================
-
-    function setUbigeoOptions(departamentoEl, provinciaEl, distritoEl, selected = {}) {
-        if (!departamentoEl || !provinciaEl || !distritoEl) return;
-
-        const loadUbigeoData = (tipo, padreId, selectEl, preSelectedValue, preSelectedName) => {
-            selectEl.innerHTML = '<option value="">Seleccionar...</option>';
-            selectEl.disabled = true;
-
-            const fd = new FormData();
-            fd.append('accion', 'cargar_ubigeo');
-            fd.append('tipo', tipo);
-            fd.append('padre_id', padreId);
-
-            fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: fd
-            })
-            .then(parseJsonResponse)
-            .then(({ data: res }) => {
-                selectEl.innerHTML = '<option value="">Seleccionar...</option>';
-                let matched = false;
-                if(res.ok && res.data) {
-                    res.data.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.nombre;
-                        
-                        if(preSelectedValue && String(preSelectedValue) !== '0' && String(item.id) === String(preSelectedValue)) {
-                            opt.selected = true;
-                            matched = true;
-                        }
-                        else if(!matched && preSelectedName && item.nombre && String(item.nombre).toUpperCase() === String(preSelectedName).toUpperCase()) {
-                            opt.selected = true;
-                            matched = true;
-                        }
-                        
-                        selectEl.appendChild(opt);
-                    });
-                }
-                selectEl.disabled = false;
-                
-                if (matched) {
-                    selectEl.dispatchEvent(new Event('change'));
-                }
-            })
-            .catch(err => {
-                console.error("Error cargando ubigeo:", err);
-                selectEl.innerHTML = '<option value="">Error</option>';
-                selectEl.disabled = false;
-            });
-        };
-
-        if (!departamentoEl._ubigeoChangeHandler) {
-            departamentoEl._ubigeoChangeHandler = function() {
-                const depId = this.value;
-                distritoEl.innerHTML = '<option value="">Seleccionar...</option>'; 
-                distritoEl.disabled = true; 
-                
-                if(depId) {
-                    const nextVal = this.dataset.nextSelectVal || null;
-                    const nextName = this.dataset.nextSelectName || null; 
-                    loadUbigeoData('provincias', depId, provinciaEl, nextVal, nextName);
-                    this.dataset.nextSelectVal = '';
-                    this.dataset.nextSelectName = '';
-                } else {
-                    provinciaEl.innerHTML = '<option value="">Seleccionar...</option>';
-                    provinciaEl.disabled = true; 
-                }
-            };
-            departamentoEl.addEventListener('change', departamentoEl._ubigeoChangeHandler);
-        }
-
-        if (!provinciaEl._ubigeoChangeHandler) {
-            provinciaEl._ubigeoChangeHandler = function() {
-                const provId = this.value;
-                if(provId) {
-                    const nextVal = this.dataset.nextSelectVal || null;
-                    const nextName = this.dataset.nextSelectName || null; 
-                    loadUbigeoData('distritos', provId, distritoEl, nextVal, nextName);
-                    this.dataset.nextSelectVal = '';
-                    this.dataset.nextSelectName = '';
-                } else {
-                    distritoEl.innerHTML = '<option value="">Seleccionar...</option>';
-                    distritoEl.disabled = true; 
-                }
-            };
-            provinciaEl.addEventListener('change', provinciaEl._ubigeoChangeHandler);
-        }
-
-        if (selected.departamento) {
-            departamentoEl.value = selected.departamento;
-            departamentoEl.dataset.nextSelectVal = selected.provincia || '';
-            departamentoEl.dataset.nextSelectName = selected.provinciaNombre || '';
-            provinciaEl.dataset.nextSelectVal = selected.distrito || '';
-            provinciaEl.dataset.nextSelectName = selected.distritoNombre || '';
-            departamentoEl.dispatchEvent(new Event('change'));
-        } else {
-            provinciaEl.disabled = true;
-            distritoEl.disabled = true;
-        }
-    }
-
-    // =========================================================================
-    // VALIDACIONES
-    // =========================================================================
-
-    function isTipoPersonaJuridica(tipoPersona = '') {
-        return String(tipoPersona).trim().toUpperCase() === 'JURIDICA';
-    }
-
-    function toggleRepresentanteLegal(form, prefix) {
-        if (!form) return;
-
-        const tipoPersona = form.querySelector('[name="tipo_persona"]');
-        const representante = form.querySelector('[name="representante_legal"]');
-        const section = form.querySelector('.representante-legal-section') || document.getElementById(`${prefix}RepresentanteLegalSection`);
-        const nombreLabel = document.getElementById(`${prefix}NombreLabel`);
-        const esJuridica = isTipoPersonaJuridica(tipoPersona?.value || '');
-
-        if (nombreLabel) {
-            nombreLabel.innerHTML = esJuridica
-                ? 'Razón Social <span class="text-danger">*</span>'
-                : 'Nombre completo <span class="text-danger">*</span>';
-        }
-
-        if (section) {
-            section.classList.toggle('d-none', !esJuridica);
-        }
-
-        if (representante) {
-            representante.required = esJuridica;
-            if (!esJuridica) {
-                representante.value = '';
-                representante.setCustomValidity('');
-                clearInvalid(representante);
-            }
-        }
-    }
-
-    function validateForm(form, rolesFeedbackId, showErrors = true) {
-        let valid = true;
-        const tipoPersona = form.querySelector('[name="tipo_persona"]');
-        const tipoDoc = form.querySelector('[name="tipo_documento"]');
-        const numeroDoc = form.querySelector('[name="numero_documento"]');
-        const nombre = form.querySelector('[name="nombre_completo"]');
-        const representanteLegal = form.querySelector('[name="representante_legal"]');
-        const email = form.querySelector('[name="email"]');
-        
-        // Laborales
-        const cargo = form.querySelector('[name="cargo"]');
-        const area = form.querySelector('[name="area"]');
-        const fechaIngreso = form.querySelector('[name="fecha_ingreso"]');
-        const fechaCese = form.querySelector('[name="fecha_cese"]');
-        const estadoLaboral = form.querySelector('[name="estado_laboral"]');
-        const tipoPago = form.querySelector('[name="tipo_pago"]');
-        const sueldoBasico = form.querySelector('[name="sueldo_basico"]');
-        const pagoDiario = form.querySelector('[name="pago_diario"]');
-        const recordarCumpleanos = form.querySelector('[name="recordar_cumpleanos"]');
-        const fechaNacimiento = form.querySelector('[name="fecha_nacimiento"]');
-
-        [tipoPersona, tipoDoc, numeroDoc, nombre, representanteLegal, email, cargo, area, fechaIngreso, fechaCese, tipoPago, sueldoBasico, pagoDiario, fechaNacimiento].forEach(clearInvalid);
-        form.querySelectorAll('input[name="telefonos[]"], select[name="telefono_tipos[]"]').forEach(clearInvalid);
-        form.querySelectorAll('select[name="cuenta_tipo[]"], select[name="cuenta_entidad[]"], select[name="cuenta_tipo_cta[]"], input[name="cuenta_numero[]"], input[name="cuenta_cci[]"]').forEach(clearInvalid);
-
-        if (!tipoPersona?.value) { if (showErrors) setInvalid(tipoPersona, 'Seleccione el tipo de persona.'); valid = false; }
-        if (!tipoDoc?.value) { if (showErrors) setInvalid(tipoDoc, 'Seleccione el tipo de documento.'); valid = false; }
-
-        const numero = (numeroDoc?.value || '').trim();
-        const docError = getDocumentoError(tipoDoc?.value || '', numero);
-        if (docError) {
-            if (numeroDoc) numeroDoc.setCustomValidity(docError);
-            if (showErrors) setInvalid(numeroDoc, docError);
-            valid = false;
-        } else if (numeroDoc?.validity?.customError) {
-            if (showErrors) setInvalid(numeroDoc, numeroDoc.validationMessage);
-            valid = false;
-        } else if (numeroDoc) {
-            numeroDoc.setCustomValidity('');
-        }
-
-        if (!nombre?.value.trim()) { if (showErrors) setInvalid(nombre, 'Ingrese el nombre o razón social.'); valid = false; }
-        if (isTipoPersonaJuridica(tipoPersona?.value || '') && !representanteLegal?.value.trim()) {
-            if (showErrors) setInvalid(representanteLegal, 'Representante legal es obligatorio para empresas.');
-            valid = false;
-        }
-        if (!isValidEmail(email?.value || '')) { if (showErrors) setInvalid(email, 'Ingrese un email válido.'); valid = false; }
-
-        form.querySelectorAll('input[name="telefonos[]"]').forEach(input => {
-            if (input.value.trim() === '') {
-                if (showErrors) setInvalid(input, 'Ingrese el número o elimine la fila.');
-                valid = false;
-            } else if (!isPeruPhone(input.value)) {
-                if (showErrors) setInvalid(input, 'Teléfono inválido.');
-                valid = false;
-            }
-        });
-        
-        const hasRole = Array.from(form.querySelectorAll('input[name="es_cliente"], input[name="es_proveedor"], input[name="es_empleado"], input[name="es_distribuidor"]')).some(el => el.checked);
-        const rolesFeedback = document.getElementById(rolesFeedbackId);
-        if (!hasRole) {
-            if (showErrors && rolesFeedback) {
-                rolesFeedback.classList.remove('d-none');
-                rolesFeedback.classList.add('d-block');
-            }
-            valid = false;
-        } else if (rolesFeedback) {
-            rolesFeedback.classList.add('d-none');
-            rolesFeedback.classList.remove('d-block');
-        }
-
-        if (form.querySelector('[name="es_empleado"]')?.checked) {
-            if (!cargo?.value.trim()) { if(showErrors) setInvalid(cargo, 'Requerido'); valid = false; }
-            if (!area?.value.trim()) { if(showErrors) setInvalid(area, 'Requerido'); valid = false; }
-            if (!fechaIngreso?.value) { if(showErrors) setInvalid(fechaIngreso, 'Requerido'); valid = false; }
-            
-            // Validación de Fechas Lógica
-            const est = estadoLaboral?.value;
-            if (est === 'cesado') {
-                if(!fechaCese?.value) {
-                    if(showErrors) setInvalid(fechaCese, 'Fecha de cese obligatoria.'); valid = false;
-                } else if(fechaIngreso?.value && fechaCese.value < fechaIngreso.value) {
-                    if(showErrors) setInvalid(fechaCese, 'El cese no puede ser antes del ingreso.'); valid = false;
-                }
-            }
-
-            // Solo validar pagos si está activo (si está cesado, los campos están disabled y no importan)
-            if (est === 'activo') {
-                const tp = tipoPago?.value;
-                if ((tp === 'MENSUAL' || tp === 'QUINCENAL') && !sueldoBasico?.value) {
-                     if(showErrors) setInvalid(sueldoBasico, 'Requerido'); valid = false;
-                }
-                if (tp === 'DIARIO' && !pagoDiario?.value) {
-                     if(showErrors) setInvalid(pagoDiario, 'Requerido'); valid = false;
-                }
-            }
-
-            if (recordarCumpleanos?.checked) {
-                const fechaNacimientoVal = (fechaNacimiento?.value || '').trim();
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-
-                if (!fechaNacimientoVal) {
-                    if (showErrors) setInvalid(fechaNacimiento, 'Ingrese la fecha de nacimiento.');
-                    valid = false;
-                } else {
-                    const fechaNac = new Date(`${fechaNacimientoVal}T00:00:00`);
-                    if (Number.isNaN(fechaNac.getTime())) {
-                        if (showErrors) setInvalid(fechaNacimiento, 'Ingrese una fecha válida.');
-                        valid = false;
-                    } else if (fechaNac > hoy) {
-                        if (showErrors) setInvalid(fechaNacimiento, 'La fecha de nacimiento no puede ser mayor a hoy.');
-                        valid = false;
-                    }
-                }
-            }
-        }
-
-        const cTipos = form.querySelectorAll('select[name="cuenta_tipo[]"]');
-        const cEntidades = form.querySelectorAll('select[name="cuenta_entidad[]"]');
-        const cTipoCta = form.querySelectorAll('select[name="cuenta_tipo_cta[]"]');
-        const cNumeros = form.querySelectorAll('input[name="cuenta_numero[]"]');
-        const cCci = form.querySelectorAll('input[name="cuenta_cci[]"]');
-        const cTitulares = form.querySelectorAll('input[name="cuenta_titular[]"]');
-
-        cTipos.forEach((tipoEl, i) => {
-            const entidadEl = cEntidades[i];
-            const tipoCtaEl = cTipoCta[i];
-            const numEl = cNumeros[i];
-            const cciEl = cCci[i];
-            const titularEl = cTitulares[i];
-            const tipoEntidad = normalizeTipoEntidad(tipoEl.value);
-            const isBilletera = isBilleteraTipo(tipoEntidad);
-            const cciDigits = sanitizeDigits(cciEl?.value || '');
-            const numeroDigits = sanitizeDigits(numEl?.value || '');
-            
-            if (!tipoEl.value) { if(showErrors) setInvalid(tipoEl, 'Requerido'); valid = false; }
-            if (!entidadEl.value.trim()) { if(showErrors) setInvalid(entidadEl, 'Requerido'); valid = false; }
-
-            if (isBilletera) {
-                if (!/^\d{9}$/.test(cciDigits)) {
-                    if (showErrors) setInvalid(cciEl, 'Para billetera ingrese un celular de 9 dígitos.');
-                    valid = false;
-                }
-            } else {
-                if (!cciDigits && !numeroDigits) {
-                    if (showErrors) {
-                        setInvalid(cciEl, 'Ingrese CCI o número de cuenta.');
-                        setInvalid(numEl, 'Ingrese CCI o número de cuenta.');
-                    }
-                    valid = false;
-                }
-                if (cciDigits && cciDigits.length !== 20 && cciDigits.length < 6) {
-                    if (showErrors) setInvalid(cciEl, 'El CCI debe tener 20 dígitos (o use número de cuenta).');
-                    valid = false;
-                }
-            }
-
-            if (!tipoCtaEl.value.trim()) {
-                if (showErrors) setInvalid(tipoCtaEl, 'Requerido');
-                valid = false;
-            }
-
-            if (!titularEl?.value.trim()) {
-                if (showErrors) setInvalid(titularEl, 'Ingrese titular de la cuenta.');
-                valid = false;
-            }
-        });
-
-        return valid;
-    }
-
-    function refreshValidationOnChange(form, rolesFeedbackId) {
-        if (!form) return;
-        if (form.dataset.submitted === '1') {
-            validateForm(form, rolesFeedbackId, true);
-        }
-    }
-
-    // =========================================================================
-    // INICIALIZADORES
-    // =========================================================================
-
-    function initTelefonosSection(listEl, addButton, form, rolesFeedbackId, telefonos = []) {
-        if (!listEl || !addButton) return;
-        listEl.innerHTML = '';
-        const addRow = (data = {}) => {
-            const row = buildTelefonoRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
-            listEl.appendChild(row);
-        };
-        (telefonos || []).forEach(item => addRow(item));
-        
-        addButton.onclick = () => {
-            addRow();
-            refreshValidationOnChange(form, rolesFeedbackId);
-        };
-    }
-
-    function initCuentasSection(listEl, addButton, form, rolesFeedbackId, cuentas = []) {
-        if (!listEl || !addButton) return;
-        listEl.innerHTML = '';
-        const addRow = (data = {}) => {
-            const row = buildCuentaRow(data, () => refreshValidationOnChange(form, rolesFeedbackId));
-            listEl.appendChild(row);
-        };
-        (cuentas || []).forEach(item => addRow(item));
-        
-        addButton.onclick = () => {
-            addRow();
-            refreshValidationOnChange(form, rolesFeedbackId);
-        };
-    }
-
-    function submitForm(form, submitButton, rolesFeedbackId) {
-        if (!form) return;
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-            form.dataset.submitted = '1';
-
-            // Antes de enviar, reactivamos campos disabled temporalmente si es necesario para el backend
-            // Pero en este caso, la lógica de negocio dice que si está cesado, no importan los datos de pago
-            
-            if (!validateForm(form, rolesFeedbackId, true)) {
-                const firstInvalid = form.querySelector('.is-invalid');
-                if (firstInvalid) {
-                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    firstInvalid.focus?.({ preventScroll: true });
-                }
-
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Faltan datos por completar',
-                    text: 'Revisa los campos marcados en rojo antes de guardar.'
-                });
-                return;
-            }
-
-            Swal.fire({
-                title: '¿Confirmar guardado?',
-                text: 'Verifica la información antes de continuar.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Guardar',
-                cancelButtonText: 'Cancelar'
-            }).then(result => {
-                if (!result.isConfirmed) return;
-
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-                }
-
-                const formData = new FormData(form);
-                const targetUrl = form.getAttribute('action') || window.location.href;
-
-                fetch(targetUrl, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: formData
-                })
-                .then(parseJsonResponse)
-                .then(({ ok, data }) => {
-                    if (!ok || !data.ok) throw new Error(data.mensaje || 'Error al guardar.');
-                    
-                    Swal.fire('Guardado', data.mensaje || 'Registro guardado.', 'success').then(() => {
-                        const modalEl = form.closest('.modal');
-                        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-                        window.location.reload();
-                    });
-                })
-                .catch(err => {
-                    Swal.fire('Error', err.message, 'error');
-                })
-                .finally(() => {
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = submitButton.getAttribute('data-original-text') || submitButton.innerHTML;
-                    }
-                });
-            });
-        });
-    }
-
-    function initCreateModal() {
-        const modalCreate = document.getElementById('modalCrearTercero');
-        if (!modalCreate) return;
-
-        modalCreate.addEventListener('show.bs.modal', function () {
-            const form = document.getElementById('formCrearTercero');
-            if (form) {
-                form.reset();
-                form.dataset.submitted = '0';
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                // Asegurar que campos se reseteen al estado inicial (activo)
-                updateLaboralState(form);
-            }
-
-            const firstTab = document.querySelector('#crearTerceroTabs button[data-bs-target="#crear-tab-pane-identificacion"]');
-            if (firstTab && window.bootstrap?.Tab) {
-                window.bootstrap.Tab.getOrCreateInstance(firstTab).show();
-            }
-            
-            document.getElementById('crearRolesFeedback')?.classList.add('d-none');
-            
-            const provSelect = document.getElementById('crearProvincia');
-            const distSelect = document.getElementById('crearDistrito');
-            const depSelect = document.getElementById('crearDepartamento');
-            if (provSelect) {
-                provSelect.innerHTML = '<option value="">Seleccionar...</option>';
-                provSelect.disabled = true;
-            }
-            if (distSelect) {
-                distSelect.innerHTML = '<option value="">Seleccionar...</option>';
-                distSelect.disabled = true;
-            }
-
-            setUbigeoOptions(depSelect, provSelect, distSelect);
-
-            window.TercerosClientes?.toggleComercialFields(
-                document.getElementById('crearEsCliente'),
-                document.getElementById('crearEsProveedor'),
-                document.getElementById('crearComercialFields'),
-                document.getElementById('crearComercialClienteSection'),
-                document.getElementById('crearComercialProveedorSection'),
-                document.getElementById('crearComercialDistribuidorSection')
-            );
-            window.TercerosClientes?.toggleDistribuidorFields(
-                document.getElementById('crearEsDistribuidor'),
-                document.getElementById('crearDistribuidorFields')
-            );
-            window.TercerosClientes?.setDistribuidorZones('crear', []);
-            toggleLaboralFields(document.getElementById('crearEsEmpleado'), document.getElementById('crearLaboralFields'), form);
-            syncCreateRoleTabs();
-            togglePagoFields(document.getElementById('crearTipoPago'));
-            toggleRegimenFields(document.getElementById('crearRegimen'), form);
-            toggleRepresentanteLegal(form, 'crear');
-
-            initTelefonosSection(
-                document.getElementById('crearTelefonosList'),
-                document.getElementById('crearAgregarTelefono'),
-                form, 'crearRolesFeedback', []
-            );
-            initCuentasSection(
-                document.getElementById('crearCuentasBancariasList'),
-                document.getElementById('crearAgregarCuenta'),
-                form, 'crearRolesFeedback', []
-            );
-        });
-    }
-
-    function syncCreateRoleTabs() {
-        const cliente = document.getElementById('crearEsCliente')?.checked;
-        const proveedor = document.getElementById('crearEsProveedor')?.checked;
-        const empleado = document.getElementById('crearEsEmpleado')?.checked;
-
-        const comercialTabItem = document.getElementById('crearTabComercialItem');
-        const empleadoTabItem = document.getElementById('crearTabEmpleadoItem');
-        const comercialTabBtn = document.getElementById('crear-tab-comercial');
-        const empleadoTabBtn = document.getElementById('crear-tab-empleado');
-        const identificacionTabBtn = document.getElementById('crear-tab-identificacion');
-
-        const showComercial = Boolean(cliente || proveedor);
-        const showEmpleado = Boolean(empleado);
-
-        comercialTabItem?.classList.toggle('d-none', !showComercial);
-        empleadoTabItem?.classList.toggle('d-none', !showEmpleado);
-
-        const comercialActive = comercialTabBtn?.classList.contains('active');
-        const empleadoActive = empleadoTabBtn?.classList.contains('active');
-        if ((!showComercial && comercialActive) || (!showEmpleado && empleadoActive)) {
-            if (identificacionTabBtn && window.bootstrap?.Tab) {
-                window.bootstrap.Tab.getOrCreateInstance(identificacionTabBtn).show();
-            }
-        }
-    }
-
-    function initEditModal() {
-        const modalEdit = document.getElementById('modalEditarTercero');
-        if (!modalEdit) return;
-
-        modalEdit.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            if (!button) return;
-
-            const form = document.getElementById('formEditarTercero');
-            if(form) {
-                form.dataset.submitted = '0';
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            }
-
-            const fields = {
-                'editId': 'data-id',
-                'editTipoPersona': 'data-tipo-persona',
-                'editTipoDoc': 'data-tipo-doc',
-                'editNumeroDoc': 'data-numero-doc',
-                'editNombre': 'data-nombre',
-                'editDireccion': 'data-direccion',
-                'editEmail': 'data-email',
-                'editObservaciones': 'data-observaciones',
-                'editRepresentanteLegal': 'data-representante-legal',
-                'editEstado': 'data-estado',
-                
-                // Comercial
-                'editClienteDiasCredito': 'data-cliente-dias-credito',
-                'editClienteLimiteCredito': 'data-cliente-limite-credito',
-                'editClienteCondicionPago': 'data-cliente-condicion-pago',
-                'editProvCondicion': 'data-proveedor-condicion-pago',
-                'editProvDiasCredito': 'data-proveedor-dias-credito',
-                'editProvFormaPago': 'data-proveedor-forma-pago',
-
-                // Laboral
-                'editCargo': 'data-cargo',
-                'editArea': 'data-area',
-                'editTipoContrato': 'data-tipo-contrato',
-                'editFechaIngreso': 'data-fecha-ingreso',
-                'editFechaCese': 'data-fecha-cese',
-                'editFechaNacimiento': 'data-fecha-nacimiento',
-                'editGenero': 'data-genero',
-                'editEstadoCivil': 'data-estado-civil',
-                'editNivelEducativo': 'data-nivel-educativo',
-                'editContactoEmergenciaNombre': 'data-contacto-emergencia-nombre',
-                'editContactoEmergenciaTelf': 'data-contacto-emergencia-telf',
-                'editTipoSangre': 'data-tipo-sangre',
-                'editEstadoLaboral': 'data-estado-laboral',
-                'editMoneda': 'data-moneda',
-                'editSueldoBasico': 'data-sueldo-basico',
-                'editRegimen': 'data-regimen-pensionario',
-                'editTipoComision': 'data-tipo-comision-afp',
-                'editCuspp': 'data-cuspp',
-                'editTipoPago': 'data-tipo-pago',
-                'editPagoDiario': 'data-pago-diario',
-
-            };
-
-            for (let id in fields) {
-                const el = document.getElementById(id);
-                if (el) {
-                    const rawValue = button.getAttribute(fields[id]);
-                    if (id === 'editEstadoLaboral') {
-                        el.value = rawValue || 'activo';
-                    } else if (id === 'editMoneda') {
-                        el.value = rawValue || 'PEN';
-                    } else {
-                        el.value = rawValue || '';
-                    }
-                }
-            }
-
-            const essalud = document.getElementById('editEssalud');
-            if (essalud) essalud.checked = button.getAttribute('data-essalud') === '1';
-            
-            const asigFam = document.getElementById('editAsignacionFamiliar');
-            if (asigFam) asigFam.checked = button.getAttribute('data-asignacion-familiar') === '1';
-
-            const recordarCumpleanos = document.getElementById('editRecordarCumpleanos');
-            if (recordarCumpleanos) recordarCumpleanos.checked = button.getAttribute('data-recordar-cumpleanos') === '1';
-
-            ['editEsCliente', 'editEsProveedor', 'editEsEmpleado', 'editEsDistribuidor'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.checked = button.getAttribute('data-' + id.replace('edit','').replace(/([A-Z])/g, '-$1').toLowerCase().slice(1)) === '1';
-            });
-
-            setUbigeoOptions(
-                document.getElementById('editDepartamento'),
-                document.getElementById('editProvincia'),
-                document.getElementById('editDistrito'),
-                {
-                    departamento: button.getAttribute('data-departamento'),
-                    provincia: button.getAttribute('data-provincia'),
-                    distrito: button.getAttribute('data-distrito'),
-                    provinciaNombre: button.getAttribute('data-provincia-nombre'),
-                    distritoNombre: button.getAttribute('data-distrito-nombre')
-                }
-            );
-
-            document.getElementById('editRolesFeedback')?.classList.add('d-none');
-            
-            window.TercerosClientes?.toggleComercialFields(
-                document.getElementById('editEsCliente'),
-                document.getElementById('editEsProveedor'),
-                document.getElementById('editComercialFields'),
-                document.getElementById('editComercialClienteSection'),
-                document.getElementById('editComercialProveedorSection'),
-                document.getElementById('editComercialDistribuidorSection')
-            );
-            window.TercerosClientes?.toggleDistribuidorFields(
-                document.getElementById('editEsDistribuidor'),
-                document.getElementById('editDistribuidorFields')
-            );
-            const editId = button.getAttribute('data-id') || '';
-            window.TercerosClientes?.loadSavedZones('edit', editId).catch(() => {
-                let zonas = [];
-                try { zonas = JSON.parse(button.getAttribute('data-zonas-exclusivas') || '[]'); } catch(e){}
-                window.TercerosClientes?.setDistribuidorZones('edit', zonas);
-            });
-            toggleLaboralFields(document.getElementById('editEsEmpleado'), document.getElementById('editLaboralFields'), form);
-            toggleCumpleanosFields(document.getElementById('editRecordarCumpleanos'), form);
-            togglePagoFields(document.getElementById('editTipoPago'));
-            toggleRegimenFields(document.getElementById('editRegimen'), form);
-            toggleRepresentanteLegal(form, 'edit');
-            
-            // Forzar actualización de estado laboral después de cargar valores
-            updateLaboralState(form);
-
-            let telefonos = [], cuentas = [];
-            try { telefonos = JSON.parse(button.getAttribute('data-telefonos') || '[]'); } catch(e){}
-            try { cuentas = JSON.parse(button.getAttribute('data-cuentas-bancarias') || '[]'); } catch(e){}
-
-            initTelefonosSection(
-                document.getElementById('editTelefonosList'),
-                document.getElementById('editAgregarTelefono'),
-                form, 'editRolesFeedback', telefonos
-            );
-            initCuentasSection(
-                document.getElementById('editCuentasBancariasList'),
-                document.getElementById('editAgregarCuenta'),
-                form, 'editRolesFeedback', cuentas
-            );
-        });
-    }
 
     function initDynamicFields() {
-        const setup = (prefix) => {
-            const formId = `form${prefix === 'crear' ? 'Crear' : 'Editar'}Tercero`;
-            const form = document.getElementById(formId);
-            const fbId = `${prefix}RolesFeedback`;
-            
-            const esEmpleado = document.getElementById(`${prefix}EsEmpleado`);
-            if(esEmpleado) esEmpleado.addEventListener('change', () => {
-                toggleLaboralFields(esEmpleado, document.getElementById(`${prefix}LaboralFields`), form);
-                if (prefix === 'crear') syncCreateRoleTabs();
-                refreshValidationOnChange(form, fbId);
+        const setupListeners = (prefix) => {
+            const form = document.getElementById(`form${prefix === 'crear' ? 'Crear' : 'Editar'}Tercero`);
+            if(!form) return;
+
+            // Checkboxes de Roles -> Activan Pestañas
+            ['EsCliente', 'EsDistribuidor', 'EsProveedor', 'EsEmpleado'].forEach(role => {
+                const el = document.getElementById(`${prefix}${role}`);
+                if (el) {
+                    el.addEventListener('change', () => syncRoleTabs(prefix));
+                }
             });
 
-            const esCliente = document.getElementById(`${prefix}EsCliente`);
-            const esProv = document.getElementById(`${prefix}EsProveedor`);
-            const updateCom = () => {
-                window.TercerosClientes?.toggleComercialFields(
-                    esCliente,
-                    esProv,
-                    document.getElementById(`${prefix}ComercialFields`),
-                    document.getElementById(`${prefix}ComercialClienteSection`),
-                    document.getElementById(`${prefix}ComercialProveedorSection`),
-                    document.getElementById(`${prefix}ComercialDistribuidorSection`)
-                );
-                if (prefix === 'crear') syncCreateRoleTabs();
-                refreshValidationOnChange(form, fbId);
-            };
-            if(esCliente) esCliente.addEventListener('change', updateCom);
-            if(esProv) esProv.addEventListener('change', updateCom);
-            window.TercerosClientes?.bindDistribuidorToggle(prefix);
-            window.TercerosClientes?.initDistribuidorZones(prefix);
-
-            const tipoPago = document.getElementById(`${prefix}TipoPago`);
-            if(tipoPago) tipoPago.addEventListener('change', () => {
-                togglePagoFields(tipoPago);
-                refreshValidationOnChange(form, fbId);
-            });
-            
-            const regimen = document.getElementById(`${prefix}Regimen`);
-            if(regimen) regimen.addEventListener('change', () => {
-                toggleRegimenFields(regimen, form);
-            });
-
-            const tipoPersona = document.getElementById(`${prefix}TipoPersona`);
-            if (tipoPersona) {
-                tipoPersona.addEventListener('change', () => {
-                    toggleRepresentanteLegal(form, prefix);
-                    refreshValidationOnChange(form, fbId);
-                });
-                toggleRepresentanteLegal(form, prefix);
+            // Init Zonas Distribuidor (Llamada al módulo de clientes.js)
+            if (window.TercerosClientes && window.TercerosClientes.initDistribuidorZones) {
+                window.TercerosClientes.initDistribuidorZones(prefix);
             }
 
-            // NUEVO: Listener para Estado Laboral
-            const estadoLaboral = document.getElementById(`${prefix}EstadoLaboral`);
-            if(estadoLaboral) estadoLaboral.addEventListener('change', () => {
-                updateLaboralState(form);
-            });
+            // Tipo Persona -> Toggle Representante Legal
+            const tipoPer = document.getElementById(`${prefix}TipoPersona`);
+            if (tipoPer) {
+                tipoPer.addEventListener('change', () => {
+                    const isJuridica = tipoPer.value === 'JURIDICA';
+                    const repSection = document.getElementById(`${prefix}RepresentanteLegalSection`);
+                    const lblNombre = document.getElementById(`${prefix}NombreLabel`);
+                    const inpRep = document.getElementById(`${prefix}RepresentanteLegal`);
 
-            const recordarCumpleanos = document.getElementById(`${prefix}RecordarCumpleanos`);
-            if (recordarCumpleanos) {
-                recordarCumpleanos.addEventListener('change', () => {
-                    toggleCumpleanosFields(recordarCumpleanos, form);
-                    refreshValidationOnChange(form, fbId);
+                    if (repSection) {
+                        if (isJuridica) {
+                            repSection.classList.remove('d-none');
+                        } else {
+                            repSection.classList.add('d-none');
+                        }
+                    }
+                    if (lblNombre) lblNombre.innerHTML = isJuridica ? 'Razón Social <span class="text-danger">*</span>' : 'Nombre Completo <span class="text-danger">*</span>';
+                    if (inpRep) inpRep.required = isJuridica;
                 });
-                toggleCumpleanosFields(recordarCumpleanos, form);
+            }
+
+            // Ubigeo (Departamento -> Provincia -> Distrito)
+            const dep = document.getElementById(`${prefix}Departamento`);
+            const prov = document.getElementById(`${prefix}Provincia`);
+            const dist = document.getElementById(`${prefix}Distrito`);
+            
+            if (dep && prov && dist) {
+                const loadUbigeo = (tipo, padreId, targetEl) => {
+                    targetEl.innerHTML = '<option value="">Cargando...</option>';
+                    targetEl.disabled = true;
+                    
+                    const fd = new FormData();
+                    fd.append('accion', 'cargar_ubigeo');
+                    fd.append('tipo', tipo);
+                    fd.append('padre_id', padreId);
+
+                    fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                        .then(parseJsonResponse)
+                        .then(({data}) => {
+                            targetEl.innerHTML = '<option value="">Seleccionar...</option>';
+                            if (data.ok && data.data) {
+                                data.data.forEach(x => targetEl.add(new Option(x.nombre, x.id)));
+                                targetEl.disabled = false;
+                                if (targetEl.dataset.preselect) {
+                                    targetEl.value = targetEl.dataset.preselect;
+                                    targetEl.dataset.preselect = ''; 
+                                    targetEl.dispatchEvent(new Event('change'));
+                                }
+                            }
+                        });
+                };
+
+                dep.addEventListener('change', () => {
+                    dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true;
+                    if (dep.value) loadUbigeo('provincias', dep.value, prov);
+                    else { prov.innerHTML = '<option value="">Seleccionar...</option>'; prov.disabled = true; }
+                });
+
+                prov.addEventListener('change', () => {
+                    if (prov.value) loadUbigeo('distritos', prov.value, dist);
+                    else { dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true; }
+                });
             }
         };
 
-        setup('crear');
-        setup('edit');
+        setupListeners('crear');
+        setupListeners('edit');
     }
 
-    function initMaestrosManagement() {
-        const cfgByType = {
-            cargo: {
-                formId: 'formCrearCargo',
-                listId: 'listaCargosConfig',
-                inputId: 'cargoNombre',
-                idId: 'cargoId',
-                actionId: 'cargoAccion',
-                cancelBtnId: 'btnCancelCargo',
-                saveBtnId: 'btnSaveCargo',
-                defaultAction: 'guardar_cargo',
-                listAction: 'listar_cargos',
-                deleteAction: 'eliminar_cargo',
-                toggleAction: 'toggle_estado_cargo',
-                saveLabel: 'Guardar cargo',
-                editLabel: 'Actualizar cargo',
-                deleteText: '¿Deseas eliminar este cargo?',
-                confirmDeleteText: 'Sí, eliminar cargo',
-                selectsToUpdate: ['crearCargo', 'editCargo']
-            },
-            area: {
-                formId: 'formCrearArea',
-                listId: 'listaAreasConfig',
-                inputId: 'areaNombre',
-                idId: 'areaId',
-                actionId: 'areaAccion',
-                cancelBtnId: 'btnCancelArea',
-                saveBtnId: 'btnSaveArea',
-                defaultAction: 'guardar_area',
-                listAction: 'listar_areas',
-                deleteAction: 'eliminar_area',
-                toggleAction: 'toggle_estado_area',
-                saveLabel: 'Guardar área',
-                editLabel: 'Actualizar área',
-                deleteText: '¿Deseas eliminar esta área?',
-                confirmDeleteText: 'Sí, eliminar área',
-                selectsToUpdate: ['crearArea', 'editArea']
-            }
-        };
-
-        const escapeHtml = (value) => String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-
-        const sendMaestroAction = async (payload) => {
-            const fd = new FormData();
-            Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
-            const { data } = await parseJsonResponse(await fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: fd
-            }));
-
-            if (!data.ok) {
-                throw new Error(data.mensaje || 'No se pudo completar la operación.');
-            }
-            return data;
-        };
-
-        const syncSelectOptions = (type, items) => {
-            const cfg = cfgByType[type];
-            cfg.selectsToUpdate.forEach((selectId) => {
-                const select = document.getElementById(selectId);
-                if (!select) return;
-
-                const selectedValue = select.value;
-                const defaultOption = select.querySelector('option[value=""]');
-                select.innerHTML = '';
-                if (defaultOption) {
-                    select.appendChild(defaultOption.cloneNode(true));
-                } else {
-                    const placeholder = document.createElement('option');
-                    placeholder.value = '';
-                    placeholder.textContent = 'Seleccionar...';
-                    select.appendChild(placeholder);
+    function initModals() {
+        // CREAR
+        const modalCrear = document.getElementById('modalCrearTercero');
+        if (modalCrear) {
+            modalCrear.addEventListener('show.bs.modal', () => {
+                const form = document.getElementById('formCrearTercero');
+                if(form) form.reset();
+                
+                document.getElementById('crearTelefonosList').innerHTML = '';
+                document.getElementById('crearCuentasBancariasList').innerHTML = '';
+                
+                // Limpiar zonas de distribuidor visualmente (usando helper de clientes.js)
+                if (window.TercerosClientes && window.TercerosClientes.setDistribuidorZones) {
+                    window.TercerosClientes.setDistribuidorZones('crear', []);
                 }
 
-                items
-                    .filter((item) => Number(item.estado) === 1)
-                    .forEach((item) => {
-                        const option = document.createElement('option');
-                        option.value = item.nombre;
-                        option.textContent = item.nombre;
-                        select.appendChild(option);
-                    });
+                syncRoleTabs('crear');
+                
+                document.getElementById('crearTipoPersona')?.dispatchEvent(new Event('change'));
+                
+                document.getElementById('crearProvincia').innerHTML = '';
+                document.getElementById('crearDistrito').innerHTML = '';
+            });
+        }
 
-                const stillExists = Array.from(select.options).some((opt) => opt.value === selectedValue);
-                if (stillExists) {
-                    select.value = selectedValue;
+        // EDITAR
+        const modalEdit = document.getElementById('modalEditarTercero');
+        if (modalEdit) {
+            modalEdit.addEventListener('show.bs.modal', (e) => {
+                const btn = e.relatedTarget;
+                const id = btn.dataset.id;
+                
+                document.getElementById('editId').value = id;
+                document.getElementById('editNombre').value = btn.dataset.nombre;
+                document.getElementById('editNumeroDoc').value = btn.dataset.numeroDoc;
+                document.getElementById('editTipoDoc').value = btn.dataset.tipoDoc;
+                document.getElementById('editDireccion').value = btn.dataset.direccion;
+                document.getElementById('editEmail').value = btn.dataset.email;
+                document.getElementById('editRepresentanteLegal').value = btn.dataset.representanteLegal || '';
+                
+                document.getElementById('editEsCliente').checked = btn.dataset.esCliente == 1;
+                document.getElementById('editEsProveedor').checked = btn.dataset.esProveedor == 1;
+                document.getElementById('editEsEmpleado').checked = btn.dataset.esEmpleado == 1;
+                document.getElementById('editEsDistribuidor').checked = btn.dataset.esDistribuidor == 1;
+                
+                syncRoleTabs('edit');
+
+                const tipoP = document.getElementById('editTipoPersona');
+                tipoP.value = btn.dataset.tipoPersona;
+                tipoP.dispatchEvent(new Event('change'));
+
+                const dep = document.getElementById('editDepartamento');
+                const prov = document.getElementById('editProvincia');
+                const dist = document.getElementById('editDistrito');
+                
+                prov.dataset.preselect = btn.dataset.provincia;
+                dist.dataset.preselect = btn.dataset.distrito;
+                
+                dep.value = btn.dataset.departamento;
+                dep.dispatchEvent(new Event('change'));
+
+                const tels = JSON.parse(btn.dataset.telefonos || '[]');
+                const ctas = JSON.parse(btn.dataset.cuentasBancarias || '[]');
+                
+                const telList = document.getElementById('editTelefonosList');
+                telList.innerHTML = '';
+                tels.forEach(t => telList.appendChild(buildTelefonoRow(t)));
+
+                const ctaList = document.getElementById('editCuentasBancariasList');
+                ctaList.innerHTML = '';
+                ctas.forEach(c => ctaList.appendChild(buildCuentaRow(c)));
+
+                // Cargar zonas distribuidor
+                if (btn.dataset.esDistribuidor == 1 && window.TercerosClientes && window.TercerosClientes.loadSavedZones) {
+                    window.TercerosClientes.loadSavedZones('edit', id);
                 }
             });
-        };
+        }
+    }
 
-        const renderList = (type, items) => {
-            const cfg = cfgByType[type];
-            const listEl = document.getElementById(cfg.listId);
-            if (!listEl) return;
-
-            if (!Array.isArray(items) || items.length === 0) {
-                listEl.innerHTML = '<div class="list-group-item text-muted small">Sin registros.</div>';
-                syncSelectOptions(type, []);
-                return;
-            }
-
-            listEl.innerHTML = items.map((item) => {
-                const activo = Number(item.estado) === 1;
-                return `
-                    <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 item-maestro" data-id="${Number(item.id)}" data-nombre="${escapeHtml(item.nombre)}" data-estado="${activo ? 1 : 0}">
-                        <div class="d-flex align-items-center gap-2 text-truncate">
-                            <span class="text-truncate fw-medium">${escapeHtml(item.nombre)}</span>
-                            <span class="badge ${activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${activo ? 'Activo' : 'Inactivo'}</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="form-check form-switch m-0" title="Activar / desactivar">
-                                <input class="form-check-input maestro-switch" type="checkbox" data-tipo="${type}" data-id="${Number(item.id)}" ${activo ? 'checked' : ''}>
-                            </div>
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-light text-primary btn-edit-maestro" data-tipo="${type}" data-id="${Number(item.id)}" data-nombre="${escapeHtml(item.nombre)}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-light text-danger btn-del-maestro" data-tipo="${type}" data-id="${Number(item.id)}">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>`;
-            }).join('');
-
-            syncSelectOptions(type, items);
-        };
-
-        const resetFormState = (type) => {
-            const cfg = cfgByType[type];
-            const form = document.getElementById(cfg.formId);
+    function initFormSubmit() {
+        ['formCrearTercero', 'formEditarTercero'].forEach(fid => {
+            const form = document.getElementById(fid);
             if (!form) return;
-            const input = document.getElementById(cfg.inputId);
-            const idInput = document.getElementById(cfg.idId);
-            const actionInput = document.getElementById(cfg.actionId);
-            const cancelBtn = document.getElementById(cfg.cancelBtnId);
-            const saveBtn = document.getElementById(cfg.saveBtnId);
-            if (input) input.value = '';
-            if (idInput) idInput.value = '';
-            if (actionInput) actionInput.value = cfg.defaultAction;
-            if (cancelBtn) cancelBtn.classList.add('d-none');
-            if (saveBtn) saveBtn.setAttribute('title', cfg.saveLabel);
-        };
 
-        const loadList = async (type) => {
-            const cfg = cfgByType[type];
-            const data = await sendMaestroAction({ accion: cfg.listAction });
-            renderList(type, data.data || []);
-        };
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const checkRole = form.querySelector('[name="es_cliente"]').checked || 
+                                  form.querySelector('[name="es_distribuidor"]').checked || 
+                                  form.querySelector('[name="es_proveedor"]').checked || 
+                                  form.querySelector('[name="es_empleado"]').checked;
 
-        const setupType = (type) => {
-            const cfg = cfgByType[type];
-            const form = document.getElementById(cfg.formId);
-            const list = document.getElementById(cfg.listId);
-            const cancelBtn = document.getElementById(cfg.cancelBtnId);
-            const saveBtn = document.getElementById(cfg.saveBtnId);
-            const input = document.getElementById(cfg.inputId);
-            const idInput = document.getElementById(cfg.idId);
-            const actionInput = document.getElementById(cfg.actionId);
-            if (!form || !list || !input || !idInput || !actionInput) return;
-
-            resetFormState(type);
-            loadList(type).catch((error) => {
-                console.error(error);
-                Swal.fire('Error', error.message || 'No se pudo cargar la lista.', 'error');
-            });
-
-            form.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                const nombre = input.value.trim();
-                if (!nombre) return;
-
-                try {
-                    await sendMaestroAction({
-                        accion: actionInput.value || cfg.defaultAction,
-                        id: idInput.value || 0,
-                        nombre
-                    });
-                    await loadList(type);
-                    resetFormState(type);
-                    Swal.fire('Listo', 'Registro guardado correctamente.', 'success');
-                } catch (error) {
-                    console.error(error);
-                    Swal.fire('Error', error.message || 'No se pudo guardar.', 'error');
-                }
-            });
-
-            cancelBtn?.addEventListener('click', () => resetFormState(type));
-
-            list.addEventListener('click', async (event) => {
-                const editBtn = event.target.closest('.btn-edit-maestro');
-                const delBtn = event.target.closest('.btn-del-maestro');
-
-                if (editBtn) {
-                    input.value = editBtn.dataset.nombre || '';
-                    idInput.value = editBtn.dataset.id || '';
-                    actionInput.value = `editar_${type}`;
-                    cancelBtn?.classList.remove('d-none');
-                    if (saveBtn) saveBtn.setAttribute('title', cfg.editLabel);
-                    input.focus();
+                if (!checkRole) {
+                    Swal.fire('Atención', 'Debe seleccionar al menos un Rol (Cliente, Distribuidor, Proveedor o Empleado).', 'warning');
                     return;
                 }
 
-                if (!delBtn) return;
-
-                const result = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Confirmar',
-                    text: cfg.deleteText,
-                    showCancelButton: true,
-                    confirmButtonText: cfg.confirmDeleteText,
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc3545'
-                });
-                if (!result.isConfirmed) return;
-
-                try {
-                    await sendMaestroAction({ accion: cfg.deleteAction, id: delBtn.dataset.id || 0 });
-                    await loadList(type);
-                    resetFormState(type);
-                    Swal.fire('Eliminado', 'Registro desactivado correctamente.', 'success');
-                } catch (error) {
-                    console.error(error);
-                    Swal.fire('Error', error.message || 'No se pudo eliminar.', 'error');
-                }
-            });
-
-            list.addEventListener('change', async (event) => {
-                const switchEl = event.target.closest('.maestro-switch');
-                if (!switchEl) return;
-
-                const estado = switchEl.checked ? 1 : 0;
-                try {
-                    await sendMaestroAction({ accion: cfg.toggleAction, id: switchEl.dataset.id || 0, estado });
-                    await loadList(type);
-                } catch (error) {
-                    console.error(error);
-                    switchEl.checked = !switchEl.checked;
-                    Swal.fire('Error', error.message || 'No se pudo actualizar el estado.', 'error');
-                }
-            });
-        };
-
-        setupType('cargo');
-        setupType('area');
-    }
-
-    function initStatusSwitch() {
-        document.querySelectorAll('.switch-estado-tercero').forEach(switchInput => {
-            switchInput.addEventListener('change', function () {
-                const terceroId = this.getAttribute('data-id');
-                const nuevoEstado = this.checked ? 1 : 0;
-                const fila = this.closest('tr');
-                const badge = document.getElementById(`badge_status_tercero_${terceroId}`);
-
-                const formData = new FormData();
-                formData.append('accion', 'toggle_estado');
-                formData.append('id', terceroId);
-                formData.append('estado', nuevoEstado);
+                const fd = new FormData(form);
+                const btn = form.querySelector('button[type="submit"]');
+                const originalText = btn.innerHTML;
+                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
 
                 fetch(window.location.href, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: formData
+                    body: fd,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
                 })
                 .then(parseJsonResponse)
-                .then(({ data }) => {
-                    if (!data.ok) throw new Error(data.mensaje);
-                    if (fila) fila.setAttribute('data-estado', nuevoEstado);
-                    if (badge) {
-                        badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
-                        badge.className = `badge-status status-${nuevoEstado === 1 ? 'active' : 'inactive'}`;
+                .then(({data}) => {
+                    if (data.ok) {
+                        Swal.fire('Éxito', data.mensaje, 'success').then(() => window.location.reload());
+                    } else {
+                        throw new Error(data.mensaje || 'Error desconocido');
                     }
                 })
-                .catch(err => {
-                    console.error(err);
-                    this.checked = !this.checked;
-                    Swal.fire('Error', 'No se pudo actualizar el estado.', 'error');
+                .catch(err => Swal.fire('Error', err.message, 'error'))
+                .finally(() => {
+                    btn.disabled = false; btn.innerHTML = originalText;
                 });
             });
         });
     }
 
-    function bindFormRealtimeValidation(form, submitButton, rolesFeedbackId) {
-        if (!form) return;
-        form.querySelectorAll('input, select, textarea').forEach(field => {
-            const evt = (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') ? 'change' : 'input';
-            field.addEventListener(evt, () => refreshValidationOnChange(form, rolesFeedbackId));
+    function initButtons() {
+        ['crear', 'edit'].forEach(p => {
+            const btnTel = document.getElementById(`${p}AgregarTelefono`);
+            const listTel = document.getElementById(`${p}TelefonosList`);
+            if (btnTel) btnTel.onclick = () => listTel.appendChild(buildTelefonoRow());
+
+            const btnCta = document.getElementById(`${p}AgregarCuenta`);
+            const listCta = document.getElementById(`${p}CuentasBancariasList`);
+            if (btnCta) btnCta.onclick = () => listCta.appendChild(buildCuentaRow());
         });
-    }
 
-    function initDocumentoValidation() {
-        const validar = (tipoEl, numeroEl, excludeIdVal) => {
-            if (!tipoEl || !numeroEl) return;
-            const tipo = tipoEl.value;
-            const numero = numeroEl.value.trim();
-            if (!tipo || !numero) return;
-
-            const error = getDocumentoError(tipo, numero);
-            if (error) {
-                numeroEl.setCustomValidity(error);
-                if (numeroEl.closest('form')?.dataset.submitted === '1') numeroEl.classList.add('is-invalid');
-                return;
-            }
-
-            const fd = new FormData();
-            fd.append('accion', 'validar_documento');
-            fd.append('tipo_documento', tipo);
-            fd.append('numero_documento', numero);
-            if (excludeIdVal) fd.append('exclude_id', excludeIdVal);
-
-            fetch(window.location.href, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+        document.querySelectorAll('.js-eliminar-tercero').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                Swal.fire({
+                    title: '¿Eliminar tercero?',
+                    text: 'Esta acción no se puede deshacer',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Sí, eliminar'
+                }).then((r) => {
+                    if(r.isConfirmed) {
+                        const fd = new FormData();
+                        fd.append('accion', 'eliminar');
+                        fd.append('id', id);
+                        fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                        .then(() => window.location.reload());
+                    }
+                });
+            });
+        });
+        
+        document.querySelectorAll('.switch-estado-tercero').forEach(sw => {
+            sw.addEventListener('change', function() {
+                const id = this.dataset.id;
+                const estado = this.checked ? 1 : 0;
+                const fd = new FormData();
+                fd.append('accion', 'toggle_estado');
+                fd.append('id', id);
+                fd.append('estado', estado);
+                
+                fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
                 .then(parseJsonResponse)
-                .then(({ data: d }) => {
-                    const msg = d.existe ? 'Documento ya registrado.' : '';
-                    numeroEl.setCustomValidity(msg);
-                    if(d.existe && numeroEl.closest('form')?.dataset.submitted === '1') numeroEl.classList.add('is-invalid');
-                    else if(!d.existe) numeroEl.classList.remove('is-invalid');
-                })
-                .catch(console.error);
-        };
-
-        const setup = (tipoId, numId, excludeFn) => {
-            const t = document.getElementById(tipoId);
-            const n = document.getElementById(numId);
-            if(t && n) {
-                const run = () => validar(t, n, excludeFn ? excludeFn() : null);
-                t.addEventListener('change', run);
-                n.addEventListener('blur', run);
-            }
-        };
-
-        setup('crearTipoDoc', 'crearNumeroDoc', null);
-        setup('editTipoDoc', 'editNumeroDoc', () => document.getElementById('editId')?.value);
+                .then(({data}) => {
+                    if(!data.ok) {
+                        this.checked = !this.checked;
+                        Swal.fire('Error', data.mensaje, 'error');
+                    } else {
+                        const badge = document.getElementById(`badge_status_tercero_${id}`);
+                        if(badge) {
+                            badge.className = `badge-status status-${estado ? 'active' : 'inactive'}`;
+                            badge.innerText = estado ? 'Activo' : 'Inactivo';
+                        }
+                    }
+                });
+            });
+        });
     }
 
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
-
     document.addEventListener('DOMContentLoaded', function () {
-        if (typeof ERPTable !== 'undefined' && ERPTable.initTooltips) {
-            ERPTable.initTooltips();
-        } else {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl)
-            })
-        }
-
-        initCreateModal();
-        initEditModal();
         initDynamicFields();
-        initStatusSwitch();
-        initDocumentoValidation();
-        initMaestrosManagement(); 
-        initSweetConfirmForms();
-
-        const crearBtn = document.getElementById('crearGuardarBtn');
-        if (crearBtn) {
-            crearBtn.setAttribute('data-original-text', crearBtn.innerHTML);
-            bindFormRealtimeValidation(document.getElementById('formCrearTercero'), crearBtn, 'crearRolesFeedback');
-            submitForm(document.getElementById('formCrearTercero'), crearBtn, 'crearRolesFeedback');
-        }
-
-        const editBtn = document.getElementById('editGuardarBtn');
-        if (editBtn) {
-            editBtn.setAttribute('data-original-text', editBtn.innerHTML);
-            bindFormRealtimeValidation(document.getElementById('formEditarTercero'), editBtn, 'editRolesFeedback');
-            submitForm(document.getElementById('formEditarTercero'), editBtn, 'editRolesFeedback');
-        }
-
-        if (typeof ERPTable !== 'undefined' && ERPTable.createTableManager) {
-            window.tercerosTableManager = ERPTable.createTableManager({
-                tableSelector: '#tercerosTable',
-                searchInput: '#terceroSearch',
-                filters: [
-                    { el: '#terceroFiltroRol', attr: 'data-roles' },
-                    { el: '#terceroFiltroEstado', attr: 'data-estado' }
-                ],
-                paginationControls: '#tercerosPaginationControls',
-                paginationInfo: '#tercerosPaginationInfo',
-                rowsPerPage: 10,
-                emptyText: 'No se encontraron terceros registrados.',
-                infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} terceros`
-            }).init();
-        } else {
-            console.warn('ERPTable no está cargado. La tabla no tendrá paginación/filtros JS.');
-        }
+        initModals();
+        initButtons();
+        initFormSubmit();
+        
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
     });
 
 })();
