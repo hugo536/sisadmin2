@@ -158,9 +158,16 @@
 
                                             title="Editar"><i class="bi bi-pencil-square fs-5"></i></button>
                                     
-                                        <button class="btn btn-sm btn-light text-danger border-0 bg-transparent js-eliminar-tercero" 
+                                        <?php
+                                            $puedeEliminar = (int) ($tercero['puede_eliminar'] ?? 1) === 1;
+                                            $motivoNoEliminar = (string) ($tercero['motivo_no_eliminar'] ?? 'No se puede eliminar este tercero.');
+                                        ?>
+                                        <button class="btn btn-sm border-0 bg-transparent js-eliminar-tercero <?php echo $puedeEliminar ? 'btn-light text-danger' : 'btn-light text-muted opacity-50'; ?>" 
                                             data-id="<?php echo (int) $tercero['id']; ?>"
-                                            title="Eliminar"><i class="bi bi-trash fs-5"></i></button>
+                                            data-puede-eliminar="<?php echo $puedeEliminar ? '1' : '0'; ?>"
+                                            data-motivo-no-eliminar="<?php echo e($motivoNoEliminar); ?>"
+                                            title="<?php echo $puedeEliminar ? 'Eliminar' : e($motivoNoEliminar); ?>"
+                                            <?php echo $puedeEliminar ? '' : 'disabled aria-disabled="true"'; ?>><i class="bi bi-trash fs-5"></i></button>
                                     </div>
                                 </td>
                             </tr>

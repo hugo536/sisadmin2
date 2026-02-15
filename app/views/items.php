@@ -147,10 +147,16 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
+                                        <?php
+                                            $puedeEliminarItem = (int) ($item['puede_eliminar'] ?? 1) === 1;
+                                            $motivoNoEliminarItem = (string) ($item['motivo_no_eliminar'] ?? 'No se puede eliminar este ítem.');
+                                        ?>
                                         <form method="post" class="d-inline m-0 js-swal-confirm" data-confirm-title="¿Eliminar ítem?" data-confirm-text="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="accion" value="eliminar">
                                             <input type="hidden" name="id" value="<?php echo (int) $item['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent">
+                                            <button type="submit" class="btn btn-sm border-0 bg-transparent <?php echo $puedeEliminarItem ? 'btn-light text-danger' : 'btn-light text-muted opacity-50'; ?>"
+                                                title="<?php echo $puedeEliminarItem ? 'Eliminar' : e($motivoNoEliminarItem); ?>"
+                                                <?php echo $puedeEliminarItem ? '' : 'disabled aria-disabled="true"'; ?>>
                                                 <i class="bi bi-trash fs-5"></i>
                                             </button>
                                         </form>

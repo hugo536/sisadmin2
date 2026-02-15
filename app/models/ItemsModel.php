@@ -20,8 +20,17 @@ class ItemsModel extends Modelo
                 ORDER BY id DESC';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id'] ?? 0);
+            $bloqueo = $this->obtenerBloqueoEliminacion($id);
+            $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
+            $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+        }
+        unset($row);
+
+        return $rows;
     }
 
     public function obtener(int $id): array
@@ -235,6 +244,11 @@ class ItemsModel extends Modelo
 
     public function eliminar(int $id, int $userId): bool
     {
+        $bloqueo = $this->obtenerBloqueoEliminacion($id);
+        if (!$bloqueo['puede_eliminar']) {
+            throw new RuntimeException($bloqueo['motivo']);
+        }
+
         $sql = 'UPDATE items
                 SET estado = 0,
                     deleted_at = NOW(),
@@ -245,6 +259,35 @@ class ItemsModel extends Modelo
             'id' => $id,
             'updated_by' => $userId,
         ]);
+    }
+
+    public function obtenerBloqueoEliminacion(int $id): array
+    {
+        $referencias = [];
+
+        $ventas = $this->contarReferenciasActivas('ventas_documentos_detalle', 'id_item', $id);
+        if ($ventas > 0) {
+            $referencias[] = $ventas . ' detalle(s) de venta';
+        }
+
+        $compras = $this->contarReferenciasActivas('compras_ordenes_detalle', 'id_item', $id);
+        if ($compras > 0) {
+            $referencias[] = $compras . ' detalle(s) de compra';
+        }
+
+        $movimientos = $this->contarReferenciasActivas('inventario_movimientos', 'id_item', $id);
+        if ($movimientos > 0) {
+            $referencias[] = $movimientos . ' movimiento(s) de inventario';
+        }
+
+        if ($referencias === []) {
+            return ['puede_eliminar' => true, 'motivo' => ''];
+        }
+
+        return [
+            'puede_eliminar' => false,
+            'motivo' => 'No se puede eliminar: el ítem tiene movimientos activos (' . implode(', ', $referencias) . '). Puedes desactivarlo.',
+        ];
     }
 
 
@@ -579,6 +622,22 @@ class ItemsModel extends Modelo
         }
 
         return in_array(strtolower($columna), $this->cacheColumnasPorTabla[$tabla], true);
+    }
+
+    private function contarReferenciasActivas(string $tabla, string $foreignKey, int $id): int
+    {
+        if (!$this->tablaTieneColumna($tabla, $foreignKey)) {
+            return 0;
+        }
+
+        $sql = "SELECT COUNT(*) FROM {$tabla} WHERE {$foreignKey} = :id";
+        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return (int) $stmt->fetchColumn();
     }
 
     private function mapPayload(array $data): array

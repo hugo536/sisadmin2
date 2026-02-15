@@ -506,6 +506,14 @@
         document.querySelectorAll('.js-eliminar-tercero').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
+                const puedeEliminar = this.dataset.puedeEliminar === '1';
+                const motivoNoEliminar = this.dataset.motivoNoEliminar || 'No se puede eliminar este tercero.';
+
+                if (!puedeEliminar) {
+                    Swal.fire('No se puede eliminar', motivoNoEliminar, 'info');
+                    return;
+                }
+
                 Swal.fire({
                     title: '¿Eliminar tercero?',
                     text: 'Esta acción no se puede deshacer',
@@ -519,7 +527,14 @@
                         fd.append('accion', 'eliminar');
                         fd.append('id', id);
                         fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-                        .then(() => window.location.reload());
+                        .then(parseJsonResponse)
+                        .then(({ data }) => {
+                            if (!data.ok) {
+                                throw new Error(data.mensaje || 'No se pudo eliminar el tercero.');
+                            }
+                            window.location.reload();
+                        })
+                        .catch((err) => Swal.fire('Error', err.message, 'error'));
                     }
                 });
             });

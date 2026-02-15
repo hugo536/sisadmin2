@@ -85,10 +85,13 @@ class TercerosModel extends Modelo
 
         foreach ($rows as &$row) {
             $id = (int) $row['id'];
+            $bloqueo = $this->obtenerBloqueoEliminacion($id);
             $row['telefonos']         = $telefonos[$id] ?? [];
             $row['cuentas_bancarias'] = $cuentas[$id]   ?? [];
             $row['zonas_exclusivas']  = $zonas[$id] ?? [];
             $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
+            $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
+            $row['motivo_no_eliminar'] = $bloqueo['motivo'];
             
             // Helpers de ubicación (compatibilidad visual)
             $row['departamento_nombre'] = $row['departamento'];
@@ -310,8 +313,37 @@ class TercerosModel extends Modelo
 
     public function eliminar(int $id, int $userId): bool
     {
+        $bloqueo = $this->obtenerBloqueoEliminacion($id);
+        if (!$bloqueo['puede_eliminar']) {
+            throw new RuntimeException($bloqueo['motivo']);
+        }
+
         $sql = "UPDATE terceros SET estado = 0, deleted_at = NOW(), deleted_by = :deleted_by WHERE id = :id";
         return $this->db()->prepare($sql)->execute(['id' => $id, 'deleted_by' => $userId]);
+    }
+
+    public function obtenerBloqueoEliminacion(int $id): array
+    {
+        $referencias = [];
+
+        $ventas = $this->contarReferenciasActivas('ventas_documentos', 'id_cliente', $id);
+        if ($ventas > 0) {
+            $referencias[] = $ventas . ' venta(s)';
+        }
+
+        $compras = $this->contarReferenciasActivas('compras_ordenes', 'id_proveedor', $id);
+        if ($compras > 0) {
+            $referencias[] = $compras . ' compra(s)';
+        }
+
+        if ($referencias === []) {
+            return ['puede_eliminar' => true, 'motivo' => ''];
+        }
+
+        return [
+            'puede_eliminar' => false,
+            'motivo' => 'No se puede eliminar: el tercero tiene movimientos activos (' . implode(', ', $referencias) . '). Puedes desactivarlo.',
+        ];
     }
 
     // ==========================================
@@ -772,5 +804,21 @@ class TercerosModel extends Modelo
 
         $this->columnCache[$cacheKey] = (bool) $stmt->fetchColumn();
         return $this->columnCache[$cacheKey];
+    }
+
+    private function contarReferenciasActivas(string $tableName, string $foreignKey, int $id): int
+    {
+        if (!$this->hasColumn($tableName, $foreignKey)) {
+            return 0;
+        }
+
+        $sql = "SELECT COUNT(*) FROM {$tableName} WHERE {$foreignKey} = :id";
+        if ($this->hasColumn($tableName, 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return (int) $stmt->fetchColumn();
     }
 }
