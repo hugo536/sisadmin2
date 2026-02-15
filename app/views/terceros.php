@@ -274,6 +274,10 @@
                             <button class="nav-link" id="crear-tab-comercial" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-comercial" type="button" role="tab" aria-controls="crear-tab-pane-comercial" aria-selected="false">Comercial y Finanzas</button>
                         </li>
                         <li class="nav-item d-none" id="crearTabEmpleadoItem" role="presentation">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="crear-tab-comercial" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-comercial" type="button" role="tab" aria-controls="crear-tab-pane-comercial" aria-selected="false">Comercial y Finanzas</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link" id="crear-tab-empleado" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-empleado" type="button" role="tab" aria-controls="crear-tab-pane-empleado" aria-selected="false">Empleado</button>
                         </li>
                     </ul>
