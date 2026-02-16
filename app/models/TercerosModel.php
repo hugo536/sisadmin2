@@ -40,6 +40,7 @@ class TercerosModel extends Modelo
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
                        t.direccion, t.telefono, t.email, t.representante_legal,
                        t.departamento, t.provincia, t.distrito,
+                       dep.id AS departamento_id, prov.id AS provincia_id, dist.id AS distrito_id,
                        t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
                        
                        -- Datos cliente desde tabla hija
@@ -66,6 +67,9 @@ class TercerosModel extends Modelo
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
+                LEFT JOIN departamentos dep ON dep.nombre = t.departamento
+                LEFT JOIN provincias prov ON prov.nombre = t.provincia AND prov.departamento_id = dep.id
+                LEFT JOIN distritos dist ON dist.nombre = t.distrito AND dist.provincia_id = prov.id
                 LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
                 ORDER BY t.id DESC";
@@ -129,6 +133,7 @@ class TercerosModel extends Modelo
             : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
 
         $sql = "SELECT t.*, 
+                       dep.id AS departamento_id, prov.id AS provincia_id, dist.id AS distrito_id,
                        -- Cliente
                        tc.dias_credito AS cliente_dias_credito,
                        tc.limite_credito AS cliente_limite_credito,
@@ -153,6 +158,9 @@ class TercerosModel extends Modelo
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
+                LEFT JOIN departamentos dep ON dep.nombre = t.departamento
+                LEFT JOIN provincias prov ON prov.nombre = t.provincia AND prov.departamento_id = dep.id
+                LEFT JOIN distritos dist ON dist.nombre = t.distrito AND dist.provincia_id = prov.id
                 LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.id = :id AND t.deleted_at IS NULL LIMIT 1";
 
