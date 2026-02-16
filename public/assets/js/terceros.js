@@ -440,9 +440,19 @@
                 document.getElementById('editNombre').value = btn.dataset.nombre;
                 document.getElementById('editNumeroDoc').value = btn.dataset.numeroDoc;
                 document.getElementById('editTipoDoc').value = btn.dataset.tipoDoc;
+                document.getElementById('editEstado').value = btn.dataset.estado || '1';
                 document.getElementById('editDireccion').value = btn.dataset.direccion;
                 document.getElementById('editEmail').value = btn.dataset.email;
                 document.getElementById('editRepresentanteLegal').value = btn.dataset.representanteLegal || '';
+
+                // Datos Cliente / Proveedor
+                document.getElementById('editClienteDiasCredito').value = btn.dataset.clienteDiasCredito || '';
+                document.getElementById('editClienteLimiteCredito').value = btn.dataset.clienteLimiteCredito || '';
+                document.getElementById('editClienteCondicionPago').value = btn.dataset.clienteCondicionPago || '';
+                document.getElementById('editProvCondicion').value = btn.dataset.proveedorCondicionPago || '';
+                document.getElementById('editProvDiasCredito').value = btn.dataset.proveedorDiasCredito || '';
+                document.getElementById('editProvFormaPago').value = btn.dataset.proveedorFormaPago || '';
+                document.getElementById('editProvCondicion').dispatchEvent(new Event('change'));
                 
                 document.getElementById('editEsCliente').checked = btn.dataset.esCliente == 1;
                 document.getElementById('editEsProveedor').checked = btn.dataset.esProveedor == 1;
