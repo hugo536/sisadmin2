@@ -568,12 +568,211 @@
     }
 
     // =========================================================================
+    // MAESTROS (CARGOS / ÁREAS)
+    // =========================================================================
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value ?? '';
+        return div.innerHTML;
+    }
+
+    function renderMaestroList(container, rows, type) {
+        if (!container) return;
+        if (!Array.isArray(rows) || rows.length === 0) {
+            container.innerHTML = '<div class="text-center py-3 text-muted small">No hay registros</div>';
+            return;
+        }
+
+        container.innerHTML = rows.map((row) => {
+            const id = Number(row.id || 0);
+            const nombre = escapeHtml(row.nombre || '');
+            const estado = Number(row.estado || 0) === 1;
+            const estadoClass = estado ? 'text-success' : 'text-secondary';
+            const estadoLabel = estado ? 'Activo' : 'Inactivo';
+            return `
+                <div class="list-group-item py-2 d-flex justify-content-between align-items-center gap-2" data-id="${id}">
+                    <div class="d-flex flex-column">
+                        <span class="fw-semibold">${nombre}</span>
+                        <small class="${estadoClass}">${estadoLabel}</small>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary js-edit-${type}" type="button" data-id="${id}" data-nombre="${nombre}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-${estado ? 'warning' : 'success'} js-toggle-${type}" type="button" data-id="${id}" data-estado="${estado ? 0 : 1}">
+                            <i class="bi bi-${estado ? 'pause' : 'play'}"></i>
+                        </button>
+                        <button class="btn btn-outline-danger js-delete-${type}" type="button" data-id="${id}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function initMasterCatalog(config) {
+        const modal = document.getElementById(config.modalId);
+        const form = document.getElementById(config.formId);
+        const list = document.getElementById(config.listId);
+        const input = document.getElementById(config.inputId);
+        const action = document.getElementById(config.actionId);
+        const idField = document.getElementById(config.idFieldId);
+        const cancelBtn = document.getElementById(config.cancelBtnId);
+
+        if (!modal || !form || !list || !input || !action || !idField || !cancelBtn) return;
+
+        const resetForm = () => {
+            form.reset();
+            action.value = config.saveAction;
+            idField.value = '';
+            cancelBtn.classList.add('d-none');
+        };
+
+        const loadList = async () => {
+            list.innerHTML = '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm"></span> Cargando...</div>';
+            const fd = new FormData();
+            fd.append('accion', config.listAction);
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: fd,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                const { data } = await parseJsonResponse(response);
+                if (!data.ok) {
+                    throw new Error(data.mensaje || `No se pudo listar ${config.labelPlural}.`);
+                }
+                renderMaestroList(list, data.data || [], config.type);
+            } catch (error) {
+                list.innerHTML = `<div class="text-center py-3 text-danger small">${escapeHtml(error.message)}</div>`;
+            }
+        };
+
+        modal.addEventListener('shown.bs.modal', loadList);
+
+        cancelBtn.addEventListener('click', resetForm);
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const nombre = (input.value || '').trim();
+            if (!nombre) {
+                Swal.fire('Atención', `Ingresa un nombre de ${config.label}.`, 'warning');
+                return;
+            }
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const original = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const fd = new FormData(form);
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: fd,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                const { data } = await parseJsonResponse(response);
+                if (!data.ok) throw new Error(data.mensaje || `No se pudo guardar ${config.label}.`);
+
+                resetForm();
+                await loadList();
+                Swal.fire('Éxito', data.mensaje || `${config.labelCapitalized} guardada.`, 'success');
+            } catch (error) {
+                Swal.fire('Error', error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = original;
+            }
+        });
+
+        list.addEventListener('click', async function (event) {
+            const editBtn = event.target.closest(`.js-edit-${config.type}`);
+            const toggleBtn = event.target.closest(`.js-toggle-${config.type}`);
+            const deleteBtn = event.target.closest(`.js-delete-${config.type}`);
+
+            if (editBtn) {
+                action.value = config.editAction;
+                idField.value = editBtn.dataset.id || '';
+                input.value = editBtn.dataset.nombre || '';
+                input.focus();
+                cancelBtn.classList.remove('d-none');
+                return;
+            }
+
+            if (!toggleBtn && !deleteBtn) return;
+
+            const fd = new FormData();
+            fd.append('id', toggleBtn?.dataset.id || deleteBtn?.dataset.id || '0');
+            fd.append('accion', toggleBtn ? config.toggleAction : config.deleteAction);
+            if (toggleBtn) fd.append('estado', toggleBtn.dataset.estado || '0');
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: fd,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                const { data } = await parseJsonResponse(response);
+                if (!data.ok) throw new Error(data.mensaje || `No se pudo actualizar ${config.label}.`);
+                await loadList();
+            } catch (error) {
+                Swal.fire('Error', error.message, 'error');
+            }
+        });
+
+        modal.addEventListener('hidden.bs.modal', resetForm);
+    }
+
+    function initMasterCatalogs() {
+        initMasterCatalog({
+            type: 'cargo',
+            label: 'cargo',
+            labelPlural: 'cargos',
+            labelCapitalized: 'Cargo',
+            modalId: 'modalGestionCargos',
+            formId: 'formCrearCargo',
+            listId: 'listaCargosConfig',
+            inputId: 'cargoNombre',
+            actionId: 'cargoAccion',
+            idFieldId: 'cargoId',
+            cancelBtnId: 'btnCancelCargo',
+            listAction: 'listar_cargos',
+            saveAction: 'guardar_cargo',
+            editAction: 'editar_cargo',
+            deleteAction: 'eliminar_cargo',
+            toggleAction: 'toggle_estado_cargo'
+        });
+
+        initMasterCatalog({
+            type: 'area',
+            label: 'área',
+            labelPlural: 'áreas',
+            labelCapitalized: 'Área',
+            modalId: 'modalGestionAreas',
+            formId: 'formCrearArea',
+            listId: 'listaAreasConfig',
+            inputId: 'areaNombre',
+            actionId: 'areaAccion',
+            idFieldId: 'areaId',
+            cancelBtnId: 'btnCancelArea',
+            listAction: 'listar_areas',
+            saveAction: 'guardar_area',
+            editAction: 'editar_area',
+            deleteAction: 'eliminar_area',
+            toggleAction: 'toggle_estado_area'
+        });
+    }
+
+    // =========================================================================
     // BOOTSTRAP
     // =========================================================================
     document.addEventListener('DOMContentLoaded', function () {
         initDynamicFields();
         initModals();
         initButtons();
+        initMasterCatalogs();
         initFormSubmit();
         
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
