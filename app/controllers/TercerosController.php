@@ -698,6 +698,11 @@ class TercerosController extends Controlador
         $prepared['contacto_emergencia_telf']   = trim((string) ($data['contacto_emergencia_telf'] ?? ''));
         $prepared['tipo_sangre']             = strtoupper(trim((string) ($data['tipo_sangre'] ?? '')));
 
+        $tiposSangreValidos = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        if (!in_array($prepared['tipo_sangre'], $tiposSangreValidos, true)) {
+            throw new Exception('El tipo de sangre seleccionado no es válido.');
+        }
+
         return $prepared;
     }
 }

@@ -235,7 +235,17 @@ $today = date('Y-m-d');
             </div>
             <div class="col-md-3">
                 <div class="form-floating">
-                    <input type="text" class="form-control" name="tipo_sangre" id="<?php echo $prefix; ?>TipoSangre" placeholder="O+" maxlength="5">
+                    <select class="form-select" name="tipo_sangre" id="<?php echo $prefix; ?>TipoSangre">
+                        <option value="">Seleccionar...</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                    </select>
                     <label for="<?php echo $prefix; ?>TipoSangre">Tipo Sangre</label>
                 </div>
             </div>

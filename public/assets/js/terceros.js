@@ -390,6 +390,10 @@
                 
                 document.getElementById('crearProvincia').innerHTML = '';
                 document.getElementById('crearDistrito').innerHTML = '';
+
+                if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
+                    window.TercerosEmpleados.refreshState('crear');
+                }
             });
         }
 
@@ -412,8 +416,36 @@
                 document.getElementById('editEsProveedor').checked = btn.dataset.esProveedor == 1;
                 document.getElementById('editEsEmpleado').checked = btn.dataset.esEmpleado == 1;
                 document.getElementById('editEsDistribuidor').checked = btn.dataset.esDistribuidor == 1;
+
+                document.getElementById('editCargo').value = btn.dataset.cargo || '';
+                document.getElementById('editArea').value = btn.dataset.area || '';
+                document.getElementById('editFechaIngreso').value = btn.dataset.fechaIngreso || '';
+                document.getElementById('editFechaCese').value = btn.dataset.fechaCese || '';
+                document.getElementById('editEstadoLaboral').value = btn.dataset.estadoLaboral || 'activo';
+                document.getElementById('editTipoContrato').value = btn.dataset.tipoContrato || '';
+                document.getElementById('editTipoPago').value = btn.dataset.tipoPago || 'MENSUAL';
+                document.getElementById('editMoneda').value = btn.dataset.moneda || 'PEN';
+                document.getElementById('editSueldoBasico').value = btn.dataset.sueldoBasico || '';
+                document.getElementById('editPagoDiario').value = btn.dataset.pagoDiario || '';
+                document.getElementById('editRegimen').value = btn.dataset.regimenPensionario || '';
+                document.getElementById('editTipoComision').value = btn.dataset.tipoComisionAfp || '';
+                document.getElementById('editCuspp').value = btn.dataset.cuspp || '';
+                document.getElementById('editAsignacionFamiliar').checked = btn.dataset.asignacionFamiliar == 1;
+                document.getElementById('editEssalud').checked = btn.dataset.essalud == 1;
+                document.getElementById('editRecordarCumpleanos').checked = btn.dataset.recordarCumpleanos == 1;
+                document.getElementById('editFechaNacimiento').value = btn.dataset.fechaNacimiento || '';
+                document.getElementById('editGenero').value = btn.dataset.genero || '';
+                document.getElementById('editEstadoCivil').value = btn.dataset.estadoCivil || '';
+                document.getElementById('editNivelEducativo').value = btn.dataset.nivelEducativo || '';
+                document.getElementById('editContactoEmergenciaNombre').value = btn.dataset.contactoEmergenciaNombre || '';
+                document.getElementById('editContactoEmergenciaTelf').value = btn.dataset.contactoEmergenciaTelf || '';
+                document.getElementById('editTipoSangre').value = btn.dataset.tipoSangre || '';
                 
                 syncRoleTabs('edit');
+
+                if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
+                    window.TercerosEmpleados.refreshState('edit');
+                }
 
                 const tipoP = document.getElementById('editTipoPersona');
                 tipoP.value = btn.dataset.tipoPersona;
