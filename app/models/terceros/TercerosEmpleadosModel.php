@@ -38,11 +38,16 @@ class TercerosEmpleadosModel extends Modelo
                 VALUES (' . implode(', ', $placeholders) . ')
                 ON DUPLICATE KEY UPDATE ' . implode(', ', $updates);
 
+        $fechaIngresoGuardada = $this->obtenerFechaIngresoActual($idTercero);
+        $fechaIngreso = $fechaIngresoGuardada['existe_registro']
+            ? $fechaIngresoGuardada['fecha_ingreso']
+            : ($data['fecha_ingreso'] ?? null);
+
         $params = [
             'id_tercero' => $idTercero,
             'cargo' => $data['cargo'] ?? null,
             'area' => $data['area'] ?? null,
-            'fecha_ingreso' => $data['fecha_ingreso'] ?? null,
+            'fecha_ingreso' => $fechaIngreso,
             'fecha_cese' => $data['fecha_cese'] ?? null,
             'estado_laboral' => $data['estado_laboral'] ?? 'activo',
             'tipo_contrato' => $data['tipo_contrato'] ?? null,
@@ -76,6 +81,23 @@ class TercerosEmpleadosModel extends Modelo
         }
 
         $this->db()->prepare($sql)->execute($params);
+    }
+
+
+    private function obtenerFechaIngresoActual(int $idTercero): array
+    {
+        $stmt = $this->db()->prepare('SELECT fecha_ingreso FROM terceros_empleados WHERE id_tercero = :id LIMIT 1');
+        $stmt->execute(['id' => $idTercero]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['existe_registro' => false, 'fecha_ingreso' => null];
+        }
+
+        return [
+            'existe_registro' => true,
+            'fecha_ingreso' => $row['fecha_ingreso'] ?? null,
+        ];
     }
 
     private function hasColumn(string $tableName, string $columnName): bool

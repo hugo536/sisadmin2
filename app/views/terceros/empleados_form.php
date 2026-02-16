@@ -12,12 +12,12 @@ $today = date('Y-m-d');
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-4">
-                <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
+                <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center empleado-switch-card">
                     <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>RecordarCumpleanos" name="recordar_cumpleanos" value="1" style="margin-top: 0;">
                     <label class="form-check-label small lh-1 fw-semibold" for="<?php echo $prefix; ?>RecordarCumpleanos">Registrar Cumpleaños</label>
                 </div>
             </div>
-            <div class="col-md-4 d-none" id="<?php echo $prefix; ?>FechaNacimientoWrapper">
+            <div class="col-md-4" id="<?php echo $prefix; ?>FechaNacimientoWrapper">
                 <div class="form-floating">
                     <input type="date" class="form-control" name="fecha_nacimiento" id="<?php echo $prefix; ?>FechaNacimiento" max="<?php echo $today; ?>" disabled>
                     <label for="<?php echo $prefix; ?>FechaNacimiento">Fecha de Nacimiento</label>
@@ -207,9 +207,21 @@ $today = date('Y-m-d');
             </div>
             <div class="col-md-6">
                 <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
-                    <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>Essalud" name="essalud" value="1" checked style="margin-top: 0;">
+                    <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>Essalud" name="essalud" value="1" style="margin-top: 0;">
                     <label class="form-check-label small" for="<?php echo $prefix; ?>Essalud">Aportante EsSalud (9%)</label>
                 </div>
+            </div>
+            <div class="col-12 d-none" id="<?php echo $prefix; ?>HijosAlertWrapper">
+                <div class="alert alert-warning border mb-0 py-2 small d-flex align-items-center justify-content-between gap-2" role="alert" id="<?php echo $prefix; ?>HijosAlert">
+                    <span><i class="bi bi-exclamation-triangle-fill me-1"></i>¡Atención! Uno o más hijos ya cumplieron 18 años sin justificar estudios o discapacidad.</span>
+                    <button type="button" class="btn btn-sm btn-outline-warning" id="<?php echo $prefix; ?>RevisarHijosBtn">Revisar hijos ahora</button>
+                </div>
+            </div>
+            <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
+                <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
+                    <i class="bi bi-people-fill me-1"></i>Gestionar hijos para asignación familiar
+                </button>
+                <small class="text-muted d-block mt-1">Registro y control documentario de asignación familiar.</small>
             </div>
         </div>
     </div>

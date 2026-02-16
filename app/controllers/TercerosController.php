@@ -5,10 +5,12 @@
 // Usamos rutas relativas para evitar problemas con BASE_PATH
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/TercerosModel.php';
+require_once __DIR__ . '/../models/terceros/TercerosEmpleadosHijosModel.php';
 
 class TercerosController extends Controlador
 {
     private $tercerosModel;
+    private $hijosEmpleadoModel;
 
     public function __construct()
     {
@@ -23,6 +25,7 @@ class TercerosController extends Controlador
         }
         
         $this->tercerosModel = new TercerosModel();
+        $this->hijosEmpleadoModel = new TercerosEmpleadosHijosModel();
     }
 
     public function index()
@@ -158,7 +161,6 @@ class TercerosController extends Controlador
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
                     $this->tercerosModel->cambiarEstadoCargo($id, $estado, $userId);
-                    $this->tercerosModel->cambiarEstadoCargo($id, $estado);
                     json_response(['ok' => true, 'mensaje' => 'Estado de cargo actualizado']);
                     return;
                 }
@@ -207,8 +209,61 @@ class TercerosController extends Controlador
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
                     $this->tercerosModel->cambiarEstadoArea($id, $estado, $userId);
-                    $this->tercerosModel->cambiarEstadoArea($id, $estado);
                     json_response(['ok' => true, 'mensaje' => 'Estado de área actualizado']);
+                    return;
+                }
+
+
+                // ==========================================
+                // HIJOS PARA ASIGNACIÓN FAMILIAR
+                // ==========================================
+                if (es_ajax() && $accion === 'listar_hijos_asignacion') {
+                    require_permiso('terceros.editar');
+                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
+                    if ($idTercero <= 0) throw new Exception('Empleado inválido.');
+                    if (!$this->hijosEmpleadoModel->existeEmpleado($idTercero)) {
+                        throw new Exception('El tercero seleccionado aún no está registrado como empleado.');
+                    }
+
+                    $rows = $this->hijosEmpleadoModel->listarPorEmpleado($idTercero);
+                    json_response([
+                        'ok' => true,
+                        'data' => $rows,
+                        'has_mayor_sin_justificar' => $this->hijosEmpleadoModel->tieneMayorSinJustificar($idTercero),
+                    ]);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'guardar_hijo_asignacion') {
+                    require_permiso('terceros.editar');
+                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
+                    if ($idTercero <= 0) throw new Exception('Empleado inválido.');
+                    if (!$this->hijosEmpleadoModel->existeEmpleado($idTercero)) {
+                        throw new Exception('El tercero seleccionado aún no está registrado como empleado.');
+                    }
+
+                    $idHijo = (int) ($_POST['id'] ?? 0);
+                    $this->hijosEmpleadoModel->guardar([
+                        'id' => $idHijo,
+                        'id_empleado' => $idTercero,
+                        'nombre_completo' => trim((string) ($_POST['nombre_completo'] ?? '')),
+                        'fecha_nacimiento' => trim((string) ($_POST['fecha_nacimiento'] ?? '')),
+                        'esta_estudiando' => ((int) ($_POST['esta_estudiando'] ?? 0) === 1) ? 1 : 0,
+                        'discapacidad' => ((int) ($_POST['discapacidad'] ?? 0) === 1) ? 1 : 0,
+                    ]);
+
+                    json_response(['ok' => true, 'mensaje' => $idHijo > 0 ? 'Hijo actualizado correctamente.' : 'Hijo registrado correctamente.']);
+                    return;
+                }
+
+                if (es_ajax() && $accion === 'eliminar_hijo_asignacion') {
+                    require_permiso('terceros.editar');
+                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
+                    $idHijo = (int) ($_POST['id'] ?? 0);
+                    if ($idTercero <= 0 || $idHijo <= 0) throw new Exception('Datos inválidos.');
+
+                    $this->hijosEmpleadoModel->eliminar($idHijo, $idTercero);
+                    json_response(['ok' => true, 'mensaje' => 'Hijo eliminado correctamente.']);
                     return;
                 }
 
