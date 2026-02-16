@@ -114,8 +114,6 @@ class TercerosModel extends Modelo
 
     public function obtener(int $id): array
     {
-        $sql = "SELECT t.*
-                FROM terceros t
         $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
             ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
             : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
