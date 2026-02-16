@@ -51,6 +51,16 @@ $tipoItemLabel = static function (string $tipo): string {
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="itemFiltroCategoria">
+                        <option value="">Todas las categorías</option>
+                        <?php foreach ($categoriasGestion as $categoria): ?>
+                            <option value="<?php echo (int) ($categoria['id'] ?? 0); ?>">
+                                <?php echo e((string) ($categoria['nombre'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
                     <select class="form-select bg-light" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado">Producto terminado</option>
@@ -61,7 +71,7 @@ $tipoItemLabel = static function (string $tipo): string {
                         <option value="servicio">Servicio</option>
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-2">
                     <select class="form-select bg-light" id="itemFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activo</option>
@@ -92,6 +102,7 @@ $tipoItemLabel = static function (string $tipo): string {
                         <?php foreach ($items as $item): ?>
                             <tr data-estado="<?php echo (int) $item['estado']; ?>"
                                 data-tipo="<?php echo e($item['tipo_item']); ?>"
+                                data-categoria="<?php echo (int) ($item['id_categoria'] ?? 0); ?>"
                                 data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
                                 <td>

@@ -182,6 +182,27 @@
         applyVisibility();
     }
 
+    function validarPrecioVsCosto(precioId, costoId) {
+        const precioInput = document.getElementById(precioId);
+        const costoInput = document.getElementById(costoId);
+        if (!precioInput || !costoInput) return true;
+
+        const precio = Number.parseFloat(precioInput.value || '0');
+        const costo = Number.parseFloat(costoInput.value || '0');
+
+        if (!Number.isFinite(precio) || !Number.isFinite(costo)) {
+            return true;
+        }
+
+        if (precio < costo) {
+            showError('El precio de venta debe ser mayor o igual al costo referencial.');
+            precioInput.focus();
+            return false;
+        }
+
+        return true;
+    }
+
     function applyTipoItemRules(config) {
         const tipo = document.getElementById(config.tipoId);
         if (!tipo) return;
@@ -232,6 +253,12 @@
             if (isMateriaPrima) {
                 permiteDecimales.checked = true;
                 requiereLote.checked = true;
+            }
+
+            if (isProducto) {
+                controlaStock.checked = true;
+                requiereLote.checked = true;
+                requiereVencimiento.checked = true;
             }
 
             if (isMaterialEmpaque) {
@@ -287,7 +314,12 @@
             });
         });
 
-        document.getElementById('formCrearItem')?.addEventListener('submit', () => {
+        document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
+            if (!validarPrecioVsCosto('newPrecio', 'newCosto')) {
+                event.preventDefault();
+                return;
+            }
+
             const tipo = document.getElementById('newTipo')?.value;
             if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('newSabor');
@@ -305,6 +337,13 @@
         modalEdit.addEventListener('show.bs.modal', function (event) {
             const btn = event.relatedTarget;
             if (!btn) return;
+            const form = document.getElementById('formEditarItem');
+            form?.reset();
+
+            ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento'].forEach((id) => {
+                const input = document.getElementById(id);
+                if (input) input.checked = false;
+            });
 
             const fields = {
                 editId: 'data-id',
@@ -364,7 +403,12 @@
             });
         });
 
-        document.getElementById('formEditarItem')?.addEventListener('submit', () => {
+        document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
+            if (!validarPrecioVsCosto('editPrecio', 'editCosto')) {
+                event.preventDefault();
+                return;
+            }
+
             const tipo = document.getElementById('editTipo')?.value;
             if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('editSabor');
@@ -566,6 +610,7 @@
 
         function initTableManager() {
         const searchInput = document.getElementById('itemSearch');
+        const filtroCategoria = document.getElementById('itemFiltroCategoria');
         const filtroTipo = document.getElementById('itemFiltroTipo');
         const filtroEstado = document.getElementById('itemFiltroEstado');
         const paginationControls = document.getElementById('itemsPaginationControls');
@@ -578,14 +623,19 @@
 
         const updateTable = function () {
             const texto = (searchInput?.value || '').toLowerCase().trim();
+            const categoria = filtroCategoria?.value || '';
             const tipo = filtroTipo?.value || '';
             const estado = filtroEstado?.value || '';
 
             const visibleRows = allRows.filter((row) => {
                 const rowSearch = row.getAttribute('data-search') || '';
+                const rowCategoria = row.getAttribute('data-categoria') || '';
                 const rowTipo = row.getAttribute('data-tipo') || '';
                 const rowEstado = row.getAttribute('data-estado') || '';
-                return rowSearch.includes(texto) && (tipo === '' || rowTipo === tipo) && (estado === '' || rowEstado === estado);
+                return rowSearch.includes(texto)
+                    && (categoria === '' || rowCategoria === categoria)
+                    && (tipo === '' || rowTipo === tipo)
+                    && (estado === '' || rowEstado === estado);
             });
 
             const totalRows = visibleRows.length;
@@ -635,10 +685,15 @@
             addBtn('»', currentPage + 1, false, currentPage === totalPages);
         }
 
-        [searchInput, filtroTipo, filtroEstado].forEach((el) => el?.addEventListener('input', () => {
-            currentPage = 1;
-            updateTable();
-        }));
+        [searchInput, filtroCategoria, filtroTipo, filtroEstado].forEach((el) => {
+            if (!el) return;
+            const onFilterChange = () => {
+                currentPage = 1;
+                updateTable();
+            };
+            el.addEventListener('input', onFilterChange);
+            el.addEventListener('change', onFilterChange);
+        });
         updateTable();
     }
 
