@@ -113,6 +113,12 @@ class TercerosModel extends Modelo
         return $this->distribuidoresModel->obtenerConflictosZonas($zonas, $excludeDistribuidorId);
     }
 
+
+    public function listarHijosEmpleado(int $idTercero): array
+    {
+        return $this->empleadosModel->listarHijos($idTercero);
+    }
+
     public function obtener(int $id): array
     {
         $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))

@@ -2,6 +2,7 @@
 // Datos pasados por el controlador
 $t = $tercero ?? [];
 $docs = $documentos ?? [];
+$hijosEmpleado = $hijos_empleado ?? [];
 
 // Helpers de roles
 $esEmpleado = (int)($t['es_empleado'] ?? 0);
@@ -174,13 +175,52 @@ function showVal($val, $suffix = '') {
                             <div class="row g-4">
                                 <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Cargo</small><div class="fw-bold"><?php echo showVal($t['cargo']); ?></div></div></div>
                                 <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Área</small><div class="fw-bold"><?php echo showVal($t['area']); ?></div></div></div>
-                                <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Estado</small><?php echo ($t['estado_laboral']??'')==='activo'?'<span class="badge bg-success">Activo</span>':'<span class="badge bg-danger">'.ucfirst($t['estado_laboral']??'').'</span>'; ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Ingreso</label><div><?php echo showVal($t['fecha_ingreso']); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo</label><div class="fw-bold"><?php echo ($t['moneda']??'PEN')==='USD'?'$':'S/'; ?> <?php echo number_format((float)($t['sueldo_basico']??0),2); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">AFP/ONP</label><div><?php echo showVal(str_replace('_',' ',$t['regimen_pensionario']??'')); ?></div></div>
-                                <?php if (!empty($t['recordar_cumpleanos'])): ?>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Nacimiento</label><div><?php echo showVal($t['fecha_nacimiento']); ?></div></div>
-                                <?php endif; ?>
+                                <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Estado Laboral</small><?php echo ($t['estado_laboral'] ?? '') === 'activo' ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">' . ucfirst((string) ($t['estado_laboral'] ?? '')) . '</span>'; ?></div></div>
+
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Fecha Ingreso</label><div><?php echo showVal($t['fecha_ingreso']); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Fecha Cese</label><div><?php echo showVal($t['fecha_cese'] ?? ''); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Tipo Contrato</label><div><?php echo showVal($t['tipo_contrato'] ?? ''); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Frecuencia Pago</label><div><?php echo showVal($t['tipo_pago'] ?? ''); ?></div></div>
+
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo Básico</label><div class="fw-bold"><?php echo ($t['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/'; ?> <?php echo number_format((float) ($t['sueldo_basico'] ?? 0), 2); ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Pago Diario (Jornal)</label><div><?php echo showVal($t['pago_diario'] ?? ''); ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Régimen Pensionario</label><div><?php echo showVal(str_replace('_', ' ', (string) ($t['regimen_pensionario'] ?? ''))); ?></div></div>
+
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Tipo Comisión AFP</label><div><?php echo showVal($t['tipo_comision_afp'] ?? ''); ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">CUSPP</label><div><?php echo showVal($t['cuspp'] ?? ''); ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Cobertura</label><div><?php echo !empty($t['essalud']) ? 'ESSALUD: Sí' : 'ESSALUD: No'; ?></div></div>
+
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Asignación Familiar</label><div><?php echo !empty($t['asignacion_familiar']) ? 'Sí' : 'No'; ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Recordar Cumpleaños</label><div><?php echo !empty($t['recordar_cumpleanos']) ? 'Sí' : 'No'; ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Nacimiento</label><div><?php echo showVal($t['fecha_nacimiento'] ?? ''); ?></div></div>
+
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Género</label><div><?php echo showVal($t['genero'] ?? ''); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Estado Civil</label><div><?php echo showVal($t['estado_civil'] ?? ''); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Nivel Educativo</label><div><?php echo showVal($t['nivel_educativo'] ?? ''); ?></div></div>
+                                <div class="col-md-3"><label class="text-muted small fw-bold">Tipo de Sangre</label><div><?php echo showVal($t['tipo_sangre'] ?? ''); ?></div></div>
+
+                                <div class="col-md-6"><label class="text-muted small fw-bold">Contacto Emergencia</label><div><?php echo showVal($t['contacto_emergencia_nombre'] ?? ''); ?></div></div>
+                                <div class="col-md-6"><label class="text-muted small fw-bold">Teléfono Emergencia</label><div><?php echo showVal($t['contacto_emergencia_telf'] ?? ''); ?></div></div>
+
+                                <div class="col-12">
+                                    <div class="p-3 border rounded bg-light h-100">
+                                        <small class="text-muted d-block mb-2">Hijos registrados para asignación familiar</small>
+                                        <?php if (!empty($hijosEmpleado)): ?>
+                                            <ul class="mb-0">
+                                                <?php foreach ($hijosEmpleado as $hijo): ?>
+                                                    <li>
+                                                        <?php echo e((string) ($hijo['nombre_completo'] ?? 'Sin nombre')); ?>
+                                                        — <?php echo e((string) ($hijo['fecha_nacimiento'] ?? '--')); ?>
+                                                        <?php if (!empty($hijo['esta_estudiando'])): ?> (Estudia)<?php endif; ?>
+                                                        <?php if (!empty($hijo['discapacidad'])): ?> (Discapacidad)<?php endif; ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <div class="text-muted fst-italic">Sin hijos registrados.</div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <?php endif; ?>

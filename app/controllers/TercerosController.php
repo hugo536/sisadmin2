@@ -426,10 +426,12 @@ class TercerosController extends Controlador
 
         $documentos = $this->tercerosModel->listarDocumentos($id);
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
+        $hijosEmpleado = !empty($tercero['es_empleado']) ? $this->tercerosModel->listarHijosEmpleado($id) : [];
 
         $this->render('terceros_perfil', [
             'tercero' => $tercero,
             'documentos' => $documentos,
+            'hijos_empleado' => $hijosEmpleado,
             'departamentos_list' => $departamentos,
             'ruta_actual' => 'tercero'
         ]);
@@ -682,9 +684,14 @@ class TercerosController extends Controlador
             $cargo = trim((string) ($data['cargo'] ?? ''));
             $area = trim((string) ($data['area'] ?? ''));
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
+            $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? ''));
 
-            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
-                throw new Exception('Para el rol Empleado, cargo, área y fecha de ingreso son obligatorios.');
+            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '' || $sueldoBasicoRaw === '') {
+                throw new Exception('Para el rol Empleado, cargo, área, fecha de ingreso y sueldo básico son obligatorios.');
+            }
+
+            if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {
+                throw new Exception('El sueldo básico del empleado debe ser un número válido mayor o igual a 0.');
             }
 
             $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
