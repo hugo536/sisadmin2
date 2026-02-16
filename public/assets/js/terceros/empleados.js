@@ -122,6 +122,7 @@
 
     async function fetchHijos(idEmpleado, prefix) {
         if (!idEmpleado) return { rows: [], hasMayor: false };
+        if (!idEmpleado) return;
         const fd = new FormData();
         fd.append('accion', 'listar_hijos_asignacion');
         fd.append('id_tercero', idEmpleado);
@@ -137,6 +138,10 @@
         if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
 
         return { rows, hasMayor: !!data.has_mayor_sin_justificar };
+        renderRowsHijos(data.data || []);
+
+        const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
+        if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
     }
 
     function resetHijoForm() {
@@ -202,6 +207,30 @@
             const idEmpleado = getIdEmpleado();
             if (!idEmpleado) {
                 Swal.fire('Atención', 'Primero guarda el tercero como empleado. Luego podrás registrar hijos.', 'info');
+        const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
+        if (!asignacionSwitch || !gestionWrap) return;
+
+        const refresh = () => {
+            const idEmpleado = (prefix === 'edit' ? document.getElementById('editId')?.value : '') || '';
+            const isVisible = asignacionSwitch.checked && !!idEmpleado;
+            gestionWrap.classList.toggle('d-none', !isVisible);
+
+            if (!isVisible) {
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+                return;
+            }
+
+            fetchHijos(idEmpleado, prefix).catch(() => {
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+            });
+        };
+
+        asignacionSwitch.addEventListener('change', refresh);
+
+        const openModal = async () => {
+            const idEmpleado = document.getElementById('editId')?.value || '';
+            if (!idEmpleado) {
+                Swal.fire('Atención', 'Guarde el tercero como empleado para gestionar hijos.', 'warning');
                 return;
             }
             document.getElementById('hijosAsignacionEmpleadoId').value = idEmpleado;
@@ -219,7 +248,8 @@
             revisarBtn.addEventListener('click', openModal);
             revisarBtn.dataset.hijosBound = '1';
         }
-
+        gestionarBtn?.addEventListener('click', openModal);
+        revisarBtn?.addEventListener('click', openModal);
         if (!window.__hijosAsignacionBound) {
             window.__hijosAsignacionBound = true;
 
@@ -290,7 +320,6 @@
 
         refresh();
     }
-
 
     function lockFechaIngreso(prefix) {
         const input = document.getElementById(`${prefix}FechaIngreso`);

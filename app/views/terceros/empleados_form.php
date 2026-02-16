@@ -225,6 +225,9 @@ $today = date('Y-m-d');
             <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
                 <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
                     <i class="bi bi-people-fill me-1"></i><span id="<?php echo $prefix; ?>GestionHijosLabel">Gestionar hijos para asignación familiar</span>
+            <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
+                <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
+                    <i class="bi bi-people-fill me-1"></i>Gestionar hijos para asignación familiar
                 </button>
                 <small class="text-muted d-block mt-1">Registro y control documentario de asignación familiar.</small>
             </div>
