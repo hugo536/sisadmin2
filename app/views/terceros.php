@@ -136,6 +136,7 @@
                                             data-tipo-doc="<?php echo htmlspecialchars($tercero['tipo_documento']); ?>"
                                             data-numero-doc="<?php echo htmlspecialchars($tercero['numero_documento']); ?>"
                                             data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona']); ?>"
+                                            data-estado="<?php echo (int) ($tercero['estado'] ?? 1); ?>"
                                             data-representante-legal="<?php echo htmlspecialchars($tercero['representante_legal'] ?? ''); ?>"
                                             data-direccion="<?php echo htmlspecialchars($tercero['direccion'] ?? ''); ?>"
                                             data-email="<?php echo htmlspecialchars($tercero['email'] ?? ''); ?>"
@@ -171,6 +172,12 @@
                                             data-contacto-emergencia-nombre="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_nombre'] ?? '')); ?>"
                                             data-contacto-emergencia-telf="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_telf'] ?? '')); ?>"
                                             data-tipo-sangre="<?php echo htmlspecialchars((string) ($tercero['tipo_sangre'] ?? '')); ?>"
+                                            data-cliente-dias-credito="<?php echo (int) ($tercero['cliente_dias_credito'] ?? 0); ?>"
+                                            data-cliente-limite-credito="<?php echo htmlspecialchars((string) ($tercero['cliente_limite_credito'] ?? '')); ?>"
+                                            data-cliente-condicion-pago="<?php echo htmlspecialchars((string) ($tercero['cliente_condicion_pago'] ?? '')); ?>"
+                                            data-proveedor-dias-credito="<?php echo (int) ($tercero['proveedor_dias_credito'] ?? 0); ?>"
+                                            data-proveedor-condicion-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_condicion_pago'] ?? '')); ?>"
+                                            data-proveedor-forma-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_forma_pago'] ?? '')); ?>"
                                             data-hijos-lista='<?php echo e(json_encode($tercero['hijos_lista'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
                                             data-cuentas-bancarias='<?php echo e(json_encode($tercero['cuentas_bancarias'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
 
