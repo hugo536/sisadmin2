@@ -100,6 +100,22 @@
                 tabInstance.show();
             }
         }
+
+        syncEmpleadoRequiredFields(prefix);
+    }
+
+    function syncEmpleadoRequiredFields(prefix) {
+        const empleadoCheckbox = document.getElementById(`${prefix}EsEmpleado`);
+        const form = empleadoCheckbox?.closest('form');
+        if (!empleadoCheckbox || !form) return;
+
+        const requireEmpleado = empleadoCheckbox.checked;
+        form.querySelectorAll('[data-required-empleado="1"]').forEach((field) => {
+            field.required = requireEmpleado;
+            if (!requireEmpleado) {
+                field.setCustomValidity('');
+            }
+        });
     }
 
     // =========================================================================

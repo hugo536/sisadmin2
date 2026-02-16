@@ -678,6 +678,21 @@ class TercerosController extends Controlador
             throw new Exception('Seleccione al menos un rol (Cliente, Proveedor, Empleado o Distribuidor).');
         }
 
+        if ($esEmpleado) {
+            $cargo = trim((string) ($data['cargo'] ?? ''));
+            $area = trim((string) ($data['area'] ?? ''));
+            $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
+
+            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
+                throw new Exception('Para el rol Empleado, cargo, área y fecha de ingreso son obligatorios.');
+            }
+
+            $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
+            if (!$fechaIngreso || $fechaIngreso->format('Y-m-d') !== $fechaIngresoRaw) {
+                throw new Exception('La fecha de ingreso del empleado no tiene un formato válido.');
+            }
+        }
+
         $recordarCumpleanos = $esEmpleado && !empty($data['recordar_cumpleanos']);
         $fechaNacimientoRaw = trim((string) ($data['fecha_nacimiento'] ?? ''));
         $fechaNacimientoNormalizada = null;
