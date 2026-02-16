@@ -11,7 +11,12 @@ class TercerosEmpleadosModel extends Modelo
      */
     public function guardar(int $idTercero, array $data, int $userId): void
     {
-        $this->db()->beginTransaction();
+        $db = $this->db();
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
 
         try {
             // 1. GUARDAR DATOS DEL EMPLEADO (Lógica original)
@@ -90,7 +95,7 @@ class TercerosEmpleadosModel extends Modelo
                     : null;
             }
 
-            $this->db()->prepare($sql)->execute($params);
+            $db->prepare($sql)->execute($params);
 
             // 2. PROCESAR HIJOS (Lógica integrada del modelo eliminado)
             if (isset($data['hijos_lista']) && is_array($data['hijos_lista'])) {
@@ -100,9 +105,13 @@ class TercerosEmpleadosModel extends Modelo
                 $this->eliminarTodosLosHijos($idTercero);
             }
 
-            $this->db()->commit();
+            if ($ownsTransaction) {
+                $db->commit();
+            }
         } catch (Throwable $e) {
-            $this->db()->rollBack();
+            if ($ownsTransaction && $db->inTransaction()) {
+                $db->rollBack();
+            }
             throw $e;
         }
     }
