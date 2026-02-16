@@ -49,9 +49,9 @@ class TercerosModel extends Modelo
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
-                LEFT JOIN departamentos dep ON dep.nombre = t.departamento
-                LEFT JOIN provincias prov ON prov.nombre = t.provincia AND prov.departamento_id = dep.id
-                LEFT JOIN distritos dist ON dist.nombre = t.distrito AND dist.provincia_id = prov.id
+                LEFT JOIN departamentos dep ON dep.nombre COLLATE utf8mb4_unicode_ci = t.departamento COLLATE utf8mb4_unicode_ci
+                LEFT JOIN provincias prov ON prov.nombre COLLATE utf8mb4_unicode_ci = t.provincia COLLATE utf8mb4_unicode_ci AND prov.departamento_id = dep.id
+                LEFT JOIN distritos dist ON dist.nombre COLLATE utf8mb4_unicode_ci = t.distrito COLLATE utf8mb4_unicode_ci AND dist.provincia_id = prov.id
                 LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
                 ORDER BY t.id DESC";
@@ -147,9 +147,9 @@ class TercerosModel extends Modelo
                 LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
                 LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
                 LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
-                LEFT JOIN departamentos dep ON dep.nombre = t.departamento
-                LEFT JOIN provincias prov ON prov.nombre = t.provincia AND prov.departamento_id = dep.id
-                LEFT JOIN distritos dist ON dist.nombre = t.distrito AND dist.provincia_id = prov.id
+                LEFT JOIN departamentos dep ON dep.nombre COLLATE utf8mb4_unicode_ci = t.departamento COLLATE utf8mb4_unicode_ci
+                LEFT JOIN provincias prov ON prov.nombre COLLATE utf8mb4_unicode_ci = t.provincia COLLATE utf8mb4_unicode_ci AND prov.departamento_id = dep.id
+                LEFT JOIN distritos dist ON dist.nombre COLLATE utf8mb4_unicode_ci = t.distrito COLLATE utf8mb4_unicode_ci AND dist.provincia_id = prov.id
                 LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.id = :id AND t.deleted_at IS NULL LIMIT 1";
 
