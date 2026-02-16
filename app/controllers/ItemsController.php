@@ -491,6 +491,13 @@ class ItemsController extends Controlador
             $data['stock_minimo'] = 0;
         }
 
+        $precioVenta = (float) ($data['precio_venta'] ?? 0);
+        $costoReferencial = (float) ($data['costo_referencial'] ?? 0);
+
+        if ($precioVenta < $costoReferencial) {
+            throw new RuntimeException('El precio de venta debe ser mayor o igual al costo referencial.');
+        }
+
         return $data;
     }
 
