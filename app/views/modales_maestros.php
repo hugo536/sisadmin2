@@ -1,6 +1,6 @@
-<div class="modal fade" id="modalGestionCargos" tabindex="-1" aria-hidden="true">
+<div class="modal" id="modalGestionCargos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="modal-content bg-white shadow-sm border-0">
             <div class="modal-header bg-secondary text-white py-2">
                 <h6 class="modal-title mb-0">Administrar Cargos</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -29,9 +29,9 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalGestionAreas" tabindex="-1" aria-hidden="true">
+<div class="modal" id="modalGestionAreas" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="modal-content bg-white shadow-sm border-0">
             <div class="modal-header bg-secondary text-white py-2">
                 <h6 class="modal-title mb-0">Administrar Áreas</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>

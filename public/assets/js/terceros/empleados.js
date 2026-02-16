@@ -1,6 +1,16 @@
 (function () {
     'use strict';
 
+    function edadDesdeFecha(fechaNacimiento) {
+        if (!fechaNacimiento) return 0;
+        const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
+        const hoy = new Date();
+        let edad = hoy.getFullYear() - nacimiento.getFullYear();
+        const m = hoy.getMonth() - nacimiento.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+        return edad;
+    }
+
     function toggleRegimenFields(regimenSelect) {
         if (!regimenSelect) return;
         const prefix = regimenSelect.id.replace('Regimen', '');
@@ -57,14 +67,14 @@
         if (!wrapper || !fechaInput) return;
 
         if (recordarSwitch.checked) {
-            wrapper.classList.remove('d-none');
             fechaInput.disabled = false;
             fechaInput.required = true;
+            wrapper.classList.remove('empleado-input-disabled');
         } else {
-            wrapper.classList.add('d-none');
             fechaInput.disabled = true;
             fechaInput.required = false;
             fechaInput.value = '';
+            wrapper.classList.add('empleado-input-disabled');
         }
     }
 
@@ -82,6 +92,188 @@
         if (!requiereFechaCese) {
             fechaCeseInput.value = '';
         }
+    }
+
+    function renderRowsHijos(rows) {
+        const body = document.getElementById('hijosAsignacionList');
+        if (!body) return;
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Sin registros.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = rows.map((row) => {
+            const edad = edadDesdeFecha(row.fecha_nacimiento || '');
+            return `
+                <tr>
+                    <td>${row.nombre_completo || ''}</td>
+                    <td>${row.fecha_nacimiento || ''}</td>
+                    <td>${edad}</td>
+                    <td>${Number(row.esta_estudiando || 0) === 1 ? 'Sí' : 'No'}</td>
+                    <td>${Number(row.discapacidad || 0) === 1 ? 'Sí' : 'No'}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1 js-edit-hijo" data-hijo='${JSON.stringify(row)}'><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger js-del-hijo" data-id="${row.id}"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>`;
+        }).join('');
+    }
+
+    async function fetchHijos(idEmpleado, prefix) {
+        if (!idEmpleado) return;
+        const fd = new FormData();
+        fd.append('accion', 'listar_hijos_asignacion');
+        fd.append('id_tercero', idEmpleado);
+
+        const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar hijos.');
+
+        renderRowsHijos(data.data || []);
+
+        const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
+        if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
+    }
+
+    function resetHijoForm() {
+        document.getElementById('hijoAsignacionId').value = '';
+        document.getElementById('hijoNombreCompleto').value = '';
+        document.getElementById('hijoFechaNacimiento').value = '';
+        document.getElementById('hijoEstaEstudiando').checked = false;
+        document.getElementById('hijoDiscapacidad').checked = false;
+        document.getElementById('formHijoAsignacion')?.classList.add('d-none');
+    }
+
+    function setupHijos(prefix) {
+        const asignacionSwitch = document.getElementById(`${prefix}AsignacionFamiliar`);
+        const gestionWrap = document.getElementById(`${prefix}GestionHijosWrapper`);
+        const gestionarBtn = document.getElementById(`${prefix}GestionarHijosBtn`);
+        const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
+        if (!asignacionSwitch || !gestionWrap) return;
+
+        const refresh = () => {
+            const idEmpleado = (prefix === 'edit' ? document.getElementById('editId')?.value : '') || '';
+            const isVisible = asignacionSwitch.checked && !!idEmpleado;
+            gestionWrap.classList.toggle('d-none', !isVisible);
+
+            if (!isVisible) {
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+                return;
+            }
+
+            fetchHijos(idEmpleado, prefix).catch(() => {
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+            });
+        };
+
+        asignacionSwitch.addEventListener('change', refresh);
+
+        const openModal = async () => {
+            const idEmpleado = document.getElementById('editId')?.value || '';
+            if (!idEmpleado) {
+                Swal.fire('Atención', 'Guarde el tercero como empleado para gestionar hijos.', 'warning');
+                return;
+            }
+            document.getElementById('hijosAsignacionEmpleadoId').value = idEmpleado;
+            await fetchHijos(idEmpleado, prefix);
+            resetHijoForm();
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHijosAsignacion'));
+            modal.show();
+        };
+
+        gestionarBtn?.addEventListener('click', openModal);
+        revisarBtn?.addEventListener('click', openModal);
+
+        if (!window.__hijosAsignacionBound) {
+            window.__hijosAsignacionBound = true;
+
+            document.getElementById('btnMostrarFormHijo')?.addEventListener('click', () => {
+                document.getElementById('formHijoAsignacion')?.classList.remove('d-none');
+            });
+            document.getElementById('btnCancelarFormHijo')?.addEventListener('click', resetHijoForm);
+
+            document.getElementById('hijosAsignacionList')?.addEventListener('click', async (e) => {
+                const editBtn = e.target.closest('.js-edit-hijo');
+                const delBtn = e.target.closest('.js-del-hijo');
+                const idEmpleado = document.getElementById('hijosAsignacionEmpleadoId')?.value || '';
+                if (editBtn) {
+                    const hijo = JSON.parse(editBtn.dataset.hijo || '{}');
+                    document.getElementById('hijoAsignacionId').value = hijo.id || '';
+                    document.getElementById('hijoNombreCompleto').value = hijo.nombre_completo || '';
+                    document.getElementById('hijoFechaNacimiento').value = hijo.fecha_nacimiento || '';
+                    document.getElementById('hijoEstaEstudiando').checked = Number(hijo.esta_estudiando || 0) === 1;
+                    document.getElementById('hijoDiscapacidad').checked = Number(hijo.discapacidad || 0) === 1;
+                    document.getElementById('formHijoAsignacion')?.classList.remove('d-none');
+                    return;
+                }
+
+                if (delBtn) {
+                    const fd = new FormData();
+                    fd.append('accion', 'eliminar_hijo_asignacion');
+                    fd.append('id', delBtn.dataset.id || '0');
+                    fd.append('id_tercero', idEmpleado);
+                    const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const data = await res.json();
+                    if (!data.ok) {
+                        Swal.fire('Error', data.mensaje || 'No se pudo eliminar.', 'error');
+                        return;
+                    }
+                    await fetchHijos(idEmpleado, 'edit');
+                }
+            });
+
+            document.getElementById('formHijoAsignacion')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const idEmpleado = document.getElementById('hijosAsignacionEmpleadoId')?.value || '';
+                const nombre = document.getElementById('hijoNombreCompleto')?.value?.trim() || '';
+                const fecha = document.getElementById('hijoFechaNacimiento')?.value || '';
+                if (!nombre || !fecha) {
+                    Swal.fire('Atención', 'Nombre completo y fecha de nacimiento son obligatorios.', 'warning');
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('accion', 'guardar_hijo_asignacion');
+                fd.append('id_tercero', idEmpleado);
+                fd.append('id', document.getElementById('hijoAsignacionId')?.value || '0');
+                fd.append('nombre_completo', nombre);
+                fd.append('fecha_nacimiento', fecha);
+                fd.append('esta_estudiando', document.getElementById('hijoEstaEstudiando')?.checked ? '1' : '0');
+                fd.append('discapacidad', document.getElementById('hijoDiscapacidad')?.checked ? '1' : '0');
+
+                const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                if (!data.ok) {
+                    Swal.fire('Error', data.mensaje || 'No se pudo guardar.', 'error');
+                    return;
+                }
+                resetHijoForm();
+                await fetchHijos(idEmpleado, 'edit');
+            });
+        }
+
+        refresh();
+    }
+
+    function lockFechaIngreso(prefix) {
+        const input = document.getElementById(`${prefix}FechaIngreso`);
+        if (!input) return;
+
+        if (prefix === 'crear') {
+            input.readOnly = false;
+            input.classList.remove('bg-light');
+            return;
+        }
+
+        const editModal = document.getElementById('modalEditarTercero');
+        if (!editModal) return;
+        const trigger = editModal.__currentTriggerButton;
+        const bloqueado = trigger && Number(trigger.dataset.empleadoRegistrado || 0) === 1;
+
+        input.readOnly = !!bloqueado;
+        input.classList.toggle('bg-light', !!bloqueado);
+        input.title = bloqueado ? 'La fecha de ingreso no puede editarse una vez creado como empleado.' : '';
     }
 
     window.TercerosEmpleados = {
@@ -109,6 +301,9 @@
                 estadoLaboral.addEventListener('change', () => toggleFechaCese(estadoLaboral));
                 toggleFechaCese(estadoLaboral);
             }
+
+            setupHijos(prefix);
+            lockFechaIngreso(prefix);
         },
         refreshState: function (prefix) {
             const recordarCumpleanos = document.getElementById(`${prefix}RecordarCumpleanos`);
@@ -120,6 +315,8 @@
             toggleFechaCese(estadoLaboral);
             togglePagoFields(tipoPago);
             toggleRegimenFields(regimen);
+            setupHijos(prefix);
+            lockFechaIngreso(prefix);
         }
     };
 
