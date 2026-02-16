@@ -494,6 +494,62 @@
     }
 
     function initFormSubmit() {
+        const tiposSangreValidos = new Set(['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']);
+
+        const validateBusinessRules = (form) => {
+            const tipoPersona = (form.querySelector('[name="tipo_persona"]')?.value || '').trim().toUpperCase();
+            const tipoDoc = (form.querySelector('[name="tipo_documento"]')?.value || '').trim().toUpperCase();
+            const numeroDocumento = (form.querySelector('[name="numero_documento"]')?.value || '').replace(/\D/g, '');
+            const nombreCompleto = (form.querySelector('[name="nombre_completo"]')?.value || '').trim();
+            const representanteLegal = (form.querySelector('[name="representante_legal"]')?.value || '').trim();
+            const email = (form.querySelector('[name="email"]')?.value || '').trim();
+            const recordarCumpleanos = !!form.querySelector('[name="recordar_cumpleanos"]')?.checked;
+            const fechaNacimiento = (form.querySelector('[name="fecha_nacimiento"]')?.value || '').trim();
+            const tipoSangre = (form.querySelector('[name="tipo_sangre"]')?.value || '').trim().toUpperCase();
+
+            if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
+                return 'Tipo de persona, documento, número y nombre son obligatorios.';
+            }
+
+            if (tipoPersona === 'JURIDICA' && !representanteLegal) {
+                return 'Representante legal es obligatorio para empresas.';
+            }
+
+            if (tipoDoc === 'RUC' && numeroDocumento.length !== 11) {
+                return 'El RUC debe tener 11 dígitos.';
+            }
+
+            if (tipoDoc === 'DNI' && numeroDocumento.length !== 8) {
+                return 'El DNI debe tener 8 dígitos.';
+            }
+
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                return 'El correo electrónico no tiene un formato válido.';
+            }
+
+            if (recordarCumpleanos) {
+                if (!fechaNacimiento) {
+                    return 'Si activa recordar cumpleaños, debe registrar la fecha de nacimiento.';
+                }
+
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const fecha = new Date(`${fechaNacimiento}T00:00:00`);
+                if (Number.isNaN(fecha.getTime())) {
+                    return 'La fecha de nacimiento no tiene un formato válido.';
+                }
+                if (fecha > hoy) {
+                    return 'La fecha de nacimiento no puede ser mayor a la fecha actual.';
+                }
+            }
+
+            if (!tiposSangreValidos.has(tipoSangre)) {
+                return 'El tipo de sangre seleccionado no es válido.';
+            }
+
+            return null;
+        };
+
         const showTabForInvalidField = (field) => {
             if (!field) return;
 
@@ -527,6 +583,12 @@
 
                 if (!checkRole) {
                     Swal.fire('Atención', 'Debe seleccionar al menos un Rol (Cliente, Distribuidor, Proveedor o Empleado).', 'warning');
+                    return;
+                }
+
+                const validationMessage = validateBusinessRules(form);
+                if (validationMessage) {
+                    Swal.fire('Validación', validationMessage, 'warning');
                     return;
                 }
 
