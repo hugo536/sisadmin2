@@ -494,6 +494,18 @@
     }
 
     function initFormSubmit() {
+        const showTabForInvalidField = (field) => {
+            if (!field) return;
+
+            const tabPane = field.closest('.tab-pane');
+            if (!tabPane || tabPane.classList.contains('active')) return;
+
+            const tabButton = document.querySelector(`[data-bs-target="#${tabPane.id}"]`);
+            if (!tabButton) return;
+
+            bootstrap.Tab.getOrCreateInstance(tabButton).show();
+        };
+
         ['formCrearTercero', 'formEditarTercero'].forEach(fid => {
             const form = document.getElementById(fid);
             if (!form) return;
@@ -502,6 +514,8 @@
                 e.preventDefault();
 
                 if (!form.checkValidity()) {
+                    const firstInvalid = form.querySelector(':invalid');
+                    showTabForInvalidField(firstInvalid);
                     form.reportValidity();
                     return;
                 }
