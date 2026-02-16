@@ -152,6 +152,31 @@
                                             data-es-proveedor="<?php echo (int)$tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int)$tercero['es_empleado']; ?>"
                                             data-es-distribuidor="<?php echo (int)$tercero['es_distribuidor']; ?>"
+
+                                            /* Empleado */
+                                            data-cargo="<?php echo htmlspecialchars((string) ($tercero['cargo'] ?? '')); ?>"
+                                            data-area="<?php echo htmlspecialchars((string) ($tercero['area'] ?? '')); ?>"
+                                            data-fecha-ingreso="<?php echo htmlspecialchars((string) ($tercero['fecha_ingreso'] ?? '')); ?>"
+                                            data-fecha-cese="<?php echo htmlspecialchars((string) ($tercero['fecha_cese'] ?? '')); ?>"
+                                            data-estado-laboral="<?php echo htmlspecialchars((string) ($tercero['estado_laboral'] ?? 'activo')); ?>"
+                                            data-tipo-contrato="<?php echo htmlspecialchars((string) ($tercero['tipo_contrato'] ?? '')); ?>"
+                                            data-tipo-pago="<?php echo htmlspecialchars((string) ($tercero['tipo_pago'] ?? 'MENSUAL')); ?>"
+                                            data-moneda="<?php echo htmlspecialchars((string) ($tercero['moneda'] ?? 'PEN')); ?>"
+                                            data-sueldo-basico="<?php echo htmlspecialchars((string) ($tercero['sueldo_basico'] ?? '')); ?>"
+                                            data-pago-diario="<?php echo htmlspecialchars((string) ($tercero['pago_diario'] ?? '')); ?>"
+                                            data-regimen-pensionario="<?php echo htmlspecialchars((string) ($tercero['regimen_pensionario'] ?? '')); ?>"
+                                            data-tipo-comision-afp="<?php echo htmlspecialchars((string) ($tercero['tipo_comision_afp'] ?? '')); ?>"
+                                            data-cuspp="<?php echo htmlspecialchars((string) ($tercero['cuspp'] ?? '')); ?>"
+                                            data-asignacion-familiar="<?php echo (int) ($tercero['asignacion_familiar'] ?? 0); ?>"
+                                            data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
+                                            data-recordar-cumpleanos="<?php echo (int) ($tercero['recordar_cumpleanos'] ?? 0); ?>"
+                                            data-fecha-nacimiento="<?php echo htmlspecialchars((string) ($tercero['fecha_nacimiento'] ?? '')); ?>"
+                                            data-genero="<?php echo htmlspecialchars((string) ($tercero['genero'] ?? '')); ?>"
+                                            data-estado-civil="<?php echo htmlspecialchars((string) ($tercero['estado_civil'] ?? '')); ?>"
+                                            data-nivel-educativo="<?php echo htmlspecialchars((string) ($tercero['nivel_educativo'] ?? '')); ?>"
+                                            data-contacto-emergencia-nombre="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_nombre'] ?? '')); ?>"
+                                            data-contacto-emergencia-telf="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_telf'] ?? '')); ?>"
+                                            data-tipo-sangre="<?php echo htmlspecialchars((string) ($tercero['tipo_sangre'] ?? '')); ?>"
                                             
                                             /* Financiero */
                                             data-cuentas-bancarias='<?php echo htmlspecialchars(json_encode($tercero['cuentas_bancarias'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
