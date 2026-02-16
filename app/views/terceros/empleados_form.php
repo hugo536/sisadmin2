@@ -127,7 +127,7 @@ $today = date('Y-m-d');
             <div class="col-md-4">
                 <div class="form-floating">
                     <input type="date" class="form-control" name="fecha_cese" id="<?php echo $prefix; ?>FechaCese" disabled>
-                    <label for="<?php echo $prefix; ?>FechaCese">Fecha de Cese</label>
+                    <label for="<?php echo $prefix; ?>FechaCese">Fecha de Cese <span class="text-danger d-none" id="<?php echo $prefix; ?>FechaCeseRequired">*</span></label>
                 </div>
             </div>
 

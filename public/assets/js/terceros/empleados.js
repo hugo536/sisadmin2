@@ -64,19 +64,43 @@
         }
     }
 
+    function updateFechaCeseRules(prefix) {
+        if (!prefix) return;
+
+        const estadoLaboralSelect = document.getElementById(`${prefix}EstadoLaboral`);
+        const tipoContratoSelect = document.getElementById(`${prefix}TipoContrato`);
+        const fechaCeseInput = document.getElementById(`${prefix}FechaCese`);
+        const requiredMark = document.getElementById(`${prefix}FechaCeseRequired`);
+
+        if (!estadoLaboralSelect || !tipoContratoSelect || !fechaCeseInput) return;
+
+        const estadoLaboral = estadoLaboralSelect.value;
+        const tipoContrato = tipoContratoSelect.value;
+
+        const contratosConFechaCeseObligatoria = ['PLAZO_FIJO', 'LOCACION', 'PRACTICANTE'];
+        const contratoRequiereFechaSiempre = contratosConFechaCeseObligatoria.includes(tipoContrato);
+        const contratoEsSinFechaFija = tipoContrato === 'INDETERMINADO' || tipoContrato === 'PART_TIME';
+        const estadoNoActivo = estadoLaboral !== 'activo';
+
+        const debeHabilitar = contratoRequiereFechaSiempre || (contratoEsSinFechaFija && estadoNoActivo);
+        const esObligatoria = contratoRequiereFechaSiempre;
+
+        fechaCeseInput.disabled = !debeHabilitar;
+        fechaCeseInput.required = esObligatoria;
+
+        if (!debeHabilitar) {
+            fechaCeseInput.value = '';
+        }
+
+        if (requiredMark) {
+            requiredMark.classList.toggle('d-none', !esObligatoria);
+        }
+    }
+
     function toggleFechaCese(estadoLaboralSelect) {
         if (!estadoLaboralSelect) return;
         const prefix = estadoLaboralSelect.id.replace('EstadoLaboral', '');
-        const fechaCeseInput = document.getElementById(`${prefix}FechaCese`);
-
-        if (!fechaCeseInput) return;
-
-        const requiereFechaCese = estadoLaboralSelect.value !== 'activo';
-        fechaCeseInput.disabled = !requiereFechaCese;
-
-        if (!requiereFechaCese) {
-            fechaCeseInput.value = '';
-        }
+        updateFechaCeseRules(prefix);
     }
 
     // ==========================================
@@ -223,6 +247,12 @@
                 toggleFechaCese(estadoLaboral);
             }
 
+            const tipoContrato = document.getElementById(`${prefix}TipoContrato`);
+            if (tipoContrato) {
+                tipoContrato.addEventListener('change', () => updateFechaCeseRules(prefix));
+                updateFechaCeseRules(prefix);
+            }
+
             // Inicializar lógica de hijos
             setupHijosDinamic(prefix);
         },
@@ -252,6 +282,10 @@
             hijosArray.forEach(hijo => {
                 agregarHijo(prefix, hijo);
             });
+        },
+
+        refreshState: function(prefix) {
+            updateFechaCeseRules(prefix);
         }
     };
 

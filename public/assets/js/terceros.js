@@ -500,6 +500,11 @@
 
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
+
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                }
                 
                 const checkRole = form.querySelector('[name="es_cliente"]').checked || 
                                   form.querySelector('[name="es_distribuidor"]').checked || 
