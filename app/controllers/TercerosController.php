@@ -5,12 +5,12 @@
 // Usamos rutas relativas para evitar problemas con BASE_PATH
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/TercerosModel.php';
-require_once __DIR__ . '/../models/terceros/TercerosEmpleadosHijosModel.php';
+// ELIMINADO: require_once __DIR__ . '/../models/terceros/TercerosEmpleadosHijosModel.php';
 
 class TercerosController extends Controlador
 {
     private $tercerosModel;
-    private $hijosEmpleadoModel;
+    // ELIMINADO: private $hijosEmpleadoModel;
 
     public function __construct()
     {
@@ -25,7 +25,7 @@ class TercerosController extends Controlador
         }
         
         $this->tercerosModel = new TercerosModel();
-        $this->hijosEmpleadoModel = new TercerosEmpleadosHijosModel();
+        // ELIMINADO: $this->hijosEmpleadoModel = new TercerosEmpleadosHijosModel();
     }
 
     public function index()
@@ -213,60 +213,6 @@ class TercerosController extends Controlador
                     return;
                 }
 
-
-                // ==========================================
-                // HIJOS PARA ASIGNACIÓN FAMILIAR
-                // ==========================================
-                if (es_ajax() && $accion === 'listar_hijos_asignacion') {
-                    require_permiso('terceros.editar');
-                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
-                    if ($idTercero <= 0) throw new Exception('Empleado inválido.');
-                    if (!$this->hijosEmpleadoModel->existeEmpleado($idTercero)) {
-                        throw new Exception('El tercero seleccionado aún no está registrado como empleado.');
-                    }
-
-                    $rows = $this->hijosEmpleadoModel->listarPorEmpleado($idTercero);
-                    json_response([
-                        'ok' => true,
-                        'data' => $rows,
-                        'has_mayor_sin_justificar' => $this->hijosEmpleadoModel->tieneMayorSinJustificar($idTercero),
-                    ]);
-                    return;
-                }
-
-                if (es_ajax() && $accion === 'guardar_hijo_asignacion') {
-                    require_permiso('terceros.editar');
-                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
-                    if ($idTercero <= 0) throw new Exception('Empleado inválido.');
-                    if (!$this->hijosEmpleadoModel->existeEmpleado($idTercero)) {
-                        throw new Exception('El tercero seleccionado aún no está registrado como empleado.');
-                    }
-
-                    $idHijo = (int) ($_POST['id'] ?? 0);
-                    $this->hijosEmpleadoModel->guardar([
-                        'id' => $idHijo,
-                        'id_empleado' => $idTercero,
-                        'nombre_completo' => trim((string) ($_POST['nombre_completo'] ?? '')),
-                        'fecha_nacimiento' => trim((string) ($_POST['fecha_nacimiento'] ?? '')),
-                        'esta_estudiando' => ((int) ($_POST['esta_estudiando'] ?? 0) === 1) ? 1 : 0,
-                        'discapacidad' => ((int) ($_POST['discapacidad'] ?? 0) === 1) ? 1 : 0,
-                    ]);
-
-                    json_response(['ok' => true, 'mensaje' => $idHijo > 0 ? 'Hijo actualizado correctamente.' : 'Hijo registrado correctamente.']);
-                    return;
-                }
-
-                if (es_ajax() && $accion === 'eliminar_hijo_asignacion') {
-                    require_permiso('terceros.editar');
-                    $idTercero = $this->postInt(['id_tercero', 'id_empleado']);
-                    $idHijo = (int) ($_POST['id'] ?? 0);
-                    if ($idTercero <= 0 || $idHijo <= 0) throw new Exception('Datos inválidos.');
-
-                    $this->hijosEmpleadoModel->eliminar($idHijo, $idTercero);
-                    json_response(['ok' => true, 'mensaje' => 'Hijo eliminado correctamente.']);
-                    return;
-                }
-
                 // ==========================================
                 // GESTIÓN DE DOCUMENTOS
                 // ==========================================
@@ -287,7 +233,6 @@ class TercerosController extends Controlador
                     if (!in_array($ext, $allowed)) throw new Exception('Formato de archivo no permitido');
 
                     // Crear directorio si no existe
-                    // Usamos una ruta relativa desde public si BASE_PATH falla, pero idealmente BASE_PATH debe estar definido
                     $baseUploads = defined('BASE_PATH') ? BASE_PATH . '/public/uploads/terceros/' : __DIR__ . '/../../public/uploads/terceros/';
                     $uploadDir = $baseUploads . $idTercero . '/';
                     
@@ -569,8 +514,7 @@ class TercerosController extends Controlador
         }
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
-        // --- CUENTAS BANCARIAS (Lógica Corregida) ---
-        // Definición explícita de variables para evitar "Undefined variable"
+        // --- CUENTAS BANCARIAS ---
         $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
         $cuentasEntidad     = $data['cuenta_entidad']          ?? [];
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
@@ -617,18 +561,11 @@ class TercerosController extends Controlador
             $numeroVal = trim((string)($cuentasNumero[$i] ?? ''));
             $cciVal    = trim((string)($cuentasCci[$i] ?? ''));
             
-            // Validación específica para Billeteras vs Bancos
             if ($esBilletera) {
-                // Si es billetera, usamos el CCI o el Número como teléfono (preferencia al que tenga valor)
                 $digits = preg_replace('/\D+/', '', $cciVal ?: $numeroVal);
-                if (!preg_match('/^\d{9}$/', $digits)) {
-                     // Puedes descomentar esto si quieres validar estrictamente 9 dígitos
-                     // throw new Exception("Cuenta #".($i+1).": ingrese celular 9 dígitos para billetera.");
-                }
                 $cciVal = $digits; 
-                $numeroVal = ''; // Limpiamos número de cuenta pues es redundante en billeteras
+                $numeroVal = ''; 
             } else {
-                // Validaciones para Bancos (CCI 20 dígitos o Cuenta normal)
                 if ($cciVal !== '' && strlen($cciVal) !== 20 && strlen($cciVal) < 6) {
                     throw new Exception("Cuenta #" . ($i + 1) . ": el CCI debe tener 20 dígitos o use número de cuenta.");
                 }
@@ -643,19 +580,64 @@ class TercerosController extends Controlador
             }
 
             $cuentasNormalizadas[] = [
-                'tercero_id'        => null, // Se llena al insertar en el modelo
-                'tipo_entidad'      => $tipoEntidad,      // COLUMNA BD CORRECTA
+                'tercero_id'        => null, 
+                'tipo_entidad'      => $tipoEntidad,      
                 'entidad'           => $entidad,
-                'tipo_cuenta'       => $tipoCuentaVal,    // COLUMNA BD CORRECTA
+                'tipo_cuenta'       => $tipoCuentaVal,    
                 'numero_cuenta'     => $numeroVal,
                 'cci'               => $cciVal,
                 'titular'           => $titularVal,
-                'titular'           => trim((string)($cuentasTitular[$i] ?? '')),
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
                 'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,
                 'observaciones'     => trim((string)($cuentasObs[$i] ?? ''))
             ];
+        }
+
+        // ==========================================
+        // LÓGICA PARA HIJOS (ASIGNACIÓN FAMILIAR)
+        // ==========================================
+        $asignacionFamiliar = !empty($data['asignacion_familiar']);
+        
+        $hijosIds          = $data['hijo_id'] ?? [];
+        $hijosNombres      = $data['hijo_nombre'] ?? [];
+        $hijosNacimientos  = $data['hijo_fecha_nacimiento'] ?? [];
+        // Se espera que los inputs "estudia" y "discapacidad" envíen 1 o 0 explícitamente (ej: vía Select)
+        $hijosEstudios     = $data['hijo_esta_estudiando'] ?? []; 
+        $hijosDiscapacidad = $data['hijo_discapacidad'] ?? [];
+
+        // Asegurar arrays
+        $hijosIds          = $toArray($hijosIds);
+        $hijosNombres      = $toArray($hijosNombres);
+        $hijosNacimientos  = $toArray($hijosNacimientos);
+        $hijosEstudios     = $toArray($hijosEstudios);
+        $hijosDiscapacidad = $toArray($hijosDiscapacidad);
+
+        $hijosNormalizados = [];
+
+        // Solo procesamos hijos si la asignación familiar está activa
+        if ($asignacionFamiliar) {
+            foreach ($hijosNombres as $i => $nombreHijo) {
+                $nombreHijo = trim((string)$nombreHijo);
+                
+                // Si no hay nombre, ignoramos la fila (fila vacía)
+                if ($nombreHijo === '') continue;
+
+                $fechaNac = trim((string)($hijosNacimientos[$i] ?? ''));
+                
+                // Validación básica de fecha
+                if ($fechaNac === '') {
+                     throw new Exception("El hijo #".($i+1)." (" . htmlspecialchars($nombreHijo) . ") debe tener fecha de nacimiento.");
+                }
+
+                $hijosNormalizados[] = [
+                    'id'               => (int)($hijosIds[$i] ?? 0), // ID para editar si ya existe
+                    'nombre_completo'  => $nombreHijo,
+                    'fecha_nacimiento' => $fechaNac,
+                    'esta_estudiando'  => !empty($hijosEstudios[$i]) ? 1 : 0,
+                    'discapacidad'     => !empty($hijosDiscapacidad[$i]) ? 1 : 0,
+                ];
+            }
         }
 
         if (!empty($data['es_distribuidor'])) {
@@ -751,7 +733,11 @@ class TercerosController extends Controlador
         $prepared['nivel_educativo']         = trim((string) ($data['nivel_educativo'] ?? ''));
         $prepared['contacto_emergencia_nombre'] = trim((string) ($data['contacto_emergencia_nombre'] ?? ''));
         $prepared['contacto_emergencia_telf']   = trim((string) ($data['contacto_emergencia_telf'] ?? ''));
-        $prepared['tipo_sangre']             = strtoupper(trim((string) ($data['tipo_sangre'] ?? '')));
+        $prepared['tipo_sangre']                = strtoupper(trim((string) ($data['tipo_sangre'] ?? '')));
+
+        // Agregamos la información de Asignación Familiar e Hijos al Payload
+        $prepared['asignacion_familiar'] = $asignacionFamiliar ? 1 : 0;
+        $prepared['hijos_lista']         = $hijosNormalizados;
 
         $tiposSangreValidos = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
         if (!in_array($prepared['tipo_sangre'], $tiposSangreValidos, true)) {

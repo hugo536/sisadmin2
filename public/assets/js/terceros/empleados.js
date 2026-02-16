@@ -1,27 +1,20 @@
 (function () {
     'use strict';
 
-    function edadDesdeFecha(fechaNacimiento) {
-        if (!fechaNacimiento) return 0;
-        const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
-        const hoy = new Date();
-        let edad = hoy.getFullYear() - nacimiento.getFullYear();
-        const m = hoy.getMonth() - nacimiento.getMonth();
-        if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
-        return edad;
-    }
+    // ==========================================
+    // 1. UTILIDADES Y LÓGICA DE CAMPOS (Mantenido)
+    // ==========================================
 
     function toggleRegimenFields(regimenSelect) {
         if (!regimenSelect) return;
         const prefix = regimenSelect.id.replace('Regimen', '');
-
         const comisionSelect = document.getElementById(`${prefix}TipoComision`);
         const cusppInput = document.getElementById(`${prefix}Cuspp`);
 
         if (!comisionSelect || !cusppInput) return;
 
         const val = regimenSelect.value;
-        const isAfp = val && val !== 'ONP';
+        const isAfp = val && val !== 'ONP' && val !== '';
 
         comisionSelect.disabled = !isAfp;
         cusppInput.disabled = !isAfp;
@@ -29,15 +22,12 @@
         if (!isAfp) {
             comisionSelect.value = '';
             cusppInput.value = '';
-            comisionSelect.classList.remove('is-invalid');
-            cusppInput.classList.remove('is-invalid');
         }
     }
 
     function togglePagoFields(tipoPagoSelect) {
         if (!tipoPagoSelect) return;
         const prefix = tipoPagoSelect.id.replace('TipoPago', '');
-
         const sueldoGroup = document.getElementById(`${prefix}SueldoGroup`);
         const diarioGroup = document.getElementById(`${prefix}PagoDiarioGroup`);
         const sueldoInput = document.getElementById(`${prefix}SueldoBasico`);
@@ -68,13 +58,9 @@
 
         if (recordarSwitch.checked) {
             fechaInput.disabled = false;
-            fechaInput.required = true;
-            wrapper.classList.remove('empleado-input-disabled');
         } else {
             fechaInput.disabled = true;
-            fechaInput.required = false;
             fechaInput.value = '';
-            wrapper.classList.add('empleado-input-disabled');
         }
     }
 
@@ -87,266 +73,136 @@
 
         const requiereFechaCese = estadoLaboralSelect.value !== 'activo';
         fechaCeseInput.disabled = !requiereFechaCese;
-        fechaCeseInput.required = requiereFechaCese;
 
         if (!requiereFechaCese) {
             fechaCeseInput.value = '';
         }
     }
 
-    function renderRowsHijos(rows) {
-        const body = document.getElementById('hijosAsignacionList');
-        if (!body) return;
+    // ==========================================
+    // 2. NUEVA LÓGICA DE HIJOS (Array Dinámico)
+    // ==========================================
 
-        if (!Array.isArray(rows) || rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Sin registros.</td></tr>';
-            return;
-        }
+    /**
+     * Genera el HTML de una fila para un hijo
+     */
+    function crearFilaHijoHTML(data = {}) {
+        const id = data.id || '0';
+        const nombre = data.nombre_completo || '';
+        const fecha = data.fecha_nacimiento || '';
+        const estudia = Number(data.esta_estudiando || 0);
+        const discapacidad = Number(data.discapacidad || 0);
 
-        body.innerHTML = rows.map((row) => {
-            const edad = edadDesdeFecha(row.fecha_nacimiento || '');
-            return `
-                <tr>
-                    <td>${row.nombre_completo || ''}</td>
-                    <td>${row.fecha_nacimiento || ''}</td>
-                    <td>${edad}</td>
-                    <td>${Number(row.esta_estudiando || 0) === 1 ? 'Sí' : 'No'}</td>
-                    <td>${Number(row.discapacidad || 0) === 1 ? 'Sí' : 'No'}</td>
-                    <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-secondary me-1 js-edit-hijo" data-hijo='${JSON.stringify(row)}'><i class="bi bi-pencil"></i></button>
-                        <button type="button" class="btn btn-sm btn-outline-danger js-del-hijo" data-id="${row.id}"><i class="bi bi-trash"></i></button>
-                    </td>
-                </tr>`;
-        }).join('');
+        return `
+            <div class="row g-2 align-items-center mb-2 border-bottom pb-2 hijo-row bg-white">
+                <input type="hidden" name="hijo_id[]" value="${id}">
+                
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" name="hijo_nombre[]" placeholder="Nombre completo" value="${nombre}" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" class="form-control form-control-sm" name="hijo_fecha_nacimiento[]" value="${fecha}" required>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" name="hijo_esta_estudiando[]">
+                        <option value="0" ${estudia === 0 ? 'selected' : ''}>No</option>
+                        <option value="1" ${estudia === 1 ? 'selected' : ''}>Sí</option>
+                    </select>
+                    <div class="form-text d-md-none small">¿Estudia?</div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" name="hijo_discapacidad[]">
+                        <option value="0" ${discapacidad === 0 ? 'selected' : ''}>No</option>
+                        <option value="1" ${discapacidad === 1 ? 'selected' : ''}>Sí</option>
+                    </select>
+                    <div class="form-text d-md-none small">Discapacidad</div>
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-hijo" title="Eliminar fila">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
-    async function fetchHijos(idEmpleado, prefix) {
-        if (!idEmpleado) return { rows: [], hasMayor: false };
-        if (!idEmpleado) return;
-        const fd = new FormData();
-        fd.append('accion', 'listar_hijos_asignacion');
-        fd.append('id_tercero', idEmpleado);
+    /**
+     * Agrega una fila al contenedor
+     */
+    function agregarHijo(prefix, data = {}) {
+        const container = document.getElementById(`${prefix}ListaHijos`);
+        const emptyState = document.getElementById(`${prefix}HijosEmptyState`);
+        
+        if (!container) return;
 
-        const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar hijos.');
+        // Ocultar mensaje de vacío
+        if (emptyState) emptyState.classList.add('d-none');
 
-        const rows = data.data || [];
-        renderRowsHijos(rows);
-
-        const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
-        if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
-
-        return { rows, hasMayor: !!data.has_mayor_sin_justificar };
-        renderRowsHijos(data.data || []);
-
-        const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
-        if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
+        // Insertar HTML
+        const html = crearFilaHijoHTML(data);
+        container.insertAdjacentHTML('beforeend', html);
     }
 
-    function resetHijoForm() {
-        document.getElementById('hijoAsignacionId').value = '';
-        document.getElementById('hijoNombreCompleto').value = '';
-        document.getElementById('hijoFechaNacimiento').value = '';
-        document.getElementById('hijoEstaEstudiando').checked = false;
-        document.getElementById('hijoDiscapacidad').checked = false;
-        document.getElementById('formHijoAsignacion')?.classList.add('d-none');
-    }
+    /**
+     * Inicializa los eventos para la sección de hijos
+     */
+    function setupHijosDinamic(prefix) {
+        const switchAsig = document.getElementById(`${prefix}AsignacionFamiliar`);
+        const wrapper = document.getElementById(`${prefix}WrapperHijos`);
+        const btnAdd = document.getElementById(`${prefix}BtnAgregarHijo`);
+        const container = document.getElementById(`${prefix}ListaHijos`);
+        const emptyState = document.getElementById(`${prefix}HijosEmptyState`);
 
-    function setupHijos(prefix) {
-        const asignacionSwitch = document.getElementById(`${prefix}AsignacionFamiliar`);
-        const gestionWrap = document.getElementById(`${prefix}GestionHijosWrapper`);
-        const gestionarBtn = document.getElementById(`${prefix}GestionarHijosBtn`);
-        const gestionarLabel = document.getElementById(`${prefix}GestionHijosLabel`);
-        const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
-        const emptyWarn = document.getElementById(`${prefix}HijosEmptyWarningWrapper`);
-        if (!asignacionSwitch || !gestionWrap) return;
+        if (!switchAsig || !wrapper) return;
 
-        const getIdEmpleado = () => (prefix === 'edit' ? (document.getElementById('editId')?.value || '') : '');
-
-        const refresh = async () => {
-            const idEmpleado = getIdEmpleado();
-            const active = asignacionSwitch.checked;
-            const canManage = active && !!idEmpleado;
-
-            gestionWrap.classList.toggle('d-none', !active);
-            if (gestionarBtn) gestionarBtn.disabled = active && !idEmpleado;
-            if (gestionarLabel) {
-                gestionarLabel.textContent = idEmpleado
-                    ? 'Gestionar hijos para asignación familiar'
-                    : 'Guardar tercero para gestionar hijos';
-            }
-
-            if (!active) {
-                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
-                emptyWarn?.classList.add('d-none');
-                return;
-            }
-
-            if (!idEmpleado) {
-                emptyWarn?.classList.remove('d-none');
-                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
-                return;
-            }
-
-            try {
-                const result = await fetchHijos(idEmpleado, prefix);
-                emptyWarn?.classList.toggle('d-none', result.rows.length > 0);
-            } catch (_) {
-                emptyWarn?.classList.add('d-none');
-                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
-            }
+        // 1. Toggle Visibilidad
+        const toggleVisibility = () => {
+            const isChecked = switchAsig.checked;
+            wrapper.classList.toggle('d-none', !isChecked);
+            
+            // Si se desactiva, podríamos limpiar los inputs para que no se envíen,
+            // pero el controlador ya maneja eso ignorándolos si asignacion_familiar es 0.
         };
 
-        if (!asignacionSwitch.dataset.hijosBound) {
-            asignacionSwitch.addEventListener('change', refresh);
-            asignacionSwitch.dataset.hijosBound = '1';
-        }
+        switchAsig.addEventListener('change', toggleVisibility);
+        // Ejecutar al inicio para establecer estado correcto
+        toggleVisibility(); 
 
-        const openModal = async () => {
-            const idEmpleado = getIdEmpleado();
-            if (!idEmpleado) {
-                Swal.fire('Atención', 'Primero guarda el tercero como empleado. Luego podrás registrar hijos.', 'info');
-        const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
-        if (!asignacionSwitch || !gestionWrap) return;
-
-        const refresh = () => {
-            const idEmpleado = (prefix === 'edit' ? document.getElementById('editId')?.value : '') || '';
-            const isVisible = asignacionSwitch.checked && !!idEmpleado;
-            gestionWrap.classList.toggle('d-none', !isVisible);
-
-            if (!isVisible) {
-                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
-                return;
-            }
-
-            fetchHijos(idEmpleado, prefix).catch(() => {
-                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+        // 2. Agregar Fila
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                agregarHijo(prefix);
             });
-        };
-
-        asignacionSwitch.addEventListener('change', refresh);
-
-        const openModal = async () => {
-            const idEmpleado = document.getElementById('editId')?.value || '';
-            if (!idEmpleado) {
-                Swal.fire('Atención', 'Guarde el tercero como empleado para gestionar hijos.', 'warning');
-                return;
-            }
-            document.getElementById('hijosAsignacionEmpleadoId').value = idEmpleado;
-            await fetchHijos(idEmpleado, prefix);
-            resetHijoForm();
-            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHijosAsignacion'));
-            modal.show();
-        };
-
-        if (gestionarBtn && !gestionarBtn.dataset.hijosBound) {
-            gestionarBtn.addEventListener('click', openModal);
-            gestionarBtn.dataset.hijosBound = '1';
         }
-        if (revisarBtn && !revisarBtn.dataset.hijosBound) {
-            revisarBtn.addEventListener('click', openModal);
-            revisarBtn.dataset.hijosBound = '1';
-        }
-        gestionarBtn?.addEventListener('click', openModal);
-        revisarBtn?.addEventListener('click', openModal);
-        if (!window.__hijosAsignacionBound) {
-            window.__hijosAsignacionBound = true;
 
-            document.getElementById('btnMostrarFormHijo')?.addEventListener('click', () => {
-                document.getElementById('formHijoAsignacion')?.classList.remove('d-none');
-            });
-            document.getElementById('btnCancelarFormHijo')?.addEventListener('click', resetHijoForm);
-
-            document.getElementById('hijosAsignacionList')?.addEventListener('click', async (e) => {
-                const editBtn = e.target.closest('.js-edit-hijo');
-                const delBtn = e.target.closest('.js-del-hijo');
-                const idEmpleado = document.getElementById('hijosAsignacionEmpleadoId')?.value || '';
-                if (editBtn) {
-                    const hijo = JSON.parse(editBtn.dataset.hijo || '{}');
-                    document.getElementById('hijoAsignacionId').value = hijo.id || '';
-                    document.getElementById('hijoNombreCompleto').value = hijo.nombre_completo || '';
-                    document.getElementById('hijoFechaNacimiento').value = hijo.fecha_nacimiento || '';
-                    document.getElementById('hijoEstaEstudiando').checked = Number(hijo.esta_estudiando || 0) === 1;
-                    document.getElementById('hijoDiscapacidad').checked = Number(hijo.discapacidad || 0) === 1;
-                    document.getElementById('formHijoAsignacion')?.classList.remove('d-none');
-                    return;
-                }
-
-                if (delBtn) {
-                    const fd = new FormData();
-                    fd.append('accion', 'eliminar_hijo_asignacion');
-                    fd.append('id', delBtn.dataset.id || '0');
-                    fd.append('id_tercero', idEmpleado);
-                    const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                    const data = await res.json();
-                    if (!data.ok) {
-                        Swal.fire('Error', data.mensaje || 'No se pudo eliminar.', 'error');
-                        return;
+        // 3. Eliminar Fila (Delegación de eventos)
+        if (container) {
+            container.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-remove-hijo');
+                if (btn) {
+                    const row = btn.closest('.hijo-row');
+                    if (row) {
+                        row.remove();
+                        // Verificar si quedó vacío
+                        if (container.querySelectorAll('.hijo-row').length === 0 && emptyState) {
+                            emptyState.classList.remove('d-none');
+                        }
                     }
-                    await fetchHijos(idEmpleado, 'edit');
                 }
             });
-
-            document.getElementById('formHijoAsignacion')?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const idEmpleado = document.getElementById('hijosAsignacionEmpleadoId')?.value || '';
-                const nombre = document.getElementById('hijoNombreCompleto')?.value?.trim() || '';
-                const fecha = document.getElementById('hijoFechaNacimiento')?.value || '';
-                if (!nombre || !fecha) {
-                    Swal.fire('Atención', 'Nombre completo y fecha de nacimiento son obligatorios.', 'warning');
-                    return;
-                }
-
-                const fd = new FormData();
-                fd.append('accion', 'guardar_hijo_asignacion');
-                fd.append('id_tercero', idEmpleado);
-                fd.append('id', document.getElementById('hijoAsignacionId')?.value || '0');
-                fd.append('nombre_completo', nombre);
-                fd.append('fecha_nacimiento', fecha);
-                fd.append('esta_estudiando', document.getElementById('hijoEstaEstudiando')?.checked ? '1' : '0');
-                fd.append('discapacidad', document.getElementById('hijoDiscapacidad')?.checked ? '1' : '0');
-
-                const res = await fetch(window.location.href, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const data = await res.json();
-                if (!data.ok) {
-                    Swal.fire('Error', data.mensaje || 'No se pudo guardar.', 'error');
-                    return;
-                }
-                resetHijoForm();
-                await fetchHijos(idEmpleado, 'edit');
-            });
         }
-
-        refresh();
     }
 
-    function lockFechaIngreso(prefix) {
-        const input = document.getElementById(`${prefix}FechaIngreso`);
-        if (!input) return;
-
-        if (prefix === 'crear') {
-            input.readOnly = false;
-            input.classList.remove('bg-light');
-            return;
-        }
-
-        const editModal = document.getElementById('modalEditarTercero');
-        if (!editModal) return;
-        const trigger = editModal.__currentTriggerButton;
-        const bloqueado = trigger && Number(trigger.dataset.empleadoRegistrado || 0) === 1;
-
-        input.readOnly = !!bloqueado;
-        input.classList.toggle('bg-light', !!bloqueado);
-        input.title = bloqueado ? 'La fecha de ingreso no puede editarse una vez creado como empleado.' : '';
-    }
+    // ==========================================
+    // 3. API PÚBLICA E INICIALIZACIÓN
+    // ==========================================
 
     window.TercerosEmpleados = {
         init: function (prefix) {
             const regimen = document.getElementById(`${prefix}Regimen`);
             if (regimen) {
                 regimen.addEventListener('change', () => toggleRegimenFields(regimen));
-                toggleRegimenFields(regimen);
+                toggleRegimenFields(regimen); // Estado inicial
             }
 
             const tipoPago = document.getElementById(`${prefix}TipoPago`);
@@ -367,26 +223,45 @@
                 toggleFechaCese(estadoLaboral);
             }
 
-            setupHijos(prefix);
-            lockFechaIngreso(prefix);
+            // Inicializar lógica de hijos
+            setupHijosDinamic(prefix);
         },
-        refreshState: function (prefix) {
-            const recordarCumpleanos = document.getElementById(`${prefix}RecordarCumpleanos`);
-            const estadoLaboral = document.getElementById(`${prefix}EstadoLaboral`);
-            const tipoPago = document.getElementById(`${prefix}TipoPago`);
-            const regimen = document.getElementById(`${prefix}Regimen`);
 
-            toggleFechaNacimiento(recordarCumpleanos);
-            toggleFechaCese(estadoLaboral);
-            togglePagoFields(tipoPago);
-            toggleRegimenFields(regimen);
-            setupHijos(prefix);
-            lockFechaIngreso(prefix);
+        /**
+         * Método para llenar la tabla de hijos desde AJAX (usar en Edit)
+         * @param {string} prefix 'crear' o 'edit'
+         * @param {Array} hijosArray Array de objetos {id, nombre_completo, ...}
+         */
+        setHijos: function(prefix, hijosArray) {
+            const container = document.getElementById(`${prefix}ListaHijos`);
+            const emptyState = document.getElementById(`${prefix}HijosEmptyState`);
+            
+            if (!container) return;
+
+            // Limpiar actuales
+            // Mantenemos el emptyState pero removemos las filas .hijo-row
+            const filas = container.querySelectorAll('.hijo-row');
+            filas.forEach(f => f.remove());
+
+            if (!Array.isArray(hijosArray) || hijosArray.length === 0) {
+                if (emptyState) emptyState.classList.remove('d-none');
+                return;
+            }
+
+            // Agregar cada hijo
+            hijosArray.forEach(hijo => {
+                agregarHijo(prefix, hijo);
+            });
         }
     };
 
     document.addEventListener('DOMContentLoaded', () => {
         window.TercerosEmpleados.init('crear');
-        window.TercerosEmpleados.init('edit');
+        // Si usas un modal para editar, llama a init('edit') cuando se abra el modal
+        // o si los elementos existen en el DOM al carga.
+        if(document.getElementById('editRegimen')) {
+             window.TercerosEmpleados.init('edit');
+        }
     });
+
 })();

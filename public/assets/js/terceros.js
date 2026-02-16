@@ -384,6 +384,11 @@
                     window.TercerosClientes.setDistribuidorZones('crear', []);
                 }
 
+                // >>> NUEVO: Limpiar filas de hijos para que no queden residuos
+                if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
+                    window.TercerosEmpleados.setHijos('crear', []);
+                }
+
                 syncRoleTabs('crear');
                 
                 document.getElementById('crearTipoPersona')?.dispatchEvent(new Event('change'));
@@ -418,6 +423,7 @@
                 document.getElementById('editEsEmpleado').checked = btn.dataset.esEmpleado == 1;
                 document.getElementById('editEsDistribuidor').checked = btn.dataset.esDistribuidor == 1;
 
+                // Datos Empleado
                 document.getElementById('editCargo').value = btn.dataset.cargo || '';
                 document.getElementById('editArea').value = btn.dataset.area || '';
                 document.getElementById('editFechaIngreso').value = btn.dataset.fechaIngreso || '';
@@ -443,6 +449,12 @@
                 document.getElementById('editTipoSangre').value = btn.dataset.tipoSangre || '';
                 
                 syncRoleTabs('edit');
+
+                // >>> NUEVO: Cargar lista de hijos desde el dataset del botón
+                if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
+                    const hijos = JSON.parse(btn.dataset.hijosLista || '[]');
+                    window.TercerosEmpleados.setHijos('edit', hijos);
+                }
 
                 if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
                     window.TercerosEmpleados.refreshState('edit');
@@ -814,5 +826,4 @@
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     });
-
 })();

@@ -24,7 +24,9 @@ $today = date('Y-m-d');
                 </div>
             </div>
             
-            <div class="w-100 d-none d-md-block"></div> <div class="col-md-4">
+            <div class="w-100 d-none d-md-block"></div> 
+            
+            <div class="col-md-4">
                 <div class="form-floating">
                     <select class="form-select" name="genero" id="<?php echo $prefix; ?>Genero">
                         <option value="">Seleccionar...</option>
@@ -199,10 +201,11 @@ $today = date('Y-m-d');
                     <label for="<?php echo $prefix; ?>Cuspp">CUSPP</label>
                 </div>
             </div>
+            
             <div class="col-md-6">
                 <div class="form-check form-switch p-2 border rounded bg-white h-100 d-flex align-items-center">
                     <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="<?php echo $prefix; ?>AsignacionFamiliar" name="asignacion_familiar" value="1" style="margin-top: 0;">
-                    <label class="form-check-label small lh-1" for="<?php echo $prefix; ?>AsignacionFamiliar">Asignación Familiar (+10%)</label>
+                    <label class="form-check-label small lh-1 fw-bold text-primary" for="<?php echo $prefix; ?>AsignacionFamiliar">Asignación Familiar (+10%)</label>
                 </div>
             </div>
             <div class="col-md-6">
@@ -211,26 +214,34 @@ $today = date('Y-m-d');
                     <label class="form-check-label small" for="<?php echo $prefix; ?>Essalud">Aportante EsSalud (9%)</label>
                 </div>
             </div>
-            <div class="col-12 d-none" id="<?php echo $prefix; ?>HijosAlertWrapper">
-                <div class="alert alert-warning border mb-0 py-2 small d-flex align-items-center justify-content-between gap-2" role="alert" id="<?php echo $prefix; ?>HijosAlert">
-                    <span><i class="bi bi-exclamation-triangle-fill me-1"></i>¡Atención! Uno o más hijos ya cumplieron 18 años sin justificar estudios o discapacidad.</span>
-                    <button type="button" class="btn btn-sm btn-outline-warning" id="<?php echo $prefix; ?>RevisarHijosBtn">Revisar hijos ahora</button>
+
+            <div class="col-12 mt-3 d-none" id="<?php echo $prefix; ?>WrapperHijos">
+                <div class="card bg-light border">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="card-title m-0 text-primary small fw-bold text-uppercase"><i class="bi bi-people-fill me-1"></i> Hijos / Dependientes</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary bg-white" id="<?php echo $prefix; ?>BtnAgregarHijo">
+                                <i class="bi bi-plus-lg"></i> Agregar Hijo
+                            </button>
+                        </div>
+                        
+                        <div class="row g-2 small text-muted mb-2 px-1 d-none d-md-flex fw-bold">
+                            <div class="col-md-4">Nombre Completo</div>
+                            <div class="col-md-3">F. Nacimiento</div>
+                            <div class="col-md-2 text-center">¿Estudia? (>18)</div>
+                            <div class="col-md-2 text-center">Discapacidad</div>
+                            <div class="col-md-1"></div>
+                        </div>
+
+                        <div id="<?php echo $prefix; ?>ListaHijos">
+                            <div class="alert alert-info py-2 small mb-0 text-center" id="<?php echo $prefix; ?>HijosEmptyState">
+                                <i class="bi bi-info-circle me-1"></i> Agrega los hijos para sustentar la asignación familiar.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="col-12 d-none" id="<?php echo $prefix; ?>HijosEmptyWarningWrapper">
-                <div class="alert alert-info border mb-0 py-2 small" role="alert">
-                    <i class="bi bi-info-circle me-1"></i>No hay hijos registrados. Si corresponde, regístralos para sustento de asignación familiar.
-                </div>
-            </div>
-            <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
-                <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
-                    <i class="bi bi-people-fill me-1"></i><span id="<?php echo $prefix; ?>GestionHijosLabel">Gestionar hijos para asignación familiar</span>
-            <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
-                <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
-                    <i class="bi bi-people-fill me-1"></i>Gestionar hijos para asignación familiar
-                </button>
-                <small class="text-muted d-block mt-1">Registro y control documentario de asignación familiar.</small>
-            </div>
+
         </div>
     </div>
 </div>
