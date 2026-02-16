@@ -8,6 +8,12 @@ $sabores = $sabores ?? [];
 $saboresGestion = $sabores_gestion ?? [];
 $presentaciones = $presentaciones ?? [];
 $presentacionesGestion = $presentaciones_gestion ?? [];
+$tipoItemValueForUi = static function (string $tipo): string {
+    return match ($tipo) {
+        'producto' => 'producto_terminado',
+        default => $tipo,
+    };
+};
 $tipoItemLabel = static function (string $tipo): string {
     return match ($tipo) {
         'producto', 'producto_terminado' => 'Producto terminado',
@@ -100,8 +106,9 @@ $tipoItemLabel = static function (string $tipo): string {
                     </thead>
                     <tbody>
                         <?php foreach ($items as $item): ?>
+                            <?php $tipoItemUi = $tipoItemValueForUi((string) ($item['tipo_item'] ?? '')); ?>
                             <tr data-estado="<?php echo (int) $item['estado']; ?>"
-                                data-tipo="<?php echo e($item['tipo_item']); ?>"
+                                data-tipo="<?php echo e($tipoItemUi); ?>"
                                 data-categoria="<?php echo (int) ($item['id_categoria'] ?? 0); ?>"
                                 data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
@@ -139,7 +146,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-sku="<?php echo e($item['sku']); ?>"
                                             data-nombre="<?php echo e($item['nombre']); ?>"
                                             data-descripcion="<?php echo e($item['descripcion'] ?? ''); ?>"
-                                            data-tipo="<?php echo e($item['tipo_item']); ?>"
+                                            data-tipo="<?php echo e($tipoItemUi); ?>"
                                             data-marca="<?php echo e($item['marca'] ?? ''); ?>"
                                             data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
                                             data-moneda="<?php echo e($item['moneda'] ?? ''); ?>"
