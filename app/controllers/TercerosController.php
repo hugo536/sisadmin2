@@ -594,10 +594,12 @@ class TercerosController extends Controlador
             ];
         }
 
+        $esEmpleado = !empty($data['es_empleado']);
+
         // ==========================================
         // LÓGICA PARA HIJOS (ASIGNACIÓN FAMILIAR)
         // ==========================================
-        $asignacionFamiliar = !empty($data['asignacion_familiar']);
+        $asignacionFamiliar = $esEmpleado && !empty($data['asignacion_familiar']);
         
         $hijosIds          = $data['hijo_id'] ?? [];
         $hijosNombres      = $data['hijo_nombre'] ?? [];
@@ -648,7 +650,7 @@ class TercerosController extends Controlador
         $roles = [
             !empty($data['es_cliente']),
             !empty($data['es_proveedor']),
-            !empty($data['es_empleado']),
+            $esEmpleado,
             !empty($data['es_distribuidor']),
         ];
 
@@ -676,7 +678,7 @@ class TercerosController extends Controlador
             throw new Exception('Seleccione al menos un rol (Cliente, Proveedor, Empleado o Distribuidor).');
         }
 
-        $recordarCumpleanos = !empty($data['recordar_cumpleanos']);
+        $recordarCumpleanos = $esEmpleado && !empty($data['recordar_cumpleanos']);
         $fechaNacimientoRaw = trim((string) ($data['fecha_nacimiento'] ?? ''));
         $fechaNacimientoNormalizada = null;
 
@@ -728,12 +730,12 @@ class TercerosController extends Controlador
         $prepared['zonas_exclusivas']      = $zonasLimpias;
         $prepared['recordar_cumpleanos']    = $recordarCumpleanos ? 1 : 0;
         $prepared['fecha_nacimiento']        = $fechaNacimientoNormalizada;
-        $prepared['genero']                  = trim((string) ($data['genero'] ?? ''));
-        $prepared['estado_civil']            = trim((string) ($data['estado_civil'] ?? ''));
-        $prepared['nivel_educativo']         = trim((string) ($data['nivel_educativo'] ?? ''));
-        $prepared['contacto_emergencia_nombre'] = trim((string) ($data['contacto_emergencia_nombre'] ?? ''));
-        $prepared['contacto_emergencia_telf']   = trim((string) ($data['contacto_emergencia_telf'] ?? ''));
-        $prepared['tipo_sangre']                = strtoupper(trim((string) ($data['tipo_sangre'] ?? '')));
+        $prepared['genero']                  = $esEmpleado ? trim((string) ($data['genero'] ?? '')) : '';
+        $prepared['estado_civil']            = $esEmpleado ? trim((string) ($data['estado_civil'] ?? '')) : '';
+        $prepared['nivel_educativo']         = $esEmpleado ? trim((string) ($data['nivel_educativo'] ?? '')) : '';
+        $prepared['contacto_emergencia_nombre'] = $esEmpleado ? trim((string) ($data['contacto_emergencia_nombre'] ?? '')) : '';
+        $prepared['contacto_emergencia_telf']   = $esEmpleado ? trim((string) ($data['contacto_emergencia_telf'] ?? '')) : '';
+        $prepared['tipo_sangre']                = $esEmpleado ? strtoupper(trim((string) ($data['tipo_sangre'] ?? ''))) : '';
 
         // Agregamos la información de Asignación Familiar e Hijos al Payload
         $prepared['asignacion_familiar'] = $asignacionFamiliar ? 1 : 0;
