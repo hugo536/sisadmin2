@@ -402,6 +402,7 @@
         if (modalEdit) {
             modalEdit.addEventListener('show.bs.modal', (e) => {
                 const btn = e.relatedTarget;
+                modalEdit.__currentTriggerButton = btn;
                 const id = btn.dataset.id;
                 
                 document.getElementById('editId').value = id;
@@ -620,20 +621,17 @@
             const id = Number(row.id || 0);
             const nombre = escapeHtml(row.nombre || '');
             const estado = Number(row.estado || 0) === 1;
-            const estadoClass = estado ? 'text-success' : 'text-secondary';
-            const estadoLabel = estado ? 'Activo' : 'Inactivo';
             return `
-                <div class="list-group-item py-2 d-flex justify-content-between align-items-center gap-2" data-id="${id}">
+                <div class="list-group-item py-2 maestro-row" data-id="${id}">
                     <div class="d-flex flex-column">
                         <span class="fw-semibold">${nombre}</span>
-                        <small class="${estadoClass}">${estadoLabel}</small>
+                    </div>
+                    <div class="form-check form-switch m-0 d-flex justify-content-center" title="Activar / desactivar">
+                        <input class="form-check-input js-switch-${type}" type="checkbox" data-id="${id}" ${estado ? 'checked' : ''}>
                     </div>
                     <div class="btn-group btn-group-sm" role="group">
                         <button class="btn btn-outline-secondary js-edit-${type}" type="button" data-id="${id}" data-nombre="${nombre}">
                             <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-outline-${estado ? 'warning' : 'success'} js-toggle-${type}" type="button" data-id="${id}" data-estado="${estado ? 0 : 1}">
-                            <i class="bi bi-${estado ? 'pause' : 'play'}"></i>
                         </button>
                         <button class="btn btn-outline-danger js-delete-${type}" type="button" data-id="${id}">
                             <i class="bi bi-trash"></i>
@@ -722,6 +720,7 @@
         list.addEventListener('click', async function (event) {
             const editBtn = event.target.closest(`.js-edit-${config.type}`);
             const toggleBtn = event.target.closest(`.js-toggle-${config.type}`);
+            const toggleSwitch = event.target.closest(`.js-switch-${config.type}`);
             const deleteBtn = event.target.closest(`.js-delete-${config.type}`);
 
             if (editBtn) {
@@ -733,12 +732,14 @@
                 return;
             }
 
-            if (!toggleBtn && !deleteBtn) return;
+            if (!toggleBtn && !toggleSwitch && !deleteBtn) return;
 
             const fd = new FormData();
-            fd.append('id', toggleBtn?.dataset.id || deleteBtn?.dataset.id || '0');
-            fd.append('accion', toggleBtn ? config.toggleAction : config.deleteAction);
-            if (toggleBtn) fd.append('estado', toggleBtn.dataset.estado || '0');
+            const targetId = toggleBtn?.dataset.id || toggleSwitch?.dataset.id || deleteBtn?.dataset.id || '0';
+            const nextState = toggleBtn ? (toggleBtn.dataset.estado || '0') : (toggleSwitch?.checked ? '1' : '0');
+            fd.append('id', targetId);
+            fd.append('accion', (toggleBtn || toggleSwitch) ? config.toggleAction : config.deleteAction);
+            if (toggleBtn || toggleSwitch) fd.append('estado', nextState);
 
             try {
                 const response = await fetch(window.location.href, {
@@ -750,6 +751,7 @@
                 if (!data.ok) throw new Error(data.mensaje || `No se pudo actualizar ${config.label}.`);
                 await loadList();
             } catch (error) {
+                if (toggleSwitch) toggleSwitch.checked = !toggleSwitch.checked;
                 Swal.fire('Error', error.message, 'error');
             }
         });
