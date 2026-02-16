@@ -51,6 +51,95 @@
         return normalizeTipoEntidad(tipo) === 'Billetera Digital';
     }
 
+    function normalizeCatalogValue(value) {
+        return (value || '')
+            .toString()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+    }
+
+    function normalizeTipoPersona(value) {
+        const v = normalizeCatalogValue(value);
+        if (v === 'NATURAL' || v === 'JURIDICA') return v;
+        return '';
+    }
+
+    function normalizeGenero(value) {
+        const v = normalizeCatalogValue(value);
+        if (v === 'MASCULINO' || v === 'FEMENINO' || v === 'OTRO') return v;
+        return '';
+    }
+
+    function normalizeEstadoCivil(value) {
+        const v = normalizeCatalogValue(value);
+        if (['SOLTERO', 'CASADO', 'DIVORCIADO', 'VIUDO', 'CONVIVIENTE'].includes(v)) return v;
+        return '';
+    }
+
+    function normalizeEstadoLaboral(value) {
+        const v = normalizeCatalogValue(value);
+        if (v === 'ACTIVO') return 'activo';
+        if (v === 'CESADO') return 'cesado';
+        if (v === 'SUSPENDIDO') return 'suspendido';
+        return 'activo';
+    }
+
+    function normalizeTipoComisionAfp(value) {
+        const v = normalizeCatalogValue(value);
+        if (v.includes('FLUJO')) return 'FLUJO';
+        if (v.includes('MIXTA')) return 'MIXTA';
+        return '';
+    }
+
+    function normalizeTipoContrato(value) {
+        const v = normalizeCatalogValue(value).replace(/\s+/g, '_');
+        const map = {
+            INDETERMINADO: 'INDETERMINADO',
+            PLAZO_FIJO: 'PLAZO_FIJO',
+            PART_TIME: 'PART_TIME',
+            LOCACION: 'LOCACION',
+            LOCACION_DE_SERVICIOS: 'LOCACION',
+            PRACTICANTE: 'PRACTICANTE'
+        };
+        return map[v] || '';
+    }
+
+    function normalizeTipoPago(value) {
+        const v = normalizeCatalogValue(value);
+        if (['MENSUAL', 'QUINCENAL', 'DIARIO'].includes(v)) return v;
+        return 'MENSUAL';
+    }
+
+    function normalizeMoneda(value) {
+        const v = normalizeCatalogValue(value);
+        if (v === 'PEN' || v.includes('SOL')) return 'PEN';
+        if (v === 'USD' || v.includes('DOLAR')) return 'USD';
+        return 'PEN';
+    }
+
+    function normalizeRegimenPensionario(value) {
+        const v = normalizeCatalogValue(value)
+            .replace(/\s+/g, '_')
+            .replace(/^SNP$/, 'ONP')
+            .replace(/^AFP$/, '');
+
+        const map = {
+            ONP: 'ONP',
+            AFP_INTEGRA: 'AFP_INTEGRA',
+            INTEGRA: 'AFP_INTEGRA',
+            AFP_PRIMA: 'AFP_PRIMA',
+            PRIMA: 'AFP_PRIMA',
+            AFP_PROFUTURO: 'AFP_PROFUTURO',
+            PROFUTURO: 'AFP_PROFUTURO',
+            AFP_HABITAT: 'AFP_HABITAT',
+            HABITAT: 'AFP_HABITAT'
+        };
+
+        return map[v] || '';
+    }
+
     function setInvalid(input, msg) {
         if (!input) return;
         input.classList.add('is-invalid');
@@ -464,21 +553,21 @@
                 document.getElementById('editArea').value = btn.dataset.area || '';
                 document.getElementById('editFechaIngreso').value = btn.dataset.fechaIngreso || '';
                 document.getElementById('editFechaCese').value = btn.dataset.fechaCese || '';
-                document.getElementById('editEstadoLaboral').value = btn.dataset.estadoLaboral || 'activo';
-                document.getElementById('editTipoContrato').value = btn.dataset.tipoContrato || '';
-                document.getElementById('editTipoPago').value = btn.dataset.tipoPago || 'MENSUAL';
-                document.getElementById('editMoneda').value = btn.dataset.moneda || 'PEN';
+                document.getElementById('editEstadoLaboral').value = normalizeEstadoLaboral(btn.dataset.estadoLaboral);
+                document.getElementById('editTipoContrato').value = normalizeTipoContrato(btn.dataset.tipoContrato);
+                document.getElementById('editTipoPago').value = normalizeTipoPago(btn.dataset.tipoPago);
+                document.getElementById('editMoneda').value = normalizeMoneda(btn.dataset.moneda);
                 document.getElementById('editSueldoBasico').value = btn.dataset.sueldoBasico || '';
                 document.getElementById('editPagoDiario').value = btn.dataset.pagoDiario || '';
-                document.getElementById('editRegimen').value = btn.dataset.regimenPensionario || '';
-                document.getElementById('editTipoComision').value = btn.dataset.tipoComisionAfp || '';
+                document.getElementById('editRegimen').value = normalizeRegimenPensionario(btn.dataset.regimenPensionario);
+                document.getElementById('editTipoComision').value = normalizeTipoComisionAfp(btn.dataset.tipoComisionAfp);
                 document.getElementById('editCuspp').value = btn.dataset.cuspp || '';
                 document.getElementById('editAsignacionFamiliar').checked = btn.dataset.asignacionFamiliar == 1;
                 document.getElementById('editEssalud').checked = btn.dataset.essalud == 1;
                 document.getElementById('editRecordarCumpleanos').checked = btn.dataset.recordarCumpleanos == 1;
                 document.getElementById('editFechaNacimiento').value = btn.dataset.fechaNacimiento || '';
-                document.getElementById('editGenero').value = btn.dataset.genero || '';
-                document.getElementById('editEstadoCivil').value = btn.dataset.estadoCivil || '';
+                document.getElementById('editGenero').value = normalizeGenero(btn.dataset.genero);
+                document.getElementById('editEstadoCivil').value = normalizeEstadoCivil(btn.dataset.estadoCivil);
                 document.getElementById('editNivelEducativo').value = btn.dataset.nivelEducativo || '';
                 document.getElementById('editContactoEmergenciaNombre').value = btn.dataset.contactoEmergenciaNombre || '';
                 document.getElementById('editContactoEmergenciaTelf').value = btn.dataset.contactoEmergenciaTelf || '';
@@ -497,7 +586,7 @@
                 }
 
                 const tipoP = document.getElementById('editTipoPersona');
-                tipoP.value = btn.dataset.tipoPersona;
+                tipoP.value = normalizeTipoPersona(btn.dataset.tipoPersona);
                 tipoP.dispatchEvent(new Event('change'));
 
                 const dep = document.getElementById('editDepartamento');

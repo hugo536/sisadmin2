@@ -734,6 +734,86 @@ class TercerosController extends Controlador
             $zonasLimpias[] = $zona;
         }
 
+        $normalizeCatalog = static function ($value) {
+            $value = strtoupper(trim((string) $value));
+            $value = str_replace(['Á', 'É', 'Í', 'Ó', 'Ú'], ['A', 'E', 'I', 'O', 'U'], $value);
+            return preg_replace('/\s+/', '_', $value);
+        };
+
+        $normalizeGenero = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            return in_array($v, ['MASCULINO', 'FEMENINO', 'OTRO'], true) ? $v : '';
+        };
+
+        $normalizeEstadoCivil = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            return in_array($v, ['SOLTERO', 'CASADO', 'DIVORCIADO', 'VIUDO', 'CONVIVIENTE'], true) ? $v : '';
+        };
+
+        $normalizeRegimen = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            if ($v === 'SNP') {
+                return 'ONP';
+            }
+
+            $map = [
+                'ONP' => 'ONP',
+                'AFP_INTEGRA' => 'AFP_INTEGRA',
+                'INTEGRA' => 'AFP_INTEGRA',
+                'AFP_PRIMA' => 'AFP_PRIMA',
+                'PRIMA' => 'AFP_PRIMA',
+                'AFP_PROFUTURO' => 'AFP_PROFUTURO',
+                'PROFUTURO' => 'AFP_PROFUTURO',
+                'AFP_HABITAT' => 'AFP_HABITAT',
+                'HABITAT' => 'AFP_HABITAT',
+            ];
+
+            return $map[$v] ?? '';
+        };
+
+        $normalizeTipoComision = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            if (strpos($v, 'FLUJO') !== false) {
+                return 'FLUJO';
+            }
+            if (strpos($v, 'MIXTA') !== false) {
+                return 'MIXTA';
+            }
+            return '';
+        };
+
+        $normalizeEstadoLaboral = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            return in_array($v, ['ACTIVO', 'CESADO', 'SUSPENDIDO'], true) ? strtolower($v) : 'activo';
+        };
+
+        $normalizeTipoContrato = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            $map = [
+                'INDETERMINADO' => 'INDETERMINADO',
+                'PLAZO_FIJO' => 'PLAZO_FIJO',
+                'PART_TIME' => 'PART_TIME',
+                'LOCACION' => 'LOCACION',
+                'LOCACION_DE_SERVICIOS' => 'LOCACION',
+                'PRACTICANTE' => 'PRACTICANTE',
+            ];
+
+            return $map[$v] ?? '';
+        };
+
+        $normalizeTipoPago = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            return in_array($v, ['MENSUAL', 'QUINCENAL', 'DIARIO'], true) ? $v : 'MENSUAL';
+        };
+
+        $normalizeMoneda = static function ($value) use ($normalizeCatalog) {
+            $v = $normalizeCatalog($value);
+            if ($v === 'USD' || strpos($v, 'DOLAR') !== false) {
+                return 'USD';
+            }
+            return 'PEN';
+        };
+
         // --- PREPARAR PAYLOAD FINAL ---
         $prepared = $data;
         $prepared['tipo_persona']          = $tipoPersona;
@@ -752,9 +832,15 @@ class TercerosController extends Controlador
         $prepared['zonas_exclusivas']      = $zonasLimpias;
         $prepared['recordar_cumpleanos']    = $recordarCumpleanos ? 1 : 0;
         $prepared['fecha_nacimiento']        = $fechaNacimientoNormalizada;
-        $prepared['genero']                  = $esEmpleado ? trim((string) ($data['genero'] ?? '')) : '';
-        $prepared['estado_civil']            = $esEmpleado ? trim((string) ($data['estado_civil'] ?? '')) : '';
-        $prepared['nivel_educativo']         = $esEmpleado ? trim((string) ($data['nivel_educativo'] ?? '')) : '';
+        $prepared['estado_laboral']          = $esEmpleado ? $normalizeEstadoLaboral($data['estado_laboral'] ?? '') : 'activo';
+        $prepared['tipo_contrato']           = $esEmpleado ? $normalizeTipoContrato($data['tipo_contrato'] ?? '') : '';
+        $prepared['tipo_pago']               = $esEmpleado ? $normalizeTipoPago($data['tipo_pago'] ?? '') : 'MENSUAL';
+        $prepared['moneda']                  = $esEmpleado ? $normalizeMoneda($data['moneda'] ?? '') : 'PEN';
+        $prepared['genero']                  = $esEmpleado ? $normalizeGenero($data['genero'] ?? '') : '';
+        $prepared['estado_civil']            = $esEmpleado ? $normalizeEstadoCivil($data['estado_civil'] ?? '') : '';
+        $prepared['nivel_educativo']         = $esEmpleado ? $normalizeCatalog($data['nivel_educativo'] ?? '') : '';
+        $prepared['regimen_pensionario']     = $esEmpleado ? $normalizeRegimen($data['regimen_pensionario'] ?? '') : '';
+        $prepared['tipo_comision_afp']       = $esEmpleado ? $normalizeTipoComision($data['tipo_comision_afp'] ?? '') : '';
         $prepared['contacto_emergencia_nombre'] = $esEmpleado ? trim((string) ($data['contacto_emergencia_nombre'] ?? '')) : '';
         $prepared['contacto_emergencia_telf']   = $esEmpleado ? trim((string) ($data['contacto_emergencia_telf'] ?? '')) : '';
         $prepared['tipo_sangre']                = $esEmpleado ? strtoupper(trim((string) ($data['tipo_sangre'] ?? ''))) : '';
