@@ -121,6 +121,7 @@
     }
 
     async function fetchHijos(idEmpleado, prefix) {
+        if (!idEmpleado) return { rows: [], hasMayor: false };
         if (!idEmpleado) return;
         const fd = new FormData();
         fd.append('accion', 'listar_hijos_asignacion');
@@ -130,6 +131,13 @@
         const data = await res.json();
         if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar hijos.');
 
+        const rows = data.data || [];
+        renderRowsHijos(rows);
+
+        const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
+        if (alertWrap) alertWrap.classList.toggle('d-none', !data.has_mayor_sin_justificar);
+
+        return { rows, hasMayor: !!data.has_mayor_sin_justificar };
         renderRowsHijos(data.data || []);
 
         const alertWrap = document.getElementById(`${prefix}HijosAlertWrapper`);
@@ -149,6 +157,56 @@
         const asignacionSwitch = document.getElementById(`${prefix}AsignacionFamiliar`);
         const gestionWrap = document.getElementById(`${prefix}GestionHijosWrapper`);
         const gestionarBtn = document.getElementById(`${prefix}GestionarHijosBtn`);
+        const gestionarLabel = document.getElementById(`${prefix}GestionHijosLabel`);
+        const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
+        const emptyWarn = document.getElementById(`${prefix}HijosEmptyWarningWrapper`);
+        if (!asignacionSwitch || !gestionWrap) return;
+
+        const getIdEmpleado = () => (prefix === 'edit' ? (document.getElementById('editId')?.value || '') : '');
+
+        const refresh = async () => {
+            const idEmpleado = getIdEmpleado();
+            const active = asignacionSwitch.checked;
+            const canManage = active && !!idEmpleado;
+
+            gestionWrap.classList.toggle('d-none', !active);
+            if (gestionarBtn) gestionarBtn.disabled = active && !idEmpleado;
+            if (gestionarLabel) {
+                gestionarLabel.textContent = idEmpleado
+                    ? 'Gestionar hijos para asignación familiar'
+                    : 'Guardar tercero para gestionar hijos';
+            }
+
+            if (!active) {
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+                emptyWarn?.classList.add('d-none');
+                return;
+            }
+
+            if (!idEmpleado) {
+                emptyWarn?.classList.remove('d-none');
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+                return;
+            }
+
+            try {
+                const result = await fetchHijos(idEmpleado, prefix);
+                emptyWarn?.classList.toggle('d-none', result.rows.length > 0);
+            } catch (_) {
+                emptyWarn?.classList.add('d-none');
+                document.getElementById(`${prefix}HijosAlertWrapper`)?.classList.add('d-none');
+            }
+        };
+
+        if (!asignacionSwitch.dataset.hijosBound) {
+            asignacionSwitch.addEventListener('change', refresh);
+            asignacionSwitch.dataset.hijosBound = '1';
+        }
+
+        const openModal = async () => {
+            const idEmpleado = getIdEmpleado();
+            if (!idEmpleado) {
+                Swal.fire('Atención', 'Primero guarda el tercero como empleado. Luego podrás registrar hijos.', 'info');
         const revisarBtn = document.getElementById(`${prefix}RevisarHijosBtn`);
         if (!asignacionSwitch || !gestionWrap) return;
 
@@ -182,9 +240,16 @@
             modal.show();
         };
 
+        if (gestionarBtn && !gestionarBtn.dataset.hijosBound) {
+            gestionarBtn.addEventListener('click', openModal);
+            gestionarBtn.dataset.hijosBound = '1';
+        }
+        if (revisarBtn && !revisarBtn.dataset.hijosBound) {
+            revisarBtn.addEventListener('click', openModal);
+            revisarBtn.dataset.hijosBound = '1';
+        }
         gestionarBtn?.addEventListener('click', openModal);
         revisarBtn?.addEventListener('click', openModal);
-
         if (!window.__hijosAsignacionBound) {
             window.__hijosAsignacionBound = true;
 

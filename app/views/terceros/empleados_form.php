@@ -217,6 +217,14 @@ $today = date('Y-m-d');
                     <button type="button" class="btn btn-sm btn-outline-warning" id="<?php echo $prefix; ?>RevisarHijosBtn">Revisar hijos ahora</button>
                 </div>
             </div>
+            <div class="col-12 d-none" id="<?php echo $prefix; ?>HijosEmptyWarningWrapper">
+                <div class="alert alert-info border mb-0 py-2 small" role="alert">
+                    <i class="bi bi-info-circle me-1"></i>No hay hijos registrados. Si corresponde, regístralos para sustento de asignación familiar.
+                </div>
+            </div>
+            <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
+                <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
+                    <i class="bi bi-people-fill me-1"></i><span id="<?php echo $prefix; ?>GestionHijosLabel">Gestionar hijos para asignación familiar</span>
             <div class="col-12 d-none" id="<?php echo $prefix; ?>GestionHijosWrapper">
                 <button type="button" class="btn btn-sm btn-primary" id="<?php echo $prefix; ?>GestionarHijosBtn">
                     <i class="bi bi-people-fill me-1"></i>Gestionar hijos para asignación familiar
