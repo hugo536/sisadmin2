@@ -75,7 +75,7 @@ $today = date('Y-m-d');
         <div class="row g-3">
             <div class="col-md-4">
                 <div class="form-floating">
-                    <select class="form-select" name="cargo" id="<?php echo $prefix; ?>Cargo">
+                    <select class="form-select" name="cargo" id="<?php echo $prefix; ?>Cargo" data-required-empleado="1">
                         <option value="" disabled selected>Seleccione Cargo...</option>
                         <?php foreach ($cargos_list as $c): ?>
                             <option value="<?php echo htmlspecialchars($c['nombre']); ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
@@ -86,7 +86,7 @@ $today = date('Y-m-d');
             </div>
             <div class="col-md-4">
                 <div class="form-floating">
-                    <select class="form-select" name="area" id="<?php echo $prefix; ?>Area">
+                    <select class="form-select" name="area" id="<?php echo $prefix; ?>Area" data-required-empleado="1">
                         <option value="" disabled selected>Seleccione Área...</option>
                         <?php foreach ($areas_list as $a): ?>
                             <option value="<?php echo htmlspecialchars($a['nombre']); ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
@@ -120,7 +120,7 @@ $today = date('Y-m-d');
             </div>
             <div class="col-md-4">
                 <div class="form-floating">
-                    <input type="date" class="form-control" name="fecha_ingreso" id="<?php echo $prefix; ?>FechaIngreso">
+                    <input type="date" class="form-control" name="fecha_ingreso" id="<?php echo $prefix; ?>FechaIngreso" data-required-empleado="1">
                     <label for="<?php echo $prefix; ?>FechaIngreso">Fecha de Ingreso <span class="text-danger">*</span></label>
                 </div>
             </div>
