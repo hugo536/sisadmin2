@@ -127,34 +127,27 @@
                                             <i class="bi bi-person-badge fs-5"></i>
                                         </a>
 
-                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-tercero" 
+                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-tercero"
+                                            type="button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalEditarTercero"
                                             data-id="<?php echo (int) $tercero['id']; ?>"
-                                            
-                                            /* Identificación */
                                             data-nombre="<?php echo htmlspecialchars($tercero['nombre_completo']); ?>"
                                             data-tipo-doc="<?php echo htmlspecialchars($tercero['tipo_documento']); ?>"
                                             data-numero-doc="<?php echo htmlspecialchars($tercero['numero_documento']); ?>"
                                             data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona']); ?>"
                                             data-representante-legal="<?php echo htmlspecialchars($tercero['representante_legal'] ?? ''); ?>"
-
-                                            /* Contacto */
                                             data-direccion="<?php echo htmlspecialchars($tercero['direccion'] ?? ''); ?>"
                                             data-email="<?php echo htmlspecialchars($tercero['email'] ?? ''); ?>"
-                                            data-telefonos='<?php echo htmlspecialchars(json_encode($tercero['telefonos'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
-                                            
-                                            /* Ubigeo */
+                                            data-telefonos='<?php echo e(json_encode($tercero['telefonos'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
                                             data-departamento="<?php echo (int)($tercero['departamento_id'] ?? 0); ?>"
                                             data-provincia="<?php echo (int)($tercero['provincia_id'] ?? 0); ?>"
                                             data-distrito="<?php echo (int)($tercero['distrito_id'] ?? 0); ?>"
-
-                                            /* Roles */
                                             data-es-cliente="<?php echo (int)$tercero['es_cliente']; ?>"
                                             data-es-proveedor="<?php echo (int)$tercero['es_proveedor']; ?>"
                                             data-es-empleado="<?php echo (int)$tercero['es_empleado']; ?>"
                                             data-empleado-registrado="<?php echo (int)$tercero['es_empleado']; ?>"
                                             data-es-distribuidor="<?php echo (int)$tercero['es_distribuidor']; ?>"
-
-                                            /* Empleado */
                                             data-cargo="<?php echo htmlspecialchars((string) ($tercero['cargo'] ?? '')); ?>"
                                             data-area="<?php echo htmlspecialchars((string) ($tercero['area'] ?? '')); ?>"
                                             data-fecha-ingreso="<?php echo htmlspecialchars((string) ($tercero['fecha_ingreso'] ?? '')); ?>"
@@ -178,20 +171,8 @@
                                             data-contacto-emergencia-nombre="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_nombre'] ?? '')); ?>"
                                             data-contacto-emergencia-telf="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_telf'] ?? '')); ?>"
                                             data-tipo-sangre="<?php echo htmlspecialchars((string) ($tercero['tipo_sangre'] ?? '')); ?>"
-                                            
-                                            /* Hijos (Asignación Familiar) - INYECTADO DESDE PHP */
-                                            data-hijos-lista='<?php 
-                                                // Aquí asumimos que $tercero trae una key 'hijos' o 'hijos_lista' desde el modelo.
-                                                // Si el modelo TercerosModel->listar() no hace JOIN con hijos, este array vendrá vacío, 
-                                                // pero al hacer click en editar, el JS debería (idealmente) cargar esto por AJAX si es mucho dato,
-                                                // O BIEN, si el controlador ya los precarga, los ponemos aquí.
-                                                // Para mantenerlo simple según tu flujo actual, lo dejamos vacío y dejamos que tu JS 'fetchHijos'
-                                                // o la carga AJAX de edición se encargue (revisar JS en paso siguiente).
-                                                echo htmlspecialchars(json_encode($tercero['hijos_lista'] ?? [], JSON_UNESCAPED_UNICODE)); 
-                                            ?>'
-
-                                            /* Financiero */
-                                            data-cuentas-bancarias='<?php echo htmlspecialchars(json_encode($tercero['cuentas_bancarias'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
+                                            data-hijos-lista='<?php echo e(json_encode($tercero['hijos_lista'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
+                                            data-cuentas-bancarias='<?php echo e(json_encode($tercero['cuentas_bancarias'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
 
                                             title="Editar"><i class="bi bi-pencil-square fs-5"></i></button>
                                     

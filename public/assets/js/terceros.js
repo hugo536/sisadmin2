@@ -29,6 +29,16 @@
         return (value || '').replace(/\D/g, '');
     }
 
+    function safeJsonParse(raw, fallback = []) {
+        if (!raw) return fallback;
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : fallback;
+        } catch (_err) {
+            return fallback;
+        }
+    }
+
     function normalizeTipoEntidad(value) {
         const v = (value || '').toString().trim();
         if (v.match(/banco/i)) return 'Banco';
@@ -468,7 +478,7 @@
 
                 // >>> NUEVO: Cargar lista de hijos desde el dataset del botón
                 if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
-                    const hijos = JSON.parse(btn.dataset.hijosLista || '[]');
+                    const hijos = safeJsonParse(btn.dataset.hijosLista, []);
                     window.TercerosEmpleados.setHijos('edit', hijos);
                 }
 
@@ -490,8 +500,8 @@
                 dep.value = btn.dataset.departamento;
                 dep.dispatchEvent(new Event('change'));
 
-                const tels = JSON.parse(btn.dataset.telefonos || '[]');
-                const ctas = JSON.parse(btn.dataset.cuentasBancarias || '[]');
+                const tels = safeJsonParse(btn.dataset.telefonos, []);
+                const ctas = safeJsonParse(btn.dataset.cuentasBancarias, []);
                 
                 const telList = document.getElementById('editTelefonosList');
                 telList.innerHTML = '';
@@ -522,6 +532,9 @@
             const recordarCumpleanos = !!form.querySelector('[name="recordar_cumpleanos"]')?.checked;
             const fechaNacimiento = (form.querySelector('[name="fecha_nacimiento"]')?.value || '').trim();
             const tipoSangre = (form.querySelector('[name="tipo_sangre"]')?.value || '').trim().toUpperCase();
+            const esEmpleado = !!form.querySelector('[name="es_empleado"]')?.checked;
+            const sueldoBasicoRaw = (form.querySelector('[name="sueldo_basico"]')?.value || '').trim();
+            const sueldoBasico = Number.parseFloat(sueldoBasicoRaw);
 
             if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
                 return 'Tipo de persona, documento, número y nombre son obligatorios.';
@@ -556,6 +569,16 @@
                 }
                 if (fecha > hoy) {
                     return 'La fecha de nacimiento no puede ser mayor a la fecha actual.';
+                }
+            }
+
+
+            if (esEmpleado) {
+                if (sueldoBasicoRaw === '') {
+                    return 'Para el rol Empleado, el sueldo básico es obligatorio.';
+                }
+                if (Number.isNaN(sueldoBasico) || sueldoBasico < 0) {
+                    return 'El sueldo básico del empleado debe ser un número válido mayor o igual a 0.';
                 }
             }
 
