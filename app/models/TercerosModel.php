@@ -16,6 +16,15 @@ class TercerosModel extends Modelo
     /** @var array<string,bool> */
     private array $columnCache = [];
 
+    /** @var array<string,int>|null */
+    private ?array $departamentosMap = null;
+
+    /** @var array<string,int>|null */
+    private ?array $provinciasMap = null;
+
+    /** @var array<string,int>|null */
+    private ?array $distritosMap = null;
+
     public function __construct()
     {
         $this->clientesModel = new TercerosClientesModel();
@@ -30,43 +39,12 @@ class TercerosModel extends Modelo
 
     public function listar(): array
     {
-        $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
-            ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
-            : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
-        $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
-            ? 'te.genero, te.estado_civil, te.nivel_educativo, te.contacto_emergencia_nombre, te.contacto_emergencia_telf, te.tipo_sangre,'
-            : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
-
         $sql = "SELECT t.id, t.tipo_persona, t.tipo_documento, t.numero_documento, t.nombre_completo,
                        t.direccion, t.telefono, t.email, t.representante_legal,
                        t.departamento, t.provincia, t.distrito,
                        t.rubro_sector, t.observaciones, t.es_cliente, t.es_proveedor, t.es_empleado, t.estado,
-                       
-                       -- Datos cliente desde tabla hija
-                       tc.dias_credito AS cliente_dias_credito,
-                       tc.limite_credito AS cliente_limite_credito,
-                       tc.condicion_pago AS cliente_condicion_pago,
-                       
-                       -- Datos proveedor desde tabla hija
-                       tp.dias_credito AS proveedor_dias_credito,
-                       tp.condicion_pago AS proveedor_condicion_pago,
-                       tp.forma_pago AS proveedor_forma_pago,
-                       
-                       -- Datos empleado
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, 
-                       te.sueldo_basico, te.moneda, te.asignacion_familiar,
-                       te.tipo_pago, te.pago_diario, te.regimen_pensionario, 
-                       te.tipo_comision_afp, te.cuspp, te.essalud, te.fecha_cese, te.tipo_contrato,
-                       {$selectCumple}
-                       {$selectPerfilEmpleado}
-
-                       -- Datos distribuidor
-                       CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
+                       0 AS es_distribuidor
                 FROM terceros t
-                LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
-                LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
-                LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
-                LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
                 ORDER BY t.id DESC";
 
@@ -78,20 +56,27 @@ class TercerosModel extends Modelo
             return [];
         }
 
-        $ids = array_column($rows, 'id');
+        $ids = array_map('intval', array_column($rows, 'id'));
         $telefonos = $this->obtenerTelefonosPorTerceros($ids);
         $cuentas   = $this->obtenerCuentasPorTerceros($ids);
-        $zonas     = $this->distribuidoresModel->obtenerZonasPorTerceros(array_map('intval', $ids));
+        $zonas     = $this->distribuidoresModel->obtenerZonasPorTerceros($ids);
+        $clientes = $this->obtenerClientesPorTerceros($ids);
+        $proveedores = $this->obtenerProveedoresPorTerceros($ids);
+        $empleados = $this->obtenerEmpleadosPorTerceros($ids);
+        $distribuidores = $this->obtenerDistribuidoresPorTerceros($ids);
 
         foreach ($rows as &$row) {
             $id = (int) $row['id'];
             $bloqueo = $this->obtenerBloqueoEliminacion($id);
+            $row = array_merge($row, $clientes[$id] ?? [], $proveedores[$id] ?? [], $empleados[$id] ?? []);
+            $row['es_distribuidor'] = isset($distribuidores[$id]) ? 1 : 0;
             $row['telefonos']         = $telefonos[$id] ?? [];
             $row['cuentas_bancarias'] = $cuentas[$id]   ?? [];
             $row['zonas_exclusivas']  = $zonas[$id] ?? [];
             $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
             $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
             $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+            $this->resolverUbigeoIds($row);
             
             // Helpers de ubicación (compatibilidad visual)
             $row['departamento_nombre'] = $row['departamento'];
@@ -121,39 +106,8 @@ class TercerosModel extends Modelo
 
     public function obtener(int $id): array
     {
-        $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
-            ? 'te.recordar_cumpleanos, te.fecha_nacimiento,'
-            : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
-        $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
-            ? 'te.genero, te.estado_civil, te.nivel_educativo, te.contacto_emergencia_nombre, te.contacto_emergencia_telf, te.tipo_sangre,'
-            : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
-
-        $sql = "SELECT t.*, 
-                       -- Cliente
-                       tc.dias_credito AS cliente_dias_credito,
-                       tc.limite_credito AS cliente_limite_credito,
-                       tc.condicion_pago AS cliente_condicion_pago,
-                       
-                       -- Proveedor
-                       tp.dias_credito AS proveedor_dias_credito,
-                       tp.condicion_pago AS proveedor_condicion_pago,
-                       tp.forma_pago AS proveedor_forma_pago,
-                       
-                       -- Empleado
-                       te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, 
-                       te.sueldo_basico, te.moneda, te.asignacion_familiar,
-                       te.tipo_pago, te.pago_diario, te.tipo_contrato, te.fecha_cese,
-                       te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
-                       {$selectCumple}
-                       {$selectPerfilEmpleado}
-
-                       -- Distribuidor
-                       CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
+        $sql = "SELECT t.*
                 FROM terceros t
-                LEFT JOIN terceros_clientes tc ON t.id = tc.id_tercero
-                LEFT JOIN terceros_proveedores tp ON t.id = tp.id_tercero
-                LEFT JOIN terceros_empleados te ON t.id = te.id_tercero
-                LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.id = :id AND t.deleted_at IS NULL LIMIT 1";
 
         $stmt = $this->db()->prepare($sql);
@@ -164,12 +118,198 @@ class TercerosModel extends Modelo
             return [];
         }
 
+        $row = array_merge(
+            $row,
+            $this->obtenerClientesPorTerceros([$id])[$id] ?? [],
+            $this->obtenerProveedoresPorTerceros([$id])[$id] ?? [],
+            $this->obtenerEmpleadosPorTerceros([$id])[$id] ?? []
+        );
+        $row['es_distribuidor'] = isset($this->obtenerDistribuidoresPorTerceros([$id])[$id]) ? 1 : 0;
         $row['telefonos']         = $this->obtenerTelefonosPorTerceros([$id])[$id] ?? [];
         $row['cuentas_bancarias'] = $this->obtenerCuentasPorTerceros([$id])[$id]   ?? [];
         $row['zonas_exclusivas'] = $this->distribuidoresModel->obtenerZonasPorTerceros([$id])[$id] ?? [];
         $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
+        $this->resolverUbigeoIds($row);
 
         return $row;
+    }
+
+    private function obtenerClientesPorTerceros(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT id_tercero, dias_credito AS cliente_dias_credito, limite_credito AS cliente_limite_credito,
+                       condicion_pago AS cliente_condicion_pago
+                FROM terceros_clientes
+                WHERE id_tercero IN ($in)";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($ids);
+
+        $result = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $result[(int) $row['id_tercero']] = [
+                'cliente_dias_credito' => (int) ($row['cliente_dias_credito'] ?? 0),
+                'cliente_limite_credito' => $row['cliente_limite_credito'],
+                'cliente_condicion_pago' => (string) ($row['cliente_condicion_pago'] ?? ''),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function obtenerProveedoresPorTerceros(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT id_tercero, dias_credito AS proveedor_dias_credito,
+                       condicion_pago AS proveedor_condicion_pago,
+                       forma_pago AS proveedor_forma_pago
+                FROM terceros_proveedores
+                WHERE id_tercero IN ($in)";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($ids);
+
+        $result = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $result[(int) $row['id_tercero']] = [
+                'proveedor_dias_credito' => (int) ($row['proveedor_dias_credito'] ?? 0),
+                'proveedor_condicion_pago' => (string) ($row['proveedor_condicion_pago'] ?? ''),
+                'proveedor_forma_pago' => (string) ($row['proveedor_forma_pago'] ?? ''),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function obtenerEmpleadosPorTerceros(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
+            ? 'recordar_cumpleanos, fecha_nacimiento,'
+            : '0 AS recordar_cumpleanos, NULL AS fecha_nacimiento,';
+        $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
+            ? 'genero, estado_civil, nivel_educativo, contacto_emergencia_nombre, contacto_emergencia_telf, tipo_sangre,'
+            : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT id_tercero,
+                       cargo, area, fecha_ingreso, estado_laboral,
+                       sueldo_basico, moneda, asignacion_familiar,
+                       tipo_pago, pago_diario, tipo_contrato, fecha_cese,
+                       regimen_pensionario, tipo_comision_afp, cuspp, essalud,
+                       {$selectCumple}
+                       {$selectPerfilEmpleado}
+                       id_tercero AS _id_ref
+                FROM terceros_empleados
+                WHERE id_tercero IN ($in)";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($ids);
+
+        $result = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = (int) ($row['id_tercero'] ?? 0);
+            unset($row['_id_ref']);
+            $result[$id] = $row;
+        }
+
+        return $result;
+    }
+
+    private function obtenerDistribuidoresPorTerceros(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT id_tercero FROM distribuidores WHERE deleted_at IS NULL AND id_tercero IN ($in)";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($ids);
+
+        $result = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $result[(int) $row['id_tercero']] = true;
+        }
+
+        return $result;
+    }
+
+    private function resolverUbigeoIds(array &$row): void
+    {
+        $this->inicializarUbigeoMaps();
+
+        $departamentoNombre = trim((string) ($row['departamento'] ?? ''));
+        $provinciaNombre = trim((string) ($row['provincia'] ?? ''));
+        $distritoNombre = trim((string) ($row['distrito'] ?? ''));
+
+        $departamentoKey = mb_strtolower($departamentoNombre);
+        $departamentoId = $this->departamentosMap[$departamentoKey] ?? null;
+
+        $provinciaId = null;
+        if ($departamentoId !== null && $provinciaNombre !== '') {
+            $provinciaKey = $departamentoId . '|' . mb_strtolower($provinciaNombre);
+            $provinciaId = $this->provinciasMap[$provinciaKey] ?? null;
+        }
+
+        $distritoId = null;
+        if ($provinciaId !== null && $distritoNombre !== '') {
+            $distritoKey = $provinciaId . '|' . mb_strtolower($distritoNombre);
+            $distritoId = $this->distritosMap[$distritoKey] ?? null;
+        }
+
+        $row['departamento_id'] = $departamentoId;
+        $row['provincia_id'] = $provinciaId;
+        $row['distrito_id'] = $distritoId;
+    }
+
+    private function inicializarUbigeoMaps(): void
+    {
+        if ($this->departamentosMap !== null && $this->provinciasMap !== null && $this->distritosMap !== null) {
+            return;
+        }
+
+        $this->departamentosMap = [];
+        $this->provinciasMap = [];
+        $this->distritosMap = [];
+
+        $departamentos = $this->db()->query("SELECT id, nombre FROM departamentos")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($departamentos as $dep) {
+            $nombre = mb_strtolower(trim((string) ($dep['nombre'] ?? '')));
+            if ($nombre === '') {
+                continue;
+            }
+            $this->departamentosMap[$nombre] = (int) $dep['id'];
+        }
+
+        $provincias = $this->db()->query("SELECT id, departamento_id, nombre FROM provincias")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($provincias as $prov) {
+            $nombre = mb_strtolower(trim((string) ($prov['nombre'] ?? '')));
+            $departamentoId = (int) ($prov['departamento_id'] ?? 0);
+            if ($nombre === '' || $departamentoId <= 0) {
+                continue;
+            }
+            $this->provinciasMap[$departamentoId . '|' . $nombre] = (int) $prov['id'];
+        }
+
+        $distritos = $this->db()->query("SELECT id, provincia_id, nombre FROM distritos")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($distritos as $dist) {
+            $nombre = mb_strtolower(trim((string) ($dist['nombre'] ?? '')));
+            $provinciaId = (int) ($dist['provincia_id'] ?? 0);
+            if ($nombre === '' || $provinciaId <= 0) {
+                continue;
+            }
+            $this->distritosMap[$provinciaId . '|' . $nombre] = (int) $dist['id'];
+        }
     }
 
     // ==========================================
