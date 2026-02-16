@@ -153,7 +153,7 @@ $today = date('Y-m-d');
             <div class="col-md-4" id="<?php echo $prefix; ?>SueldoGroup">
                 <div class="form-floating">
                     <input type="number" step="0.01" min="0" class="form-control" name="sueldo_basico" id="<?php echo $prefix; ?>SueldoBasico" placeholder="0.00" data-required-empleado="1">
-                    <label for="<?php echo $prefix; ?>SueldoBasico">Sueldo Básico</label>
+                    <label for="<?php echo $prefix; ?>SueldoBasico">Sueldo Básico <span class="text-danger">*</span></label>
                 </div>
             </div>
             <div class="col-md-4 d-none" id="<?php echo $prefix; ?>PagoDiarioGroup">

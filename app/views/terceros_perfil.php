@@ -16,11 +16,11 @@ function showVal($val, $suffix = '') {
 }
 ?>
 
-<div class="container-fluid p-4">
+<div class="container-fluid p-4 terceros-perfil-page">
     <!-- CABECERA -->
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in terceros-perfil-header">
         <div class="d-flex align-items-center">
-            <a href="?ruta=terceros" class="btn btn-outline-secondary me-3 shadow-sm rounded-circle" style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Volver al listado">
+            <a href="?ruta=terceros" class="btn btn-outline-secondary me-3 shadow-sm rounded-circle terceros-back-btn" title="Volver al listado">
                 <i class="bi bi-arrow-left"></i>
             </a>
             <div>
@@ -44,10 +44,9 @@ function showVal($val, $suffix = '') {
     <div class="row g-4">
         <!-- COLUMNA IZQUIERDA: TARJETA PERFIL (Sticky) -->
         <div class="col-lg-3">
-            <div class="card border-0 shadow-sm sticky-top" style="top: 20px; z-index: 1;">
+            <div class="card border-0 shadow-sm sticky-top terceros-profile-card">
                 <div class="card-body text-center p-4">
-                    <div class="avatar-circle mx-auto mb-3 bg-primary text-white fw-bold d-flex align-items-center justify-content-center shadow-sm" 
-                         style="width: 100px; height: 100px; border-radius: 50%; font-size: 2.5rem;">
+                    <div class="avatar-circle mx-auto mb-3 bg-primary text-white fw-bold d-flex align-items-center justify-content-center shadow-sm terceros-avatar-lg">
                         <?php echo strtoupper(substr((string) ($t['nombre_completo'] ?? '?'), 0, 1)); ?>
                     </div>
                     <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($t['nombre_completo'] ?? ''); ?></h5>
@@ -97,7 +96,7 @@ function showVal($val, $suffix = '') {
 
         <!-- COLUMNA DERECHA: CONTENIDO DETALLADO -->
         <div class="col-lg-9">
-            <div class="card border-0 shadow-sm" style="min-height: 600px;">
+            <div class="card border-0 shadow-sm terceros-content-card">
                 <div class="card-header bg-white border-bottom pt-3 px-4">
                     <ul class="nav nav-pills card-header-pills" id="perfilTabs" role="tablist">
                         <li class="nav-item" role="presentation">
@@ -265,10 +264,10 @@ function showVal($val, $suffix = '') {
 
                         <!-- TAB 4: GESTIÓN DOCUMENTAL -->
                         <div class="tab-pane fade h-100" id="tab-docs" role="tabpanel">
-                            <div class="row g-0 h-100" style="min-height: 600px;">
+                            <div class="row g-0 h-100 terceros-docs-layout">
                                 
                                 <!-- LISTA Y CARGA (Izquierda) -->
-                                <div class="col-md-4 col-12 border-end bg-light d-flex flex-column" style="height: 600px;">
+                                <div class="col-md-4 col-12 border-end bg-light d-flex flex-column terceros-docs-sidebar">
                                     
                                     <!-- Formulario -->
                                     <div class="p-3 border-bottom bg-white">
@@ -320,7 +319,7 @@ function showVal($val, $suffix = '') {
                                                      data-url="<?php echo htmlspecialchars($doc['ruta_archivo']); ?>" 
                                                      data-type="<?php echo $ext; ?>"
                                                      data-search="<?php echo htmlspecialchars($searchText); ?>"
-                                                     style="cursor:pointer;">
+                                                     >
                                                     
                                                     <div class="d-flex justify-content-between align-items-start">
                                                         <div class="text-truncate flex-grow-1 pe-2">
@@ -330,7 +329,7 @@ function showVal($val, $suffix = '') {
                                                             </h6>
                                                             <div class="d-flex align-items-center flex-wrap gap-1">
                                                                 <span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($doc['tipo_documento']); ?></span>
-                                                                <small class="text-muted" style="font-size:0.7rem;"><?php echo date('d/m/Y', strtotime($doc['fecha_subida'])); ?></small>
+                                                                <small class="text-muted doc-date"><?php echo date('d/m/Y', strtotime($doc['fecha_subida'])); ?></small>
                                                             </div>
                                                         </div>
                                                         <div class="d-flex gap-1">
@@ -361,7 +360,7 @@ function showVal($val, $suffix = '') {
                                 </div>
 
                                 <!-- VISOR (Derecha/Abajo) -->
-                                <div class="col-md-8 col-12 bg-secondary bg-opacity-10 d-flex flex-column" id="visorContainer" style="height: 600px;">
+                                <div class="col-md-8 col-12 bg-secondary bg-opacity-10 d-flex flex-column terceros-visor-panel" id="visorContainer">
                                     
                                     <!-- BARRA DE HERRAMIENTAS -->
                                     <div id="visorToolbar" class="bg-white border-bottom p-2 d-flex justify-content-between align-items-center d-none">
@@ -383,7 +382,7 @@ function showVal($val, $suffix = '') {
                                         <iframe id="visorPDF" src="" class="d-none w-100 h-100 border-0"></iframe>
 
                                         <!-- Imagen -->
-                                        <img id="visorIMG" src="" class="d-none img-fluid shadow-sm rounded" style="max-height: 95%; max-width: 95%;">
+                                        <img id="visorIMG" src="" class="d-none img-fluid shadow-sm rounded terceros-visor-image">
                                         
                                         <!-- Mensaje Descarga -->
                                         <div id="visorExternal" class="d-none text-center">

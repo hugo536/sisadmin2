@@ -424,3 +424,88 @@ tr[data-estado="0"] .avatar-circle {
   background: rgba(245, 158, 11, 0.15);
   color: #b45309;
 }
+
+/* =======================
+   EXPEDIENTE DIGITAL TERCEROS
+   ======================= */
+.terceros-perfil-page {
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
+}
+
+.terceros-perfil-header {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.terceros-back-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terceros-profile-card {
+  top: 20px;
+  z-index: 1;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.terceros-avatar-lg {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  font-size: 2.5rem;
+}
+
+.terceros-content-card {
+  min-height: 600px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.terceros-docs-layout,
+.terceros-docs-sidebar,
+.terceros-visor-panel {
+  min-height: 600px;
+}
+
+.doc-item {
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.doc-item:hover {
+  background-color: #f8fafc;
+  transform: translateX(2px);
+}
+
+.doc-date {
+  font-size: 0.7rem;
+}
+
+.terceros-visor-panel {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.18) 0%, rgba(226, 232, 240, 0.2) 100%) !important;
+}
+
+.terceros-visor-image {
+  max-height: 95%;
+  max-width: 95%;
+}
+
+@media (max-width: 991.98px) {
+  .terceros-perfil-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.85rem;
+  }
+
+  .terceros-profile-card {
+    position: static !important;
+  }
+}
