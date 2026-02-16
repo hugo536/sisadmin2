@@ -16,6 +16,15 @@ class TercerosModel extends Modelo
     /** @var array<string,bool> */
     private array $columnCache = [];
 
+    /** @var array<string,int>|null */
+    private ?array $departamentosMap = null;
+
+    /** @var array<string,int>|null */
+    private ?array $provinciasMap = null;
+
+    /** @var array<string,int>|null */
+    private ?array $distritosMap = null;
+
     public function __construct()
     {
         $this->clientesModel = new TercerosClientesModel();
@@ -96,6 +105,7 @@ class TercerosModel extends Modelo
             $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
             $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
             $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+            $this->resolverUbigeoIds($row);
             
             // Helpers de ubicación (compatibilidad visual)
             $row['departamento_nombre'] = $row['departamento'];
@@ -176,8 +186,77 @@ class TercerosModel extends Modelo
         $row['cuentas_bancarias'] = $this->obtenerCuentasPorTerceros([$id])[$id]   ?? [];
         $row['zonas_exclusivas'] = $this->distribuidoresModel->obtenerZonasPorTerceros([$id])[$id] ?? [];
         $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
+        $this->resolverUbigeoIds($row);
 
         return $row;
+    }
+
+    private function resolverUbigeoIds(array &$row): void
+    {
+        $this->inicializarUbigeoMaps();
+
+        $departamentoNombre = trim((string) ($row['departamento'] ?? ''));
+        $provinciaNombre = trim((string) ($row['provincia'] ?? ''));
+        $distritoNombre = trim((string) ($row['distrito'] ?? ''));
+
+        $departamentoKey = mb_strtolower($departamentoNombre);
+        $departamentoId = $this->departamentosMap[$departamentoKey] ?? null;
+
+        $provinciaId = null;
+        if ($departamentoId !== null && $provinciaNombre !== '') {
+            $provinciaKey = $departamentoId . '|' . mb_strtolower($provinciaNombre);
+            $provinciaId = $this->provinciasMap[$provinciaKey] ?? null;
+        }
+
+        $distritoId = null;
+        if ($provinciaId !== null && $distritoNombre !== '') {
+            $distritoKey = $provinciaId . '|' . mb_strtolower($distritoNombre);
+            $distritoId = $this->distritosMap[$distritoKey] ?? null;
+        }
+
+        $row['departamento_id'] = $departamentoId;
+        $row['provincia_id'] = $provinciaId;
+        $row['distrito_id'] = $distritoId;
+    }
+
+    private function inicializarUbigeoMaps(): void
+    {
+        if ($this->departamentosMap !== null && $this->provinciasMap !== null && $this->distritosMap !== null) {
+            return;
+        }
+
+        $this->departamentosMap = [];
+        $this->provinciasMap = [];
+        $this->distritosMap = [];
+
+        $departamentos = $this->db()->query("SELECT id, nombre FROM departamentos")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($departamentos as $dep) {
+            $nombre = mb_strtolower(trim((string) ($dep['nombre'] ?? '')));
+            if ($nombre === '') {
+                continue;
+            }
+            $this->departamentosMap[$nombre] = (int) $dep['id'];
+        }
+
+        $provincias = $this->db()->query("SELECT id, departamento_id, nombre FROM provincias")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($provincias as $prov) {
+            $nombre = mb_strtolower(trim((string) ($prov['nombre'] ?? '')));
+            $departamentoId = (int) ($prov['departamento_id'] ?? 0);
+            if ($nombre === '' || $departamentoId <= 0) {
+                continue;
+            }
+            $this->provinciasMap[$departamentoId . '|' . $nombre] = (int) $prov['id'];
+        }
+
+        $distritos = $this->db()->query("SELECT id, provincia_id, nombre FROM distritos")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($distritos as $dist) {
+            $nombre = mb_strtolower(trim((string) ($dist['nombre'] ?? '')));
+            $provinciaId = (int) ($dist['provincia_id'] ?? 0);
+            if ($nombre === '' || $provinciaId <= 0) {
+                continue;
+            }
+            $this->distritosMap[$provinciaId . '|' . $nombre] = (int) $dist['id'];
+        }
     }
 
     // ==========================================
