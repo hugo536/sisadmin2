@@ -134,6 +134,37 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
+
+            <div class="nav-label mt-3">Estrategia</div>
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
+               data-bs-toggle="collapse"
+               href="#menuComercial"
+               role="button"
+               aria-expanded="<?php echo $grupoActivo(['comercial']) ? 'true' : 'false'; ?>"
+               aria-controls="menuComercial">
+                <i class="bi bi-tags"></i> <span>Gestión Comercial</span>
+                <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
+            </a>
+
+            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="menuComercial">
+                <ul class="nav flex-column ps-3">
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('comercial/presentaciones'); ?>" href="<?php echo e(route_url('comercial/presentaciones')); ?>">
+                            <i class="bi bi-box"></i> <span>Presentaciones y Packs</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('comercial/listas'); ?>" href="<?php echo e(route_url('comercial/listas')); ?>">
+                            <i class="bi bi-currency-dollar"></i> <span>Listas de Precios</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('comercial/asignacion'); ?>" href="<?php echo e(route_url('comercial/asignacion')); ?>">
+                            <i class="bi bi-person-check"></i> <span>Asignación Masiva</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
             
             <?php if (tiene_permiso('ventas.ver')): ?>
                 <a class="sidebar-link<?php echo $activo('ventas'); ?>" href="<?php echo e(route_url('ventas')); ?>">
