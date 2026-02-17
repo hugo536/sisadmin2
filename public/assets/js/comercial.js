@@ -9,57 +9,63 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. LÓGICA PARA PRESENTACIONES (PACKS)
     // =========================================================================
     const tablaPresentaciones = document.getElementById('presentacionesTable');
-    const inputBuscador = document.getElementById('presentacionSearch'); // <--- NUEVO: Referencia al input
-    
+    const inputBuscador = document.getElementById('presentacionSearch');
+    const filtroProducto = document.getElementById('presentacionFiltroProducto');
+    const filtroEstado = document.getElementById('presentacionFiltroEstado');
+
     if (tablaPresentaciones) {
-        
-        // --- A. LÓGICA DEL BUSCADOR (NUEVO) ---
-        if (inputBuscador) {
-            inputBuscador.addEventListener('keyup', function(e) {
-                const termino = e.target.value.toLowerCase();
-                const filas = tablaPresentaciones.querySelectorAll('tbody tr');
+        const filas = Array.from(tablaPresentaciones.querySelectorAll('tbody tr'));
 
-                filas.forEach(fila => {
-                    // Buscamos en la Columna 0 (Nombre Pack) y Columna 1 (Producto Base)
-                    // Usamos 'textContent' para obtener el texto visible (que ya incluye el nombre concatenado)
-                    const nombrePack = fila.cells[0].textContent.toLowerCase();
-                    const nombreProducto = fila.cells[1].textContent.toLowerCase();
+        const actualizarTablaPresentaciones = function() {
+            const termino = (inputBuscador?.value || '').toLowerCase().trim();
+            const idProducto = filtroProducto?.value || '';
+            const estado = filtroEstado?.value || '';
 
-                    // Si coincide con alguno, mostramos la fila, si no, la ocultamos
-                    if (nombrePack.includes(termino) || nombreProducto.includes(termino)) {
-                        fila.style.display = '';
-                    } else {
-                        fila.style.display = 'none';
-                    }
-                });
+            filas.forEach((fila) => {
+                const coincideTexto = (fila.getAttribute('data-search') || '').includes(termino);
+                const coincideProducto = idProducto === '' || (fila.getAttribute('data-id-item') || '') === idProducto;
+                const coincideEstado = estado === '' || (fila.getAttribute('data-estado') || '') === estado;
+
+                fila.style.display = coincideTexto && coincideProducto && coincideEstado ? '' : 'none';
             });
-        }
+        };
+
+        [inputBuscador, filtroProducto, filtroEstado].forEach((control) => {
+            if (!control) return;
+            control.addEventListener('input', actualizarTablaPresentaciones);
+            control.addEventListener('change', actualizarTablaPresentaciones);
+        });
 
         // --- B. Lógica para EDITAR ---
         tablaPresentaciones.addEventListener('click', function(e) {
             const btnEditar = e.target.closest('.js-editar-presentacion');
             
             if (btnEditar) {
-                const data = JSON.parse(btnEditar.dataset.json);
                 const modal = document.getElementById('modalCrearPresentacion');
-                
-                // Cambiar título del modal
-                modal.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
-                
-                // Llenar campos
                 const form = modal.querySelector('form');
-                form.querySelector('[name="id"]').value = data.id || ''; 
-                form.querySelector('[name="accion"]').value = 'editar'; // Aseguramos que la acción sea editar
-                
-                // Aquí el select seleccionará automáticamente el ID correcto
-                // Y mostrará el texto "Nombre - Sabor - Presentación" gracias al cambio en el HTML
-                form.querySelector('[name="id_item"]').value = data.id_item; 
-                
-                form.querySelector('[name="nombre"]').value = data.nombre;
-                form.querySelector('[name="factor"]').value = data.factor;
-                form.querySelector('[name="precio_x_menor"]').value = data.precio_x_menor;
-                form.querySelector('[name="precio_x_mayor"]').value = data.precio_x_mayor;
-                form.querySelector('[name="cantidad_minima_mayor"]').value = data.cantidad_minima_mayor;
+
+                modal.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
+
+                form.querySelector('[name="id"]').value = btnEditar.dataset.id || '';
+                form.querySelector('[name="accion"]').value = 'editar';
+                form.querySelector('[name="id_item"]').value = btnEditar.dataset.idItem || '';
+                form.querySelector('[name="nombre"]').value = btnEditar.dataset.nombre || '';
+                form.querySelector('[name="factor"]').value = btnEditar.dataset.factor || '';
+                form.querySelector('[name="precio_x_menor"]').value = btnEditar.dataset.precioMenor || '';
+                form.querySelector('[name="precio_x_mayor"]').value = btnEditar.dataset.precioMayor || '';
+                form.querySelector('[name="cantidad_minima_mayor"]').value = btnEditar.dataset.cantidadMinima || '';
+            }
+
+            const btnEstado = e.target.closest('.js-toggle-estado-presentacion');
+            if (btnEstado) {
+                const id = btnEstado.dataset.id;
+                const estadoActual = Number(btnEstado.dataset.estado || 1);
+                const nuevoEstado = estadoActual === 1 ? 0 : 1;
+                const accionTexto = nuevoEstado === 1 ? 'activar' : 'desactivar';
+
+                if (confirm(`¿Deseas ${accionTexto} esta presentación?`)) {
+                    window.location.href = `?ruta=comercial/toggleEstadoPresentacion&id=${id}&estado=${nuevoEstado}`;
+                }
             }
         });
 
@@ -67,14 +73,23 @@ document.addEventListener('DOMContentLoaded', function() {
         tablaPresentaciones.addEventListener('click', function(e) {
             const btnEliminar = e.target.closest('.js-eliminar-presentacion');
             if (btnEliminar) {
-                // Usamos confirm nativo o SweetAlert si lo integras después
                 if(confirm('¿Estás seguro de eliminar esta presentación?')) {
                     const id = btnEliminar.dataset.id;
-                    // Asegúrate de que esta ruta coincida con tu Router
                     window.location.href = `?ruta=comercial/eliminarPresentacion&id=${id}`;
                 }
             }
         });
+
+        const modalCrearPresentacion = document.getElementById('modalCrearPresentacion');
+        modalCrearPresentacion?.addEventListener('hidden.bs.modal', function() {
+            const form = modalCrearPresentacion.querySelector('form');
+            form.reset();
+            form.querySelector('[name="id"]').value = '';
+            form.querySelector('[name="accion"]').value = 'crear';
+            modalCrearPresentacion.querySelector('.modal-title').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
+        });
+
+        actualizarTablaPresentaciones();
     }
 
     // =========================================================================
@@ -83,13 +98,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const formPrecios = document.getElementById('formPrecios');
     
     if (formPrecios) {
-        // Calcular cambios visuales cuando editas un precio
         const inputsPrecio = formPrecios.querySelectorAll('input[type="number"]');
         
         inputsPrecio.forEach(input => {
             input.addEventListener('change', function() {
                 if(this.value !== '') {
-                    this.classList.add('bg-warning-subtle'); // Resaltar cambio
+                    this.classList.add('bg-warning-subtle');
                 } else {
                     this.classList.remove('bg-warning-subtle');
                 }
@@ -109,12 +123,9 @@ document.addEventListener('DOMContentLoaded', function() {
             select.addEventListener('change', function() {
                 const idCliente = this.dataset.idCliente;
                 const idLista = this.value;
-                const originalColor = this.style.backgroundColor;
 
-                // Feedback visual: Cargando...
                 this.disabled = true;
                 
-                // Petición AJAX al controlador
                 fetch('?ruta=comercial/guardarAsignacionAjax', {
                     method: 'POST',
                     headers: {
@@ -131,14 +142,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.disabled = false;
                     
                     if (data.success) {
-                        // Éxito: Parpadeo verde
                         this.classList.add('is-valid', 'bg-success-subtle');
                         setTimeout(() => {
                             this.classList.remove('is-valid', 'bg-success-subtle');
                         }, 1500);
-                        
-                        // Opcional: Toast de notificación
-                        // mostrarToast('Asignación actualizada correctamente');
                     } else {
                         alert('Error al guardar: ' + (data.message || 'Error desconocido'));
                         this.classList.add('is-invalid');

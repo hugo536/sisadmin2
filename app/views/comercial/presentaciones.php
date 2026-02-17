@@ -1,6 +1,6 @@
-<?php 
-    $items = $items ?? []; 
-    $presentaciones = $presentaciones ?? []; 
+<?php
+$items = $items ?? [];
+$presentaciones = $presentaciones ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -23,8 +23,23 @@
                 <div class="col-12 col-md-6">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="presentacionSearch" placeholder="Buscar por nombre de pack o producto...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="presentacionSearch" placeholder="Buscar por presentación o producto...">
                     </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="presentacionFiltroProducto">
+                        <option value="">Todos los productos base</option>
+                        <?php foreach ($items as $item): ?>
+                            <option value="<?php echo (int) $item['id']; ?>"><?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light" id="presentacionFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activos</option>
+                        <option value="0">Inactivos</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -33,57 +48,80 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover" id="presentacionesTable">
-                    <thead class="bg-light">
+                <table class="table align-middle mb-0 table-pro" id="presentacionesTable">
+                    <thead>
                         <tr>
                             <th class="ps-4">Nombre Presentación</th>
-                            <th>Producto Base</th>
-                            <th class="text-center">Factor</th>
                             <th class="text-end">Precio Menor</th>
                             <th class="text-end">Precio Mayor</th>
                             <th class="text-center">Cant. Min Mayor</th>
+                            <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($presentaciones as $p): ?>
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">
-                                    <?php echo htmlspecialchars($p['nombre']); ?>
+                            <?php
+                            $factorLimpio = rtrim(rtrim((string) (float) ($p['factor'] ?? 0), '0'), '.');
+                            if ($factorLimpio === '') {
+                                $factorLimpio = '0';
+                            }
+                            $nombreFusion = trim(($p['item_nombre_full'] ?? $p['item_nombre'] ?? '') . ' x ' . $factorLimpio);
+                            $estado = (int) ($p['estado'] ?? 1);
+                            ?>
+                            <tr data-search="<?php echo htmlspecialchars(mb_strtolower($nombreFusion . ' ' . ($p['nombre'] ?? ''))); ?>"
+                                data-id-item="<?php echo (int) ($p['id_item'] ?? 0); ?>"
+                                data-estado="<?php echo $estado; ?>">
+                                <td class="ps-4 fw-bold text-dark" data-label="Nombre Presentación">
+                                    <?php echo htmlspecialchars($nombreFusion); ?>
                                 </td>
-                                <td class="text-muted">
-                                    <i class="bi bi-arrow-return-right me-1"></i> <?php echo htmlspecialchars($p['item_nombre_full'] ?? $p['item_nombre']); ?>
+                                <td class="text-end text-success fw-semibold" data-label="Precio Menor">
+                                    S/ <?php echo number_format((float) $p['precio_x_menor'], 2); ?>
                                 </td>
-                                <td class="text-center">
-                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3">
-                                        x <?php echo (float)$p['factor']; ?>
+                                <td class="text-end text-primary fw-semibold" data-label="Precio Mayor">
+                                    <?php if ($p['precio_x_mayor'] !== null && $p['precio_x_mayor'] !== ''): ?>
+                                        S/ <?php echo number_format((float) $p['precio_x_mayor'], 2); ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center text-muted small" data-label="Cant. Min Mayor">
+                                    <?php echo !empty($p['cantidad_minima_mayor']) ? '> ' . (int) $p['cantidad_minima_mayor'] . ' unds' : '-'; ?>
+                                </td>
+                                <td class="text-center" data-label="Estado">
+                                    <span class="badge <?php echo $estado === 1 ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle'; ?>">
+                                        <?php echo $estado === 1 ? 'Activo' : 'Inactivo'; ?>
                                     </span>
                                 </td>
-                                <td class="text-end text-success fw-semibold">
-                                    S/ <?php echo number_format((float)$p['precio_x_menor'], 2); ?>
-                                </td>
-                                <td class="text-end text-primary fw-semibold">
-                                    S/ <?php echo number_format((float)$p['precio_x_mayor'], 2); ?>
-                                </td>
-                                <td class="text-center text-muted small">
-                                    > <?php echo (int)$p['cantidad_minima_mayor']; ?> unds
-                                </td>
-                                <td class="text-end pe-4">
+                                <td class="text-end pe-4" data-label="Acciones">
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-presentacion"
-                                            data-id="<?php echo $p['id']; ?>"
-                                            data-json='<?php echo json_encode($p, JSON_HEX_APOS); ?>'
-                                            data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
+                                            data-id="<?php echo (int) $p['id']; ?>"
+                                            data-id-item="<?php echo (int) $p['id_item']; ?>"
+                                            data-nombre="<?php echo htmlspecialchars($p['nombre'] ?? ''); ?>"
+                                            data-factor="<?php echo htmlspecialchars((string) $p['factor']); ?>"
+                                            data-precio-menor="<?php echo htmlspecialchars((string) $p['precio_x_menor']); ?>"
+                                            data-precio-mayor="<?php echo htmlspecialchars((string) ($p['precio_x_mayor'] ?? '')); ?>"
+                                            data-cantidad-minima="<?php echo htmlspecialchars((string) ($p['cantidad_minima_mayor'] ?? '')); ?>"
+                                            data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion"
+                                            title="Editar presentación">
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
+                                    <button class="btn btn-sm btn-light <?php echo $estado === 1 ? 'text-warning' : 'text-success'; ?> border-0 bg-transparent js-toggle-estado-presentacion"
+                                            data-id="<?php echo (int) $p['id']; ?>"
+                                            data-estado="<?php echo $estado; ?>"
+                                            title="<?php echo $estado === 1 ? 'Desactivar' : 'Activar'; ?> presentación">
+                                        <i class="bi <?php echo $estado === 1 ? 'bi-toggle-on' : 'bi-toggle-off'; ?> fs-5"></i>
+                                    </button>
                                     <button class="btn btn-sm btn-light text-danger border-0 bg-transparent js-eliminar-presentacion"
-                                            data-id="<?php echo $p['id']; ?>">
+                                            data-id="<?php echo (int) $p['id']; ?>"
+                                            title="Eliminar presentación">
                                         <i class="bi bi-trash fs-5"></i>
                                     </button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                         <?php if (empty($presentaciones)): ?>
-                            <tr><td colspan="7" class="text-center py-4 text-muted">No hay presentaciones registradas.</td></tr>
+                            <tr><td colspan="6" class="text-center py-4 text-muted">No hay presentaciones registradas.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -99,7 +137,7 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nueva Presentación</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form action="<?php echo route_url('comercial/guardarPresentacion'); ?>" method="POST">
+            <form action="<?php echo route_url('comercial/guardarPresentacion'); ?>" method="POST" id="formPresentacion">
                 <input type="hidden" name="accion" value="crear">
                 <input type="hidden" name="id" value="">
                 <div class="modal-body p-4 bg-light">
