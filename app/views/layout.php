@@ -127,7 +127,7 @@ window.ROLES_FLASH = {
 <?php endif; ?>
 
 <?php if (str_starts_with(($ruta_actual ?? ''), 'comercial')): ?>
-<script src="<?php echo e(asset_url('js/comercial.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>

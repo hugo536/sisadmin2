@@ -4,7 +4,7 @@
 require_once BASE_PATH . '/app/models/comercial/PresentacionModel.php';
 require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
 require_once BASE_PATH . '/app/models/comercial/AsignacionModel.php';
-require_once BASE_PATH . '/app/models/ItemsModel.php'; // Necesitamos cargar items para los selects
+require_once BASE_PATH . '/app/models/ItemsModel.php';
 
 class ComercialController extends Controlador {
 
@@ -15,12 +15,10 @@ class ComercialController extends Controlador {
 
     public function __construct() {
         parent::__construct();
-        // Verificar sesión y permisos generales
         if (!isset($_SESSION['id'])) {
             redirect('login');
         }
 
-        // Instanciar modelos
         $this->presentacionModel = new PresentacionModel();
         $this->listaPrecioModel = new ListaPrecioModel();
         $this->asignacionModel = new AsignacionModel();
@@ -28,33 +26,44 @@ class ComercialController extends Controlador {
     }
 
     // =========================================================================
-    // 1. GESTIÓN DE PRESENTACIONES (PACKS Y CAJAS)
+    // 1. GESTIÓN DE PRESENTACIONES
     // =========================================================================
     
     public function presentaciones() {
-        // Cargar datos para la vista
         $datos = [
             'titulo' => 'Gestión de Presentaciones',
-            
-            // CAMBIO CLAVE AQUÍ:
-            // Usamos el método especializado del PresentacionModel en lugar del genérico de Items.
-            // Esto asegura que el dropdown muestre "Coca Cola [Zero]" en lugar de solo "Coca Cola"
-            // y que solo traiga productos, no servicios.
             'items' => $this->presentacionModel->listarProductosParaSelect(), 
-            
             'presentaciones' => $this->presentacionModel->listarTodo()
         ];
         
         $this->vista('comercial/presentaciones', $datos);
     }
 
+    // --- NUEVO MÉTODO: OBTENER DATOS PARA EDITAR ---
+    // Este es el método que tu JavaScript llamará vía AJAX
+    public function obtenerPresentacion() {
+        $id = (int)($_GET['id'] ?? 0);
+        
+        if ($id > 0) {
+            $data = $this->presentacionModel->obtener($id);
+            if ($data) {
+                echo json_encode(['success' => true, 'data' => $data]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'No encontrado']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'ID inválido']);
+        }
+    }
+
     public function guardarPresentacion() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Recoger datos del formulario
+            // NOTA: Eliminamos 'nombre' de aquí porque ya no existe en la BD
             $datos = [
                 'id' => $_POST['id'] ?? null,
                 'id_item' => $_POST['id_item'],
-                'nombre' => trim($_POST['nombre']),
+                // 'nombre' => ... (ELIMINADO)
                 'factor' => $_POST['factor'],
                 'precio_x_menor' => $_POST['precio_x_menor'],
                 'precio_x_mayor' => $_POST['precio_x_mayor'] ?? null,
@@ -62,8 +71,7 @@ class ComercialController extends Controlador {
             ];
 
             // Validaciones básicas
-            if (empty($datos['id_item']) || empty($datos['nombre']) || empty($datos['factor'])) {
-                // Aquí podrías usar una alerta de sesión (Flash Message)
+            if (empty($datos['id_item']) || empty($datos['factor'])) {
                 redirect('comercial/presentaciones?error=campos_vacios');
                 return;
             }
@@ -87,7 +95,6 @@ class ComercialController extends Controlador {
             return;
         }
         if ($this->presentacionModel->eliminar($id)) {
-            // Respuesta JSON si usas AJAX, o redirect si es link normal
             if ($this->esPeticionAjax()) {
                 echo json_encode(['success' => true]);
             } else {
@@ -115,41 +122,38 @@ class ComercialController extends Controlador {
         redirect('comercial/presentaciones?error=estado_no_actualizado');
     }
 
+    // ... (El resto del código de Listas y Asignación se mantiene igual, no lo toques) ...
+    // ... SOLO COPIA LA PARTE SUPERIOR O ASEGÚRATE DE NO BORRAR LO DE ABAJO ...
+    
     // =========================================================================
     // 2. GESTIÓN DE LISTAS DE PRECIOS
     // =========================================================================
-
+    
     public function listas() {
-        $idLista = $_GET['id'] ?? null;
-        
-        $datos = [
-            'titulo' => 'Listas de Precios',
-            'listas' => $this->listaPrecioModel->listarListas(),
-            'precios_matriz' => [],
-            'lista_seleccionada' => null
-        ];
-
-        // Si seleccionaron una lista, cargamos su detalle
-        if ($idLista) {
-            // Buscar nombre de la lista seleccionada
-            foreach ($datos['listas'] as $l) {
-                if ($l['id'] == $idLista) {
-                    $datos['lista_seleccionada'] = $l;
-                    break;
-                }
-            }
-            // Cargar la matriz de precios
-            $datos['precios_matriz'] = $this->listaPrecioModel->obtenerMatrizPrecios($idLista);
-        }
-
-        $this->vista('comercial/listas_precios', $datos);
+         // ... (Mismo código que tenías)
+         $idLista = $_GET['id'] ?? null;
+         $datos = [
+             'titulo' => 'Listas de Precios',
+             'listas' => $this->listaPrecioModel->listarListas(),
+             'precios_matriz' => [],
+             'lista_seleccionada' => null
+         ];
+         if ($idLista) {
+             foreach ($datos['listas'] as $l) {
+                 if ($l['id'] == $idLista) {
+                     $datos['lista_seleccionada'] = $l;
+                     break;
+                 }
+             }
+             $datos['precios_matriz'] = $this->listaPrecioModel->obtenerMatrizPrecios($idLista);
+         }
+         $this->vista('comercial/listas_precios', $datos);
     }
-
+    
     public function crearLista() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nombre = trim($_POST['nombre']);
             $desc = trim($_POST['descripcion']);
-            
             if ($this->listaPrecioModel->crearLista($nombre, $desc)) {
                 redirect('comercial/listas');
             } else {
@@ -159,47 +163,41 @@ class ComercialController extends Controlador {
     }
 
     public function actualizarPreciosLista() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+         // ... (Mismo código que tenías)
+         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $idLista = $_POST['id_lista'];
-            $precios = $_POST['precios'] ?? []; // Array [id_presentacion => precio]
-
+            $precios = $_POST['precios'] ?? [];
             foreach ($precios as $idPresentacion => $precio) {
                 if ($precio === '' || $precio === null) {
-                    // Si está vacío, borrar precio especial (volver al base)
                     $this->listaPrecioModel->eliminarPrecioEspecial($idLista, $idPresentacion);
                 } else {
-                    // Guardar o actualizar
                     $this->listaPrecioModel->guardarPrecioEspecial($idLista, $idPresentacion, $precio);
                 }
             }
-            
             redirect('comercial/listas?id=' . $idLista . '&success=actualizado');
         }
     }
 
     // =========================================================================
-    // 3. ASIGNACIÓN DE CLIENTES
+    // 3. ASIGNACIÓN DE CLIENTES & HELPERS
     // =========================================================================
 
     public function asignacion() {
+        // ... (Mismo código)
         $datos = [
             'titulo' => 'Asignación de Clientes',
             'clientes' => $this->asignacionModel->listarClientes(),
-            'listas_combo' => $this->listaPrecioModel->listarListas() // Para el select
+            'listas_combo' => $this->listaPrecioModel->listarListas() 
         ];
-
         $this->vista('comercial/asignacion_clientes', $datos);
     }
 
-    // Método AJAX para cambio rápido
     public function guardarAsignacionAjax() {
-        // Leer input JSON
+        // ... (Mismo código)
         $input = json_decode(file_get_contents('php://input'), true);
-        
         if (isset($input['id_cliente'])) {
             $idCliente = $input['id_cliente'];
-            $idLista = $input['id_lista']; // Puede ser null
-
+            $idLista = $input['id_lista']; 
             if ($this->asignacionModel->actualizarListaCliente($idCliente, $idLista)) {
                 echo json_encode(['success' => true]);
             } else {
@@ -210,7 +208,6 @@ class ComercialController extends Controlador {
         }
     }
     
-    // Helper para detectar AJAX
     private function esPeticionAjax() {
         return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
