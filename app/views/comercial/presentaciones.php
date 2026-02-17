@@ -72,7 +72,7 @@
                                     <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-presentacion"
                                             data-id="<?php echo $p['id']; ?>"
                                             data-json='<?php echo json_encode($p, JSON_HEX_APOS); ?>'
-                                            data-bs-toggle="modal" data-bs-target="#modalEditarPresentacion">
+                                            data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
                                         <i class="bi bi-pencil-square fs-5"></i>
                                     </button>
                                     <button class="btn btn-sm btn-light text-danger border-0 bg-transparent js-eliminar-presentacion"
@@ -99,7 +99,7 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nueva Presentación</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form action="<?php echo route_url('comercial/presentaciones/guardar'); ?>" method="POST">
+            <form action="<?php echo route_url('comercial/guardarPresentacion'); ?>" method="POST">
                 <input type="hidden" name="accion" value="crear">
                 <input type="hidden" name="id" value="">
                 <div class="modal-body p-4 bg-light">

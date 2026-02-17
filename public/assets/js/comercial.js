@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (btnEliminar) {
                 if(confirm('¿Estás seguro de eliminar esta presentación?')) {
                     const id = btnEliminar.dataset.id;
-                    window.location.href = `?ruta=comercial/presentaciones/eliminar&id=${id}`;
+                    window.location.href = `?ruta=comercial/eliminarPresentacion&id=${id}`;
                 }
             }
         });
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = true;
                 
                 // Petición AJAX al controlador
-                fetch('?ruta=comercial/asignacion/guardar_ajax', {
+                fetch('?ruta=comercial/guardarAsignacionAjax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
