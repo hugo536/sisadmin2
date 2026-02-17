@@ -1,5 +1,4 @@
 <?php
-<<<<<<< HEAD
 // app/controladores/ComercialController.php
 
 require_once 'app/modelos/comercial/PresentacionModel.php';
@@ -184,7 +183,6 @@ class ComercialController extends Controlador {
         return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
 }
-=======
 
 declare(strict_types=1);
 
@@ -225,4 +223,3 @@ class ComercialController extends Controlador
         ]);
     }
 }
->>>>>>> 1eaea16a3b1b2a6ab9f35dc4239b459393dc77db
