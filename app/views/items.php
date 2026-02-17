@@ -329,10 +329,11 @@ $tipoItemLabel = static function (string $tipo): string {
                     </div>
 
                     <div class="col-12">
-                        <div class="card border-0 shadow-sm bg-light">
-                            <div class="card-body py-2">
-                                <div class="row align-items-center">
-                                    <div class="col-md-6 mb-2">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-secondary py-2"><i class="bi bi-sliders me-2"></i>Configuración Avanzada</div>
+                            <div class="card-body py-3">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-md-6">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
                                             <label class="form-check-label" for="newControlaStock">Controlar Stock</label>
@@ -342,7 +343,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
                                     
-                                    <div class="col-md-6 mb-2" id="newRequiereVencimientoContainer">
+                                    <div class="col-md-6" id="newRequiereVencimientoContainer">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1">
                                             <label class="form-check-label" for="newRequiereVencimiento">Requiere Vencimiento</label>
@@ -384,9 +385,9 @@ $tipoItemLabel = static function (string $tipo): string {
 <div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold text-dark">Editar ítem</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar ítem</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light">
                 <form method="post" class="row g-3" id="formEditarItem">
@@ -406,8 +407,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control bg-light" id="editSku" name="sku" readonly>
-                                            <label for="editSku">SKU (Inmutable)</label>
+                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU" readonly>
+                                            <label for="editSku">SKU (Opcional)</label>
                                         </div>
                                     </div>
                                     <div class="col-md-6" id="editSaborContainer">
@@ -507,11 +508,11 @@ $tipoItemLabel = static function (string $tipo): string {
                     </div>
 
                     <div class="col-12">
-                        <div class="card border-0 shadow-sm bg-light">
-                            <div class="card-body py-2">
-                                <div class="row align-items-center">
-                                    <div class="col-12 d-flex justify-content-between mb-2">
-                                        <span class="fw-bold text-muted small text-uppercase">Configuración Avanzada</span>
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-secondary py-2"><i class="bi bi-sliders me-2"></i>Configuración Avanzada</div>
+                            <div class="card-body py-3">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-12 d-flex justify-content-end mb-2">
                                         <div style="width: 120px;">
                                             <select class="form-select form-select-sm" id="editEstado" name="estado">
                                                 <option value="1">Activo</option>
@@ -520,7 +521,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
 
-                                    <div class="col-md-6 mb-2">
+                                    <div class="col-md-6">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
                                             <label class="form-check-label" for="editControlaStock">Controlar Stock</label>
@@ -530,7 +531,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
 
-                                    <div class="col-md-6 mb-2" id="editRequiereVencimientoContainer">
+                                    <div class="col-md-6" id="editRequiereVencimientoContainer">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1">
                                             <label class="form-check-label" for="editRequiereVencimiento">Requiere Vencimiento</label>
