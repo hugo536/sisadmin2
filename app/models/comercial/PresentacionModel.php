@@ -26,7 +26,7 @@ class PresentacionModel extends Modelo {
                 INNER JOIN items i ON p.id_item = i.id
                 LEFT JOIN item_sabores s ON i.id_sabor = s.id
                 LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
-                WHERE p.estado = 1 AND p.deleted_at IS NULL
+                WHERE p.deleted_at IS NULL
                 ORDER BY i.nombre ASC, p.factor ASC";
                 
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
@@ -114,5 +114,20 @@ class PresentacionModel extends Modelo {
         $stmt->bindValue(':id', $id);
         $stmt->bindValue(':user', $_SESSION['id_usuario'] ?? 1);
         return $stmt->execute();
+    }
+
+    public function actualizarEstado(int $id, int $estado): bool {
+        $sql = "UPDATE {$this->table}
+                SET estado = :estado,
+                    updated_by = :user,
+                    updated_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL";
+
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':estado' => $estado,
+            ':user' => $_SESSION['id_usuario'] ?? 1,
+            ':id' => $id,
+        ]);
     }
 }
