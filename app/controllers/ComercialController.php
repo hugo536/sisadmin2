@@ -98,6 +98,23 @@ class ComercialController extends Controlador {
         }
     }
 
+    public function toggleEstadoPresentacion() {
+        $id = (int) ($_GET['id'] ?? 0);
+        $estado = (int) ($_GET['estado'] ?? -1);
+
+        if ($id <= 0 || !in_array($estado, [0, 1], true)) {
+            redirect('comercial/presentaciones?error=parametros_invalidos');
+            return;
+        }
+
+        if ($this->presentacionModel->actualizarEstado($id, $estado)) {
+            redirect('comercial/presentaciones?success=estado_actualizado');
+            return;
+        }
+
+        redirect('comercial/presentaciones?error=estado_no_actualizado');
+    }
+
     // =========================================================================
     // 2. GESTIÓN DE LISTAS DE PRECIOS
     // =========================================================================
