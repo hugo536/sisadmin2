@@ -11,7 +11,7 @@ $presentaciones = $presentaciones ?? [];
             <p class="text-muted small mb-0 ms-1">Define formatos de venta (Packs, Cajas) y sus factores de conversión.</p>
         </div>
         <div>
-            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
+            <button class="btn btn-primary shadow-sm js-crear-presentacion" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
                 <i class="bi bi-plus-lg me-2"></i>Nueva Presentación
             </button>
         </div>
@@ -56,7 +56,7 @@ $presentaciones = $presentaciones ?? [];
                             <th class="text-end">Precio Mayor</th>
                             <th class="text-center">Cant. Min Mayor</th>
                             <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="text-end pe-4" style="width: 170px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -94,29 +94,33 @@ $presentaciones = $presentaciones ?? [];
                                     </span>
                                 </td>
                                 <td class="text-end pe-4" data-label="Acciones">
-                                    <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-presentacion"
-                                            data-id="<?php echo (int) $p['id']; ?>"
-                                            data-id-item="<?php echo (int) $p['id_item']; ?>"
-                                            data-nombre="<?php echo htmlspecialchars($p['nombre'] ?? ''); ?>"
-                                            data-factor="<?php echo htmlspecialchars((string) $p['factor']); ?>"
-                                            data-precio-menor="<?php echo htmlspecialchars((string) $p['precio_x_menor']); ?>"
-                                            data-precio-mayor="<?php echo htmlspecialchars((string) ($p['precio_x_mayor'] ?? '')); ?>"
-                                            data-cantidad-minima="<?php echo htmlspecialchars((string) ($p['cantidad_minima_mayor'] ?? '')); ?>"
-                                            data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion"
-                                            title="Editar presentación">
-                                        <i class="bi bi-pencil-square fs-5"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-light <?php echo $estado === 1 ? 'text-warning' : 'text-success'; ?> border-0 bg-transparent js-toggle-estado-presentacion"
-                                            data-id="<?php echo (int) $p['id']; ?>"
-                                            data-estado="<?php echo $estado; ?>"
-                                            title="<?php echo $estado === 1 ? 'Desactivar' : 'Activar'; ?> presentación">
-                                        <i class="bi <?php echo $estado === 1 ? 'bi-toggle-on' : 'bi-toggle-off'; ?> fs-5"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-light text-danger border-0 bg-transparent js-eliminar-presentacion"
-                                            data-id="<?php echo (int) $p['id']; ?>"
-                                            title="Eliminar presentación">
-                                        <i class="bi bi-trash fs-5"></i>
-                                    </button>
+                                    <div class="d-flex align-items-center justify-content-end gap-2">
+                                        <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                            <input class="form-check-input js-toggle-estado-presentacion" type="checkbox" role="switch"
+                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                   data-id="<?php echo (int) $p['id']; ?>"
+                                                   data-estado="<?php echo $estado; ?>"
+                                                   <?php echo $estado === 1 ? 'checked' : ''; ?>>
+                                        </div>
+                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent js-editar-presentacion"
+                                                data-id="<?php echo (int) $p['id']; ?>"
+                                                data-id-item="<?php echo (int) $p['id_item']; ?>"
+                                                data-nombre="<?php echo htmlspecialchars($p['nombre'] ?? ''); ?>"
+                                                data-factor="<?php echo htmlspecialchars((string) $p['factor']); ?>"
+                                                data-precio-menor="<?php echo htmlspecialchars((string) $p['precio_x_menor']); ?>"
+                                                data-precio-mayor="<?php echo htmlspecialchars((string) ($p['precio_x_mayor'] ?? '')); ?>"
+                                                data-cantidad-minima="<?php echo htmlspecialchars((string) ($p['cantidad_minima_mayor'] ?? '')); ?>"
+                                                data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion"
+                                                title="Editar presentación">
+                                            <i class="bi bi-pencil-square fs-5"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-light text-danger border-0 bg-transparent js-eliminar-presentacion"
+                                                data-id="<?php echo (int) $p['id']; ?>"
+                                                title="Eliminar presentación">
+                                            <i class="bi bi-trash fs-5"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
