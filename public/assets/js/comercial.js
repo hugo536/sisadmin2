@@ -4,6 +4,16 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+    const routeUrl = (ruta, params = {}) => {
+        const base = (window.BASE_URL || '/').replace(/\/?$/, '/');
+        const url = new URL('index.php', window.location.origin + base);
+        url.searchParams.set('ruta', ruta);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === '') return;
+            url.searchParams.set(key, String(value));
+        });
+        return url.toString();
+    };
     
     // =========================================================================
     // 1. LÓGICA PARA PRESENTACIONES (PACKS)
@@ -83,7 +93,9 @@ document.addEventListener('DOMContentLoaded', function() {
             modalTitle.innerHTML = '<i class="bi bi-arrow-clockwise me-2 fa-spin"></i>Cargando datos...';
 
             // Petición al servidor
-            fetch(`?ruta=comercial/obtenerPresentacion&id=${id}`)
+            fetch(routeUrl('comercial/obtenerPresentacion', { id }), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
                 .then(response => response.json())
                 .then(res => {
                     if (res.success) {
@@ -135,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (btnEstado) {
                 const id = btnEstado.dataset.id;
                 const estadoActual = btnEstado.checked ? 1 : 0;
-                window.location.href = `?ruta=comercial/toggleEstadoPresentacion&id=${id}&estado=${estadoActual}`;
+                window.location.href = routeUrl('comercial/toggleEstadoPresentacion', { id, estado: estadoActual });
             }
 
             // 3. Click en ELIMINAR
@@ -143,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (btnEliminar) {
                 if(confirm('¿Estás seguro de eliminar esta presentación?')) {
                     const id = btnEliminar.dataset.id;
-                    window.location.href = `?ruta=comercial/eliminarPresentacion&id=${id}`;
+                    window.location.href = routeUrl('comercial/eliminarPresentacion', { id });
                 }
             }
         });
@@ -188,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const idLista = this.value;
                 this.disabled = true;
                 
-                fetch('?ruta=comercial/guardarAsignacionAjax', {
+                fetch(routeUrl('comercial/guardarAsignacionAjax'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ id_cliente: idCliente, id_lista: idLista })

@@ -113,13 +113,13 @@ $presentaciones = $presentaciones ?? [];
                                         </div>
                                         <div class="vr bg-secondary opacity-25"></div>
                                         
-                                        <button class="btn btn-sm text-primary js-editar-presentacion"
+                                        <button type="button" class="btn btn-sm text-primary js-editar-presentacion"
                                                 data-id="<?php echo (int) $p['id']; ?>"
                                                 title="Editar" style="background: transparent; border: none;">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
                                         
-                                        <button class="btn btn-sm text-danger js-eliminar-presentacion"
+                                        <button type="button" class="btn btn-sm text-danger js-eliminar-presentacion"
                                                 data-id="<?php echo (int) $p['id']; ?>"
                                                 title="Eliminar" style="background: transparent; border: none;">
                                             <i class="bi bi-trash fs-5"></i>
