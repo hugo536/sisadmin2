@@ -222,6 +222,34 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
 
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select select-placeholder" id="newTipo" name="tipo_item" required>
+                                                <option value="" selected>Seleccionar tipo</option>
+                                                <option value="producto_terminado">Producto terminado</option>
+                                                <option value="materia_prima">Materia Prima</option>
+                                                <option value="insumo">Insumo</option>
+                                                <option value="semielaborado">Semielaborado</option>
+                                                <option value="material_empaque">Material de Empaque</option>
+                                                <option value="servicio">Servicios / Otros</option>
+                                            </select>
+                                            <label for="newTipo">Tipo de ítem</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="newUnidad" name="unidad_base">
+                                                <option value="UND" selected>UND</option>
+                                                <option value="KG">KG</option>
+                                                <option value="LT">LT</option>
+                                                <option value="M">M</option>
+                                                <option value="CAJA">CAJA</option>
+                                                <option value="PAQ">PAQ</option>
+                                            </select>
+                                            <label for="newUnidad">Unidad base</label>
+                                        </div>
+                                    </div>
+
                                     <div class="col-md-6" id="newSaborContainer">
                                         <label class="form-label small text-muted mb-1">Sabor / Variante</label>
                                         <select class="form-select" id="newSabor" name="id_sabor">
@@ -271,32 +299,6 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="newTipo" name="tipo_item" required>
-                                                <option value="producto_terminado" selected>Producto terminado</option>
-                                                <option value="materia_prima">Materia Prima</option>
-                                                <option value="insumo">Insumo</option>
-                                                <option value="semielaborado">Semielaborado</option>
-                                                <option value="material_empaque">Material de Empaque</option>
-                                                <option value="servicio">Servicios / Otros</option>
-                                            </select>
-                                            <label for="newTipo">Tipo de ítem</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="newUnidad" name="unidad_base">
-                                                <option value="UND" selected>UND</option>
-                                                <option value="KG">KG</option>
-                                                <option value="LT">LT</option>
-                                                <option value="M">M</option>
-                                                <option value="CAJA">CAJA</option>
-                                                <option value="PAQ">PAQ</option>
-                                            </select>
-                                            <label for="newUnidad">Unidad base</label>
-                                        </div>
-                                    </div>
                                     <div class="col-md-4">
                                         <label class="form-label small text-muted mb-0">Precio Venta</label>
                                         <div class="input-group">
@@ -407,24 +409,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <input type="text" class="form-control bg-light" id="editSku" name="sku" readonly>
                                             <label for="editSku">SKU (Inmutable)</label>
                                         </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
-                                        <select class="form-select" id="editSabor" name="id_sabor">
-                                            <option value="">Seleccionar sabor...</option>
-                                            <?php foreach ($sabores as $sabor): ?>
-                                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
-                                        <select class="form-select" id="editPresentacion" name="id_presentacion">
-                                            <option value="">Seleccionar presentación...</option>
-                                            <?php foreach ($presentaciones as $presentacion): ?>
-                                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
                                     </div>
                                     <div class="col-md-6" id="editSaborContainer">
                                         <label class="form-label small text-muted mb-1">Sabor / Variante</label>

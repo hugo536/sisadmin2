@@ -176,6 +176,15 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+
+.form-select.select-placeholder {
+  color: #6c757d;
+}
+
+.form-select.select-placeholder.has-value {
+  color: var(--text-primary);
+}
+
 /* =======================
    BADGES
    ======================= */

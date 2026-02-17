@@ -136,6 +136,24 @@
         fillSelect('editPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
     }
 
+
+    function bindSelectPlaceholderState(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const applyState = () => {
+            const hasValue = (select.value || '').trim() !== '';
+            select.classList.toggle('has-value', hasValue);
+        };
+
+        if (!select.dataset.placeholderBound) {
+            select.addEventListener('change', applyState);
+            select.dataset.placeholderBound = '1';
+        }
+
+        applyState();
+    }
+
     function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
         const trigger = document.getElementById(inputId);
         const container = document.getElementById(containerId);
@@ -293,6 +311,8 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
+            bindSelectPlaceholderState('newTipo');
+
             applyTipoItemRules({
                 tipoId: 'newTipo',
                 marcaContainerId: 'newMarcaContainer',
