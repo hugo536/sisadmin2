@@ -57,6 +57,7 @@ function renderSidebarInner(
     string $userInitial,
     string $usuarioNombre,
     string $userRole,
+    bool $puedeVerComercial,
     callable $activo,
     callable $grupoActivo,
     callable $linkGrupoActivo
@@ -249,6 +250,7 @@ function renderSidebarInner(
         $userInitial,
         $usuarioNombre,
         $userRole,
+        $puedeVerComercial,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
@@ -271,6 +273,7 @@ function renderSidebarInner(
         $userInitial,
         $usuarioNombre,
         $userRole,
+        $puedeVerComercial,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
