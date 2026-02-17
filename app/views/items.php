@@ -512,15 +512,6 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-header bg-white fw-bold text-secondary py-2"><i class="bi bi-sliders me-2"></i>Configuración Avanzada</div>
                             <div class="card-body py-3">
                                 <div class="row align-items-center g-3">
-                                    <div class="col-12 d-flex justify-content-end mb-2">
-                                        <div style="width: 120px;">
-                                            <select class="form-select form-select-sm" id="editEstado" name="estado">
-                                                <option value="1">Activo</option>
-                                                <option value="0">Inactivo</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
                                     <div class="col-md-6">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
