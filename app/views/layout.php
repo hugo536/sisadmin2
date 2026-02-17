@@ -8,7 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
@@ -64,7 +63,6 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
@@ -124,9 +122,12 @@ window.ROLES_FLASH = {
 <script src="<?php echo e(asset_url('js/ventas.js')); ?>"></script>
 <?php endif; ?>
 
-
 <?php if (str_starts_with(($ruta_actual ?? ''), 'produccion')): ?>
 <script src="<?php echo e(asset_url('js/produccion.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with(($ruta_actual ?? ''), 'comercial')): ?>
+<script src="<?php echo e(asset_url('js/comercial.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>

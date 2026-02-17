@@ -2,24 +2,29 @@
 declare(strict_types=1);
 
 // =====================================================
-// 1. CONFIGURACIÓN DE SESIÓN
+// index.php - Punto de Entrada Principal
 // =====================================================
+
+// 1. CONFIGURACIÓN DE SESIÓN
 if (session_status() === PHP_SESSION_NONE) {
+    // Detectar HTTPS
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
     
+    // Limpiar host para cookie domain
     $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
     $host = preg_replace('/:\d+$/', '', $host);
     
     $cookieParams = [
-        'lifetime' => 28800,
-        'path' => '/',
-        'secure' => $isSecure,
+        'lifetime' => 28800, // 8 horas
+        'path'     => '/',
+        'secure'   => $isSecure,
         'httponly' => true,
         'samesite' => 'Strict',
     ];
 
-    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false) {
+    // Solo asignar dominio si no es localhost/IP para evitar problemas locales
+    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false && $host !== 'localhost') {
         $cookieParams['domain'] = $host;
     }
 
@@ -27,12 +32,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// =====================================================
 // 2. CONSTANTES Y ENTORNO
-// =====================================================
-
+// Define la raíz del proyecto (subiendo un nivel desde 'public')
 define('BASE_PATH', dirname(__DIR__)); 
 
+// Carga de Composer (Librerías externas)
 $autoload = BASE_PATH . '/vendor/autoload.php';
 if (!file_exists($autoload)) {
     http_response_code(500);
@@ -40,12 +44,13 @@ if (!file_exists($autoload)) {
 }
 require $autoload;
 
+// Carga de variables de entorno (.env)
 if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
     $dotenv = \Dotenv\Dotenv::createImmutable(BASE_PATH);
     $dotenv->safeLoad();
 }
 
-// FORZAR MODO DESARROLLO
+// Configuración de Errores (Hardcoded a development para que puedas ver errores)
 $env = 'development'; 
 
 if ($env === 'development') {
@@ -57,21 +62,19 @@ if ($env === 'development') {
     error_reporting(0);
 }
 
-// =====================================================
 // 3. CARGA DEL NÚCLEO (CORE)
-// =====================================================
-
+// Funciones globales de ayuda (base_url, redirect, etc.)
 $helpers = BASE_PATH . '/app/core/helpers.php';
 if (file_exists($helpers)) {
     require_once $helpers;
 }
 
-// ⚠️ AQUÍ ESTABA EL ERROR: Faltaba Conexion.php
+// Archivos esenciales del MVC
 $coreFiles = [
-    BASE_PATH . '/app/config/Conexion.php', // <--- ¡ESTA LÍNEA ES CRUCIAL!
-    BASE_PATH . '/app/core/Modelo.php',
-    BASE_PATH . '/app/core/Controlador.php',
-    BASE_PATH . '/app/core/Router.php'
+    BASE_PATH . '/app/config/Conexion.php', // Base de datos
+    BASE_PATH . '/app/core/Modelo.php',     // Clase padre Modelos
+    BASE_PATH . '/app/core/Controlador.php',// Clase padre Controladores
+    BASE_PATH . '/app/core/Router.php'      // Enrutador
 ];
 
 foreach ($coreFiles as $file) {
@@ -82,12 +85,10 @@ foreach ($coreFiles as $file) {
     }
 }
 
-// =====================================================
 // 4. EJECUCIÓN (DISPATCH)
-// =====================================================
 try {
     if (!class_exists('Router')) {
-        throw new Exception("La clase 'Router' no se encuentra.");
+        throw new Exception("La clase 'Router' no se encuentra. Revisa app/core/Router.php");
     }
 
     $router = new Router();
@@ -96,6 +97,7 @@ try {
         throw new Exception("El Router no tiene el método 'dispatch()'.");
     }
 
+    // Iniciar el enrutamiento
     $router->dispatch();
 
 } catch (Throwable $e) {
@@ -109,8 +111,9 @@ try {
         echo "<hr><pre>" . $e->getTraceAsString() . "</pre>";
         echo "</div>";
     } else {
+        // Mensaje genérico para producción
         echo "<h1>500 - Error Interno</h1>";
-        echo "<p>Ocurrió un problema inesperado.</p>";
+        echo "<p>Ocurrió un problema inesperado. Por favor contacta al soporte.</p>";
     }
     exit;
 }
