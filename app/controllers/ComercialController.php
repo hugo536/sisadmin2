@@ -16,7 +16,7 @@ class ComercialController extends Controlador {
     public function __construct() {
         parent::__construct();
         // Verificar sesión y permisos generales
-        if (!isset($_SESSION['id_usuario'])) {
+        if (!isset($_SESSION['id'])) {
             redirect('login');
         }
 
