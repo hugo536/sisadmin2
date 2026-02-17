@@ -70,7 +70,16 @@ class ComercialController extends Controlador {
         }
     }
 
-    public function eliminarPresentacion($id) {
+    public function eliminarPresentacion() {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            if ($this->esPeticionAjax()) {
+                echo json_encode(['success' => false, 'message' => 'ID inválido']);
+            } else {
+                redirect('comercial/presentaciones?error=id_invalido');
+            }
+            return;
+        }
         if ($this->presentacionModel->eliminar($id)) {
             // Respuesta JSON si usas AJAX, o redirect si es link normal
             if ($this->esPeticionAjax()) {

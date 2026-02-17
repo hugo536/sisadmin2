@@ -25,6 +25,8 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
     false
 ) ? ' active' : ' collapsed';
 
+$puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
+
 // -----------------------------
 // Usuario
 // -----------------------------
@@ -135,6 +137,13 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
 
+            <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
+                <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
+            </a>
+        <?php endif; ?>
+
+        <?php if ($puedeVerComercial): ?>
+
             <div class="nav-label mt-3">Estrategia</div>
             <a class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
                data-bs-toggle="collapse"
@@ -177,45 +186,6 @@ function renderSidebarInner(
                     <i class="bi bi-cart-check"></i> <span>Compras</span>
                 </a>
             <?php endif; ?>
-            
-            <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
-                <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
-            </a>
-        <?php endif; ?>
-
-        <?php if (tiene_permiso('ventas.ver') || tiene_permiso('items.ver')): ?>
-            
-            <div class="nav-label mt-3">Estrategia</div>
-
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
-               data-bs-toggle="collapse"
-               href="#menuComercial"
-               role="button"
-               aria-expanded="<?php echo $grupoActivo(['comercial']) ? 'true' : 'false'; ?>"
-               aria-controls="menuComercial">
-                <i class="bi bi-tags"></i> <span>Gestión Comercial</span>
-                <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-            </a>
-
-            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="menuComercial">
-                <ul class="nav flex-column ps-3">
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('comercial/presentaciones'); ?>" href="<?php echo e(route_url('comercial/presentaciones')); ?>">
-                            <i class="bi bi-box2"></i> <span>Presentaciones y Packs</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('comercial/listas'); ?>" href="<?php echo e(route_url('comercial/listas')); ?>">
-                            <i class="bi bi-currency-dollar"></i> <span>Listas de Precios</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('comercial/asignacion'); ?>" href="<?php echo e(route_url('comercial/asignacion')); ?>">
-                            <i class="bi bi-person-check"></i> <span>Asignación Masiva</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
         <?php endif; ?>
         <div class="nav-label mt-3">Sistema</div>
 

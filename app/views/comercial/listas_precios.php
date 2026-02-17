@@ -41,7 +41,7 @@
                         </button>
                     </div>
                     <div class="card-body p-0">
-                        <form id="formPrecios" method="POST" action="<?php echo route_url('comercial/listas/actualizar_precios'); ?>">
+                        <form id="formPrecios" method="POST" action="<?php echo route_url('comercial/actualizarPreciosLista'); ?>">
                             <input type="hidden" name="id_lista" value="<?php echo $_GET['id']; ?>">
                             <div class="table-responsive">
                                 <table class="table table-hover align-middle mb-0">
@@ -97,7 +97,7 @@
                 <h5 class="modal-title fw-bold">Crear Lista de Precios</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form action="<?php echo route_url('comercial/listas/crear'); ?>" method="POST">
+            <form action="<?php echo route_url('comercial/crearLista'); ?>" method="POST">
                 <div class="modal-body bg-light p-4">
                     <div class="mb-3">
                         <label class="form-label">Nombre de la Lista</label>
