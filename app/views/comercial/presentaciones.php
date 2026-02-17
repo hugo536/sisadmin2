@@ -52,7 +52,7 @@
                                     <?php echo htmlspecialchars($p['nombre']); ?>
                                 </td>
                                 <td class="text-muted">
-                                    <i class="bi bi-arrow-return-right me-1"></i> <?php echo htmlspecialchars($p['item_nombre']); ?>
+                                    <i class="bi bi-arrow-return-right me-1"></i> <?php echo htmlspecialchars($p['item_nombre_full'] ?? $p['item_nombre']); ?>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3">
@@ -108,7 +108,9 @@
                         <select class="form-select" name="id_item" required>
                             <option value="">Seleccione un producto...</option>
                             <?php foreach ($items as $item): ?>
-                                <option value="<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['nombre']); ?></option>
+                                <option value="<?php echo $item['id']; ?>">
+                                    <?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>

@@ -35,7 +35,13 @@ class ComercialController extends Controlador {
         // Cargar datos para la vista
         $datos = [
             'titulo' => 'Gestión de Presentaciones',
-            'items' => $this->itemModel->listar(), // Para el select de productos
+            
+            // CAMBIO CLAVE AQUÍ:
+            // Usamos el método especializado del PresentacionModel en lugar del genérico de Items.
+            // Esto asegura que el dropdown muestre "Coca Cola [Zero]" en lugar de solo "Coca Cola"
+            // y que solo traiga productos, no servicios.
+            'items' => $this->presentacionModel->listarProductosParaSelect(), 
+            
             'presentaciones' => $this->presentacionModel->listarTodo()
         ];
         

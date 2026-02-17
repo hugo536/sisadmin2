@@ -3,6 +3,8 @@ class AsignacionModel extends Modelo {
 
     // Trae solo a los clientes (es_cliente = 1) y su lista actual
     public function listarClientes() {
+        // SOLUCIÓN: Agregamos 'COLLATE utf8mb4_general_ci' en el JOIN de distritos
+        // para evitar el error de mezcla de intercalación.
         $sql = "SELECT 
                     t.id,
                     t.nombre_completo,
@@ -13,7 +15,7 @@ class AsignacionModel extends Modelo {
                     lp.nombre as nombre_lista
                 FROM terceros t
                 INNER JOIN terceros_clientes tc ON t.id = tc.id_tercero
-                LEFT JOIN distritos d ON t.distrito = d.id
+                LEFT JOIN distritos d ON t.distrito = d.id COLLATE utf8mb4_general_ci
                 LEFT JOIN listas_precios lp ON tc.id_lista_precios = lp.id
                 WHERE t.estado = 1 AND t.es_cliente = 1
                 ORDER BY t.nombre_completo ASC";

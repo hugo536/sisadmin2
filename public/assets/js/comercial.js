@@ -9,11 +9,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. LÓGICA PARA PRESENTACIONES (PACKS)
     // =========================================================================
     const tablaPresentaciones = document.getElementById('presentacionesTable');
+    const inputBuscador = document.getElementById('presentacionSearch'); // <--- NUEVO: Referencia al input
     
     if (tablaPresentaciones) {
-        // Lógica para el botón EDITAR
+        
+        // --- A. LÓGICA DEL BUSCADOR (NUEVO) ---
+        if (inputBuscador) {
+            inputBuscador.addEventListener('keyup', function(e) {
+                const termino = e.target.value.toLowerCase();
+                const filas = tablaPresentaciones.querySelectorAll('tbody tr');
+
+                filas.forEach(fila => {
+                    // Buscamos en la Columna 0 (Nombre Pack) y Columna 1 (Producto Base)
+                    // Usamos 'textContent' para obtener el texto visible (que ya incluye el nombre concatenado)
+                    const nombrePack = fila.cells[0].textContent.toLowerCase();
+                    const nombreProducto = fila.cells[1].textContent.toLowerCase();
+
+                    // Si coincide con alguno, mostramos la fila, si no, la ocultamos
+                    if (nombrePack.includes(termino) || nombreProducto.includes(termino)) {
+                        fila.style.display = '';
+                    } else {
+                        fila.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // --- B. Lógica para EDITAR ---
         tablaPresentaciones.addEventListener('click', function(e) {
-            // Buscamos si el click fue dentro de un botón con clase .js-editar-presentacion
             const btnEditar = e.target.closest('.js-editar-presentacion');
             
             if (btnEditar) {
@@ -25,24 +48,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Llenar campos
                 const form = modal.querySelector('form');
-                form.querySelector('[name="id"]').value = data.id || ''; // Campo oculto para ID (asegurate de agregarlo en el HTML)
-                form.querySelector('[name="id_item"]').value = data.id_item;
+                form.querySelector('[name="id"]').value = data.id || ''; 
+                form.querySelector('[name="accion"]').value = 'editar'; // Aseguramos que la acción sea editar
+                
+                // Aquí el select seleccionará automáticamente el ID correcto
+                // Y mostrará el texto "Nombre - Sabor - Presentación" gracias al cambio en el HTML
+                form.querySelector('[name="id_item"]').value = data.id_item; 
+                
                 form.querySelector('[name="nombre"]').value = data.nombre;
                 form.querySelector('[name="factor"]').value = data.factor;
                 form.querySelector('[name="precio_x_menor"]').value = data.precio_x_menor;
                 form.querySelector('[name="precio_x_mayor"]').value = data.precio_x_mayor;
                 form.querySelector('[name="cantidad_minima_mayor"]').value = data.cantidad_minima_mayor;
-                
-                // Nota: Idealmente deberías cambiar la acción del form o tener un input hidden 'accion'
             }
         });
 
-        // Lógica para ELIMINAR (con SweetAlert2 si lo tienes, sino confirm nativo)
+        // --- C. Lógica para ELIMINAR ---
         tablaPresentaciones.addEventListener('click', function(e) {
             const btnEliminar = e.target.closest('.js-eliminar-presentacion');
             if (btnEliminar) {
+                // Usamos confirm nativo o SweetAlert si lo integras después
                 if(confirm('¿Estás seguro de eliminar esta presentación?')) {
                     const id = btnEliminar.dataset.id;
+                    // Asegúrate de que esta ruta coincida con tu Router
                     window.location.href = `?ruta=comercial/eliminarPresentacion&id=${id}`;
                 }
             }

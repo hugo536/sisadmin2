@@ -8,6 +8,8 @@ $sabores = $sabores ?? [];
 $saboresGestion = $sabores_gestion ?? [];
 $presentaciones = $presentaciones ?? [];
 $presentacionesGestion = $presentaciones_gestion ?? [];
+
+// Helpers para UI
 $tipoItemValueForUi = static function (string $tipo): string {
     return match ($tipo) {
         'producto' => 'producto_terminado',
@@ -26,6 +28,7 @@ $tipoItemLabel = static function (string $tipo): string {
     };
 };
 ?>
+
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -38,7 +41,7 @@ $tipoItemLabel = static function (string $tipo): string {
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
                 <i class="bi bi-tags me-2 text-info"></i>Categorías
             </button>
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores" aria-label="Abrir configuración de ítems">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores">
                 <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
             </button>
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
@@ -92,7 +95,7 @@ $tipoItemLabel = static function (string $tipo): string {
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="itemsTable">
-                    <thead>
+                    <thead class="bg-light">
                         <tr>
                             <th class="ps-4">SKU</th>
                             <th>Nombre</th>
@@ -110,10 +113,10 @@ $tipoItemLabel = static function (string $tipo): string {
                             <tr data-estado="<?php echo (int) $item['estado']; ?>"
                                 data-tipo="<?php echo e($tipoItemUi); ?>"
                                 data-categoria="<?php echo (int) ($item['id_categoria'] ?? 0); ?>"
-                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.$item['nombre'].' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
-                                <td class="ps-4 fw-semibold"><?php echo e($item['sku']); ?></td>
+                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.($item['nombre_full'] ?? $item['nombre']).' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
+                                <td class="ps-4 fw-semibold text-secondary"><?php echo e($item['sku']); ?></td>
                                 <td>
-                                    <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
+                                    <div class="fw-bold text-dark"><?php echo e($item['nombre_full'] ?? $item['nombre']); ?></div>
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
@@ -122,9 +125,9 @@ $tipoItemLabel = static function (string $tipo): string {
                                 <td><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
                                 <td class="text-center">
                                     <?php if ((int) $item['estado'] === 1): ?>
-                                        <span class="badge-status status-active" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
                                     <?php else: ?>
-                                        <span class="badge-status status-inactive" id="badge_status_item_<?php echo (int) $item['id']; ?>">Inactivo</span>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
@@ -135,12 +138,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                                    data-id="<?php echo (int) $item['id']; ?>"
                                                    <?php echo ((int) $item['estado'] === 1) ? 'checked' : ''; ?>>
                                         </div>
-
                                         <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
-
-                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver Perfil y Documentos">
-                                            <i class="bi bi-person-badge fs-5"></i>
-                                        </a>
+                                        
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
                                             data-sku="<?php echo e($item['sku']); ?>"
@@ -165,6 +164,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-estado="<?php echo (int) $item['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
                                         </button>
+
                                         <?php
                                             $puedeEliminarItem = (int) ($item['puede_eliminar'] ?? 1) === 1;
                                             $motivoNoEliminarItem = (string) ($item['motivo_no_eliminar'] ?? 'No se puede eliminar este ítem.');
@@ -193,6 +193,396 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
+<div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar ítem</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <form method="post" class="row g-3" id="formCrearItem">
+                    <input type="hidden" name="accion" value="crear">
+                    
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-9">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
+                                            <label for="newNombre">Nombre del producto</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
+                                            <label for="newSku">SKU (Opcional)</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6" id="newSaborContainer">
+                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
+                                        <select class="form-select" id="newSabor" name="id_sabor">
+                                            <option value="" selected>Seleccionar sabor...</option>
+                                            <?php foreach ($sabores as $sabor): ?>
+                                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6" id="newPresentacionContainer">
+                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
+                                        <select class="form-select" id="newPresentacion" name="id_presentacion">
+                                            <option value="" selected>Seleccionar presentación...</option>
+                                            <?php foreach ($presentaciones as $presentacion): ?>
+                                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Categoría</label>
+                                        <select class="form-select" id="newCategoria" name="id_categoria">
+                                            <option value="" selected>Seleccionar...</option>
+                                            <?php foreach ($categorias as $categoria): ?>
+                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="newMarcaContainer">
+                                        <label class="form-label small text-muted mb-1">Marca</label>
+                                        <select class="form-select" id="newMarca" name="id_marca">
+                                            <option value="" selected>Seleccionar...</option>
+                                            <?php foreach ($marcas as $marca): ?>
+                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="newTipo" name="tipo_item" required>
+                                                <option value="producto_terminado" selected>Producto terminado</option>
+                                                <option value="materia_prima">Materia Prima</option>
+                                                <option value="insumo">Insumo</option>
+                                                <option value="semielaborado">Semielaborado</option>
+                                                <option value="material_empaque">Material de Empaque</option>
+                                                <option value="servicio">Servicios / Otros</option>
+                                            </select>
+                                            <label for="newTipo">Tipo de ítem</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="newUnidad" name="unidad_base">
+                                                <option value="UND" selected>UND</option>
+                                                <option value="KG">KG</option>
+                                                <option value="LT">LT</option>
+                                                <option value="M">M</option>
+                                                <option value="CAJA">CAJA</option>
+                                                <option value="PAQ">PAQ</option>
+                                            </select>
+                                            <label for="newUnidad">Unidad base</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Precio Venta</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white">S/</span>
+                                            <input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Costo Ref.</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white">S/</span>
+                                            <input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Impuesto (%)</label>
+                                        <input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00">
+                                    </div>
+                                    
+                                    <select class="d-none" id="newMoneda" name="moneda"><option value="PEN" selected>PEN</option></select>
+                                    
+                                    <div class="col-12">
+                                        <input type="text" class="form-control form-control-sm" id="newDescripcion" name="descripcion" placeholder="Descripción adicional (opcional)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm bg-light">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
+                                            <label class="form-check-label" for="newControlaStock">Controlar Stock</label>
+                                        </div>
+                                        <div class="mt-1 d-none" id="newStockMinContainer">
+                                            <input type="number" class="form-control form-control-sm" id="newStockMin" name="stock_minimo" placeholder="Stock Mínimo" value="0.0000" disabled>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-2" id="newRequiereVencimientoContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1">
+                                            <label class="form-check-label" for="newRequiereVencimiento">Requiere Vencimiento</label>
+                                        </div>
+                                        <div class="mt-1 d-none" id="newDiasAlertaContainer">
+                                            <input type="number" class="form-control form-control-sm" id="newDiasAlerta" name="dias_alerta_vencimiento" placeholder="Días alerta" value="30">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6" id="newRequiereLoteContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1">
+                                            <label class="form-check-label" for="newRequiereLote">Exigir Lote</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6" id="newPermiteDecimalesContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1">
+                                            <label class="form-check-label" for="newPermiteDecimales">Permite Decimales</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="newEstado" name="estado" value="1">
+                    
+                    <div class="col-12 modal-footer border-top-0 pb-0 px-0">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4 fw-bold" type="submit"><i class="bi bi-save me-2"></i>Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-dark">Editar ítem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <form method="post" class="row g-3" id="formEditarItem">
+                    <input type="hidden" name="accion" value="editar">
+                    <input type="hidden" name="id" id="editId">
+                    
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-9">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
+                                            <label for="editNombre">Nombre del producto</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control bg-light" id="editSku" name="sku" readonly>
+                                            <label for="editSku">SKU (Inmutable)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
+                                        <select class="form-select" id="editSabor" name="id_sabor">
+                                            <option value="">Seleccionar sabor...</option>
+                                            <?php foreach ($sabores as $sabor): ?>
+                                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
+                                        <select class="form-select" id="editPresentacion" name="id_presentacion">
+                                            <option value="">Seleccionar presentación...</option>
+                                            <?php foreach ($presentaciones as $presentacion): ?>
+                                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6" id="editSaborContainer">
+                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
+                                        <select class="form-select" id="editSabor" name="id_sabor">
+                                            <option value="">Seleccionar sabor...</option>
+                                            <?php foreach ($sabores as $sabor): ?>
+                                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6" id="editPresentacionContainer">
+                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
+                                        <select class="form-select" id="editPresentacion" name="id_presentacion">
+                                            <option value="">Seleccionar presentación...</option>
+                                            <?php foreach ($presentaciones as $presentacion): ?>
+                                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Categoría</label>
+                                        <select class="form-select" id="editCategoria" name="id_categoria">
+                                            <option value="">Seleccionar...</option>
+                                            <?php foreach ($categorias as $categoria): ?>
+                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6" id="editMarcaContainer">
+                                        <label class="form-label small text-muted mb-1">Marca</label>
+                                        <select class="form-select" id="editMarca" name="id_marca">
+                                            <option value="">Seleccionar...</option>
+                                            <?php foreach ($marcas as $marca): ?>
+                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="editTipo" name="tipo_item" required>
+                                                <option value="producto_terminado">Producto terminado</option>
+                                                <option value="materia_prima">Materia prima</option>
+                                                <option value="insumo">Insumo</option>
+                                                <option value="semielaborado">Semielaborado</option>
+                                                <option value="material_empaque">Material de empaque</option>
+                                                <option value="servicio">Servicio</option>
+                                            </select>
+                                            <label for="editTipo">Tipo</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="editUnidad" name="unidad_base">
+                                                <option value="UND">UND</option>
+                                                <option value="KG">KG</option>
+                                                <option value="LT">LT</option>
+                                                <option value="M">M</option>
+                                                <option value="CAJA">CAJA</option>
+                                                <option value="PAQ">PAQ</option>
+                                            </select>
+                                            <label for="editUnidad">Unidad</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Precio Venta</label>
+                                        <input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Costo Ref.</label>
+                                        <input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Impuesto (%)</label>
+                                        <input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001">
+                                    </div>
+                                    
+                                    <select class="d-none" id="editMoneda" name="moneda"><option value="PEN">PEN</option></select>
+
+                                    <div class="col-12">
+                                        <input class="form-control form-control-sm" id="editDescripcion" name="descripcion" placeholder="Descripción adicional">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm bg-light">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col-12 d-flex justify-content-between mb-2">
+                                        <span class="fw-bold text-muted small text-uppercase">Configuración Avanzada</span>
+                                        <div style="width: 120px;">
+                                            <select class="form-select form-select-sm" id="editEstado" name="estado">
+                                                <option value="1">Activo</option>
+                                                <option value="0">Inactivo</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
+                                            <label class="form-check-label" for="editControlaStock">Controlar Stock</label>
+                                        </div>
+                                        <div class="mt-1 d-none" id="editStockMinimoContainer">
+                                            <input class="form-control form-control-sm" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001" disabled placeholder="Stock Mínimo">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6 mb-2" id="editRequiereVencimientoContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1">
+                                            <label class="form-check-label" for="editRequiereVencimiento">Requiere Vencimiento</label>
+                                        </div>
+                                        <div class="mt-1 d-none" id="editDiasAlertaContainer">
+                                            <input type="number" min="0" class="form-control form-control-sm" id="editDiasAlerta" name="dias_alerta_vencimiento" placeholder="Días alerta">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6" id="editRequiereLoteContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1">
+                                            <label class="form-check-label" for="editRequiereLote">Exigir Lote</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6" id="editPermiteDecimalesContainer">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1">
+                                            <label class="form-check-label" for="editPermiteDecimales">Permite Decimales</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 modal-footer border-top-0 pb-0 px-0">
+                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary px-4 fw-bold" type="submit">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalGestionItems" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
@@ -202,77 +592,32 @@ $tipoItemLabel = static function (string $tipo): string {
             </div>
             <div class="modal-body">
                 <ul class="nav nav-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="sabores-tab" data-bs-toggle="tab" data-bs-target="#tabSabores" type="button" role="tab" aria-controls="tabSabores" aria-selected="true">Sabores</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="presentaciones-tab" data-bs-toggle="tab" data-bs-target="#tabPresentaciones" type="button" role="tab" aria-controls="tabPresentaciones" aria-selected="false">Presentaciones</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="marcas-tab" data-bs-toggle="tab" data-bs-target="#tabMarcas" type="button" role="tab" aria-controls="tabMarcas" aria-selected="false">Marcas</button>
-                    </li>
+                    <li class="nav-item"><button class="nav-link active" id="sabores-tab" data-bs-toggle="tab" data-bs-target="#tabSabores" type="button">Sabores</button></li>
+                    <li class="nav-item"><button class="nav-link" id="presentaciones-tab" data-bs-toggle="tab" data-bs-target="#tabPresentaciones" type="button">Presentaciones</button></li>
+                    <li class="nav-item"><button class="nav-link" id="marcas-tab" data-bs-toggle="tab" data-bs-target="#tabMarcas" type="button">Marcas</button></li>
                 </ul>
-
                 <div class="tab-content pt-3">
-                    <div class="tab-pane fade show active" id="tabSabores" role="tabpanel" aria-labelledby="sabores-tab">
+                    <div class="tab-pane fade show active" id="tabSabores" role="tabpanel">
                         <form method="post" id="formAgregarSabor" class="row g-2 align-items-end mb-3 border rounded-3 p-3 bg-light">
                             <input type="hidden" name="accion" value="crear_sabor">
-                            <div class="col-md-7 form-floating">
-                                <input type="text" class="form-control" id="nuevoSaborNombre" name="nombre" placeholder="Nombre del sabor" required>
-                                <label for="nuevoSaborNombre">Nombre del sabor</label>
-                            </div>
-                            <div class="col-md-3 form-check form-switch d-flex align-items-center justify-content-center h-100 pt-4">
-                                <input class="form-check-input" type="checkbox" id="nuevoSaborEstado" name="estado" value="1" checked>
-                                <label class="form-check-label ms-2" for="nuevoSaborEstado">Activo</label>
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="submit" class="btn btn-primary">Agregar</button>
-                            </div>
+                            <div class="col-md-7 form-floating"><input type="text" class="form-control" id="nuevoSaborNombre" name="nombre" required><label>Nombre del sabor</label></div>
+                            <div class="col-md-3 form-check form-switch pt-4"><input class="form-check-input" type="checkbox" id="nuevoSaborEstado" name="estado" value="1" checked><label class="ms-2">Activo</label></div>
+                            <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
-
-                        <div class="input-group input-group-sm mb-2">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="search" class="form-control" id="buscarSabores" placeholder="Buscar sabor...">
-                        </div>
-
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0" id="tablaSaboresGestion">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Estado</th>
-                                        <th class="text-end">Acciones</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($saboresGestion as $sabor): ?>
-                                        <tr data-search="<?php echo e(mb_strtolower((string) ($sabor['nombre'] ?? ''))); ?>">
-                                            <td class="fw-semibold"><?php echo e((string) ($sabor['nombre'] ?? '')); ?></td>
-                                            <td>
-                                                <div class="form-check form-switch m-0">
-                                                    <input
-                                                        class="form-check-input js-toggle-atributo"
-                                                        type="checkbox"
-                                                        data-accion="editar_sabor"
-                                                        data-id="<?php echo (int) ($sabor['id'] ?? 0); ?>"
-                                                        data-nombre="<?php echo e((string) ($sabor['nombre'] ?? '')); ?>"
-                                                        <?php echo (int) ($sabor['estado'] ?? 0) === 1 ? 'checked' : ''; ?>
-                                                    >
-                                                </div>
-                                            </td>
+                                        <?php $nombreSabor = (string)($sabor['nombre'] ?? ''); $esSistema = ($nombreSabor === 'Ninguno'); ?>
+                                        <tr class="<?php echo $esSistema ? 'bg-light' : ''; ?>">
+                                            <td class="fw-semibold"><?php echo e($nombreSabor); ?><?php if($esSistema): ?><i class="bi bi-shield-lock-fill text-muted ms-2"></i><?php endif; ?></td>
+                                            <td><div class="form-check form-switch m-0"><input class="form-check-input <?php echo $esSistema?'':'js-toggle-atributo'; ?>" type="checkbox" <?php if(!$esSistema): ?>data-accion="editar_sabor" data-id="<?php echo (int)($sabor['id']??0); ?>" data-nombre="<?php echo e($nombreSabor); ?>"<?php endif; ?> <?php echo (int)($sabor['estado']??0)===1?'checked':''; ?> <?php echo $esSistema?'disabled':''; ?>></div></td>
                                             <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo"
-                                                    data-target="sabor"
-                                                    data-id="<?php echo (int) ($sabor['id'] ?? 0); ?>"
-                                                    data-nombre="<?php echo e((string) ($sabor['nombre'] ?? '')); ?>"
-                                                    data-estado="<?php echo (int) ($sabor['estado'] ?? 1); ?>">
-                                                    Editar
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo"
-                                                    data-accion="eliminar_sabor"
-                                                    data-id="<?php echo (int) ($sabor['id'] ?? 0); ?>">
-                                                    Eliminar
-                                                </button>
+                                                <?php if($esSistema): ?><span class="badge bg-secondary">Protegido</span><?php else: ?>
+                                                <button class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="sabor" data-id="<?php echo (int)($sabor['id']??0); ?>" data-nombre="<?php echo e($nombreSabor); ?>" data-estado="<?php echo (int)($sabor['estado']??1); ?>">Editar</button>
+                                                <button class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_sabor" data-id="<?php echo (int)($sabor['id']??0); ?>">Eliminar</button>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -280,66 +625,24 @@ $tipoItemLabel = static function (string $tipo): string {
                             </table>
                         </div>
                     </div>
-
-                    <div class="tab-pane fade" id="tabPresentaciones" role="tabpanel" aria-labelledby="presentaciones-tab">
+                    <div class="tab-pane fade" id="tabPresentaciones" role="tabpanel">
                         <form method="post" id="formAgregarPresentacion" class="row g-2 align-items-end mb-3 border rounded-3 p-3 bg-light">
                             <input type="hidden" name="accion" value="crear_presentacion">
-                            <div class="col-md-7 form-floating">
-                                <input type="text" class="form-control" id="nuevaPresentacionNombre" name="nombre" placeholder="Nombre de la presentación" required>
-                                <label for="nuevaPresentacionNombre">Nombre de la presentación</label>
-                            </div>
-                            <div class="col-md-3 form-check form-switch d-flex align-items-center justify-content-center h-100 pt-4">
-                                <input class="form-check-input" type="checkbox" id="nuevaPresentacionEstado" name="estado" value="1" checked>
-                                <label class="form-check-label ms-2" for="nuevaPresentacionEstado">Activo</label>
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="submit" class="btn btn-primary">Agregar</button>
-                            </div>
+                            <div class="col-md-7 form-floating"><input type="text" class="form-control" id="nuevaPresentacionNombre" name="nombre" required><label>Nombre</label></div>
+                            <div class="col-md-3 form-check form-switch pt-4"><input class="form-check-input" type="checkbox" id="nuevaPresentacionEstado" name="estado" value="1" checked><label class="ms-2">Activo</label></div>
+                            <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
-
-                        <div class="input-group input-group-sm mb-2">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="search" class="form-control" id="buscarPresentaciones" placeholder="Buscar presentación...">
-                        </div>
-
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0" id="tablaPresentacionesGestion">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Estado</th>
-                                        <th class="text-end">Acciones</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($presentacionesGestion as $presentacion): ?>
-                                        <tr data-search="<?php echo e(mb_strtolower((string) ($presentacion['nombre'] ?? ''))); ?>">
-                                            <td class="fw-semibold"><?php echo e((string) ($presentacion['nombre'] ?? '')); ?></td>
-                                            <td>
-                                                <div class="form-check form-switch m-0">
-                                                    <input
-                                                        class="form-check-input js-toggle-atributo"
-                                                        type="checkbox"
-                                                        data-accion="editar_presentacion"
-                                                        data-id="<?php echo (int) ($presentacion['id'] ?? 0); ?>"
-                                                        data-nombre="<?php echo e((string) ($presentacion['nombre'] ?? '')); ?>"
-                                                        <?php echo (int) ($presentacion['estado'] ?? 0) === 1 ? 'checked' : ''; ?>
-                                                    >
-                                                </div>
-                                            </td>
+                                        <tr>
+                                            <td class="fw-semibold"><?php echo e((string)($presentacion['nombre'] ?? '')); ?></td>
+                                            <td><div class="form-check form-switch m-0"><input class="form-check-input js-toggle-atributo" type="checkbox" data-accion="editar_presentacion" data-id="<?php echo (int)($presentacion['id']??0); ?>" data-nombre="<?php echo e((string)($presentacion['nombre']??'')); ?>" <?php echo (int)($presentacion['estado']??0)===1?'checked':''; ?>></div></td>
                                             <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo"
-                                                    data-target="presentacion"
-                                                    data-id="<?php echo (int) ($presentacion['id'] ?? 0); ?>"
-                                                    data-nombre="<?php echo e((string) ($presentacion['nombre'] ?? '')); ?>"
-                                                    data-estado="<?php echo (int) ($presentacion['estado'] ?? 1); ?>">
-                                                    Editar
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo"
-                                                    data-accion="eliminar_presentacion"
-                                                    data-id="<?php echo (int) ($presentacion['id'] ?? 0); ?>">
-                                                    Eliminar
-                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="presentacion" data-id="<?php echo (int)($presentacion['id']??0); ?>" data-nombre="<?php echo e((string)($presentacion['nombre']??'')); ?>" data-estado="<?php echo (int)($presentacion['estado']??1); ?>">Editar</button>
+                                                <button class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_presentacion" data-id="<?php echo (int)($presentacion['id']??0); ?>">Eliminar</button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -347,73 +650,30 @@ $tipoItemLabel = static function (string $tipo): string {
                             </table>
                         </div>
                     </div>
-
-                    <div class="tab-pane fade" id="tabMarcas" role="tabpanel" aria-labelledby="marcas-tab">
+                    <div class="tab-pane fade" id="tabMarcas" role="tabpanel">
                         <form method="post" id="formAgregarMarca" class="row g-2 align-items-end mb-3 border rounded-3 p-3 bg-light">
                             <input type="hidden" name="accion" value="crear_marca">
-                            <div class="col-md-7 form-floating">
-                                <input type="text" class="form-control" id="nuevaMarcaNombre" name="nombre" placeholder="Nombre de la marca" required>
-                                <label for="nuevaMarcaNombre">Nombre de la marca</label>
-                            </div>
-                            <div class="col-md-3 form-check form-switch d-flex align-items-center justify-content-center h-100 pt-4">
-                                <input class="form-check-input" type="checkbox" id="nuevaMarcaEstado" name="estado" value="1" checked>
-                                <label class="form-check-label ms-2" for="nuevaMarcaEstado">Activo</label>
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="submit" class="btn btn-primary">Agregar</button>
-                            </div>
+                            <div class="col-md-7 form-floating"><input type="text" class="form-control" id="nuevaMarcaNombre" name="nombre" required><label>Nombre</label></div>
+                            <div class="col-md-3 form-check form-switch pt-4"><input class="form-check-input" type="checkbox" id="nuevaMarcaEstado" name="estado" value="1" checked><label class="ms-2">Activo</label></div>
+                            <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
-
-                        <div class="input-group input-group-sm mb-2">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="search" class="form-control" id="buscarMarcas" placeholder="Buscar marca...">
-                        </div>
-
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0" id="tablaMarcasGestion">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Estado</th>
-                                        <th class="text-end">Acciones</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($marcasGestion as $marca): ?>
-                                        <tr data-search="<?php echo e(mb_strtolower((string) ($marca['nombre'] ?? ''))); ?>">
-                                            <td class="fw-semibold"><?php echo e((string) ($marca['nombre'] ?? '')); ?></td>
-                                            <td>
-                                                <div class="form-check form-switch m-0">
-                                                    <input
-                                                        class="form-check-input js-toggle-atributo"
-                                                        type="checkbox"
-                                                        data-accion="editar_marca"
-                                                        data-id="<?php echo (int) ($marca['id'] ?? 0); ?>"
-                                                        data-nombre="<?php echo e((string) ($marca['nombre'] ?? '')); ?>"
-                                                        <?php echo (int) ($marca['estado'] ?? 0) === 1 ? 'checked' : ''; ?>
-                                                    >
-                                                </div>
-                                            </td>
+                                        <tr>
+                                            <td class="fw-semibold"><?php echo e((string)($marca['nombre'] ?? '')); ?></td>
+                                            <td><div class="form-check form-switch m-0"><input class="form-check-input js-toggle-atributo" type="checkbox" data-accion="editar_marca" data-id="<?php echo (int)($marca['id']??0); ?>" data-nombre="<?php echo e((string)($marca['nombre']??'')); ?>" <?php echo (int)($marca['estado']??0)===1?'checked':''; ?>></div></td>
                                             <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-primary js-editar-atributo"
-                                                    data-target="marca"
-                                                    data-id="<?php echo (int) ($marca['id'] ?? 0); ?>"
-                                                    data-nombre="<?php echo e((string) ($marca['nombre'] ?? '')); ?>"
-                                                    data-estado="<?php echo (int) ($marca['estado'] ?? 1); ?>">
-                                                    Editar
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger js-eliminar-atributo"
-                                                    data-accion="eliminar_marca"
-                                                    data-id="<?php echo (int) ($marca['id'] ?? 0); ?>">
-                                                    Eliminar
-                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary js-editar-atributo" data-target="marca" data-id="<?php echo (int)($marca['id']??0); ?>" data-nombre="<?php echo e((string)($marca['nombre']??'')); ?>" data-estado="<?php echo (int)($marca['estado']??1); ?>">Editar</button>
+                                                <button class="btn btn-sm btn-outline-danger js-eliminar-atributo" data-accion="eliminar_marca" data-id="<?php echo (int)($marca['id']??0); ?>">Eliminar</button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -432,62 +692,23 @@ $tipoItemLabel = static function (string $tipo): string {
                 <form method="post" id="formGestionCategoria" class="row g-2 mb-3 border rounded-3 p-3 bg-light">
                     <input type="hidden" name="accion" id="categoriaAccion" value="crear_categoria">
                     <input type="hidden" name="id" id="categoriaId" value="">
-                    <div class="col-md-4 form-floating">
-                        <input type="text" class="form-control" id="categoriaNombre" name="nombre" placeholder="Nombre" required>
-                        <label for="categoriaNombre">Nombre</label>
-                    </div>
-                    <div class="col-md-5 form-floating">
-                        <input type="text" class="form-control" id="categoriaDescripcion" name="descripcion" placeholder="Descripción">
-                        <label for="categoriaDescripcion">Descripción</label>
-                    </div>
-                    <div class="col-md-3 form-floating">
-                        <select class="form-select" id="categoriaEstado" name="estado">
-                            <option value="1" selected>Activo</option>
-                            <option value="0">Inactivo</option>
-                        </select>
-                        <label for="categoriaEstado">Estado</label>
-                    </div>
-                    <div class="col-12 d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-light" id="btnResetCategoria">Limpiar</button>
-                        <button type="submit" class="btn btn-primary" id="btnGuardarCategoria">Guardar categoría</button>
-                    </div>
+                    <div class="col-md-4 form-floating"><input type="text" class="form-control" id="categoriaNombre" name="nombre" required><label>Nombre</label></div>
+                    <div class="col-md-5 form-floating"><input type="text" class="form-control" id="categoriaDescripcion" name="descripcion"><label>Descripción</label></div>
+                    <div class="col-md-3 form-floating"><select class="form-select" id="categoriaEstado" name="estado"><option value="1">Activo</option><option value="0">Inactivo</option></select><label>Estado</label></div>
+                    <div class="col-12 d-flex justify-content-end gap-2"><button type="button" class="btn btn-light" id="btnResetCategoria">Limpiar</button><button type="submit" class="btn btn-primary" id="btnGuardarCategoria">Guardar</button></div>
                 </form>
-
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Descripción</th>
-                                <th>Estado</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                         <tbody>
                             <?php foreach ($categoriasGestion as $categoria): ?>
                                 <tr>
-                                    <td class="fw-semibold"><?php echo e((string) $categoria['nombre']); ?></td>
-                                    <td><?php echo e((string) ($categoria['descripcion'] ?? '')); ?></td>
-                                    <td>
-                                        <?php if ((int) ($categoria['estado'] ?? 0) === 1): ?>
-                                            <span class="badge bg-success-subtle text-success">Activo</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary">Inactivo</span>
-                                        <?php endif; ?>
-                                    </td>
+                                    <td class="fw-semibold"><?php echo e((string)$categoria['nombre']); ?></td>
+                                    <td><?php echo e((string)($categoria['descripcion'] ?? '')); ?></td>
+                                    <td><?php if((int)($categoria['estado']??0)===1): ?><span class="badge bg-success-subtle text-success">Activo</span><?php else: ?><span class="badge bg-secondary-subtle text-secondary">Inactivo</span><?php endif; ?></td>
                                     <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-primary btn-editar-categoria"
-                                            data-id="<?php echo (int) $categoria['id']; ?>"
-                                            data-nombre="<?php echo e((string) $categoria['nombre']); ?>"
-                                            data-descripcion="<?php echo e((string) ($categoria['descripcion'] ?? '')); ?>"
-                                            data-estado="<?php echo (int) ($categoria['estado'] ?? 1); ?>">
-                                            Editar
-                                        </button>
-                                        <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar categoría?" data-confirm-text="Esta acción no se puede deshacer.">
-                                            <input type="hidden" name="accion" value="eliminar_categoria">
-                                            <input type="hidden" name="id" value="<?php echo (int) $categoria['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                        </form>
+                                        <button class="btn btn-sm btn-outline-primary btn-editar-categoria" data-id="<?php echo (int)$categoria['id']; ?>" data-nombre="<?php echo e((string)$categoria['nombre']); ?>" data-descripcion="<?php echo e((string)($categoria['descripcion']??'')); ?>" data-estado="<?php echo (int)($categoria['estado']??1); ?>">Editar</button>
+                                        <form method="post" class="d-inline js-swal-confirm"><input type="hidden" name="accion" value="eliminar_categoria"><input type="hidden" name="id" value="<?php echo (int)$categoria['id']; ?>"><button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button></form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -509,222 +730,10 @@ $tipoItemLabel = static function (string $tipo): string {
             <form method="post" id="formEditarAtributo" class="modal-body">
                 <input type="hidden" name="accion" id="editarAtributoAccion" value="">
                 <input type="hidden" name="id" id="editarAtributoId" value="">
-                <div class="mb-3">
-                    <label for="editarAtributoNombre" class="form-label">Nombre</label>
-                    <input type="text" class="form-control" id="editarAtributoNombre" name="nombre" required>
-                </div>
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="editarAtributoEstado" name="estado" value="1" checked>
-                    <label class="form-check-label" for="editarAtributoEstado">Activo</label>
-                </div>
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
-                </div>
+                <div class="mb-3"><label class="form-label">Nombre</label><input type="text" class="form-control" id="editarAtributoNombre" name="nombre" required></div>
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="editarAtributoEstado" name="estado" value="1" checked><label class="form-check-label">Activo</label></div>
+                <div class="d-flex justify-content-end gap-2"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar cambios</button></div>
             </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar ítem</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form method="post" class="row g-3" id="formCrearItem">
-                    <input type="hidden" name="accion" value="crear">
-                    <div class="col-md-3"><div class="form-floating"><input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU"><label for="newSku">SKU (opcional)</label></div></div>
-                    <div class="col-md-5"><div class="form-floating"><input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required><label for="newNombre">Nombre</label></div></div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="newTipo" name="tipo_item" required>
-                            <option value="" selected disabled>Seleccionar...</option>
-                            <option value="producto_terminado">Producto terminado</option>
-                            <option value="materia_prima">Materia Prima</option>
-                            <option value="insumo">Insumo</option>
-                            <option value="semielaborado">Semielaborado</option>
-                            <option value="material_empaque">Material de Empaque</option>
-                            <option value="servicio">Servicios / Otros</option>
-                        </select>
-                        <label for="newTipo">Tipo de ítem</label>
-                    </div>
-                    <div class="col-md-6 form-floating" id="newMarcaContainer">
-                        <select class="form-select" id="newMarca" name="id_marca">
-                            <option value="" selected>Seleccionar marca...</option>
-                            <?php foreach ($marcas as $marca): ?>
-                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="newMarca">Marca</label>
-                    </div>
-                    <div class="col-md-3 form-floating">
-                        <select class="form-select" id="newUnidad" name="unidad_base">
-                            <option value="UND" selected>UND</option>
-                            <option value="KG">KG</option>
-                            <option value="LT">LT</option>
-                            <option value="M">M</option>
-                            <option value="CAJA">CAJA</option>
-                            <option value="PAQ">PAQ (Paquete)</option>
-                        </select>
-                        <label for="newUnidad">Unidad base</label>
-                    </div>
-                    <div class="col-md-3 form-floating">
-                        <select class="form-select" id="newMoneda" name="moneda">
-                            <option value="PEN" selected>PEN (Soles)</option>
-                            <option value="USD">USD (Dólares)</option>
-                        </select>
-                        <label for="newMoneda">Moneda</label>
-                    </div>
-                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000"><label for="newPrecio">Precio venta</label></div></div>
-                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000"><label for="newCosto">Costo referencial</label></div></div>
-                    <div class="col-md-6"><div class="form-floating"><input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00"><label for="newImpuesto">Impuesto (%)</label></div></div>
-                    <div class="col-md-12"><div class="form-floating"><input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción"><label for="newDescripcion">Descripción</label></div></div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="newCategoria" name="id_categoria">
-                            <option value="" selected>Seleccionar categoría...</option>
-                            <?php foreach ($categorias as $categoria): ?>
-                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="newCategoria">Categoría</label>
-                    </div>
-                    <div class="col-md-4 form-floating" id="newSaborContainer">
-                        <select class="form-select" id="newSabor" name="id_sabor">
-                            <option value="" selected>Seleccionar sabor...</option>
-                            <?php foreach ($sabores as $sabor): ?>
-                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="newSabor">Sabor</label>
-                    </div>
-                    <div class="col-md-4 form-floating" id="newPresentacionContainer">
-                        <select class="form-select" id="newPresentacion" name="id_presentacion">
-                            <option value="" selected>Seleccionar presentación...</option>
-                            <?php foreach ($presentaciones as $presentacion): ?>
-                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="newPresentacion">Presentación</label>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="newControlaStock">Controla stock</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="newStockMinContainer"><input type="number" step="0.0001" class="form-control" id="newStockMin" name="stock_minimo" value="0.0000" disabled><label for="newStockMin">Stock mín.</label></div>
-                    <div class="col-md-4 d-flex align-items-center" id="newPermiteDecimalesContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="newPermiteDecimales">Permite decimales</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center" id="newRequiereLoteContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="newRequiereLote">Requiere lote</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center" id="newRequiereVencimientoContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="newRequiereVencimiento">Requiere vencimiento</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="newDiasAlertaContainer">
-                        <input type="number" min="0" class="form-control" id="newDiasAlerta" name="dias_alerta_vencimiento" value="30">
-                        <label for="newDiasAlerta">Días de alerta</label>
-                    </div>
-                    <input type="hidden" id="newEstado" name="estado" value="1">
-                    <div class="col-12 d-flex justify-content-end pt-3">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary px-4" type="submit"><i class="bi bi-save me-2"></i>Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold">Editar ítem</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form method="post" id="formEditarItem" class="row g-3">
-                    <input type="hidden" name="accion" value="editar">
-                    <input type="hidden" name="id" id="editId">
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editSku" name="sku" readonly><label for="editSku">SKU (inmutable)</label></div>
-                    <div class="col-md-8 form-floating"><input class="form-control" id="editNombre" name="nombre" required><label for="editNombre">Nombre</label></div>
-                    <div class="col-md-12 form-floating"><input class="form-control" id="editDescripcion" name="descripcion"><label for="editDescripcion">Descripción</label></div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="editTipo" name="tipo_item" required>
-                            <option value="producto_terminado">Producto terminado</option>
-                            <option value="materia_prima">Materia prima</option>
-                        <option value="insumo">Insumo</option>
-                        <option value="semielaborado">Semielaborado</option>
-                            <option value="material_empaque">Material de empaque</option>
-                            <option value="servicio">Servicio</option>
-                        </select>
-                        <label for="editTipo">Tipo</label>
-                    </div>
-                    <div class="col-md-4 form-floating" id="editMarcaContainer">
-                        <select class="form-select" id="editMarca" name="id_marca">
-                            <option value="">Seleccionar marca...</option>
-                            <?php foreach ($marcas as $marca): ?>
-                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="editMarca">Marca</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="editUnidad" name="unidad_base">
-                            <option value="UND">UND</option>
-                            <option value="KG">KG</option>
-                            <option value="LT">LT</option>
-                            <option value="M">M</option>
-                            <option value="CAJA">CAJA</option>
-                            <option value="PAQ">PAQ (Paquete)</option>
-                        </select>
-                        <label for="editUnidad">Unidad base</label>
-                    </div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="editMoneda" name="moneda">
-                            <option value="PEN">PEN (Soles)</option>
-                            <option value="USD">USD (Dólares)</option>
-                        </select>
-                        <label for="editMoneda">Moneda</label>
-                    </div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001" value="18.00"><label for="editImpuesto">Impuesto (%)</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001"><label for="editPrecio">Precio</label></div>
-                    <div class="col-md-4 form-floating"><input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001"><label for="editCosto">Costo referencial</label></div>
-                    <div class="col-md-4 form-floating">
-                        <select class="form-select" id="editCategoria" name="id_categoria">
-                            <option value="">Seleccionar categoría...</option>
-                            <?php foreach ($categorias as $categoria): ?>
-                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="editCategoria">Categoría</label>
-                    </div>
-                    <div class="col-md-4 form-floating" id="editSaborContainer">
-                        <select class="form-select" id="editSabor" name="id_sabor">
-                            <option value="">Seleccionar sabor...</option>
-                            <?php foreach ($sabores as $sabor): ?>
-                                <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="editSabor">Sabor</label>
-                    </div>
-                    <div class="col-md-4 form-floating" id="editPresentacionContainer">
-                        <select class="form-select" id="editPresentacion" name="id_presentacion">
-                            <option value="">Seleccionar presentación...</option>
-                            <?php foreach ($presentaciones as $presentacion): ?>
-                                <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label for="editPresentacion">Presentación</label>
-                    </div>
-
-                    <div class="col-md-4 d-flex align-items-center"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1"><label class="form-check-label ms-2" for="editControlaStock">Controla stock</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="editStockMinimoContainer"><input class="form-control" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001" disabled><label for="editStockMinimo">Stock mín.</label></div>
-                    <div class="col-md-4 d-flex align-items-center" id="editPermiteDecimalesContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1"><label class="form-check-label ms-2" for="editPermiteDecimales">Permite decimales</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center" id="editRequiereLoteContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1"><label class="form-check-label ms-2" for="editRequiereLote">Requiere lote</label></div></div>
-                    <div class="col-md-4 d-flex align-items-center" id="editRequiereVencimientoContainer"><div class="form-check form-switch ps-5"><input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1"><label class="form-check-label ms-2" for="editRequiereVencimiento">Requiere vencimiento</label></div></div>
-                    <div class="col-md-4 form-floating d-none" id="editDiasAlertaContainer">
-                        <input type="number" min="0" class="form-control" id="editDiasAlerta" name="dias_alerta_vencimiento" value="30">
-                        <label for="editDiasAlerta">Días de alerta</label>
-                    </div>
-
-                    <div class="col-md-4 form-floating"><select class="form-select" id="editEstado" name="estado"><option value="1">Activo</option><option value="0">Inactivo</option></select><label for="editEstado">Estado</label></div>
-                    <div class="col-12 d-flex justify-content-end pt-3"><button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary px-4" type="submit">Actualizar</button></div>
-                </form>
-            </div>
         </div>
     </div>
 </div>

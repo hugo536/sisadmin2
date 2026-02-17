@@ -192,6 +192,17 @@ class ItemsController extends Controlador
                     if ($id <= 0) {
                         throw new RuntimeException('ID de sabor inválido.');
                     }
+
+                    // --- INICIO BLOQUE DE SEGURIDAD ---
+                    // Buscamos si este ID corresponde al registro "Ninguno"
+                    $todosLosSabores = $this->itemsModel->listarSabores();
+                    foreach ($todosLosSabores as $saborExistente) {
+                        if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
+                            throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema y no se puede editar.');
+                        }
+                    }
+                    // --- FIN BLOQUE DE SEGURIDAD ---
+
                     $data = $this->validarAtributoItem($_POST);
                     $this->itemsModel->actualizarSabor($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor actualizado correctamente.'];
@@ -204,6 +215,17 @@ class ItemsController extends Controlador
                     if ($id <= 0) {
                         throw new RuntimeException('ID de sabor inválido.');
                     }
+
+                    // --- INICIO BLOQUE DE SEGURIDAD ---
+                    // Verificamos antes de intentar eliminar
+                    $todosLosSabores = $this->itemsModel->listarSabores();
+                    foreach ($todosLosSabores as $saborExistente) {
+                        if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
+                            throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema protegido.');
+                        }
+                    }
+                    // --- FIN BLOQUE DE SEGURIDAD ---
+
                     $this->itemsModel->eliminarSabor($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Sabor eliminado correctamente.'];
