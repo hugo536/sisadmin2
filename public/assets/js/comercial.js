@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputBuscador = document.getElementById('presentacionSearch');
     const filtroProducto = document.getElementById('presentacionFiltroProducto');
     const filtroEstado = document.getElementById('presentacionFiltroEstado');
+    const modalCrearPresentacion = document.getElementById('modalCrearPresentacion');
+    const btnCrearPresentacion = document.querySelector('.js-crear-presentacion');
 
     if (tablaPresentaciones) {
         const filas = Array.from(tablaPresentaciones.querySelectorAll('tbody tr'));
@@ -36,35 +38,52 @@ document.addEventListener('DOMContentLoaded', function() {
             control.addEventListener('change', actualizarTablaPresentaciones);
         });
 
+        const resetFormPresentacion = function() {
+            if (!modalCrearPresentacion) return;
+            const form = modalCrearPresentacion.querySelector('form');
+            if (!form) return;
+
+            form.reset();
+            form.querySelector('[name="id"]').value = '';
+            form.querySelector('[name="accion"]').value = 'crear';
+            modalCrearPresentacion.querySelector('.modal-title').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
+        };
+
+        const cargarEdicionPresentacion = function(btnEditar) {
+            if (!modalCrearPresentacion || !btnEditar) return;
+            const form = modalCrearPresentacion.querySelector('form');
+            if (!form) return;
+
+            modalCrearPresentacion.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
+            form.querySelector('[name="id"]').value = btnEditar.dataset.id || '';
+            form.querySelector('[name="accion"]').value = 'editar';
+            form.querySelector('[name="id_item"]').value = btnEditar.dataset.idItem || '';
+            form.querySelector('[name="nombre"]').value = btnEditar.dataset.nombre || '';
+            form.querySelector('[name="factor"]').value = btnEditar.dataset.factor || '';
+            form.querySelector('[name="precio_x_menor"]').value = btnEditar.dataset.precioMenor || '';
+            form.querySelector('[name="precio_x_mayor"]').value = btnEditar.dataset.precioMayor || '';
+            form.querySelector('[name="cantidad_minima_mayor"]').value = btnEditar.dataset.cantidadMinima || '';
+        };
+
         // --- B. Lógica para EDITAR ---
         tablaPresentaciones.addEventListener('click', function(e) {
             const btnEditar = e.target.closest('.js-editar-presentacion');
             
             if (btnEditar) {
-                const modal = document.getElementById('modalCrearPresentacion');
-                const form = modal.querySelector('form');
-
-                modal.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
-
-                form.querySelector('[name="id"]').value = btnEditar.dataset.id || '';
-                form.querySelector('[name="accion"]').value = 'editar';
-                form.querySelector('[name="id_item"]').value = btnEditar.dataset.idItem || '';
-                form.querySelector('[name="nombre"]').value = btnEditar.dataset.nombre || '';
-                form.querySelector('[name="factor"]').value = btnEditar.dataset.factor || '';
-                form.querySelector('[name="precio_x_menor"]').value = btnEditar.dataset.precioMenor || '';
-                form.querySelector('[name="precio_x_mayor"]').value = btnEditar.dataset.precioMayor || '';
-                form.querySelector('[name="cantidad_minima_mayor"]').value = btnEditar.dataset.cantidadMinima || '';
+                cargarEdicionPresentacion(btnEditar);
             }
 
             const btnEstado = e.target.closest('.js-toggle-estado-presentacion');
             if (btnEstado) {
                 const id = btnEstado.dataset.id;
-                const estadoActual = Number(btnEstado.dataset.estado || 1);
-                const nuevoEstado = estadoActual === 1 ? 0 : 1;
+                const estadoActual = btnEstado.checked ? 1 : 0;
+                const nuevoEstado = estadoActual;
                 const accionTexto = nuevoEstado === 1 ? 'activar' : 'desactivar';
 
                 if (confirm(`¿Deseas ${accionTexto} esta presentación?`)) {
                     window.location.href = `?ruta=comercial/toggleEstadoPresentacion&id=${id}&estado=${nuevoEstado}`;
+                } else {
+                    btnEstado.checked = !btnEstado.checked;
                 }
             }
         });
@@ -80,13 +99,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        const modalCrearPresentacion = document.getElementById('modalCrearPresentacion');
         modalCrearPresentacion?.addEventListener('hidden.bs.modal', function() {
-            const form = modalCrearPresentacion.querySelector('form');
-            form.reset();
-            form.querySelector('[name="id"]').value = '';
-            form.querySelector('[name="accion"]').value = 'crear';
-            modalCrearPresentacion.querySelector('.modal-title').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
+            resetFormPresentacion();
+        });
+
+        modalCrearPresentacion?.addEventListener('show.bs.modal', function(event) {
+            const trigger = event.relatedTarget;
+            if (!(trigger instanceof Element) || !trigger.classList.contains('js-editar-presentacion')) {
+                resetFormPresentacion();
+                return;
+            }
+
+            cargarEdicionPresentacion(trigger);
+        });
+
+        btnCrearPresentacion?.addEventListener('click', function() {
+            resetFormPresentacion();
         });
 
         actualizarTablaPresentaciones();

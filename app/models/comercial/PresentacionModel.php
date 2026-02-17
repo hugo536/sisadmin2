@@ -53,6 +53,7 @@ class PresentacionModel extends Modelo {
                 WHERE i.estado = 1 
                   AND i.deleted_at IS NULL
                   AND i.tipo_item = 'producto' -- Solo mostramos productos terminados
+                  AND i.nombre IN ('Agua de Mesa Belén', 'Cola Belén')
                 ORDER BY i.nombre ASC";
 
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
