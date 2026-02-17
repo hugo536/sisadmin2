@@ -1,10 +1,10 @@
 <?php
 // app/controladores/ComercialController.php
 
-require_once 'app/modelos/comercial/PresentacionModel.php';
-require_once 'app/modelos/comercial/ListaPrecioModel.php';
-require_once 'app/modelos/comercial/AsignacionModel.php';
-require_once 'app/modelos/ItemModel.php'; // Necesitamos cargar items para los selects
+require_once BASE_PATH . '/app/models/comercial/PresentacionModel.php';
+require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
+require_once BASE_PATH . '/app/models/comercial/AsignacionModel.php';
+require_once BASE_PATH . '/app/models/ItemsModel.php'; // Necesitamos cargar items para los selects
 
 class ComercialController extends Controlador {
 
@@ -24,7 +24,7 @@ class ComercialController extends Controlador {
         $this->presentacionModel = new PresentacionModel();
         $this->listaPrecioModel = new ListaPrecioModel();
         $this->asignacionModel = new AsignacionModel();
-        $this->itemModel = new ItemModel();
+        $this->itemModel = new ItemsModel();
     }
 
     // =========================================================================
@@ -35,7 +35,7 @@ class ComercialController extends Controlador {
         // Cargar datos para la vista
         $datos = [
             'titulo' => 'Gestión de Presentaciones',
-            'items' => $this->itemModel->obtenerTodos(), // Para el select de productos
+            'items' => $this->itemModel->listar(), // Para el select de productos
             'presentaciones' => $this->presentacionModel->listarTodo()
         ];
         
