@@ -40,26 +40,22 @@ if (!function_exists('tiene_permiso')) {
             return true;
         }
 
-        // 3. CACHÉ DE SESIÓN (Optimización Crítica)
-        // Si los permisos no están en memoria, los cargamos de la BD una sola vez.
+        // 3. CACHÉ DE SESIÓN
         if (!isset($_SESSION['permisos'])) {
-            // Aseguramos que el modelo esté cargado
             $modeloPath = BASE_PATH . '/app/models/PermisoModel.php';
             if (is_file($modeloPath)) {
                 require_once $modeloPath;
                 if (class_exists('PermisoModel')) {
                     $model = new PermisoModel();
-                    // Obtenemos array simple de slugs: ['ventas.ver', 'roles.editar', ...]
                     $_SESSION['permisos'] = $model->obtener_slugs_por_rol($idRol);
                 } else {
-                    $_SESSION['permisos'] = []; // Fallback seguro
+                    $_SESSION['permisos'] = [];
                 }
             } else {
-                $_SESSION['permisos'] = []; // Fallback si no existe modelo
+                $_SESSION['permisos'] = [];
             }
         }
 
-        // 4. Verificación rápida en memoria
         return in_array($slug, $_SESSION['permisos'], true);
     }
 }
@@ -71,13 +67,11 @@ if (!function_exists('require_permiso')) {
             return;
         }
 
-        // Si es AJAX, responder JSON 403
         if (es_ajax()) {
-            json_response(['ok' => false, 'mensaje' => 'Acceso denegado. No tienes permiso: ' . $slug], 403);
+            json_response(['ok' => false, 'mensaje' => 'Acceso denegado: ' . $slug], 403);
             exit;
         }
 
-        // Si es vista normal, mostrar error
         http_response_code(403);
         $vista403 = BASE_PATH . '/app/views/403.php';
         if (is_file($vista403)) {
@@ -89,30 +83,76 @@ if (!function_exists('require_permiso')) {
     }
 }
 
+// --------------------------------------------------------------------------
+// FUNCIONES DE URL Y REDIRECCIÓN (AQUÍ ESTABA EL FALTANTE)
+// --------------------------------------------------------------------------
+
 if (!function_exists('base_url')) {
     function base_url(): string
     {
+        // Detecta el protocolo y host para generar URL absoluta (recomendado para redirects)
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        
         $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
         $dir = str_replace('\\', '/', dirname($scriptName));
 
         if ($dir === '/' || $dir === '.' || $dir === '\\') {
-            return '';
+            $path = '';
+        } else {
+            $path = rtrim($dir, '/');
         }
-
-        return rtrim($dir, '/');
-    }
-}
-
-if (!function_exists('asset_url')) {
-    function asset_url(string $path): string
-    {
-        return base_url() . '/assets/' . ltrim($path, '/');
+        
+        return $protocol . $host . $path;
     }
 }
 
 if (!function_exists('route_url')) {
     function route_url(string $ruta): string
     {
+        // Genera: http://localhost/sisadmin2/?ruta=controlador/metodo
         return base_url() . '/?ruta=' . ltrim($ruta, '/');
+    }
+}
+
+if (!function_exists('asset_url')) {
+    function asset_url(string $path): string
+    {
+        // Ajusta si tu carpeta 'assets' está dentro de 'public' o en la raíz
+        // Según tu estructura parece ser raíz/assets o public/assets. 
+        // Si usas public/index.php, el assets suele estar al nivel de index.php
+        return base_url() . '/assets/' . ltrim($path, '/');
+    }
+}
+
+// ESTA ES LA FUNCIÓN QUE FALTABA
+if (!function_exists('redirect')) {
+    function redirect(string $ruta): void
+    {
+        // Lógica inteligente para manejar parámetros GET
+        // Si pasas 'comercial/presentaciones?error=1', esto lo convierte correctamente
+        // para que funcione con tu sistema de ?ruta=...
+        
+        if (!str_starts_with($ruta, 'http')) {
+            $parts = explode('?', $ruta, 2);
+            $cleanPath = $parts[0];
+            $queryParams = $parts[1] ?? '';
+
+            $url = route_url($cleanPath); // .../?ruta=comercial/presentaciones
+            
+            if ($queryParams !== '') {
+                // Cambiamos el ? del parámetro por & porque ?ruta ya usó el primero
+                $url .= '&' . $queryParams; 
+            }
+        } else {
+            $url = $ruta;
+        }
+
+        if (!headers_sent()) {
+            header('Location: ' . $url);
+        } else {
+            echo '<script>window.location.href="' . $url . '";</script>';
+        }
+        exit;
     }
 }
