@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalEl = document.getElementById('modalCrearPresentacion');
         const formPresentacion = document.getElementById('formPresentacion');
         const btnCrear = document.querySelector('.js-crear-presentacion');
+        const btnCrearMixta = document.querySelector('.js-crear-presentacion-mixta');
         const modalTitle = document.getElementById('modalTitle');
         const modalBootstrap = modalEl ? new bootstrap.Modal(modalEl) : null;
 
@@ -269,6 +270,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (btnCrear) btnCrear.addEventListener('click', resetearFormulario);
+        if (btnCrearMixta) {
+            btnCrearMixta.addEventListener('click', () => {
+                resetearFormulario();
+                if (inputEsMixto) {
+                    inputEsMixto.checked = true;
+                    toggleMixto();
+                }
+            });
+        }
 
         const inputBuscador = document.getElementById('presentacionSearch');
         const filtroProducto = document.getElementById('presentacionFiltroProducto');
