@@ -406,6 +406,34 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <label for="editSku">SKU</label>
                                         </div>
                                     </div>
+
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="editTipo" name="tipo_item" required>
+                                                <option value="producto_terminado">Producto terminado</option>
+                                                <option value="materia_prima">Materia prima</option>
+                                                <option value="insumo">Insumo</option>
+                                                <option value="semielaborado">Semielaborado</option>
+                                                <option value="material_empaque">Material de empaque</option>
+                                                <option value="servicio">Servicio</option>
+                                            </select>
+                                            <label for="editTipo">Tipo de ítem</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="editUnidad" name="unidad_base">
+                                                <option value="UND">UND</option>
+                                                <option value="KG">KG</option>
+                                                <option value="LT">LT</option>
+                                                <option value="M">M</option>
+                                                <option value="CAJA">CAJA</option>
+                                                <option value="PAQ">PAQ</option>
+                                            </select>
+                                            <label for="editUnidad">Unidad base</label>
+                                        </div>
+                                    </div>
+
                                     <div class="col-md-6" id="editSaborContainer">
                                         <label class="form-label small text-muted mb-1">Sabor / Variante</label>
                                         <select class="form-select" id="editSabor" name="id_sabor">
@@ -456,32 +484,6 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="editTipo" name="tipo_item" required>
-                                                <option value="producto_terminado">Producto terminado</option>
-                                                <option value="materia_prima">Materia prima</option>
-                                                <option value="insumo">Insumo</option>
-                                                <option value="semielaborado">Semielaborado</option>
-                                                <option value="material_empaque">Material de empaque</option>
-                                                <option value="servicio">Servicio</option>
-                                            </select>
-                                            <label for="editTipo">Tipo</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="editUnidad" name="unidad_base">
-                                                <option value="UND">UND</option>
-                                                <option value="KG">KG</option>
-                                                <option value="LT">LT</option>
-                                                <option value="M">M</option>
-                                                <option value="CAJA">CAJA</option>
-                                                <option value="PAQ">PAQ</option>
-                                            </select>
-                                            <label for="editUnidad">Unidad</label>
-                                        </div>
-                                    </div>
                                     <div class="col-md-6">
                                         <label class="form-label small text-muted mb-0">Costo Ref.</label>
                                         <input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001">
