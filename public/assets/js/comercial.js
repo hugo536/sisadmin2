@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputPrecioMenor = document.getElementById('inputPrecioMenor');
     const inputPrecioMayor = document.getElementById('inputPrecioMayor');
     const inputMinMayor = document.getElementById('inputMinMayor');
+    const inputPesoBruto = document.getElementById('peso_bruto');
 
     // =========================================================================
     // 2. FUNCIONES LÓGICAS (ASYNC/AWAIT)
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(inputPrecioMenor) inputPrecioMenor.value = d.precio_x_menor;
                 if(inputPrecioMayor) inputPrecioMayor.value = d.precio_x_mayor;
                 if(inputMinMayor) inputMinMayor.value = d.cantidad_minima_mayor;
+                if(inputPesoBruto) inputPesoBruto.value = d.peso_bruto ?? '0.000';
 
                 if(modalTitle) modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
             } else {
@@ -111,6 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputItem.disabled = false; // Habilita select estándar
             }
         }
+
+        if(inputPesoBruto) inputPesoBruto.value = '0.000';
 
         if(modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
     };

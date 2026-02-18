@@ -67,7 +67,8 @@ class ComercialController extends Controlador {
                 'factor' => $_POST['factor'],
                 'precio_x_menor' => $_POST['precio_x_menor'],
                 'precio_x_mayor' => $_POST['precio_x_mayor'] ?? null,
-                'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null
+                'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null,
+                'peso_bruto' => isset($_POST['peso_bruto']) ? (float) $_POST['peso_bruto'] : 0
             ];
 
             // Validaciones básicas
