@@ -58,13 +58,13 @@ $presentaciones = $presentaciones ?? [];
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4" style="width: 15%;">Código (SKU)</th>
-                                <th class="text-center" style="width: 8%;">Tipo</th>
                                 <th style="width: 30%;">Nombre Presentación</th>
                                 <th class="text-center">Factor</th>
                                 <th class="text-center">PESO (KG)</th>
                                 <th class="text-end">Precio Menor</th>
                                 <th class="text-end">Precio Mayor</th>
                                 <th class="text-center">Min. Mayorista</th>
+                                <th class="text-center">Stock Mínimo</th>
                                 <th class="text-center">Estado</th>
                                 <th class="text-end pe-4">Acciones</th>
                             </tr>
@@ -88,12 +88,6 @@ $presentaciones = $presentaciones ?? [];
                                     
                                     <td class="ps-4 fw-bold text-primary font-monospace">
                                         <?php echo htmlspecialchars($codigo); ?>
-                                    </td>
-
-                                    <td class="text-center">
-                                        <span class="badge <?php echo $esMixto ? 'bg-primary' : 'bg-secondary'; ?>">
-                                            <?php echo $esMixto ? 'Mixto' : 'Simple'; ?>
-                                        </span>
                                     </td>
 
                                     <td class="fw-semibold text-dark" <?php if ($esMixto && $composicionMixta !== ''): ?>title="<?php echo htmlspecialchars($composicionMixta); ?>"<?php endif; ?>>
@@ -123,6 +117,9 @@ $presentaciones = $presentaciones ?? [];
                                     </td>
                                     <td class="text-center text-muted small">
                                         <?php echo !empty($p['cantidad_minima_mayor']) ? '> ' . (int) $p['cantidad_minima_mayor'] : '-'; ?>
+                                    </td>
+                                    <td class="text-center text-muted small">
+                                        <?php echo isset($p['stock_minimo']) ? (float) $p['stock_minimo'] : 0; ?>
                                     </td>
                                     <td class="text-center">
                                         <span class="badge <?php echo $estado === 1 ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'; ?>">
