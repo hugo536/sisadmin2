@@ -56,17 +56,41 @@ class ComercialController extends Controlador {
 
     public function guardarPresentacion() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $esMixto = isset($_POST['es_mixto']) ? 1 : 0;
+            $detalleMixto = [];
+
+            if (!empty($_POST['detalle_mixto']) && is_array($_POST['detalle_mixto'])) {
+                foreach ($_POST['detalle_mixto'] as $linea) {
+                    $idItem = (int) ($linea['id_item'] ?? 0);
+                    $cantidad = (float) ($linea['cantidad'] ?? 0);
+                    if ($idItem > 0 && $cantidad > 0) {
+                        $detalleMixto[] = [
+                            'id_item' => $idItem,
+                            'cantidad' => $cantidad,
+                        ];
+                    }
+                }
+            }
+
             $datos = [
                 'id' => $_POST['id'] ?? null,
-                'id_item' => $_POST['id_item'],
-                'factor' => $_POST['factor'],
+                'id_item' => $_POST['id_item'] ?? null,
+                'factor' => $_POST['factor'] ?? null,
+                'es_mixto' => $esMixto,
+                'detalle_mixto' => $detalleMixto,
                 'precio_x_menor' => $_POST['precio_x_menor'],
                 'precio_x_mayor' => $_POST['precio_x_mayor'] ?? null,
                 'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null,
-                'peso_bruto' => isset($_POST['peso_bruto']) ? (float) $_POST['peso_bruto'] : 0
+                'peso_bruto' => isset($_POST['peso_bruto']) ? (float) $_POST['peso_bruto'] : 0,
+                'stock_minimo' => isset($_POST['stock_minimo']) ? (float) $_POST['stock_minimo'] : 0,
             ];
 
-            if (empty($datos['id_item']) || empty($datos['factor'])) {
+            if ($esMixto === 0 && (empty($datos['id_item']) || empty($datos['factor']))) {
+                redirect('comercial/presentaciones?error=campos_vacios');
+                return;
+            }
+
+            if ($esMixto === 1 && empty($detalleMixto)) {
                 redirect('comercial/presentaciones?error=campos_vacios');
                 return;
             }

@@ -32,6 +32,114 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputPrecioMayor = document.getElementById('inputPrecioMayor');
         const inputMinMayor = document.getElementById('inputMinMayor');
         const inputPesoBruto = document.getElementById('peso_bruto');
+        const inputStockMinimo = document.getElementById('stock_minimo');
+        const inputEsMixto = document.getElementById('es_mixto');
+        const simpleFields = Array.from(document.querySelectorAll('.js-simple-field'));
+        const seccionComposicionMixta = document.getElementById('seccionComposicionMixta');
+        const tablaComposicionBody = document.querySelector('#tablaComposicionMixta tbody');
+        const btnAgregarLineaMixta = document.getElementById('agregarLineaMixta');
+
+        const itemOptions = inputItem
+            ? Array.from(inputItem.options)
+                .filter(opt => opt.value)
+                .map(opt => ({
+                    value: opt.value,
+                    label: opt.textContent.trim(),
+                    unidad: opt.dataset.unidad || 'UND',
+                    precio: parseFloat(opt.dataset.precio || '0') || 0,
+                }))
+            : [];
+
+        const format2 = (v) => Number(v || 0).toFixed(2);
+        const format3 = (v) => Number(v || 0).toFixed(3);
+
+        const recalcularMixto = () => {
+            if (!inputEsMixto || !inputEsMixto.checked || !tablaComposicionBody) return;
+
+            let totalPrecioBase = 0;
+            let totalCantidad = 0;
+
+            tablaComposicionBody.querySelectorAll('tr').forEach(row => {
+                const select = row.querySelector('.js-mixto-item');
+                const cantidadInput = row.querySelector('.js-mixto-cantidad');
+                const cantidad = parseFloat(cantidadInput?.value || '0') || 0;
+                const option = itemOptions.find(o => o.value === (select?.value || ''));
+                const precio = option ? option.precio : 0;
+
+                totalPrecioBase += (precio * cantidad);
+                totalCantidad += cantidad;
+            });
+
+            const precioMenor = totalPrecioBase * 1.2;
+            if (inputPrecioMenor) inputPrecioMenor.value = format2(precioMenor);
+            if (inputPrecioMayor && !inputPrecioMayor.value) inputPrecioMayor.value = format2(totalPrecioBase);
+            if (inputFactor) inputFactor.value = totalCantidad > 0 ? format3(totalCantidad) : '';
+            if (inputPesoBruto) inputPesoBruto.value = format3(0);
+        };
+
+        const construirSelectItems = (name, selectedValue = '') => {
+            const opciones = ['<option value="">Seleccione...</option>'];
+            itemOptions.forEach(opt => {
+                const selected = String(selectedValue) === String(opt.value) ? 'selected' : '';
+                opciones.push(`<option value="${opt.value}" data-unidad="${opt.unidad}" data-precio="${opt.precio}" ${selected}>${opt.label}</option>`);
+            });
+            return `<select class="form-select form-select-sm js-mixto-item" name="${name}[id_item]" required>${opciones.join('')}</select>`;
+        };
+
+        const agregarLineaMixta = (linea = null) => {
+            if (!tablaComposicionBody) return;
+            const idx = tablaComposicionBody.querySelectorAll('tr').length;
+            const selectedItem = linea?.id_item || '';
+            const cantidad = linea?.cantidad || '';
+            const unidad = linea?.unidad_base || '';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${construirSelectItems(`detalle_mixto[${idx}]`, selectedItem)}</td>
+                <td><input type="number" min="1" step="0.0001" class="form-control form-control-sm js-mixto-cantidad" name="detalle_mixto[${idx}][cantidad]" value="${cantidad}" required></td>
+                <td><input type="text" class="form-control form-control-sm js-mixto-unidad" value="${unidad || 'UND'}" readonly></td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger js-quitar-linea-mixta">×</button></td>
+            `;
+            tablaComposicionBody.appendChild(tr);
+
+            const select = tr.querySelector('.js-mixto-item');
+            const unidadInput = tr.querySelector('.js-mixto-unidad');
+            select?.addEventListener('change', () => {
+                const opt = select.selectedOptions[0];
+                unidadInput.value = opt?.dataset?.unidad || 'UND';
+                recalcularMixto();
+            });
+
+            tr.querySelector('.js-mixto-cantidad')?.addEventListener('input', recalcularMixto);
+            tr.querySelector('.js-quitar-linea-mixta')?.addEventListener('click', () => {
+                tr.remove();
+                recalcularMixto();
+            });
+        };
+
+        const limpiarLineasMixtas = () => {
+            if (tablaComposicionBody) tablaComposicionBody.innerHTML = '';
+        };
+
+        const toggleMixto = (force = null) => {
+            const esMixto = force !== null ? force : !!(inputEsMixto && inputEsMixto.checked);
+            simpleFields.forEach(el => el.classList.toggle('d-none', esMixto));
+            if (seccionComposicionMixta) seccionComposicionMixta.classList.toggle('d-none', !esMixto);
+
+            if (inputItem) inputItem.required = !esMixto;
+            if (inputFactor) inputFactor.required = !esMixto;
+
+            if (esMixto) {
+                if (inputItem) inputItem.value = '';
+                if (inputFactor) inputFactor.value = '';
+                if (tablaComposicionBody && !tablaComposicionBody.querySelector('tr')) {
+                    agregarLineaMixta();
+                }
+                recalcularMixto();
+            } else {
+                limpiarLineasMixtas();
+            }
+        };
 
         const cargarDatos = async (id) => {
             if (!modalBootstrap) return;
@@ -45,31 +153,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) throw new Error('Error en la respuesta del servidor');
                 const res = await response.json();
-
-                if (!res.success) {
-                    throw new Error(res.message || 'No se pudo cargar la información');
-                }
+                if (!res.success) throw new Error(res.message || 'No se pudo cargar la información');
 
                 const d = res.data;
                 if (inputId) inputId.value = d.id;
+                if (inputEsMixto) {
+                    const esMixtoDato = parseInt(d.es_mixto || '0', 10) === 1;
+                    inputEsMixto.checked = esMixtoDato;
+                    inputEsMixto.dataset.wasMixto = esMixtoDato ? '1' : '0';
+                }
+                toggleMixto();
 
                 if (inputItem) {
                     inputItem.disabled = false;
                     if (inputItem.tomselect) {
-                        inputItem.tomselect.setValue(d.id_item);
+                        inputItem.tomselect.setValue(d.id_item || '');
                         inputItem.tomselect.lock();
                     } else {
-                        inputItem.value = d.id_item;
+                        inputItem.value = d.id_item || '';
                         inputItem.classList.add('pe-none');
                         inputItem.setAttribute('aria-disabled', 'true');
                     }
                 }
 
-                if (inputFactor) inputFactor.value = parseFloat(d.factor);
+                if (inputFactor) inputFactor.value = parseFloat(d.factor || 0) || '';
                 if (inputPrecioMenor) inputPrecioMenor.value = d.precio_x_menor;
                 if (inputPrecioMayor) inputPrecioMayor.value = d.precio_x_mayor;
                 if (inputMinMayor) inputMinMayor.value = d.cantidad_minima_mayor;
                 if (inputPesoBruto) inputPesoBruto.value = d.peso_bruto ?? '0.000';
+                if (inputStockMinimo) inputStockMinimo.value = d.stock_minimo ?? '0';
+
+                limpiarLineasMixtas();
+                if (parseInt(d.es_mixto || '0', 10) === 1 && Array.isArray(d.detalle_mixto)) {
+                    d.detalle_mixto.forEach(agregarLineaMixta);
+                    recalcularMixto();
+                }
+
                 if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
             } catch (error) {
                 alert('Error: ' + error.message);
@@ -81,6 +200,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!formPresentacion) return;
             formPresentacion.reset();
             if (inputId) inputId.value = '';
+            if (inputEsMixto) {
+                inputEsMixto.checked = false;
+                inputEsMixto.dataset.wasMixto = '0';
+            }
+            limpiarLineasMixtas();
 
             if (inputItem) {
                 inputItem.disabled = false;
@@ -94,8 +218,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (inputPesoBruto) inputPesoBruto.value = '0.000';
+            if (inputStockMinimo) inputStockMinimo.value = '0';
+            toggleMixto(false);
             if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
         };
+
+        if (inputEsMixto) {
+            inputEsMixto.addEventListener('change', () => {
+                const isEdit = !!(inputId && inputId.value);
+                const wasSimple = !inputEsMixto.dataset.wasMixto || inputEsMixto.dataset.wasMixto === '0';
+                if (isEdit && inputEsMixto.checked && wasSimple) {
+                    const confirmacion = confirm('Cambiar a mixto eliminará el producto base y factor actual. ¿Continuar?');
+                    if (!confirmacion) {
+                        inputEsMixto.checked = false;
+                        return;
+                    }
+                }
+                toggleMixto();
+            });
+        }
+
+        btnAgregarLineaMixta?.addEventListener('click', () => agregarLineaMixta());
 
         if (tablaPresentaciones) {
             tablaPresentaciones.addEventListener('click', (e) => {
@@ -120,6 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.href = `${urls.estado}&id=${id}&estado=${estado}`;
                 }
             });
+
+            const tooltips = Array.from(tablaPresentaciones.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltips.forEach(el => new bootstrap.Tooltip(el));
         }
 
         if (btnCrear) btnCrear.addEventListener('click', resetearFormulario);
@@ -153,6 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.addEventListener('change', filtrarTabla);
             });
         }
+
+        toggleMixto(false);
     }
 
     // =========================================================================
