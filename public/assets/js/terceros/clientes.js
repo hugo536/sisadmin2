@@ -133,7 +133,8 @@
 
     function addZone(manager, zona, status = ZONE_STATUS.TEMP) {
         const key = zoneKey(zona.departamento_id, zona.provincia_id, zona.distrito_id);
-        if (!zona.departamento_id || manager.zones.has(key)) return;
+        if (!zona.departamento_id) return { added: false, reason: 'missing_dep' };
+        if (manager.zones.has(key)) return { added: false, reason: 'duplicate' };
 
         manager.zones.set(key, {
             ...zona,
@@ -143,6 +144,7 @@
         });
 
         renderZones(manager);
+        return { added: true };
     }
 
     function removeZone(manager, key) {
@@ -204,12 +206,20 @@
         if (dep.dataset.zonesInit === 'true') return;
         dep.dataset.zonesInit = 'true';
 
+        const toggleAddButton = () => {
+            btn.disabled = !dep.value;
+        };
+
         // Cargar departamentos iniciales
-        fetchUbigeo('departamentos', '').then(items => fillSelect(dep, items));
+        fetchUbigeo('departamentos', '').then(items => {
+            fillSelect(dep, items);
+            toggleAddButton();
+        });
 
         dep.addEventListener('change', () => {
             prov.innerHTML = '<option value="">Seleccionar...</option>'; prov.disabled = true;
             dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true;
+            toggleAddButton();
             if (dep.value) fetchUbigeo('provincias', dep.value).then(items => fillSelect(prov, items));
         });
 
@@ -219,7 +229,12 @@
         });
 
         btn.addEventListener('click', () => {
-            if (!dep.value) return; // Mínimo departamento requerido
+            if (!dep.value) {
+                if (window.Swal) {
+                    Swal.fire('Atención', 'Seleccione un departamento para agregar la zona.', 'warning');
+                }
+                return;
+            }
 
             const zona = {
                 departamento_id: dep.value,
@@ -231,12 +246,18 @@
             };
             
             zona.label = buildLabel(zona);
-            addZone(manager, zona, ZONE_STATUS.TEMP);
+            const result = addZone(manager, zona, ZONE_STATUS.TEMP);
+
+            if (!result?.added && result?.reason === 'duplicate' && window.Swal) {
+                Swal.fire('Atención', 'Esa zona ya fue agregada en la lista.', 'info');
+            }
             
             // Opcional: Resetear selectores inferiores para facilitar nueva entrada
             dist.value = '';
             // prov.value = ''; // Si se quiere mantener la provincia seleccionada, comentar esta línea
         });
+
+        toggleAddButton();
     }
 
     function setDistribuidorZones(prefix, zonas, status = ZONE_STATUS.SAVED) {

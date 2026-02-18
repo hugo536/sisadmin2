@@ -777,13 +777,50 @@ class TercerosModel extends Modelo
             'fecha_nacimiento' => !empty($data['recordar_cumpleanos']) && !empty($data['fecha_nacimiento']) ? $data['fecha_nacimiento'] : null,
 
             // Distribuidores
-            'zonas_exclusivas' => is_array($data['zonas_exclusivas'] ?? null)
-                ? array_values(array_filter(array_map('trim', $data['zonas_exclusivas'])))
-                : [],
+            'zonas_exclusivas' => $this->normalizarZonasExclusivas($data['zonas_exclusivas'] ?? []),
             
             'telefonos'         => $listaTelefonos,
             'cuentas_bancarias' => $data['cuentas_bancarias'] ?? $data['cuentas_bancarias_list'] ?? []
         ];
+    }
+
+    /**
+     * @param mixed $zonasRaw
+     * @return array<int,string>
+     */
+    private function normalizarZonasExclusivas($zonasRaw): array
+    {
+        if (!is_array($zonasRaw)) {
+            return [];
+        }
+
+        $normalizadas = [];
+
+        foreach ($zonasRaw as $zona) {
+            if (is_string($zona)) {
+                $valor = trim($zona);
+                if ($valor !== '') {
+                    $normalizadas[] = $valor;
+                }
+                continue;
+            }
+
+            if (!is_array($zona)) {
+                continue;
+            }
+
+            $dep = trim((string)($zona['dep'] ?? $zona['departamento_id'] ?? ''));
+            $prov = trim((string)($zona['prov'] ?? $zona['provincia_id'] ?? ''));
+            $dist = trim((string)($zona['dist'] ?? $zona['distrito_id'] ?? ''));
+
+            if ($dep === '') {
+                continue;
+            }
+
+            $normalizadas[] = $dep . '|' . $prov . '|' . $dist;
+        }
+
+        return array_values(array_unique($normalizadas));
     }
 
     private function obtenerTelefonosPorTerceros(array $ids): array
