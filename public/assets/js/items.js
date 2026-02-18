@@ -244,6 +244,7 @@
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
+        const autoGenerate = config.autoGenerate !== false;
         if (!tipo || !sku) return;
 
         const apply = () => {
@@ -251,7 +252,7 @@
             const isProducto = value === 'producto' || value === 'producto_terminado';
             sku.readOnly = isProducto;
 
-            if (!isProducto) {
+            if (!isProducto || !autoGenerate) {
                 return;
             }
 
@@ -440,7 +441,8 @@
                 categoriaId: 'newCategoria',
                 marcaId: 'newMarca',
                 saborId: 'newSabor',
-                presentacionId: 'newPresentacion'
+                presentacionId: 'newPresentacion',
+                autoGenerate: true
             });
 
             bindComercialVisibility({
@@ -539,7 +541,8 @@
                 categoriaId: 'editCategoria',
                 marcaId: 'editMarca',
                 saborId: 'editSabor',
-                presentacionId: 'editPresentacion'
+                presentacionId: 'editPresentacion',
+                autoGenerate: false
             });
 
             bindComercialVisibility({
