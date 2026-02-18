@@ -18,36 +18,28 @@
     <?php endif; ?>
     
     <style>
-        /* Hace que el desplegable de Tom Select tenga prioridad sobre el Modal de Bootstrap */
-        .ts-dropdown, .ts-dropdown.form-control {
-            z-index: 2000 !important; 
-        }
-        /* Ajuste visual opcional para que se vea integrado */
-        .ts-control {
-            border-radius: 0.375rem; /* Igual que form-control */
-        }
+        .ts-dropdown, .ts-dropdown.form-control { z-index: 2000 !important; }
+        .ts-control { border-radius: 0.375rem; }
     </style>
 
     <?php
     $baseUrl = base_url();
     $baseUrl = $baseUrl === '' ? '/' : rtrim($baseUrl, '/') . '/';
     ?>
-    <script>
-        window.BASE_URL = "<?php echo e($baseUrl); ?>";
-    </script>
+    <script>window.BASE_URL = "<?php echo e($baseUrl); ?>";</script>
 </head>
+
 <?php
-// Configuración dinámica de tema
 $configEmpresa = $configEmpresa ?? [];
 $colorSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'));
 $esHex = (bool) preg_match('/^#([a-f0-9]{6})$/i', $colorSistema);
 $temaSistema = $esHex ? 'custom' : $colorSistema;
 $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colorSistema};" : '';
 ?>
+
 <body data-theme="<?php echo e($temaSistema); ?>" style="<?php echo e($bodyStyle); ?>">
 
 <div class="app-container">
-    
     <?php require BASE_PATH . '/app/views/sidebar.php'; ?>
 
     <main class="main-content">
@@ -55,7 +47,7 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
             <?php if (isset($vista) && is_file($vista)) {
                 require $vista;
             } else {
-                echo '<div class="alert alert-danger">Error: Vista no definida o no encontrada.</div>';
+                echo '<div class="alert alert-danger">Error: Vista no definida.</div>';
             } ?>
         </div>
     </main>
@@ -68,65 +60,70 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
 
-<?php if (in_array(($ruta_actual ?? ''), ['usuarios', 'usuarios/index'], true)): ?>
-<script>
-window.USUARIOS_FLASH = {
-    tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
-    texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
-    accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Usuario creado') !== false ? 'crear' : ''; ?>'
-};
-</script>
-<script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
+<?php 
+// --- DETECCIÓN DE RUTA PARA SCRIPTS ESPECÍFICOS ---
+$currentRoute = $ruta_actual ?? $_GET['ruta'] ?? ''; 
+?>
+
+<?php if (in_array($currentRoute, ['usuarios', 'usuarios/index'], true)): ?>
+    <script>
+    window.USUARIOS_FLASH = {
+        tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
+        texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
+        accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Usuario creado') !== false ? 'crear' : ''; ?>'
+    };
+    </script>
+    <script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (in_array(($ruta_actual ?? ''), ['roles', 'roles/index'], true)): ?>
-<script>
-window.ROLES_FLASH = {
-    tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
-    texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
-    accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Rol creado') !== false ? 'crear' : ''; ?>'
-};
-</script>
-<script src="<?php echo e(asset_url('js/roles.js')); ?>"></script>
+<?php if (in_array($currentRoute, ['roles', 'roles/index'], true)): ?>
+    <script>
+    window.ROLES_FLASH = {
+        tipo: '<?php echo e((string) ($flash['tipo'] ?? '')); ?>',
+        texto: '<?php echo e((string) ($flash['texto'] ?? '')); ?>',
+        accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Rol creado') !== false ? 'crear' : ''; ?>'
+    };
+    </script>
+    <script src="<?php echo e(asset_url('js/roles.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (in_array(($ruta_actual ?? ''), ['permisos', 'permisos/index'], true)): ?>
-<script src="<?php echo e(asset_url('js/permisos.js')); ?>"></script>
+<?php if (in_array($currentRoute, ['permisos', 'permisos/index'], true)): ?>
+    <script src="<?php echo e(asset_url('js/permisos.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (in_array(($ruta_actual ?? ''), ['config/empresa', 'empresa/empresa'], true)): ?>
-<script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
+<?php if (in_array($currentRoute, ['config/empresa', 'empresa/empresa'], true)): ?>
+    <script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'items')): ?>
-<script src="<?php echo e(asset_url('js/items.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'items')): ?>
+    <script src="<?php echo e(asset_url('js/items.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (($ruta_actual ?? '') === 'items/perfil'): ?>
-<script src="<?php echo e(asset_url('js/items_perfil.js')); ?>"></script>
+<?php if ($currentRoute === 'items/perfil'): ?>
+    <script src="<?php echo e(asset_url('js/items_perfil.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'terceros')): ?>
-<script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'terceros')): ?>
+    <script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
-<script src="<?php echo e(asset_url('js/terceros_perfil.js')); ?>"></script>
+<?php if ($currentRoute === 'terceros/perfil'): ?>
+    <script src="<?php echo e(asset_url('js/terceros_perfil.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'compras')): ?>
-<script src="<?php echo e(asset_url('js/compras.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'compras')): ?>
+    <script src="<?php echo e(asset_url('js/compras.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'ventas')): ?>
-<script src="<?php echo e(asset_url('js/ventas.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'ventas')): ?>
+    <script src="<?php echo e(asset_url('js/ventas.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'produccion')): ?>
-<script src="<?php echo e(asset_url('js/produccion.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'produccion')): ?>
+    <script src="<?php echo e(asset_url('js/produccion.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with(($ruta_actual ?? ''), 'comercial')): ?>
+<?php if (str_starts_with($currentRoute, 'comercial')): ?>
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
 
