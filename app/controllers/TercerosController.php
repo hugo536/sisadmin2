@@ -727,10 +727,24 @@ class TercerosController extends Controlador
         }
         $zonasLimpias = [];
         foreach ($zonas as $zona) {
-            $zona = trim((string)$zona);
+            if (is_array($zona)) {
+                $dep = trim((string)($zona['dep'] ?? $zona['departamento_id'] ?? ''));
+                $prov = trim((string)($zona['prov'] ?? $zona['provincia_id'] ?? ''));
+                $dist = trim((string)($zona['dist'] ?? $zona['distrito_id'] ?? ''));
+
+                if ($dep === '') {
+                    continue;
+                }
+
+                $zona = $dep . '|' . $prov . '|' . $dist;
+            } else {
+                $zona = trim((string)$zona);
+            }
+
             if ($zona === '' || !preg_match('/^[^|]+\|[^|]*\|[^|]*$/', $zona)) {
                 continue;
             }
+
             $zonasLimpias[] = $zona;
         }
 
