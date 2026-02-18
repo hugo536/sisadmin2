@@ -69,12 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- Lógica de Bloqueo del Producto Base ---
                 if (inputItem) {
+                    inputItem.disabled = false;
                     if (inputItem.tomselect) {
                         inputItem.tomselect.setValue(d.id_item);
-                        inputItem.tomselect.disable(); // Bloquea TomSelect
+                        inputItem.tomselect.lock(); // Bloquea edición sin deshabilitar envío
                     } else {
                         inputItem.value = d.id_item;
-                        inputItem.disabled = true; // Bloquea select estándar
+                        inputItem.classList.add('pe-none'); // Bloquea interacción visual
+                        inputItem.setAttribute('aria-disabled', 'true');
                     }
                 }
 
@@ -106,11 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Rehabilitar el campo de Producto ---
         if (inputItem) {
+            inputItem.disabled = false;
             if (inputItem.tomselect) {
                 inputItem.tomselect.clear();
-                inputItem.tomselect.enable(); // Habilita TomSelect
+                inputItem.tomselect.unlock(); // Habilita TomSelect
             } else {
-                inputItem.disabled = false; // Habilita select estándar
+                inputItem.classList.remove('pe-none');
+                inputItem.removeAttribute('aria-disabled');
             }
         }
 
