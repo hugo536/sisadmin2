@@ -1,22 +1,29 @@
 <?php
 class ListaPrecioModel extends Modelo {
 
+    /** @var array<string,bool> */
+    private array $columnCache = [];
+
     public function listarAcuerdos(): array {
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+
         $sql = "SELECT
                     ca.id,
                     ca.id_tercero,
                     ca.estado,
                     ca.observaciones,
-                    t.nombre_comercial,
-                    t.nombre,
-                    t.apellido,
+                    MAX({$nombreComercialExpr}) AS nombre_comercial,
+                    MAX({$nombreExpr}) AS nombre,
+                    MAX({$apellidoExpr}) AS apellido,
                     COUNT(cap.id) AS total_productos,
                     SUM(CASE WHEN cap.estado = 1 THEN 1 ELSE 0 END) AS total_activos
                 FROM comercial_acuerdos ca
                 INNER JOIN terceros t ON t.id = ca.id_tercero
                 LEFT JOIN comercial_acuerdos_precios cap ON cap.id_acuerdo = ca.id
-                GROUP BY ca.id, ca.id_tercero, ca.estado, ca.observaciones, t.nombre_comercial, t.nombre, t.apellido
-                ORDER BY TRIM(CONCAT(COALESCE(t.nombre_comercial, ''), ' ', COALESCE(t.nombre, ''), ' ', COALESCE(t.apellido, ''))) ASC";
+                GROUP BY ca.id, ca.id_tercero, ca.estado, ca.observaciones
+                ORDER BY TRIM(CONCAT(COALESCE(MAX({$nombreComercialExpr}), ''), ' ', COALESCE(MAX({$nombreExpr}), ''), ' ', COALESCE(MAX({$apellidoExpr}), ''))) ASC";
 
         $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$row) {
@@ -29,17 +36,21 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function obtenerAcuerdo(int $idAcuerdo): ?array {
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+
         $sql = "SELECT
                     ca.*,
-                    t.nombre_comercial,
-                    t.nombre,
-                    t.apellido,
+                    MAX({$nombreComercialExpr}) AS nombre_comercial,
+                    MAX({$nombreExpr}) AS nombre,
+                    MAX({$apellidoExpr}) AS apellido,
                     COUNT(cap.id) AS total_productos
                 FROM comercial_acuerdos ca
                 INNER JOIN terceros t ON t.id = ca.id_tercero
                 LEFT JOIN comercial_acuerdos_precios cap ON cap.id_acuerdo = ca.id
                 WHERE ca.id = :id
-                GROUP BY ca.id, t.nombre_comercial, t.nombre, t.apellido";
+                GROUP BY ca.id";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $idAcuerdo]);
@@ -54,12 +65,17 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function listarClientesDisponibles(): array {
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+        $documentoExpr = $this->terceroExpr('numero_documento', 'documento_numero');
+
         $sql = "SELECT
                     t.id,
-                    t.nombre_comercial,
-                    t.nombre,
-                    t.apellido,
-                    t.documento_numero
+                    {$nombreComercialExpr} AS nombre_comercial,
+                    {$nombreExpr} AS nombre,
+                    {$apellidoExpr} AS apellido,
+                    {$documentoExpr} AS numero_documento
                 FROM terceros t
                 WHERE t.es_cliente = 1
                   AND t.estado = 1
@@ -69,7 +85,7 @@ class ListaPrecioModel extends Modelo {
                       FROM comercial_acuerdos ca
                       WHERE ca.id_tercero = t.id
                   )
-                ORDER BY TRIM(CONCAT(COALESCE(t.nombre_comercial, ''), ' ', COALESCE(t.nombre, ''), ' ', COALESCE(t.apellido, ''))) ASC";
+                ORDER BY TRIM(CONCAT(COALESCE({$nombreComercialExpr}, ''), ' ', COALESCE({$nombreExpr}, ''), ' ', COALESCE({$apellidoExpr}, ''))) ASC";
 
         $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$row) {
@@ -244,5 +260,30 @@ class ListaPrecioModel extends Modelo {
         }
 
         return trim($nombre);
+    }
+
+    private function terceroExpr(string ...$candidatas): string {
+        foreach ($candidatas as $columna) {
+            if ($this->terceroTieneColumna($columna)) {
+                return 't.' . $columna;
+            }
+        }
+
+        return 'NULL';
+    }
+
+    private function terceroTieneColumna(string $columna): bool {
+        if (array_key_exists($columna, $this->columnCache)) {
+            return $this->columnCache[$columna];
+        }
+
+        $stmt = $this->db->prepare('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla AND COLUMN_NAME = :columna LIMIT 1');
+        $stmt->execute([
+            ':tabla' => 'terceros',
+            ':columna' => $columna,
+        ]);
+
+        $this->columnCache[$columna] = (bool)$stmt->fetchColumn();
+        return $this->columnCache[$columna];
     }
 }
