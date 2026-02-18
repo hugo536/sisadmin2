@@ -16,7 +16,10 @@ $presentaciones = $presentaciones ?? [];
                 </h1>
                 <p class="text-muted small mb-0 ms-1">Define formatos de venta (Packs, Cajas) y sus factores de conversión.</p>
             </div>
-            <div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-primary shadow-sm js-crear-presentacion-mixta" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
+                    <i class="bi bi-diagram-3 me-2"></i>Registrar Presentación Mixta
+                </button>
                 <button class="btn btn-primary shadow-sm js-crear-presentacion" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearPresentacion">
                     <i class="bi bi-plus-lg me-2"></i>Nueva Presentación
                 </button>
@@ -57,11 +60,11 @@ $presentaciones = $presentaciones ?? [];
                     <table class="table align-middle mb-0 table-pro" id="presentacionesTable">
                         <thead class="bg-light">
                             <tr>
-                                <th class="ps-4" style="width: 15%;">Código (SKU)</th>
-                                <th style="width: 30%;">Nombre Presentación</th>
-                                <th class="text-center">Factor</th>
-                                <th class="text-center">PESO (KG)</th>
-                                <th class="text-end">Precio Menor</th>
+                                <th class="ps-4" style="width: 14%;">Código (SKU)</th>
+                                <th style="width: 27%;">Nombre Presentación</th>
+                                <th class="text-center" style="width: 6%;">Factor</th>
+                                <th class="text-center" style="width: 10%;">PESO (KG)</th>
+                                <th class="text-end" style="width: 11%;">Precio Menor</th>
                                 <th class="text-end">Precio Mayor</th>
                                 <th class="text-center">Min. Mayorista</th>
                                 <th class="text-center">Stock Mínimo</th>
