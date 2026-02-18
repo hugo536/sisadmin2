@@ -60,6 +60,7 @@ $presentaciones = $presentaciones ?? [];
                                 <th class="ps-4" style="width: 15%;">Código (SKU)</th>
                                 <th style="width: 30%;">Nombre Presentación</th>
                                 <th class="text-center">Factor</th>
+                                <th class="text-center">PESO (KG)</th>
                                 <th class="text-end">Precio Menor</th>
                                 <th class="text-end">Precio Mayor</th>
                                 <th class="text-center">Min. Mayorista</th>
@@ -76,6 +77,7 @@ $presentaciones = $presentaciones ?? [];
                                 $nombreFusion = trim(($p['item_nombre_full'] ?? '')); 
                                 $estado = (int) ($p['estado'] ?? 1);
                                 $codigo = $p['codigo_presentacion'] ?? '---';
+                                $pesoBruto = isset($p['peso_bruto']) ? (float) $p['peso_bruto'] : 0;
                                 ?>
                                 <tr data-search="<?php echo htmlspecialchars(mb_strtolower($nombreFusion . ' ' . $codigo)); ?>"
                                     data-id-item="<?php echo (int) ($p['id_item'] ?? 0); ?>"
@@ -91,6 +93,10 @@ $presentaciones = $presentaciones ?? [];
                                     
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border">x<?php echo $factorLimpio; ?></span>
+                                    </td>
+
+                                    <td class="text-center text-muted">
+                                        <?php echo number_format($pesoBruto, 3); ?> kg
                                     </td>
 
                                     <td class="text-end text-success fw-bold">
@@ -137,7 +143,7 @@ $presentaciones = $presentaciones ?? [];
                                 </tr>
                             <?php endforeach; ?>
                             <?php if (empty($presentaciones)): ?>
-                                <tr><td colspan="8" class="text-center py-5 text-muted">No hay presentaciones registradas.</td></tr>
+                                <tr><td colspan="9" class="text-center py-5 text-muted">No hay presentaciones registradas.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -203,6 +209,11 @@ $presentaciones = $presentaciones ?? [];
                                     <input type="number" class="form-control" name="cantidad_minima_mayor" id="inputMinMayor" placeholder="Ej: 5">
                                     <span class="input-group-text">unidades (packs)</span>
                                 </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted">Peso del Pack (Kg)</label>
+                                <input type="number" class="form-control" name="peso_bruto" id="peso_bruto" step="0.001" min="0" placeholder="Ej: 1.250" value="0.000">
+                                <div class="form-text small">Si no se ingresa un valor se guardará 0.000 kg.</div>
                             </div>
                         </div>
                     </div>

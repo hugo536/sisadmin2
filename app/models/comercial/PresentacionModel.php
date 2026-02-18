@@ -72,6 +72,7 @@ class PresentacionModel extends Modelo {
             // A. Valores por defecto
             $precioMayor = !empty($datos['precio_x_mayor']) ? $datos['precio_x_mayor'] : null;
             $cantMinima = !empty($datos['cantidad_minima_mayor']) ? $datos['cantidad_minima_mayor'] : null;
+            $pesoBruto = isset($datos['peso_bruto']) && $datos['peso_bruto'] !== '' ? (float) $datos['peso_bruto'] : 0;
             $usuario = $_SESSION['id_usuario'] ?? 1;
 
             // B. Generar SKU Automático (SKU_BASE + -X + FACTOR)
@@ -87,8 +88,8 @@ class PresentacionModel extends Modelo {
                 // --- INSERTAR ---
                 // Eliminamos 'nombre' y agregamos 'codigo_presentacion'
                 $sql = "INSERT INTO {$this->table} 
-                        (id_item, codigo_presentacion, factor, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, created_by) 
-                        VALUES (:id_item, :codigo, :factor, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :created_by)";
+                        (id_item, codigo_presentacion, factor, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, created_by) 
+                        VALUES (:id_item, :codigo, :factor, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :created_by)";
                 $params = [
                     ':id_item' => $datos['id_item'],
                     ':codigo'  => $codigoAuto, // SKU Automático
@@ -96,6 +97,7 @@ class PresentacionModel extends Modelo {
                     ':precio_x_menor' => $datos['precio_x_menor'],
                     ':precio_x_mayor' => $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
+                    ':peso_bruto' => $pesoBruto,
                     ':created_by' => $usuario
                 ];
             } else {
@@ -108,7 +110,9 @@ class PresentacionModel extends Modelo {
                         precio_x_menor = :precio_x_menor, 
                         precio_x_mayor = :precio_x_mayor, 
                         cantidad_minima_mayor = :cantidad_minima_mayor, 
-                        updated_by = :updated_by
+                        peso_bruto = :peso_bruto,
+                        updated_by = :updated_by,
+                        updated_at = NOW()
                         WHERE id = :id";
                 $params = [
                     ':id_item' => $datos['id_item'],
@@ -117,6 +121,7 @@ class PresentacionModel extends Modelo {
                     ':precio_x_menor' => $datos['precio_x_menor'],
                     ':precio_x_mayor' => $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
+                    ':peso_bruto' => $pesoBruto,
                     ':updated_by' => $usuario,
                     ':id' => $datos['id']
                 ];
