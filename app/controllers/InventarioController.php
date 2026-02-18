@@ -247,7 +247,7 @@ class InventarioController extends Controlador
         fclose($out);
     }
 
-    private function vista(string $rutaVista, array $datos = []): void
+    protected function vista(string $rutaVista, array $datos = []): void
     {
         $this->render($rutaVista, $datos);
     }

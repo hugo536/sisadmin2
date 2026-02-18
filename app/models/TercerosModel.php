@@ -27,6 +27,7 @@ class TercerosModel extends Modelo
 
     public function __construct()
     {
+        parent::__construct();
         $this->clientesModel = new TercerosClientesModel();
         $this->proveedoresModel = new TercerosProveedoresModel();
         $this->empleadosModel = new TercerosEmpleadosModel();
