@@ -611,8 +611,12 @@
                 ctas.forEach(c => ctaList.appendChild(buildCuentaRow(c)));
 
                 // Cargar zonas distribuidor
-                if (btn.dataset.esDistribuidor == 1 && window.TercerosClientes && window.TercerosClientes.loadSavedZones) {
-                    window.TercerosClientes.loadSavedZones('edit', id);
+                if (window.TercerosClientes && window.TercerosClientes.loadSavedZones && window.TercerosClientes.setDistribuidorZones) {
+                    if (btn.dataset.esDistribuidor == 1) {
+                        window.TercerosClientes.loadSavedZones('edit', id);
+                    } else {
+                        window.TercerosClientes.setDistribuidorZones('edit', []);
+                    }
                 }
             });
         }
