@@ -94,8 +94,8 @@ class ItemsController extends Controlador
                     if ($actual === []) throw new RuntimeException('El ítem no existe.');
 
                     $skuIngresado = trim((string) ($data['sku'] ?? ''));
-                    if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '')) {
-                        throw new RuntimeException('El SKU es inmutable y no puede modificarse.');
+                    if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '') && $this->itemsModel->skuExiste($skuIngresado, $id)) {
+                        throw new RuntimeException('El SKU ya se encuentra registrado.');
                     }
 
                     $this->itemsModel->actualizar($id, $data, $userId);
@@ -513,14 +513,95 @@ class ItemsController extends Controlador
             $data['stock_minimo'] = 0;
         }
 
-        $precioVenta = (float) ($data['precio_venta'] ?? 0);
-        $costoReferencial = (float) ($data['costo_referencial'] ?? 0);
-
-        if ($precioVenta < $costoReferencial) {
-            throw new RuntimeException('El precio de venta debe ser mayor o igual al costo referencial.');
+        if ($esProductoTerminado) {
+            $data['sku'] = $this->generarSkuProductoTerminado($data);
         }
 
         return $data;
+    }
+
+
+    private function generarSkuProductoTerminado(array $data): string
+    {
+        $categoriaId = (int) ($data['id_categoria'] ?? 0);
+        $categoriaNombre = '';
+        if ($categoriaId > 0) {
+            foreach ($this->itemsModel->listarCategorias() as $categoria) {
+                if ((int) ($categoria['id'] ?? 0) === $categoriaId) {
+                    $categoriaNombre = (string) ($categoria['nombre'] ?? '');
+                    break;
+                }
+            }
+        }
+
+        $saborId = (int) ($data['id_sabor'] ?? 0);
+        $saborNombre = '';
+        if ($saborId > 0) {
+            foreach ($this->itemsModel->listarSabores() as $sabor) {
+                if ((int) ($sabor['id'] ?? 0) === $saborId) {
+                    $saborNombre = (string) ($sabor['nombre'] ?? '');
+                    break;
+                }
+            }
+        }
+
+        $presentacionId = (int) ($data['id_presentacion'] ?? 0);
+        $presentacionNombre = '';
+        if ($presentacionId > 0) {
+            foreach ($this->itemsModel->listarPresentaciones() as $presentacion) {
+                if ((int) ($presentacion['id'] ?? 0) === $presentacionId) {
+                    $presentacionNombre = trim((string) ($presentacion['nombre'] ?? ''));
+                    break;
+                }
+            }
+        }
+
+        $marcaNombre = trim((string) ($data['id_marca'] ?? $data['marca'] ?? ''));
+
+        $bloques = [];
+        $prefCategoria = $this->prefijoSku($categoriaNombre);
+        $prefMarca = $this->prefijoSku($marcaNombre);
+        if ($prefCategoria !== '') {
+            $bloques[] = $prefCategoria;
+        }
+        if ($prefMarca !== '') {
+            $bloques[] = $prefMarca;
+        }
+
+        if (!$this->esSaborOmitible($saborNombre)) {
+            $prefSabor = $this->prefijoSku($saborNombre);
+            if ($prefSabor !== '') {
+                $bloques[] = $prefSabor;
+            }
+        }
+
+        if ($presentacionNombre !== '') {
+            $bloques[] = $presentacionNombre;
+        }
+
+        return implode('-', $bloques);
+    }
+
+    private function prefijoSku(string $texto): string
+    {
+        $normalizado = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        if ($normalizado === false) {
+            $normalizado = $texto;
+        }
+
+        $normalizado = preg_replace('/[^A-Za-z0-9]/', '', strtoupper(trim((string) $normalizado)));
+        return substr((string) $normalizado, 0, 2);
+    }
+
+    private function esSaborOmitible(string $sabor): bool
+    {
+        $baseNormalizada = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $sabor);
+        if ($baseNormalizada === false) {
+            $baseNormalizada = $sabor;
+        }
+
+        $base = strtolower(trim((string) $baseNormalizada));
+        return $base === '' || $base === 'ninguno' || $base === 'sin sabor';
     }
 
     private function validarCategoria(array $data): array

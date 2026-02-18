@@ -200,25 +200,126 @@
         applyVisibility();
     }
 
-    function validarPrecioVsCosto(precioId, costoId) {
-        const precioInput = document.getElementById(precioId);
-        const costoInput = document.getElementById(costoId);
-        if (!precioInput || !costoInput) return true;
+    function normalizarTextoSku(value = '') {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+    }
 
-        const precio = Number.parseFloat(precioInput.value || '0');
-        const costo = Number.parseFloat(costoInput.value || '0');
+    function obtenerPrefijo(value = '') {
+        const limpio = normalizarTextoSku(value).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        return limpio.slice(0, 2);
+    }
 
-        if (!Number.isFinite(precio) || !Number.isFinite(costo)) {
-            return true;
+    function obtenerTextoSeleccionado(select) {
+        if (!select || !select.selectedOptions || !select.selectedOptions[0]) return '';
+        return (select.selectedOptions[0].textContent || '').trim();
+    }
+
+    function saborDebeOmitirse(nombreSabor = '') {
+        const base = normalizarTextoSku(nombreSabor).toLowerCase();
+        return base === '' || base === 'ninguno' || base === 'sin sabor';
+    }
+
+    function generarSkuProducto({ categoria, marca, sabor, presentacion }) {
+        const bloques = [];
+        const prefCategoria = obtenerPrefijo(categoria);
+        const prefMarca = obtenerPrefijo(marca);
+        const prefSabor = obtenerPrefijo(sabor);
+        const bloquePresentacion = normalizarTextoSku(presentacion);
+
+        if (prefCategoria) bloques.push(prefCategoria);
+        if (prefMarca) bloques.push(prefMarca);
+        if (!saborDebeOmitirse(sabor) && prefSabor) bloques.push(prefSabor);
+        if (bloquePresentacion) bloques.push(bloquePresentacion);
+
+        return bloques.join('-');
+    }
+
+    function bindSkuAuto(config) {
+        const tipo = document.getElementById(config.tipoId);
+        const sku = document.getElementById(config.skuId);
+        const categoria = document.getElementById(config.categoriaId);
+        const marca = document.getElementById(config.marcaId);
+        const sabor = document.getElementById(config.saborId);
+        const presentacion = document.getElementById(config.presentacionId);
+        if (!tipo || !sku) return;
+
+        const apply = () => {
+            const value = tipo.value;
+            const isProducto = value === 'producto' || value === 'producto_terminado';
+            sku.readOnly = isProducto;
+
+            if (!isProducto) {
+                return;
+            }
+
+            const generado = generarSkuProducto({
+                categoria: obtenerTextoSeleccionado(categoria),
+                marca: obtenerTextoSeleccionado(marca),
+                sabor: obtenerTextoSeleccionado(sabor),
+                presentacion: obtenerTextoSeleccionado(presentacion)
+            });
+
+            sku.value = generado;
+        };
+
+        if (!tipo.dataset.skuAutoBound) {
+            [tipo, categoria, marca, sabor, presentacion].forEach((el) => {
+                el?.addEventListener('change', apply);
+            });
+            tipo.dataset.skuAutoBound = '1';
         }
 
-        if (precio < costo) {
-            showError('El precio de venta debe ser mayor o igual al costo referencial.');
-            precioInput.focus();
-            return false;
+        apply();
+    }
+
+    function bindComercialVisibility(config) {
+        const tipo = document.getElementById(config.tipoId);
+        const card = document.getElementById(config.cardId);
+        const costo = document.getElementById(config.costoId);
+        if (!tipo || !card || !costo) return;
+
+        const tiposComercialesEditables = new Set(['materia_prima', 'insumo', 'repuestos']);
+
+        const apply = () => {
+            const value = tipo.value;
+            const editable = tiposComercialesEditables.has(value);
+            const isProducto = value === 'producto' || value === 'producto_terminado';
+            const fields = card.querySelectorAll('input, select, textarea');
+
+            card.classList.toggle('opacity-75', !editable);
+
+            fields.forEach((field) => {
+                if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+                    return;
+                }
+
+                if (field.id === config.costoId) {
+                    field.readOnly = !editable || isProducto;
+                    field.disabled = false;
+                    return;
+                }
+
+                if (field instanceof HTMLInputElement && ['checkbox', 'radio', 'hidden'].includes(field.type)) {
+                    return;
+                }
+
+                if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+                    field.readOnly = !editable;
+                } else {
+                    field.disabled = !editable;
+                }
+            });
+        };
+
+        if (!tipo.dataset.comercialVisibilityBound) {
+            tipo.addEventListener('change', apply);
+            tipo.dataset.comercialVisibilityBound = '1';
         }
 
-        return true;
+        apply();
     }
 
     function applyTipoItemRules(config) {
@@ -332,14 +433,24 @@
                 diasAlertaContainerId: 'newDiasAlertaContainer',
                 diasAlertaId: 'newDiasAlerta'
             });
+
+            bindSkuAuto({
+                tipoId: 'newTipo',
+                skuId: 'newSku',
+                categoriaId: 'newCategoria',
+                marcaId: 'newMarca',
+                saborId: 'newSabor',
+                presentacionId: 'newPresentacion'
+            });
+
+            bindComercialVisibility({
+                tipoId: 'newTipo',
+                cardId: 'newComercialCard',
+                costoId: 'newCosto'
+            });
         });
 
         document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
-            if (!validarPrecioVsCosto('newPrecio', 'newCosto')) {
-                event.preventDefault();
-                return;
-            }
-
             const tipo = document.getElementById('newTipo')?.value;
             if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('newSabor');
@@ -421,14 +532,24 @@
                 diasAlertaContainerId: 'editDiasAlertaContainer',
                 diasAlertaId: 'editDiasAlerta'
             });
+
+            bindSkuAuto({
+                tipoId: 'editTipo',
+                skuId: 'editSku',
+                categoriaId: 'editCategoria',
+                marcaId: 'editMarca',
+                saborId: 'editSabor',
+                presentacionId: 'editPresentacion'
+            });
+
+            bindComercialVisibility({
+                tipoId: 'editTipo',
+                cardId: 'editComercialCard',
+                costoId: 'editCosto'
+            });
         });
 
         document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
-            if (!validarPrecioVsCosto('editPrecio', 'editCosto')) {
-                event.preventDefault();
-                return;
-            }
-
             const tipo = document.getElementById('editTipo')?.value;
             if (tipo !== 'producto' && tipo !== 'producto_terminado') {
                 const sabor = document.getElementById('editSabor');

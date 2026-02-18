@@ -100,8 +100,6 @@ $tipoItemLabel = static function (string $tipo): string {
                             <th class="ps-4">SKU</th>
                             <th>Nombre</th>
                             <th>Tipo</th>
-                            <th>Precio</th>
-                            <th>Moneda</th>
                             <th>Stock mín.</th>
                             <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
@@ -120,9 +118,12 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
-                                <td><?php echo e(number_format((float) $item['precio_venta'], 4)); ?></td>
-                                <td><?php echo e($item['moneda'] ?? ''); ?></td>
-                                <td><?php echo e(number_format((float) $item['stock_minimo'], 4)); ?></td>
+                                <?php
+                                    $stockMinimo = (string) ($item['stock_minimo'] ?? '');
+                                    $stockMinimoNumero = is_numeric($stockMinimo) ? (float) $stockMinimo : 0.0;
+                                    $mostrarStockSinDefinir = $stockMinimo === '' || $stockMinimoNumero <= 0.0;
+                                ?>
+                                <td><?php echo $mostrarStockSinDefinir ? 'Sin definir' : e(number_format($stockMinimoNumero, 4)); ?></td>
                                 <td class="text-center">
                                     <?php if ((int) $item['estado'] === 1): ?>
                                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
@@ -218,7 +219,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="col-md-3">
                                         <div class="form-floating">
                                             <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
-                                            <label for="newSku">SKU (Opcional)</label>
+                                            <label for="newSku">SKU</label>
                                         </div>
                                     </div>
 
@@ -294,31 +295,25 @@ $tipoItemLabel = static function (string $tipo): string {
                         </div>
                     </div>
 
-                    <div class="col-12">
+                    <input type="hidden" id="newPrecio" name="precio_venta" value="0.0000">
+                    <input type="hidden" id="newMoneda" name="moneda" value="PEN">
+
+                    <div class="col-12" id="newComercialCard">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Precio Venta</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text bg-white">S/</span>
-                                            <input type="number" step="0.0001" class="form-control" id="newPrecio" name="precio_venta" value="0.0000">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label small text-muted mb-0">Costo Ref.</label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-white">S/</span>
                                             <input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000">
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label small text-muted mb-0">Impuesto (%)</label>
                                         <input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00">
                                     </div>
-                                    
-                                    <select class="d-none" id="newMoneda" name="moneda"><option value="PEN" selected>PEN</option></select>
                                     
                                     <div class="col-12">
                                         <input type="text" class="form-control form-control-sm" id="newDescripcion" name="descripcion" placeholder="Descripción adicional (opcional)">
@@ -407,8 +402,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU" readonly>
-                                            <label for="editSku">SKU (Opcional)</label>
+                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU">
+                                            <label for="editSku">SKU</label>
                                         </div>
                                     </div>
                                     <div class="col-md-6" id="editSaborContainer">
@@ -453,7 +448,10 @@ $tipoItemLabel = static function (string $tipo): string {
                         </div>
                     </div>
 
-                    <div class="col-12">
+                    <input type="hidden" id="editPrecio" name="precio_venta" value="0.0000">
+                    <input type="hidden" id="editMoneda" name="moneda" value="PEN">
+
+                    <div class="col-12" id="editComercialCard">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-success py-2"><i class="bi bi-currency-dollar me-2"></i>Comercial</div>
                             <div class="card-body">
@@ -484,20 +482,14 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <label for="editUnidad">Unidad</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Precio Venta</label>
-                                        <input class="form-control" id="editPrecio" name="precio_venta" type="number" step="0.0001">
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label small text-muted mb-0">Costo Ref.</label>
                                         <input class="form-control" id="editCosto" name="costo_referencial" type="number" step="0.0001">
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label small text-muted mb-0">Impuesto (%)</label>
                                         <input class="form-control" id="editImpuesto" name="impuesto" type="number" step="0.0001">
                                     </div>
-                                    
-                                    <select class="d-none" id="editMoneda" name="moneda"><option value="PEN">PEN</option></select>
 
                                     <div class="col-12">
                                         <input class="form-control form-control-sm" id="editDescripcion" name="descripcion" placeholder="Descripción adicional">
