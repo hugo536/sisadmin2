@@ -58,6 +58,7 @@ $presentaciones = $presentaciones ?? [];
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4" style="width: 15%;">Código (SKU)</th>
+                                <th class="text-center" style="width: 8%;">Tipo</th>
                                 <th style="width: 30%;">Nombre Presentación</th>
                                 <th class="text-center">Factor</th>
                                 <th class="text-center">PESO (KG)</th>
@@ -74,7 +75,9 @@ $presentaciones = $presentaciones ?? [];
                                 // Corrección: Convertir a float elimina .00 sin borrar los ceros de números como 10, 20 o 30
                                 $factorLimpio = (float) ($p['factor'] ?? 0);
                                 
-                                $nombreFusion = trim(($p['item_nombre_full'] ?? '')); 
+                                $nombreFusion = trim(($p['item_nombre_full'] ?? ''));
+                                $esMixto = (int) ($p['es_mixto'] ?? 0) === 1;
+                                $composicionMixta = trim((string) ($p['composicion_mixta'] ?? ''));
                                 $estado = (int) ($p['estado'] ?? 1);
                                 $codigo = $p['codigo_presentacion'] ?? '---';
                                 $pesoBruto = isset($p['peso_bruto']) ? (float) $p['peso_bruto'] : 0;
@@ -87,8 +90,17 @@ $presentaciones = $presentaciones ?? [];
                                         <?php echo htmlspecialchars($codigo); ?>
                                     </td>
 
-                                    <td class="fw-semibold text-dark">
+                                    <td class="text-center">
+                                        <span class="badge <?php echo $esMixto ? 'bg-primary' : 'bg-secondary'; ?>">
+                                            <?php echo $esMixto ? 'Mixto' : 'Simple'; ?>
+                                        </span>
+                                    </td>
+
+                                    <td class="fw-semibold text-dark" <?php if ($esMixto && $composicionMixta !== ''): ?>title="<?php echo htmlspecialchars($composicionMixta); ?>"<?php endif; ?>>
                                         <?php echo htmlspecialchars($nombreFusion); ?>
+                                        <?php if ($esMixto && $composicionMixta !== ''): ?>
+                                            <i class="bi bi-info-circle text-primary ms-1" data-bs-toggle="tooltip" data-bs-title="<?php echo htmlspecialchars($composicionMixta); ?>"></i>
+                                        <?php endif; ?>
                                     </td>
                                     
                                     <td class="text-center">
@@ -143,7 +155,7 @@ $presentaciones = $presentaciones ?? [];
                                 </tr>
                             <?php endforeach; ?>
                             <?php if (empty($presentaciones)): ?>
-                                <tr><td colspan="9" class="text-center py-5 text-muted">No hay presentaciones registradas.</td></tr>
+                                <tr><td colspan="10" class="text-center py-5 text-muted">No hay presentaciones registradas.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -165,13 +177,18 @@ $presentaciones = $presentaciones ?? [];
                     <input type="hidden" name="id" id="presentacionId" value="">
                     
                     <div class="modal-body p-4 bg-light">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="es_mixto" name="es_mixto" value="1">
+                            <label class="form-check-label fw-bold" for="es_mixto">¿Es presentación mixta?</label>
+                        </div>
+
                         <div class="row g-3 mb-3">
-                            <div class="col-md-8">
+                            <div class="col-md-8 js-simple-field">
                                 <label class="form-label fw-bold">Producto Base</label>
                                 <select class="form-select" name="id_item" id="inputItem" required>
                                     <option value="">Seleccione un producto...</option>
                                     <?php foreach ($items as $item): ?>
-                                        <option value="<?php echo $item['id']; ?>">
+                                        <option value="<?php echo $item['id']; ?>" data-unidad="<?php echo htmlspecialchars((string) ($item['unidad_base'] ?? 'UND')); ?>" data-precio="<?php echo htmlspecialchars((string) ($item['precio_venta'] ?? 0)); ?>">
                                             <?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?>
                                             (<?php echo $item['sku'] ?? 'S/C'; ?>)
                                         </option>
@@ -179,10 +196,34 @@ $presentaciones = $presentaciones ?? [];
                                 </select>
                                 <div class="form-text small">El nombre se generará automáticamente.</div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 js-simple-field">
                                 <label class="form-label fw-bold">Factor (Unidades)</label>
                                 <input type="number" step="0.01" class="form-control text-center fw-bold" name="factor" id="inputFactor" placeholder="Ej: 15" required>
                                 <div class="form-text small text-center">Unidades por pack</div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-3 d-none" id="seccionComposicionMixta">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 fw-bold">Composición del Pack</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="agregarLineaMixta">
+                                        <i class="bi bi-plus-lg me-1"></i>Agregar línea
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0" id="tablaComposicionMixta">
+                                        <thead>
+                                            <tr>
+                                                <th>Producto / Sabor</th>
+                                                <th style="width: 18%;">Cantidad</th>
+                                                <th style="width: 18%;">Unidad</th>
+                                                <th class="text-end" style="width: 10%;">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
@@ -215,6 +256,10 @@ $presentaciones = $presentaciones ?? [];
                                 <input type="number" class="form-control" name="peso_bruto" id="peso_bruto" step="0.001" min="0" placeholder="Ej: 1.250" value="0.000">
                                 <div class="form-text small">Si no se ingresa un valor se guardará 0.000 kg.</div>
                             </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted">Stock mínimo</label>
+                                <input type="number" class="form-control" name="stock_minimo" id="stock_minimo" step="0.0001" min="0" value="0">
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer bg-white">
@@ -226,4 +271,4 @@ $presentaciones = $presentaciones ?? [];
         </div>
     </div>
 
-</div> ```
+</div>
