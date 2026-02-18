@@ -300,9 +300,31 @@
             }
         },
         loadSavedZones: (prefix, id) => {
-            // Simulación de carga, en producción esto haría fetch al backend si el ID existe
-            // Para edición, los datos suelen venir en el atributo data-zonas del botón editar
-            return Promise.resolve(); 
+            if (!id) {
+                setDistribuidorZones(prefix, []);
+                return Promise.resolve([]);
+            }
+
+            const fd = new FormData();
+            fd.append('accion', 'cargar_zonas_distribuidor');
+            fd.append('tercero_id', String(id));
+
+            return fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            })
+            .then(r => r.json())
+            .then(r => {
+                const zonas = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
+                setDistribuidorZones(prefix, zonas, ZONE_STATUS.SAVED);
+                return zonas;
+            })
+            .catch(err => {
+                console.error('Error cargando zonas del distribuidor', err);
+                setDistribuidorZones(prefix, []);
+                return [];
+            });
         }
     };
 
