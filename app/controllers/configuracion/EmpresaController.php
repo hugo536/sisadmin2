@@ -49,7 +49,7 @@ class EmpresaController extends Controlador
         $this->render('configuracion/empresa', [
             'config' => $this->empresaModel->obtener(),
             'flash' => $flash,
-            'ruta_actual' => 'empresa/empresa',
+            'ruta_actual' => 'config/empresa',
         ]);
     }
 
