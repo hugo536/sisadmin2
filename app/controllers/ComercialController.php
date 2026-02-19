@@ -83,8 +83,8 @@ class ComercialController extends Controlador {
                 
                 // Campos Mixtos / Manuales / Notas
                 'nombre_manual' => !empty($_POST['nombre_manual']) ? trim($_POST['nombre_manual']) : null,
-                'nota_pack' => !empty($_POST['nota_pack']) ? trim($_POST['nota_pack']) : null, // <--- NUEVO CAMPO AGREGADO
-                'codigo_presentacion' => !empty($_POST['codigo_presentacion']) ? trim($_POST['codigo_presentacion']) : null, // SKU Manual
+                'nota_pack' => !empty($_POST['nota_pack']) ? trim($_POST['nota_pack']) : null, 
+                'codigo_presentacion' => !empty($_POST['codigo_presentacion']) ? trim($_POST['codigo_presentacion']) : null,
                 'detalle_mixto' => $detalleMixto,
                 
                 // Precios y Pesos
@@ -93,6 +93,11 @@ class ComercialController extends Controlador {
                 'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null,
                 'peso_bruto' => isset($_POST['peso_bruto']) ? (float) $_POST['peso_bruto'] : 0,
                 'stock_minimo' => isset($_POST['stock_minimo']) ? (float) $_POST['stock_minimo'] : 0,
+
+                // NUEVO: Configuración Avanzada (Calidad y Fechas)
+                'exigir_lote' => isset($_POST['exigir_lote']) ? 1 : 0,
+                'requiere_vencimiento' => isset($_POST['requiere_vencimiento']) ? 1 : 0,
+                'dias_vencimiento_alerta' => isset($_POST['dias_vencimiento_alerta']) ? (int)$_POST['dias_vencimiento_alerta'] : 0,
             ];
 
             // 4. VALIDACIONES SERVIDOR
@@ -106,7 +111,6 @@ class ComercialController extends Controlador {
             } 
             // Caso B: Presentación Mixta (Requiere Nombre y Detalle)
             else {
-                /* Nota: id_item puede ser null aquí */
                 if (empty($detalleMixto)) {
                     redirect('comercial/presentaciones?error=sin_detalle_mixto');
                     return;

@@ -8,7 +8,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================================
-    // 1) PRESENTACIONES (FINAL - SOPORTE MIXTO + NOTAS + STOCK SWITCH)
+    // 1) PRESENTACIONES (FINAL - MIXTO + NOTAS + STOCK + CALIDAD)
     // =========================================================================
     const appPresentaciones = document.getElementById('presentacionesApp');
     
@@ -36,12 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const inputNombreManual = document.getElementById('inputNombreManual');
         const inputCodigoManual = document.getElementById('inputCodigoManual');
-        // NUEVO: Selector para el campo de observaciones
         const inputNotaPack = document.getElementById('inputNotaPack');
 
         // --- SELECTORES DE STOCK ---
         const checkControlStock = document.getElementById('checkControlStock');
         const inputStockMinimo = document.getElementById('stock_minimo');
+
+        // --- NUEVO: SELECTORES DE CALIDAD Y FECHAS ---
+        const switchLote = document.getElementById('exigir_lote');
+        const switchVencimiento = document.getElementById('requiere_vencimiento');
+        const inputDiasVencimiento = document.getElementById('dias_vencimiento_alerta');
 
         const divsSimple = document.querySelectorAll('.js-modo-simple');
         const divsMixto = document.querySelectorAll('.js-modo-mixto');
@@ -52,17 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let tomSelectComponentes = null;
 
-        // --- NUEVO: INICIALIZAR TOMSELECT PARA PRODUCTO PRINCIPAL ---
+        // --- INICIALIZAR TOMSELECT PARA PRODUCTO PRINCIPAL ---
         if (inputItem) {
             new TomSelect(inputItem, {
                 create: false,
-                sortField: {
-                    field: "text",
-                    direction: "asc"
-                }
+                sortField: { field: "text", direction: "asc" }
             });
         }
-        // -----------------------------------------------------------
 
         // --- LÓGICA DEL SWITCH DE STOCK ---
         if (checkControlStock && inputStockMinimo) {
@@ -73,6 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     inputStockMinimo.classList.remove('is-invalid');
                 } else {
                     inputStockMinimo.focus();
+                }
+            });
+        }
+
+        // --- NUEVO: LÓGICA DEL SWITCH DE VENCIMIENTO ---
+        if (switchVencimiento && inputDiasVencimiento) {
+            switchVencimiento.addEventListener('change', function() {
+                inputDiasVencimiento.disabled = !this.checked;
+                if (!this.checked) {
+                    inputDiasVencimiento.value = '0';
+                } else {
+                    inputDiasVencimiento.focus();
                 }
             });
         }
@@ -160,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (inputId) inputId.value = '';
             if (inputNombreManual) inputNombreManual.value = '';
             if (inputCodigoManual) inputCodigoManual.value = '';
-            // Limpiar también el campo de notas
             if (inputNotaPack) inputNotaPack.value = '';
             
             if (tablaComposicionBody) tablaComposicionBody.innerHTML = '';
@@ -171,6 +182,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (inputStockMinimo) {
                     inputStockMinimo.value = '0';
                     inputStockMinimo.disabled = true;
+                }
+            }
+
+            // NUEVO: Resetear Switches Calidad
+            if (switchLote) switchLote.checked = false;
+            if (switchVencimiento) {
+                switchVencimiento.checked = false;
+                if(inputDiasVencimiento) {
+                    inputDiasVencimiento.value = '0';
+                    inputDiasVencimiento.disabled = true;
                 }
             }
 
@@ -199,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('inputPrecioMenor').value = d.precio_x_menor;
                 document.getElementById('inputPrecioMayor').value = d.precio_x_mayor;
                 document.getElementById('peso_bruto').value = d.peso_bruto;
+                if (inputNotaPack) inputNotaPack.value = d.nota_pack || '';
 
                 // LOGICA CARGA STOCK
                 const stockVal = parseFloat(d.stock_minimo || 0);
@@ -214,12 +236,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // NUEVO: LOGICA CARGA CALIDAD
+                if (switchLote) switchLote.checked = parseInt(d.exigir_lote || 0) === 1;
+                
+                if (switchVencimiento && inputDiasVencimiento) {
+                    const reqVenc = parseInt(d.requiere_vencimiento || 0) === 1;
+                    switchVencimiento.checked = reqVenc;
+                    inputDiasVencimiento.disabled = !reqVenc;
+                    inputDiasVencimiento.value = d.dias_vencimiento_alerta || 0;
+                }
+
                 setModoFormulario(esMixto);
                 if (esMixto) {
                     if (inputNombreManual) inputNombreManual.value = d.nombre_manual || '';
                     if (inputCodigoManual) inputCodigoManual.value = d.codigo_presentacion || '';
-                    // NUEVO: Cargar la nota de observación
-                    if (inputNotaPack) inputNotaPack.value = d.nota_pack || '';
 
                     if (d.detalle_mixto && Array.isArray(d.detalle_mixto)) {
                         d.detalle_mixto.forEach(det => {
@@ -257,7 +287,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- VALIDACIÓN AL GUARDAR ---
         if (formPresentacion) {
             formPresentacion.addEventListener('submit', function(e) {
-                // Solo validamos si el switch existe y ESTÁ ACTIVADO
+                
+                // Validación de Vencimiento
+                if (switchVencimiento && switchVencimiento.checked && inputDiasVencimiento) {
+                    if (parseInt(inputDiasVencimiento.value || 0) <= 0) {
+                        e.preventDefault();
+                        Swal.fire('¡Atención!', 'Si requiere vencimiento, indica cuántos días previos de alerta necesitas.', 'warning');
+                        inputDiasVencimiento.focus();
+                        return;
+                    }
+                }
+
+                // Validación de Stock
                 if (checkControlStock && checkControlStock.checked && inputStockMinimo) {
                     const stockValue = parseFloat(inputStockMinimo.value || 0);
                     

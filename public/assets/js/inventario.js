@@ -5,7 +5,7 @@
   const form = document.getElementById('formMovimientoInventario');
   const modalEl = document.getElementById('modalMovimientoInventario');
   
-  // Selects principales
+  // Selects principales (Modal)
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
   
@@ -19,7 +19,7 @@
   const itemList = document.getElementById('listaItemsInventario'); // Datalist
   const sugerenciasItems = document.getElementById('sugerenciasItemsInventario'); // Div sugerencias
   
-  // Lotes (NUEVA LÓGICA)
+  // Lotes
   const grupoLoteInput = document.getElementById('grupoLoteInput');
   const inputLoteNuevo = document.getElementById('loteMovimientoInput');
   const grupoLoteSelect = document.getElementById('grupoLoteSelect');
@@ -36,24 +36,21 @@
   const costoPromedioActualLabel = document.getElementById('costoPromedioActual');
   const stockActualItemLabel = document.getElementById('stockActualItemSeleccionado');
 
-  // Filtros de la tabla principal
+  // --- FILTROS DE LA TABLA PRINCIPAL ---
   const searchInput = document.getElementById('inventarioSearch');
+  const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro'); // NUEVO FILTRO
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
-  const filtroCriticidad = document.getElementById('inventarioFiltroCriticidad');
   const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
   const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
-
+  // Solo mantenemos TomSelect para el Modal (para buscar rápido al hacer movimientos)
   let tomSelectTipo = null;
   let tomSelectAlmacen = null;
   let tomSelectAlmacenDestino = null;
-  let tomSelectFiltroEstado = null;
-  let tomSelectFiltroCriticidad = null;
-  let tomSelectFiltroAlmacen = null;
-  let tomSelectFiltroVencimiento = null;
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar TomSelects del Modal
     if (tipo) {
       tomSelectTipo = new TomSelect('#tipoMovimiento', {
         create: false,
@@ -81,41 +78,11 @@
       });
     }
 
-    if (filtroEstado) {
-      tomSelectFiltroEstado = new TomSelect('#inventarioFiltroEstado', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
-
-    if (filtroCriticidad) {
-      tomSelectFiltroCriticidad = new TomSelect('#inventarioFiltroCriticidad', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
-
-    if (filtroAlmacen) {
-      tomSelectFiltroAlmacen = new TomSelect('#inventarioFiltroAlmacen', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
-
-    if (filtroVencimiento) {
-      tomSelectFiltroVencimiento = new TomSelect('#inventarioFiltroVencimiento', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
+    // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
   });
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
@@ -146,99 +113,32 @@
     }
   }
 
-  async function eliminarItemInventario(button) {
-    const id = Number(button.dataset.id || '0');
-    const nombreItem = (button.dataset.item || 'este registro').trim();
-    const stockActual = Number(button.dataset.stock || '0');
-    if (id <= 0) {
-      await Swal.fire({ icon: 'error', title: 'Error', text: 'No se encontró el ítem a eliminar.' });
-      return;
-    }
-
-    if (stockActual > 0) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se puede eliminar',
-        text: `No se puede eliminar porque este ítem tiene stock físico (${stockActual.toFixed(4)} unidades). Realiza un ajuste de salida primero`
-      });
-      return;
-    }
-
-    const confirmacion = await Swal.fire({
-      icon: 'warning',
-      title: '¿Estás seguro de eliminar este registro vacío?',
-      text: `Se eliminará ${nombreItem}. Esta acción no se puede deshacer.`,
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#dc3545'
-    });
-
-    if (!confirmacion.isConfirmed) return;
-
-    const payload = new URLSearchParams({
-      accion: 'eliminar',
-      id: String(id)
-    });
-
-    try {
-      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-        },
-        body: payload.toString()
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data || !data.ok) {
-        throw new Error((data && data.mensaje) || 'No se pudo eliminar el ítem.');
-      }
-
-      await Swal.fire({
-        icon: 'success',
-        title: '¡Eliminado!',
-        text: data.mensaje || 'Registro eliminado correctamente.'
-      });
-
-      const fila = button.closest('tr');
-      if (fila) {
-        fila.remove();
-        filtrarStock();
-        return;
-      }
-
-      window.location.reload();
-    } catch (error) {
-      await Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo eliminar el ítem.' });
-    }
-  }
-
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
+  // --- ACCIÓN 3: LÓGICA DE FILTRADO EN TIEMPO REAL ---
   function filtrarStock() {
     if (!tablaStock) return;
 
     const termino = normalizarTexto(searchInput ? searchInput.value : '');
-    const estado = (filtroEstado ? filtroEstado.value : '').trim();
-    const criticidad = (filtroCriticidad ? filtroCriticidad.value : '').trim();
+    const tipoFiltro = (filtroTipoRegistro ? filtroTipoRegistro.value : '').trim(); // 'item' o 'pack'
+    const estado = (filtroEstado ? filtroEstado.value : '').trim(); // 'disponible', 'alerta', 'agotado', 'sin_movimiento'
     const vencimiento = (filtroVencimiento ? filtroVencimiento.value : '').trim();
 
     const filas = Array.from(tablaStock.querySelectorAll('tbody tr'));
     filas.forEach((fila) => {
       if (!fila.dataset.search) return;
+      
       const okTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
+      const okTipo = tipoFiltro === '' || (fila.dataset.tipoRegistro || '') === tipoFiltro;
       const okEstado = estado === '' || (fila.dataset.estado || '') === estado;
-      const okCrit = criticidad === '' || (fila.dataset.criticidad || '') === criticidad;
       const okVenc = vencimiento === '' || (fila.dataset.vencimiento || '') === vencimiento;
-      fila.classList.toggle('d-none', !(okTexto && okEstado && okCrit && okVenc));
+      
+      // Mostrar fila solo si cumple todos los filtros
+      fila.classList.toggle('d-none', !(okTexto && okTipo && okEstado && okVenc));
     });
   }
-
 
   function aplicarFiltroAlmacenServidor() {
     if (!filtroAlmacen) return;
@@ -257,11 +157,9 @@
 
   // --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
 
-  // 1. Obtener datos del ítem seleccionado en el input/datalist
   function obtenerDataDelItem() {
     if (!itemInput || !itemList) return null;
     const valor = (itemInput.value || '').trim();
-    // Buscar en las opciones del datalist
     const opcion = Array.from(itemList.options || []).find((option) => option.value === valor);
     
     if (opcion) {
@@ -274,14 +172,12 @@
     return null;
   }
 
-  // 2. Control Central de la UI del Modal
   function actualizarUIModal() {
     if (!tipo) return;
     
     const tipoVal = tipo.value;
     const itemData = obtenerDataDelItem();
     
-    // A. Visibilidad Transferencia
     const esTransferencia = tipoVal === 'TRF';
     if(grupoDestino) grupoDestino.classList.toggle('d-none', !esTransferencia);
     if(almacenDestino) {
@@ -295,40 +191,29 @@
         }
     }
 
-    // B. Visibilidad Lotes y Vencimiento
     const esEntrada = ['INI', 'AJ+'].includes(tipoVal);
     const esSalida = ['AJ-', 'CON', 'TRF'].includes(tipoVal);
     const requiereLote = itemData ? itemData.requiereLote : false;
     const requiereVenc = itemData ? itemData.requiereVencimiento : false;
 
-    // Resetear visibilidad lotes
     if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
     if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
     
     if (requiereLote) {
         if (esEntrada) {
-            // ENTRADA: Muestro Input Texto para crear lote nuevo
             if(grupoLoteInput) grupoLoteInput.classList.remove('d-none');
         } else if (esSalida) {
-            // SALIDA: Muestro Select para elegir existente
             if(grupoLoteSelect) grupoLoteSelect.classList.remove('d-none');
-            // IMPORTANTE: Disparar carga de lotes si ya tenemos ítem y almacén
             cargarLotesDisponibles();
         }
     }
 
-    // C. Visibilidad Fecha Vencimiento (Solo tiene sentido en Entradas)
     if(grupoVencimiento) {
-        const mostrarVenc = (esEntrada && (requiereVenc || (requiereLote && esEntrada))); 
-        // Nota: A veces se pide vencimiento al crear un lote aunque el item no lo exija estrictamente, 
-        // pero respetaremos la config del item.
         const visible = esEntrada && requiereVenc;
-        
         grupoVencimiento.classList.toggle('d-none', !visible);
         if(inputVencimiento) inputVencimiento.required = visible;
     }
 
-    // D. Costo unitario editable solo para INI
     if (costoUnitarioInput) {
       const habilitarCostoManual = tipoVal === 'INI';
       costoUnitarioInput.readOnly = !habilitarCostoManual;
@@ -337,7 +222,6 @@
     }
   }
 
-  // Simulación AJAX para traer costo promedio y stock del ítem.
   function obtenerResumenItemSimulado(idItem) {
     return new Promise((resolve) => {
       window.setTimeout(() => {
@@ -379,16 +263,12 @@
     }
   }
 
-  // 3. Cargar Lotes vía AJAX (NUEVO)
-  let timerLotes = null;
   async function cargarLotesDisponibles() {
-    // Solo cargar si es una salida y el select es visible
     if (grupoLoteSelect.classList.contains('d-none')) return;
 
     const idItem = itemIdInput.value;
     const idAlmacen = almacen.value;
 
-    // Limpiar select
     selectLoteExistente.innerHTML = '<option value="">Seleccione lote...</option>';
     msgSinLotes.classList.add('d-none');
 
@@ -419,11 +299,9 @@
     }
   }
 
-  // 4. Actualizar Hint de Stock General
   async function actualizarStockHint() {
     if (!stockHint || !itemIdInput || !almacen) return;
     
-    // Solo mostrar hint en salidas
     const esSalida = ['AJ-', 'CON', 'TRF'].includes((tipo && tipo.value) || '');
     if (!esSalida) {
       stockHint.textContent = '';
@@ -449,7 +327,6 @@
     }
   }
 
-  // 5. Buscador de ítems remoto
   let timerBusqueda = null;
   async function buscarItemsRemoto() {
     if (!itemInput || !sugerenciasItems) return;
@@ -476,25 +353,21 @@
         btn.textContent = texto;
         
         btn.addEventListener('click', function () {
-            // Rellenar Input
             itemInput.value = texto;
             itemIdInput.value = String(item.id || '');
             
-            // Verificar si existe en datalist, si no, agregarlo para que funcione obtenerDataDelItem()
             let option = Array.from(itemList.options).find(o => o.value === texto);
             if (!option) {
                 option = document.createElement('option');
                 option.value = texto;
                 itemList.appendChild(option);
             }
-            // Actualizar dataset vital para la lógica
             option.dataset.id = item.id;
             option.dataset.requiereLote = item.requiere_lote;
             option.dataset.requiereVencimiento = item.requiere_vencimiento;
 
             sugerenciasItems.classList.add('d-none');
             
-            // Disparar actualizaciones
             actualizarUIModal();
             actualizarStockHint();
             cargarResumenItem();
@@ -515,20 +388,19 @@
     switchInput.addEventListener('change', () => toggleEstadoItemInventario(switchInput));
   });
 
-  document.querySelectorAll('.btn-eliminar-item-inventario').forEach((button) => {
-    button.addEventListener('click', () => eliminarItemInventario(button));
-  });
-
+  // Escuchadores de los filtros visuales nativos
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
+  if (filtroTipoRegistro) filtroTipoRegistro.addEventListener('change', filtrarStock);
   if (filtroEstado) filtroEstado.addEventListener('change', filtrarStock);
-  if (filtroCriticidad) filtroCriticidad.addEventListener('change', filtrarStock);
-  if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
   if (filtroVencimiento) filtroVencimiento.addEventListener('change', filtrarStock);
+  
+  // El filtro de almacén recarga la página porque trae datos del backend
+  if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
+  
   filtrarStock();
 
   // Listeners Modal Movimiento
   if (form) {
-    // Cambio en tipo de movimiento
     if (tipo) {
         tipo.addEventListener('change', () => {
             actualizarUIModal();
@@ -539,10 +411,8 @@
         });
     }
 
-    // Cambio en almacén
     if (almacen) {
         almacen.addEventListener('change', () => {
-            // Si es salida, al cambiar almacén cambian los lotes disponibles
             if (!grupoLoteSelect.classList.contains('d-none')) {
                 cargarLotesDisponibles();
             }
@@ -550,10 +420,8 @@
         });
     }
 
-    // Input Item
     if (itemInput) {
         itemInput.addEventListener('input', function () {
-            // Si el usuario borra, limpiar ID
             const val = this.value;
             const itemData = obtenerDataDelItem();
             if(!itemData && val === '') itemIdInput.value = '';
@@ -564,7 +432,6 @@
             timerBusqueda = setTimeout(buscarItemsRemoto, 300);
         });
         
-        // Al perder foco o seleccionar del datalist nativo
         itemInput.addEventListener('change', function() {
              const itemData = obtenerDataDelItem();
              if(itemData) itemIdInput.value = itemData.id;
@@ -574,7 +441,6 @@
         });
     }
 
-    // Limpieza al cerrar modal
     if (modalEl) {
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
@@ -589,7 +455,7 @@
               sugerenciasItems.innerHTML = '';
               sugerenciasItems.classList.add('d-none');
             }
-            // Resetear visibilidades por defecto
+            
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
             if(grupoDestino) grupoDestino.classList.add('d-none');
@@ -601,7 +467,6 @@
         });
     }
 
-    // SUBMIT DEL FORMULARIO
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
@@ -610,17 +475,14 @@
         return;
       }
 
-      // PREPARAR LOTE FINAL
-      // Copiar valor del input o del select al hidden según corresponda
       if (!grupoLoteInput.classList.contains('d-none')) {
-          loteFinalEnviar.value = inputLoteNuevo.value; // Entrada: Nuevo lote
+          loteFinalEnviar.value = inputLoteNuevo.value; 
       } else if (!grupoLoteSelect.classList.contains('d-none')) {
-          loteFinalEnviar.value = selectLoteExistente.value; // Salida: Lote existente
+          loteFinalEnviar.value = selectLoteExistente.value; 
       } else {
-          loteFinalEnviar.value = ''; // No requiere lote
+          loteFinalEnviar.value = ''; 
       }
 
-      // Validar Lote si es requerido
       const itemData = obtenerDataDelItem();
       if (itemData && itemData.requiereLote && loteFinalEnviar.value.trim() === '') {
           Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
@@ -655,7 +517,6 @@
 
         await Swal.fire({ icon: 'success', title: 'Guardado', text: result.mensaje });
         
-        // Cerrar modal y recargar
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         if(modalInstance) modalInstance.hide();
         window.location.reload();

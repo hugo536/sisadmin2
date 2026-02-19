@@ -9,7 +9,11 @@ class InventarioModel extends Modelo
         if ($idAlmacen > 0) {
             $sql = 'SELECT i.id AS id_item,
                            i.sku,
-                           COALESCE(NULLIF(TRIM(i.nombre), \'\'), NULLIF(TRIM(i.descripcion), \'\')) AS item_nombre,
+                           CONCAT(
+                               i.nombre,
+                               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \', sbr.nombre) ELSE \'\' END,
+                               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \', prs.nombre) ELSE \'\' END
+                           ) AS item_nombre,
                            i.nombre AS item_nombre_base,
                            i.descripcion AS item_descripcion,
                            i.estado AS item_estado,
@@ -18,6 +22,9 @@ class InventarioModel extends Modelo
                            i.stock_minimo,
                            i.requiere_vencimiento,
                            i.dias_alerta_vencimiento,
+                           i.controla_stock,
+                           i.permite_decimales,
+                           \'item\' AS tipo_registro,
                            COALESCE(s.stock_actual, 0) AS stock_actual,
                            (
                                SELECT l.lote
@@ -40,16 +47,45 @@ class InventarioModel extends Modelo
                            ) AS proximo_vencimiento
                     FROM items i
                     INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
+                    LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+                    LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                     LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
                     WHERE i.controla_stock = 1
                       AND i.deleted_at IS NULL
-                    ORDER BY i.nombre ASC';
+                    /*
+                    UNION ALL
+                    SELECT 
+                        p.id AS id_item, 
+                        p.sku,
+                        p.nombre_presentacion AS item_nombre,
+                        p.nombre_presentacion AS item_nombre_base,
+                        \'Pack Comercial\' AS item_descripcion,
+                        p.estado AS item_estado,
+                        a.id AS id_almacen,
+                        a.nombre AS almacen_nombre,
+                        p.stock_min AS stock_minimo,
+                        0 AS requiere_vencimiento,
+                        NULL AS dias_alerta_vencimiento,
+                        1 AS controla_stock,
+                        0 AS permite_decimales, 
+                        \'pack\' AS tipo_registro,
+                        COALESCE(sp.stock_actual, 0) AS stock_actual,
+                        NULL AS lote_actual,
+                        NULL AS proximo_vencimiento
+                    FROM comercial_presentaciones p
+                    INNER JOIN almacenes a ON a.id = :id_almacen_pack AND a.estado = 1 AND a.deleted_at IS NULL
+                    LEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen_stock_pack
+                    WHERE p.estado = 1
+                    */
+                    ORDER BY item_nombre ASC';
 
             $stmt = $this->db()->prepare($sql);
             $stmt->bindValue(':id_almacen', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_lote', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
+            // $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
+            // $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -57,7 +93,11 @@ class InventarioModel extends Modelo
 
         $sql = 'SELECT i.id AS id_item,
                        i.sku,
-                       COALESCE(NULLIF(TRIM(i.nombre), \'\'), NULLIF(TRIM(i.descripcion), \'\')) AS item_nombre,
+                       CONCAT(
+                           i.nombre,
+                           CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \', sbr.nombre) ELSE \'\' END,
+                           CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \', prs.nombre) ELSE \'\' END
+                       ) AS item_nombre,
                        i.nombre AS item_nombre_base,
                        i.descripcion AS item_descripcion,
                        i.estado AS item_estado,
@@ -66,7 +106,10 @@ class InventarioModel extends Modelo
                        i.stock_minimo,
                        i.requiere_vencimiento,
                        i.dias_alerta_vencimiento,
-                           COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
+                       i.controla_stock,
+                       i.permite_decimales,
+                       \'item\' AS tipo_registro,
+                       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
                        (
                            SELECT l.lote
                            FROM inventario_lotes l
@@ -87,12 +130,40 @@ class InventarioModel extends Modelo
                              AND l.fecha_vencimiento IS NOT NULL
                        ) AS proximo_vencimiento
                 FROM items i
+                LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+                LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                 LEFT JOIN inventario_stock s ON s.id_item = i.id
                 LEFT JOIN almacenes a ON a.id = s.id_almacen
                 WHERE i.controla_stock = 1
                   AND i.deleted_at IS NULL
-                GROUP BY i.id, i.sku, i.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento
-                ORDER BY i.nombre ASC';
+                GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
+                /*
+                UNION ALL
+                SELECT 
+                    p.id AS id_item, 
+                    p.sku,
+                    p.nombre_presentacion AS item_nombre,
+                    p.nombre_presentacion AS item_nombre_base,
+                    \'Pack Comercial\' AS item_descripcion,
+                    p.estado AS item_estado,
+                    0 AS id_almacen,
+                    \'Global / Todos\' AS almacen_nombre,
+                    p.stock_min AS stock_minimo,
+                    0 AS requiere_vencimiento,
+                    NULL AS dias_alerta_vencimiento,
+                    1 AS controla_stock,
+                    0 AS permite_decimales,
+                    \'pack\' AS tipo_registro,
+                    COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
+                    NULL AS lote_actual,
+                    NULL AS proximo_vencimiento
+                FROM comercial_presentaciones p
+                LEFT JOIN inventario_stock sp ON sp.id_pack = p.id
+                LEFT JOIN almacenes a ON a.id = sp.id_almacen
+                WHERE p.estado = 1 
+                GROUP BY p.id, p.sku, p.nombre_presentacion, p.estado, p.stock_min
+                */
+                ORDER BY item_nombre ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -277,35 +348,25 @@ class InventarioModel extends Modelo
                 'created_by' => $createdBy,
             ]);
 
-            // LÓGICA ACTUALIZADA PARA MANEJAR LOTES POR ALMACÉN
-
             if (in_array($tipo, ['INI', 'AJ+'], true)) {
                 $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
-                // Ahora pasamos el ID del almacén destino
                 $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
             }
 
             if (in_array($tipo, ['AJ-', 'CON'], true)) {
                 $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
                 $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
-                // Ahora pasamos el ID del almacén origen para descontar del lote correcto
                 $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
             }
 
             if ($tipo === 'TRF') {
                 $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
                 
-                // 1. Sacar de Origen
                 $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
                 $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
                 
-                // 2. Ingresar a Destino (La transferencia mueve el lote tal cual)
                 $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
                 
-                // NOTA: En transferencia, mantenemos el vencimiento original del lote si ya existe,
-                // si es nuevo en destino, deberíamos saber el vencimiento. 
-                // Aquí asumimos que el lote se mueve con sus propiedades.
-                // Idealmente deberías recuperar el vencimiento del lote origen si no viene en el form.
                 $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idItem, $idAlmacenOrigen, $lote);
                 
                 $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
@@ -368,7 +429,6 @@ class InventarioModel extends Modelo
         return $item;
     }
 
-    // NUEVO HELPER PARA OBTENER VENCIMIENTO EN TRANSFERENCIAS
     private function obtenerVencimientoLote(PDO $db, int $idItem, int $idAlmacen, string $lote): ?string
     {
         if ($lote === '') return null;
@@ -380,7 +440,6 @@ class InventarioModel extends Modelo
         return $stmt->fetchColumn() ?: null;
     }
 
-    // AHORA RECIBE ID_ALMACEN
     private function incrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, ?string $fechaVencimiento, float $cantidad): void
     {
         if ($lote === '') {
@@ -403,7 +462,6 @@ class InventarioModel extends Modelo
         ]);
     }
 
-    // AHORA RECIBE ID_ALMACEN PARA DESCONTAR DEL LUGAR CORRECTO
     private function decrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad): void
     {
         if ($lote !== '') {
@@ -411,7 +469,6 @@ class InventarioModel extends Modelo
             return;
         }
 
-        // Si no se especifica lote, aplicamos FIFO pero SOLO dentro del almacén origen
         $pendiente = $cantidad;
         $sql = 'SELECT lote, stock_lote
                 FROM inventario_lotes
@@ -453,7 +510,6 @@ class InventarioModel extends Modelo
             throw new RuntimeException('Debe seleccionar un lote válido para la salida.');
         }
 
-        // Validación estricta por almacén
         $sqlStock = 'SELECT stock_lote
                      FROM inventario_lotes
                      WHERE id_item = :id_item

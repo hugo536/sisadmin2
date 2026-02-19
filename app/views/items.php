@@ -327,37 +327,45 @@ $tipoItemLabel = static function (string $tipo): string {
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-secondary py-2"><i class="bi bi-sliders me-2"></i>Configuración Avanzada</div>
                             <div class="card-body py-3">
-                                <div class="row align-items-center g-3">
+                                <div class="row g-3">
                                     <div class="col-md-6">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
-                                            <label class="form-check-label" for="newControlaStock">Controlar Stock</label>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="newControlaStock" name="controla_stock" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newControlaStock">Controlar Stock</label>
+                                            </div>
+                                            <div class="w-50" id="newStockMinContainer">
+                                                <input type="number" class="form-control form-control-sm text-end" id="newStockMin" name="stock_minimo" placeholder="Mín." value="0.0000" disabled>
+                                            </div>
                                         </div>
-                                        <div class="mt-1 d-none" id="newStockMinContainer">
-                                            <input type="number" class="form-control form-control-sm" id="newStockMin" name="stock_minimo" placeholder="Stock Mínimo" value="0.0000" disabled>
+
+                                        <div class="d-flex align-items-center" id="newRequiereLoteContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newRequiereLote">Exigir Lote</label>
+                                            </div>
+                                            <i class="bi bi-info-circle-fill text-primary opacity-50 ms-2" data-bs-toggle="tooltip" data-bs-placement="right" title="Obligatorio al registrar ingresos/salidas."></i>
                                         </div>
                                     </div>
                                     
-                                    <div class="col-md-6" id="newRequiereVencimientoContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1">
-                                            <label class="form-check-label" for="newRequiereVencimiento">Requiere Vencimiento</label>
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-3" id="newRequiereVencimientoContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="newRequiereVencimiento" name="requiere_vencimiento" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newRequiereVencimiento">Requiere Venc.</label>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2" id="newDiasAlertaContainer">
+                                                <span class="small text-muted" style="font-size: 0.8rem;">Días alerta:</span>
+                                                <input type="number" min="0" class="form-control form-control-sm text-center" id="newDiasAlerta" name="dias_alerta_vencimiento" style="width: 70px;" value="0" disabled>
+                                            </div>
                                         </div>
-                                        <div class="mt-1 d-none" id="newDiasAlertaContainer">
-                                            <input type="number" class="form-control form-control-sm" id="newDiasAlerta" name="dias_alerta_vencimiento" placeholder="Días alerta" value="30">
-                                        </div>
-                                    </div>
 
-                                    <div class="col-md-6" id="newRequiereLoteContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="newRequiereLote" name="requiere_lote" value="1">
-                                            <label class="form-check-label" for="newRequiereLote">Exigir Lote</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6" id="newPermiteDecimalesContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1">
-                                            <label class="form-check-label" for="newPermiteDecimales">Permite Decimales</label>
+                                        <div class="d-flex align-items-center" id="newPermiteDecimalesContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="newPermiteDecimales" name="permite_decimales" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newPermiteDecimales">Permite Decimales</label>
+                                            </div>
+                                            <i class="bi bi-info-circle-fill text-primary opacity-50 ms-2" data-bs-toggle="tooltip" data-bs-placement="left" title="Ideal para ventas a granel (ej. Litros o Kg)."></i>
                                         </div>
                                     </div>
                                 </div>
@@ -505,37 +513,45 @@ $tipoItemLabel = static function (string $tipo): string {
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-secondary py-2"><i class="bi bi-sliders me-2"></i>Configuración Avanzada</div>
                             <div class="card-body py-3">
-                                <div class="row align-items-center g-3">
+                                <div class="row g-3">
                                     <div class="col-md-6">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
-                                            <label class="form-check-label" for="editControlaStock">Controlar Stock</label>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="editControlaStock" name="controla_stock" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editControlaStock">Controlar Stock</label>
+                                            </div>
+                                            <div class="w-50" id="editStockMinimoContainer">
+                                                <input class="form-control form-control-sm text-end" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001" disabled placeholder="Mín.">
+                                            </div>
                                         </div>
-                                        <div class="mt-1 d-none" id="editStockMinimoContainer">
-                                            <input class="form-control form-control-sm" id="editStockMinimo" name="stock_minimo" type="number" step="0.0001" disabled placeholder="Stock Mínimo">
+
+                                        <div class="d-flex align-items-center" id="editRequiereLoteContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editRequiereLote">Exigir Lote</label>
+                                            </div>
+                                            <i class="bi bi-info-circle-fill text-primary opacity-50 ms-2" data-bs-toggle="tooltip" data-bs-placement="right" title="Obligatorio al registrar ingresos/salidas."></i>
                                         </div>
                                     </div>
 
-                                    <div class="col-md-6" id="editRequiereVencimientoContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1">
-                                            <label class="form-check-label" for="editRequiereVencimiento">Requiere Vencimiento</label>
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-3" id="editRequiereVencimientoContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="editRequiereVencimiento" name="requiere_vencimiento" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editRequiereVencimiento">Requiere Venc.</label>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2" id="editDiasAlertaContainer">
+                                                <span class="small text-muted" style="font-size: 0.8rem;">Días alerta:</span>
+                                                <input type="number" min="0" class="form-control form-control-sm text-center" id="editDiasAlerta" name="dias_alerta_vencimiento" style="width: 70px;" disabled>
+                                            </div>
                                         </div>
-                                        <div class="mt-1 d-none" id="editDiasAlertaContainer">
-                                            <input type="number" min="0" class="form-control form-control-sm" id="editDiasAlerta" name="dias_alerta_vencimiento" placeholder="Días alerta">
-                                        </div>
-                                    </div>
 
-                                    <div class="col-md-6" id="editRequiereLoteContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editRequiereLote" name="requiere_lote" value="1">
-                                            <label class="form-check-label" for="editRequiereLote">Exigir Lote</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6" id="editPermiteDecimalesContainer">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1">
-                                            <label class="form-check-label" for="editPermiteDecimales">Permite Decimales</label>
+                                        <div class="d-flex align-items-center" id="editPermiteDecimalesContainer">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" id="editPermiteDecimales" name="permite_decimales" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editPermiteDecimales">Permite Decimales</label>
+                                            </div>
+                                            <i class="bi bi-info-circle-fill text-primary opacity-50 ms-2" data-bs-toggle="tooltip" data-bs-placement="left" title="Ideal para ventas a granel (ej. Litros o Kg)."></i>
                                         </div>
                                     </div>
                                 </div>

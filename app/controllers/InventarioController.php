@@ -25,14 +25,15 @@ class InventarioController extends Controlador
         }
 
         $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
-        $stockActual = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
+        $stockActualRaw = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
+        
+        // ACCIÓN 1 y 2: Procesar la data cruda para inyectarle la lógica de estado y formato
+        $stockProcesado = $this->procesarEstadosStock($stockActualRaw);
 
         $datos = [
             'ruta_actual' => 'inventario',
-            'stockActual' => $stockActual,
+            'stockActual' => $stockProcesado,
             'almacenes' => $this->almacenModel->listarActivos(),
-            // 'items' podría ser pesado si son miles, mejor cargar vía AJAX o paginado,
-            // pero si son pocos está bien dejarlo así.
             'items' => $this->inventarioModel->listarItems(),
             'flash' => ['tipo' => '', 'texto' => ''],
             'id_almacen_filtro' => $idAlmacenFiltro,
@@ -40,6 +41,58 @@ class InventarioController extends Controlador
 
         $this->vista('inventario', $datos);
     }
+
+    // --- LÓGICA DE ESTADOS Y FORMATOS (ACCIÓN 1 Y 2) ---
+    private function procesarEstadosStock(array $filas): array
+    {
+        $resultado = [];
+        
+        foreach ($filas as $fila) {
+            $stock = (float) ($fila['stock_actual'] ?? 0);
+            $stockMin = (float) ($fila['stock_minimo'] ?? 0);
+            $controlaStock = (int) ($fila['controla_stock'] ?? 1);
+            $permiteDecimales = (int) ($fila['permite_decimales'] ?? 0);
+            $lote = trim((string) ($fila['lote_actual'] ?? ''));
+            
+            // 1. Lógica de Decimales (Acción 2)
+            // Si permite decimales (ej. Insumos), mostramos 3. Si no (botellas), mostramos 0.
+            $fila['stock_formateado'] = number_format($stock, $permiteDecimales === 1 ? 3 : 0, '.', ',');
+            $fila['stock_minimo_formateado'] = number_format($stockMin, $permiteDecimales === 1 ? 3 : 0, '.', ',');
+
+            // 2. Lógica de Estados y Colores (Acción 1)
+            if ($controlaStock === 0) {
+                $fila['badge_estado'] = 'N/A';
+                $fila['badge_color'] = 'bg-secondary bg-opacity-10 text-secondary'; // Gris claro / Azul claro
+            } else {
+                // Verificar si es un ítem nuevo sin movimientos (stock es 0 y no tiene lotes registrados)
+                // Usamos la ausencia de lote y stock 0 como indicador de que aún no se ha operado con él.
+                if ($stock === 0.0 && $lote === '') {
+                    $fila['badge_estado'] = 'Sin Movimiento';
+                    $fila['badge_color'] = 'bg-light text-muted border border-secondary'; // Gris neutral
+                } 
+                // Si el stock es 0 pero ya tuvo movimientos (se agotó)
+                elseif ($stock <= 0.0) {
+                    $fila['badge_estado'] = 'Agotado';
+                    $fila['badge_color'] = 'bg-danger bg-opacity-10 text-danger border border-danger'; // Rojo fuerte
+                }
+                // Si el stock está por debajo del mínimo
+                elseif ($stock <= $stockMin) {
+                    $fila['badge_estado'] = 'Alerta';
+                    $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning'; // Amarillo
+                } 
+                // Stock saludable
+                else {
+                    $fila['badge_estado'] = 'Disponible';
+                    $fila['badge_color'] = 'bg-success bg-opacity-10 text-success'; // Verde
+                }
+            }
+
+            $resultado[] = $fila;
+        }
+        
+        return $resultado;
+    }
+
 
     public function guardarMovimiento(): void
     {
@@ -60,7 +113,6 @@ class InventarioController extends Controlador
             $cantidad = (float) ($_POST['cantidad'] ?? 0);
             $referencia = trim((string) ($_POST['referencia'] ?? ''));
             
-            // Corrección: Convertir vacíos a NULL o mantener limpio
             $lote = trim((string) ($_POST['lote'] ?? ''));
             $fechaPost = trim((string) ($_POST['fecha_vencimiento'] ?? ''));
             $fechaVencimiento = $fechaPost !== '' ? $fechaPost : null;
@@ -78,16 +130,12 @@ class InventarioController extends Controlador
                 'created_by' => (int) ($_SESSION['id'] ?? 0),
             ];
 
-            // Lógica de asignación de almacenes
             if ($tipo === 'TRF') {
-                // En Transferencia, id_almacen del post suele ser el ORIGEN
                 $datos['id_almacen_origen'] = $idAlmacen;
                 $datos['id_almacen_destino'] = (int) ($_POST['id_almacen_destino'] ?? 0);
             } elseif (in_array($tipo, ['AJ-', 'CON'], true)) {
-                // En Salidas, id_almacen es ORIGEN
                 $datos['id_almacen_origen'] = $idAlmacen;
             } else {
-                // En Entradas (INI, AJ+), id_almacen es DESTINO
                 $datos['id_almacen_destino'] = $idAlmacen;
             }
 
@@ -99,8 +147,6 @@ class InventarioController extends Controlador
                 'id' => $idMovimiento,
             ]);
         } catch (Throwable $e) {
-            // Loguear error real internamente si tienes logger
-            // error_log($e->getMessage()); 
             json_response([
                 'ok' => false,
                 'mensaje' => $e->getMessage(),
@@ -128,8 +174,6 @@ class InventarioController extends Controlador
         json_response(['ok' => true, 'items' => $items]);
     }
 
-    // --- NUEVO MÉTODO IMPORTANTE ---
-    // Permite al frontend llenar el select de "Lotes" cuando eliges un producto y almacén
     public function buscarLotes(): void 
     {
         AuthMiddleware::handle();
@@ -147,7 +191,6 @@ class InventarioController extends Controlador
             return;
         }
 
-        // NOTA: Debes agregar este método pequeño a tu InventarioModel (ver abajo)
         $lotes = $this->inventarioModel->listarLotesDisponibles($idItem, $idAlmacen);
         
         json_response(['ok' => true, 'lotes' => $lotes]);
@@ -188,7 +231,6 @@ class InventarioController extends Controlador
         ];
 
         $movimientos = $this->inventarioModel->obtenerKardex($filtros);
-        // Si necesitas listar items para el filtro del kardex
         $items = $this->inventarioModel->listarItems();
 
         $this->vista('inventario_kardex', [
@@ -206,7 +248,10 @@ class InventarioController extends Controlador
 
         $formato = strtolower(trim((string) ($_GET['formato'] ?? 'csv')));
         $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
-        $filas = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
+        $filasRaw = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
+        
+        // También procesamos los datos para el exportable para que coincida con la vista
+        $filas = $this->procesarEstadosStock($filasRaw);
 
         if ($formato === 'pdf') {
             header('Content-Type: text/plain; charset=utf-8');
@@ -222,25 +267,21 @@ class InventarioController extends Controlador
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
         $out = fopen('php://output', 'wb');
-        // Encabezados deben coincidir con tus datos
-        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock actual', 'Stock mínimo', 'Estado', 'Vencimiento'];
+        
+        // NOTA: He actualizado los encabezados del exportable
+        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock Actual', 'Stock Mínimo', 'Estado', 'Vencimiento'];
         fputcsv($out, $headers, $separator);
 
         foreach ($filas as $fila) {
-            $stock = (float) ($fila['stock_actual'] ?? 0);
-            $stockMin = (float) ($fila['stock_minimo'] ?? 0);
-            $estado = $stock <= 0 ? 'Agotado' : ($stock <= $stockMin ? 'Crítico' : 'Disponible');
-
-            // Aseguramos que usamos los alias correctos del Modelo
             fputcsv($out, [
                 (string) ($fila['sku'] ?? ''),
-                (string) ($fila['item_nombre'] ?? ''),
+                (string) ($fila['item_nombre'] ?? ''), // Ahora exportará "Cola Belén Piña 3L"
                 (string) ($fila['almacen_nombre'] ?? ''),
-                (string) ($fila['lote_actual'] ?? '-'), // Alias corregido en el Modelo anterior
-                number_format($stock, 4, '.', ''),
-                number_format($stockMin, 4, '.', ''),
-                $estado,
-                (string) ($fila['proximo_vencimiento'] ?? '-'),
+                (string) ($fila['lote_actual'] !== '' ? $fila['lote_actual'] : '-'),
+                (string) ($fila['stock_formateado'] ?? '0'), // Exporta el número ya formateado sin ceros inútiles
+                (string) ($fila['stock_minimo_formateado'] ?? '0'),
+                (string) ($fila['badge_estado'] ?? ''), // Exporta el nombre del estado (Agotado, Alerta, etc.)
+                (string) ($fila['proximo_vencimiento'] !== '' ? $fila['proximo_vencimiento'] : '-'),
             ], $separator);
         }
 

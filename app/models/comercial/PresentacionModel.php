@@ -116,8 +116,13 @@ class PresentacionModel extends Modelo {
             $codigoFinal = null;
             $nombreManual = null;
             
-            // NUEVO: Capturar Nota/Observación
+            // Capturar Nota/Observación
             $notaPack = !empty($datos['nota_pack']) ? trim($datos['nota_pack']) : null;
+
+            // NUEVO: Capturar Configuración Avanzada (Lote y Vencimiento)
+            $exigirLote = !empty($datos['exigir_lote']) ? 1 : 0;
+            $requiereVencimiento = !empty($datos['requiere_vencimiento']) ? 1 : 0;
+            $diasVencimiento = !empty($datos['dias_vencimiento_alerta']) ? (int) $datos['dias_vencimiento_alerta'] : 0;
 
             if (!$esMixto) {
                 $idItem = (int) ($datos['id_item'] ?? 0);
@@ -152,23 +157,26 @@ class PresentacionModel extends Modelo {
             }
 
             if (empty($datos['id'])) {
-                // INSERTAR (Incluye nota_pack)
+                // INSERTAR (Incluye campos de lote y vencimiento)
                 $sql = "INSERT INTO {$this->table}
-                        (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, created_by)
-                        VALUES (:id_item, :nombre_manual, :nota_pack, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :created_by)";
+                        (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, exigir_lote, requiere_vencimiento, dias_vencimiento_alerta, created_by)
+                        VALUES (:id_item, :nombre_manual, :nota_pack, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :exigir_lote, :requiere_vencimiento, :dias_vencimiento_alerta, :created_by)";
                 $params = [
-                    ':id_item'       => $idItem,
-                    ':nombre_manual' => $nombreManual,
-                    ':nota_pack'     => $notaPack,
-                    ':codigo'        => $codigoFinal,
-                    ':factor'        => $factor,
-                    ':es_mixto'      => $esMixto ? 1 : 0,
-                    ':precio_x_menor'=> $precioMenor,
-                    ':precio_x_mayor'=> $precioMayor,
+                    ':id_item'               => $idItem,
+                    ':nombre_manual'         => $nombreManual,
+                    ':nota_pack'             => $notaPack,
+                    ':codigo'                => $codigoFinal,
+                    ':factor'                => $factor,
+                    ':es_mixto'              => $esMixto ? 1 : 0,
+                    ':precio_x_menor'        => $precioMenor,
+                    ':precio_x_mayor'        => $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
-                    ':peso_bruto'    => $pesoBruto,
-                    ':stock_minimo'  => $stockMinimo,
-                    ':created_by'    => $usuario
+                    ':peso_bruto'            => $pesoBruto,
+                    ':stock_minimo'          => $stockMinimo,
+                    ':exigir_lote'           => $exigirLote,
+                    ':requiere_vencimiento'  => $requiereVencimiento,
+                    ':dias_vencimiento_alerta'=> $diasVencimiento,
+                    ':created_by'            => $usuario
                 ];
                 
                 $stmt = $this->db->prepare($sql);
@@ -181,7 +189,7 @@ class PresentacionModel extends Modelo {
                 $presentacionId = (int) $this->db->lastInsertId();
 
             } else {
-                // ACTUALIZAR (Incluye nota_pack)
+                // ACTUALIZAR (Incluye campos de lote y vencimiento)
                 $presentacionId = (int) $datos['id'];
                 $actual = $this->obtener($presentacionId);
                 if (!$actual) {
@@ -200,24 +208,30 @@ class PresentacionModel extends Modelo {
                         cantidad_minima_mayor = :cantidad_minima_mayor,
                         peso_bruto = :peso_bruto,
                         stock_minimo = :stock_minimo,
+                        exigir_lote = :exigir_lote,
+                        requiere_vencimiento = :requiere_vencimiento,
+                        dias_vencimiento_alerta = :dias_vencimiento_alerta,
                         updated_by = :updated_by,
                         updated_at = NOW()
                         WHERE id = :id";
                 
                 $params = [
-                    ':id_item'       => $idItem,
-                    ':nombre_manual' => $nombreManual,
-                    ':nota_pack'     => $notaPack,
-                    ':codigo'        => $codigoFinal,
-                    ':factor'        => $factor,
-                    ':es_mixto'      => $esMixto ? 1 : 0,
-                    ':precio_x_menor'=> $precioMenor,
-                    ':precio_x_mayor'=> $precioMayor,
+                    ':id_item'               => $idItem,
+                    ':nombre_manual'         => $nombreManual,
+                    ':nota_pack'             => $notaPack,
+                    ':codigo'                => $codigoFinal,
+                    ':factor'                => $factor,
+                    ':es_mixto'              => $esMixto ? 1 : 0,
+                    ':precio_x_menor'        => $precioMenor,
+                    ':precio_x_mayor'        => $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
-                    ':peso_bruto'    => $pesoBruto,
-                    ':stock_minimo'  => $stockMinimo,
-                    ':updated_by'    => $usuario,
-                    ':id'            => $presentacionId
+                    ':peso_bruto'            => $pesoBruto,
+                    ':stock_minimo'          => $stockMinimo,
+                    ':exigir_lote'           => $exigirLote,
+                    ':requiere_vencimiento'  => $requiereVencimiento,
+                    ':dias_vencimiento_alerta'=> $diasVencimiento,
+                    ':updated_by'            => $usuario,
+                    ':id'                    => $presentacionId
                 ];
                 
                 $stmt = $this->db->prepare($sql);

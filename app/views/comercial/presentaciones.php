@@ -253,7 +253,7 @@ $presentaciones = $presentaciones ?? [];
 
                         <hr class="text-muted opacity-25">
 
-                        <div class="row g-3">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label text-success fw-bold">Precio Público (Menor)</label>
                                 <div class="input-group">
@@ -268,25 +268,61 @@ $presentaciones = $presentaciones ?? [];
                                     <input type="number" step="0.01" class="form-control" name="precio_x_mayor" id="inputPrecioMayor">
                                 </div>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label small text-muted">Aplicar mayorista desde:</label>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Aplicar mayorista desde (Unidades):</label>
                                 <input type="number" class="form-control form-control-sm" name="cantidad_minima_mayor" id="inputMinMayor" placeholder="Ej: 5">
                             </div>
-                             <div class="col-6">
-                                <label class="form-label small text-muted">Peso (Kg)</label>
+                             <div class="col-md-6">
+                                <label class="form-label small text-muted">Peso Bruto Total (Kg):</label>
                                 <input type="number" class="form-control form-control-sm" name="peso_bruto" id="peso_bruto" step="0.001" value="0.000">
                             </div>
-                            <div class="col-12">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label small text-muted mb-0">Stock Mínimo (Alerta)</label>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="checkControlStock">
-                                        <label class="form-check-label small text-primary fw-bold" for="checkControlStock">Activar Control</label>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top">
+                            <h6 class="fw-bold text-secondary mb-3">
+                                <i class="bi bi-sliders me-2"></i>Configuración Avanzada
+                            </h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="checkControlStock">
+                                            <label class="form-check-label fw-semibold text-dark" for="checkControlStock">Controlar Stock</label>
+                                        </div>
+                                        <div class="w-50">
+                                            <input type="number" class="form-control form-control-sm text-end" name="stock_minimo" id="stock_minimo" step="0.01" value="0" disabled placeholder="Mín.">
+                                        </div>
                                     </div>
+
+                                    <div class="d-flex align-items-center">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="exigir_lote" name="exigir_lote" value="1">
+                                            <label class="form-check-label fw-semibold text-dark" for="exigir_lote">Exigir Lote</label>
+                                        </div>
+                                        <i class="bi bi-info-circle-fill text-primary opacity-50 ms-2" data-bs-toggle="tooltip" data-bs-placement="right" title="Será obligatorio indicar de qué lote sale este pack al momento de despachar."></i>
+                                    </div>
+
                                 </div>
-                                <input type="number" class="form-control" name="stock_minimo" id="stock_minimo" step="0.01" value="0" disabled>
+
+                                <div class="col-md-6">
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="requiere_vencimiento" name="requiere_vencimiento" value="1">
+                                            <label class="form-check-label fw-semibold text-dark" for="requiere_vencimiento">Requiere Venc.</label>
+                                        </div>
+                                        <div class="input-group input-group-sm w-50">
+                                            <input type="number" class="form-control text-center" name="dias_vencimiento_alerta" id="dias_vencimiento_alerta" value="0" min="0" disabled title="Días previos para alertar">
+                                            <span class="input-group-text bg-light text-muted">días</span>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
                         </div>
+                        
                     </div>
                     <div class="modal-footer bg-white">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>

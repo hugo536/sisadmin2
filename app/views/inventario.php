@@ -48,6 +48,15 @@ $hoy = new DateTimeImmutable('today');
                         <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar SKU o nombre...">
                     </div>
                 </div>
+                
+                <div class="col-6 col-md-2">
+                    <select class="form-select bg-light" id="inventarioFiltroTipoRegistro">
+                        <option value="">Todos los Tipos</option>
+                        <option value="item">Productos Base / Insumos</option>
+                        <option value="pack">Presentaciones Comerciales (Packs)</option>
+                    </select>
+                </div>
+
                 <div class="col-6 col-md-3">
                     <select class="form-select bg-light" id="inventarioFiltroAlmacen">
                         <option value="" <?php echo $idAlmacenFiltro === 0 ? 'selected' : ''; ?>>Todos los almacenes</option>
@@ -61,16 +70,10 @@ $hoy = new DateTimeImmutable('today');
                 <div class="col-6 col-md-2">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
                         <option value="">Estado Stock</option>
-                        <option value="disponible">Con stock</option>
-                        <option value="agotado">Sin stock</option>
-                    </select>
-                </div>
-                <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="inventarioFiltroCriticidad">
-                        <option value="">Criticidad</option>
-                        <option value="normal">Normal</option>
-                        <option value="bajo">Bajo</option>
-                        <option value="critico">Crítico</option>
+                        <option value="disponible">Saludable (Verde)</option>
+                        <option value="alerta">Alerta (Amarillo)</option>
+                        <option value="agotado">Agotado (Rojo)</option>
+                        <option value="sin_movimiento">Sin Movimientos (Gris)</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
@@ -91,7 +94,7 @@ $hoy = new DateTimeImmutable('today');
                     <thead>
                         <tr>
                             <th class="ps-4">SKU</th>
-                            <th>Producto</th>
+                            <th>Producto (Nombre Completo)</th>
                             <th>Almacén</th>
                             <th>Lote</th>
                             <th class="text-end pe-4">Stock Actual</th>
@@ -104,31 +107,20 @@ $hoy = new DateTimeImmutable('today');
                         <?php if (!empty($stockActual)): ?>
                             <?php foreach ($stockActual as $stock): ?>
                                 <?php
-                                $stockActualItem = (float) ($stock['stock_actual'] ?? 0);
-                                $stockMinimo = (float) ($stock['stock_minimo'] ?? 0);
                                 $sku = (string) ($stock['sku'] ?? '');
-                                $itemNombre = (string) ($stock['item_nombre'] ?? '');
+                                // Aquí usamos el nombre concatenado (Nombre + Sabor + Presentacion)
+                                $itemNombreCompleto = (string) ($stock['item_nombre'] ?? '');
                                 $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
                                 $loteActual = trim((string) ($stock['lote_actual'] ?? ''));
                                 $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
-                                $estadoStock = $stockActualItem <= 0 ? 'agotado' : 'disponible';
+                                $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
                                 
-                                // Lógica de Criticidad
-                                $criticidad = 'normal';
-                                $estadoCantidadClase = 'bg-success-subtle text-success border border-success-subtle';
-                                $estadoCantidadTexto = 'Normal';
+                                // Variables inyectadas por el Controlador (Acción 1 y 2)
+                                $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
+                                $badgeColor = (string) ($stock['badge_color'] ?? '');
+                                $badgeTexto = (string) ($stock['badge_estado'] ?? '');
 
-                                if ($stockActualItem <= $stockMinimo) {
-                                    $criticidad = 'critico';
-                                    $estadoCantidadClase = 'bg-danger-subtle text-danger border border-danger-subtle';
-                                    $estadoCantidadTexto = 'Crítico';
-                                } elseif ($stockActualItem <= ($stockMinimo * 1.5)) {
-                                    $criticidad = 'bajo';
-                                    $estadoCantidadClase = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                                    $estadoCantidadTexto = 'Bajo';
-                                }
-
-                                // Lógica de Vencimiento
+                                // Lógica de Vencimiento (Mantenemos la tuya que está perfecta)
                                 $requiereVencimiento = (int) ($stock['requiere_vencimiento'] ?? 0) === 1;
                                 $diasAlerta = (int) ($stock['dias_alerta_vencimiento'] ?? 0);
                                 $proximoVencimiento = (string) ($stock['proximo_vencimiento'] ?? '');
@@ -158,24 +150,31 @@ $hoy = new DateTimeImmutable('today');
                                     }
                                 }
 
-                                $search = mb_strtolower($sku . ' ' . $itemNombre . ' ' . $almacenNombre . ' ' . $loteActual);
+                                // Search index para que el DataTables o tu JS lo encuentre fácil
+                                $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre . ' ' . $loteActual);
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>"
                                     data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                    data-estado="<?php echo e($estadoStock); ?>"
-                                    data-criticidad="<?php echo e($criticidad); ?>"
+                                    data-tipo-registro="<?php echo e($tipoRegistro); ?>"
+                                    data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
                                     data-almacen="<?php echo (int) $idAlmacen; ?>"
                                     data-vencimiento="<?php echo e($estadoVencimiento); ?>">
                                     
                                     <td class="ps-4 fw-semibold text-primary"><?php echo e($sku); ?></td>
-                                    <td class="fw-semibold text-dark"><?php echo e($itemNombre); ?></td>
+                                    <td class="fw-semibold text-dark">
+                                        <?php echo e($itemNombreCompleto); ?>
+                                        <?php if($tipoRegistro === 'pack'): ?>
+                                            <span class="badge bg-info text-dark ms-1" style="font-size: 0.65rem;">PACK</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
                                     <td><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
-                                    <td class="text-end pe-4 fw-bold"><?php echo number_format($stockActualItem, 4, '.', ''); ?></td>
+                                    
+                                    <td class="text-end pe-4 fw-bold fs-6"><?php echo $stockFormateado; ?></td>
                                     
                                     <td class="text-center">
-                                        <span class="badge px-3 rounded-pill <?php echo e($estadoCantidadClase); ?>">
-                                            <?php echo e($estadoCantidadTexto); ?>
+                                        <span class="badge px-3 rounded-pill <?php echo $badgeColor; ?>">
+                                            <?php echo e($badgeTexto); ?>
                                         </span>
                                     </td>
                                     
@@ -190,7 +189,7 @@ $hoy = new DateTimeImmutable('today');
                                     
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
-                                            <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                            <div class="form-check form-switch pt-1" title="Cambiar estado del ítem">
                                                 <input class="form-check-input switch-estado-item-inventario" type="checkbox" role="switch"
                                                        style="cursor: pointer;"
                                                        data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
@@ -200,7 +199,7 @@ $hoy = new DateTimeImmutable('today');
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
                                             <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent"
-                                               title="Ver Kardex">
+                                               data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
                                                 <i class="bi bi-eye fs-5"></i>
                                             </a>
                                         </div>
@@ -351,4 +350,13 @@ $hoy = new DateTimeImmutable('today');
     </div>
 </div>
 
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+        // Inicializar tooltips de Bootstrap
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    });
+</script>
 <script src="<?php echo e(asset_url('js/inventario.js')); ?>"></script>

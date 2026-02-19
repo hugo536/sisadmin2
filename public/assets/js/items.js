@@ -15,7 +15,6 @@
         return `${url.pathname}${url.search}`;
     }
 
-
     function showError(message) {
         if (window.Swal && typeof window.Swal.fire === 'function') {
             return window.Swal.fire({
@@ -66,7 +65,6 @@
     }
 
     async function fetchOpcionesAtributos() {
-        // MODIFICADO: Usa getItemsEndpoint con parámetros
         const response = await fetch(getItemsEndpoint({ accion: 'opciones_atributos_items' }), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
@@ -156,18 +154,21 @@
 
     function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
         const trigger = document.getElementById(inputId);
-        const container = document.getElementById(containerId);
         const diasInput = document.getElementById(diasInputId);
-        if (!trigger || !container || !diasInput) return;
+        
+        // Eliminamos la validación del container porque ya no lo ocultaremos
+        if (!trigger || !diasInput) return;
 
         const applyVisibility = () => {
             const visible = trigger.checked;
-            container.classList.toggle('d-none', !visible);
+            
+            // YA NO OCULTAMOS CON d-none, SOLO BLOQUEAMOS EL CAMPO
             diasInput.disabled = !visible;
+            
             if (!visible) {
-                diasInput.value = '';
-            } else if (diasInput.value === '') {
-                diasInput.value = '30';
+                diasInput.value = '0'; // Se pone en 0 cuando se apaga
+            } else if (diasInput.value === '' || diasInput.value === '0') {
+                diasInput.value = '30'; // Valor por defecto al encender
             }
         };
 
@@ -180,16 +181,19 @@
 
     function toggleStockMinimo(controlaStockId, stockContainerId, stockInputId) {
         const controlaStock = document.getElementById(controlaStockId);
-        const stockContainer = document.getElementById(stockContainerId);
         const stockInput = document.getElementById(stockInputId);
-        if (!controlaStock || !stockContainer || !stockInput) return;
+        
+        // Eliminamos la validación del container porque ya no lo ocultaremos
+        if (!controlaStock || !stockInput) return;
 
         const applyVisibility = () => {
             const visible = controlaStock.checked;
-            stockContainer.classList.toggle('d-none', !visible);
+            
+            // YA NO OCULTAMOS CON d-none, SOLO BLOQUEAMOS EL CAMPO
             stockInput.disabled = !visible;
+            
             if (!visible) {
-                stockInput.value = '0.0000';
+                stockInput.value = '0.0000'; // Se pone en 0 cuando se apaga
             }
         };
 
@@ -335,7 +339,7 @@
         const presentacionContainer = document.getElementById(config.presentacionContainerId);
         const saborSelect = document.getElementById(config.saborId);
         const presentacionSelect = document.getElementById(config.presentacionId);
-        const stockContainer = document.getElementById(config.stockContainerId);
+        const stockContainer = document.getElementById(config.stockContainerId); // Mantengo estos para 'Servicios'
         const permiteDecimalesContainer = document.getElementById(config.permiteDecimalesContainerId);
         const requiereLoteContainer = document.getElementById(config.requiereLoteContainerId);
         const requiereVencimientoContainer = document.getElementById(config.requiereVencimientoContainerId);
@@ -388,6 +392,7 @@
                 permiteDecimales.checked = false;
             }
 
+            // Ocultar toda la fila si es servicio
             stockContainer?.classList.toggle('d-none', isServicio);
             permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
