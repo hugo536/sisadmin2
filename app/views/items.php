@@ -236,6 +236,9 @@ $tipoItemLabel = static function (string $tipo): string {
                                             </select>
                                             <label for="newTipo">Tipo de ítem</label>
                                         </div>
+                                        <div class="form-text">
+                                            Producto terminado y semielaborado requieren marca, sabor y presentación.
+                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-floating">
@@ -426,6 +429,9 @@ $tipoItemLabel = static function (string $tipo): string {
                                                 <option value="servicio">Servicio</option>
                                             </select>
                                             <label for="editTipo">Tipo de ítem</label>
+                                        </div>
+                                        <div class="form-text">
+                                            Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
                                     </div>
                                     <div class="col-md-6">
