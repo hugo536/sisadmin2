@@ -402,7 +402,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU">
+                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU" readonly disabled>
                                             <label for="editSku">SKU</label>
                                         </div>
                                     </div>
