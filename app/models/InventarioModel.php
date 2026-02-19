@@ -52,6 +52,15 @@ class InventarioModel extends Modelo
                     LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
                     WHERE i.controla_stock = 1
                       AND i.deleted_at IS NULL
+                      AND (
+                        s.id IS NOT NULL
+                        OR EXISTS (
+                            SELECT 1
+                            FROM inventario_lotes lx
+                            WHERE lx.id_item = i.id
+                              AND lx.id_almacen = :id_almacen_mov_item
+                        )
+                      )
                     UNION ALL
                     SELECT 
                         p.id AS id_item, 
@@ -95,6 +104,7 @@ class InventarioModel extends Modelo
                     LEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen_stock_pack
                     WHERE p.estado = 1
                       AND p.deleted_at IS NULL
+                      AND sp.id IS NOT NULL
                     ORDER BY item_nombre ASC';
 
             $stmt = $this->db()->prepare($sql);
@@ -102,6 +112,7 @@ class InventarioModel extends Modelo
             $stmt->bindValue(':id_almacen_lote', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_mov_item', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->execute();
