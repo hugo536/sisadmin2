@@ -128,11 +128,11 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'almacenes')): ?>
-    <script src="<?php echo e(asset_url('js/almacenes.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/configuracion/almacenes.js')); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with($currentRoute, 'almacenes')): ?>
-    <script src="<?php echo e(asset_url('js/almacenes.js')); ?>"></script>
+<?php if (str_starts_with($currentRoute, 'cajas_bancos')): ?>
+    <script src="<?php echo e(asset_url('js/configuracion/cajas_bancos.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>

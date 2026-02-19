@@ -150,7 +150,7 @@ function renderSidebarInner(
                data-bs-toggle="collapse"
                href="#menuComercial"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos']) ? 'true' : 'false'; ?>"
                aria-controls="menuComercial">
                 <i class="bi bi-tags"></i> <span>Gestión Comercial</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
@@ -204,17 +204,17 @@ function renderSidebarInner(
         <?php endif; ?>
 
         <?php if (tiene_permiso('config.ver')): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['config', 'almacenes']); ?>"
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['config', 'almacenes', 'cajas_bancos']); ?>"
                data-bs-toggle="collapse"
                href="#menuConfiguracion"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos']) ? 'true' : 'false'; ?>"
                aria-controls="menuConfiguracion">
                 <i class="bi bi-gear"></i> <span>Configuración</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </a>
 
-            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes']); ?>" id="menuConfiguracion">
+            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos']); ?>" id="menuConfiguracion">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
@@ -224,6 +224,11 @@ function renderSidebarInner(
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('almacenes'); ?>" href="<?php echo e(route_url('almacenes')); ?>">
                             <span>Almacenes</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('cajas_bancos'); ?>" href="<?php echo e(route_url('cajas_bancos')); ?>">
+                            <span>Cajas y Bancos</span>
                         </a>
                     </li>
                 </ul>

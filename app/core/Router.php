@@ -32,7 +32,8 @@ class Router
         $mapa_alias = [
             'LoginController'         => 'AuthController', // alias -> real
             'ConfiguracionController' => 'EmpresaController',
-            'ConfigController'        => 'EmpresaController'
+            'ConfigController'        => 'EmpresaController',
+            'Cajas_bancosController'  => 'CajasBancosController'
         ];
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;

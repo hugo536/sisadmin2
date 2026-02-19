@@ -518,3 +518,15 @@ tr[data-estado="0"] .avatar-circle {
     position: static !important;
   }
 }
+
+/* =======================
+   CAJAS Y BANCOS
+   ======================= */
+.cajas-bancos-page .table td,
+.cajas-bancos-page .table th {
+  vertical-align: middle;
+}
+
+.cajas-bancos-page .card .h4 {
+  color: var(--text-main);
+}
