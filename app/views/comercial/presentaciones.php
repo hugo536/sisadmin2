@@ -175,9 +175,9 @@ $presentaciones = $presentaciones ?? [];
                         
                         <div class="row g-3 mb-3 js-modo-simple">
                             <div class="col-md-12">
-                                <label class="form-label fw-bold">Producto Principal</label>
+                                <label class="form-label fw-bold">Semielaborado Principal</label>
                                 <select class="form-select" name="id_item" id="inputItem">
-                                    <option value="">Seleccione el producto padre...</option>
+                                    <option value="">Seleccione el semielaborado base...</option>
                                     <?php foreach ($items as $item): ?>
                                         <option value="<?php echo $item['id']; ?>">
                                             <?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?> (<?php echo $item['sku']; ?>)
@@ -216,9 +216,9 @@ $presentaciones = $presentaciones ?? [];
 
                         <div class="card border-0 shadow-sm mb-3 d-none js-modo-mixto" id="seccionComposicionMixta">
                             <div class="card-header bg-white border-bottom-0 pt-3">
-                                <label class="fw-bold text-dark mb-1"><i class="bi bi-search me-1"></i> Contenido del pack (Buscar productos):</label>
+                                <label class="fw-bold text-dark mb-1"><i class="bi bi-search me-1"></i> Contenido del pack (Buscar semielaborados):</label>
                                 <select class="form-select" id="inputBusquedaComponente">
-                                    <option value="">Buscar producto...</option>
+                                    <option value="">Buscar semielaborado...</option>
                                     <?php foreach ($items as $item): ?>
                                         <option value="<?php echo $item['id']; ?>" 
                                                 data-nombre="<?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?>"
