@@ -168,11 +168,6 @@ function renderSidebarInner(
                             <i class="bi bi-currency-dollar"></i> <span>Listas de Precios</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('comercial/asignacion'); ?>" href="<?php echo e(route_url('comercial/asignacion')); ?>">
-                            <i class="bi bi-person-check"></i> <span>Asignación Masiva</span>
-                        </a>
-                    </li>
                 </ul>
             </div>
             

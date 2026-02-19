@@ -718,39 +718,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // =========================================================================
-    // 3) ASIGNACIÓN CLIENTES
-    // =========================================================================
-    const tablaAsignacion = document.getElementById('clientesAsignacionTable');
-    if (tablaAsignacion) {
-        const selects = tablaAsignacion.querySelectorAll('.js-cambiar-lista');
-        selects.forEach(select => {
-            select.addEventListener('change', function() {
-                const idCliente = this.dataset.idCliente;
-                const idLista = this.value;
-                this.disabled = true;
-
-                fetch('?ruta=comercial/guardarAsignacionAjax', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                    body: JSON.stringify({ id_cliente: idCliente, id_lista: idLista })
-                })
-                    .then(r => r.json())
-                    .then(data => {
-                        this.disabled = false;
-                        if (data.success) {
-                            this.classList.add('is-valid', 'bg-success-subtle');
-                            setTimeout(() => this.classList.remove('is-valid', 'bg-success-subtle'), 1500);
-                        } else {
-                            alert('Error: ' + (data.message || 'Desconocido'));
-                            this.classList.add('is-invalid');
-                        }
-                    })
-                    .catch(() => {
-                        this.disabled = false;
-                        alert('Error de conexión');
-                    });
-            });
-        });
-    }
 });
