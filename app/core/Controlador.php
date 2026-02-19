@@ -82,8 +82,11 @@ class Controlador
         }
 
         // Intenta cargar el modelo de empresa si existe
-        $empresaModelPath = BASE_PATH . '/app/models/EmpresaModel.php';
-        
+        $empresaModelPath = BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+        if (!is_readable($empresaModelPath)) {
+            $empresaModelPath = BASE_PATH . '/app/models/EmpresaModel.php';
+        }
+
         if (!is_readable($empresaModelPath)) {
             return [];
         }

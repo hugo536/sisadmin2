@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/InventarioModel.php';
-require_once BASE_PATH . '/app/models/AlmacenModel.php';
+require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 
 class InventarioController extends Controlador
