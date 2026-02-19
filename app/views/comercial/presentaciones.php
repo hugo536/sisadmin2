@@ -75,7 +75,7 @@ $presentaciones = $presentaciones ?? [];
                                 <th class="text-end" style="width: 11%;">Precio Menor</th>
                                 <th class="text-end">Precio Mayor</th>
                                 <th class="text-center">Min. Mayorista</th>
-                                <th class="text-center">Stock</th>
+                                <th class="text-center">Stock Min</th>
                                 <th class="text-center">Estado</th>
                                 <th class="text-end pe-4">Acciones</th>
                             </tr>

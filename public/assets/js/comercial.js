@@ -52,6 +52,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let tomSelectComponentes = null;
 
+        // --- NUEVO: INICIALIZAR TOMSELECT PARA PRODUCTO PRINCIPAL ---
+        if (inputItem) {
+            new TomSelect(inputItem, {
+                create: false,
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                }
+            });
+        }
+        // -----------------------------------------------------------
+
         // --- LÓGICA DEL SWITCH DE STOCK ---
         if (checkControlStock && inputStockMinimo) {
             checkControlStock.addEventListener('change', function() {
