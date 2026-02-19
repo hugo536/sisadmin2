@@ -245,12 +245,15 @@
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
         const autoGenerate = config.autoGenerate !== false;
+        const forceDisabled = config.forceDisabled === true;
         if (!tipo || !sku) return;
 
         const apply = () => {
             const value = tipo.value;
             const isProducto = value === 'producto' || value === 'producto_terminado';
-            sku.readOnly = isProducto;
+
+            sku.readOnly = forceDisabled || isProducto;
+            sku.disabled = forceDisabled;
 
             if (!isProducto || !autoGenerate) {
                 return;
@@ -542,7 +545,8 @@
                 marcaId: 'editMarca',
                 saborId: 'editSabor',
                 presentacionId: 'editPresentacion',
-                autoGenerate: false
+                autoGenerate: false,
+                forceDisabled: true
             });
 
             bindComercialVisibility({
