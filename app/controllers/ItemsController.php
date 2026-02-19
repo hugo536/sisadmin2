@@ -460,23 +460,23 @@ class ItemsController extends Controlador
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        $esProductoTerminado = in_array($tipo, ['producto', 'producto_terminado'], true);
+        $esItemDetallado = in_array($tipo, ['producto', 'producto_terminado', 'semielaborado'], true);
 
-        if ($esProductoTerminado) {
+        if ($esItemDetallado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
-                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado.');
+                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado o semielaborado.');
             }
 
             if (empty($data['id_sabor'])) {
-                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto terminado.');
+                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto terminado o semielaborado.');
             }
 
             if (empty($data['id_presentacion'])) {
-                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado.');
+                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado o semielaborado.');
             }
         }
 
-        if (!$esProductoTerminado) {
+        if (!$esItemDetallado) {
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
         }
@@ -484,6 +484,8 @@ class ItemsController extends Controlador
 
         if ($tipo === 'semielaborado') {
             $data['controla_stock'] = 1;
+            $data['requiere_lote'] = 1;
+            $data['requiere_vencimiento'] = 1;
             if (!isset($data['permite_decimales'])) {
                 $data['permite_decimales'] = 0;
             }
