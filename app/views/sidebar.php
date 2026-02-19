@@ -150,7 +150,7 @@ function renderSidebarInner(
                data-bs-toggle="collapse"
                href="#menuComercial"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['comercial']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes']) ? 'true' : 'false'; ?>"
                aria-controls="menuComercial">
                 <i class="bi bi-tags"></i> <span>Gestión Comercial</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>

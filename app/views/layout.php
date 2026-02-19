@@ -127,6 +127,9 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
 
+<?php if (str_starts_with($currentRoute, 'almacenes')): ?>
+    <script src="<?php echo e(asset_url('js/almacenes.js')); ?>"></script>
+<?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'almacenes')): ?>
     <script src="<?php echo e(asset_url('js/almacenes.js')); ?>"></script>

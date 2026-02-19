@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/EmpresaModel.php';
+require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
 require_once BASE_PATH . '/app/core/UploadHelper.php';
 
 class EmpresaController extends Controlador
@@ -46,7 +46,7 @@ class EmpresaController extends Controlador
             }
         }
 
-        $this->render('config/empresa', [
+        $this->render('configuracion/empresa', [
             'config' => $this->empresaModel->obtener(),
             'flash' => $flash,
             'ruta_actual' => 'empresa/empresa',
