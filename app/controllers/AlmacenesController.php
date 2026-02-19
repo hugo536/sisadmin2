@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/AlmacenModel.php';
+require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
 
 class AlmacenesController extends Controlador
 {
@@ -27,7 +27,7 @@ class AlmacenesController extends Controlador
             'orden' => (string) ($_GET['orden'] ?? 'nombre_asc'),
         ];
 
-        $this->render('almacenes', [
+        $this->render('configuracion/almacenes', [
             'ruta_actual' => 'almacenes/index',
             'almacenes' => $this->almacenModel->listarConFiltros($filtros),
             'filtros' => $filtros,
