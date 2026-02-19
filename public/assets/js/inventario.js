@@ -87,32 +87,6 @@
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
 
-  async function toggleEstadoItemInventario(switchInput) {
-    const id = Number(switchInput.dataset.id || '0');
-    if (id <= 0) return;
-
-    const estado = switchInput.checked ? 1 : 0;
-    const data = new FormData();
-    data.append('accion', 'toggle_estado_item');
-    data.append('id', String(id));
-    data.append('estado', String(estado));
-
-    try {
-      const response = await fetch(`${window.BASE_URL}?ruta=items`, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-        body: data
-      });
-      const result = await response.json();
-      if (!response.ok || !result || !result.ok) {
-        throw new Error((result && result.mensaje) || 'No se pudo actualizar el estado.');
-      }
-    } catch (error) {
-      switchInput.checked = !switchInput.checked;
-      Swal.fire({ icon: 'error', title: 'Error', text: error.message });
-    }
-  }
-
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
@@ -382,11 +356,6 @@
   }
 
   // --- LISTENERS ---
-
-  // Listeners Tabla Principal
-  document.querySelectorAll('.switch-estado-item-inventario').forEach((switchInput) => {
-    switchInput.addEventListener('change', () => toggleEstadoItemInventario(switchInput));
-  });
 
   // Escuchadores de los filtros visuales nativos
   if (searchInput) searchInput.addEventListener('input', filtrarStock);

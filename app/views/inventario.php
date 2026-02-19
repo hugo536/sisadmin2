@@ -189,14 +189,12 @@ $hoy = new DateTimeImmutable('today');
                                     
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
-                                            <div class="form-check form-switch pt-1" title="Cambiar estado del ítem">
-                                                <input class="form-check-input switch-estado-item-inventario" type="checkbox" role="switch"
-                                                       style="cursor: pointer;"
-                                                       data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                                       data-tipo="<?php echo e($tipoRegistro); ?>"
-                                                       <?php echo ((int) ($stock['item_estado'] ?? 0) === 1) ? 'checked' : ''; ?>
-                                                       <?php echo (tiene_permiso('items.editar') && $tipoRegistro === 'item') ? '' : 'disabled'; ?>>
-                                            </div>
+                                            <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
+                                            <span class="badge rounded-pill <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
+                                                  data-bs-toggle="tooltip" data-bs-placement="top"
+                                                  title="Estado referencial del ítem (solo lectura en inventario)">
+                                                <?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>
+                                            </span>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
                                             <?php if ($tipoRegistro === 'item'): ?>
                                                 <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
