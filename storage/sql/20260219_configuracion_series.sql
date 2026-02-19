@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `configuracion_series` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `modulo` ENUM('VENTAS','COMPRAS') NOT NULL,
+  `tipo_documento` VARCHAR(40) NOT NULL,
+  `codigo_serie` VARCHAR(10) NOT NULL,
+  `prefijo` VARCHAR(20) NOT NULL,
+  `correlativo_actual` INT UNSIGNED NOT NULL DEFAULT 0,
+  `longitud_correlativo` TINYINT UNSIGNED NOT NULL DEFAULT 6,
+  `predeterminada` TINYINT(1) NOT NULL DEFAULT 0,
+  `estado` TINYINT(1) NOT NULL DEFAULT 1,
+  `observaciones` VARCHAR(255) DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_by` INT UNSIGNED DEFAULT NULL,
+  `updated_by` INT UNSIGNED DEFAULT NULL,
+  `deleted_by` INT UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_series_documento` (`modulo`,`tipo_documento`,`codigo_serie`),
+  KEY `idx_series_modulo_estado` (`modulo`,`estado`),
+  KEY `idx_series_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
