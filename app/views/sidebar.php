@@ -204,21 +204,26 @@ function renderSidebarInner(
         <?php endif; ?>
 
         <?php if (tiene_permiso('config.ver')): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['config']); ?>"
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['config', 'almacenes']); ?>"
                data-bs-toggle="collapse"
                href="#menuConfiguracion"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['config']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['config', 'almacenes']) ? 'true' : 'false'; ?>"
                aria-controls="menuConfiguracion">
                 <i class="bi bi-gear"></i> <span>Configuración</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </a>
 
-            <div class="collapse<?php echo $grupoActivo(['config']); ?>" id="menuConfiguracion">
+            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes']); ?>" id="menuConfiguracion">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
                             <span>Datos Empresa</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('almacenes'); ?>" href="<?php echo e(route_url('almacenes')); ?>">
+                            <span>Almacenes</span>
                         </a>
                     </li>
                 </ul>
