@@ -3,14 +3,12 @@
 
 require_once BASE_PATH . '/app/models/comercial/PresentacionModel.php';
 require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
-require_once BASE_PATH . '/app/models/comercial/AsignacionModel.php';
 require_once BASE_PATH . '/app/models/ItemsModel.php';
 
 class ComercialController extends Controlador {
 
     private $presentacionModel;
     private $listaPrecioModel;
-    private $asignacionModel;
     private $itemModel;
 
     public function __construct() {
@@ -21,7 +19,6 @@ class ComercialController extends Controlador {
 
         $this->presentacionModel = new PresentacionModel();
         $this->listaPrecioModel = new ListaPrecioModel();
-        $this->asignacionModel = new AsignacionModel();
         $this->itemModel = new ItemsModel();
     }
 
@@ -404,34 +401,6 @@ class ComercialController extends Controlador {
 
         $ok = $this->listaPrecioModel->eliminarAcuerdo($idAcuerdo);
         json_response(['success' => $ok]);
-    }
-
-    // =========================================================================
-    // 3. ASIGNACIÓN DE CLIENTES & HELPERS
-    // =========================================================================
-
-    public function asignacion() {
-        $datos = [
-            'titulo' => 'Asignación de Clientes',
-            'clientes' => $this->asignacionModel->listarClientes(),
-            'listas_combo' => $this->listaPrecioModel->listarAcuerdos()
-        ];
-        $this->vista('comercial/asignacion_clientes', $datos);
-    }
-
-    public function guardarAsignacionAjax() {
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (isset($input['id_cliente'])) {
-            $idCliente = $input['id_cliente'];
-            $idLista = $input['id_lista'];
-            if ($this->asignacionModel->actualizarListaCliente($idCliente, $idLista)) {
-                echo json_encode(['success' => true]);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Error BD']);
-            }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Datos inválidos']);
-        }
     }
 
     private function esPeticionAjax() {
