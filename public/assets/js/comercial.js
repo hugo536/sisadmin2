@@ -8,10 +8,12 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================================
-    // 1) PRESENTACIONES
+    // 1) PRESENTACIONES (FINAL - SOPORTE MIXTO + NOTAS + STOCK SWITCH)
     // =========================================================================
     const appPresentaciones = document.getElementById('presentacionesApp');
+    
     if (appPresentaciones) {
+        // --- 1. CONFIGURACIÓN Y SELECTORES ---
         const urls = {
             obtener: appPresentaciones.dataset.urlObtener,
             eliminar: appPresentaciones.dataset.urlEliminar,
@@ -20,297 +22,258 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tablaPresentaciones = document.getElementById('presentacionesTable');
         const modalEl = document.getElementById('modalCrearPresentacion');
-        const formPresentacion = document.getElementById('formPresentacion');
-        const btnCrear = document.querySelector('.js-crear-presentacion');
-        const btnCrearMixta = document.querySelector('.js-crear-presentacion-mixta');
-        const modalTitle = document.getElementById('modalTitle');
         const modalBootstrap = modalEl ? new bootstrap.Modal(modalEl) : null;
+        const formPresentacion = document.getElementById('formPresentacion');
+        const modalTitle = document.getElementById('modalTitle');
+
+        const btnCrearSimple = document.querySelector('.js-crear-presentacion');
+        const btnCrearMixta = document.querySelector('.js-crear-presentacion-mixta');
 
         const inputId = document.getElementById('presentacionId');
-        const inputItem = document.getElementById('inputItem');
+        const inputItem = document.getElementById('inputItem'); 
         const inputFactor = document.getElementById('inputFactor');
-        const inputPrecioMenor = document.getElementById('inputPrecioMenor');
-        const inputPrecioMayor = document.getElementById('inputPrecioMayor');
-        const inputMinMayor = document.getElementById('inputMinMayor');
-        const inputPesoBruto = document.getElementById('peso_bruto');
-        const inputStockMinimo = document.getElementById('stock_minimo');
         const inputEsMixto = document.getElementById('es_mixto');
-        const simpleFields = Array.from(document.querySelectorAll('.js-simple-field'));
-        const seccionComposicionMixta = document.getElementById('seccionComposicionMixta');
+        
+        const inputNombreManual = document.getElementById('inputNombreManual');
+        const inputCodigoManual = document.getElementById('inputCodigoManual');
+        // NUEVO: Selector para el campo de observaciones
+        const inputNotaPack = document.getElementById('inputNotaPack');
+
+        // --- SELECTORES DE STOCK ---
+        const checkControlStock = document.getElementById('checkControlStock');
+        const inputStockMinimo = document.getElementById('stock_minimo');
+
+        const divsSimple = document.querySelectorAll('.js-modo-simple');
+        const divsMixto = document.querySelectorAll('.js-modo-mixto');
+
+        const inputBusquedaComponente = document.getElementById('inputBusquedaComponente');
         const tablaComposicionBody = document.querySelector('#tablaComposicionMixta tbody');
-        const btnAgregarLineaMixta = document.getElementById('agregarLineaMixta');
+        const labelTotalUnidades = document.getElementById('totalUnidadesPack');
+        
+        let tomSelectComponentes = null;
 
-        const itemOptions = inputItem
-            ? Array.from(inputItem.options)
-                .filter(opt => opt.value)
-                .map(opt => ({
-                    value: opt.value,
-                    label: opt.textContent.trim(),
-                    unidad: opt.dataset.unidad || 'UND',
-                    precio: parseFloat(opt.dataset.precio || '0') || 0,
-                }))
-            : [];
-
-        const format2 = (v) => Number(v || 0).toFixed(2);
-        const format3 = (v) => Number(v || 0).toFixed(3);
-
-        const recalcularMixto = () => {
-            if (!inputEsMixto || !inputEsMixto.checked || !tablaComposicionBody) return;
-
-            let totalPrecioBase = 0;
-            let totalCantidad = 0;
-
-            tablaComposicionBody.querySelectorAll('tr').forEach(row => {
-                const select = row.querySelector('.js-mixto-item');
-                const cantidadInput = row.querySelector('.js-mixto-cantidad');
-                const cantidad = parseFloat(cantidadInput?.value || '0') || 0;
-                const option = itemOptions.find(o => o.value === (select?.value || ''));
-                const precio = option ? option.precio : 0;
-
-                totalPrecioBase += (precio * cantidad);
-                totalCantidad += cantidad;
+        // --- LÓGICA DEL SWITCH DE STOCK ---
+        if (checkControlStock && inputStockMinimo) {
+            checkControlStock.addEventListener('change', function() {
+                inputStockMinimo.disabled = !this.checked;
+                if (!this.checked) {
+                    inputStockMinimo.value = '0'; 
+                    inputStockMinimo.classList.remove('is-invalid');
+                } else {
+                    inputStockMinimo.focus();
+                }
             });
+        }
 
-            const precioMenor = totalPrecioBase * 1.2;
-            if (inputPrecioMenor) inputPrecioMenor.value = format2(precioMenor);
-            if (inputPrecioMayor && !inputPrecioMayor.value) inputPrecioMayor.value = format2(totalPrecioBase);
-            if (inputFactor) inputFactor.value = totalCantidad > 0 ? format3(totalCantidad) : '';
-            if (inputPesoBruto) inputPesoBruto.value = format3(0);
-        };
-
-        const construirSelectItems = (name, selectedValue = '') => {
-            const opciones = ['<option value="">Seleccione...</option>'];
-            itemOptions.forEach(opt => {
-                const selected = String(selectedValue) === String(opt.value) ? 'selected' : '';
-                opciones.push(`<option value="${opt.value}" data-unidad="${opt.unidad}" data-precio="${opt.precio}" ${selected}>${opt.label}</option>`);
-            });
-            return `<select class="form-select form-select-sm js-mixto-item" name="${name}[id_item]" required>${opciones.join('')}</select>`;
-        };
-
-        const agregarLineaMixta = (linea = null) => {
+        // --- FUNCIONES ---
+        const recalcularTotales = () => {
             if (!tablaComposicionBody) return;
-            const idx = tablaComposicionBody.querySelectorAll('tr').length;
-            const selectedItem = linea?.id_item || '';
-            const cantidad = linea?.cantidad || '';
-            const unidad = linea?.unidad_base || '';
+            let totalUnidades = 0;
+            const filas = tablaComposicionBody.querySelectorAll('tr');
+            filas.forEach(fila => {
+                const inputCant = fila.querySelector('.js-mixto-cantidad');
+                const cantidad = parseFloat(inputCant.value || 0);
+                totalUnidades += cantidad;
+            });
+            if (labelTotalUnidades) {
+                labelTotalUnidades.textContent = totalUnidades > 0 ? parseFloat(totalUnidades.toFixed(2)) : '0';
+                labelTotalUnidades.className = totalUnidades > 0 ? 'text-center fw-bold text-primary fs-5' : 'text-center fw-bold text-muted fs-5';
+            }
+            if (inputFactor) inputFactor.value = totalUnidades > 0 ? totalUnidades.toFixed(2) : '';
+        };
 
+        const agregarFilaMixta = (data) => {
+            const idx = Date.now() + Math.floor(Math.random() * 1000); 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${construirSelectItems(`detalle_mixto[${idx}]`, selectedItem)}</td>
-                <td><input type="number" min="1" step="0.0001" class="form-control form-control-sm js-mixto-cantidad" name="detalle_mixto[${idx}][cantidad]" value="${cantidad}" required></td>
-                <td><input type="text" class="form-control form-control-sm js-mixto-unidad" value="${unidad || 'UND'}" readonly></td>
-                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger js-quitar-linea-mixta">×</button></td>
-            `;
+                <td class="ps-3">
+                    <input type="hidden" name="detalle_mixto[${idx}][id_item]" value="${data.id}">
+                    <div class="fw-bold text-dark">${data.nombre}</div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">${data.unidad}</div>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0.01" class="form-control form-control-sm text-center fw-bold js-mixto-cantidad" 
+                           name="detalle_mixto[${idx}][cantidad]" value="${data.cantidad}" required>
+                </td>
+                <td class="text-end pe-3">
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 js-quitar-linea"><i class="bi bi-x-circle-fill fs-5"></i></button>
+                </td>`;
             tablaComposicionBody.appendChild(tr);
-
-            const select = tr.querySelector('.js-mixto-item');
-            const unidadInput = tr.querySelector('.js-mixto-unidad');
-            select?.addEventListener('change', () => {
-                const opt = select.selectedOptions[0];
-                unidadInput.value = opt?.dataset?.unidad || 'UND';
-                recalcularMixto();
-            });
-
-            tr.querySelector('.js-mixto-cantidad')?.addEventListener('input', recalcularMixto);
-            tr.querySelector('.js-quitar-linea-mixta')?.addEventListener('click', () => {
-                tr.remove();
-                recalcularMixto();
-            });
+            tr.querySelector('.js-mixto-cantidad').addEventListener('input', recalcularTotales);
+            tr.querySelector('.js-quitar-linea').addEventListener('click', () => { tr.remove(); recalcularTotales(); });
+            recalcularTotales();
         };
 
-        const limpiarLineasMixtas = () => {
-            if (tablaComposicionBody) tablaComposicionBody.innerHTML = '';
-        };
-
-        const toggleMixto = (force = null) => {
-            const esMixto = force !== null ? force : !!(inputEsMixto && inputEsMixto.checked);
-            simpleFields.forEach(el => el.classList.toggle('d-none', esMixto));
-            if (seccionComposicionMixta) seccionComposicionMixta.classList.toggle('d-none', !esMixto);
-
-            if (inputItem) inputItem.required = !esMixto;
+        const setModoFormulario = (esMixto) => {
+            if (inputEsMixto) inputEsMixto.value = esMixto ? '1' : '0';
+            divsSimple.forEach(el => el.classList.toggle('d-none', esMixto));
+            divsMixto.forEach(el => el.classList.toggle('d-none', !esMixto));
+            
             if (inputFactor) inputFactor.required = !esMixto;
-
-            if (esMixto) {
-                if (inputItem) inputItem.value = '';
-                if (inputFactor) inputFactor.value = '';
-                if (tablaComposicionBody && !tablaComposicionBody.querySelector('tr')) {
-                    agregarLineaMixta();
-                }
-                recalcularMixto();
-            } else {
-                limpiarLineasMixtas();
-            }
+            if (inputItem) inputItem.required = !esMixto;
+            if (inputNombreManual) inputNombreManual.required = esMixto;
+            if (inputCodigoManual) inputCodigoManual.required = esMixto;
+            
+            if (esMixto) initTomSelectComponentes();
         };
 
-        const cargarDatos = async (id) => {
-            if (!modalBootstrap) return;
-            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-arrow-clockwise me-2 fa-spin"></i>Cargando datos...';
-            modalBootstrap.show();
-
-            try {
-                const response = await fetch(`${urls.obtener}&id=${id}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-
-                if (!response.ok) throw new Error('Error en la respuesta del servidor');
-                const res = await response.json();
-                if (!res.success) throw new Error(res.message || 'No se pudo cargar la información');
-
-                const d = res.data;
-                if (inputId) inputId.value = d.id;
-                if (inputEsMixto) {
-                    const esMixtoDato = parseInt(d.es_mixto || '0', 10) === 1;
-                    inputEsMixto.checked = esMixtoDato;
-                    inputEsMixto.dataset.wasMixto = esMixtoDato ? '1' : '0';
-                }
-                toggleMixto();
-
-                if (inputItem) {
-                    inputItem.disabled = false;
-                    if (inputItem.tomselect) {
-                        inputItem.tomselect.setValue(d.id_item || '');
-                        inputItem.tomselect.lock();
-                    } else {
-                        inputItem.value = d.id_item || '';
-                        inputItem.classList.add('pe-none');
-                        inputItem.setAttribute('aria-disabled', 'true');
+        const initTomSelectComponentes = () => {
+            if (tomSelectComponentes || !inputBusquedaComponente) return;
+            tomSelectComponentes = new TomSelect(inputBusquedaComponente, {
+                create: false, sortField: { field: "text", direction: "asc" }, placeholder: 'Buscar producto...',
+                onChange: function(value) {
+                    if (!value) return;
+                    const yaExiste = Array.from(document.querySelectorAll('#tablaComposicionMixta input[name*="[id_item]"]')).some(input => input.value === value);
+                    if (yaExiste) {
+                        Swal.fire({ icon: 'warning', title: 'Producto duplicado', text: '¡Ya está en la lista!', timer: 2000, confirmButtonColor: '#f39c12' });
+                        this.clear(); return;
                     }
+                    const option = this.options[value];
+                    if (option) {
+                        const domOption = document.querySelector(`#inputBusquedaComponente option[value="${value}"]`);
+                        agregarFilaMixta({
+                            id: value,
+                            nombre: domOption ? domOption.getAttribute('data-nombre') : option.text,
+                            unidad: domOption ? domOption.getAttribute('data-unidad') : 'UND',
+                            cantidad: 1
+                        });
+                    }
+                    this.clear();
                 }
-
-                if (inputFactor) inputFactor.value = parseFloat(d.factor || 0) || '';
-                if (inputPrecioMenor) inputPrecioMenor.value = d.precio_x_menor;
-                if (inputPrecioMayor) inputPrecioMayor.value = d.precio_x_mayor;
-                if (inputMinMayor) inputMinMayor.value = d.cantidad_minima_mayor;
-                if (inputPesoBruto) inputPesoBruto.value = d.peso_bruto ?? '0.000';
-                if (inputStockMinimo) inputStockMinimo.value = d.stock_minimo ?? '0';
-
-                limpiarLineasMixtas();
-                if (parseInt(d.es_mixto || '0', 10) === 1 && Array.isArray(d.detalle_mixto)) {
-                    d.detalle_mixto.forEach(agregarLineaMixta);
-                    recalcularMixto();
-                }
-
-                if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
-            } catch (error) {
-                alert('Error: ' + error.message);
-                modalBootstrap.hide();
-            }
+            });
         };
 
         const resetearFormulario = () => {
-            if (!formPresentacion) return;
-            formPresentacion.reset();
+            if (formPresentacion) formPresentacion.reset();
             if (inputId) inputId.value = '';
-            if (inputEsMixto) {
-                inputEsMixto.checked = false;
-                inputEsMixto.dataset.wasMixto = '0';
-            }
-            limpiarLineasMixtas();
-
-            if (inputItem) {
-                inputItem.disabled = false;
-                if (inputItem.tomselect) {
-                    inputItem.tomselect.clear();
-                    inputItem.tomselect.unlock();
-                } else {
-                    inputItem.classList.remove('pe-none');
-                    inputItem.removeAttribute('aria-disabled');
+            if (inputNombreManual) inputNombreManual.value = '';
+            if (inputCodigoManual) inputCodigoManual.value = '';
+            // Limpiar también el campo de notas
+            if (inputNotaPack) inputNotaPack.value = '';
+            
+            if (tablaComposicionBody) tablaComposicionBody.innerHTML = '';
+            
+            // Resetear Switch Stock
+            if (checkControlStock) {
+                checkControlStock.checked = false;
+                if (inputStockMinimo) {
+                    inputStockMinimo.value = '0';
+                    inputStockMinimo.disabled = true;
                 }
             }
 
-            if (inputPesoBruto) inputPesoBruto.value = '0.000';
-            if (inputStockMinimo) inputStockMinimo.value = '0';
-            toggleMixto(false);
+            recalcularTotales();
+            if (inputItem && inputItem.tomselect) { inputItem.tomselect.clear(); inputItem.tomselect.enable(); }
+            if (tomSelectComponentes) tomSelectComponentes.clear();
             if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva Presentación';
         };
 
-        if (inputEsMixto) {
-            inputEsMixto.addEventListener('change', () => {
-                const isEdit = !!(inputId && inputId.value);
-                const wasSimple = !inputEsMixto.dataset.wasMixto || inputEsMixto.dataset.wasMixto === '0';
-                if (isEdit && inputEsMixto.checked && wasSimple) {
-                    const confirmacion = confirm('Cambiar a mixto eliminará el producto base y factor actual. ¿Continuar?');
-                    if (!confirmacion) {
-                        inputEsMixto.checked = false;
-                        return;
+        // --- LISTENERS ---
+        if (btnCrearSimple) btnCrearSimple.addEventListener('click', () => { resetearFormulario(); setModoFormulario(false); });
+        if (btnCrearMixta) btnCrearMixta.addEventListener('click', () => { resetearFormulario(); setModoFormulario(true); });
+
+        const cargarDatos = async (id) => {
+            if (!modalBootstrap) return;
+            modalTitle.innerHTML = '<i class="bi bi-arrow-clockwise me-2 fa-spin"></i>Cargando...';
+            modalBootstrap.show();
+            try {
+                const response = await fetch(`${urls.obtener}&id=${id}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const res = await response.json();
+                if (!res.success) throw new Error(res.message);
+                const d = res.data;
+                const esMixto = parseInt(d.es_mixto || 0) === 1;
+
+                if (inputId) inputId.value = d.id;
+                document.getElementById('inputPrecioMenor').value = d.precio_x_menor;
+                document.getElementById('inputPrecioMayor').value = d.precio_x_mayor;
+                document.getElementById('peso_bruto').value = d.peso_bruto;
+
+                // LOGICA CARGA STOCK
+                const stockVal = parseFloat(d.stock_minimo || 0);
+                if (checkControlStock && inputStockMinimo) {
+                    if (stockVal > 0) {
+                        checkControlStock.checked = true;
+                        inputStockMinimo.disabled = false;
+                        inputStockMinimo.value = stockVal;
+                    } else {
+                        checkControlStock.checked = false;
+                        inputStockMinimo.disabled = true;
+                        inputStockMinimo.value = 0;
                     }
                 }
-                toggleMixto();
-            });
-        }
 
-        btnAgregarLineaMixta?.addEventListener('click', () => agregarLineaMixta());
+                setModoFormulario(esMixto);
+                if (esMixto) {
+                    if (inputNombreManual) inputNombreManual.value = d.nombre_manual || '';
+                    if (inputCodigoManual) inputCodigoManual.value = d.codigo_presentacion || '';
+                    // NUEVO: Cargar la nota de observación
+                    if (inputNotaPack) inputNotaPack.value = d.nota_pack || '';
+
+                    if (d.detalle_mixto && Array.isArray(d.detalle_mixto)) {
+                        d.detalle_mixto.forEach(det => {
+                            agregarFilaMixta({ id: det.id_item, nombre: det.item_nombre || 'Producto', unidad: det.unidad_base || 'UND', cantidad: det.cantidad });
+                        });
+                    }
+                } else {
+                    if (inputItem && inputItem.tomselect) { inputItem.tomselect.setValue(d.id_item); inputItem.tomselect.disable(); }
+                    if (inputFactor) inputFactor.value = d.factor;
+                }
+                modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
+            } catch (error) { alert('Error: ' + error.message); modalBootstrap.hide(); }
+        };
 
         if (tablaPresentaciones) {
             tablaPresentaciones.addEventListener('click', (e) => {
-                const target = e.target.closest('button') || e.target.closest('input[type="checkbox"]');
-                if (!target) return;
-                const id = target.dataset.id;
-
-                if (target.classList.contains('js-editar-presentacion')) {
-                    e.preventDefault();
-                    cargarDatos(id);
-                }
-
-                if (target.classList.contains('js-eliminar-presentacion')) {
-                    e.preventDefault();
-                    if (confirm('¿Estás seguro de eliminar esta presentación?')) {
-                        window.location.href = `${urls.eliminar}&id=${id}`;
-                    }
-                }
-
-                if (target.classList.contains('js-toggle-estado-presentacion')) {
-                    const estado = target.checked ? 1 : 0;
-                    window.location.href = `${urls.estado}&id=${id}&estado=${estado}`;
-                }
-            });
-
-            const tooltips = Array.from(tablaPresentaciones.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltips.forEach(el => new bootstrap.Tooltip(el));
-        }
-
-        if (btnCrear) btnCrear.addEventListener('click', resetearFormulario);
-        if (btnCrearMixta) {
-            btnCrearMixta.addEventListener('click', () => {
-                resetearFormulario();
-                if (inputEsMixto) {
-                    inputEsMixto.checked = true;
-                    toggleMixto();
-                }
+                const btnEditar = e.target.closest('.js-editar-presentacion');
+                const btnEliminar = e.target.closest('.js-eliminar-presentacion');
+                const toggleEstado = e.target.closest('.js-toggle-estado-presentacion');
+                if (btnEditar) cargarDatos(btnEditar.dataset.id);
+                else if (btnEliminar) { if (confirm('¿Eliminar?')) window.location.href = `${urls.eliminar}&id=${btnEliminar.dataset.id}`; }
+                else if (toggleEstado) window.location.href = `${urls.estado}&id=${toggleEstado.dataset.id}&estado=${toggleEstado.checked ? 1 : 0}`;
             });
         }
 
         const inputBuscador = document.getElementById('presentacionSearch');
-        const filtroProducto = document.getElementById('presentacionFiltroProducto');
-        const filtroEstado = document.getElementById('presentacionFiltroEstado');
-
-        if (inputBuscador && tablaPresentaciones) {
-            const filas = Array.from(tablaPresentaciones.querySelectorAll('tbody tr'));
-            const filtrarTabla = () => {
-                const termino = inputBuscador.value.toLowerCase().trim();
-                const prod = filtroProducto ? filtroProducto.value : '';
-                const est = filtroEstado ? filtroEstado.value : '';
-
-                filas.forEach(fila => {
-                    const search = fila.getAttribute('data-search') || '';
-                    const fIdItem = fila.getAttribute('data-id-item') || '';
-                    const fEstado = fila.getAttribute('data-estado') || '';
-
-                    const matchTexto = search.includes(termino);
-                    const matchProd = prod === '' || fIdItem === prod;
-                    const matchEst = est === '' || fEstado === est;
-                    fila.style.display = (matchTexto && matchProd && matchEst) ? '' : 'none';
-                });
-            };
-
-            [inputBuscador, filtroProducto, filtroEstado].forEach(el => {
-                if (!el) return;
-                el.addEventListener('input', filtrarTabla);
-                el.addEventListener('change', filtrarTabla);
-            });
+        if (inputBuscador) {
+             inputBuscador.addEventListener('keyup', function() {
+                const value = this.value.toLowerCase();
+                const rows = tablaPresentaciones.querySelectorAll('tbody tr');
+                rows.forEach(row => { row.style.display = row.dataset.search.includes(value) ? '' : 'none'; });
+             });
         }
 
-        toggleMixto(false);
+        // --- VALIDACIÓN AL GUARDAR ---
+        if (formPresentacion) {
+            formPresentacion.addEventListener('submit', function(e) {
+                // Solo validamos si el switch existe y ESTÁ ACTIVADO
+                if (checkControlStock && checkControlStock.checked && inputStockMinimo) {
+                    const stockValue = parseFloat(inputStockMinimo.value || 0);
+                    
+                    if (stockValue <= 0) {
+                        e.preventDefault(); 
+                        Swal.fire({
+                            title: '¡Atención!',
+                            text: "Activaste el control de stock, pero el valor es 0. ¿Qué deseas hacer?",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#aaa',
+                            confirmButtonText: 'Corregir Stock',
+                            cancelButtonText: 'Desactivar Control y Guardar'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                setTimeout(() => { inputStockMinimo.focus(); inputStockMinimo.select(); }, 300);
+                            } else {
+                                checkControlStock.checked = false;
+                                inputStockMinimo.value = 0;
+                                inputStockMinimo.disabled = true;
+                                formPresentacion.submit();
+                            }
+                        });
+                    }
+                }
+            });
+        }
     }
 
     // =========================================================================

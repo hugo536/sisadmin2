@@ -9,45 +9,49 @@ class PresentacionModel extends Modelo {
     }
 
     public function listarTodo() {
+        // MODIFICACIÓN CLAVE: 
+        // 1. Contamos cuántos ítems tiene el detalle (cantidad_items).
+        // 2. Si es 1, la vista sabrá que NO debe mostrar el icono de "red".
+        
         $sql = "SELECT p.*,
                        p.codigo_presentacion,
-                       CASE
-                           WHEN COALESCE(p.es_mixto, 0) = 1 THEN CONCAT(
-                               'Pack Mixto x',
-                               CAST(COALESCE(det.total_cantidad, 0) AS UNSIGNED),
-                               CASE
-                                   WHEN COALESCE(det.composicion, '') <> '' THEN CONCAT(' (', det.composicion, ')')
-                                   ELSE ''
-                               END
-                           )
-                           ELSE CONCAT(
-                               i.nombre,
-                               CASE
-                                   WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre)
-                                   ELSE ''
-                               END,
-                               CASE
-                                   WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre)
-                                   ELSE ''
-                               END,
-                               ' x ', CAST(p.factor AS UNSIGNED)
-                           )
-                       END as item_nombre_full,
+                       
+                       -- Traemos el conteo para la lógica visual del icono
+                       COALESCE(det.cantidad_items, 0) as cantidad_items_distintos,
+
+                       COALESCE(
+                            p.nombre_manual, 
+                            CONCAT(
+                                i.nombre,
+                                CASE 
+                                    WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) 
+                                    ELSE '' 
+                                END,
+                                CASE 
+                                    WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) 
+                                    ELSE '' 
+                                END,
+                                ' x ', CAST(p.factor AS UNSIGNED)
+                            )
+                       ) as item_nombre_full,
+                       
                        COALESCE(det.composicion, '') AS composicion_mixta
+
                 FROM {$this->table} p
                 LEFT JOIN items i ON p.id_item = i.id
                 LEFT JOIN item_sabores s ON i.id_sabor = s.id
                 LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
                 LEFT JOIN (
                     SELECT d.id_presentacion,
-                           SUM(d.cantidad) AS total_cantidad,
+                           -- Aquí contamos cuántos productos componen el pack
+                           COUNT(d.id_item) AS cantidad_items, 
                            GROUP_CONCAT(CONCAT(TRIM(TRAILING '.0000' FROM TRIM(TRAILING '0' FROM FORMAT(d.cantidad, 4))), ' ', i2.nombre) ORDER BY d.id SEPARATOR ' + ') AS composicion
                     FROM precios_presentaciones_detalle d
                     INNER JOIN items i2 ON i2.id = d.id_item
                     GROUP BY d.id_presentacion
                 ) det ON det.id_presentacion = p.id
                 WHERE p.deleted_at IS NULL AND p.estado = 1
-                ORDER BY COALESCE(i.nombre, p.codigo_presentacion) ASC, p.factor ASC";
+                ORDER BY p.id DESC"; // Ordenamos por ID descendente para ver lo último creado arriba
 
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -70,13 +74,13 @@ class PresentacionModel extends Modelo {
         $sql = "SELECT i.id,
                        CONCAT(
                            i.nombre,
-                           CASE
-                               WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre)
-                               ELSE ''
+                           CASE 
+                               WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) 
+                               ELSE '' 
                            END,
-                           CASE
-                               WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre)
-                               ELSE ''
+                           CASE 
+                               WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) 
+                               ELSE '' 
                            END
                        ) as nombre_completo,
                        i.nombre,
@@ -86,8 +90,8 @@ class PresentacionModel extends Modelo {
                 FROM items i
                 LEFT JOIN item_sabores s ON i.id_sabor = s.id
                 LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
-                WHERE i.estado = 1
-                  AND i.deleted_at IS NULL
+                WHERE i.estado = 1 
+                  AND i.deleted_at IS NULL 
                   AND i.tipo_item = 'producto'
                 ORDER BY i.nombre ASC";
 
@@ -99,72 +103,95 @@ class PresentacionModel extends Modelo {
             $this->db->beginTransaction();
 
             $esMixto = (int) ($datos['es_mixto'] ?? 0) === 1;
+            
+            $precioMenor = !empty($datos['precio_x_menor']) ? (float) $datos['precio_x_menor'] : 0;
             $precioMayor = !empty($datos['precio_x_mayor']) ? (float) $datos['precio_x_mayor'] : null;
-            $cantMinima = !empty($datos['cantidad_minima_mayor']) ? (int) $datos['cantidad_minima_mayor'] : null;
-            $pesoBruto = isset($datos['peso_bruto']) && $datos['peso_bruto'] !== '' ? (float) $datos['peso_bruto'] : 0;
+            $cantMinima  = !empty($datos['cantidad_minima_mayor']) ? (int) $datos['cantidad_minima_mayor'] : null;
+            $pesoBruto   = isset($datos['peso_bruto']) && $datos['peso_bruto'] !== '' ? (float) $datos['peso_bruto'] : 0;
             $stockMinimo = isset($datos['stock_minimo']) && $datos['stock_minimo'] !== '' ? (float) $datos['stock_minimo'] : 0;
-            $usuario = $_SESSION['id_usuario'] ?? 1;
+            $usuario     = $_SESSION['id_usuario'] ?? 1;
 
             $idItem = null;
-            $factor = null;
-            $codigoAuto = null;
+            $factor = 0;
+            $codigoFinal = null;
+            $nombreManual = null;
+            
+            // NUEVO: Capturar Nota/Observación
+            $notaPack = !empty($datos['nota_pack']) ? trim($datos['nota_pack']) : null;
 
             if (!$esMixto) {
                 $idItem = (int) ($datos['id_item'] ?? 0);
                 $factor = (float) ($datos['factor'] ?? 0);
-
+                
                 $stmtItem = $this->db->prepare("SELECT sku FROM items WHERE id = :id");
                 $stmtItem->execute([':id' => $idItem]);
                 $skuBase = $stmtItem->fetchColumn();
-                $codigoAuto = ($skuBase ? $skuBase : 'GEN') . '-X' . (int) $factor;
+                
+                if (!empty($datos['codigo_presentacion'])) {
+                     $codigoFinal = $datos['codigo_presentacion'];
+                } else {
+                     $codigoFinal = ($skuBase ? $skuBase : 'GEN') . '-X' . (int) $factor;
+                }
+
             } else {
-                $calculos = $this->calcularMixto($datos['detalle_mixto'] ?? []);
-                $codigoAuto = 'MIX-' . date('ymdHis');
+                $idItem = null; 
+                $nombreManual = trim($datos['nombre_manual'] ?? 'Pack Mixto'); 
+                
+                $calculos = $this->calcularTotalesDetalle($datos['detalle_mixto'] ?? []);
                 $factor = $calculos['factor_total'];
-                $datos['precio_x_menor'] = $calculos['precio_menor'];
-                $datos['precio_x_mayor'] = $precioMayor ?? $calculos['precio_mayor'];
-                $precioMayor = (float) $datos['precio_x_mayor'];
-                $pesoBruto = $calculos['peso'];
+                
+                if ($pesoBruto == 0) {
+                    $pesoBruto = $calculos['peso'];
+                }
+
+                if (!empty($datos['codigo_presentacion'])) {
+                    $codigoFinal = strtoupper(trim($datos['codigo_presentacion']));
+                } else {
+                    $codigoFinal = 'MIX-' . date('ymdHis');
+                }
             }
 
             if (empty($datos['id'])) {
+                // INSERTAR (Incluye nota_pack)
                 $sql = "INSERT INTO {$this->table}
-                        (id_item, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, created_by)
-                        VALUES (:id_item, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :created_by)";
+                        (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, created_by)
+                        VALUES (:id_item, :nombre_manual, :nota_pack, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :created_by)";
                 $params = [
-                    ':id_item' => $idItem,
-                    ':codigo'  => $codigoAuto,
-                    ':factor'  => $factor,
-                    ':es_mixto' => $esMixto ? 1 : 0,
-                    ':precio_x_menor' => $datos['precio_x_menor'],
-                    ':precio_x_mayor' => $precioMayor,
+                    ':id_item'       => $idItem,
+                    ':nombre_manual' => $nombreManual,
+                    ':nota_pack'     => $notaPack,
+                    ':codigo'        => $codigoFinal,
+                    ':factor'        => $factor,
+                    ':es_mixto'      => $esMixto ? 1 : 0,
+                    ':precio_x_menor'=> $precioMenor,
+                    ':precio_x_mayor'=> $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
-                    ':peso_bruto' => $pesoBruto,
-                    ':stock_minimo' => $stockMinimo,
-                    ':created_by' => $usuario
+                    ':peso_bruto'    => $pesoBruto,
+                    ':stock_minimo'  => $stockMinimo,
+                    ':created_by'    => $usuario
                 ];
+                
                 $stmt = $this->db->prepare($sql);
                 $ok = $stmt->execute($params);
+                
                 if (!$ok) {
                     $this->db->rollBack();
                     return false;
                 }
                 $presentacionId = (int) $this->db->lastInsertId();
+
             } else {
+                // ACTUALIZAR (Incluye nota_pack)
                 $presentacionId = (int) $datos['id'];
                 $actual = $this->obtener($presentacionId);
                 if (!$actual) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                if ((int) ($actual['es_mixto'] ?? 0) === 0 && $esMixto) {
-                    $this->db->rollBack();
-                    return false;
+                    $this->db->rollBack(); return false;
                 }
 
                 $sql = "UPDATE {$this->table} SET
                         id_item = :id_item,
+                        nombre_manual = :nombre_manual,
+                        nota_pack = :nota_pack,
                         codigo_presentacion = :codigo,
                         factor = :factor,
                         es_mixto = :es_mixto,
@@ -176,24 +203,28 @@ class PresentacionModel extends Modelo {
                         updated_by = :updated_by,
                         updated_at = NOW()
                         WHERE id = :id";
+                
                 $params = [
-                    ':id_item' => $idItem,
-                    ':codigo'  => $codigoAuto ?: ($actual['codigo_presentacion'] ?? null),
-                    ':factor'  => $factor,
-                    ':es_mixto' => $esMixto ? 1 : 0,
-                    ':precio_x_menor' => $datos['precio_x_menor'],
-                    ':precio_x_mayor' => $precioMayor,
+                    ':id_item'       => $idItem,
+                    ':nombre_manual' => $nombreManual,
+                    ':nota_pack'     => $notaPack,
+                    ':codigo'        => $codigoFinal,
+                    ':factor'        => $factor,
+                    ':es_mixto'      => $esMixto ? 1 : 0,
+                    ':precio_x_menor'=> $precioMenor,
+                    ':precio_x_mayor'=> $precioMayor,
                     ':cantidad_minima_mayor' => $cantMinima,
-                    ':peso_bruto' => $pesoBruto,
-                    ':stock_minimo' => $stockMinimo,
-                    ':updated_by' => $usuario,
-                    ':id' => $presentacionId
+                    ':peso_bruto'    => $pesoBruto,
+                    ':stock_minimo'  => $stockMinimo,
+                    ':updated_by'    => $usuario,
+                    ':id'            => $presentacionId
                 ];
+                
                 $stmt = $this->db->prepare($sql);
                 $ok = $stmt->execute($params);
+                
                 if (!$ok) {
-                    $this->db->rollBack();
-                    return false;
+                    $this->db->rollBack(); return false;
                 }
 
                 $this->eliminarDetalleMixto($presentacionId);
@@ -236,33 +267,18 @@ class PresentacionModel extends Modelo {
         ]);
     }
 
-    private function calcularMixto(array $detalle): array {
-        $precioBase = 0.0;
+    private function calcularTotalesDetalle(array $detalle): array {
         $peso = 0.0;
         $factorTotal = 0.0;
-
-        $stmt = $this->db->prepare('SELECT precio_venta FROM items WHERE id = :id LIMIT 1');
-
+        
         foreach ($detalle as $linea) {
-            $idItem = (int) ($linea['id_item'] ?? 0);
             $cantidad = (float) ($linea['cantidad'] ?? 0);
-            if ($idItem <= 0 || $cantidad <= 0) {
-                continue;
+            if ($cantidad > 0) {
+                $factorTotal += $cantidad;
             }
-
-            $stmt->execute([':id' => $idItem]);
-            $precioItem = (float) $stmt->fetchColumn();
-
-            $precioBase += ($precioItem * $cantidad);
-            $factorTotal += $cantidad;
         }
 
-        $precioMenor = round($precioBase * (1 + self::MARGEN_MIXTO_DEFAULT), 2);
-        $precioMayor = round($precioBase, 2);
-
         return [
-            'precio_menor' => $precioMenor,
-            'precio_mayor' => $precioMayor,
             'peso' => $peso,
             'factor_total' => $factorTotal,
         ];
@@ -271,10 +287,11 @@ class PresentacionModel extends Modelo {
     private function obtenerDetalleMixto(int $idPresentacion): array {
         $sql = 'SELECT d.id, d.id_item, d.cantidad, i.unidad_base, i.precio_venta,
                        CONCAT(
-                            i.nombre,
-                            CASE WHEN s.nombre IS NOT NULL AND s.nombre != "Ninguno" THEN CONCAT(" ", s.nombre) ELSE "" END,
-                            CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(" ", ip.nombre) ELSE "" END
-                       ) AS item_nombre
+                           i.nombre,
+                           CASE WHEN s.nombre IS NOT NULL AND s.nombre != "Ninguno" THEN CONCAT(" ", s.nombre) ELSE "" END,
+                           CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(" ", ip.nombre) ELSE "" END
+                       ) AS item_nombre,
+                       i.nombre as nombre_base
                 FROM precios_presentaciones_detalle d
                 INNER JOIN items i ON i.id = d.id_item
                 LEFT JOIN item_sabores s ON i.id_sabor = s.id

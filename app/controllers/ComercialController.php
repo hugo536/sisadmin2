@@ -56,9 +56,12 @@ class ComercialController extends Controlador {
 
     public function guardarPresentacion() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $esMixto = isset($_POST['es_mixto']) ? 1 : 0;
+            
+            // 1. Recoger bandera de tipo (Mixto o Estándar)
+            $esMixto = isset($_POST['es_mixto']) && (int)$_POST['es_mixto'] === 1;
             $detalleMixto = [];
 
+            // 2. Procesar Detalle Mixto (si aplica)
             if (!empty($_POST['detalle_mixto']) && is_array($_POST['detalle_mixto'])) {
                 foreach ($_POST['detalle_mixto'] as $linea) {
                     $idItem = (int) ($linea['id_item'] ?? 0);
@@ -72,12 +75,22 @@ class ComercialController extends Controlador {
                 }
             }
 
+            // 3. Preparar array de datos para el Modelo
             $datos = [
-                'id' => $_POST['id'] ?? null,
-                'id_item' => $_POST['id_item'] ?? null,
-                'factor' => $_POST['factor'] ?? null,
-                'es_mixto' => $esMixto,
+                'id' => !empty($_POST['id']) ? (int)$_POST['id'] : null,
+                'es_mixto' => $esMixto ? 1 : 0,
+                
+                // Campos Estándar
+                'id_item' => !empty($_POST['id_item']) ? (int)$_POST['id_item'] : null,
+                'factor' => !empty($_POST['factor']) ? (float)$_POST['factor'] : 0,
+                
+                // Campos Mixtos / Manuales / Notas
+                'nombre_manual' => !empty($_POST['nombre_manual']) ? trim($_POST['nombre_manual']) : null,
+                'nota_pack' => !empty($_POST['nota_pack']) ? trim($_POST['nota_pack']) : null, // <--- NUEVO CAMPO AGREGADO
+                'codigo_presentacion' => !empty($_POST['codigo_presentacion']) ? trim($_POST['codigo_presentacion']) : null, // SKU Manual
                 'detalle_mixto' => $detalleMixto,
+                
+                // Precios y Pesos
                 'precio_x_menor' => $_POST['precio_x_menor'],
                 'precio_x_mayor' => $_POST['precio_x_mayor'] ?? null,
                 'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null,
@@ -85,16 +98,25 @@ class ComercialController extends Controlador {
                 'stock_minimo' => isset($_POST['stock_minimo']) ? (float) $_POST['stock_minimo'] : 0,
             ];
 
-            if ($esMixto === 0 && (empty($datos['id_item']) || empty($datos['factor']))) {
-                redirect('comercial/presentaciones?error=campos_vacios');
-                return;
+            // 4. VALIDACIONES SERVIDOR
+
+            // Caso A: Presentación Estándar (Requiere Producto Padre y Factor)
+            if (!$esMixto) {
+                if (empty($datos['id_item']) || $datos['factor'] <= 0) {
+                    redirect('comercial/presentaciones?error=campos_vacios_estandar');
+                    return;
+                }
+            } 
+            // Caso B: Presentación Mixta (Requiere Nombre y Detalle)
+            else {
+                /* Nota: id_item puede ser null aquí */
+                if (empty($detalleMixto)) {
+                    redirect('comercial/presentaciones?error=sin_detalle_mixto');
+                    return;
+                }
             }
 
-            if ($esMixto === 1 && empty($detalleMixto)) {
-                redirect('comercial/presentaciones?error=campos_vacios');
-                return;
-            }
-
+            // 5. Enviar al Modelo
             if ($this->presentacionModel->guardar($datos)) {
                 redirect('comercial/presentaciones?success=guardado');
             } else {
