@@ -193,15 +193,20 @@ $hoy = new DateTimeImmutable('today');
                                                 <input class="form-check-input switch-estado-item-inventario" type="checkbox" role="switch"
                                                        style="cursor: pointer;"
                                                        data-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                                       data-tipo="<?php echo e($tipoRegistro); ?>"
                                                        <?php echo ((int) ($stock['item_estado'] ?? 0) === 1) ? 'checked' : ''; ?>
-                                                       <?php echo tiene_permiso('items.editar') ? '' : 'disabled'; ?>>
+                                                       <?php echo (tiene_permiso('items.editar') && $tipoRegistro === 'item') ? '' : 'disabled'; ?>>
                                             </div>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
-                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                               class="btn btn-sm btn-light text-primary border-0 bg-transparent"
-                                               data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
-                                                <i class="bi bi-eye fs-5"></i>
-                                            </a>
+                                            <?php if ($tipoRegistro === 'item'): ?>
+                                                <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                                   class="btn btn-sm btn-light text-primary border-0 bg-transparent"
+                                                   data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
+                                                    <i class="bi bi-eye fs-5"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="text-muted small" data-bs-toggle="tooltip" data-bs-placement="top" title="Kardex disponible para ítems base">-</span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>

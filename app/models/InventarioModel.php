@@ -52,31 +52,49 @@ class InventarioModel extends Modelo
                     LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
                     WHERE i.controla_stock = 1
                       AND i.deleted_at IS NULL
-                    /*
                     UNION ALL
                     SELECT 
                         p.id AS id_item, 
-                        p.sku,
-                        p.nombre_presentacion AS item_nombre,
-                        p.nombre_presentacion AS item_nombre_base,
+                        p.codigo_presentacion AS sku,
+                        COALESCE(
+                            p.nombre_manual,
+                            CONCAT(
+                                i.nombre,
+                                CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
+                                CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
+                                \' x \', CAST(p.factor AS UNSIGNED)
+                            )
+                        ) AS item_nombre,
+                        COALESCE(
+                            p.nombre_manual,
+                            CONCAT(
+                                i.nombre,
+                                CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
+                                CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
+                                \' x \', CAST(p.factor AS UNSIGNED)
+                            )
+                        ) AS item_nombre_base,
                         \'Pack Comercial\' AS item_descripcion,
                         p.estado AS item_estado,
                         a.id AS id_almacen,
                         a.nombre AS almacen_nombre,
-                        p.stock_min AS stock_minimo,
-                        0 AS requiere_vencimiento,
-                        NULL AS dias_alerta_vencimiento,
+                        p.stock_minimo AS stock_minimo,
+                        p.requiere_vencimiento,
+                        p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
                         1 AS controla_stock,
                         0 AS permite_decimales, 
                         \'pack\' AS tipo_registro,
                         COALESCE(sp.stock_actual, 0) AS stock_actual,
                         NULL AS lote_actual,
                         NULL AS proximo_vencimiento
-                    FROM comercial_presentaciones p
+                    FROM precios_presentaciones p
+                    LEFT JOIN items i ON i.id = p.id_item
+                    LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+                    LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                     INNER JOIN almacenes a ON a.id = :id_almacen_pack AND a.estado = 1 AND a.deleted_at IS NULL
                     LEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen_stock_pack
                     WHERE p.estado = 1
-                    */
+                      AND p.deleted_at IS NULL
                     ORDER BY item_nombre ASC';
 
             $stmt = $this->db()->prepare($sql);
@@ -84,8 +102,8 @@ class InventarioModel extends Modelo
             $stmt->bindValue(':id_almacen_lote', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
-            // $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
-            // $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -137,32 +155,50 @@ class InventarioModel extends Modelo
                 WHERE i.controla_stock = 1
                   AND i.deleted_at IS NULL
                 GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
-                /*
                 UNION ALL
                 SELECT 
                     p.id AS id_item, 
-                    p.sku,
-                    p.nombre_presentacion AS item_nombre,
-                    p.nombre_presentacion AS item_nombre_base,
+                    p.codigo_presentacion AS sku,
+                    COALESCE(
+                        p.nombre_manual,
+                        CONCAT(
+                            i.nombre,
+                            CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
+                            CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
+                            \' x \', CAST(p.factor AS UNSIGNED)
+                        )
+                    ) AS item_nombre,
+                    COALESCE(
+                        p.nombre_manual,
+                        CONCAT(
+                            i.nombre,
+                            CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
+                            CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
+                            \' x \', CAST(p.factor AS UNSIGNED)
+                        )
+                    ) AS item_nombre_base,
                     \'Pack Comercial\' AS item_descripcion,
                     p.estado AS item_estado,
                     0 AS id_almacen,
                     \'Global / Todos\' AS almacen_nombre,
-                    p.stock_min AS stock_minimo,
-                    0 AS requiere_vencimiento,
-                    NULL AS dias_alerta_vencimiento,
+                    p.stock_minimo AS stock_minimo,
+                    p.requiere_vencimiento,
+                    p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
                     1 AS controla_stock,
                     0 AS permite_decimales,
                     \'pack\' AS tipo_registro,
                     COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
                     NULL AS lote_actual,
                     NULL AS proximo_vencimiento
-                FROM comercial_presentaciones p
+                FROM precios_presentaciones p
+                LEFT JOIN items i ON i.id = p.id_item
+                LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+                LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                 LEFT JOIN inventario_stock sp ON sp.id_pack = p.id
                 LEFT JOIN almacenes a ON a.id = sp.id_almacen
                 WHERE p.estado = 1 
-                GROUP BY p.id, p.sku, p.nombre_presentacion, p.estado, p.stock_min
-                */
+                  AND p.deleted_at IS NULL
+                GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta
                 ORDER BY item_nombre ASC';
 
         $stmt = $this->db()->query($sql);
