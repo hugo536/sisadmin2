@@ -196,7 +196,7 @@ $hoy = new DateTimeImmutable('today');
                                                 <?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>
                                             </span>
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
-                                            <?php if ($tipoRegistro === 'item'): ?>
+                                            <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
                                                 <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                                    class="btn btn-sm btn-light text-primary border-0 bg-transparent"
                                                    data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
