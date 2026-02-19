@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let tomSelectComponentes = null;
 
-        // --- INICIALIZAR TOMSELECT PARA PRODUCTO PRINCIPAL ---
+        // --- INICIALIZAR TOMSELECT PARA SEMIELABORADO PRINCIPAL ---
         if (inputItem) {
             new TomSelect(inputItem, {
                 create: false,
@@ -144,12 +144,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const initTomSelectComponentes = () => {
             if (tomSelectComponentes || !inputBusquedaComponente) return;
             tomSelectComponentes = new TomSelect(inputBusquedaComponente, {
-                create: false, sortField: { field: "text", direction: "asc" }, placeholder: 'Buscar producto...',
+                create: false, sortField: { field: "text", direction: "asc" }, placeholder: 'Buscar semielaborado...',
                 onChange: function(value) {
                     if (!value) return;
                     const yaExiste = Array.from(document.querySelectorAll('#tablaComposicionMixta input[name*="[id_item]"]')).some(input => input.value === value);
                     if (yaExiste) {
-                        Swal.fire({ icon: 'warning', title: 'Producto duplicado', text: '¡Ya está en la lista!', timer: 2000, confirmButtonColor: '#f39c12' });
+                        Swal.fire({ icon: 'warning', title: 'Semielaborado duplicado', text: '¡Ya está en la lista!', timer: 2000, confirmButtonColor: '#f39c12' });
                         this.clear(); return;
                     }
                     const option = this.options[value];

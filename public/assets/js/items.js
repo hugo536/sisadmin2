@@ -254,12 +254,12 @@
 
         const apply = () => {
             const value = tipo.value;
-            const isProducto = value === 'producto' || value === 'producto_terminado';
+            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
 
-            sku.readOnly = forceDisabled || isProducto;
+            sku.readOnly = forceDisabled || isItemDetallado;
             sku.disabled = forceDisabled;
 
-            if (!isProducto || !autoGenerate) {
+            if (!isItemDetallado || !autoGenerate) {
                 return;
             }
 
@@ -294,7 +294,7 @@
         const apply = () => {
             const value = tipo.value;
             const editable = tiposComercialesEditables.has(value);
-            const isProducto = value === 'producto' || value === 'producto_terminado';
+            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
             const fields = card.querySelectorAll('input, select, textarea');
 
             card.classList.toggle('opacity-75', !editable);
@@ -305,7 +305,7 @@
                 }
 
                 if (field.id === config.costoId) {
-                    field.readOnly = !editable || isProducto;
+                    field.readOnly = !editable || isItemDetallado;
                     field.disabled = false;
                     return;
                 }
@@ -351,22 +351,22 @@
 
         const apply = () => {
             const value = tipo.value;
-            const isProducto = value === 'producto' || value === 'producto_terminado';
+            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
 
             marcaContainer?.classList.toggle('d-none', isServicio);
-            saborContainer?.classList.toggle('d-none', !(isProducto));
-            presentacionContainer?.classList.toggle('d-none', !(isProducto));
+            saborContainer?.classList.toggle('d-none', !(isItemDetallado));
+            presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
 
             if (saborSelect) {
-                saborSelect.required = isProducto;
-                if (!isProducto) saborSelect.value = '';
+                saborSelect.required = isItemDetallado;
+                if (!isItemDetallado) saborSelect.value = '';
             }
             if (presentacionSelect) {
-                presentacionSelect.required = isProducto;
-                if (!isProducto) presentacionSelect.value = '';
+                presentacionSelect.required = isItemDetallado;
+                if (!isItemDetallado) presentacionSelect.value = '';
             }
 
             if (isServicio) {
@@ -382,7 +382,7 @@
                 requiereLote.checked = true;
             }
 
-            if (isProducto) {
+            if (isItemDetallado) {
                 controlaStock.checked = true;
                 requiereLote.checked = true;
                 requiereVencimiento.checked = true;
@@ -462,7 +462,7 @@
 
         document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('newTipo')?.value;
-            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
                 const sabor = document.getElementById('newSabor');
                 const presentacion = document.getElementById('newPresentacion');
                 if (sabor) sabor.value = '';
@@ -563,7 +563,7 @@
 
         document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('editTipo')?.value;
-            if (tipo !== 'producto' && tipo !== 'producto_terminado') {
+            if (tipo !== 'producto' && tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
                 const sabor = document.getElementById('editSabor');
                 const presentacion = document.getElementById('editPresentacion');
                 if (sabor) sabor.value = '';

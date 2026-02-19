@@ -92,7 +92,7 @@ class PresentacionModel extends Modelo {
                 LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
                 WHERE i.estado = 1 
                   AND i.deleted_at IS NULL 
-                  AND i.tipo_item = 'producto'
+                  AND i.tipo_item = 'semielaborado'
                 ORDER BY i.nombre ASC";
 
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
