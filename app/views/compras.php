@@ -137,8 +137,10 @@ $estadoLabels = [
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <h6 class="fw-bold text-muted mb-3">Información General</h6>
-                            <div class="row g-2">
-                                <div class="col-md-6 form-floating">
+                            <div class="row g-2 align-items-end">
+                                
+                                <div class="col-md-6">
+                                    <label for="idProveedor" class="form-label text-muted small fw-bold mb-1">Proveedor <span class="text-danger">*</span></label>
                                     <select id="idProveedor" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($proveedores as $proveedor): ?>
@@ -147,16 +149,18 @@ $estadoLabels = [
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <label for="idProveedor">Proveedor <span class="text-danger">*</span></label>
                                 </div>
-                                <div class="col-md-3 form-floating">
-                                    <input type="date" class="form-control" id="fechaEntrega">
-                                    <label for="fechaEntrega">Fecha Entrega Est.</label>
+                                
+                                <div class="col-md-3">
+                                    <label for="fechaEntrega" class="form-label text-muted small fw-bold mb-1">Fecha Entrega Est. <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="fechaEntrega" required>
                                 </div>
-                                <div class="col-md-3 form-floating">
-                                    <input type="text" class="form-control" id="observaciones" maxlength="180" placeholder="Obs">
-                                    <label for="observaciones">Observaciones</label>
+                                
+                                <div class="col-md-3">
+                                    <label for="observaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
+                                    <input type="text" class="form-control" id="observaciones" maxlength="180" placeholder="Opcional">
                                 </div>
+                                
                             </div>
                         </div>
                     </div>

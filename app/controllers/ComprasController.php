@@ -87,6 +87,11 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Seleccione un proveedor válido.');
             }
 
+            // AGREGAR ESTO: Validación de Fecha en el Backend
+            if (empty($fechaEntrega)) {
+                throw new RuntimeException('La fecha de entrega estimada es obligatoria.');
+            }
+
             if (empty($detalle)) {
                 throw new RuntimeException('Debe agregar al menos un ítem.');
             }

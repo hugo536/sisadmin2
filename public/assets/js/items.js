@@ -156,19 +156,17 @@
         const trigger = document.getElementById(inputId);
         const diasInput = document.getElementById(diasInputId);
         
-        // Eliminamos la validación del container porque ya no lo ocultaremos
         if (!trigger || !diasInput) return;
 
         const applyVisibility = () => {
             const visible = trigger.checked;
             
-            // YA NO OCULTAMOS CON d-none, SOLO BLOQUEAMOS EL CAMPO
             diasInput.disabled = !visible;
             
             if (!visible) {
-                diasInput.value = '0'; // Se pone en 0 cuando se apaga
+                diasInput.value = '0';
             } else if (diasInput.value === '' || diasInput.value === '0') {
-                diasInput.value = '30'; // Valor por defecto al encender
+                diasInput.value = '30';
             }
         };
 
@@ -183,17 +181,15 @@
         const controlaStock = document.getElementById(controlaStockId);
         const stockInput = document.getElementById(stockInputId);
         
-        // Eliminamos la validación del container porque ya no lo ocultaremos
         if (!controlaStock || !stockInput) return;
 
         const applyVisibility = () => {
             const visible = controlaStock.checked;
             
-            // YA NO OCULTAMOS CON d-none, SOLO BLOQUEAMOS EL CAMPO
             stockInput.disabled = !visible;
             
             if (!visible) {
-                stockInput.value = '0.0000'; // Se pone en 0 cuando se apaga
+                stockInput.value = '0.0000';
             }
         };
 
@@ -339,7 +335,7 @@
         const presentacionContainer = document.getElementById(config.presentacionContainerId);
         const saborSelect = document.getElementById(config.saborId);
         const presentacionSelect = document.getElementById(config.presentacionId);
-        const stockContainer = document.getElementById(config.stockContainerId); // Mantengo estos para 'Servicios'
+        const stockContainer = document.getElementById(config.stockContainerId);
         const permiteDecimalesContainer = document.getElementById(config.permiteDecimalesContainerId);
         const requiereLoteContainer = document.getElementById(config.requiereLoteContainerId);
         const requiereVencimientoContainer = document.getElementById(config.requiereVencimientoContainerId);
@@ -392,7 +388,6 @@
                 permiteDecimales.checked = false;
             }
 
-            // Ocultar toda la fila si es servicio
             stockContainer?.classList.toggle('d-none', isServicio);
             permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
@@ -754,89 +749,114 @@
             try {
                 await refreshAtributosSelectores();
             } catch (_) {
-                // no-op
             }
         });
     }
 
-    
-
-        function initTableManager() {
+    // --- REESCRITO: GESTOR DE TABLA PRINCIPAL AL ESTILO INVENTARIO ---
+    function initTableManager() {
         const searchInput = document.getElementById('itemSearch');
         const filtroCategoria = document.getElementById('itemFiltroCategoria');
         const filtroTipo = document.getElementById('itemFiltroTipo');
         const filtroEstado = document.getElementById('itemFiltroEstado');
         const paginationControls = document.getElementById('itemsPaginationControls');
         const paginationInfo = document.getElementById('itemsPaginationInfo');
-
         const table = document.getElementById('itemsTable');
+        
         if (!table) return;
+
+        // Estilos automáticos: Aseguramos el thead sticky y el contenedor responsive
+        const thead = table.querySelector('thead');
+        if (thead && !thead.classList.contains('tabla-global-sticky-thead')) {
+            thead.classList.add('tabla-global-sticky-thead');
+        }
+
+        const parent = table.parentElement;
+        if (parent && !parent.classList.contains('table-responsive')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-responsive tabla-global-scroll-wrapper';
+            parent.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        } else if (parent) {
+            parent.classList.add('tabla-global-scroll-wrapper');
+        }
 
         const allRows = Array.from(table.querySelectorAll('tbody tr'));
 
+        function normalizarTexto(valor) {
+            return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
         const updateTable = function () {
-            const texto = (searchInput?.value || '').toLowerCase().trim();
+            const texto = normalizarTexto(searchInput?.value || '');
             const categoria = filtroCategoria?.value || '';
             const tipo = filtroTipo?.value || '';
             const estado = filtroEstado?.value || '';
 
             const visibleRows = allRows.filter((row) => {
-                const rowSearch = row.getAttribute('data-search') || '';
+                const rowSearch = normalizarTexto(row.getAttribute('data-search') || '');
                 const rowCategoria = row.getAttribute('data-categoria') || '';
                 const rowTipo = row.getAttribute('data-tipo') || '';
                 const rowEstado = row.getAttribute('data-estado') || '';
-                return rowSearch.includes(texto)
-                    && (categoria === '' || rowCategoria === categoria)
-                    && (tipo === '' || rowTipo === tipo)
-                    && (estado === '' || rowEstado === estado);
+                
+                const okTexto = texto === '' || rowSearch.includes(texto);
+                const okCategoria = categoria === '' || rowCategoria === categoria;
+                const okTipo = tipo === '' || rowTipo === tipo;
+                const okEstado = estado === '' || rowEstado === estado;
+
+                return okTexto && okCategoria && okTipo && okEstado;
             });
 
-            const totalRows = visibleRows.length;
-            const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE) || 1;
-            if (currentPage > totalPages) currentPage = 1;
+            const totalItems = visibleRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / ROWS_PER_PAGE));
+            if (currentPage > totalPages) currentPage = totalPages;
 
-            allRows.forEach((row) => {
-                row.style.display = 'none';
-            });
             const start = (currentPage - 1) * ROWS_PER_PAGE;
-            visibleRows.slice(start, start + ROWS_PER_PAGE).forEach((row) => {
-                row.style.display = '';
-            });
+            const end = start + ROWS_PER_PAGE;
+
+            // Usamos las clases d-none como en inventario
+            allRows.forEach((row) => row.classList.add('d-none'));
+            visibleRows.slice(start, end).forEach((row) => row.classList.remove('d-none'));
 
             if (paginationInfo) {
-                if (totalRows === 0) {
-                    paginationInfo.textContent = 'Sin resultados';
+                if (totalItems === 0) {
+                    paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
                 } else {
-                    const end = Math.min(start + ROWS_PER_PAGE, totalRows);
-                    paginationInfo.textContent = `Mostrando ${start + 1}-${end} de ${totalRows} ítems`;
+                    paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
                 }
             }
+            
             renderPagination(totalPages);
         };
 
         function renderPagination(totalPages) {
             if (!paginationControls) return;
             paginationControls.innerHTML = '';
-            if (totalPages <= 1) return;
 
             const addBtn = (label, page, active = false, disabled = false) => {
                 const li = document.createElement('li');
                 li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#">${label}</a>`;
-                li.onclick = (e) => {
-                    e.preventDefault();
-                    if (!active && !disabled && page != null) {
-                        currentPage = page;
-                        updateTable();
-                    }
-                };
+                const a = document.createElement('a');
+                a.className = 'page-link';
+                a.href = '#';
+                a.textContent = label;
+                a.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    if (disabled || active || page == null) return;
+                    currentPage = page;
+                    updateTable();
+                });
+                li.appendChild(a);
                 paginationControls.appendChild(li);
             };
 
             const addDots = () => {
                 const li = document.createElement('li');
                 li.className = 'page-item disabled';
-                li.innerHTML = '<span class="page-link">...</span>';
+                const span = document.createElement('span');
+                span.className = 'page-link';
+                span.textContent = '...';
+                li.appendChild(span);
                 paginationControls.appendChild(li);
             };
 
@@ -857,9 +877,9 @@
             addBtn('Anterior', currentPage - 1, false, currentPage === 1);
             buildPages().forEach((token) => {
                 if (token === 'dots') addDots();
-                else addBtn(token, token, token === currentPage);
+                else addBtn(String(token), token, token === currentPage, false);
             });
-            addBtn('Siguiente', currentPage + 1, false, currentPage === totalPages);
+            addBtn('Siguiente', currentPage + 1, false, currentPage === totalPages || totalPages === 0);
         }
 
         [searchInput, filtroCategoria, filtroTipo, filtroEstado].forEach((el) => {

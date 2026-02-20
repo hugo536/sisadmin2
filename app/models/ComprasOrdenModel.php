@@ -265,24 +265,39 @@ class ComprasOrdenModel extends Modelo
         $db->beginTransaction();
 
         try {
+            // CORRECCIÓN: Separamos :user en :deleted_by y :updated_by para que PDO no se confunda
             $stmt = $db->prepare('UPDATE compras_ordenes
                                   SET estado = 9,
                                       deleted_at = NOW(),
-                                      deleted_by = :user,
-                                      updated_by = :user,
+                                      deleted_by = :deleted_by,
+                                      updated_by = :updated_by,
                                       updated_at = NOW()
                                   WHERE id = :id
                                     AND deleted_at IS NULL');
-            $stmt->execute(['id' => $idOrden, 'user' => $userId]);
+            
+            $stmt->execute([
+                'id' => $idOrden, 
+                'deleted_by' => $userId,
+                'updated_by' => $userId
+            ]);
+
             if ($stmt->rowCount() === 0) {
                 throw new RuntimeException('No se pudo anular la orden.');
             }
 
+            // CORRECCIÓN: Hacemos lo mismo para el detalle
             $db->prepare('UPDATE compras_ordenes_detalle
-                          SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
+                          SET deleted_at = NOW(), 
+                              deleted_by = :deleted_by, 
+                              updated_by = :updated_by, 
+                              updated_at = NOW()
                           WHERE id_orden = :id_orden
                             AND deleted_at IS NULL')
-                ->execute(['id_orden' => $idOrden, 'user' => $userId]);
+                ->execute([
+                    'id_orden' => $idOrden, 
+                    'deleted_by' => $userId,
+                    'updated_by' => $userId
+                ]);
 
             $db->commit();
             return true;
@@ -332,11 +347,13 @@ class ComprasOrdenModel extends Modelo
 
     public function listarItemsActivos(): array
     {
-        $sql = 'SELECT id, sku, nombre
+        // Filtramos para que NO aparezcan productos terminados ni semielaborados
+        $sql = "SELECT id, sku, nombre
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
-                ORDER BY nombre ASC';
+                  AND tipo_item NOT IN ('producto_terminado', 'semielaborado')
+                ORDER BY nombre ASC";
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }

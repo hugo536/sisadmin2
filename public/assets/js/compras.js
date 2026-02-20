@@ -11,19 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
         recepcionar: app.dataset.urlRecepcionar,
     };
 
-    // --- AQUI ESTÁ LA MAGIA (PASO 3: Tom Select) ---
-    // Esto convierte el select normal en uno con buscador
+    // --- MAGIA 1: Tom Select para Proveedor ---
     let tomSelectProveedor = null;
-
     if (document.getElementById('idProveedor')) {
         tomSelectProveedor = new TomSelect("#idProveedor", {
-            create: false, // No permite crear nombres nuevos, solo seleccionar existentes
+            create: false,
             sortField: { field: "text", direction: "asc" },
             placeholder: "Escribe para buscar proveedor...",
-            dropdownParent: 'body' // Evita que el menú quede oculto dentro del modal
+            dropdownParent: 'body' 
         });
     }
-    // -----------------------------------------------
+    // ------------------------------------------
 
     // Modales
     const modalOrdenEl = document.getElementById('modalOrdenCompra');
@@ -31,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
     const modalRecepcion = new bootstrap.Modal(modalRecepcionEl);
 
-    // Elementos del DOM (Filtros y Tabla)
+    // Elementos del DOM
     const tablaCompras = document.getElementById('tablaCompras');
     const tbodyTabla = tablaCompras.querySelector('tbody');
     const filtroBusqueda = document.getElementById('filtroBusqueda');
@@ -42,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Elementos del Formulario Orden
     const formOrden = document.getElementById('formOrdenCompra');
     const ordenId = document.getElementById('ordenId');
-    const idProveedor = document.getElementById('idProveedor'); // El select original (ahora oculto por Tom Select)
+    const idProveedor = document.getElementById('idProveedor'); 
     const fechaEntrega = document.getElementById('fechaEntrega');
     const observaciones = document.getElementById('observaciones');
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -84,49 +82,70 @@ document.addEventListener('DOMContentLoaded', () => {
         const clone = templateFila.content.cloneNode(true);
         const fila = clone.querySelector('tr');
 
-        // Referencias a inputs dentro de la fila
         const inputItem = fila.querySelector('.detalle-item');
         const inputCantidad = fila.querySelector('.detalle-cantidad');
         const inputCosto = fila.querySelector('.detalle-costo');
         const btnQuitar = fila.querySelector('.btn-quitar-fila');
 
-        // Si estamos editando, llenar valores
+        tbodyDetalle.appendChild(fila);
+
+        const tomSelectItem = new TomSelect(inputItem, {
+            create: false,
+            sortField: { field: "text", direction: "asc" },
+            placeholder: "Buscar ítem...",
+            dropdownParent: 'body'
+        });
+
         if (item) {
-            inputItem.value = item.id_item;
-            inputCantidad.value = item.cantidad; // Viene del backend
-            inputCosto.value = item.costo_unitario; // Viene del backend
+            tomSelectItem.setValue(item.id_item); 
+            inputCantidad.value = item.cantidad; 
+            inputCosto.value = item.costo_unitario; 
         }
 
-        // Event Listeners para recálculos en vivo
         [inputCantidad, inputCosto].forEach(input => {
             input.addEventListener('input', () => recalcularFila(fila));
         });
         
-        // Cambio de ítem (opcional: podrías cargar el costo predeterminado aquí si tuvieras esa data)
-        inputItem.addEventListener('change', () => {
-             // Lógica futura: obtener precio del item seleccionado
+        // CORRECCIÓN: Evitar duplicados
+        tomSelectItem.on('change', function(value) {
+            if (!value) return;
+            
+            let contadorDuplicados = 0;
+            tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
+                if (select.value === value) {
+                    contadorDuplicados++;
+                }
+            });
+
+            if (contadorDuplicados > 1) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Ítem duplicado',
+                    text: 'Este producto ya está en la lista.',
+                    confirmButtonColor: '#3085d6'
+                });
+                tomSelectItem.clear(); // Limpia la selección para que elija otro
+            }
         });
 
         btnQuitar.addEventListener('click', () => {
+            tomSelectItem.destroy(); 
             fila.remove();
             recalcularTotalGeneral();
         });
 
-        tbodyDetalle.appendChild(fila);
-        recalcularFila(fila); // Calcular subtotal inicial
+        recalcularFila(fila); 
     }
 
     function limpiarModalOrden() {
         formOrden.reset();
         ordenId.value = 0;
         
-        // --- LIMPIEZA DEL BUSCADOR ---
         if (tomSelectProveedor) {
-            tomSelectProveedor.clear(); // Borra la selección visualmente
+            tomSelectProveedor.clear(); 
         } else {
             idProveedor.value = '';
         }
-        // -----------------------------
 
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
@@ -167,32 +186,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function recargarPagina() {
-        window.location.href = `${urls.index}&${new URLSearchParams({
+        const params = new URLSearchParams({
             q: filtroBusqueda.value,
             estado: filtroEstado.value,
             fecha_desde: filtroFechaDesde.value,
             fecha_hasta: filtroFechaHasta.value
-        }).toString()}`;
+        }).toString();
+        
+        // CORRECCIÓN 404: Verificamos si la url base ya tiene un "?" para usar "&" en su lugar
+        const separador = urls.index.includes('?') ? '&' : '?';
+        window.location.href = `${urls.index}${separador}${params}`;
     }
 
     // 4. Lógica de Botones Principales (Guardar / Recepcionar)
-
-    // Guardar (Crear/Editar)
     btnGuardarOrden.addEventListener('click', async () => {
-        // Validaciones Frontend
-        if (!idProveedor.value) return Swal.fire('Error', 'Debe seleccionar un proveedor.', 'warning');
+        // Validaciones Frontend con SweetAlert2
+        if (!idProveedor.value) {
+            return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
+        }
+        
+        // CORRECCIÓN: Validación de Fecha Obligatoria
+        if (!fechaEntrega.value) {
+            return Swal.fire('Falta Fecha', 'La fecha de entrega estimada es obligatoria.', 'warning');
+        }
         
         const detalle = [];
         let errorDetalle = false;
 
         tbodyDetalle.querySelectorAll('tr').forEach(fila => {
             const datos = filaToPayload(fila);
-            if (datos.id_item <= 0 || datos.cantidad <= 0) errorDetalle = true;
-            detalle.push(datos);
+            if (datos.id_item > 0) {
+                if (datos.cantidad <= 0) errorDetalle = true;
+                detalle.push(datos);
+            }
         });
 
-        if (detalle.length === 0) return Swal.fire('Error', 'Agregue al menos un ítem.', 'warning');
-        if (errorDetalle) return Swal.fire('Error', 'Verifique que todos los ítems tengan producto y cantidad mayor a 0.', 'warning');
+        // CORRECCIÓN: Debe haber mínimo 1 ítem
+        if (detalle.length === 0) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Orden vacía',
+                text: 'Debe agregar al menos un producto a la orden de compra.'
+            });
+        }
+        
+        if (errorDetalle) {
+            return Swal.fire('Verifique Cantidades', 'Todos los ítems deben tener una cantidad mayor a 0.', 'warning');
+        }
 
         try {
             const payload = {
@@ -212,7 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Confirmar Recepción
     btnConfirmarRecepcion.addEventListener('click', async () => {
         const almacenId = Number(recepcionAlmacen.value);
         if (almacenId <= 0) return Swal.fire('Atención', 'Seleccione un almacén de destino.', 'warning');
@@ -244,16 +283,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. Manejo de Acciones en Tabla (Delegación)
     tbodyTabla.addEventListener('click', async (e) => {
         const target = e.target.closest('button');
-        if (!target) return; // Si no clickeó un botón, salir
+        if (!target) return; 
 
         const fila = target.closest('tr');
         const id = Number(fila.dataset.id);
 
-        // A. Editar / Ver
         if (target.classList.contains('btn-editar')) {
             try {
-                // Petición AJAX para obtener datos frescos
-                const res = await fetch(`${urls.index}&accion=ver&id=${id}`, {
+                // Asegúrate de que urls.index tenga el formato correcto para concatenar
+                const separador = urls.index.includes('?') ? '&' : '?';
+                const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const json = await res.json();
@@ -262,29 +301,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const d = json.data;
                     limpiarModalOrden();
                     
-                    // Llenar cabecera
                     ordenId.value = d.id;
                     
-                    // --- CARGAR DATO EN EL BUSCADOR ---
                     if (tomSelectProveedor) {
                         tomSelectProveedor.setValue(d.id_proveedor);
                     } else {
                         idProveedor.value = d.id_proveedor;
                     }
-                    // ----------------------------------
 
                     fechaEntrega.value = d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
                     
                     // Llenar detalle
-                    tbodyDetalle.innerHTML = ''; // Limpiar fila vacía por defecto
+                    // CORRECCIÓN: Primero destruimos las instancias de Tom Select antes de borrar el HTML
+                    tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
+                        if (select.tomselect) {
+                            select.tomselect.destroy();
+                        }
+                    });
+                    tbodyDetalle.innerHTML = '';
                     if (d.detalle && d.detalle.length > 0) {
                         d.detalle.forEach(item => agregarFila(item));
                     } else {
                         agregarFila();
                     }
                     
-                    // Si el estado NO es borrador (0), deshabilitar inputs para modo "Solo Lectura"
                     const esEditable = Number(d.estado) === 0;
                     btnGuardarOrden.style.display = esEditable ? 'block' : 'none';
                     
@@ -296,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // B. Aprobar
         if (target.classList.contains('btn-aprobar')) {
             const confirm = await Swal.fire({
                 title: '¿Aprobar Orden?',
@@ -318,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // C. Anular
         if (target.classList.contains('btn-anular')) {
             const confirm = await Swal.fire({
                 title: '¿Anular Orden?',
@@ -340,10 +379,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // D. Recepcionar (Abrir modal)
         if (target.classList.contains('btn-recepcionar')) {
             recepcionOrdenId.value = id;
-            recepcionAlmacen.value = ""; // Resetear select
+            recepcionAlmacen.value = ""; 
             modalRecepcion.show();
         }
     });
@@ -351,19 +389,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Listeners Generales
     document.getElementById('btnNuevaOrden').addEventListener('click', () => {
         limpiarModalOrden();
-        // Asegurar que el botón guardar sea visible (por si quedó oculto de un "ver")
         btnGuardarOrden.style.display = 'block';
         modalOrden.show();
     });
 
     document.getElementById('btnAgregarFila').addEventListener('click', () => agregarFila());
 
-    // Filtros (Recarga simple)
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
         el.addEventListener('change', recargarPagina);
     });
     
-    // Búsqueda con Enter
     filtroBusqueda.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
