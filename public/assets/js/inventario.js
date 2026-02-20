@@ -8,16 +8,15 @@
   // Selects principales (Modal)
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
+  const proveedor = document.getElementById('proveedorMovimiento'); // NUEVO: Select de Proveedor
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
   const almacenDestino = document.getElementById('almacenDestinoMovimiento');
   
-  // Ítem
-  const itemInput = document.getElementById('itemMovimiento');
+  // Ítem (AHORA ES UN SELECT)
+  const selectItem = document.getElementById('itemMovimiento');
   const itemIdInput = document.getElementById('idItemMovimiento');
-  const itemList = document.getElementById('listaItemsInventario'); // Datalist
-  const sugerenciasItems = document.getElementById('sugerenciasItemsInventario'); // Div sugerencias
   
   // Lotes
   const grupoLoteInput = document.getElementById('grupoLoteInput');
@@ -38,117 +37,147 @@
 
   // --- FILTROS DE LA TABLA PRINCIPAL ---
   const searchInput = document.getElementById('inventarioSearch');
-  const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro'); // NUEVO FILTRO
+  const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
   const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
 
-  // Solo mantenemos TomSelect para el Modal (para buscar rápido al hacer movimientos)
+  // Instancias TomSelect
   let tomSelectTipo = null;
   let tomSelectAlmacen = null;
   let tomSelectAlmacenDestino = null;
+  let tomSelectProveedor = null; // Instancia Proveedor
+  let tomSelectItem = null;      // Instancia Ítem
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar TomSelects del Modal
-    if (tipo) {
-      tomSelectTipo = new TomSelect('#tipoMovimiento', {
+    // Configuración base para TomSelects estáticos
+    const tsConfig = {
         create: false,
         sortField: { field: 'text', direction: 'asc' },
         placeholder: 'Buscar...',
         dropdownParent: 'body'
-      });
+    };
+
+    if (tipo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
+    if (almacen) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
+    if (almacenDestino) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
+    
+    // Inicializar Tom Select Proveedor
+    if (proveedor) {
+        tomSelectProveedor = new TomSelect('#proveedorMovimiento', {
+            ...tsConfig,
+            placeholder: 'Buscar proveedor...'
+        });
     }
 
-    if (almacen) {
-      tomSelectAlmacen = new TomSelect('#almacenMovimiento', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
+    // Inicializar Tom Select para Buscar Ítem (Carga Remota)
+    if (selectItem) {
+        tomSelectItem = new TomSelect('#itemMovimiento', {
+            valueField: 'id',
+            labelField: 'nombre',
+            searchField: ['sku', 'nombre'],
+            placeholder: 'Escriba para buscar...',
+            dropdownParent: 'body',
+            load: function(query, callback) {
+                if (!query.length) return callback();
+                
+                // Hacemos el fetch al backend. Se envía un parámetro extra (compras=1) por si lo necesitas en el modelo.
+                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&compras=1`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const items = Array.isArray(data.items) ? data.items : [];
+                    
+                    // FILTRO: Excluir Semielaborados y Terminados mediante JS (por si el backend envía todo)
+                    const itemsFiltrados = items.filter(item => {
+                        const tipoItem = (item.tipo || '').toLowerCase();
+                        return !tipoItem.includes('semielaborado') && !tipoItem.includes('terminado');
+                    });
+                    
+                    callback(itemsFiltrados);
+                })
+                .catch(() => {
+                    callback();
+                });
+            },
+            render: {
+                option: function(item, escape) {
+                    return `<div class="py-1">
+                                <span class="fw-bold d-block">${escape(item.sku || '')}</span>
+                                <span class="text-muted small">${escape(item.nombre)}</span>
+                            </div>`;
+                },
+                item: function(item, escape) {
+                    return `<div>${escape(item.sku || '')} - ${escape(item.nombre)}</div>`;
+                }
+            },
+            onChange: function(value) {
+                if (value) {
+                    itemIdInput.value = value;
+                } else {
+                    itemIdInput.value = '';
+                }
+                actualizarUIModal();
+                actualizarStockHint();
+                cargarResumenItem();
+            }
+        });
     }
 
-    if (almacenDestino) {
-      tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
-
-    // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
   });
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
-
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
-  // --- ACCIÓN 3: LÓGICA DE FILTRADO EN TIEMPO REAL ---
   function filtrarStock() {
     if (!tablaStock) return;
-
     const termino = normalizarTexto(searchInput ? searchInput.value : '');
-    const tipoFiltro = (filtroTipoRegistro ? filtroTipoRegistro.value : '').trim(); // 'item' o 'pack'
-    const estado = (filtroEstado ? filtroEstado.value : '').trim(); // 'disponible', 'alerta', 'agotado', 'sin_movimiento'
+    const tipoFiltro = (filtroTipoRegistro ? filtroTipoRegistro.value : '').trim();
+    const estado = (filtroEstado ? filtroEstado.value : '').trim();
     const vencimiento = (filtroVencimiento ? filtroVencimiento.value : '').trim();
 
     const filas = Array.from(tablaStock.querySelectorAll('tbody tr'));
     filas.forEach((fila) => {
       if (!fila.dataset.search) return;
-      
       const okTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
       const okTipo = tipoFiltro === '' || (fila.dataset.tipoRegistro || '') === tipoFiltro;
       const okEstado = estado === '' || (fila.dataset.estado || '') === estado;
       const okVenc = vencimiento === '' || (fila.dataset.vencimiento || '') === vencimiento;
-      
-      // Mostrar fila solo si cumple todos los filtros
       fila.classList.toggle('d-none', !(okTexto && okTipo && okEstado && okVenc));
     });
   }
 
   function aplicarFiltroAlmacenServidor() {
     if (!filtroAlmacen) return;
-
     const url = new URL(window.location.href);
     const valor = (filtroAlmacen.value || '').trim();
-
-    if (valor === '') {
-      url.searchParams.delete('id_almacen');
-    } else {
-      url.searchParams.set('id_almacen', valor);
-    }
-
+    if (valor === '') url.searchParams.delete('id_almacen');
+    else url.searchParams.set('id_almacen', valor);
     window.location.href = url.toString();
   }
 
   // --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
-
   function obtenerDataDelItem() {
-    if (!itemInput || !itemList) return null;
-    const valor = (itemInput.value || '').trim();
-    const opcion = Array.from(itemList.options || []).find((option) => option.value === valor);
+    if (!tomSelectItem) return null;
+    const val = tomSelectItem.getValue();
+    if (!val) return null;
     
-    if (opcion) {
-      return {
-        id: opcion.dataset.id,
-        requiereLote: opcion.dataset.requiereLote == '1',
-        requiereVencimiento: opcion.dataset.requiereVencimiento == '1'
-      };
-    }
-    return null;
+    const itemData = tomSelectItem.options[val];
+    return {
+        id: itemData.id,
+        requiereLote: itemData.requiere_lote == '1',
+        requiereVencimiento: itemData.requiere_vencimiento == '1'
+    };
   }
 
   function actualizarUIModal() {
     if (!tipo) return;
-    
     const tipoVal = tipo.value;
     const itemData = obtenerDataDelItem();
     
@@ -157,11 +186,8 @@
     if(almacenDestino) {
         almacenDestino.required = esTransferencia;
         if (!esTransferencia) {
-            if (tomSelectAlmacenDestino) {
-              tomSelectAlmacenDestino.clear();
-            } else {
-              almacenDestino.value = '';
-            }
+            if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
+            else almacenDestino.value = '';
         }
     }
 
@@ -202,10 +228,7 @@
         const semilla = Number(idItem || '0');
         const costoPromedio = semilla > 0 ? ((semilla * 1.732) % 250) + 1 : 0;
         const stockActual = semilla > 0 ? ((semilla * 7) % 500) + 3 : 0;
-        resolve({
-          costo_promedio_actual: costoPromedio,
-          stock_actual: stockActual
-        });
+        resolve({ costo_promedio_actual: costoPromedio, stock_actual: stockActual });
       }, 350);
     });
   }
@@ -213,7 +236,6 @@
   async function cargarResumenItem() {
     if (!itemIdInput) return;
     const idItem = Number(itemIdInput.value || '0');
-
     if (!costoPromedioActualLabel || !stockActualItemLabel) return;
 
     if (idItem <= 0) {
@@ -239,7 +261,6 @@
 
   async function cargarLotesDisponibles() {
     if (grupoLoteSelect.classList.contains('d-none')) return;
-
     const idItem = itemIdInput.value;
     const idAlmacen = almacen.value;
 
@@ -259,7 +280,6 @@
                 const stock = parseFloat(l.stock_lote);
                 const venc = l.fecha_vencimiento ? l.fecha_vencimiento : 'N/A';
                 const texto = `${l.lote} | Vence: ${venc} | Disp: ${stock}`;
-                
                 const option = document.createElement('option');
                 option.value = l.lote;
                 option.textContent = texto;
@@ -301,112 +321,28 @@
     }
   }
 
-  let timerBusqueda = null;
-  async function buscarItemsRemoto() {
-    if (!itemInput || !sugerenciasItems) return;
-    const q = (itemInput.value || '').trim();
-    if (q.length < 2) {
-      sugerenciasItems.classList.add('d-none');
-      sugerenciasItems.innerHTML = '';
-      return;
-    }
-
-    try {
-      const response = await fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(q)}`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
-      const data = await response.json();
-      const items = Array.isArray(data.items) ? data.items : [];
-      sugerenciasItems.innerHTML = '';
-
-      items.slice(0, 8).forEach((item) => {
-        const texto = `${item.sku || ''} - ${item.nombre || ''}`.trim();
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'list-group-item list-group-item-action';
-        btn.textContent = texto;
-        
-        btn.addEventListener('click', function () {
-            itemInput.value = texto;
-            itemIdInput.value = String(item.id || '');
-            
-            let option = Array.from(itemList.options).find(o => o.value === texto);
-            if (!option) {
-                option = document.createElement('option');
-                option.value = texto;
-                itemList.appendChild(option);
-            }
-            option.dataset.id = item.id;
-            option.dataset.requiereLote = item.requiere_lote;
-            option.dataset.requiereVencimiento = item.requiere_vencimiento;
-
-            sugerenciasItems.classList.add('d-none');
-            
-            actualizarUIModal();
-            actualizarStockHint();
-            cargarResumenItem();
-        });
-        sugerenciasItems.appendChild(btn);
-      });
-
-      sugerenciasItems.classList.toggle('d-none', items.length === 0);
-    } catch (error) {
-      sugerenciasItems.classList.add('d-none');
-    }
-  }
-
   // --- LISTENERS ---
-
-  // Escuchadores de los filtros visuales nativos
   if (searchInput) searchInput.addEventListener('input', filtrarStock);
   if (filtroTipoRegistro) filtroTipoRegistro.addEventListener('change', filtrarStock);
   if (filtroEstado) filtroEstado.addEventListener('change', filtrarStock);
   if (filtroVencimiento) filtroVencimiento.addEventListener('change', filtrarStock);
-  
-  // El filtro de almacén recarga la página porque trae datos del backend
   if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
   
   filtrarStock();
 
-  // Listeners Modal Movimiento
   if (form) {
     if (tipo) {
         tipo.addEventListener('change', () => {
             actualizarUIModal();
             actualizarStockHint();
-            if (itemIdInput && Number(itemIdInput.value || '0') > 0) {
-              cargarResumenItem();
-            }
+            if (itemIdInput && Number(itemIdInput.value || '0') > 0) cargarResumenItem();
         });
     }
 
     if (almacen) {
         almacen.addEventListener('change', () => {
-            if (!grupoLoteSelect.classList.contains('d-none')) {
-                cargarLotesDisponibles();
-            }
+            if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
             actualizarStockHint();
-        });
-    }
-
-    if (itemInput) {
-        itemInput.addEventListener('input', function () {
-            const val = this.value;
-            const itemData = obtenerDataDelItem();
-            if(!itemData && val === '') itemIdInput.value = '';
-            
-            actualizarUIModal();
-            
-            clearTimeout(timerBusqueda);
-            timerBusqueda = setTimeout(buscarItemsRemoto, 300);
-        });
-        
-        itemInput.addEventListener('change', function() {
-             const itemData = obtenerDataDelItem();
-             if(itemData) itemIdInput.value = itemData.id;
-             actualizarUIModal();
-             actualizarStockHint();
-             cargarResumenItem();
         });
     }
 
@@ -416,14 +352,16 @@
             if (tomSelectTipo) tomSelectTipo.clear();
             if (tomSelectAlmacen) tomSelectAlmacen.clear();
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
+            if (tomSelectProveedor) tomSelectProveedor.clear();
+            if (tomSelectItem) {
+                tomSelectItem.clearOptions();
+                tomSelectItem.clear();
+            }
+            
             if (itemIdInput) itemIdInput.value = '';
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
             if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
-            if (sugerenciasItems) {
-              sugerenciasItems.innerHTML = '';
-              sugerenciasItems.classList.add('d-none');
-            }
             
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
@@ -495,5 +433,4 @@
       }
     });
   }
-
 })();

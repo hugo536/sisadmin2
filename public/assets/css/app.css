@@ -534,3 +534,14 @@ tr[data-estado="0"] .avatar-circle {
 .cajas-bancos-page #cbFiltersForm input.form-control {
   border-left: 0;
 }
+
+.ts-control input {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: auto !important;
+    line-height: normal !important;
+}
+
+.ts-control input::placeholder {
+    line-height: normal !important;
+}

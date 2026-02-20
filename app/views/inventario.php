@@ -1,7 +1,8 @@
 <?php
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
-$items = $items ?? [];
+// NUEVO: Asegurarnos de recibir la variable proveedores (debemos enviarla desde el controlador)
+$proveedores = $proveedores ?? []; 
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 $hoy = new DateTimeImmutable('today');
 ?>
@@ -108,19 +109,16 @@ $hoy = new DateTimeImmutable('today');
                             <?php foreach ($stockActual as $stock): ?>
                                 <?php
                                 $sku = (string) ($stock['sku'] ?? '');
-                                // Aquí usamos el nombre concatenado (Nombre + Sabor + Presentacion)
                                 $itemNombreCompleto = (string) ($stock['item_nombre'] ?? '');
                                 $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
                                 $loteActual = trim((string) ($stock['lote_actual'] ?? ''));
                                 $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
                                 $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
                                 
-                                // Variables inyectadas por el Controlador (Acción 1 y 2)
                                 $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
                                 $badgeColor = (string) ($stock['badge_color'] ?? '');
                                 $badgeTexto = (string) ($stock['badge_estado'] ?? '');
 
-                                // Lógica de Vencimiento (Mantenemos la tuya que está perfecta)
                                 $requiereVencimiento = (int) ($stock['requiere_vencimiento'] ?? 0) === 1;
                                 $diasAlerta = (int) ($stock['dias_alerta_vencimiento'] ?? 0);
                                 $proximoVencimiento = (string) ($stock['proximo_vencimiento'] ?? '');
@@ -150,7 +148,6 @@ $hoy = new DateTimeImmutable('today');
                                     }
                                 }
 
-                                // Search index para que el DataTables o tu JS lo encuentre fácil
                                 $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre . ' ' . $loteActual);
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>"
@@ -256,6 +253,18 @@ $hoy = new DateTimeImmutable('today');
                                     <label for="almacenMovimiento">Almacén Origen</label>
                                 </div>
                                 
+                                <div class="col-md-12 form-floating mt-2">
+                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
+                                        <option value="">Seleccione...</option>
+                                        <?php foreach ($proveedores as $proveedor): ?>
+                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>">
+                                                <?php echo e((string) ($proveedor['razon_social'] ?? $proveedor['nombre'] ?? '')); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <label for="proveedorMovimiento">Proveedor (Opcional / Para compras)</label>
+                                </div>
+
                                 <div class="col-md-12 form-floating d-none mt-2" id="grupoAlmacenDestino">
                                     <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
                                         <option value="">Seleccione...</option>
@@ -273,22 +282,12 @@ $hoy = new DateTimeImmutable('today');
                         <div class="card-body">
                             <h6 class="fw-bold text-muted mb-3">Detalle del Producto</h6>
                             <div class="row g-2">
-                                <div class="col-12 position-relative mb-2">
-                                    <label class="form-label small text-muted">Buscar Ítem (SKU / Nombre)</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                                        <input type="text" id="itemMovimiento" class="form-control" list="listaItemsInventario" placeholder="Escriba para buscar..." required>
-                                    </div>
-                                    <datalist id="listaItemsInventario">
-                                        <?php foreach ($items as $item): ?>
-                                            <option 
-                                                data-id="<?php echo (int) ($item['id'] ?? 0); ?>" 
-                                                data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>" 
-                                                data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>" 
-                                                value="<?php echo e((string) ($item['sku'] ?? '')); ?> - <?php echo e((string) ($item['nombre'] ?? '')); ?>">
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </datalist>
+                                
+                                <div class="col-12 mb-2">
+                                    <label class="form-label small text-muted mb-1">Buscar Ítem (SKU / Nombre)</label>
+                                    <select id="itemMovimiento" class="form-select" placeholder="Escriba para buscar..." required>
+                                        <option value="">Escriba para buscar...</option>
+                                    </select>
                                 </div>
 
                                 <div class="col-md-6">
