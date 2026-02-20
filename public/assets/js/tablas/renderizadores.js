@@ -153,7 +153,7 @@
 
         a.addEventListener('click', (e) => {
           e.preventDefault();
-          if (isDisabled || isActive) return;
+          if (isDisabled || isActive || page == null) return;
 
           currentPage = page;
           api.update();
@@ -170,17 +170,39 @@
         return li;
       };
 
-      paginationControlsEl.appendChild(
-        createItem('Anterior', currentPage - 1, false, currentPage === 1)
-      );
+      const createDots = () => {
+        const li = document.createElement('li');
+        li.className = 'page-item disabled';
+        const span = document.createElement('span');
+        span.className = 'page-link';
+        span.textContent = '...';
+        li.appendChild(span);
+        return li;
+      };
 
-      for (let i = 1; i <= totalPages; i++) {
-        paginationControlsEl.appendChild(createItem(i, i, i === currentPage));
-      }
+      const buildPages = () => {
+        const pages = new Set([1, totalPages]);
+        const siblingCount = 1;
+        for (let i = currentPage - siblingCount; i <= currentPage + siblingCount; i += 1) {
+          if (i > 1 && i < totalPages) pages.add(i);
+        }
+        const ordered = Array.from(pages).sort((a, b) => a - b);
+        const tokens = [];
+        ordered.forEach((page, idx) => {
+          if (idx > 0 && page - ordered[idx - 1] > 1) tokens.push('dots');
+          tokens.push(page);
+        });
+        return tokens;
+      };
 
-      paginationControlsEl.appendChild(
-        createItem('Siguiente', currentPage + 1, false, currentPage === totalPages)
-      );
+      paginationControlsEl.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
+
+      buildPages().forEach((token) => {
+        if (token === 'dots') paginationControlsEl.appendChild(createDots());
+        else paginationControlsEl.appendChild(createItem(token, token, token === currentPage));
+      });
+
+      paginationControlsEl.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
     }
 
     function showRows(visibleRows) {
