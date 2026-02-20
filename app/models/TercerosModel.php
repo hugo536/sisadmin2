@@ -107,6 +107,23 @@ class TercerosModel extends Modelo
         return $this->distribuidoresModel->obtenerConflictosZonas($zonas, $excludeDistribuidorId);
     }
 
+    public function listarCatalogoCajasBancosActivos(): array
+    {
+        if (!$this->hasColumn('configuracion_cajas_bancos', 'id')) {
+            return [];
+        }
+
+        $sql = "SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda
+                FROM configuracion_cajas_bancos
+                WHERE estado = 1 AND deleted_at IS NULL
+                ORDER BY tipo ASC, nombre ASC";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
 
     public function listarHijosEmpleado(int $idTercero): array
     {
@@ -846,21 +863,31 @@ class TercerosModel extends Modelo
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
         
-        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
-        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
-        $sql = "SELECT tercero_id, 
-                       tipo_entidad, 
-                       entidad, 
-                       tipo_cuenta, 
-                       numero_cuenta, 
-                       cci, 
-                       titular, 
-                       moneda, 
-                       principal, 
-                       billetera_digital, 
-                       observaciones 
-                FROM terceros_cuentas_bancarias 
-                WHERE tercero_id IN ($inQuery)";
+        // CORRECCIÓN: eliminamos alias ambiguos y manejamos compatibilidad de columnas.
+        $columnas = ['tercero_id'];
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
+            $columnas[] = 'config_banco_id';
+        } else {
+            $columnas[] = 'NULL AS config_banco_id';
+        }
+        $columnas = array_merge($columnas, [
+            'tipo_entidad',
+            'entidad',
+            'tipo_cuenta',
+            'numero_cuenta',
+            'cci',
+            'titular',
+            'moneda',
+            'principal',
+            'billetera_digital',
+            'observaciones',
+        ]);
+
+        $sql = 'SELECT ' . implode(', ', $columnas) . "
+"
+            . "                FROM terceros_cuentas_bancarias 
+"
+            . "                WHERE tercero_id IN ($inQuery)";
         if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
             $sql .= ' AND deleted_at IS NULL';
         }
@@ -944,11 +971,23 @@ class TercerosModel extends Modelo
         if (empty($cuentas)) return;
 
         // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
-        $sql = "INSERT INTO terceros_cuentas_bancarias (
-                    tercero_id, tipo_entidad, entidad, tipo_cuenta, 
-                    numero_cuenta, cci, titular, moneda, principal, 
-                    billetera_digital, observaciones, created_by, updated_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $columnas = ['tercero_id'];
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
+            $columnas[] = 'config_banco_id';
+        }
+        $columnas = array_merge($columnas, [
+            'tipo_entidad', 'entidad', 'tipo_cuenta', 'numero_cuenta', 'cci', 'titular',
+            'moneda', 'principal', 'billetera_digital', 'observaciones'
+        ]);
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
+            $columnas[] = 'created_by';
+        }
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) {
+            $columnas[] = 'updated_by';
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($columnas), '?'));
+        $sql = 'INSERT INTO terceros_cuentas_bancarias (' . implode(', ', $columnas) . ') VALUES (' . $placeholders . ')';
 
         $stmt = $this->db()->prepare($sql);
         
@@ -961,8 +1000,12 @@ class TercerosModel extends Modelo
             $tipoEntidad = $cta['tipo_entidad'] ?? null; 
             $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
 
-            $params = [
-                $terceroId,
+            $params = [$terceroId];
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
+                $configBancoId = isset($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : 0;
+                $params[] = $configBancoId > 0 ? $configBancoId : null;
+            }
+            $params = array_merge($params, [
                 $tipoEntidad,
                 $cta['entidad'] ?? '',
                 $tipoCuenta,
@@ -973,9 +1016,13 @@ class TercerosModel extends Modelo
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,
                 $cta['observaciones'] ?? null,
-                $userId,
-                $userId
-            ];
+            ]);
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
+                $params[] = $userId;
+            }
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) {
+                $params[] = $userId;
+            }
             
             $stmt->execute($params);
         }

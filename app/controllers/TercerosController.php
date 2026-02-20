@@ -68,6 +68,12 @@ class TercerosController extends Controlador
                     return;
                 }
 
+                if (es_ajax() && $accion === 'cargar_catalogo_cajas_bancos') {
+                    $data = $this->tercerosModel->listarCatalogoCajasBancosActivos();
+                    json_response(['ok' => true, 'data' => $data]);
+                    return;
+                }
+
                 if (es_ajax() && $accion === 'cargar_ubigeo') {
                     $tipo    = (string)($_POST['tipo'] ?? '');
                     $padreId = (string)($_POST['padre_id'] ?? '');
@@ -518,6 +524,7 @@ class TercerosController extends Controlador
 
         // --- CUENTAS BANCARIAS ---
         $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
+        $cuentasConfigId   = $data['cuenta_config_banco_id']  ?? [];
         $cuentasEntidad     = $data['cuenta_entidad']          ?? [];
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
         $cuentasNumero      = $data['cuenta_numero']           ?? [];
@@ -532,6 +539,7 @@ class TercerosController extends Controlador
         $toArray = static function ($value) { return is_array($value) ? $value : [$value]; };
 
         $cuentasTipoEntidad = $toArray($cuentasTipoEntidad);
+        $cuentasConfigId   = $toArray($cuentasConfigId);
         $cuentasEntidad     = $toArray($cuentasEntidad);
         $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
         $cuentasNumero      = $toArray($cuentasNumero);
@@ -543,7 +551,7 @@ class TercerosController extends Controlador
         $cuentasObs         = $toArray($cuentasObs);
 
         $cuentasNormalizadas = [];
-        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci));
+        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigId));
 
         $normalizarTipoEntidad = static function ($val) {
             $v = mb_strtolower(trim((string)$val));
@@ -583,6 +591,7 @@ class TercerosController extends Controlador
 
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, 
+                'config_banco_id'   => (int)($cuentasConfigId[$i] ?? 0),
                 'tipo_entidad'      => $tipoEntidad,      
                 'entidad'           => $entidad,
                 'tipo_cuenta'       => $tipoCuentaVal,    
