@@ -221,7 +221,7 @@
       a.textContent = label;
       a.addEventListener('click', (ev) => {
         ev.preventDefault();
-        if (disabled || active) return;
+        if (disabled || active || page == null) return;
         currentStockPage = page;
         filtrarStock();
       });
@@ -229,10 +229,37 @@
       paginationControls.appendChild(li);
     };
 
+    const crearPuntos = () => {
+      const li = document.createElement('li');
+      li.className = 'page-item disabled';
+      const span = document.createElement('span');
+      span.className = 'page-link';
+      span.textContent = '...';
+      li.appendChild(span);
+      paginationControls.appendChild(li);
+    };
+
+    const construirTokensPaginas = () => {
+      const pages = new Set([1, totalPages]);
+      for (let i = currentStockPage - 1; i <= currentStockPage + 1; i += 1) {
+        if (i > 1 && i < totalPages) pages.add(i);
+      }
+      const ordenadas = Array.from(pages).sort((a, b) => a - b);
+      const tokens = [];
+      ordenadas.forEach((page, idx) => {
+        if (idx > 0 && page - ordenadas[idx - 1] > 1) tokens.push('dots');
+        tokens.push(page);
+      });
+      return tokens;
+    };
+
     crearItem('Anterior', currentStockPage - 1, false, currentStockPage === 1);
-    for (let i = 1; i <= totalPages; i += 1) {
-      crearItem(String(i), i, i === currentStockPage, false);
-    }
+
+    construirTokensPaginas().forEach((token) => {
+      if (token === 'dots') crearPuntos();
+      else crearItem(String(token), token, token === currentStockPage, false);
+    });
+
     crearItem('Siguiente', currentStockPage + 1, false, currentStockPage === totalPages || totalPages === 0);
   }
 
