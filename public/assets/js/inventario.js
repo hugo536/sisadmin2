@@ -50,7 +50,7 @@
   const paginationInfo = document.getElementById('inventarioPaginationInfo');
   const paginationControls = document.getElementById('inventarioPaginationControls');
 
-  const ITEMS_PER_PAGE = 25;
+  const ITEMS_PER_PAGE = 20;
   let currentStockPage = 1;
 
   // Instancias TomSelect
