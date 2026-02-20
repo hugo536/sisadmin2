@@ -1,5 +1,90 @@
 (function () {
   const modal = document.getElementById('modalCajaBanco');
+  const filtrosForm = document.getElementById('cbFiltersForm');
+
+  if (filtrosForm) {
+    const campoBusqueda = document.getElementById('cbFiltroBusqueda');
+    const campoTipo = document.getElementById('cbFiltroTipo');
+    const campoEstado = document.getElementById('cbFiltroEstado');
+    let filtroTimer = null;
+
+    const enviarFiltros = () => {
+      if (filtroTimer) {
+        window.clearTimeout(filtroTimer);
+      }
+      filtrosForm.submit();
+    };
+
+    if (campoBusqueda) {
+      campoBusqueda.addEventListener('input', () => {
+        if (filtroTimer) {
+          window.clearTimeout(filtroTimer);
+        }
+        filtroTimer = window.setTimeout(() => {
+          filtrosForm.submit();
+        }, 350);
+      });
+
+      campoBusqueda.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          enviarFiltros();
+        }
+      });
+    }
+
+    [campoTipo, campoEstado].forEach((select) => {
+      if (!select) return;
+      select.addEventListener('change', enviarFiltros);
+    });
+  }
+
+  document.querySelectorAll('.switch-estado-cb').forEach((switchInput) => {
+    switchInput.addEventListener('change', async function () {
+      const id = Number(this.dataset.id || 0);
+      const nuevoEstado = this.checked ? 1 : 0;
+      const estadoPrevio = this.checked ? 0 : 1;
+      const badge = document.getElementById(`badge_status_cb_${id}`);
+
+      if (!id) {
+        this.checked = !this.checked;
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('id', String(id));
+        formData.append('estado', String(nuevoEstado));
+
+        const response = await fetch(`${window.BASE_URL}?ruta=cajas_bancos/toggle_estado`, {
+          method: 'POST',
+          body: formData,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.mensaje || 'No se pudo actualizar el estado.');
+        }
+
+        if (badge) {
+          if (nuevoEstado === 1) {
+            badge.className = 'badge bg-success-subtle text-success-emphasis border';
+            badge.textContent = 'Activo';
+          } else {
+            badge.className = 'badge bg-secondary-subtle text-secondary-emphasis border';
+            badge.textContent = 'Inactivo';
+          }
+        }
+      } catch (error) {
+        this.checked = estadoPrevio === 1;
+        if (window.Swal) {
+          window.Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'No se pudo actualizar el estado.' });
+        }
+      }
+    });
+  });
+
   if (!modal) return;
 
   const id = document.getElementById('cbId');

@@ -29,12 +29,38 @@ class CajasBancosController extends Controlador
             'ruta_actual' => 'cajas_bancos/index',
             'registros' => $this->model->listarConFiltros($filtros),
             'filtros' => $filtros,
-            'resumen' => $this->model->resumen(),
             'flash' => [
                 'tipo' => (string) ($_GET['tipo_msg'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),
             ],
         ]);
+    }
+
+    public function toggle_estado(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('config.editar');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            json_response(['ok' => false, 'mensaje' => 'Método inválido.'], 405);
+            return;
+        }
+
+        $id = (int) ($_POST['id'] ?? 0);
+        $estado = ((int) ($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+        $userId = (int) ($_SESSION['id'] ?? 0);
+
+        if ($id <= 0) {
+            json_response(['ok' => false, 'mensaje' => 'ID inválido.'], 400);
+            return;
+        }
+
+        if (!$this->model->actualizarEstado($id, $estado, $userId)) {
+            json_response(['ok' => false, 'mensaje' => 'No se pudo actualizar el estado.'], 422);
+            return;
+        }
+
+        json_response(['ok' => true, 'mensaje' => 'Estado actualizado correctamente.']);
     }
 
     public function guardar(): void

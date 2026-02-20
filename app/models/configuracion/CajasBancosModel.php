@@ -144,19 +144,16 @@ class CajasBancosModel extends Modelo
         ]);
     }
 
-    public function resumen(): array
+    public function actualizarEstado(int $id, int $estado, int $userId): bool
     {
-        $db = $this->db();
-        $activos = (int) $db->query('SELECT COUNT(*) FROM configuracion_cajas_bancos WHERE deleted_at IS NULL AND estado = 1')->fetchColumn();
-        $inactivos = (int) $db->query('SELECT COUNT(*) FROM configuracion_cajas_bancos WHERE deleted_at IS NULL AND estado = 0')->fetchColumn();
-        $cajas = (int) $db->query("SELECT COUNT(*) FROM configuracion_cajas_bancos WHERE deleted_at IS NULL AND tipo = 'CAJA'")->fetchColumn();
-        $bancos = (int) $db->query("SELECT COUNT(*) FROM configuracion_cajas_bancos WHERE deleted_at IS NULL AND tipo <> 'CAJA'")->fetchColumn();
+        $stmt = $this->db()->prepare('UPDATE configuracion_cajas_bancos
+            SET estado = :estado, updated_by = :updated_by, updated_at = NOW()
+            WHERE id = :id AND deleted_at IS NULL');
 
-        return [
-            'activos' => $activos,
-            'inactivos' => $inactivos,
-            'cajas' => $cajas,
-            'bancos' => $bancos,
-        ];
+        return $stmt->execute([
+            'id' => $id,
+            'estado' => $estado,
+            'updated_by' => $userId,
+        ]);
     }
 }
