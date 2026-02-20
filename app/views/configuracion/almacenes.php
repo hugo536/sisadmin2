@@ -26,6 +26,16 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endif; ?>
 
 
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Almacenes activos</div>
+                <div class="fs-3 fw-bold text-success"><?php echo (int) ($resumen['activos'] ?? 0); ?></div>
+            </div></div>
+        </div>
+    </div>
+
+
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" class="row g-2 align-items-center" id="filtrosAlmacenesForm">
@@ -189,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
         form.submit();
     });
 
+
     document.querySelectorAll('.js-switch-estado-almacen').forEach(function (switchInput) {
         switchInput.addEventListener('change', function () {
             const formEstado = this.closest('form');
@@ -201,5 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
             formEstado.submit();
         });
     });
+
+
 });
 </script>
