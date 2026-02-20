@@ -273,4 +273,3 @@ $estadoLabels = [
     </tr>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/compras.js?v=1.0"></script>
