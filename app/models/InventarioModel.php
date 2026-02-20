@@ -232,12 +232,11 @@ class InventarioModel extends Modelo
 
     public function buscarItems(string $termino, int $limite = 20): array
     {
-        $sql = 'SELECT id, sku, nombre, requiere_lote, requiere_vencimiento
+        $sql = 'SELECT id, sku, nombre, tipo_item AS tipo, requiere_lote, requiere_vencimiento
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
                   AND controla_stock = 1
-                  AND tipo_item NOT IN (\'semielaborado\', \'producto_terminado\', \'producto\')
                   AND (
                     sku LIKE :termino
                     OR nombre LIKE :termino

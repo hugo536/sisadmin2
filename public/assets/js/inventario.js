@@ -82,23 +82,42 @@
             load: function(query, callback) {
                 if (!query.length) return callback();
                 
-                // Hacemos el fetch al backend. Se envía un parámetro extra (compras=1) por si lo necesitas en el modelo.
-                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&compras=1`, {
+                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
-                .then(response => response.json())
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const body = await response.text();
+                        throw new Error(`Error HTTP ${response.status} al buscar ítems: ${body.slice(0, 180)}`);
+                    }
+
+                    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                    if (!contentType.includes('application/json')) {
+                        const body = await response.text();
+                        throw new Error(`Respuesta no JSON al buscar ítems: ${body.slice(0, 180)}`);
+                    }
+
+                    return response.json();
+                })
                 .then(data => {
+                    if (!data || data.ok !== true) {
+                        throw new Error('Respuesta inválida del endpoint inventario/buscarItems.');
+                    }
+
                     const items = Array.isArray(data.items) ? data.items : [];
                     
                     // FILTRO: Excluir Semielaborados y Terminados mediante JS (por si el backend envía todo)
+                    const tiposNoPermitidos = new Set(['semielaborado', 'producto_terminado', 'producto']);
                     const itemsFiltrados = items.filter(item => {
-                        const tipoItem = (item.tipo || '').toLowerCase();
-                        return !tipoItem.includes('semielaborado') && !tipoItem.includes('terminado');
+                        const tipoItem = (item.tipo || item.tipo_item || '').toLowerCase().trim();
+                        return !tiposNoPermitidos.has(tipoItem);
                     });
                     
                     callback(itemsFiltrados);
                 })
-                .catch(() => {
+                .catch((error) => {
+                    // Evita silencios que terminan en "No results found" sin contexto.
+                    console.error('[Inventario] Error al cargar ítems para el selector:', error);
                     callback();
                 });
             },
