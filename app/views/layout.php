@@ -59,7 +59,6 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
-<script src="<?php echo e(asset_url('js/tablas/gestor_tablas_globales.js')); ?>"></script>
 
 <?php 
 // --- DETECCIÓN DE RUTA PARA SCRIPTS ESPECÍFICOS ---
