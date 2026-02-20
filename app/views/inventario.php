@@ -232,7 +232,8 @@ $hoy = new DateTimeImmutable('today');
                         <div class="card-body">
                             <h6 class="fw-bold text-muted mb-3">Datos del Movimiento</h6>
                             <div class="row g-2">
-                                <div class="col-md-6 form-floating">
+                                <div class="col-md-6">
+                                    <label for="tipoMovimiento" class="form-label small text-muted">Tipo de Movimiento</label>
                                     <select id="tipoMovimiento" name="tipo_movimiento" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <option value="INI">INI - Inicial</option>
@@ -241,18 +242,28 @@ $hoy = new DateTimeImmutable('today');
                                         <option value="TRF">TRF - Transferencia</option>
                                         <option value="CON">CON - Consumo</option>
                                     </select>
-                                    <label for="tipoMovimiento">Tipo de Movimiento</label>
                                 </div>
-                                <div class="col-md-6 form-floating">
+                                <div class="col-md-6">
+                                    <label for="almacenMovimiento" class="form-label small text-muted">Almacén Origen</label>
                                     <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <label for="almacenMovimiento">Almacén Origen</label>
+                                </div>
+
+                                <div class="col-md-12 mt-2">
+                                    <label for="proveedorMovimiento" class="form-label small text-muted">Proveedor (Opcional / Para compras)</label>
+                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
+                                        <option value="">Seleccione proveedor...</option>
+                                        <?php foreach (($proveedores ?? []) as $proveedor): ?>
+                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>"><?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 
+<<<<<<< HEAD
                                 <div class="col-md-12 form-floating mt-2">
                                     <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
                                         <option value="">Seleccione...</option>
@@ -266,13 +277,16 @@ $hoy = new DateTimeImmutable('today');
                                 </div>
 
                                 <div class="col-md-12 form-floating d-none mt-2" id="grupoAlmacenDestino">
+=======
+                                <div class="col-md-12 d-none mt-2" id="grupoAlmacenDestino">
+                                    <label for="almacenDestinoMovimiento" class="form-label small text-muted">Almacén Destino (Solo Transferencias)</label>
+>>>>>>> b2d9feac3e38fa081a2d3b00a4b0f11bc45938ea
                                     <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <label for="almacenDestinoMovimiento">Almacén Destino (Solo Transferencias)</label>
                                 </div>
                             </div>
                         </div>
