@@ -30,7 +30,7 @@ $tipoItemLabel = static function (string $tipo): string {
 ?>
 
 <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in inventario-sticky-header">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-box-seam me-2 text-primary"></i> Ítems y Servicios
@@ -50,7 +50,7 @@ $tipoItemLabel = static function (string $tipo): string {
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3 inventario-sticky-filters">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
@@ -93,9 +93,9 @@ $tipoItemLabel = static function (string $tipo): string {
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive inventario-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="itemsTable">
-                    <thead class="bg-light">
+                    <thead class="inventario-sticky-thead">
                         <tr>
                             <th class="ps-4">SKU</th>
                             <th>Nombre</th>
@@ -186,11 +186,14 @@ $tipoItemLabel = static function (string $tipo): string {
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted" id="itemsPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination pagination-sm mb-0 justify-content-end" id="itemsPaginationControls"></ul></nav>
-            </div>
         </div>
+    </div>
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
+        <div class="small text-muted" id="itemsPaginationInfo">Cargando...</div>
+        <nav aria-label="Paginación de ítems">
+            <ul class="pagination pagination-sm mb-0 justify-content-end" id="itemsPaginationControls"></ul>
+        </nav>
     </div>
 </div>
 
