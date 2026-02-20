@@ -34,6 +34,7 @@ class InventarioController extends Controlador
             'ruta_actual' => 'inventario',
             'stockActual' => $stockProcesado,
             'almacenes' => $this->almacenModel->listarActivos(),
+            'proveedores' => $this->inventarioModel->listarProveedoresActivos(),
             'items' => $this->inventarioModel->listarItems(),
             'flash' => ['tipo' => '', 'texto' => ''],
             'id_almacen_filtro' => $idAlmacenFiltro,

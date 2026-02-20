@@ -222,6 +222,8 @@ class InventarioModel extends Modelo
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
+                  AND controla_stock = 1
+                  AND tipo_item NOT IN (\'semielaborado\', \'producto\')
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
@@ -235,6 +237,7 @@ class InventarioModel extends Modelo
                 WHERE estado = 1
                   AND deleted_at IS NULL
                   AND controla_stock = 1
+                  AND tipo_item NOT IN (\'semielaborado\', \'producto\')
                   AND (
                     sku LIKE :termino
                     OR nombre LIKE :termino
@@ -248,6 +251,20 @@ class InventarioModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarProveedoresActivos(): array
+    {
+        $sql = 'SELECT t.id, t.nombre_completo
+                FROM terceros_proveedores tp
+                INNER JOIN terceros t ON t.id = tp.id_tercero
+                WHERE t.es_proveedor = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
+                  AND tp.deleted_at IS NULL
+                ORDER BY t.nombre_completo ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function obtenerStockPorItemAlmacen(int $idItem, int $idAlmacen): float
