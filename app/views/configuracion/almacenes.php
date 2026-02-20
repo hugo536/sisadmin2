@@ -26,73 +26,34 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endif; ?>
 
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-4">
+        <div class="col-12">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
                 <div class="text-muted small">Almacenes activos</div>
                 <div class="fs-3 fw-bold text-success"><?php echo (int) ($resumen['activos'] ?? 0); ?></div>
             </div></div>
         </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100"><div class="card-body">
-                <div class="text-muted small">Almacenes inactivos</div>
-                <div class="fs-3 fw-bold text-warning"><?php echo (int) ($resumen['inactivos'] ?? 0); ?></div>
-            </div></div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-clock-history me-2"></i>Últimos creados</div>
-                <div class="card-body small">
-                    <?php if (empty($resumen['ultimos'])): ?>
-                        <span class="text-muted">Sin registros recientes.</span>
-                    <?php else: ?>
-                        <?php foreach (($resumen['ultimos'] ?? []) as $u): ?>
-                            <div><?php echo e((string) $u['codigo']); ?> · <?php echo e((string) $u['nombre']); ?></div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
-            <form method="get" class="row g-2 align-items-center">
+            <form method="get" class="row g-2 align-items-center" id="filtrosAlmacenesForm">
                 <input type="hidden" name="ruta" value="almacenes/index">
 
-                <div class="col-12 col-lg-3">
+                <div class="col-12 col-lg-8">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" name="q" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar código o nombre" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
+                        <input type="text" name="q" class="form-control bg-light border-start-0 ps-0" id="filtroBusquedaAlmacen" placeholder="Buscar código o nombre" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>" autocomplete="off">
                     </div>
                 </div>
 
-                <div class="col-6 col-lg-2">
-                    <select name="estado_filtro" class="form-select bg-light">
+                <div class="col-12 col-lg-4">
+                    <select name="estado_filtro" class="form-select bg-light" id="filtroEstadoAlmacen">
                         <?php $ef = (string) ($filtros['estado_filtro'] ?? 'activos'); ?>
                         <option value="activos" <?php echo $ef === 'activos' ? 'selected' : ''; ?>>Solo activos</option>
                         <option value="inactivos" <?php echo $ef === 'inactivos' ? 'selected' : ''; ?>>Solo inactivos</option>
                         <option value="eliminados" <?php echo $ef === 'eliminados' ? 'selected' : ''; ?>>Eliminados</option>
                         <option value="todos" <?php echo $ef === 'todos' ? 'selected' : ''; ?>>Todos</option>
                     </select>
-                </div>
-
-                <div class="col-6 col-lg-2"><input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>"></div>
-                <div class="col-6 col-lg-2"><input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>"></div>
-
-                <div class="col-6 col-lg-2">
-                    <select name="orden" class="form-select bg-light">
-                        <?php $ord = (string) ($filtros['orden'] ?? 'nombre_asc'); ?>
-                        <option value="nombre_asc" <?php echo $ord === 'nombre_asc' ? 'selected' : ''; ?>>Nombre A-Z</option>
-                        <option value="nombre_desc" <?php echo $ord === 'nombre_desc' ? 'selected' : ''; ?>>Nombre Z-A</option>
-                        <option value="codigo_asc" <?php echo $ord === 'codigo_asc' ? 'selected' : ''; ?>>Código A-Z</option>
-                        <option value="codigo_desc" <?php echo $ord === 'codigo_desc' ? 'selected' : ''; ?>>Código Z-A</option>
-                        <option value="fecha_desc" <?php echo $ord === 'fecha_desc' ? 'selected' : ''; ?>>Más recientes</option>
-                        <option value="fecha_asc" <?php echo $ord === 'fecha_asc' ? 'selected' : ''; ?>>Más antiguos</option>
-                    </select>
-                </div>
-
-                <div class="col-12 col-lg-1 d-grid">
-                    <button class="btn btn-outline-primary">Filtrar</button>
                 </div>
             </form>
         </div>
@@ -165,22 +126,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mt-3">
-        <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-activity me-2"></i>Almacenes sin actividad reciente (30+ días)</div>
-        <div class="card-body">
-            <?php if (empty($resumen['sin_actividad'])): ?>
-                <div class="text-muted small">Todos los almacenes tienen actividad reciente.</div>
-            <?php else: ?>
-                <ul class="mb-0 small">
-                    <?php foreach ($resumen['sin_actividad'] as $s): ?>
-                        <li><?php echo e((string) $s['codigo']); ?> · <?php echo e((string) $s['nombre']); ?>
-                            (<?php echo empty($s['ultima_actividad']) ? 'Sin movimientos' : 'Última: ' . e((string) $s['ultima_actividad']); ?>)
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </div>
-    </div>
 </div>
 
 <div class="modal fade" id="modalAlmacen" tabindex="-1" aria-hidden="true">
@@ -219,3 +164,24 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('filtrosAlmacenesForm');
+    const buscador = document.getElementById('filtroBusquedaAlmacen');
+    const estado = document.getElementById('filtroEstadoAlmacen');
+    if (!form || !buscador || !estado) return;
+
+    let debounceId = null;
+    buscador.addEventListener('input', function () {
+        clearTimeout(debounceId);
+        debounceId = setTimeout(function () {
+            form.submit();
+        }, 350);
+    });
+
+    estado.addEventListener('change', function () {
+        form.submit();
+    });
+});
+</script>
