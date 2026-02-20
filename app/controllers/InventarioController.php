@@ -118,12 +118,25 @@ class InventarioController extends Controlador
             $idItem = (int) ($_POST['id_item'] ?? 0);
             $cantidad = (float) ($_POST['cantidad'] ?? 0);
             $referencia = trim((string) ($_POST['referencia'] ?? ''));
+            $motivo = trim((string) ($_POST['motivo'] ?? ''));
             
             $lote = trim((string) ($_POST['lote'] ?? ''));
             $fechaPost = trim((string) ($_POST['fecha_vencimiento'] ?? ''));
             $fechaVencimiento = $fechaPost !== '' ? $fechaPost : null;
             
             $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
+
+            if (in_array($tipo, ['AJ+', 'AJ-', 'CON'], true) && $motivo === '') {
+                throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
+            }
+
+            if (in_array($tipo, ['AJ+', 'AJ-', 'INI'], true) && $referencia === '') {
+                throw new InvalidArgumentException('La referencia es obligatoria para este tipo de movimiento.');
+            }
+
+            if ($motivo !== '') {
+                $referencia = $referencia !== '' ? ('Motivo: ' . $motivo . ' | ' . $referencia) : ('Motivo: ' . $motivo);
+            }
 
             $datos = [
                 'tipo_movimiento' => $tipo,
@@ -142,6 +155,7 @@ class InventarioController extends Controlador
             } elseif (in_array($tipo, ['AJ-', 'CON'], true)) {
                 $datos['id_almacen_origen'] = $idAlmacen;
             } else {
+                $datos['id_almacen_origen'] = $idAlmacen;
                 $datos['id_almacen_destino'] = $idAlmacen;
             }
 

@@ -351,12 +351,27 @@ class InventarioModel extends Modelo
         $costoUnitario = isset($datos['costo_unitario']) ? (float) $datos['costo_unitario'] : 0.0;
         $createdBy = (int) ($datos['created_by'] ?? 0);
 
-        if ($idItem <= 0 || $cantidad <= 0 || $createdBy <= 0) {
+        if ($idItem <= 0 || $createdBy <= 0) {
             throw new InvalidArgumentException('Datos incompletos para registrar el movimiento.');
         }
 
-        if (in_array($tipo, ['INI', 'AJ+'], true) && $idAlmacenDestino <= 0) {
-            throw new InvalidArgumentException('Debe seleccionar almacén destino.');
+        if ($tipo === 'INI') {
+            if ($cantidad < 0) {
+                throw new InvalidArgumentException('Para movimiento INI la cantidad debe ser mayor o igual a 0.');
+            }
+            if ($costoUnitario < 0) {
+                throw new InvalidArgumentException('Para movimiento INI el costo unitario debe ser mayor o igual a 0.');
+            }
+        } elseif ($cantidad <= 0) {
+            throw new InvalidArgumentException('La cantidad debe ser mayor a 0.');
+        }
+
+        if (in_array($tipo, ['INI', 'AJ+', 'AJ-', 'CON'], true) && $idAlmacenOrigen <= 0 && $idAlmacenDestino <= 0) {
+            throw new InvalidArgumentException('Debe seleccionar almacén origen.');
+        }
+
+        if (in_array($tipo, ['INI', 'AJ+'], true) && $idAlmacenDestino <= 0 && $idAlmacenOrigen > 0) {
+            $idAlmacenDestino = $idAlmacenOrigen;
         }
 
         if (in_array($tipo, ['AJ-', 'CON'], true) && $idAlmacenOrigen <= 0) {
@@ -380,6 +395,10 @@ class InventarioModel extends Modelo
 
         try {
             $configItem = $this->obtenerConfiguracionItem($db, $idItem);
+
+            if ($tipo === 'INI' && $this->existeMovimientoInicial($db, $idItem, $idAlmacenDestino)) {
+                throw new InvalidArgumentException('Ya existe un movimiento INI para este ítem y almacén.');
+            }
 
             if ((int) ($configItem['requiere_lote'] ?? 0) === 1 && $lote === '') {
                 throw new InvalidArgumentException('El ítem requiere lote para registrar movimientos.');
@@ -468,6 +487,28 @@ class InventarioModel extends Modelo
         if ($stock < $cantidad) {
             throw new RuntimeException('Stock insuficiente para realizar el movimiento.');
         }
+    }
+
+    private function existeMovimientoInicial(PDO $db, int $idItem, int $idAlmacen): bool
+    {
+        if ($idItem <= 0 || $idAlmacen <= 0) {
+            return false;
+        }
+
+        $sql = 'SELECT 1
+                FROM inventario_movimientos
+                WHERE id_item = :id_item
+                  AND tipo_movimiento = :tipo
+                  AND id_almacen_destino = :id_almacen
+                LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'tipo' => 'INI',
+            'id_almacen' => $idAlmacen,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     private function obtenerConfiguracionItem(PDO $db, int $idItem): array

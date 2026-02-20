@@ -8,7 +8,10 @@
   // Selects principales (Modal)
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
+  const grupoProveedor = document.getElementById('grupoProveedorMovimiento');
   const proveedor = document.getElementById('proveedorMovimiento'); // NUEVO: Select de Proveedor
+  const grupoMotivo = document.getElementById('grupoMotivoMovimiento');
+  const motivo = document.getElementById('motivoMovimiento');
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
@@ -47,8 +50,13 @@
   let tomSelectTipo = null;
   let tomSelectAlmacen = null;
   let tomSelectProveedor = null;
+  let tomSelectMotivo = null;
   let tomSelectAlmacenDestino = null;
   let tomSelectItem = null;      // Instancia Ítem
+  const almacenesBase = {
+    origen: [],
+    destino: []
+  };
 
   document.addEventListener('DOMContentLoaded', () => {
     // Configuración base para TomSelects estáticos
@@ -62,6 +70,19 @@
     if (tipo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
     if (almacen) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
     if (almacenDestino) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
+    if (motivo) {
+      tomSelectMotivo = new TomSelect('#motivoMovimiento', {
+        ...tsConfig,
+        placeholder: 'Seleccione motivo...'
+      });
+    }
+
+    if (almacen) {
+      almacenesBase.origen = Array.from(almacen.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
+    }
+    if (almacenDestino) {
+      almacenesBase.destino = Array.from(almacenDestino.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
+    }
     
     // Inicializar Tom Select Proveedor
     if (proveedor) {
@@ -134,12 +155,13 @@
                 }
             },
             onChange: function(value) {
-                if (value) {
+            if (value) {
                     itemIdInput.value = value;
                 } else {
                     itemIdInput.value = '';
                 }
                 actualizarUIModal();
+                filtrarAlmacenesPorTipo();
                 actualizarStockHint();
                 cargarResumenItem();
             }
@@ -240,6 +262,80 @@
       costoUnitarioInput.classList.toggle('bg-light', !habilitarCostoManual);
       costoUnitarioInput.classList.toggle('text-muted', !habilitarCostoManual);
     }
+
+    if (grupoProveedor) grupoProveedor.classList.add('d-none');
+    if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON'].includes(tipoVal));
+    if (motivo) motivo.required = ['AJ+', 'AJ-', 'CON'].includes(tipoVal);
+
+    if (cantidadInput) {
+      cantidadInput.min = tipoVal === 'INI' ? '0' : '0.0001';
+    }
+
+    if (inputVencimiento && tipoVal === 'INI') {
+      inputVencimiento.required = !!(itemData && itemData.requiereVencimiento);
+    }
+
+    filtrarAlmacenesPorTipo();
+  }
+
+  async function obtenerStockActual(idItem, idAlmacen) {
+    if (idItem <= 0 || idAlmacen <= 0) return 0;
+    try {
+      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idItem}&id_almacen=${idAlmacen}`;
+      const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const data = await response.json();
+      return Number((data && data.stock) || 0);
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  function setSelectOptions(selectTom, opciones, valorActual = '') {
+    if (!selectTom) return;
+    selectTom.clearOptions();
+    opciones.forEach((opcion) => selectTom.addOption(opcion));
+    selectTom.refreshOptions(false);
+    if (valorActual && opciones.some((o) => String(o.value) === String(valorActual))) {
+      selectTom.setValue(String(valorActual), true);
+      return;
+    }
+    selectTom.clear(true);
+  }
+
+  async function filtrarAlmacenesPorTipo() {
+    if (!tipo || !itemIdInput || !tomSelectAlmacen) return;
+    const tipoVal = tipo.value;
+    const idItem = Number(itemIdInput.value || '0');
+    const origenActual = almacen ? almacen.value : '';
+
+    if (tipoVal === '' || idItem <= 0) {
+      setSelectOptions(tomSelectAlmacen, almacenesBase.origen, origenActual);
+      actualizarOpcionesDestino();
+      return;
+    }
+
+    const requiereStockOrigen = ['TRF', 'AJ-', 'CON'].includes(tipoVal);
+    let origenFiltrado = almacenesBase.origen.filter((opt) => opt.value === '' || Number(opt.value) > 0);
+
+    if (requiereStockOrigen) {
+      const validaciones = await Promise.all(origenFiltrado.map(async (opt) => {
+        if (opt.value === '') return opt;
+        const stock = await obtenerStockActual(idItem, Number(opt.value));
+        return stock > 0 ? opt : null;
+      }));
+      origenFiltrado = validaciones.filter(Boolean);
+    }
+
+    setSelectOptions(tomSelectAlmacen, origenFiltrado, origenActual);
+
+    actualizarOpcionesDestino();
+  }
+
+  function actualizarOpcionesDestino() {
+    if (!tomSelectAlmacenDestino) return;
+    const origenSel = String((almacen && almacen.value) || '');
+    const destinoFiltrado = almacenesBase.destino.filter((opt) => opt.value === '' || String(opt.value) !== origenSel);
+    setSelectOptions(tomSelectAlmacenDestino, destinoFiltrado, almacenDestino ? almacenDestino.value : '');
   }
 
   function obtenerResumenItemSimulado(idItem) {
@@ -362,8 +458,19 @@
     if (almacen) {
         almacen.addEventListener('change', () => {
             if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
+            actualizarOpcionesDestino();
             actualizarStockHint();
+            cargarResumenItem();
         });
+    }
+
+    if (almacenDestino) {
+      almacenDestino.addEventListener('change', () => {
+        if ((tipo && tipo.value) === 'TRF' && almacen && String(almacen.value) === String(almacenDestino.value)) {
+          Swal.fire({ icon: 'warning', title: 'Destino inválido', text: 'El almacén destino no puede ser igual al origen.' });
+          if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
+        }
+      });
     }
 
     if (modalEl) {
@@ -373,6 +480,7 @@
             if (tomSelectAlmacen) tomSelectAlmacen.clear();
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
             if (tomSelectProveedor) tomSelectProveedor.clear();
+            if (tomSelectMotivo) tomSelectMotivo.clear();
             if (tomSelectItem) {
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
@@ -386,6 +494,7 @@
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
             if(grupoDestino) grupoDestino.classList.add('d-none');
+            if(grupoMotivo) grupoMotivo.classList.add('d-none');
             if(grupoVencimiento) grupoVencimiento.classList.add('d-none');
             if(costoUnitarioInput) {
               costoUnitarioInput.readOnly = false;
@@ -400,6 +509,48 @@
       if (!itemIdInput.value || itemIdInput.value <= 0) {
         Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem de la lista.' });
         return;
+      }
+
+      const tipoVal = (tipo && tipo.value) || '';
+      const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
+      const referenciaVal = ((document.getElementById('referenciaMovimiento') || {}).value || '').trim();
+      const motivoVal = ((motivo || {}).value || '').trim();
+
+      if (['AJ+', 'AJ-', 'CON'].includes(tipoVal) && motivoVal === '') {
+        Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
+        return;
+      }
+
+      if (['AJ+', 'AJ-', 'INI'].includes(tipoVal) && referenciaVal === '') {
+        Swal.fire({ icon: 'warning', title: 'Referencia requerida', text: 'Debe ingresar una referencia para este tipo de movimiento.' });
+        return;
+      }
+
+      if (tipoVal === 'INI') {
+        if (cantidadVal < 0) {
+          Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Para INI la cantidad debe ser mayor o igual a 0.' });
+          return;
+        }
+      } else if (cantidadVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0.' });
+        return;
+      }
+
+      if (tipoVal === 'TRF' && almacen && almacenDestino && String(almacen.value) === String(almacenDestino.value)) {
+        Swal.fire({ icon: 'warning', title: 'Almacenes inválidos', text: 'El almacén origen y destino deben ser diferentes.' });
+        return;
+      }
+
+      if (['AJ-', 'CON', 'TRF'].includes(tipoVal)) {
+        const stockDisponible = await obtenerStockActual(Number(itemIdInput.value || '0'), Number((almacen && almacen.value) || '0'));
+        if (stockDisponible <= 0) {
+          Swal.fire({ icon: 'warning', title: 'Sin stock', text: 'El almacén origen no tiene stock para el ítem seleccionado.' });
+          return;
+        }
+        if (cantidadVal > stockDisponible) {
+          Swal.fire({ icon: 'warning', title: 'Cantidad excedida', text: `La cantidad no puede superar el stock disponible (${stockDisponible.toFixed(4)}).` });
+          return;
+        }
       }
 
       if (!grupoLoteInput.classList.contains('d-none')) {
@@ -428,6 +579,9 @@
       if (!confirmacion.isConfirmed) return;
 
       const data = new FormData(form);
+      if (motivoVal) {
+        data.set('motivo', motivoVal);
+      }
 
       try {
         const response = await fetch(`${window.BASE_URL}?ruta=inventario/guardarMovimiento`, {

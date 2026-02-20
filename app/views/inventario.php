@@ -253,7 +253,7 @@ $hoy = new DateTimeImmutable('today');
                                     </select>
                                 </div>
 
-                                <div class="col-md-12 mt-2">
+                                <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
                                     <label for="proveedorMovimiento" class="form-label small text-muted">Proveedor (Opcional / Para compras)</label>
                                     <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
                                         <option value="">Seleccione proveedor...</option>
@@ -270,6 +270,26 @@ $hoy = new DateTimeImmutable('today');
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-12 d-none mt-2" id="grupoMotivoMovimiento">
+                                    <label for="motivoMovimiento" class="form-label small text-muted">Motivo del Movimiento</label>
+                                    <select id="motivoMovimiento" name="motivo" class="form-select">
+                                        <option value="">Seleccione motivo...</option>
+                                        <option value="Merma recuperada">Merma recuperada</option>
+                                        <option value="Conteo físico">Conteo físico</option>
+                                        <option value="Error anterior">Error anterior</option>
+                                        <option value="Devolución interna">Devolución interna</option>
+                                        <option value="Merma">Merma</option>
+                                        <option value="Robo">Robo</option>
+                                        <option value="Caducado">Caducado</option>
+                                        <option value="Desperdicio">Desperdicio</option>
+                                        <option value="Producción">Producción</option>
+                                        <option value="Muestras">Muestras</option>
+                                        <option value="Pruebas laboratorio">Pruebas laboratorio</option>
+                                        <option value="Consumo administrativo">Consumo administrativo</option>
+                                        <option value="Otro">Otro</option>
                                     </select>
                                 </div>
                             </div>
@@ -304,6 +324,7 @@ $hoy = new DateTimeImmutable('today');
                                 <div class="col-md-6 form-floating mt-2">
                                     <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
                                     <label for="cantidadMovimiento">Cantidad a Mover</label>
+                                    <div class="form-text" id="stockDisponibleHint"></div>
                                 </div>
                                 <div class="col-md-6 form-floating mt-2">
                                     <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
