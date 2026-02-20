@@ -1,7 +1,6 @@
 <?php
 $registros = $registros ?? [];
 $filtros = $filtros ?? [];
-$resumen = $resumen ?? ['activos' => 0, 'inactivos' => 0, 'cajas' => 0, 'bancos' => 0];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 $badgeTipo = static function (string $tipo): string {
@@ -33,37 +32,32 @@ $badgeTipo = static function (string $tipo): string {
         </div>
     <?php endif; ?>
 
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><small class="text-muted">Activos</small><div class="h4 fw-bold mb-0"><?php echo (int) $resumen['activos']; ?></div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><small class="text-muted">Inactivos</small><div class="h4 fw-bold mb-0"><?php echo (int) $resumen['inactivos']; ?></div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><small class="text-muted">Cajas</small><div class="h4 fw-bold mb-0"><?php echo (int) $resumen['cajas']; ?></div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm"><div class="card-body py-3"><small class="text-muted">Bancos/Billeteras</small><div class="h4 fw-bold mb-0"><?php echo (int) $resumen['bancos']; ?></div></div></div></div>
-    </div>
-
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <form class="row g-2 mb-3" method="get" action="<?php echo e(route_url('cajas_bancos/index')); ?>">
+            <form class="row g-2 mb-3" method="get" action="<?php echo e(route_url('cajas_bancos/index')); ?>" id="cbFiltersForm">
                 <input type="hidden" name="ruta" value="cajas_bancos/index">
-                <div class="col-12 col-md-5">
-                    <input type="search" class="form-control" name="q" placeholder="Buscar por código, nombre, entidad, titular" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
+                <div class="col-12 col-lg-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control" name="q" id="cbFiltroBusqueda" placeholder="Buscar por código, nombre, entidad o titular" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>" autocomplete="off">
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <select class="form-select" name="tipo">
+                <div class="col-6 col-lg-3">
+                    <select class="form-select" name="tipo" id="cbFiltroTipo">
                         <option value="">Tipo (todos)</option>
                         <?php foreach (['CAJA' => 'Caja', 'BANCO' => 'Banco', 'BILLETERA' => 'Billetera', 'OTROS' => 'Otros'] as $k => $v): ?>
                             <option value="<?php echo e($k); ?>" <?php echo (($filtros['tipo'] ?? '') === $k) ? 'selected' : ''; ?>><?php echo e($v); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-6 col-md-2">
-                    <select class="form-select" name="estado_filtro">
+                <div class="col-6 col-lg-3">
+                    <select class="form-select" name="estado_filtro" id="cbFiltroEstado">
                         <option value="activos" <?php echo (($filtros['estado_filtro'] ?? '') === 'activos') ? 'selected' : ''; ?>>Activos</option>
                         <option value="inactivos" <?php echo (($filtros['estado_filtro'] ?? '') === 'inactivos') ? 'selected' : ''; ?>>Inactivos</option>
                         <option value="todos" <?php echo (($filtros['estado_filtro'] ?? '') === 'todos') ? 'selected' : ''; ?>>Todos</option>
                         <option value="eliminados" <?php echo (($filtros['estado_filtro'] ?? '') === 'eliminados') ? 'selected' : ''; ?>>Eliminados</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-2 d-grid"><button class="btn btn-light border">Filtrar</button></div>
             </form>
 
             <div class="table-responsive">
@@ -102,36 +96,55 @@ $badgeTipo = static function (string $tipo): string {
                                 <?php if (!empty($r['deleted_at'])): ?>
                                     <span class="badge bg-danger-subtle text-danger-emphasis border">Eliminado</span>
                                 <?php else: ?>
-                                    <span class="badge <?php echo ((int) ($r['estado'] ?? 0) === 1) ? 'bg-success-subtle text-success-emphasis border' : 'bg-secondary-subtle text-secondary-emphasis border'; ?>">
+                                    <span class="badge <?php echo ((int) ($r['estado'] ?? 0) === 1) ? 'bg-success-subtle text-success-emphasis border' : 'bg-secondary-subtle text-secondary-emphasis border'; ?>" id="badge_status_cb_<?php echo (int) $r['id']; ?>">
                                         <?php echo ((int) ($r['estado'] ?? 0) === 1) ? 'Activo' : 'Inactivo'; ?>
                                     </span>
                                 <?php endif; ?>
                             </td>
                             <td class="text-end">
                                 <?php if (empty($r['deleted_at'])): ?>
-                                    <button class="btn btn-sm btn-outline-primary btn-editar-cb"
-                                            data-bs-toggle="modal" data-bs-target="#modalCajaBanco"
-                                            data-id="<?php echo (int) $r['id']; ?>"
-                                            data-codigo="<?php echo e((string) ($r['codigo'] ?? '')); ?>"
-                                            data-nombre="<?php echo e((string) ($r['nombre'] ?? '')); ?>"
-                                            data-tipo="<?php echo e((string) ($r['tipo'] ?? 'BANCO')); ?>"
-                                            data-entidad="<?php echo e((string) ($r['entidad'] ?? '')); ?>"
-                                            data-tipo-cuenta="<?php echo e((string) ($r['tipo_cuenta'] ?? '')); ?>"
-                                            data-moneda="<?php echo e((string) ($r['moneda'] ?? 'PEN')); ?>"
-                                            data-titular="<?php echo e((string) ($r['titular'] ?? '')); ?>"
-                                            data-numero-cuenta="<?php echo e((string) ($r['numero_cuenta'] ?? '')); ?>"
-                                            data-permite-cobros="<?php echo (int) ($r['permite_cobros'] ?? 0); ?>"
-                                            data-permite-pagos="<?php echo (int) ($r['permite_pagos'] ?? 0); ?>"
-                                            data-estado="<?php echo (int) ($r['estado'] ?? 1); ?>"
-                                            data-observaciones="<?php echo e((string) ($r['observaciones'] ?? '')); ?>">Editar</button>
-                                    <form class="d-inline" method="post" action="<?php echo e(route_url('cajas_bancos/eliminar')); ?>" onsubmit="return confirm('¿Eliminar este registro?');">
-                                        <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>">
-                                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                    </form>
+                                    <div class="d-flex align-items-center justify-content-end gap-2">
+                                        <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                            <input class="form-check-input switch-estado-cb" type="checkbox" role="switch"
+                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                   data-id="<?php echo (int) $r['id']; ?>"
+                                                   <?php echo ((int) ($r['estado'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                        </div>
+
+                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-cb"
+                                                title="Editar"
+                                                data-bs-toggle="modal" data-bs-target="#modalCajaBanco"
+                                                data-id="<?php echo (int) $r['id']; ?>"
+                                                data-codigo="<?php echo e((string) ($r['codigo'] ?? '')); ?>"
+                                                data-nombre="<?php echo e((string) ($r['nombre'] ?? '')); ?>"
+                                                data-tipo="<?php echo e((string) ($r['tipo'] ?? 'BANCO')); ?>"
+                                                data-entidad="<?php echo e((string) ($r['entidad'] ?? '')); ?>"
+                                                data-tipo-cuenta="<?php echo e((string) ($r['tipo_cuenta'] ?? '')); ?>"
+                                                data-moneda="<?php echo e((string) ($r['moneda'] ?? 'PEN')); ?>"
+                                                data-titular="<?php echo e((string) ($r['titular'] ?? '')); ?>"
+                                                data-numero-cuenta="<?php echo e((string) ($r['numero_cuenta'] ?? '')); ?>"
+                                                data-permite-cobros="<?php echo (int) ($r['permite_cobros'] ?? 0); ?>"
+                                                data-permite-pagos="<?php echo (int) ($r['permite_pagos'] ?? 0); ?>"
+                                                data-estado="<?php echo (int) ($r['estado'] ?? 1); ?>"
+                                                data-observaciones="<?php echo e((string) ($r['observaciones'] ?? '')); ?>">
+                                            <i class="bi bi-pencil-square fs-5"></i>
+                                        </button>
+
+                                        <form class="d-inline m-0" method="post" action="<?php echo e(route_url('cajas_bancos/eliminar')); ?>" onsubmit="return confirm('¿Eliminar este registro?');">
+                                            <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>">
+                                            <button class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 <?php else: ?>
                                     <form class="d-inline" method="post" action="<?php echo e(route_url('cajas_bancos/restaurar')); ?>">
                                         <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>">
-                                        <button class="btn btn-sm btn-outline-success">Restaurar</button>
+                                        <button class="btn btn-sm btn-light border text-success" title="Restaurar">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
                                     </form>
                                 <?php endif; ?>
                             </td>

@@ -527,6 +527,10 @@ tr[data-estado="0"] .avatar-circle {
   vertical-align: middle;
 }
 
-.cajas-bancos-page .card .h4 {
-  color: var(--text-main);
+.cajas-bancos-page #cbFiltersForm .input-group-text {
+  border-right: 0;
+}
+
+.cajas-bancos-page #cbFiltersForm input.form-control {
+  border-left: 0;
 }
