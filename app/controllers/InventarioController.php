@@ -235,6 +235,10 @@ class InventarioController extends Controlador
 
         $idItem = (int) ($_GET['id_item'] ?? 0);
         $idAlmacen = (int) ($_GET['id_almacen'] ?? 0);
+        $tipoRegistro = (string) ($_GET['tipo_registro'] ?? 'item');
+        if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+            $tipoRegistro = 'item';
+        }
 
         if ($idItem <= 0 || $idAlmacen <= 0) {
             json_response(['ok' => true, 'stock' => 0]);
@@ -243,6 +247,30 @@ class InventarioController extends Controlador
 
         $stock = $this->inventarioModel->obtenerStockPorItemAlmacen($idItem, $idAlmacen, $tipoRegistro);
         json_response(['ok' => true, 'stock' => $stock]);
+    }
+
+    public function resumenItem(): void
+    {
+        AuthMiddleware::handle();
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        $idItem = (int) ($_GET['id_item'] ?? 0);
+        $tipoRegistro = (string) ($_GET['tipo_registro'] ?? 'item');
+        if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+            $tipoRegistro = 'item';
+        }
+
+        if ($idItem <= 0) {
+            json_response(['ok' => true, 'resumen' => ['stock_actual' => 0, 'costo_promedio_actual' => 0]]);
+            return;
+        }
+
+        $resumen = $this->inventarioModel->obtenerResumenRegistro($idItem, $tipoRegistro);
+        json_response(['ok' => true, 'resumen' => $resumen]);
     }
 
     public function kardex(): void
