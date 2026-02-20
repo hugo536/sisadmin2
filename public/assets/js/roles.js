@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     const TABLE_ID = 'rolesTable';
-    const ROWS_PER_PAGE = 5;
+    const ROWS_PER_PAGE = 25;
     let currentPage = 1;
     const MY_ROLE_ID = (typeof window.MY_ROLE_ID !== 'undefined') ? parseInt(window.MY_ROLE_ID) : 0;
 
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (paginationInfo) {
                 paginationInfo.textContent = totalItems > 0 
-                    ? `Mostrando ${startIndex + 1} a ${Math.min(endIndex, totalItems)} de ${totalItems} roles`
+                    ? `Mostrando ${startIndex + 1}-${Math.min(endIndex, totalItems)} de ${totalItems} roles`
                     : 'No se encontraron roles';
             }
             renderPaginationControls(totalPages);
@@ -177,11 +177,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 return li;
             };
 
-            paginationControls.appendChild(createLi('«', currentPage - 1, false, currentPage === 1));
+            paginationControls.appendChild(createLi('Anterior', currentPage - 1, false, currentPage === 1));
             for (let i = 1; i <= totalPages; i++) {
                 paginationControls.appendChild(createLi(i, i, i === currentPage, false));
             }
-            paginationControls.appendChild(createLi('»', currentPage + 1, false, currentPage === totalPages));
+            paginationControls.appendChild(createLi('Siguiente', currentPage + 1, false, currentPage === totalPages));
         }
 
         searchInput?.addEventListener('input', () => { currentPage = 1; renderTable(); });

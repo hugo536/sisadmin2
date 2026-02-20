@@ -44,7 +44,13 @@ class InventarioModel extends Modelo
                                  AND l.id_almacen = :id_almacen_venc
                                  AND l.stock_lote > 0
                                  AND l.fecha_vencimiento IS NOT NULL
-                           ) AS proximo_vencimiento
+                           ) AS proximo_vencimiento,
+                           (
+                               SELECT MAX(m.created_at)
+                               FROM inventario_movimientos m
+                               WHERE m.id_item = i.id
+                                 AND (m.id_almacen_origen = :id_almacen_mov_ult OR m.id_almacen_destino = :id_almacen_mov_ult)
+                           ) AS ultimo_movimiento
                     FROM items i
                     INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
                     LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
@@ -95,7 +101,14 @@ class InventarioModel extends Modelo
                         \'pack\' AS tipo_registro,
                         COALESCE(sp.stock_actual, 0) AS stock_actual,
                         NULL AS lote_actual,
-                        NULL AS proximo_vencimiento
+                        NULL AS proximo_vencimiento,
+                        (
+                            SELECT MAX(m.created_at)
+                            FROM inventario_movimientos m
+                            WHERE m.id_item = i.id
+                              AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
+                              AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
+                        ) AS ultimo_movimiento
                     FROM precios_presentaciones p
                     LEFT JOIN items i ON i.id = p.id_item
                     LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
@@ -105,7 +118,7 @@ class InventarioModel extends Modelo
                     WHERE p.estado = 1
                       AND p.deleted_at IS NULL
                       AND sp.id IS NOT NULL
-                    ORDER BY item_nombre ASC';
+                    ORDER BY ultimo_movimiento DESC, sku ASC';
 
             $stmt = $this->db()->prepare($sql);
             $stmt->bindValue(':id_almacen', $idAlmacen, PDO::PARAM_INT);
@@ -113,8 +126,10 @@ class InventarioModel extends Modelo
             $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_mov_item', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_mov_ult', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_mov_pack', $idAlmacen, PDO::PARAM_INT);
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -157,7 +172,12 @@ class InventarioModel extends Modelo
                            WHERE l.id_item = i.id
                              AND l.stock_lote > 0
                              AND l.fecha_vencimiento IS NOT NULL
-                       ) AS proximo_vencimiento
+                       ) AS proximo_vencimiento,
+                       (
+                           SELECT MAX(m.created_at)
+                           FROM inventario_movimientos m
+                           WHERE m.id_item = i.id
+                       ) AS ultimo_movimiento
                 FROM items i
                 LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
                 LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
@@ -200,7 +220,13 @@ class InventarioModel extends Modelo
                     \'pack\' AS tipo_registro,
                     COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
                     NULL AS lote_actual,
-                    NULL AS proximo_vencimiento
+                    NULL AS proximo_vencimiento,
+                    (
+                        SELECT MAX(m.created_at)
+                        FROM inventario_movimientos m
+                        WHERE m.id_item = i.id
+                          AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
+                    ) AS ultimo_movimiento
                 FROM precios_presentaciones p
                 LEFT JOIN items i ON i.id = p.id_item
                 LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
@@ -210,7 +236,7 @@ class InventarioModel extends Modelo
                 WHERE p.estado = 1 
                   AND p.deleted_at IS NULL
                 GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta
-                ORDER BY item_nombre ASC';
+                ORDER BY ultimo_movimiento DESC, sku ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
