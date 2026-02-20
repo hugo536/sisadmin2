@@ -115,7 +115,13 @@ class InventarioController extends Controlador
         try {
             $tipo = trim((string) ($_POST['tipo_movimiento'] ?? ''));
             $idAlmacen = (int) ($_POST['id_almacen'] ?? 0);
+            $tipoRegistro = trim((string) ($_POST['tipo_registro'] ?? 'item'));
+            if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+                $tipoRegistro = 'item';
+            }
+
             $idItem = (int) ($_POST['id_item'] ?? 0);
+            $idPack = (int) ($_POST['id_pack'] ?? 0);
             $cantidad = (float) ($_POST['cantidad'] ?? 0);
             $referencia = trim((string) ($_POST['referencia'] ?? ''));
             $motivo = trim((string) ($_POST['motivo'] ?? ''));
@@ -140,7 +146,9 @@ class InventarioController extends Controlador
 
             $datos = [
                 'tipo_movimiento' => $tipo,
+                'tipo_registro' => $tipoRegistro,
                 'id_item' => $idItem,
+                'id_pack' => $idPack,
                 'cantidad' => $cantidad,
                 'referencia' => $referencia,
                 'lote' => $lote,
@@ -233,7 +241,7 @@ class InventarioController extends Controlador
             return;
         }
 
-        $stock = $this->inventarioModel->obtenerStockPorItemAlmacen($idItem, $idAlmacen);
+        $stock = $this->inventarioModel->obtenerStockPorItemAlmacen($idItem, $idAlmacen, $tipoRegistro);
         json_response(['ok' => true, 'stock' => $stock]);
     }
 

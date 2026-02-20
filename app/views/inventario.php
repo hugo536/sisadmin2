@@ -225,7 +225,9 @@ $hoy = new DateTimeImmutable('today');
             </div>
             <div class="modal-body p-4 bg-light">
                 <form id="formMovimientoInventario" autocomplete="off">
-                    <input type="hidden" id="idItemMovimiento" name="id_item" required>
+                    <input type="hidden" id="idItemMovimiento" name="id_item" value="0">
+                    <input type="hidden" id="idPackMovimiento" name="id_pack" value="0">
+                    <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
                     <input type="hidden" name="lote" id="loteFinalEnviar">
 
                     <div class="card border-0 shadow-sm mb-3">
@@ -233,7 +235,7 @@ $hoy = new DateTimeImmutable('today');
                             <h6 class="fw-bold text-muted mb-3">Datos del Movimiento</h6>
                             <div class="row g-2">
                                 <div class="col-md-6">
-                                    <label for="tipoMovimiento" class="form-label small text-muted">Tipo de Movimiento</label>
+                                    <label for="tipoMovimiento" class="form-label small text-muted">Tipo de Movimiento <span class="text-danger fw-bold">*</span></label>
                                     <select id="tipoMovimiento" name="tipo_movimiento" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <option value="INI">INI - Inicial</option>
@@ -244,13 +246,14 @@ $hoy = new DateTimeImmutable('today');
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="almacenMovimiento" class="form-label small text-muted">Almacén Origen</label>
-                                    <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
+                                    <label for="almacenMovimiento" class="form-label small text-muted">Almacén Origen <span class="text-danger fw-bold">*</span></label>
+                                    <select id="almacenMovimiento" name="id_almacen" class="form-select" required disabled>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <small class="text-muted d-block mt-1">Seleccione primero el ítem para habilitar los almacenes con stock disponible.</small>
                                 </div>
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
@@ -302,7 +305,7 @@ $hoy = new DateTimeImmutable('today');
                             <div class="row g-2">
                                 
                                 <div class="col-12 mb-2">
-                                    <label class="form-label small text-muted mb-1">Buscar Ítem (SKU / Nombre)</label>
+                                    <label class="form-label small text-muted mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger fw-bold">*</span></label>
                                     <select id="itemMovimiento" class="form-select" placeholder="Escriba para buscar..." required>
                                         <option value="">Escriba para buscar...</option>
                                     </select>
@@ -323,7 +326,7 @@ $hoy = new DateTimeImmutable('today');
 
                                 <div class="col-md-6 form-floating mt-2">
                                     <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
-                                    <label for="cantidadMovimiento">Cantidad a Mover</label>
+                                    <label for="cantidadMovimiento">Cantidad a Mover <span class="text-danger fw-bold">*</span></label>
                                     <div class="form-text" id="stockDisponibleHint"></div>
                                 </div>
                                 <div class="col-md-6 form-floating mt-2">
@@ -358,7 +361,7 @@ $hoy = new DateTimeImmutable('today');
 
                     <div class="form-floating mb-3">
                         <textarea class="form-control" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento">Referencia / Comentario</label>
+                        <label for="referenciaMovimiento">Referencia / Comentario <small class="text-muted">(obligatorio para INI, AJ+ y AJ-)</small></label>
                     </div>
 
                     <div class="d-flex justify-content-end pt-2">
