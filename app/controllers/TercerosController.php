@@ -5,12 +5,12 @@
 // Usamos rutas relativas para evitar problemas con BASE_PATH
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/TercerosModel.php';
-// ELIMINADO: require_once __DIR__ . '/../models/terceros/TercerosEmpleadosHijosModel.php';
+require_once __DIR__ . '/../models/configuracion/CajasBancosModel.php'; // <-- Ruta corregida
 
 class TercerosController extends Controlador
 {
     private $tercerosModel;
-    // ELIMINADO: private $hijosEmpleadoModel;
+    private $cajasBancosModel; // <-- AÑADIDO
 
     public function __construct()
     {
@@ -25,7 +25,7 @@ class TercerosController extends Controlador
         }
         
         $this->tercerosModel = new TercerosModel();
-        // ELIMINADO: $this->hijosEmpleadoModel = new TercerosEmpleadosHijosModel();
+        $this->cajasBancosModel = new CajasBancosModel(); // <-- AÑADIDO
     }
 
     public function index()
@@ -41,8 +41,34 @@ class TercerosController extends Controlador
 
             try {
                 // ==========================================
-                // VALIDACIONES AJAX
+                // VALIDACIONES AJAX Y CARGAS DINÁMICAS
                 // ==========================================
+
+                // ---> NUEVA ACCIÓN: CARGAR CATÁLOGOS FINANCIEROS <---
+                if (es_ajax() && $accion === 'cargar_catalogos_financieros') {
+                    $bancosActivos = $this->cajasBancosModel->listarActivos();
+                    
+                    // Agrupamos por tipo para facilitar el trabajo del JS
+                    $agrupados = [
+                        'BANCO' => [],
+                        'CAJA' => [],
+                        'BILLETERA' => [],
+                        'OTROS' => []
+                    ];
+                    
+                    foreach ($bancosActivos as $banco) {
+                        $tipo = strtoupper($banco['tipo']);
+                        if (isset($agrupados[$tipo])) {
+                            $agrupados[$tipo][] = $banco;
+                        } else {
+                            $agrupados['OTROS'][] = $banco;
+                        }
+                    }
+                    
+                    json_response(['ok' => true, 'data' => $agrupados]);
+                    return;
+                }
+
                 if (es_ajax() && $accion === 'validar_documento') {
                     require_permiso('terceros.crear');
                     $tipoDoc   = trim((string) ($_POST['tipo_documento'] ?? ''));
@@ -517,6 +543,8 @@ class TercerosController extends Controlador
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
         // --- CUENTAS BANCARIAS ---
+        // AÑADIDO: Capturamos el ID del banco que enviará el select del frontend
+        $cuentasConfigBancoId = $data['cuenta_config_banco_id'] ?? [];
         $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
         $cuentasEntidad     = $data['cuenta_entidad']          ?? [];
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
@@ -531,6 +559,7 @@ class TercerosController extends Controlador
         // Helper para asegurar arrays
         $toArray = static function ($value) { return is_array($value) ? $value : [$value]; };
 
+        $cuentasConfigBancoId = $toArray($cuentasConfigBancoId); // AÑADIDO
         $cuentasTipoEntidad = $toArray($cuentasTipoEntidad);
         $cuentasEntidad     = $toArray($cuentasEntidad);
         $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
@@ -543,7 +572,7 @@ class TercerosController extends Controlador
         $cuentasObs         = $toArray($cuentasObs);
 
         $cuentasNormalizadas = [];
-        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci));
+        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigBancoId));
 
         $normalizarTipoEntidad = static function ($val) {
             $v = mb_strtolower(trim((string)$val));
@@ -553,9 +582,11 @@ class TercerosController extends Controlador
         };
 
         for ($i = 0; $i < $maxIndex; $i++) {
+            $configBancoId = (int)($cuentasConfigBancoId[$i] ?? 0);
             $entidad = trim((string)($cuentasEntidad[$i] ?? ''));
+            
             // Si la fila está vacía visualmente, la saltamos
-            if ($entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
+            if ($configBancoId <= 0 && $entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipoEntidad[$i] ?? 'Banco');
             $esBilletera = ($tipoEntidad === 'Billetera Digital' || !empty($cuentasBilletera[$i]));
@@ -583,6 +614,7 @@ class TercerosController extends Controlador
 
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, 
+                'config_banco_id'   => $configBancoId > 0 ? $configBancoId : null, // <-- AÑADIDO: Guardamos el ID real de la base de datos
                 'tipo_entidad'      => $tipoEntidad,      
                 'entidad'           => $entidad,
                 'tipo_cuenta'       => $tipoCuentaVal,    

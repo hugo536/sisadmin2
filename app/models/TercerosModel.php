@@ -107,7 +107,6 @@ class TercerosModel extends Modelo
         return $this->distribuidoresModel->obtenerConflictosZonas($zonas, $excludeDistribuidorId);
     }
 
-
     public function listarHijosEmpleado(int $idTercero): array
     {
         return $this->empleadosModel->listarHijos($idTercero);
@@ -846,9 +845,9 @@ class TercerosModel extends Modelo
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
         
-        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
-        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
+        // Ahora seleccionamos directamente 'tipo_entidad', 'tipo_cuenta' y la nueva FK 'config_banco_id'
         $sql = "SELECT tercero_id, 
+                       config_banco_id,
                        tipo_entidad, 
                        entidad, 
                        tipo_cuenta, 
@@ -943,26 +942,25 @@ class TercerosModel extends Modelo
         
         if (empty($cuentas)) return;
 
-        // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
+        // INSERT usa la nueva FK 'config_banco_id'
         $sql = "INSERT INTO terceros_cuentas_bancarias (
-                    tercero_id, tipo_entidad, entidad, tipo_cuenta, 
-                    numero_cuenta, cci, titular, moneda, principal, 
+                    tercero_id, config_banco_id, tipo_entidad, entidad, tipo_cuenta, 
+                    numero_cuenta, cci, titular, moneda, estado, principal, 
                     billetera_digital, observaciones, created_by, updated_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->db()->prepare($sql);
         
         foreach ($cuentas as $cta) {
-            // Validación básica: si está vacía, saltar
-            if (empty($cta['entidad']) && empty($cta['cci']) && empty($cta['titular']) && empty($cta['numero_cuenta'])) continue;
+            // Validación básica: requerimos al menos el config_banco_id, o la entidad textual, o el CCI/número
+            if (empty($cta['config_banco_id']) && empty($cta['entidad']) && empty($cta['cci']) && empty($cta['numero_cuenta'])) continue;
 
-            // Aseguramos leer las claves correctas que vienen del Controller ($prepared['cuentas_bancarias'])
-            // El controller ahora manda 'tipo_entidad' y 'tipo_cuenta', así que las leemos tal cual.
             $tipoEntidad = $cta['tipo_entidad'] ?? null; 
             $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
 
             $params = [
                 $terceroId,
+                !empty($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : null,
                 $tipoEntidad,
                 $cta['entidad'] ?? '',
                 $tipoCuenta,
@@ -970,6 +968,7 @@ class TercerosModel extends Modelo
                 trim((string)($cta['cci'] ?? '')),
                 trim((string)($cta['titular'] ?? '')),
                 $cta['moneda'] ?? 'PEN',
+                1, // estado por defecto activo
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,
                 $cta['observaciones'] ?? null,

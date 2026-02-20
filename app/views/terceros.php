@@ -20,7 +20,7 @@
                 <i class="bi bi-building me-2 text-info"></i>Áreas
             </button>
             <div class="vr mx-2"></div>
-            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero">
+            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero" id="btnNuevoTercero">
                 <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
             </button>
         </div>
@@ -78,6 +78,23 @@
                                 if ((int) $tercero['es_distribuidor'] === 1) $roles[] = 'DISTRIBUIDOR';
                                 $rolesFiltro = implode('|', $roles);
                                 $estadoBinario = ((int) ($tercero['estado'] ?? 0) === 1) ? 1 : 0;
+                                
+                                // Nos aseguramos de que las cuentas bancarias tengan el formato correcto para el JSON
+                                $cuentasBancariasParaJs = array_map(function($cta) {
+                                    return [
+                                        'config_banco_id' => $cta['config_banco_id'] ?? null,
+                                        'tipo_entidad' => $cta['tipo_entidad'] ?? null,
+                                        'entidad' => $cta['entidad'] ?? '',
+                                        'tipo_cuenta' => $cta['tipo_cuenta'] ?? '',
+                                        'numero_cuenta' => $cta['numero_cuenta'] ?? '',
+                                        'cci' => $cta['cci'] ?? '',
+                                        'titular' => $cta['titular'] ?? '',
+                                        'moneda' => $cta['moneda'] ?? 'PEN',
+                                        'principal' => $cta['principal'] ?? 0,
+                                        'billetera_digital' => $cta['billetera_digital'] ?? 0,
+                                        'observaciones' => $cta['observaciones'] ?? ''
+                                    ];
+                                }, $tercero['cuentas_bancarias'] ?? []);
                             ?>
                             <tr data-estado="<?php echo $estadoBinario; ?>"
                                 data-roles="<?php echo htmlspecialchars($rolesFiltro); ?>"
@@ -179,7 +196,7 @@
                                             data-proveedor-condicion-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_condicion_pago'] ?? '')); ?>"
                                             data-proveedor-forma-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_forma_pago'] ?? '')); ?>"
                                             data-hijos-lista='<?php echo e(json_encode($tercero['hijos_lista'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
-                                            data-cuentas-bancarias='<?php echo e(json_encode($tercero['cuentas_bancarias'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
+                                            data-cuentas-bancarias='<?php echo e(json_encode($cuentasBancariasParaJs, JSON_UNESCAPED_UNICODE)); ?>'
 
                                             title="Editar"><i class="bi bi-pencil-square fs-5"></i></button>
                                     
@@ -357,8 +374,11 @@
 
                         <div class="tab-pane fade" id="crear-tab-pane-financiero" tabindex="0">
                             <div class="card border-0 shadow-sm"><div class="card-body">
+                                <div class="alert alert-info py-2 small d-none" id="crearAlertaBancos">
+                                    <i class="bi bi-info-circle me-1"></i> Cargando lista de entidades financieras... <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
+                                </div>
                                 <div id="crearCuentasBancariasList"></div>
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="crearAgregarCuenta">Agregar Cuenta Bancaria</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="crearAgregarCuenta"><i class="bi bi-plus-lg"></i> Agregar Cuenta Bancaria</button>
                             </div></div>
                         </div>
 
@@ -502,15 +522,18 @@
                                     <div class="col-md-4"><div class="form-floating"><select class="form-select" name="provincia_id" id="editProvincia" disabled><option value="">Seleccione...</option></select><label>Provincia</label></div></div>
                                     <div class="col-md-4"><div class="form-floating"><select class="form-select" name="distrito_id" id="editDistrito" disabled><option value="">Seleccione...</option></select><label>Distrito</label></div></div>
 
-                                    <div class="col-12 mt-3"><h6 class="fw-bold text-muted">Teléfonos</h6><div id="editTelefonosList"></div><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="editAgregarTelefono">Agregar</button></div>
+                                    <div class="col-12 mt-3"><h6 class="fw-bold text-muted">Teléfonos</h6><div id="editTelefonosList"></div><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="editAgregarTelefono"><i class="bi bi-plus-lg"></i> Agregar</button></div>
                                 </div>
                             </div></div>
                         </div>
 
                         <div class="tab-pane fade" id="edit-tab-pane-financiero" tabindex="0">
                             <div class="card border-0 shadow-sm"><div class="card-body">
+                                <div class="alert alert-info py-2 small d-none" id="editAlertaBancos">
+                                    <i class="bi bi-info-circle me-1"></i> Cargando lista de entidades financieras... <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
+                                </div>
                                 <div id="editCuentasBancariasList"></div>
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="editAgregarCuenta">Agregar Cuenta</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="editAgregarCuenta"><i class="bi bi-plus-lg"></i> Agregar Cuenta</button>
                             </div></div>
                         </div>
 

@@ -3,18 +3,35 @@
 
     // Configuraciones y Constantes
     const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
-    const ENTIDADES_FINANCIERAS = {
-        Banco: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco de la Nación', 'BanBif', 'Pichincha'],
-        Caja: ['Caja Arequipa', 'Caja Huancayo', 'Caja Piura', 'Caja Trujillo', 'Caja Sullana', 'Caja Tacna', 'Caja Ica'],
-        'Billetera Digital': ['Yape', 'Plin', 'Tunki', 'Bim', 'Lukita', 'Mercado Pago'],
-        Otros: []
-    };
+    
+    // --- NUEVO: Variable global para almacenar catálogos desde la BD ---
+    let catalogosFinancieros = { BANCO: [], CAJA: [], BILLETERA: [], OTROS: [] };
+
     const TIPOS_CUENTA_BANCO = ['Ahorros', 'Corriente', 'CTS', 'Detracción', 'Sueldo'];
     const TIPOS_CUENTA_BILLETERA = ['Personal', 'Empresarial'];
 
     // =========================================================================
-    // 1. UTILIDADES
+    // 1. UTILIDADES Y FETCH INICIAL
     // =========================================================================
+
+    // --- NUEVO: Función para cargar los bancos al inicio ---
+    async function fetchCatalogos() {
+        const fd = new FormData();
+        fd.append('accion', 'cargar_catalogos_financieros');
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const { data } = await parseJsonResponse(response);
+            if (data.ok && data.data) {
+                catalogosFinancieros = data.data;
+            }
+        } catch (error) {
+            console.error('Error al cargar catálogos financieros:', error);
+        }
+    }
 
     async function parseJsonResponse(response) {
         const text = await response.text();
@@ -159,7 +176,6 @@
     // =========================================================================
 
     function syncRoleTabs(prefix) {
-        // Mapeo: ID del Checkbox -> ID de la Pestaña
         const map = [
             { check: `${prefix}EsCliente`, tab: `${prefix}-tab-header-cliente` },
             { check: `${prefix}EsDistribuidor`, tab: `${prefix}-tab-header-distribuidor` },
@@ -176,14 +192,12 @@
             if (checkbox && tabItem) {
                 const show = checkbox.checked;
                 
-                // Mostrar u ocultar el LI del nav-tab
                 if (show) {
                     tabItem.classList.remove('d-none');
                 } else {
                     tabItem.classList.add('d-none');
                 }
 
-                // Si ocultamos una pestaña que estaba activa, marcamos flag para redirigir
                 const link = tabItem.querySelector('.nav-link');
                 if (!show && link && link.classList.contains('active')) {
                     activeTabHidden = true;
@@ -191,7 +205,6 @@
             }
         });
 
-        // Si el usuario estaba viendo una pestaña que se acaba de ocultar, lo mandamos a Identificación
         if (activeTabHidden) {
             const firstTabBtn = document.getElementById(`${prefix}-tab-identificacion`);
             if (firstTabBtn) {
@@ -276,12 +289,20 @@
         TIPOS_ENTIDAD_CUENTA.forEach(t => selType.add(new Option(t, t, false, t === tipoEntidadVal)));
         colType.appendChild(selType);
 
-        // 2. Entidad
+        // 2. Entidad (AHORA DINÁMICO)
         const colEnt = document.createElement('div'); colEnt.className = 'col-md-3';
+        
+        // Select para el ID de configuración
         const selEnt = document.createElement('select');
         selEnt.className = 'form-select form-select-sm';
-        selEnt.name = 'cuenta_entidad[]';
-        colEnt.appendChild(selEnt);
+        selEnt.name = 'cuenta_config_banco_id[]'; 
+        
+        // Input oculto para guardar el texto (fallback / legacy)
+        const hidEntidadTexto = document.createElement('input');
+        hidEntidadTexto.type = 'hidden';
+        hidEntidadTexto.name = 'cuenta_entidad[]';
+        
+        colEnt.append(selEnt, hidEntidadTexto);
 
         // 3. Tipo Cuenta
         const colTipoCta = document.createElement('div'); colTipoCta.className = 'col-md-2';
@@ -344,23 +365,53 @@
 
         rowDet.append(colTit, colObs);
         
+        // --- LÓGICA DE ACTUALIZACIÓN DE FILA ---
         const updateRow = () => {
-            const tipo = normalizeTipoEntidad(selType.value);
-            const isBill = isBilleteraTipo(tipo);
+            const tipoUI = normalizeTipoEntidad(selType.value);
+            const isBill = isBilleteraTipo(tipoUI);
             
-            selEnt.innerHTML = '';
-            (ENTIDADES_FINANCIERAS[tipo] || []).forEach(e => selEnt.add(new Option(e, e)));
-            if(data.entidad && !Array.from(selEnt.options).some(o=>o.value===data.entidad)){
-                selEnt.add(new Option(data.entidad, data.entidad, false, true));
-            } else if(data.entidad) {
-                selEnt.value = data.entidad;
+            // Mapeamos UI -> Categoría de BD
+            let dbType = 'OTROS';
+            if (tipoUI === 'Banco') dbType = 'BANCO';
+            else if (tipoUI === 'Caja') dbType = 'CAJA';
+            else if (tipoUI === 'Billetera Digital') dbType = 'BILLETERA';
+            
+            selEnt.innerHTML = '<option value="">Seleccione...</option>';
+            const opciones = catalogosFinancieros[dbType] || [];
+            
+            // Llenamos usando datos de la base de datos
+            opciones.forEach(item => {
+                const opt = new Option(item.nombre, item.id);
+                opt.dataset.nombre = item.nombre; // Guardar el texto para el fallback
+                selEnt.add(opt);
+            });
+
+            // Lógica para preseleccionar al Editar
+            if (data.config_banco_id) {
+                selEnt.value = data.config_banco_id;
+            } else if (data.entidad) {
+                // Compatibilidad con registros viejos que solo tienen texto
+                const matchedOpt = Array.from(selEnt.options).find(o => o.dataset.nombre === data.entidad);
+                if (matchedOpt) {
+                    selEnt.value = matchedOpt.value;
+                } else {
+                    const customOpt = new Option(data.entidad, "");
+                    customOpt.dataset.nombre = data.entidad;
+                    customOpt.selected = true;
+                    selEnt.add(customOpt);
+                }
             }
 
+            // Sincronizar el input oculto
+            hidEntidadTexto.value = selEnt.options[selEnt.selectedIndex]?.dataset.nombre || data.entidad || '';
+
+            // Llenar selector de tipo de cuenta
             selTipoCta.innerHTML = '';
             const optsCta = isBill ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
             optsCta.forEach(t => selTipoCta.add(new Option(t, t)));
             if(data.tipo_cuenta) selTipoCta.value = data.tipo_cuenta;
 
+            // Ajustes visuales (íconos y anchos)
             if (isBill) {
                 colTipoCta.classList.add('d-none');
                 colNum.classList.remove('col-md-4'); colNum.classList.add('col-md-6');
@@ -378,7 +429,18 @@
             }
         };
 
-        selType.addEventListener('change', updateRow);
+        // Eventos de la fila
+        selType.addEventListener('change', () => {
+            // Limpiamos los datos previos para que no forcen la selección si el usuario cambia el tipo
+            data.config_banco_id = '';
+            data.entidad = '';
+            updateRow();
+        });
+
+        selEnt.addEventListener('change', () => {
+            hidEntidadTexto.value = selEnt.options[selEnt.selectedIndex]?.dataset.nombre || '';
+        });
+
         inpNum.addEventListener('input', function() {
             if(hidBill.value === '1') this.value = sanitizeDigits(this.value).slice(0,9);
             inpSec.value = this.value; 
@@ -409,7 +471,7 @@
                 }
             });
 
-            // Init Zonas Distribuidor (Llamada al módulo de clientes.js)
+            // Init Zonas Distribuidor
             if (window.TercerosClientes && window.TercerosClientes.initDistribuidorZones) {
                 window.TercerosClientes.initDistribuidorZones(prefix);
             }
@@ -494,12 +556,10 @@
                 document.getElementById('crearTelefonosList').innerHTML = '';
                 document.getElementById('crearCuentasBancariasList').innerHTML = '';
                 
-                // Limpiar zonas de distribuidor visualmente (usando helper de clientes.js)
                 if (window.TercerosClientes && window.TercerosClientes.setDistribuidorZones) {
                     window.TercerosClientes.setDistribuidorZones('crear', []);
                 }
 
-                // >>> NUEVO: Limpiar filas de hijos para que no queden residuos
                 if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
                     window.TercerosEmpleados.setHijos('crear', []);
                 }
@@ -575,7 +635,6 @@
                 
                 syncRoleTabs('edit');
 
-                // >>> NUEVO: Cargar lista de hijos desde el dataset del botón
                 if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
                     const hijos = safeJsonParse(btn.dataset.hijosLista, []);
                     window.TercerosEmpleados.setHijos('edit', hijos);
@@ -1035,9 +1094,13 @@
     }
 
     // =========================================================================
-    // BOOTSTRAP
+    // BOOTSTRAP (AHORA ESPERA LA CARGA DE BANCOS)
     // =========================================================================
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', async function () {
+        
+        // --- NUEVO: Traemos la lista de bancos vivos de BD antes de nada ---
+        await fetchCatalogos(); 
+
         initDynamicFields();
         initModals();
         initButtons();

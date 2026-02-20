@@ -3,6 +3,22 @@ declare(strict_types=1);
 
 class CajasBancosModel extends Modelo
 {
+    /**
+     * Obtiene todas las cajas, bancos y billeteras activos para usarlos en selectores dinámicos
+     */
+    public function listarActivos(): array
+    {
+        $sql = 'SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda 
+                FROM configuracion_cajas_bancos 
+                WHERE estado = 1 AND deleted_at IS NULL 
+                ORDER BY tipo ASC, nombre ASC';
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function listarConFiltros(array $filtros): array
     {
         $where = ['1=1'];
