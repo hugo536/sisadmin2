@@ -68,8 +68,8 @@ class InventarioModel extends Modelo
                         )
                       )
                     UNION ALL
-                    SELECT 
-                        p.id AS id_item, 
+                    SELECT
+                        p.id AS id_item,
                         p.codigo_presentacion AS sku,
                         COALESCE(
                             p.nombre_manual,
@@ -97,7 +97,7 @@ class InventarioModel extends Modelo
                         p.requiere_vencimiento,
                         p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
                         1 AS controla_stock,
-                        0 AS permite_decimales, 
+                        0 AS permite_decimales,
                         \'pack\' AS tipo_registro,
                         COALESCE(sp.stock_actual, 0) AS stock_actual,
                         NULL AS lote_actual,
@@ -108,7 +108,6 @@ class InventarioModel extends Modelo
                             WHERE m.id_item = i.id
                               AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
                               AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
-                              AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, '%')
                         ) AS ultimo_movimiento
                     FROM precios_presentaciones p
                     LEFT JOIN items i ON i.id = p.id_item
@@ -188,8 +187,8 @@ class InventarioModel extends Modelo
                   AND i.deleted_at IS NULL
                 GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
                 UNION ALL
-                SELECT 
-                    p.id AS id_item, 
+                SELECT
+                    p.id AS id_item,
                     p.codigo_presentacion AS sku,
                     COALESCE(
                         p.nombre_manual,
@@ -227,7 +226,6 @@ class InventarioModel extends Modelo
                         FROM inventario_movimientos m
                         WHERE m.id_item = i.id
                           AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
-                          AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, '%')
                     ) AS ultimo_movimiento
                 FROM precios_presentaciones p
                 LEFT JOIN items i ON i.id = p.id_item
@@ -235,7 +233,7 @@ class InventarioModel extends Modelo
                 LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                 LEFT JOIN inventario_stock sp ON sp.id_pack = p.id
                 LEFT JOIN almacenes a ON a.id = sp.id_almacen
-                WHERE p.estado = 1 
+                WHERE p.estado = 1
                   AND p.deleted_at IS NULL
                 GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta
                 ORDER BY ultimo_movimiento DESC, sku ASC';
@@ -770,8 +768,8 @@ class InventarioModel extends Modelo
     private function obtenerVencimientoLote(PDO $db, int $idItem, int $idAlmacen, string $lote): ?string
     {
         if ($lote === '') return null;
-        
-        $sql = 'SELECT fecha_vencimiento FROM inventario_lotes 
+       
+        $sql = 'SELECT fecha_vencimiento FROM inventario_lotes
                 WHERE id_item = :id_item AND id_almacen = :id_almacen AND lote = :lote LIMIT 1';
         $stmt = $db->prepare($sql);
         $stmt->execute(['id_item' => $idItem, 'id_almacen' => $idAlmacen, 'lote' => $lote]);
