@@ -94,6 +94,12 @@ class TercerosController extends Controlador
                     return;
                 }
 
+                if (es_ajax() && $accion === 'cargar_catalogo_cajas_bancos') {
+                    $data = $this->tercerosModel->listarCatalogoCajasBancosActivos();
+                    json_response(['ok' => true, 'data' => $data]);
+                    return;
+                }
+
                 if (es_ajax() && $accion === 'cargar_ubigeo') {
                     $tipo    = (string)($_POST['tipo'] ?? '');
                     $padreId = (string)($_POST['padre_id'] ?? '');
@@ -546,6 +552,7 @@ class TercerosController extends Controlador
         // AÑADIDO: Capturamos el ID del banco que enviará el select del frontend
         $cuentasConfigBancoId = $data['cuenta_config_banco_id'] ?? [];
         $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
+        $cuentasConfigId   = $data['cuenta_config_banco_id']  ?? [];
         $cuentasEntidad     = $data['cuenta_entidad']          ?? [];
         $cuentasTipoCuenta  = $data['cuenta_tipo_cta']         ?? $data['cuenta_tipo_cuenta'] ?? [];
         $cuentasNumero      = $data['cuenta_numero']           ?? [];
@@ -561,6 +568,7 @@ class TercerosController extends Controlador
 
         $cuentasConfigBancoId = $toArray($cuentasConfigBancoId); // AÑADIDO
         $cuentasTipoEntidad = $toArray($cuentasTipoEntidad);
+        $cuentasConfigId   = $toArray($cuentasConfigId);
         $cuentasEntidad     = $toArray($cuentasEntidad);
         $cuentasTipoCuenta  = $toArray($cuentasTipoCuenta);
         $cuentasNumero      = $toArray($cuentasNumero);
@@ -572,7 +580,11 @@ class TercerosController extends Controlador
         $cuentasObs         = $toArray($cuentasObs);
 
         $cuentasNormalizadas = [];
+<<<<<<< HEAD
         $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigBancoId));
+=======
+        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigId));
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
 
         $normalizarTipoEntidad = static function ($val) {
             $v = mb_strtolower(trim((string)$val));
@@ -614,7 +626,11 @@ class TercerosController extends Controlador
 
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, 
+<<<<<<< HEAD
                 'config_banco_id'   => $configBancoId > 0 ? $configBancoId : null, // <-- AÑADIDO: Guardamos el ID real de la base de datos
+=======
+                'config_banco_id'   => (int)($cuentasConfigId[$i] ?? 0),
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
                 'tipo_entidad'      => $tipoEntidad,      
                 'entidad'           => $entidad,
                 'tipo_cuenta'       => $tipoCuentaVal,    

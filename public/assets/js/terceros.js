@@ -3,10 +3,25 @@
 
     // Configuraciones y Constantes
     const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
+<<<<<<< HEAD
     
     // --- NUEVO: Variable global para almacenar catálogos desde la BD ---
     let catalogosFinancieros = { BANCO: [], CAJA: [], BILLETERA: [], OTROS: [] };
 
+=======
+    let ENTIDADES_FINANCIERAS = {
+        Banco: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco de la Nación', 'BanBif', 'Pichincha'],
+        Caja: ['Caja Arequipa', 'Caja Huancayo', 'Caja Piura', 'Caja Trujillo', 'Caja Sullana', 'Caja Tacna', 'Caja Ica'],
+        'Billetera Digital': ['Yape', 'Plin', 'Tunki', 'Bim', 'Lukita', 'Mercado Pago'],
+        Otros: []
+    };
+    let CATALOGO_CAJAS_BANCOS = {
+        Banco: [],
+        Caja: [],
+        'Billetera Digital': [],
+        Otros: []
+    };
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
     const TIPOS_CUENTA_BANCO = ['Ahorros', 'Corriente', 'CTS', 'Detracción', 'Sueldo'];
     const TIPOS_CUENTA_BILLETERA = ['Personal', 'Empresarial'];
 
@@ -66,6 +81,69 @@
 
     function isBilleteraTipo(tipo) {
         return normalizeTipoEntidad(tipo) === 'Billetera Digital';
+    }
+
+
+    function normalizeTipoCatalogo(value) {
+        const v = (value || '').toString().trim().toUpperCase();
+        if (v === 'BANCO') return 'Banco';
+        if (v === 'CAJA') return 'Caja';
+        if (v === 'BILLETERA') return 'Billetera Digital';
+        return 'Otros';
+    }
+
+    function normalizeCatalogItem(item = {}) {
+        const entidad = (item.entidad || item.nombre || item.codigo || '').toString().trim();
+        return {
+            id: Number(item.id || 0),
+            tipo: normalizeTipoCatalogo(item.tipo),
+            entidad,
+            tipoCuenta: (item.tipo_cuenta || '').toString().trim(),
+            moneda: (item.moneda || '').toString().trim().toUpperCase() || 'PEN',
+            nombre: (item.nombre || entidad).toString().trim()
+        };
+    }
+
+    function getCatalogItemsByTipo(tipo) {
+        const key = normalizeTipoEntidad(tipo);
+        return Array.isArray(CATALOGO_CAJAS_BANCOS[key]) ? CATALOGO_CAJAS_BANCOS[key] : [];
+    }
+
+    async function cargarCatalogoCajasBancos() {
+        const fd = new FormData();
+        fd.append('accion', 'cargar_catalogo_cajas_bancos');
+
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: fd,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+
+        const { data } = await parseJsonResponse(response);
+        if (!data.ok || !Array.isArray(data.data)) {
+            throw new Error(data.mensaje || 'No se pudo cargar la configuración de Cajas y Bancos.');
+        }
+
+        const grouped = {
+            Banco: [],
+            Caja: [],
+            'Billetera Digital': [],
+            Otros: []
+        };
+
+        data.data.forEach((raw) => {
+            const item = normalizeCatalogItem(raw);
+            if (!item.entidad) return;
+            grouped[item.tipo].push(item);
+        });
+
+        CATALOGO_CAJAS_BANCOS = grouped;
+        ENTIDADES_FINANCIERAS = {
+            Banco: grouped.Banco.map((x) => x.entidad),
+            Caja: grouped.Caja.map((x) => x.entidad),
+            'Billetera Digital': grouped['Billetera Digital'].map((x) => x.entidad),
+            Otros: grouped.Otros.map((x) => x.entidad)
+        };
     }
 
     function normalizeCatalogValue(value) {
@@ -304,6 +382,12 @@
         
         colEnt.append(selEnt, hidEntidadTexto);
 
+        const inpConfigBanco = document.createElement('input');
+        inpConfigBanco.type = 'hidden';
+        inpConfigBanco.name = 'cuenta_config_banco_id[]';
+        inpConfigBanco.value = String(data.config_banco_id || '0');
+        colEnt.appendChild(inpConfigBanco);
+
         // 3. Tipo Cuenta
         const colTipoCta = document.createElement('div'); colTipoCta.className = 'col-md-2';
         const selTipoCta = document.createElement('select');
@@ -370,6 +454,7 @@
             const tipoUI = normalizeTipoEntidad(selType.value);
             const isBill = isBilleteraTipo(tipoUI);
             
+<<<<<<< HEAD
             // Mapeamos UI -> Categoría de BD
             let dbType = 'OTROS';
             if (tipoUI === 'Banco') dbType = 'BANCO';
@@ -406,10 +491,51 @@
             hidEntidadTexto.value = selEnt.options[selEnt.selectedIndex]?.dataset.nombre || data.entidad || '';
 
             // Llenar selector de tipo de cuenta
+=======
+            selEnt.innerHTML = '';
+            const catalogItems = getCatalogItemsByTipo(tipo);
+            const selectedConfigId = Number(inpConfigBanco.value || data.config_banco_id || 0);
+
+            if (catalogItems.length > 0) {
+                catalogItems.forEach((item) => {
+                    const label = item.nombre && item.nombre !== item.entidad ? `${item.entidad} · ${item.nombre}` : item.entidad;
+                    const opt = new Option(label, item.entidad, false, selectedConfigId > 0 && selectedConfigId === item.id);
+                    opt.dataset.configId = String(item.id);
+                    opt.dataset.tipoCuenta = item.tipoCuenta || '';
+                    opt.dataset.moneda = item.moneda || 'PEN';
+                    selEnt.add(opt);
+                });
+            } else {
+                (ENTIDADES_FINANCIERAS[tipo] || []).forEach(e => selEnt.add(new Option(e, e)));
+            }
+
+            if (data.entidad && !Array.from(selEnt.options).some(o=>o.value===data.entidad)) {
+                selEnt.add(new Option(data.entidad, data.entidad, false, true));
+            } else if (data.entidad && (!selEnt.value || data.config_banco_id <= 0)) {
+                selEnt.value = data.entidad;
+            }
+
+            const selectedOpt = selEnt.options[selEnt.selectedIndex] || null;
+            inpConfigBanco.value = selectedOpt?.dataset?.configId || '0';
+
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
             selTipoCta.innerHTML = '';
             const optsCta = isBill ? TIPOS_CUENTA_BILLETERA : TIPOS_CUENTA_BANCO;
             optsCta.forEach(t => selTipoCta.add(new Option(t, t)));
-            if(data.tipo_cuenta) selTipoCta.value = data.tipo_cuenta;
+
+            const tipoCuentaCatalogo = selectedOpt?.dataset?.tipoCuenta || '';
+            if (tipoCuentaCatalogo && Array.from(selTipoCta.options).some(o => o.value === tipoCuentaCatalogo)) {
+                selTipoCta.value = tipoCuentaCatalogo;
+            }
+            if(data.tipo_cuenta && Array.from(selTipoCta.options).some(o => o.value === data.tipo_cuenta)) selTipoCta.value = data.tipo_cuenta;
+
+            const monedaCatalogo = selectedOpt?.dataset?.moneda || '';
+            if (monedaCatalogo === 'PEN' || monedaCatalogo === 'USD') {
+                selMon.value = monedaCatalogo;
+            }
+            if (data.moneda === 'PEN' || data.moneda === 'USD') {
+                selMon.value = data.moneda;
+            }
 
             // Ajustes visuales (íconos y anchos)
             if (isBill) {
@@ -429,6 +555,7 @@
             }
         };
 
+<<<<<<< HEAD
         // Eventos de la fila
         selType.addEventListener('change', () => {
             // Limpiamos los datos previos para que no forcen la selección si el usuario cambia el tipo
@@ -441,6 +568,24 @@
             hidEntidadTexto.value = selEnt.options[selEnt.selectedIndex]?.dataset.nombre || '';
         });
 
+=======
+        selType.addEventListener('change', () => {
+            inpConfigBanco.value = '0';
+            updateRow();
+        });
+        selEnt.addEventListener('change', () => {
+            const selectedOpt = selEnt.options[selEnt.selectedIndex] || null;
+            inpConfigBanco.value = selectedOpt?.dataset?.configId || '0';
+            const tipoCuentaCatalogo = selectedOpt?.dataset?.tipoCuenta || '';
+            if (tipoCuentaCatalogo && Array.from(selTipoCta.options).some(o => o.value === tipoCuentaCatalogo)) {
+                selTipoCta.value = tipoCuentaCatalogo;
+            }
+            const monedaCatalogo = selectedOpt?.dataset?.moneda || '';
+            if (monedaCatalogo === 'PEN' || monedaCatalogo === 'USD') {
+                selMon.value = monedaCatalogo;
+            }
+        });
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
         inpNum.addEventListener('input', function() {
             if(hidBill.value === '1') this.value = sanitizeDigits(this.value).slice(0,9);
             inpSec.value = this.value; 
@@ -1097,9 +1242,17 @@
     // BOOTSTRAP (AHORA ESPERA LA CARGA DE BANCOS)
     // =========================================================================
     document.addEventListener('DOMContentLoaded', async function () {
+<<<<<<< HEAD
         
         // --- NUEVO: Traemos la lista de bancos vivos de BD antes de nada ---
         await fetchCatalogos(); 
+=======
+        try {
+            await cargarCatalogoCajasBancos();
+        } catch (error) {
+            console.warn('No se pudo cargar el catálogo de Cajas y Bancos, se usarán opciones locales.', error);
+        }
+>>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
 
         initDynamicFields();
         initModals();
