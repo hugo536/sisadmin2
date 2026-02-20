@@ -107,6 +107,7 @@ class InventarioModel extends Modelo
                             FROM inventario_movimientos m
                             WHERE m.id_item = i.id
                               AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
+                              AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
                               AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, '%')
                         ) AS ultimo_movimiento
                     FROM precios_presentaciones p
@@ -225,6 +226,7 @@ class InventarioModel extends Modelo
                         SELECT MAX(m.created_at)
                         FROM inventario_movimientos m
                         WHERE m.id_item = i.id
+                          AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
                           AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, '%')
                     ) AS ultimo_movimiento
                 FROM precios_presentaciones p

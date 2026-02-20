@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const SEARCH_INPUT_ID = 'permisoSearch';
     const INFO_ID = 'permisosPaginationInfo';
     const CONTROLS_ID = 'permisosPaginationControls';
-    const ROWS_PER_PAGE = 10; // Muestra más filas por página en catálogo
+    const ROWS_PER_PAGE = 25; // Paginación fija estándar
 
     // Estado
     let currentPage = 1;
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (totalItems === 0) {
                 paginationInfo.textContent = 'No se encontraron permisos coinciden con la búsqueda.';
             } else {
-                paginationInfo.textContent = `Mostrando ${startIndex + 1} a ${Math.min(endIndex, totalItems)} de ${totalItems} permisos`;
+                paginationInfo.textContent = `Mostrando ${startIndex + 1}-${Math.min(endIndex, totalItems)} de ${totalItems} permisos`;
             }
         }
 
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Botón Anterior
         const prevLi = document.createElement('li');
         prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">&laquo;</a>`;
+        prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Anterior">Anterior</a>`;
         prevLi.onclick = (e) => { e.preventDefault(); if (currentPage > 1) { currentPage--; renderTable(); } };
         paginationControls.appendChild(prevLi);
 
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Botón Siguiente
         const nextLi = document.createElement('li');
         nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">&raquo;</a>`;
+        nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Siguiente">Siguiente</a>`;
         nextLi.onclick = (e) => { e.preventDefault(); if (currentPage < totalPages) { currentPage++; renderTable(); } };
         paginationControls.appendChild(nextLi);
     }

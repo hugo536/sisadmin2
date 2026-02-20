@@ -1,7 +1,7 @@
 (function () {
     if (window.__itemsModuleInitialized) return;
     window.__itemsModuleInitialized = true;
-    const ROWS_PER_PAGE = 5;
+    const ROWS_PER_PAGE = 25;
     let currentPage = 1;
 
     // --- NUEVA FUNCIÓN AGREGADA (PARCHE) ---
@@ -833,9 +833,9 @@
                 paginationControls.appendChild(li);
             };
 
-            addBtn('«', currentPage - 1, false, currentPage === 1);
+            addBtn('Anterior', currentPage - 1, false, currentPage === 1);
             for (let i = 1; i <= totalPages; i += 1) addBtn(i, i, i === currentPage);
-            addBtn('»', currentPage + 1, false, currentPage === totalPages);
+            addBtn('Siguiente', currentPage + 1, false, currentPage === totalPages);
         }
 
         [searchInput, filtroCategoria, filtroTipo, filtroEstado].forEach((el) => {

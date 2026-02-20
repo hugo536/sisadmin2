@@ -49,7 +49,7 @@
         filters: [],                  // [{ el:'#filtroRol', attr:'data-rol' }, { el:'#filtroEstado', attr:'data-estado' }]
 
         searchAttr: 'data-search',    // atributo donde buscar texto
-        rowsPerPage: 10,
+        rowsPerPage: 25,
 
         paginationControls: null,     // '#paginationControls'
         paginationInfo: null,         // '#paginationInfo'
