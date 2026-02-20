@@ -10,8 +10,15 @@ class CajasBancosModel extends Modelo
 
         $busqueda = trim((string) ($filtros['q'] ?? ''));
         if ($busqueda !== '') {
-            $where[] = '(codigo LIKE :q OR nombre LIKE :q OR entidad LIKE :q OR titular LIKE :q)';
-            $params['q'] = '%' . $busqueda . '%';
+            // Asignamos un nombre único a cada marcador
+            $where[] = '(codigo LIKE :q1 OR nombre LIKE :q2 OR entidad LIKE :q3 OR titular LIKE :q4)';
+            
+            // Pasamos el valor para cada uno de los marcadores
+            $valorBusqueda = '%' . $busqueda . '%';
+            $params['q1'] = $valorBusqueda;
+            $params['q2'] = $valorBusqueda;
+            $params['q3'] = $valorBusqueda;
+            $params['q4'] = $valorBusqueda;
         }
 
         $tipo = trim((string) ($filtros['tipo'] ?? ''));
@@ -32,8 +39,9 @@ class CajasBancosModel extends Modelo
 
         $orderBy = 'nombre ASC';
         $sql = 'SELECT * FROM configuracion_cajas_bancos WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $orderBy;
+        
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute($params); // ¡Aquí ya no te dará error!
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
