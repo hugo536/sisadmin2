@@ -565,12 +565,14 @@ tr[data-estado="0"] .avatar-circle {
 
 .inventario-table-wrapper {
   max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  overflow-x: auto;
 }
 
 .inventario-sticky-thead th {
   position: sticky;
   top: 0;
   z-index: 1020;
-  background: #fff;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  background: #0f2341;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
 }
