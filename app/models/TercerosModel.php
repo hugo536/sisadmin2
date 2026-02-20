@@ -863,6 +863,31 @@ class TercerosModel extends Modelo
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
         
+        // CORRECCIÓN: eliminamos alias ambiguos y manejamos compatibilidad de columnas.
+        $columnas = ['tercero_id'];
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
+            $columnas[] = 'config_banco_id';
+        } else {
+            $columnas[] = 'NULL AS config_banco_id';
+        }
+        $columnas = array_merge($columnas, [
+            'tipo_entidad',
+            'entidad',
+            'tipo_cuenta',
+            'numero_cuenta',
+            'cci',
+            'titular',
+            'moneda',
+            'principal',
+            'billetera_digital',
+            'observaciones',
+        ]);
+
+        $sql = 'SELECT ' . implode(', ', $columnas) . "
+"
+            . "                FROM terceros_cuentas_bancarias 
+"
+            . "                WHERE tercero_id IN ($inQuery)";
         // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
         // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
         $sql = "SELECT tercero_id, 
@@ -879,6 +904,7 @@ class TercerosModel extends Modelo
                        observaciones 
                 FROM terceros_cuentas_bancarias 
                 WHERE tercero_id IN ($inQuery)";
+
         if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
             $sql .= ' AND deleted_at IS NULL';
         }
