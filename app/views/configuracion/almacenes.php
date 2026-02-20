@@ -25,6 +25,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         </div>
     <?php endif; ?>
 
+
     <div class="row g-3 mb-3">
         <div class="col-12">
             <div class="card border-0 shadow-sm h-100"><div class="card-body">
@@ -33,6 +34,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             </div></div>
         </div>
     </div>
+
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
@@ -94,27 +96,40 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             <td class="small text-muted"><?php echo e((string) $a['created_at']); ?></td>
                             <td class="text-end pe-4">
                                 <?php if (!$eliminado): ?>
-                                    <button class="btn btn-sm btn-outline-primary btn-editar" data-bs-toggle="modal" data-bs-target="#modalAlmacen"
-                                        data-id="<?php echo (int) $a['id']; ?>"
-                                        data-codigo="<?php echo e((string) $a['codigo']); ?>"
-                                        data-nombre="<?php echo e((string) $a['nombre']); ?>"
-                                        data-descripcion="<?php echo e((string) ($a['descripcion'] ?? '')); ?>"
-                                        data-estado="<?php echo (int) $a['estado']; ?>">Editar</button>
+                                    <div class="d-flex align-items-center justify-content-end gap-2">
+                                        <form class="d-inline m-0" method="post" action="<?php echo e(route_url('almacenes/cambiarEstado')); ?>">
+                                            <input type="hidden" name="id" value="<?php echo (int) $a['id']; ?>">
+                                            <input type="hidden" name="estado" class="js-estado-destino" value="<?php echo (int) $a['estado']; ?>">
+                                            <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                                <input class="form-check-input js-switch-estado-almacen" type="checkbox" role="switch"
+                                                       style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                       <?php echo (int) $a['estado'] === 1 ? 'checked' : ''; ?>>
+                                            </div>
+                                        </form>
+                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
-                                    <form class="d-inline" method="post" action="<?php echo e(route_url('almacenes/cambiarEstado')); ?>">
-                                        <input type="hidden" name="id" value="<?php echo (int) $a['id']; ?>">
-                                        <input type="hidden" name="estado" value="<?php echo (int) $a['estado'] === 1 ? 0 : 1; ?>">
-                                        <button class="btn btn-sm btn-outline-secondary"><?php echo (int) $a['estado'] === 1 ? 'Desactivar' : 'Activar'; ?></button>
-                                    </form>
+                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar" title="Editar" data-bs-toggle="modal" data-bs-target="#modalAlmacen"
+                                            data-id="<?php echo (int) $a['id']; ?>"
+                                            data-codigo="<?php echo e((string) $a['codigo']); ?>"
+                                            data-nombre="<?php echo e((string) $a['nombre']); ?>"
+                                            data-descripcion="<?php echo e((string) ($a['descripcion'] ?? '')); ?>"
+                                            data-estado="<?php echo (int) $a['estado']; ?>">
+                                            <i class="bi bi-pencil-square fs-5"></i>
+                                        </button>
 
-                                    <form class="d-inline" method="post" action="<?php echo e(route_url('almacenes/eliminar')); ?>" onsubmit="return confirm('¿Eliminar lógicamente este almacén?');">
-                                        <input type="hidden" name="id" value="<?php echo (int) $a['id']; ?>">
-                                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                    </form>
+                                        <form class="d-inline m-0" method="post" action="<?php echo e(route_url('almacenes/eliminar')); ?>" onsubmit="return confirm('¿Eliminar lógicamente este almacén?');">
+                                            <input type="hidden" name="id" value="<?php echo (int) $a['id']; ?>">
+                                            <button class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 <?php else: ?>
-                                    <form class="d-inline" method="post" action="<?php echo e(route_url('almacenes/restaurar')); ?>">
+                                    <form class="d-inline m-0" method="post" action="<?php echo e(route_url('almacenes/restaurar')); ?>">
                                         <input type="hidden" name="id" value="<?php echo (int) $a['id']; ?>">
-                                        <button class="btn btn-sm btn-outline-success">Restaurar</button>
+                                        <button class="btn btn-sm btn-light text-success border-0 bg-transparent" title="Restaurar">
+                                            <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                                        </button>
                                     </form>
                                 <?php endif; ?>
                             </td>
@@ -183,5 +198,21 @@ document.addEventListener('DOMContentLoaded', function () {
     estado.addEventListener('change', function () {
         form.submit();
     });
+
+
+    document.querySelectorAll('.js-switch-estado-almacen').forEach(function (switchInput) {
+        switchInput.addEventListener('change', function () {
+            const formEstado = this.closest('form');
+            if (!formEstado) return;
+
+            const estadoDestino = formEstado.querySelector('.js-estado-destino');
+            if (!estadoDestino) return;
+
+            estadoDestino.value = this.checked ? '1' : '0';
+            formEstado.submit();
+        });
+    });
+
+
 });
 </script>
