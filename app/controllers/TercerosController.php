@@ -580,11 +580,7 @@ class TercerosController extends Controlador
         $cuentasObs         = $toArray($cuentasObs);
 
         $cuentasNormalizadas = [];
-<<<<<<< HEAD
         $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigBancoId));
-=======
-        $maxIndex = max(count($cuentasEntidad), count($cuentasNumero), count($cuentasCci), count($cuentasConfigId));
->>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
 
         $normalizarTipoEntidad = static function ($val) {
             $v = mb_strtolower(trim((string)$val));
@@ -626,11 +622,7 @@ class TercerosController extends Controlador
 
             $cuentasNormalizadas[] = [
                 'tercero_id'        => null, 
-<<<<<<< HEAD
-                'config_banco_id'   => $configBancoId > 0 ? $configBancoId : null, // <-- AÑADIDO: Guardamos el ID real de la base de datos
-=======
-                'config_banco_id'   => (int)($cuentasConfigId[$i] ?? 0),
->>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
+                'config_banco_id'   => $configBancoId > 0 ? $configBancoId : null,
                 'tipo_entidad'      => $tipoEntidad,      
                 'entidad'           => $entidad,
                 'tipo_cuenta'       => $tipoCuentaVal,    

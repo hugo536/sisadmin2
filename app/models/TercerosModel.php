@@ -864,16 +864,13 @@ class TercerosModel extends Modelo
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
         
-
-        // Ahora seleccionamos directamente 'tipo_entidad', 'tipo_cuenta' y la nueva FK 'config_banco_id'
-
-        // CORRECCIÓN: eliminamos alias ambiguos y manejamos compatibilidad de columnas.
         $columnas = ['tercero_id'];
         if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
             $columnas[] = 'config_banco_id';
         } else {
             $columnas[] = 'NULL AS config_banco_id';
         }
+        
         $columnas = array_merge($columnas, [
             'tipo_entidad',
             'entidad',
@@ -884,29 +881,10 @@ class TercerosModel extends Modelo
             'moneda',
             'principal',
             'billetera_digital',
-            'observaciones',
+            'observaciones'
         ]);
 
-        $sql = 'SELECT ' . implode(', ', $columnas) . "
-"
-            . "                FROM terceros_cuentas_bancarias 
-"
-            . "                WHERE tercero_id IN ($inQuery)";
-        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
-        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
-
-        $sql = "SELECT tercero_id, 
-                       config_banco_id,
-                       tipo_entidad, 
-                       entidad, 
-                       tipo_cuenta, 
-                       numero_cuenta, 
-                       cci, 
-                       titular, 
-                       moneda, 
-                       principal, 
-                       billetera_digital, 
-                       observaciones 
+        $sql = 'SELECT ' . implode(', ', $columnas) . " 
                 FROM terceros_cuentas_bancarias 
                 WHERE tercero_id IN ($inQuery)";
 
@@ -992,23 +970,16 @@ class TercerosModel extends Modelo
         
         if (empty($cuentas)) return;
 
-
-        // INSERT usa la nueva FK 'config_banco_id'
-        $sql = "INSERT INTO terceros_cuentas_bancarias (
-                    tercero_id, config_banco_id, tipo_entidad, entidad, tipo_cuenta, 
-                    numero_cuenta, cci, titular, moneda, estado, principal, 
-                    billetera_digital, observaciones, created_by, updated_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
         $columnas = ['tercero_id'];
         if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
             $columnas[] = 'config_banco_id';
         }
+        
         $columnas = array_merge($columnas, [
             'tipo_entidad', 'entidad', 'tipo_cuenta', 'numero_cuenta', 'cci', 'titular',
-            'moneda', 'principal', 'billetera_digital', 'observaciones'
+            'moneda', 'estado', 'principal', 'billetera_digital', 'observaciones'
         ]);
+        
         if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
             $columnas[] = 'created_by';
         }
@@ -1019,28 +990,23 @@ class TercerosModel extends Modelo
         $placeholders = implode(', ', array_fill(0, count($columnas), '?'));
         $sql = 'INSERT INTO terceros_cuentas_bancarias (' . implode(', ', $columnas) . ') VALUES (' . $placeholders . ')';
 
-
         $stmt = $this->db()->prepare($sql);
         
         foreach ($cuentas as $cta) {
-            // Validación básica: requerimos al menos el config_banco_id, o la entidad textual, o el CCI/número
+            // Validación básica
             if (empty($cta['config_banco_id']) && empty($cta['entidad']) && empty($cta['cci']) && empty($cta['numero_cuenta'])) continue;
 
             $tipoEntidad = $cta['tipo_entidad'] ?? null; 
             $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
 
-
-            $params = [
-                $terceroId,
-                !empty($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : null,
-
             $params = [$terceroId];
+            
             if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
                 $configBancoId = isset($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : 0;
                 $params[] = $configBancoId > 0 ? $configBancoId : null;
             }
+            
             $params = array_merge($params, [
-
                 $tipoEntidad,
                 $cta['entidad'] ?? '',
                 $tipoCuenta,
@@ -1048,11 +1014,12 @@ class TercerosModel extends Modelo
                 trim((string)($cta['cci'] ?? '')),
                 trim((string)($cta['titular'] ?? '')),
                 $cta['moneda'] ?? 'PEN',
-                1, // estado por defecto activo
+                1, // estado (por defecto activo)
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,
                 $cta['observaciones'] ?? null,
             ]);
+            
             if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
                 $params[] = $userId;
             }
