@@ -183,7 +183,7 @@
           { el: '#filtroEstado', attr: 'data-estado' }
         ],
         searchAttr: 'data-search',
-        rowsPerPage: 25,
+        rowsPerPage: 20,
         paginationControls: '#paginationControls',
         paginationInfo: '#paginationInfo',
         emptyText: 'Sin resultados',

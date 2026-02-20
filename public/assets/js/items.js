@@ -1,7 +1,7 @@
 (function () {
     if (window.__itemsModuleInitialized) return;
     window.__itemsModuleInitialized = true;
-    const ROWS_PER_PAGE = 25;
+    const ROWS_PER_PAGE = 20;
     let currentPage = 1;
 
     // --- NUEVA FUNCIÓN AGREGADA (PARCHE) ---
@@ -825,7 +825,7 @@
                 li.innerHTML = `<a class="page-link" href="#">${label}</a>`;
                 li.onclick = (e) => {
                     e.preventDefault();
-                    if (!active && !disabled) {
+                    if (!active && !disabled && page != null) {
                         currentPage = page;
                         updateTable();
                     }
@@ -833,8 +833,32 @@
                 paginationControls.appendChild(li);
             };
 
+            const addDots = () => {
+                const li = document.createElement('li');
+                li.className = 'page-item disabled';
+                li.innerHTML = '<span class="page-link">...</span>';
+                paginationControls.appendChild(li);
+            };
+
+            const buildPages = () => {
+                const pages = new Set([1, totalPages]);
+                for (let i = currentPage - 1; i <= currentPage + 1; i += 1) {
+                    if (i > 1 && i < totalPages) pages.add(i);
+                }
+                const ordered = Array.from(pages).sort((a, b) => a - b);
+                const tokens = [];
+                ordered.forEach((page, idx) => {
+                    if (idx > 0 && page - ordered[idx - 1] > 1) tokens.push('dots');
+                    tokens.push(page);
+                });
+                return tokens;
+            };
+
             addBtn('Anterior', currentPage - 1, false, currentPage === 1);
-            for (let i = 1; i <= totalPages; i += 1) addBtn(i, i, i === currentPage);
+            buildPages().forEach((token) => {
+                if (token === 'dots') addDots();
+                else addBtn(token, token, token === currentPage);
+            });
             addBtn('Siguiente', currentPage + 1, false, currentPage === totalPages);
         }
 

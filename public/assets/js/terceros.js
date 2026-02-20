@@ -1188,6 +1188,28 @@
         });
     }
 
+
+    function initTercerosTableManager() {
+        const table = document.getElementById('tercerosTable');
+        if (!table || typeof ERPTable === 'undefined' || !ERPTable.createTableManager) return;
+
+        ERPTable.createTableManager({
+            tableSelector: '#tercerosTable',
+            searchInput: '#terceroSearch',
+            filters: [
+                { el: '#terceroFiltroRol', attr: 'data-roles', match: 'includes' },
+                { el: '#terceroFiltroEstado', attr: 'data-estado' }
+            ],
+            searchAttr: 'data-search',
+            paginationControls: '#tercerosPaginationControls',
+            paginationInfo: '#tercerosPaginationInfo',
+            rowsPerPage: 20,
+            infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} registros`,
+            emptyText: 'Mostrando 0-0 de 0 registros',
+            scrollToTopOnPageChange: false
+        }).init();
+    }
+
     // =========================================================================
     // BOOTSTRAP (AHORA ESPERA LA CARGA DE BANCOS)
     // =========================================================================
@@ -1200,6 +1222,7 @@
         initButtons();
         initMasterCatalogs();
         initFormSubmit();
+        initTercerosTableManager();
         
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {

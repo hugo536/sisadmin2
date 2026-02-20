@@ -12,7 +12,7 @@
                 searchInput: '#distribuidorSearch',
                 paginationControls: '#distribuidoresPaginationControls',
                 paginationInfo: '#distribuidoresPaginationInfo',
-                rowsPerPage: 25,
+                rowsPerPage: 20,
                 emptyText: 'No se encontraron distribuidores registrados.',
                 infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} distribuidores`
             }).init();
