@@ -109,7 +109,8 @@
                     // FILTRO: Excluir Semielaborados y Terminados mediante JS (por si el backend envía todo)
                     const tiposNoPermitidos = new Set(['semielaborado', 'producto_terminado', 'producto']);
                     const itemsFiltrados = items.filter(item => {
-                        const tipoItem = (item.tipo || item.tipo_item || '').toLowerCase().trim();
+                        // Verificamos ambas posibilidades de nombre de columna
+                        const tipoItem = (item.tipo_item || item.tipo || '').toLowerCase().trim();
                         return !tiposNoPermitidos.has(tipoItem);
                     });
                     

@@ -54,6 +54,11 @@ class InventarioController extends Controlador
             $controlaStock = (int) ($fila['controla_stock'] ?? 1);
             $permiteDecimales = (int) ($fila['permite_decimales'] ?? 0);
             $lote = trim((string) ($fila['lote_actual'] ?? ''));
+
+            if ((int)$fila['id_almacen'] === 0 && $stock === 0.0 && $lote === '') {
+                // Cambiamos el nombre visualmente solo para este caso
+                $fila['almacen_nombre'] = 'Sin Ubicación Física'; // O el nombre que prefieras
+            }
             
             // 1. Lógica de Decimales (Acción 2)
             // Si permite decimales (ej. Insumos), mostramos 3. Si no (botellas), mostramos 0.

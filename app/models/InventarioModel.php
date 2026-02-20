@@ -232,21 +232,21 @@ class InventarioModel extends Modelo
 
     public function buscarItems(string $termino, int $limite = 20): array
     {
-        $sql = 'SELECT id, sku, nombre, tipo_item AS tipo, requiere_lote, requiere_vencimiento
+        $limite = (int)$limite;
+        $busqueda = '%' . $termino . '%'; // Guardamos el valor para usarlo 2 veces
+
+        $sql = "SELECT id, sku, nombre, tipo_item AS tipo, requiere_lote, requiere_vencimiento
                 FROM items
                 WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND controla_stock = 1
-                  AND (
-                    sku LIKE :termino
-                    OR nombre LIKE :termino
-                  )
+                AND deleted_at IS NULL
+                AND (sku LIKE :termino_sku OR nombre LIKE :termino_nombre)
                 ORDER BY nombre ASC
-                LIMIT :limite';
+                LIMIT $limite"; 
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->bindValue(':termino', '%' . $termino . '%', PDO::PARAM_STR);
-        $stmt->bindValue(':limite', max(5, min(100, $limite)), PDO::PARAM_INT);
+        // Vinculamos cada parámetro por separado
+        $stmt->bindValue(':termino_sku', $busqueda, PDO::PARAM_STR);
+        $stmt->bindValue(':termino_nombre', $busqueda, PDO::PARAM_STR);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
