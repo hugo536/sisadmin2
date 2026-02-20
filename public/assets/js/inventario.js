@@ -9,7 +9,6 @@
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
   const proveedor = document.getElementById('proveedorMovimiento'); // NUEVO: Select de Proveedor
-  const proveedor = document.getElementById('proveedorMovimiento');
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
@@ -49,7 +48,6 @@
   let tomSelectAlmacen = null;
   let tomSelectProveedor = null;
   let tomSelectAlmacenDestino = null;
-  let tomSelectProveedor = null; // Instancia Proveedor
   let tomSelectItem = null;      // Instancia Ítem
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -127,26 +125,6 @@
             }
         });
     }
-
-
-    if (almacenDestino) {
-      tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar...',
-        dropdownParent: 'body'
-      });
-    }
-
-    if (proveedor) {
-      tomSelectProveedor = new TomSelect('#proveedorMovimiento', {
-        create: false,
-        sortField: { field: 'text', direction: 'asc' },
-        placeholder: 'Buscar proveedor...',
-        dropdownParent: 'body'
-      });
-    }
-
     // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
