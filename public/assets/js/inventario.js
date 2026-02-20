@@ -8,11 +8,8 @@
   // Selects principales (Modal)
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
-<<<<<<< HEAD
   const proveedor = document.getElementById('proveedorMovimiento'); // NUEVO: Select de Proveedor
-=======
   const proveedor = document.getElementById('proveedorMovimiento');
->>>>>>> b2d9feac3e38fa081a2d3b00a4b0f11bc45938ea
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
@@ -131,8 +128,7 @@
         });
     }
 
-<<<<<<< HEAD
-=======
+
     if (almacenDestino) {
       tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', {
         create: false,
@@ -152,7 +148,6 @@
     }
 
     // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
->>>>>>> b2d9feac3e38fa081a2d3b00a4b0f11bc45938ea
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
   });
@@ -380,14 +375,11 @@
             if (tomSelectAlmacen) tomSelectAlmacen.clear();
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
             if (tomSelectProveedor) tomSelectProveedor.clear();
-<<<<<<< HEAD
             if (tomSelectItem) {
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
             }
             
-=======
->>>>>>> b2d9feac3e38fa081a2d3b00a4b0f11bc45938ea
             if (itemIdInput) itemIdInput.value = '';
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
