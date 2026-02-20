@@ -545,3 +545,32 @@ tr[data-estado="0"] .avatar-circle {
 .ts-control input::placeholder {
     line-height: normal !important;
 }
+/* =======================
+   INVENTARIO STICKY + TABLA
+   ======================= */
+.inventario-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: #f8f9fa;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.inventario-sticky-filters {
+  position: sticky;
+  top: 88px;
+  z-index: 1025;
+}
+
+.inventario-table-wrapper {
+  max-height: calc(100vh - 300px);
+}
+
+.inventario-sticky-thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background: #fff;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+}
