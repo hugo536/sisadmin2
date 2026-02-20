@@ -46,7 +46,7 @@
 
         // Inputs
         searchInput: null,            // '#usuarioSearch'
-        filters: [],                  // [{ el:'#filtroRol', attr:'data-rol' }, { el:'#filtroEstado', attr:'data-estado' }]
+        filters: [],                  // [{ el:'#filtroRol', attr:'data-rol', match:'equals|includes' }, { el:'#filtroEstado', attr:'data-estado' }]
 
         searchAttr: 'data-search',    // atributo donde buscar texto
         rowsPerPage: 25,
@@ -96,7 +96,7 @@
       (cfg.filters || []).forEach((f) => {
         const el = q(f.el);
         if (!el) return;
-        filterEls.push({ el, attr: f.attr });
+        filterEls.push({ el, attr: f.attr, match: f.match || 'equals' });
       });
     }
 
@@ -115,7 +115,14 @@
 
         for (const f of actives) {
           const rowVal = (row.getAttribute(f.attr) || '').toString();
-          if (f.value !== '' && rowVal !== f.value) return false;
+          if (f.value === '') continue;
+
+          if (f.match === 'includes') {
+            if (!rowVal.includes(f.value)) return false;
+            continue;
+          }
+
+          if (rowVal !== f.value) return false;
         }
         return true;
       });
