@@ -888,6 +888,23 @@ class TercerosModel extends Modelo
             . "                FROM terceros_cuentas_bancarias 
 "
             . "                WHERE tercero_id IN ($inQuery)";
+        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
+        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
+        $sql = "SELECT tercero_id, 
+                       config_banco_id,
+                       tipo_entidad, 
+                       entidad, 
+                       tipo_cuenta, 
+                       numero_cuenta, 
+                       cci, 
+                       titular, 
+                       moneda, 
+                       principal, 
+                       billetera_digital, 
+                       observaciones 
+                FROM terceros_cuentas_bancarias 
+                WHERE tercero_id IN ($inQuery)";
+
         if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
             $sql .= ' AND deleted_at IS NULL';
         }
