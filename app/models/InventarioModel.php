@@ -232,24 +232,90 @@ class InventarioModel extends Modelo
 
     public function buscarItems(string $termino, int $limite = 20): array
     {
-        $limite = (int)$limite;
-        $busqueda = '%' . $termino . '%'; // Guardamos el valor para usarlo 2 veces
+        $limite = max(1, (int) $limite);
+        $busqueda = '%' . $termino . '%';
 
-        $sql = "SELECT id, sku, nombre, tipo_item AS tipo, requiere_lote, requiere_vencimiento
-                FROM items
-                WHERE estado = 1
-                AND deleted_at IS NULL
-                AND (sku LIKE :termino_sku OR nombre LIKE :termino_nombre)
-                ORDER BY nombre ASC
-                LIMIT $limite"; 
+        $sqlItems = "SELECT i.id,
+                            i.sku,
+                            i.nombre,
+                            i.tipo_item AS tipo,
+                            'item' AS tipo_registro,
+                            i.requiere_lote,
+                            i.requiere_vencimiento,
+                            CONCAT(
+                                i.nombre,
+                                CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
+                                CASE WHEN p.nombre IS NOT NULL THEN CONCAT(' ', p.nombre) ELSE '' END
+                            ) AS nombre_full,
+                            NULL AS nota
+                     FROM items i
+                     LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                     LEFT JOIN item_presentaciones p ON p.id = i.id_presentacion
+                     WHERE i.estado = 1
+                       AND i.deleted_at IS NULL
+                       AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)
+                     LIMIT {$limite}";
 
-        $stmt = $this->db()->prepare($sql);
-        // Vinculamos cada parámetro por separado
-        $stmt->bindValue(':termino_sku', $busqueda, PDO::PARAM_STR);
-        $stmt->bindValue(':termino_nombre', $busqueda, PDO::PARAM_STR);
-        $stmt->execute();
+        $sqlPacks = "SELECT p.id,
+                            p.codigo_presentacion AS sku,
+                            COALESCE(p.nombre_manual, i.nombre) AS nombre,
+                            'pack' AS tipo,
+                            'pack' AS tipo_registro,
+                            0 AS requiere_lote,
+                            0 AS requiere_vencimiento,
+                            COALESCE(
+                                p.nombre_manual,
+                                CONCAT(
+                                    i.nombre,
+                                    CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
+                                    CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END,
+                                    ' x ', CAST(p.factor AS UNSIGNED)
+                                )
+                            ) AS nombre_full,
+                            COALESCE(NULLIF(TRIM(p.nota_pack), ''), '') AS nota
+                     FROM precios_presentaciones p
+                     INNER JOIN items i ON i.id = p.id_item
+                     LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                     LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                     WHERE p.estado = 1
+                       AND p.deleted_at IS NULL
+                       AND (
+                           p.codigo_presentacion LIKE :termino_sku_pack
+                           OR p.nombre_manual LIKE :termino_nombre_pack
+                           OR i.nombre LIKE :termino_nombre_base_pack
+                           OR p.nota_pack LIKE :termino_nota_pack
+                       )
+                     LIMIT {$limite}";
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $stmtItems = $this->db()->prepare($sqlItems);
+        $stmtItems->bindValue(':termino_sku_item', $busqueda, PDO::PARAM_STR);
+        $stmtItems->bindValue(':termino_nombre_item', $busqueda, PDO::PARAM_STR);
+        $stmtItems->execute();
+        $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $stmtPacks = $this->db()->prepare($sqlPacks);
+        $stmtPacks->bindValue(':termino_sku_pack', $busqueda, PDO::PARAM_STR);
+        $stmtPacks->bindValue(':termino_nombre_pack', $busqueda, PDO::PARAM_STR);
+        $stmtPacks->bindValue(':termino_nombre_base_pack', $busqueda, PDO::PARAM_STR);
+        $stmtPacks->bindValue(':termino_nota_pack', $busqueda, PDO::PARAM_STR);
+        $stmtPacks->execute();
+        $packs = $stmtPacks->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $resultado = [];
+        foreach ($items as $fila) {
+            $fila['value'] = 'item:' . (int) ($fila['id'] ?? 0);
+            $resultado[] = $fila;
+        }
+        foreach ($packs as $fila) {
+            $fila['value'] = 'pack:' . (int) ($fila['id'] ?? 0);
+            $resultado[] = $fila;
+        }
+
+        usort($resultado, static function (array $a, array $b): int {
+            return strcasecmp((string) ($a['nombre_full'] ?? ''), (string) ($b['nombre_full'] ?? ''));
+        });
+
+        return array_slice($resultado, 0, $limite);
     }
 
     public function listarProveedoresActivos(): array
@@ -266,8 +332,22 @@ class InventarioModel extends Modelo
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function obtenerStockPorItemAlmacen(int $idItem, int $idAlmacen): float
+    public function obtenerStockPorItemAlmacen(int $idItem, int $idAlmacen, string $tipoRegistro = 'item'): float
     {
+        if ($tipoRegistro === 'pack') {
+            $sql = 'SELECT stock_actual
+                    FROM inventario_stock
+                    WHERE id_pack = :id_pack
+                      AND id_almacen = :id_almacen
+                    LIMIT 1';
+            $stmt = $this->db()->prepare($sql);
+            $stmt->execute([
+                'id_pack' => $idItem,
+                'id_almacen' => $idAlmacen,
+            ]);
+            return (float) ($stmt->fetchColumn() ?: 0);
+        }
+
         $sql = 'SELECT stock_actual
                 FROM inventario_stock
                 WHERE id_item = :id_item
@@ -341,7 +421,14 @@ class InventarioModel extends Modelo
             throw new InvalidArgumentException('Tipo de movimiento inválido.');
         }
 
-        $idItem = (int) ($datos['id_item'] ?? 0);
+        $tipoRegistro = (string) ($datos['tipo_registro'] ?? 'item');
+        if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+            $tipoRegistro = 'item';
+        }
+
+        $idRegistro = $tipoRegistro === 'pack'
+            ? (int) ($datos['id_pack'] ?? 0)
+            : (int) ($datos['id_item'] ?? 0);
         $idAlmacenOrigen = isset($datos['id_almacen_origen']) ? (int) $datos['id_almacen_origen'] : 0;
         $idAlmacenDestino = isset($datos['id_almacen_destino']) ? (int) $datos['id_almacen_destino'] : 0;
         $cantidad = (float) ($datos['cantidad'] ?? 0);
@@ -351,7 +438,7 @@ class InventarioModel extends Modelo
         $costoUnitario = isset($datos['costo_unitario']) ? (float) $datos['costo_unitario'] : 0.0;
         $createdBy = (int) ($datos['created_by'] ?? 0);
 
-        if ($idItem <= 0 || $createdBy <= 0) {
+        if ($idRegistro <= 0 || $createdBy <= 0) {
             throw new InvalidArgumentException('Datos incompletos para registrar el movimiento.');
         }
 
@@ -394,18 +481,33 @@ class InventarioModel extends Modelo
         }
 
         try {
-            $configItem = $this->obtenerConfiguracionItem($db, $idItem);
+            $configRegistro = $tipoRegistro === 'pack'
+                ? $this->obtenerConfiguracionPack($db, $idRegistro)
+                : $this->obtenerConfiguracionItem($db, $idRegistro);
 
-            if ($tipo === 'INI' && $this->existeMovimientoInicial($db, $idItem, $idAlmacenDestino)) {
-                throw new InvalidArgumentException('Ya existe un movimiento INI para este ítem y almacén.');
+            $idItemMovimiento = $tipoRegistro === 'pack'
+                ? (int) ($configRegistro['id_item_base'] ?? 0)
+                : $idRegistro;
+
+            if ($idItemMovimiento <= 0) {
+                throw new RuntimeException('No se pudo identificar el ítem base para registrar el movimiento.');
             }
 
-            if ((int) ($configItem['requiere_lote'] ?? 0) === 1 && $lote === '') {
-                throw new InvalidArgumentException('El ítem requiere lote para registrar movimientos.');
+            if ($tipo === 'INI' && $this->existeMovimientoInicial($db, $idItemMovimiento, $idAlmacenDestino)) {
+                throw new InvalidArgumentException('Ya existe un movimiento INI para este registro y almacén.');
             }
 
-            if ((int) ($configItem['requiere_vencimiento'] ?? 0) === 1 && in_array($tipo, ['INI', 'AJ+'], true) && $fechaVencimiento === '') {
-                throw new InvalidArgumentException('El ítem requiere fecha de vencimiento para entradas de stock.');
+            if ($tipoRegistro === 'pack') {
+                $lote = '';
+                $fechaVencimiento = '';
+            }
+
+            if ((int) ($configRegistro['requiere_lote'] ?? 0) === 1 && $lote === '') {
+                throw new InvalidArgumentException('El registro seleccionado requiere lote para movimientos.');
+            }
+
+            if ((int) ($configRegistro['requiere_vencimiento'] ?? 0) === 1 && in_array($tipo, ['INI', 'AJ+'], true) && $fechaVencimiento === '') {
+                throw new InvalidArgumentException('El registro seleccionado requiere fecha de vencimiento para entradas de stock.');
             }
 
             if ($fechaVencimiento !== '' && !$this->esFechaValida($fechaVencimiento)) {
@@ -414,6 +516,11 @@ class InventarioModel extends Modelo
 
             $costoTotal = $cantidad * $costoUnitario;
             $referenciaFinal = $this->construirReferencia($referencia, $lote, $fechaVencimiento, $costoUnitario, $costoTotal);
+            if ($tipoRegistro === 'pack') {
+                $codigoPack = (string) ($configRegistro['codigo_presentacion'] ?? ('PACK-' . $idRegistro));
+                $prefix = 'Pack: ' . $codigoPack;
+                $referenciaFinal = $referenciaFinal !== '' ? ($prefix . ' | ' . $referenciaFinal) : $prefix;
+            }
 
             $sqlMovimiento = 'INSERT INTO inventario_movimientos
                                 (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by)
@@ -421,7 +528,7 @@ class InventarioModel extends Modelo
                                 (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :referencia, :created_by)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
-                'id_item' => $idItem,
+                'id_item' => $idItemMovimiento,
                 'id_almacen_origen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null,
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                 'tipo_movimiento' => $tipo,
@@ -431,27 +538,38 @@ class InventarioModel extends Modelo
             ]);
 
             if (in_array($tipo, ['INI', 'AJ+'], true)) {
-                $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
-                $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
+                if ($tipoRegistro === 'pack') {
+                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad);
+                } else {
+                    $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad);
+                    $this->incrementarStockLote($db, $idRegistro, $idAlmacenDestino, $lote, $fechaVencimiento !== '' ? $fechaVencimiento : null, $cantidad);
+                }
             }
 
             if (in_array($tipo, ['AJ-', 'CON'], true)) {
-                $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
-                $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
-                $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
+                if ($tipoRegistro === 'pack') {
+                    $this->validarStockDisponiblePack($db, $idRegistro, $idAlmacenOrigen, $cantidad);
+                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                } else {
+                    $this->validarStockDisponible($db, $idRegistro, $idAlmacenOrigen, $cantidad);
+                    $this->ajustarStock($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                    $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                }
             }
 
             if ($tipo === 'TRF') {
-                $this->validarStockDisponible($db, $idItem, $idAlmacenOrigen, $cantidad);
-                
-                $this->ajustarStock($db, $idItem, $idAlmacenOrigen, -$cantidad);
-                $this->decrementarStockLote($db, $idItem, $idAlmacenOrigen, $lote, $cantidad);
-                
-                $this->ajustarStock($db, $idItem, $idAlmacenDestino, $cantidad);
-                
-                $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idItem, $idAlmacenOrigen, $lote);
-                
-                $this->incrementarStockLote($db, $idItem, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
+                if ($tipoRegistro === 'pack') {
+                    $this->validarStockDisponiblePack($db, $idRegistro, $idAlmacenOrigen, $cantidad);
+                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad);
+                } else {
+                    $this->validarStockDisponible($db, $idRegistro, $idAlmacenOrigen, $cantidad);
+                    $this->ajustarStock($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                    $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad);
+                    $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idRegistro, $idAlmacenOrigen, $lote);
+                    $this->incrementarStockLote($db, $idRegistro, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
+                }
             }
 
             $idMovimiento = (int) $db->lastInsertId();
@@ -486,6 +604,23 @@ class InventarioModel extends Modelo
 
         if ($stock < $cantidad) {
             throw new RuntimeException('Stock insuficiente para realizar el movimiento.');
+        }
+    }
+
+    private function validarStockDisponiblePack(PDO $db, int $idPack, int $idAlmacen, float $cantidad): void
+    {
+        $sql = 'SELECT stock_actual
+                FROM inventario_stock
+                WHERE id_pack = :id_pack AND id_almacen = :id_almacen
+                LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_pack' => $idPack,
+            'id_almacen' => $idAlmacen,
+        ]);
+        $stock = (float) ($stmt->fetchColumn() ?: 0);
+        if ($stock < $cantidad) {
+            throw new RuntimeException('Stock insuficiente para realizar el movimiento del pack seleccionado.');
         }
     }
 
@@ -531,6 +666,25 @@ class InventarioModel extends Modelo
         }
 
         return $item;
+    }
+
+    private function obtenerConfiguracionPack(PDO $db, int $idPack): array
+    {
+        $sql = 'SELECT p.id, p.id_item AS id_item_base, p.codigo_presentacion, 1 AS controla_stock, 0 AS requiere_lote, 0 AS requiere_vencimiento
+                FROM precios_presentaciones p
+                WHERE p.id = :id_pack
+                  AND p.estado = 1
+                  AND p.deleted_at IS NULL
+                LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_pack' => $idPack]);
+        $pack = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($pack === false) {
+            throw new RuntimeException('La presentación/pack seleccionado no existe o está inactivo.');
+        }
+
+        return $pack;
     }
 
     private function obtenerVencimientoLote(PDO $db, int $idItem, int $idAlmacen, string $lote): ?string
@@ -686,6 +840,20 @@ class InventarioModel extends Modelo
         $stmt = $db->prepare($sql);
         $stmt->execute([
             'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
+            'stock_actual' => $delta,
+        ]);
+    }
+
+    private function ajustarStockPack(PDO $db, int $idPack, int $idAlmacen, float $delta): void
+    {
+        $sql = 'INSERT INTO inventario_stock (id_pack, id_almacen, stock_actual)
+                VALUES (:id_pack, :id_almacen, :stock_actual)
+                ON DUPLICATE KEY UPDATE stock_actual = stock_actual + VALUES(stock_actual)';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_pack' => $idPack,
             'id_almacen' => $idAlmacen,
             'stock_actual' => $delta,
         ]);

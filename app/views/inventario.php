@@ -225,7 +225,9 @@ $hoy = new DateTimeImmutable('today');
             </div>
             <div class="modal-body p-4 bg-light">
                 <form id="formMovimientoInventario" autocomplete="off">
-                    <input type="hidden" id="idItemMovimiento" name="id_item" required>
+                    <input type="hidden" id="idItemMovimiento" name="id_item" value="0">
+                    <input type="hidden" id="idPackMovimiento" name="id_pack" value="0">
+                    <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
                     <input type="hidden" name="lote" id="loteFinalEnviar">
 
                     <div class="card border-0 shadow-sm mb-3">
