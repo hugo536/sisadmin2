@@ -63,7 +63,6 @@
   function toggleAlmacenOrigenSegunItem() {
     if (!almacen || !tomSelectAlmacen || !itemIdInput) return;
     const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0;
-    const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0;
 
     almacen.disabled = !hayItemSeleccionado;
     if (hayItemSeleccionado) {
