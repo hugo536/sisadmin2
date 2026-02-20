@@ -363,6 +363,58 @@ class InventarioModel extends Modelo
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
+    public function obtenerResumenRegistro(int $idRegistro, string $tipoRegistro = 'item'): array
+    {
+        $tipoRegistro = in_array($tipoRegistro, ['item', 'pack'], true) ? $tipoRegistro : 'item';
+
+        if ($tipoRegistro === 'pack') {
+            $sqlStock = 'SELECT COALESCE(SUM(stock_actual), 0)
+                         FROM inventario_stock
+                         WHERE id_pack = :id_registro';
+            $sqlMov = 'SELECT referencia
+                       FROM inventario_movimientos
+                       WHERE id_item = :id_registro
+                         AND referencia LIKE "Pack:%"
+                       ORDER BY id DESC
+                       LIMIT 100';
+        } else {
+            $sqlStock = 'SELECT COALESCE(SUM(stock_actual), 0)
+                         FROM inventario_stock
+                         WHERE id_item = :id_registro';
+            $sqlMov = 'SELECT referencia
+                       FROM inventario_movimientos
+                       WHERE id_item = :id_registro
+                         AND (referencia IS NULL OR referencia NOT LIKE "Pack:%")
+                       ORDER BY id DESC
+                       LIMIT 100';
+        }
+
+        $stmtStock = $this->db()->prepare($sqlStock);
+        $stmtStock->execute(['id_registro' => $idRegistro]);
+        $stockActual = (float) ($stmtStock->fetchColumn() ?: 0);
+
+        $stmtMov = $this->db()->prepare($sqlMov);
+        $stmtMov->execute(['id_registro' => $idRegistro]);
+        $referencias = $stmtMov->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+        $costoPromedio = 0.0;
+        foreach ($referencias as $ref) {
+            if (!is_string($ref) || $ref === '') {
+                continue;
+            }
+
+            if (preg_match('/C\.Unit:\s*([0-9]+(?:\.[0-9]+)?)/i', $ref, $coincide)) {
+                $costoPromedio = (float) $coincide[1];
+                break;
+            }
+        }
+
+        return [
+            'stock_actual' => $stockActual,
+            'costo_promedio_actual' => $costoPromedio,
+        ];
+    }
+
     public function obtenerKardex(array $filtros = []): array
     {
         $sql = 'SELECT m.id,

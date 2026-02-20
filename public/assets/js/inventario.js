@@ -63,7 +63,6 @@
   function toggleAlmacenOrigenSegunItem() {
     if (!almacen || !tomSelectAlmacen || !itemIdInput) return;
     const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0;
-    const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0;
 
     almacen.disabled = !hayItemSeleccionado;
     if (hayItemSeleccionado) {
@@ -289,6 +288,7 @@
       costoUnitarioInput.readOnly = !habilitarCostoManual;
       costoUnitarioInput.classList.toggle('bg-light', !habilitarCostoManual);
       costoUnitarioInput.classList.toggle('text-muted', !habilitarCostoManual);
+      if (tipoVal === 'INI') costoUnitarioInput.value = '0.0000';
     }
 
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
@@ -309,7 +309,7 @@
   async function obtenerStockActual(idItem, idAlmacen, tipoRegistro = 'item') {
     if (idItem <= 0 || idAlmacen <= 0) return 0;
     try {
-      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idRegistro}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
+      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idItem}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await response.json();
       return Number((data && data.stock) || 0);
@@ -371,15 +371,19 @@
     setSelectOptions(tomSelectAlmacenDestino, destinoFiltrado, almacenDestino ? almacenDestino.value : '');
   }
 
-  function obtenerResumenItemSimulado(idItem) {
-    return new Promise((resolve) => {
-      window.setTimeout(() => {
-        const semilla = Number(idItem || '0');
-        const costoPromedio = semilla > 0 ? ((semilla * 1.732) % 250) + 1 : 0;
-        const stockActual = semilla > 0 ? ((semilla * 7) % 500) + 3 : 0;
-        resolve({ costo_promedio_actual: costoPromedio, stock_actual: stockActual });
-      }, 350);
-    });
+  async function obtenerResumenItemReal(idItem, tipoRegistro = 'item') {
+    if (idItem <= 0) {
+      return { costo_promedio_actual: 0, stock_actual: 0 };
+    }
+
+    const url = `${window.BASE_URL}?ruta=inventario/resumenItem&id_item=${idItem}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
+    const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+    const data = await response.json();
+    if (!data || data.ok !== true) {
+      throw new Error('Respuesta inválida en inventario/resumenItem.');
+    }
+
+    return data.resumen || { costo_promedio_actual: 0, stock_actual: 0 };
   }
 
   async function cargarResumenItem() {
@@ -399,15 +403,21 @@
     costoPromedioActualLabel.textContent = 'Consultando...';
     stockActualItemLabel.textContent = 'Consultando...';
 
-    const resumen = await obtenerResumenItemSimulado(idRegistro);
-    const costoPromedio = Number(resumen.costo_promedio_actual || 0);
-    const stock = Number(resumen.stock_actual || 0);
+    try {
+      const resumen = await obtenerResumenItemReal(idRegistro, tipoRegistro);
+      const costoPromedio = Number(resumen.costo_promedio_actual || 0);
+      const stock = Number(resumen.stock_actual || 0);
 
-    costoPromedioActualLabel.textContent = `$${costoPromedio.toFixed(4)}`;
-    stockActualItemLabel.textContent = stock.toFixed(4);
+      costoPromedioActualLabel.textContent = `$${costoPromedio.toFixed(4)}`;
+      stockActualItemLabel.textContent = stock.toFixed(4);
 
-    if (tipo && tipo.value !== 'INI' && costoUnitarioInput) {
-      costoUnitarioInput.value = costoPromedio.toFixed(4);
+      if (costoUnitarioInput) {
+        if (tipo && tipo.value === 'INI') costoUnitarioInput.value = '0.0000';
+        else costoUnitarioInput.value = costoPromedio.toFixed(4);
+      }
+    } catch (error) {
+      costoPromedioActualLabel.textContent = '$0.0000';
+      stockActualItemLabel.textContent = '0.0000';
     }
   }
 
@@ -466,7 +476,7 @@
     }
 
     try {
-      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idRegistro}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
+      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idItem}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await response.json();
       const stock = Number((data && data.stock) || 0);

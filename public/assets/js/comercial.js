@@ -219,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (inputId) inputId.value = d.id;
                 document.getElementById('inputPrecioMenor').value = d.precio_x_menor;
                 document.getElementById('inputPrecioMayor').value = d.precio_x_mayor;
+                document.getElementById('inputMinMayor').value = d.cantidad_minima_mayor || '';
                 document.getElementById('peso_bruto').value = d.peso_bruto;
                 if (inputNotaPack) inputNotaPack.value = d.nota_pack || '';
 
@@ -257,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 } else {
-                    if (inputItem && inputItem.tomselect) { inputItem.tomselect.setValue(d.id_item); inputItem.tomselect.disable(); }
+                    if (inputItem && inputItem.tomselect) { inputItem.tomselect.setValue(d.id_item); inputItem.tomselect.enable(); }
                     if (inputFactor) inputFactor.value = d.factor;
                 }
                 modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Presentación';
