@@ -107,8 +107,6 @@ class TercerosModel extends Modelo
         return $this->distribuidoresModel->obtenerConflictosZonas($zonas, $excludeDistribuidorId);
     }
 
-<<<<<<< HEAD
-=======
     public function listarCatalogoCajasBancosActivos(): array
     {
         if (!$this->hasColumn('configuracion_cajas_bancos', 'id')) {
@@ -127,7 +125,7 @@ class TercerosModel extends Modelo
     }
 
 
->>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
+
     public function listarHijosEmpleado(int $idTercero): array
     {
         return $this->empleadosModel->listarHijos($idTercero);
@@ -866,7 +864,37 @@ class TercerosModel extends Modelo
         if (empty($ids)) return [];
         $inQuery = implode(',', array_fill(0, count($ids), '?'));
         
+
         // Ahora seleccionamos directamente 'tipo_entidad', 'tipo_cuenta' y la nueva FK 'config_banco_id'
+
+        // CORRECCIÓN: eliminamos alias ambiguos y manejamos compatibilidad de columnas.
+        $columnas = ['tercero_id'];
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
+            $columnas[] = 'config_banco_id';
+        } else {
+            $columnas[] = 'NULL AS config_banco_id';
+        }
+        $columnas = array_merge($columnas, [
+            'tipo_entidad',
+            'entidad',
+            'tipo_cuenta',
+            'numero_cuenta',
+            'cci',
+            'titular',
+            'moneda',
+            'principal',
+            'billetera_digital',
+            'observaciones',
+        ]);
+
+        $sql = 'SELECT ' . implode(', ', $columnas) . "
+"
+            . "                FROM terceros_cuentas_bancarias 
+"
+            . "                WHERE tercero_id IN ($inQuery)";
+        // CORRECCIÓN: Eliminamos los alias "AS tipo" y "AS tipo_cta".
+        // Ahora seleccionamos directamente 'tipo_entidad' y 'tipo_cuenta'.
+
         $sql = "SELECT tercero_id, 
                        config_banco_id,
                        tipo_entidad, 
@@ -881,6 +909,7 @@ class TercerosModel extends Modelo
                        observaciones 
                 FROM terceros_cuentas_bancarias 
                 WHERE tercero_id IN ($inQuery)";
+
         if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
             $sql .= ' AND deleted_at IS NULL';
         }
@@ -963,14 +992,14 @@ class TercerosModel extends Modelo
         
         if (empty($cuentas)) return;
 
-<<<<<<< HEAD
+
         // INSERT usa la nueva FK 'config_banco_id'
         $sql = "INSERT INTO terceros_cuentas_bancarias (
                     tercero_id, config_banco_id, tipo_entidad, entidad, tipo_cuenta, 
                     numero_cuenta, cci, titular, moneda, estado, principal, 
                     billetera_digital, observaciones, created_by, updated_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-=======
+
         // CORRECCIÓN: El INSERT usa las columnas definitivas 'tipo_entidad' y 'tipo_cuenta'
         $columnas = ['tercero_id'];
         if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
@@ -989,7 +1018,7 @@ class TercerosModel extends Modelo
 
         $placeholders = implode(', ', array_fill(0, count($columnas), '?'));
         $sql = 'INSERT INTO terceros_cuentas_bancarias (' . implode(', ', $columnas) . ') VALUES (' . $placeholders . ')';
->>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
+
 
         $stmt = $this->db()->prepare($sql);
         
@@ -1000,18 +1029,18 @@ class TercerosModel extends Modelo
             $tipoEntidad = $cta['tipo_entidad'] ?? null; 
             $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
 
-<<<<<<< HEAD
+
             $params = [
                 $terceroId,
                 !empty($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : null,
-=======
+
             $params = [$terceroId];
             if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
                 $configBancoId = isset($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : 0;
                 $params[] = $configBancoId > 0 ? $configBancoId : null;
             }
             $params = array_merge($params, [
->>>>>>> f851864d1109a67f8401f8bea44961bf026b9d2e
+
                 $tipoEntidad,
                 $cta['entidad'] ?? '',
                 $tipoCuenta,
