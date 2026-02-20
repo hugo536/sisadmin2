@@ -58,6 +58,20 @@
     destino: []
   };
 
+  function toggleAlmacenOrigenSegunItem() {
+    if (!almacen || !tomSelectAlmacen || !itemIdInput) return;
+    const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0;
+
+    almacen.disabled = !hayItemSeleccionado;
+    if (hayItemSeleccionado) {
+      tomSelectAlmacen.enable();
+    } else {
+      tomSelectAlmacen.clear(true);
+      tomSelectAlmacen.disable();
+      if (stockHint) stockHint.textContent = '';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     // Configuración base para TomSelects estáticos
     const tsConfig = {
@@ -126,16 +140,7 @@
                     }
 
                     const items = Array.isArray(data.items) ? data.items : [];
-                    
-                    // FILTRO: Excluir Semielaborados y Terminados mediante JS (por si el backend envía todo)
-                    const tiposNoPermitidos = new Set(['semielaborado', 'producto_terminado', 'producto']);
-                    const itemsFiltrados = items.filter(item => {
-                        // Verificamos ambas posibilidades de nombre de columna
-                        const tipoItem = (item.tipo_item || item.tipo || '').toLowerCase().trim();
-                        return !tiposNoPermitidos.has(tipoItem);
-                    });
-                    
-                    callback(itemsFiltrados);
+                    callback(items);
                 })
                 .catch((error) => {
                     // Evita silencios que terminan en "No results found" sin contexto.
@@ -164,9 +169,12 @@
                 filtrarAlmacenesPorTipo();
                 actualizarStockHint();
                 cargarResumenItem();
+                toggleAlmacenOrigenSegunItem();
             }
         });
     }
+
+    toggleAlmacenOrigenSegunItem();
     // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
@@ -310,6 +318,7 @@
 
     if (tipoVal === '' || idItem <= 0) {
       setSelectOptions(tomSelectAlmacen, almacenesBase.origen, origenActual);
+      toggleAlmacenOrigenSegunItem();
       actualizarOpcionesDestino();
       return;
     }
@@ -327,6 +336,7 @@
     }
 
     setSelectOptions(tomSelectAlmacen, origenFiltrado, origenActual);
+    toggleAlmacenOrigenSegunItem();
 
     actualizarOpcionesDestino();
   }
@@ -490,6 +500,7 @@
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
             if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+            toggleAlmacenOrigenSegunItem();
             
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
@@ -512,9 +523,20 @@
       }
 
       const tipoVal = (tipo && tipo.value) || '';
+      const idAlmacenVal = Number((almacen && almacen.value) || '0');
       const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
       const referenciaVal = ((document.getElementById('referenciaMovimiento') || {}).value || '').trim();
       const motivoVal = ((motivo || {}).value || '').trim();
+
+      if (!tipoVal) {
+        Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento.' });
+        return;
+      }
+
+      if (idAlmacenVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Primero seleccione un ítem y luego el almacén origen.' });
+        return;
+      }
 
       if (['AJ+', 'AJ-', 'CON'].includes(tipoVal) && motivoVal === '') {
         Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
