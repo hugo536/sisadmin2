@@ -262,25 +262,9 @@ $hoy = new DateTimeImmutable('today');
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                
-<<<<<<< HEAD
-                                <div class="col-md-12 form-floating mt-2">
-                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
-                                        <option value="">Seleccione...</option>
-                                        <?php foreach ($proveedores as $proveedor): ?>
-                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>">
-                                                <?php echo e((string) ($proveedor['razon_social'] ?? $proveedor['nombre'] ?? '')); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <label for="proveedorMovimiento">Proveedor (Opcional / Para compras)</label>
-                                </div>
 
-                                <div class="col-md-12 form-floating d-none mt-2" id="grupoAlmacenDestino">
-=======
                                 <div class="col-md-12 d-none mt-2" id="grupoAlmacenDestino">
                                     <label for="almacenDestinoMovimiento" class="form-label small text-muted">Almacén Destino (Solo Transferencias)</label>
->>>>>>> b2d9feac3e38fa081a2d3b00a4b0f11bc45938ea
                                     <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>

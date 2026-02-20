@@ -223,7 +223,7 @@ class InventarioModel extends Modelo
                 WHERE estado = 1
                   AND deleted_at IS NULL
                   AND controla_stock = 1
-                  AND tipo_item NOT IN (\'semielaborado\', \'producto\')
+                  AND tipo_item NOT IN (\'semielaborado\', \'producto_terminado\', \'producto\')
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
@@ -237,7 +237,7 @@ class InventarioModel extends Modelo
                 WHERE estado = 1
                   AND deleted_at IS NULL
                   AND controla_stock = 1
-                  AND tipo_item NOT IN (\'semielaborado\', \'producto\')
+                  AND tipo_item NOT IN (\'semielaborado\', \'producto_terminado\', \'producto\')
                   AND (
                     sku LIKE :termino
                     OR nombre LIKE :termino
