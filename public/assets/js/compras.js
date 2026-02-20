@@ -147,9 +147,17 @@ document.addEventListener('DOMContentLoaded', () => {
             idProveedor.value = '';
         }
 
+        // Destruir TODOS los Tom Select de los detalles antes de vaciar la tabla
+        tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
+            if (select.tomselect) {
+                select.tomselect.destroy();
+            }
+        });
+
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
-        agregarFila(); // Agregar una fila vacía por defecto
+        
+        // ELIMINAMOS agregarFila() de aquí para evitar el "choque" al editar
     }
 
     // 3. Helpers de Red (AJAX)
@@ -337,24 +345,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (target.classList.contains('btn-aprobar')) {
-            const confirm = await Swal.fire({
-                title: '¿Aprobar Orden?',
-                text: "La orden pasará a estado Pendiente/Aprobada y ya no podrá editarse.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                confirmButtonText: 'Sí, aprobar'
-            });
+        if (target.classList.contains('btn-editar')) {
+            try {
+                const separador = urls.index.includes('?') ? '&' : '?';
+                const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const json = await res.json();
+                
+                if (json.ok && json.data) {
+                    const d = json.data;
+                    
+                    limpiarModalOrden(); // Limpia limpiamente, sin crear fantasmas
+                    
+                    ordenId.value = d.id;
+                    
+                    if (tomSelectProveedor) {
+                        tomSelectProveedor.setValue(d.id_proveedor);
+                    } else {
+                        idProveedor.value = d.id_proveedor;
+                    }
 
-            if (confirm.isConfirmed) {
-                try {
-                    const res = await postJson(urls.aprobar, { id: id });
-                    await Swal.fire('Aprobada', res.mensaje, 'success');
-                    recargarPagina();
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
+                    fechaEntrega.value = d.fecha_entrega || '';
+                    observaciones.value = d.observaciones || '';
+                    
+                    // Llenar detalle con los datos de la BD
+                    if (d.detalle && d.detalle.length > 0) {
+                        d.detalle.forEach(item => agregarFila(item));
+                    } else {
+                        agregarFila(); // Por si la orden se guardó sin detalle (seguridad)
+                    }
+                    
+                    const esEditable = Number(d.estado) === 0;
+                    btnGuardarOrden.style.display = esEditable ? 'block' : 'none';
+                    
+                    modalOrden.show();
                 }
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'No se pudo cargar la orden.', 'error');
             }
         }
 
@@ -389,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Listeners Generales
     document.getElementById('btnNuevaOrden').addEventListener('click', () => {
         limpiarModalOrden();
+        agregarFila(); // Ahora SOLO agregamos la fila vacía si es una Nueva Orden
         btnGuardarOrden.style.display = 'block';
         modalOrden.show();
     });
