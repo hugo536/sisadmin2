@@ -8,6 +8,7 @@
   // Selects principales (Modal)
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
+  const proveedor = document.getElementById('proveedorMovimiento');
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
@@ -47,6 +48,7 @@
   // Solo mantenemos TomSelect para el Modal (para buscar rápido al hacer movimientos)
   let tomSelectTipo = null;
   let tomSelectAlmacen = null;
+  let tomSelectProveedor = null;
   let tomSelectAlmacenDestino = null;
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -74,6 +76,15 @@
         create: false,
         sortField: { field: 'text', direction: 'asc' },
         placeholder: 'Buscar...',
+        dropdownParent: 'body'
+      });
+    }
+
+    if (proveedor) {
+      tomSelectProveedor = new TomSelect('#proveedorMovimiento', {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Buscar proveedor...',
         dropdownParent: 'body'
       });
     }
@@ -416,6 +427,7 @@
             if (tomSelectTipo) tomSelectTipo.clear();
             if (tomSelectAlmacen) tomSelectAlmacen.clear();
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
+            if (tomSelectProveedor) tomSelectProveedor.clear();
             if (itemIdInput) itemIdInput.value = '';
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
