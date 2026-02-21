@@ -454,6 +454,8 @@
             if (autoIdentityHint) {
                 autoIdentityHint.style.display = isItemDetallado ? '' : 'none';
             }
+            autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
+            autoIdentityHint?.classList.toggle('d-none', !isItemDetallado);
 
             if (!isItemDetallado && autoIdentidadInput) {
                 autoIdentidadInput.checked = true;

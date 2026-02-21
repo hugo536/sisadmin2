@@ -231,6 +231,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
                                     <div class="col-md-4" id="newAutoIdentidadWrap">
+                                    <div class="col-md-4 d-none" id="newAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
                                             <input class="form-check-input" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked>
@@ -238,8 +239,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                         <div class="form-text">Visible solo para producto terminado o semielaborado.</div>
                                     </div>
-
                                     <div class="col-12" id="newAutoIdentityHint" style="display:none;">
+                                    <div class="col-12 d-none" id="newAutoIdentityHint">
                                         <div class="item-autoidentity-hint">
                                             <i class="bi bi-magic me-2"></i>
                                             Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
@@ -444,8 +445,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <div class="form-text">
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
-                                    </div>
-                                    <div class="col-md-4" id="editAutoIdentidadWrap">
+                                    </div>                                    <div class="col-md-4" id="editAutoIdentidadWrap">
+                                    <div class="col-md-4 d-none" id="editAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
                                             <input class="form-check-input" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="1" checked>
@@ -455,6 +456,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
 
                                     <div class="col-12" id="editAutoIdentityHint" style="display:none;">
+                                    <div class="col-12 d-none" id="editAutoIdentityHint">
                                         <div class="item-autoidentity-hint">
                                             <i class="bi bi-magic me-2"></i>
                                             Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
