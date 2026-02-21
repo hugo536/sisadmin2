@@ -214,21 +214,16 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="newTipo" name="tipo_item" required>
-                                                <option value="" selected>Seleccionar tipo</option>
-                                                <option value="producto_terminado">Producto terminado</option>
-                                                <option value="materia_prima">Materia Prima</option>
-                                                <option value="insumo">Insumo</option>
-                                                <option value="semielaborado">Semielaborado</option>
-                                                <option value="material_empaque">Material de Empaque</option>
-                                                <option value="servicio">Servicios / Otros</option>
-                                            </select>
-                                            <label for="newTipo">Tipo de ítem <span class="text-danger">*</span></label>
-                                        </div>
-                                        <div class="form-text">
-                                            Producto terminado y semielaborado requieren marca, sabor y presentación.
-                                        </div>
+                                        <label for="newTipo" class="form-label small text-muted mb-1">Tipo de ítem <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="newTipo" name="tipo_item" required>
+                                            <option value="" selected>Seleccionar tipo</option>
+                                            <option value="producto_terminado">Producto terminado</option>
+                                            <option value="materia_prima">Materia Prima</option>
+                                            <option value="insumo">Insumo</option>
+                                            <option value="semielaborado">Semielaborado</option>
+                                            <option value="material_empaque">Material de Empaque</option>
+                                            <option value="servicio">Servicios / Otros</option>
+                                        </select>
                                     </div>
                                     <div class="col-md-4" id="newAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
@@ -236,46 +231,28 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <input class="form-check-input" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked>
                                             <label class="form-check-label small" for="newAutoIdentidad">Generar nombre y SKU automáticamente</label>
                                         </div>
-                                        <div class="form-text" id="newAutoIdentidadHelp">Disponible para producto terminado o semielaborado.</div>
                                     </div>
 
-                                    <div class="col-12 d-none" id="newAutoIdentityHint">
-                                        <div class="item-autoidentity-hint">
-                                            <i class="bi bi-magic me-2"></i>
-                                            Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
-                                        </div>
-                                    </div>
 
                                     <div class="col-md-9">
-                                        <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
-                                            <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
-                                        </div>
-                                        <div class="form-text mt-2 d-flex align-items-center gap-2">
-                                            <span class="badge text-bg-primary-subtle text-primary-emphasis border" id="newNombreAutoBadge">Autogenerado</span>
-                                            Se genera automáticamente en ítems detallados.
-                                        </div>
+                                        <label for="newNombre" class="form-label small text-muted mb-1">Nombre del producto <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" required>
                                     </div>
                                     <div class="col-md-3">
-                                        <div class="form-floating">
-                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly>
-                                            <label for="newSku">SKU</label>
-                                        </div>
-                                        <div class="form-text mt-2"><span class="badge text-bg-primary-subtle text-primary-emphasis border" id="newSkuAutoBadge">Autogenerado</span></div>
+                                        <label for="newSku" class="form-label small text-muted mb-1">SKU</label>
+                                        <input type="text" class="form-control sku-lockable" id="newSku" name="sku" readonly>
                                     </div>
 
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="newUnidad" name="unidad_base">
-                                                <option value="UND" selected>UND</option>
-                                                <option value="KG">KG</option>
-                                                <option value="LT">LT</option>
-                                                <option value="M">M</option>
-                                                <option value="CAJA">CAJA</option>
-                                                <option value="PAQ">PAQ</option>
-                                            </select>
-                                            <label for="newUnidad">Unidad base</label>
-                                        </div>
+                                        <label for="newUnidad" class="form-label small text-muted mb-1">Unidad base <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="newUnidad" name="unidad_base" required>
+                                            <option value="UND" selected>UND</option>
+                                            <option value="KG">KG</option>
+                                            <option value="LT">LT</option>
+                                            <option value="M">M</option>
+                                            <option value="CAJA">CAJA</option>
+                                            <option value="PAQ">PAQ</option>
+                                        </select>
                                     </div>
 
                                     <div class="col-md-6" id="newSaborContainer">
@@ -430,20 +407,15 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-8">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="editTipo" name="tipo_item" required>
-                                                <option value="producto_terminado">Producto terminado</option>
-                                                <option value="materia_prima">Materia prima</option>
-                                                <option value="insumo">Insumo</option>
-                                                <option value="semielaborado">Semielaborado</option>
-                                                <option value="material_empaque">Material de empaque</option>
-                                                <option value="servicio">Servicio</option>
-                                            </select>
-                                            <label for="editTipo">Tipo de ítem <span class="text-danger">*</span></label>
-                                        </div>
-                                        <div class="form-text">
-                                            Producto terminado y semielaborado requieren marca, sabor y presentación.
-                                        </div>
+                                        <label for="editTipo" class="form-label small text-muted mb-1">Tipo de ítem <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="editTipo" name="tipo_item" required>
+                                            <option value="producto_terminado">Producto terminado</option>
+                                            <option value="materia_prima">Materia prima</option>
+                                            <option value="insumo">Insumo</option>
+                                            <option value="semielaborado">Semielaborado</option>
+                                            <option value="material_empaque">Material de empaque</option>
+                                            <option value="servicio">Servicio</option>
+                                        </select>
                                     </div>
                                     <div class="col-md-4" id="editAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
@@ -451,46 +423,27 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <input class="form-check-input" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="1" checked>
                                             <label class="form-check-label small" for="editAutoIdentidad">Generar nombre y SKU automáticamente</label>
                                         </div>
-                                        <div class="form-text" id="editAutoIdentidadHelp">Disponible para producto terminado o semielaborado.</div>
-                                    </div>
-
-                                    <div class="col-12 d-none" id="editAutoIdentityHint">
-                                        <div class="item-autoidentity-hint">
-                                            <i class="bi bi-magic me-2"></i>
-                                            Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
-                                        </div>
                                     </div>
 
                                     <div class="col-md-9">
-                                        <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
-                                            <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
-                                        </div>
-                                        <div class="form-text mt-2 d-flex align-items-center gap-2">
-                                            <span class="badge text-bg-primary-subtle text-primary-emphasis border" id="editNombreAutoBadge">Autogenerado</span>
-                                            Se genera automáticamente en ítems detallados.
-                                        </div>
+                                        <label for="editNombre" class="form-label small text-muted mb-1">Nombre del producto <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
                                     </div>
                                     <div class="col-md-3">
-                                        <div class="form-floating">
-                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly>
-                                            <label for="editSku">SKU</label>
-                                        </div>
-                                        <div class="form-text mt-2"><span class="badge text-bg-primary-subtle text-primary-emphasis border" id="editSkuAutoBadge">Autogenerado</span></div>
+                                        <label for="editSku" class="form-label small text-muted mb-1">SKU</label>
+                                        <input type="text" class="form-control sku-lockable" id="editSku" name="sku" readonly>
                                     </div>
 
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            <select class="form-select" id="editUnidad" name="unidad_base">
-                                                <option value="UND">UND</option>
-                                                <option value="KG">KG</option>
-                                                <option value="LT">LT</option>
-                                                <option value="M">M</option>
-                                                <option value="CAJA">CAJA</option>
-                                                <option value="PAQ">PAQ</option>
-                                            </select>
-                                            <label for="editUnidad">Unidad base</label>
-                                        </div>
+                                        <label for="editUnidad" class="form-label small text-muted mb-1">Unidad base <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="editUnidad" name="unidad_base" required>
+                                            <option value="UND">UND</option>
+                                            <option value="KG">KG</option>
+                                            <option value="LT">LT</option>
+                                            <option value="M">M</option>
+                                            <option value="CAJA">CAJA</option>
+                                            <option value="PAQ">PAQ</option>
+                                        </select>
                                     </div>
 
                                     <div class="col-md-6" id="editSaborContainer">

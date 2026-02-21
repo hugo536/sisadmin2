@@ -197,6 +197,12 @@
 
     function obtenerTextoSeleccionado(select) {
         if (!select || !select.selectedOptions || !select.selectedOptions[0]) return '';
+        
+        // --- LA SOLUCIÓN ESTÁ AQUÍ ---
+        // Si el valor del select está vacío (es decir, es la opción por defecto), 
+        // devolvemos un texto vacío para que no ensucie el Nombre ni el SKU.
+        if (select.value === '') return ''; 
+
         return (select.selectedOptions[0].textContent || '').trim();
     }
 
@@ -232,20 +238,23 @@
 
 
 
+    // Busca esta función y quita el "normalizarTextoSku"
     function generarNombreProducto({ marca, sabor, presentacion }) {
-        const partes = [normalizarTextoSku(marca)];
+        // Usamos el texto tal cual viene, solo quitando espacios extras con .trim()
+        const partes = [marca.trim()]; 
 
         if (!saborDebeOmitirse(sabor)) {
-            partes.push(normalizarTextoSku(sabor));
+            partes.push(sabor.trim());
         }
 
-        const presentacionLimpia = normalizarTextoSku(presentacion);
-        if (presentacionLimpia) {
-            partes.push(presentacionLimpia);
+        const presLimpia = presentacion.trim();
+        if (presLimpia) {
+            partes.push(presLimpia);
         }
 
-        return partes.filter((parte) => parte !== '').join(' - ');
+        return partes.filter((p) => p !== '').join(' - ');
     }
+
     function bindSkuAuto(config) {
         const tipo = document.getElementById(config.tipoId);
         const sku = document.getElementById(config.skuId);
@@ -260,6 +269,7 @@
         const autoGenerate = config.autoGenerate !== false;
         let previousIsItemDetallado = null;
         let previousAutoActivo = null;
+        
         if (!tipo || !sku) return;
 
         const updateBadges = (visible) => {
@@ -324,6 +334,7 @@
             const marcaTexto = obtenerTextoSeleccionado(marca);
             const saborTexto = obtenerTextoSeleccionado(sabor);
             const presentacionTexto = obtenerTextoSeleccionado(presentacion);
+            
             const nombreGenerado = generarNombreProducto({
                 marca: marcaTexto,
                 sabor: saborTexto,
@@ -332,13 +343,15 @@
 
             if (config.detectManualOnInit && autoIdentidad && !autoIdentidad.dataset.manualDetected) {
                 const nombreActual = (nombre?.value || '').trim();
+                // Verificamos si el nombre actual es diferente al generado para detectar modo manual inicial
                 if (nombreActual !== '' && nombreGenerado !== '' && nombreActual !== nombreGenerado) {
                     autoIdentidad.checked = false;
                 }
                 autoIdentidad.dataset.manualDetected = '1';
             }
 
-            sku.readOnly = true;
+            // --- CAMBIO 1: El SKU y el Nombre comparten la misma regla de solo lectura ---
+            sku.readOnly = !modoManual;
             if (nombre) {
                 nombre.readOnly = !modoManual;
             }
@@ -357,10 +370,12 @@
                 presentacion: presentacionTexto
             });
 
-            sku.value = generado;
-
-            if (nombre && autoActivo) {
-                nombre.value = nombreGenerado;
+            // --- CAMBIO 2: Solo sobreescribimos los valores si el modo automático está ACTIVO ---
+            if (autoActivo) {
+                sku.value = generado;
+                if (nombre) {
+                    nombre.value = nombreGenerado;
+                }
             }
 
             previousIsItemDetallado = isItemDetallado;
@@ -374,11 +389,20 @@
             tipo.dataset.skuAutoBound = '1';
         }
 
+        // --- CAMBIO 3: Al apagar el switch, limpiamos y enfocamos correctamente ---
         if (autoIdentidad && !autoIdentidad.dataset.autoToggleBound) {
             autoIdentidad.addEventListener('change', () => {
-                if (!autoIdentidad.checked && nombre) {
-                    nombre.value = '';
-                    nombre.focus();
+                if (!autoIdentidad.checked) {
+                    // Limpiamos ambos
+                    if (nombre) nombre.value = '';
+                    if (sku) sku.value = '';
+                    
+                    // Enfocamos el primero disponible
+                    if (nombre) {
+                        nombre.focus();
+                    } else if (sku) {
+                        sku.focus();
+                    }
                 }
                 apply();
             });
@@ -477,12 +501,6 @@
             if (autoIdentidadInput) {
                 autoIdentidadInput.disabled = !isItemDetallado;
             }
-            if (autoIdentidadHelp) {
-                autoIdentidadHelp.textContent = isItemDetallado
-                    ? 'Activa o desactiva la generación automática de nombre y SKU.'
-                    : 'Se activa automáticamente al seleccionar producto terminado o semielaborado.';
-            }
-
             if (saborSelect) {
                 saborSelect.required = isItemDetallado;
                 if (!isItemDetallado) saborSelect.value = '';
@@ -1182,49 +1200,15 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Inicializamos los modales y sus reglas (aquí ya van las configuraciones completas)
         initCreateModal();
         initEditModal();
+        
+        // Inicializamos el resto de los componentes
         initTableManager();
         initCategoriasModal();
         initGestionItemsModal();
         initEstadoSwitches();
-        applyTipoItemRules({
-            tipoId: 'newTipo',
-            marcaContainerId: 'newMarcaContainer',
-            saborContainerId: 'newSaborContainer',
-            presentacionContainerId: 'newPresentacionContainer',
-            saborId: 'newSabor',
-            presentacionId: 'newPresentacion',
-            controlaStockId: 'newControlaStock',
-            stockContainerId: 'newStockMinContainer',
-            stockInputId: 'newStockMin',
-            permiteDecimalesContainerId: 'newPermiteDecimalesContainer',
-            requiereLoteContainerId: 'newRequiereLoteContainer',
-            requiereVencimientoContainerId: 'newRequiereVencimientoContainer',
-            permiteDecimalesId: 'newPermiteDecimales',
-            requiereLoteId: 'newRequiereLote',
-            requiereVencimientoId: 'newRequiereVencimiento',
-            diasAlertaContainerId: 'newDiasAlertaContainer',
-            diasAlertaId: 'newDiasAlerta'
-        });
-        applyTipoItemRules({
-            tipoId: 'editTipo',
-            marcaContainerId: 'editMarcaContainer',
-            saborContainerId: 'editSaborContainer',
-            presentacionContainerId: 'editPresentacionContainer',
-            saborId: 'editSabor',
-            presentacionId: 'editPresentacion',
-            controlaStockId: 'editControlaStock',
-            stockContainerId: 'editStockMinimoContainer',
-            stockInputId: 'editStockMinimo',
-            permiteDecimalesContainerId: 'editPermiteDecimalesContainer',
-            requiereLoteContainerId: 'editRequiereLoteContainer',
-            requiereVencimientoContainerId: 'editRequiereVencimientoContainer',
-            permiteDecimalesId: 'editPermiteDecimales',
-            requiereLoteId: 'editRequiereLote',
-            requiereVencimientoId: 'editRequiereVencimiento',
-            diasAlertaContainerId: 'editDiasAlertaContainer',
-            diasAlertaId: 'editDiasAlerta'
-        });
+
     });
 })();
