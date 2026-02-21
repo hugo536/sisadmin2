@@ -341,11 +341,17 @@
                 presentacion: presentacionTexto
             });
 
+            // Dentro de bindSkuAuto, busca el bloque de detectManualOnInit y cámbialo por este:
             if (config.detectManualOnInit && autoIdentidad && !autoIdentidad.dataset.manualDetected) {
                 const nombreActual = (nombre?.value || '').trim();
-                // Verificamos si el nombre actual es diferente al generado para detectar modo manual inicial
-                if (nombreActual !== '' && nombreGenerado !== '' && nombreActual !== nombreGenerado) {
-                    autoIdentidad.checked = false;
+                const skuActual = (sku?.value || '').trim();
+
+                // Comparamos sin importar mayúsculas/minúsculas para mayor precisión
+                const esNombreDiferente = nombreGenerado !== '' && nombreActual.toLowerCase() !== nombreGenerado.toLowerCase();
+                const esSkuDiferente = generado !== '' && skuActual.toLowerCase() !== generado.toLowerCase();
+
+                if (nombreActual !== '' && (esNombreDiferente || esSkuDiferente)) {
+                    autoIdentidad.checked = false; // Se apaga si detecta cambios manuales
                 }
                 autoIdentidad.dataset.manualDetected = '1';
             }
@@ -765,7 +771,6 @@
             form?.reset();
             const autoIdentidad = document.getElementById('editAutoIdentidad');
             if (autoIdentidad) {
-                autoIdentidad.checked = true;
                 delete autoIdentidad.dataset.manualDetected;
             }
 
