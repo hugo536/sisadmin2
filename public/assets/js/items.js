@@ -260,6 +260,7 @@
         const sku = document.getElementById(config.skuId);
         const nombre = document.getElementById(config.nombreId);
         const autoIdentidad = document.getElementById(config.autoIdentidadId);
+        const manualOverride = document.getElementById(config.manualOverrideId);
         const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
@@ -300,6 +301,9 @@
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
                 }
+                if (manualOverride) {
+                    manualOverride.value = '0';
+                }
                 previousIsItemDetallado = isItemDetallado;
                 previousAutoActivo = autoActivo;
                 return;
@@ -320,6 +324,9 @@
                 if (autoIdentidad) {
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
+                }
+                if (manualOverride) {
+                    manualOverride.value = '0';
                 }
                 previousIsItemDetallado = isItemDetallado;
                 previousAutoActivo = autoActivo;
@@ -368,6 +375,9 @@
             sku.readOnly = !modoManual;
             if (nombre) {
                 nombre.readOnly = !modoManual;
+            }
+            if (manualOverride) {
+                manualOverride.value = modoManual ? '1' : '0';
             }
 
             if (!autoGenerate) {
@@ -680,6 +690,7 @@
             presentacionId: 'newPresentacion',
             nombreBadgeId: 'newNombreAutoBadge',
             skuBadgeId: 'newSkuAutoBadge',
+            manualOverrideId: 'newNombreManualOverride',
             autoGenerate: true
         };
 
@@ -756,6 +767,7 @@
             presentacionId: 'editPresentacion',
             nombreBadgeId: 'editNombreAutoBadge',
             skuBadgeId: 'editSkuAutoBadge',
+            manualOverrideId: 'editNombreManualOverride',
             autoGenerate: true,
             detectManualOnInit: true,
             forceDisabled: true
