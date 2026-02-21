@@ -193,6 +193,28 @@ body {
   100% { transform: scale(1); }
 }
 
+
+
+.item-identidad-card .form-control,
+.item-identidad-card .form-select {
+  font-size: 0.95rem;
+}
+
+.item-identidad-card .form-label,
+.item-identidad-card .form-floating > label {
+  font-size: 0.82rem;
+}
+
+.item-autoidentity-hint {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.2rem;
+}
+
 /* =======================
    BADGES
    ======================= */

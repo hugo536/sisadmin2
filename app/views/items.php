@@ -211,7 +211,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
-                            <div class="card-body">
+                            <div class="card-body item-identidad-card">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="form-floating">
@@ -230,22 +230,30 @@ $tipoItemLabel = static function (string $tipo): string {
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
                                     </div>
-                                    <div class="col-md-4 d-none" id="newNombreManualWrap">
-                                        <label class="form-label fw-semibold mb-1">Nombre manual</label>
+                                    <div class="col-md-4" id="newAutoIdentidadWrap">
+                                        <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
-                                            <input class="form-check-input" type="checkbox" id="newNombreManual" name="nombre_manual_override" value="1">
-                                            <label class="form-check-label small" for="newNombreManual">Editar manual</label>
+                                            <input class="form-check-input" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked>
+                                            <label class="form-check-label small" for="newAutoIdentidad">Generar nombre y SKU automáticamente</label>
                                         </div>
                                         <div class="form-text">Visible solo para producto terminado o semielaborado.</div>
                                     </div>
 
+                                    <div class="col-12" id="newAutoIdentityHint" style="display:none;">
+                                        <div class="item-autoidentity-hint">
+                                            <i class="bi bi-magic me-2"></i>
+                                            Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
+                                        </div>
+                                    </div>
+
                                     <div class="col-md-9">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
+                                            <input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required>
                                             <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
-                                        <div class="form-text mt-2">
-                                            En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                        <div class="form-text mt-2 d-flex align-items-center gap-2">
+                                            <span class="badge text-bg-primary-subtle text-primary-emphasis border" id="newNombreAutoBadge">Autogenerado</span>
+                                            Se genera automáticamente en ítems detallados.
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -253,6 +261,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly>
                                             <label for="newSku">SKU</label>
                                         </div>
+                                        <div class="form-text mt-2"><span class="badge text-bg-primary-subtle text-primary-emphasis border" id="newSkuAutoBadge">Autogenerado</span></div>
                                     </div>
 
                                     <div class="col-md-6">
@@ -418,7 +427,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
-                            <div class="card-body">
+                            <div class="card-body item-identidad-card">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="form-floating">
@@ -436,22 +445,30 @@ $tipoItemLabel = static function (string $tipo): string {
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
                                     </div>
-                                    <div class="col-md-4 d-none" id="editNombreManualWrap">
-                                        <label class="form-label fw-semibold mb-1">Nombre manual</label>
+                                    <div class="col-md-4" id="editAutoIdentidadWrap">
+                                        <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
-                                            <input class="form-check-input" type="checkbox" id="editNombreManual" name="nombre_manual_override" value="1">
-                                            <label class="form-check-label small" for="editNombreManual">Editar manual</label>
+                                            <input class="form-check-input" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="1" checked>
+                                            <label class="form-check-label small" for="editAutoIdentidad">Generar nombre y SKU automáticamente</label>
                                         </div>
                                         <div class="form-text">Visible solo para producto terminado o semielaborado.</div>
                                     </div>
 
+                                    <div class="col-12" id="editAutoIdentityHint" style="display:none;">
+                                        <div class="item-autoidentity-hint">
+                                            <i class="bi bi-magic me-2"></i>
+                                            Se construye con <strong>Marca - Sabor - Presentación</strong>. Puedes desactivar el switch para edición manual.
+                                        </div>
+                                    </div>
+
                                     <div class="col-md-9">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
+                                            <input type="text" class="form-control" id="editNombre" name="nombre" required>
                                             <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
-                                        <div class="form-text mt-2">
-                                            En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                        <div class="form-text mt-2 d-flex align-items-center gap-2">
+                                            <span class="badge text-bg-primary-subtle text-primary-emphasis border" id="editNombreAutoBadge">Autogenerado</span>
+                                            Se genera automáticamente en ítems detallados.
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -459,6 +476,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly>
                                             <label for="editSku">SKU</label>
                                         </div>
+                                        <div class="form-text mt-2"><span class="badge text-bg-primary-subtle text-primary-emphasis border" id="editSkuAutoBadge">Autogenerado</span></div>
                                     </div>
 
                                     <div class="col-md-6">

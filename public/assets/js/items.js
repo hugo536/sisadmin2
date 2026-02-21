@@ -250,19 +250,29 @@
         const tipo = document.getElementById(config.tipoId);
         const sku = document.getElementById(config.skuId);
         const nombre = document.getElementById(config.nombreId);
-        const nombreManual = document.getElementById(config.nombreManualId);
+        const autoIdentidad = document.getElementById(config.autoIdentidadId);
         const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
+        const nombreBadge = document.getElementById(config.nombreBadgeId);
+        const skuBadge = document.getElementById(config.skuBadgeId);
         const autoGenerate = config.autoGenerate !== false;
         if (!tipo || !sku) return;
+
+        const updateBadges = (visible) => {
+            [nombreBadge, skuBadge].forEach((badge) => {
+                if (!badge) return;
+                badge.classList.toggle('d-none', !visible);
+            });
+        };
 
         const apply = () => {
             const value = tipo.value;
             const hasTipo = value.trim() !== '';
             const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
-            const modoManual = !!(nombreManual && nombreManual.checked && isItemDetallado);
+            const autoActivo = !!(autoIdentidad && autoIdentidad.checked && isItemDetallado);
+            const modoManual = isItemDetallado && !autoActivo;
 
             if (!hasTipo) {
                 sku.readOnly = true;
@@ -271,9 +281,10 @@
                     nombre.readOnly = false;
                     nombre.value = '';
                 }
-                if (nombreManual) {
-                    nombreManual.checked = false;
-                    nombreManual.disabled = true;
+                updateBadges(false);
+                if (autoIdentidad) {
+                    autoIdentidad.checked = true;
+                    autoIdentidad.disabled = true;
                 }
                 return;
             }
@@ -283,16 +294,18 @@
                 if (nombre) {
                     nombre.readOnly = false;
                 }
-                if (nombreManual) {
-                    nombreManual.checked = false;
-                    nombreManual.disabled = true;
+                updateBadges(false);
+                if (autoIdentidad) {
+                    autoIdentidad.checked = true;
+                    autoIdentidad.disabled = true;
                 }
                 return;
             }
 
-            if (nombreManual) {
-                nombreManual.disabled = false;
+            if (autoIdentidad) {
+                autoIdentidad.disabled = false;
             }
+            updateBadges(autoActivo);
 
             const marcaTexto = obtenerTextoSeleccionado(marca);
             const saborTexto = obtenerTextoSeleccionado(sabor);
@@ -303,12 +316,12 @@
                 presentacion: presentacionTexto
             });
 
-            if (config.detectManualOnInit && nombreManual && !nombreManual.dataset.manualDetected) {
+            if (config.detectManualOnInit && autoIdentidad && !autoIdentidad.dataset.manualDetected) {
                 const nombreActual = (nombre?.value || '').trim();
                 if (nombreActual !== '' && nombreGenerado !== '' && nombreActual !== nombreGenerado) {
-                    nombreManual.checked = true;
+                    autoIdentidad.checked = false;
                 }
-                nombreManual.dataset.manualDetected = '1';
+                autoIdentidad.dataset.manualDetected = '1';
             }
 
             sku.readOnly = true;
@@ -330,7 +343,7 @@
 
             sku.value = generado;
 
-            if (nombre && !modoManual) {
+            if (nombre && autoActivo) {
                 nombre.value = nombreGenerado;
             }
         };
@@ -342,15 +355,15 @@
             tipo.dataset.skuAutoBound = '1';
         }
 
-        if (nombreManual && !nombreManual.dataset.manualToggleBound) {
-            nombreManual.addEventListener('change', () => {
-                if (nombreManual.checked && nombre) {
+        if (autoIdentidad && !autoIdentidad.dataset.autoToggleBound) {
+            autoIdentidad.addEventListener('change', () => {
+                if (!autoIdentidad.checked && nombre) {
                     nombre.value = '';
                     nombre.focus();
                 }
                 apply();
             });
-            nombreManual.dataset.manualToggleBound = '1';
+            autoIdentidad.dataset.autoToggleBound = '1';
         }
 
         apply();
@@ -421,8 +434,9 @@
         const permiteDecimales = document.getElementById(config.permiteDecimalesId);
         const requiereLote = document.getElementById(config.requiereLoteId);
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
-        const nombreManualWrap = document.getElementById(config.nombreManualWrapId);
-        const nombreManualInput = document.getElementById(config.nombreManualId);
+        const autoIdentidadWrap = document.getElementById(config.autoIdentidadWrapId);
+        const autoIdentidadInput = document.getElementById(config.autoIdentidadId);
+        const autoIdentityHint = document.getElementById(config.autoIdentityHintId);
 
         const apply = () => {
             const value = tipo.value;
@@ -434,10 +448,15 @@
             marcaContainer?.classList.toggle('d-none', isServicio);
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
-            nombreManualWrap?.classList.toggle('d-none', !isItemDetallado);
+            if (autoIdentidadWrap) {
+                autoIdentidadWrap.style.display = isItemDetallado ? '' : 'none';
+            }
+            if (autoIdentityHint) {
+                autoIdentityHint.style.display = isItemDetallado ? '' : 'none';
+            }
 
-            if (!isItemDetallado && nombreManualInput) {
-                nombreManualInput.checked = false;
+            if (!isItemDetallado && autoIdentidadInput) {
+                autoIdentidadInput.checked = true;
             }
 
             if (saborSelect) {
@@ -581,10 +600,10 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
-            const nombreManual = document.getElementById('newNombreManual');
-            if (nombreManual) {
-                nombreManual.checked = false;
-                delete nombreManual.dataset.manualDetected;
+            const autoIdentidad = document.getElementById('newAutoIdentidad');
+            if (autoIdentidad) {
+                autoIdentidad.checked = true;
+                delete autoIdentidad.dataset.manualDetected;
             }
 
             applyTipoItemRules({
@@ -605,19 +624,22 @@
                 requiereVencimientoId: 'newRequiereVencimiento',
                 diasAlertaContainerId: 'newDiasAlertaContainer',
                 diasAlertaId: 'newDiasAlerta',
-                nombreManualWrapId: 'newNombreManualWrap',
-                nombreManualId: 'newNombreManual'
+                autoIdentidadWrapId: 'newAutoIdentidadWrap',
+                autoIdentidadId: 'newAutoIdentidad',
+                autoIdentityHintId: 'newAutoIdentityHint'
             });
 
             bindSkuAuto({
                 tipoId: 'newTipo',
                 skuId: 'newSku',
                 nombreId: 'newNombre',
-                nombreManualId: 'newNombreManual',
+                autoIdentidadId: 'newAutoIdentidad',
                 categoriaId: 'newCategoria',
                 marcaId: 'newMarca',
                 saborId: 'newSabor',
                 presentacionId: 'newPresentacion',
+                nombreBadgeId: 'newNombreAutoBadge',
+                skuBadgeId: 'newSkuAutoBadge',
                 autoGenerate: true
             });
 
@@ -649,10 +671,10 @@
             if (!btn) return;
             const form = document.getElementById('formEditarItem');
             form?.reset();
-            const nombreManual = document.getElementById('editNombreManual');
-            if (nombreManual) {
-                nombreManual.checked = false;
-                delete nombreManual.dataset.manualDetected;
+            const autoIdentidad = document.getElementById('editAutoIdentidad');
+            if (autoIdentidad) {
+                autoIdentidad.checked = true;
+                delete autoIdentidad.dataset.manualDetected;
             }
 
             ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento'].forEach((id) => {
@@ -715,19 +737,22 @@
                 requiereVencimientoId: 'editRequiereVencimiento',
                 diasAlertaContainerId: 'editDiasAlertaContainer',
                 diasAlertaId: 'editDiasAlerta',
-                nombreManualWrapId: 'editNombreManualWrap',
-                nombreManualId: 'editNombreManual'
+                autoIdentidadWrapId: 'editAutoIdentidadWrap',
+                autoIdentidadId: 'editAutoIdentidad',
+                autoIdentityHintId: 'editAutoIdentityHint'
             });
 
             bindSkuAuto({
                 tipoId: 'editTipo',
                 skuId: 'editSku',
                 nombreId: 'editNombre',
-                nombreManualId: 'editNombreManual',
+                autoIdentidadId: 'editAutoIdentidad',
                 categoriaId: 'editCategoria',
                 marcaId: 'editMarca',
                 saborId: 'editSabor',
                 presentacionId: 'editPresentacion',
+                nombreBadgeId: 'editNombreAutoBadge',
+                skuBadgeId: 'editSkuAutoBadge',
                 autoGenerate: true,
                 detectManualOnInit: true,
                 forceDisabled: true
