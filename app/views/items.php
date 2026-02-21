@@ -147,7 +147,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-nombre="<?php echo e($item['nombre']); ?>"
                                             data-descripcion="<?php echo e($item['descripcion'] ?? ''); ?>"
                                             data-tipo="<?php echo e($tipoItemUi); ?>"
-                                            data-marca="<?php echo e($item['marca'] ?? ''); ?>"
+                                            data-marca="<?php echo e((string) ($item['id_marca'] ?? '')); ?>"
                                             data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
                                             data-moneda="<?php echo e($item['moneda'] ?? ''); ?>"
                                             data-impuesto="<?php echo e((string) ($item['impuesto'] ?? '18.00')); ?>"
@@ -228,7 +228,7 @@ $tipoItemLabel = static function (string $tipo): string {
 
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <select class="form-select select-placeholder" id="newTipo" name="tipo_item" required>
+                                            <select class="form-select" id="newTipo" name="tipo_item" required>
                                                 <option value="" selected>Seleccionar tipo</option>
                                                 <option value="producto_terminado">Producto terminado</option>
                                                 <option value="materia_prima">Materia Prima</option>
@@ -292,7 +292,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <select class="form-select" id="newMarca" name="id_marca">
                                             <option value="" selected>Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
-                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                                <option value="<?php echo (int) ($marca['id'] ?? 0); ?>"><?php echo e((string) $marca['nombre']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -484,7 +484,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <select class="form-select" id="editMarca" name="id_marca">
                                             <option value="">Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
-                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                                <option value="<?php echo (int) ($marca['id'] ?? 0); ?>"><?php echo e((string) $marca['nombre']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
