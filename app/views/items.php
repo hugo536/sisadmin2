@@ -214,6 +214,29 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-8">
+                                    <div class="col-md-9">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
+                                            <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                            <div class="form-text mb-0">
+                                                En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                            </div>
+                                            <div class="form-check form-switch ms-3">
+                                                <input class="form-check-input" type="checkbox" id="newNombreManual" name="nombre_manual_override" value="1">
+                                                <label class="form-check-label small" for="newNombreManual">Editar manual</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly>
+                                            <label for="newSku">SKU</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
                                         <div class="form-floating">
                                             <select class="form-select" id="newTipo" name="tipo_item" required>
                                                 <option value="" selected>Seleccionar tipo</option>
@@ -421,6 +444,29 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-8">
+                                    <div class="col-md-9">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
+                                            <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                            <div class="form-text mb-0">
+                                                En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                            </div>
+                                            <div class="form-check form-switch ms-3">
+                                                <input class="form-check-input" type="checkbox" id="editNombreManual" name="nombre_manual_override" value="1">
+                                                <label class="form-check-label small" for="editNombreManual">Editar manual</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly>
+                                            <label for="editSku">SKU</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
                                         <div class="form-floating">
                                             <select class="form-select" id="editTipo" name="tipo_item" required>
                                                 <option value="producto_terminado">Producto terminado</option>
