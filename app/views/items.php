@@ -221,7 +221,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly disabled>
+                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly>
                                             <label for="newSku">SKU</label>
                                         </div>
                                     </div>
@@ -416,7 +416,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly disabled>
+                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly>
                                             <label for="editSku">SKU</label>
                                         </div>
                                     </div>

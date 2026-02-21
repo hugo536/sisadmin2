@@ -228,7 +228,6 @@
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
         const autoGenerate = config.autoGenerate !== false;
-        const forceDisabled = config.forceDisabled === true;
         if (!tipo || !sku) return;
 
         const apply = () => {
@@ -236,19 +235,18 @@
             const hasTipo = value.trim() !== '';
             const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
 
-            // El SKU se muestra siempre bloqueado para evitar edición manual.
-            sku.readOnly = true;
-            sku.disabled = true;
-
             if (!hasTipo) {
+                sku.readOnly = true;
                 sku.value = '';
                 return;
             }
 
             if (!isItemDetallado) {
-                sku.value = '';
+                sku.readOnly = false;
                 return;
             }
+
+            sku.readOnly = true;
 
             if (!autoGenerate) {
                 return;
@@ -451,9 +449,12 @@
         let allowDismiss = false;
 
         modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((btn) => {
-            btn.addEventListener('click', () => {
+            const allowAndClose = () => {
                 allowDismiss = true;
-            });
+            };
+
+            btn.addEventListener('pointerdown', allowAndClose, true);
+            btn.addEventListener('click', allowAndClose, true);
         });
 
         modalEl.addEventListener('shown.bs.modal', () => {
