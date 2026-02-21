@@ -341,6 +341,14 @@
                 presentacion: presentacionTexto
             });
 
+            const generado = generarSkuProducto({
+                tipo: value,
+                categoria: obtenerTextoSeleccionado(categoria),
+                marca: marcaTexto,
+                sabor: saborTexto,
+                presentacion: presentacionTexto
+            });
+
             // Dentro de bindSkuAuto, busca el bloque de detectManualOnInit y cámbialo por este:
             if (config.detectManualOnInit && autoIdentidad && !autoIdentidad.dataset.manualDetected) {
                 const nombreActual = (nombre?.value || '').trim();
@@ -367,14 +375,6 @@
                 previousAutoActivo = autoActivo;
                 return;
             }
-
-            const generado = generarSkuProducto({
-                tipo: value,
-                categoria: obtenerTextoSeleccionado(categoria),
-                marca: marcaTexto,
-                sabor: saborTexto,
-                presentacion: presentacionTexto
-            });
 
             // --- CAMBIO 2: Solo sobreescribimos los valores si el modo automático está ACTIVO ---
             if (autoActivo) {
