@@ -421,6 +421,8 @@
         const permiteDecimales = document.getElementById(config.permiteDecimalesId);
         const requiereLote = document.getElementById(config.requiereLoteId);
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
+        const nombreManualWrap = document.getElementById(config.nombreManualWrapId);
+        const nombreManualInput = document.getElementById(config.nombreManualId);
 
         const apply = () => {
             const value = tipo.value;
@@ -432,6 +434,11 @@
             marcaContainer?.classList.toggle('d-none', isServicio);
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
+            nombreManualWrap?.classList.toggle('d-none', !isItemDetallado);
+
+            if (!isItemDetallado && nombreManualInput) {
+                nombreManualInput.checked = false;
+            }
 
             if (saborSelect) {
                 saborSelect.required = isItemDetallado;
@@ -597,7 +604,9 @@
                 requiereLoteId: 'newRequiereLote',
                 requiereVencimientoId: 'newRequiereVencimiento',
                 diasAlertaContainerId: 'newDiasAlertaContainer',
-                diasAlertaId: 'newDiasAlerta'
+                diasAlertaId: 'newDiasAlerta',
+                nombreManualWrapId: 'newNombreManualWrap',
+                nombreManualId: 'newNombreManual'
             });
 
             bindSkuAuto({
@@ -705,7 +714,9 @@
                 requiereLoteId: 'editRequiereLote',
                 requiereVencimientoId: 'editRequiereVencimiento',
                 diasAlertaContainerId: 'editDiasAlertaContainer',
-                diasAlertaId: 'editDiasAlerta'
+                diasAlertaId: 'editDiasAlerta',
+                nombreManualWrapId: 'editNombreManualWrap',
+                nombreManualId: 'editNombreManual'
             });
 
             bindSkuAuto({
