@@ -260,6 +260,7 @@
         const sku = document.getElementById(config.skuId);
         const nombre = document.getElementById(config.nombreId);
         const autoIdentidad = document.getElementById(config.autoIdentidadId);
+        const manualOverride = document.getElementById(config.manualOverrideId);
         const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
@@ -300,6 +301,9 @@
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
                 }
+                if (manualOverride) {
+                    manualOverride.value = '0';
+                }
                 previousIsItemDetallado = isItemDetallado;
                 previousAutoActivo = autoActivo;
                 return;
@@ -321,6 +325,9 @@
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
                 }
+                if (manualOverride) {
+                    manualOverride.value = '0';
+                }
                 previousIsItemDetallado = isItemDetallado;
                 previousAutoActivo = autoActivo;
                 return;
@@ -336,6 +343,14 @@
             const presentacionTexto = obtenerTextoSeleccionado(presentacion);
             
             const nombreGenerado = generarNombreProducto({
+                marca: marcaTexto,
+                sabor: saborTexto,
+                presentacion: presentacionTexto
+            });
+
+            const generado = generarSkuProducto({
+                tipo: value,
+                categoria: obtenerTextoSeleccionado(categoria),
                 marca: marcaTexto,
                 sabor: saborTexto,
                 presentacion: presentacionTexto
@@ -361,20 +376,15 @@
             if (nombre) {
                 nombre.readOnly = !modoManual;
             }
+            if (manualOverride) {
+                manualOverride.value = modoManual ? '1' : '0';
+            }
 
             if (!autoGenerate) {
                 previousIsItemDetallado = isItemDetallado;
                 previousAutoActivo = autoActivo;
                 return;
             }
-
-            const generado = generarSkuProducto({
-                tipo: value,
-                categoria: obtenerTextoSeleccionado(categoria),
-                marca: marcaTexto,
-                sabor: saborTexto,
-                presentacion: presentacionTexto
-            });
 
             // --- CAMBIO 2: Solo sobreescribimos los valores si el modo automático está ACTIVO ---
             if (autoActivo) {
@@ -680,6 +690,7 @@
             presentacionId: 'newPresentacion',
             nombreBadgeId: 'newNombreAutoBadge',
             skuBadgeId: 'newSkuAutoBadge',
+            manualOverrideId: 'newNombreManualOverride',
             autoGenerate: true
         };
 
@@ -756,6 +767,7 @@
             presentacionId: 'editPresentacion',
             nombreBadgeId: 'editNombreAutoBadge',
             skuBadgeId: 'editSkuAutoBadge',
+            manualOverrideId: 'editNombreManualOverride',
             autoGenerate: true,
             detectManualOnInit: true,
             forceDisabled: true

@@ -207,6 +207,7 @@ $tipoItemLabel = static function (string $tipo): string {
             <div class="modal-body bg-light">
                 <form method="post" class="row g-3" id="formCrearItem">
                     <input type="hidden" name="accion" value="crear">
+                    <input type="hidden" name="nombre_manual_override" id="newNombreManualOverride" value="0">
                     
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
@@ -400,6 +401,7 @@ $tipoItemLabel = static function (string $tipo): string {
                 <form method="post" class="row g-3" id="formEditarItem">
                     <input type="hidden" name="accion" value="editar">
                     <input type="hidden" name="id" id="editId">
+                    <input type="hidden" name="nombre_manual_override" id="editNombreManualOverride" value="0">
                     
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
