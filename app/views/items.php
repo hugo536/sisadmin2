@@ -216,12 +216,12 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="col-md-9">
                                         <div class="form-floating">
                                             <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
-                                            <label for="newNombre">Nombre del producto</label>
+                                            <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU">
+                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU" readonly disabled>
                                             <label for="newSku">SKU</label>
                                         </div>
                                     </div>
@@ -237,7 +237,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                                 <option value="material_empaque">Material de Empaque</option>
                                                 <option value="servicio">Servicios / Otros</option>
                                             </select>
-                                            <label for="newTipo">Tipo de ítem</label>
+                                            <label for="newTipo">Tipo de ítem <span class="text-danger">*</span></label>
                                         </div>
                                         <div class="form-text">
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
@@ -258,7 +258,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
 
                                     <div class="col-md-6" id="newSaborContainer">
-                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
+                                        <label class="form-label small text-muted mb-1">Sabor / Variante <span class="text-danger">*</span></label>
                                         <select class="form-select" id="newSabor" name="id_sabor">
                                             <option value="" selected>Seleccionar sabor...</option>
                                             <?php foreach ($sabores as $sabor): ?>
@@ -268,7 +268,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
 
                                     <div class="col-md-6" id="newPresentacionContainer">
-                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
+                                        <label class="form-label small text-muted mb-1">Presentación / Envase <span class="text-danger">*</span></label>
                                         <select class="form-select" id="newPresentacion" name="id_presentacion">
                                             <option value="" selected>Seleccionar presentación...</option>
                                             <?php foreach ($presentaciones as $presentacion): ?>
@@ -288,7 +288,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     
                                     <div class="col-md-6" id="newMarcaContainer">
-                                        <label class="form-label small text-muted mb-1">Marca</label>
+                                        <label class="form-label small text-muted mb-1">Marca <span class="text-danger">*</span></label>
                                         <select class="form-select" id="newMarca" name="id_marca">
                                             <option value="" selected>Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
@@ -411,7 +411,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="col-md-9">
                                         <div class="form-floating">
                                             <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
-                                            <label for="editNombre">Nombre del producto</label>
+                                            <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -431,7 +431,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                                 <option value="material_empaque">Material de empaque</option>
                                                 <option value="servicio">Servicio</option>
                                             </select>
-                                            <label for="editTipo">Tipo de ítem</label>
+                                            <label for="editTipo">Tipo de ítem <span class="text-danger">*</span></label>
                                         </div>
                                         <div class="form-text">
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
@@ -452,7 +452,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
 
                                     <div class="col-md-6" id="editSaborContainer">
-                                        <label class="form-label small text-muted mb-1">Sabor / Variante</label>
+                                        <label class="form-label small text-muted mb-1">Sabor / Variante <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editSabor" name="id_sabor">
                                             <option value="">Seleccionar sabor...</option>
                                             <?php foreach ($sabores as $sabor): ?>
@@ -461,7 +461,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
                                     <div class="col-md-6" id="editPresentacionContainer">
-                                        <label class="form-label small text-muted mb-1">Presentación / Envase</label>
+                                        <label class="form-label small text-muted mb-1">Presentación / Envase <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editPresentacion" name="id_presentacion">
                                             <option value="">Seleccionar presentación...</option>
                                             <?php foreach ($presentaciones as $presentacion): ?>
@@ -480,7 +480,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
                                     <div class="col-md-6" id="editMarcaContainer">
-                                        <label class="form-label small text-muted mb-1">Marca</label>
+                                        <label class="form-label small text-muted mb-1">Marca <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editMarca" name="id_marca">
                                             <option value="">Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
