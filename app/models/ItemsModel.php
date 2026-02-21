@@ -10,29 +10,12 @@ class ItemsModel extends Modelo
 
     public function listar(): array
     {
-        // CAMBIO: Quitamos los corchetes [] y el guion - para que quede limpio
-        // Ejemplo: "Cola Belén" + " Piña" + " 3.1L" = "Cola Belén Piña 3.1L"
         $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_categoria,
                        i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
                        i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
-                       i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta, 
-                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
-                       CONCAT(
-                           i.nombre,
-                           CASE 
-                               -- Si tiene sabor y no es 'Ninguno', agregamos un espacio y el sabor
-                               WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre)
-                               ELSE ''
-                           END,
-                           CASE 
-                               -- Si tiene presentación, agregamos un espacio y la presentación
-                               WHEN p.nombre IS NOT NULL THEN CONCAT(' ', p.nombre)
-                               ELSE ''
-                           END
-                       ) AS nombre_full
+                       i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
+                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado
                 FROM items i
-                LEFT JOIN item_sabores s ON i.id_sabor = s.id
-                LEFT JOIN item_presentaciones p ON i.id_presentacion = p.id
                 WHERE i.deleted_at IS NULL
                 ORDER BY i.id DESC";
 
@@ -40,7 +23,6 @@ class ItemsModel extends Modelo
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // ... el resto de tu función listar() sigue igual ...
         foreach ($rows as &$row) {
             $id = (int) ($row['id'] ?? 0);
             $bloqueo = $this->obtenerBloqueoEliminacion($id);

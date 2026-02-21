@@ -230,9 +230,27 @@
         return bloques.join('-');
     }
 
+
+
+    function generarNombreProducto({ marca, sabor, presentacion }) {
+        const partes = [normalizarTextoSku(marca)];
+
+        if (!saborDebeOmitirse(sabor)) {
+            partes.push(normalizarTextoSku(sabor));
+        }
+
+        const presentacionLimpia = normalizarTextoSku(presentacion);
+        if (presentacionLimpia) {
+            partes.push(presentacionLimpia);
+        }
+
+        return partes.filter((parte) => parte !== '').join(' - ');
+    }
     function bindSkuAuto(config) {
         const tipo = document.getElementById(config.tipoId);
         const sku = document.getElementById(config.skuId);
+        const nombre = document.getElementById(config.nombreId);
+        const nombreManual = document.getElementById(config.nombreManualId);
         const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
@@ -244,19 +262,59 @@
             const value = tipo.value;
             const hasTipo = value.trim() !== '';
             const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
+            const modoManual = !!(nombreManual && nombreManual.checked && isItemDetallado);
 
             if (!hasTipo) {
                 sku.readOnly = true;
                 sku.value = '';
+                if (nombre) {
+                    nombre.readOnly = false;
+                    nombre.value = '';
+                }
+                if (nombreManual) {
+                    nombreManual.checked = false;
+                    nombreManual.disabled = true;
+                }
                 return;
             }
 
             if (!isItemDetallado) {
                 sku.readOnly = false;
+                if (nombre) {
+                    nombre.readOnly = false;
+                }
+                if (nombreManual) {
+                    nombreManual.checked = false;
+                    nombreManual.disabled = true;
+                }
                 return;
             }
 
+            if (nombreManual) {
+                nombreManual.disabled = false;
+            }
+
+            const marcaTexto = obtenerTextoSeleccionado(marca);
+            const saborTexto = obtenerTextoSeleccionado(sabor);
+            const presentacionTexto = obtenerTextoSeleccionado(presentacion);
+            const nombreGenerado = generarNombreProducto({
+                marca: marcaTexto,
+                sabor: saborTexto,
+                presentacion: presentacionTexto
+            });
+
+            if (config.detectManualOnInit && nombreManual && !nombreManual.dataset.manualDetected) {
+                const nombreActual = (nombre?.value || '').trim();
+                if (nombreActual !== '' && nombreGenerado !== '' && nombreActual !== nombreGenerado) {
+                    nombreManual.checked = true;
+                }
+                nombreManual.dataset.manualDetected = '1';
+            }
+
             sku.readOnly = true;
+            if (nombre) {
+                nombre.readOnly = !modoManual;
+            }
 
             if (!autoGenerate) {
                 return;
@@ -265,12 +323,16 @@
             const generado = generarSkuProducto({
                 tipo: value,
                 categoria: obtenerTextoSeleccionado(categoria),
-                marca: obtenerTextoSeleccionado(marca),
-                sabor: obtenerTextoSeleccionado(sabor),
-                presentacion: obtenerTextoSeleccionado(presentacion)
+                marca: marcaTexto,
+                sabor: saborTexto,
+                presentacion: presentacionTexto
             });
 
             sku.value = generado;
+
+            if (nombre && !modoManual) {
+                nombre.value = nombreGenerado;
+            }
         };
 
         if (!tipo.dataset.skuAutoBound) {
@@ -278,6 +340,17 @@
                 el?.addEventListener('change', apply);
             });
             tipo.dataset.skuAutoBound = '1';
+        }
+
+        if (nombreManual && !nombreManual.dataset.manualToggleBound) {
+            nombreManual.addEventListener('change', () => {
+                if (nombreManual.checked && nombre) {
+                    nombre.value = '';
+                    nombre.focus();
+                }
+                apply();
+            });
+            nombreManual.dataset.manualToggleBound = '1';
         }
 
         apply();
@@ -501,6 +574,11 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
+            const nombreManual = document.getElementById('newNombreManual');
+            if (nombreManual) {
+                nombreManual.checked = false;
+                delete nombreManual.dataset.manualDetected;
+            }
 
             applyTipoItemRules({
                 tipoId: 'newTipo',
@@ -525,6 +603,8 @@
             bindSkuAuto({
                 tipoId: 'newTipo',
                 skuId: 'newSku',
+                nombreId: 'newNombre',
+                nombreManualId: 'newNombreManual',
                 categoriaId: 'newCategoria',
                 marcaId: 'newMarca',
                 saborId: 'newSabor',
@@ -560,6 +640,11 @@
             if (!btn) return;
             const form = document.getElementById('formEditarItem');
             form?.reset();
+            const nombreManual = document.getElementById('editNombreManual');
+            if (nombreManual) {
+                nombreManual.checked = false;
+                delete nombreManual.dataset.manualDetected;
+            }
 
             ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento'].forEach((id) => {
                 const input = document.getElementById(id);
@@ -626,11 +711,14 @@
             bindSkuAuto({
                 tipoId: 'editTipo',
                 skuId: 'editSku',
+                nombreId: 'editNombre',
+                nombreManualId: 'editNombreManual',
                 categoriaId: 'editCategoria',
                 marcaId: 'editMarca',
                 saborId: 'editSabor',
                 presentacionId: 'editPresentacion',
-                autoGenerate: false,
+                autoGenerate: true,
+                detectManualOnInit: true,
                 forceDisabled: true
             });
 

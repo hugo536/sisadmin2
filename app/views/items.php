@@ -111,10 +111,10 @@ $tipoItemLabel = static function (string $tipo): string {
                             <tr data-estado="<?php echo (int) $item['estado']; ?>"
                                 data-tipo="<?php echo e($tipoItemUi); ?>"
                                 data-categoria="<?php echo (int) ($item['id_categoria'] ?? 0); ?>"
-                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.($item['nombre_full'] ?? $item['nombre']).' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
+                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.($item['nombre'] ?? '').' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold text-secondary"><?php echo e($item['sku']); ?></td>
                                 <td>
-                                    <div class="fw-bold text-dark"><?php echo e($item['nombre_full'] ?? $item['nombre']); ?></div>
+                                    <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
@@ -217,6 +217,15 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <div class="form-floating">
                                             <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
                                             <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                            <div class="form-text mb-0">
+                                                En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                            </div>
+                                            <div class="form-check form-switch ms-3">
+                                                <input class="form-check-input" type="checkbox" id="newNombreManual" name="nombre_manual_override" value="1">
+                                                <label class="form-check-label small" for="newNombreManual">Editar manual</label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -412,6 +421,15 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <div class="form-floating">
                                             <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
                                             <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mt-2">
+                                            <div class="form-text mb-0">
+                                                En producto terminado y semielaborado se genera automáticamente: Marca - Sabor - Presentación.
+                                            </div>
+                                            <div class="form-check form-switch ms-3">
+                                                <input class="form-check-input" type="checkbox" id="editNombreManual" name="nombre_manual_override" value="1">
+                                                <label class="form-check-label small" for="editNombreManual">Editar manual</label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
