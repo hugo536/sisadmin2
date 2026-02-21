@@ -595,19 +595,6 @@
         return entries.join('|');
     }
 
-    function pulseModalDialog(modalEl) {
-        const dialog = modalEl?.querySelector('.modal-dialog');
-        if (!dialog) return;
-
-        dialog.classList.remove('modal-dialog-pulse');
-        void dialog.offsetWidth;
-        dialog.classList.add('modal-dialog-pulse');
-
-        window.setTimeout(() => {
-            dialog.classList.remove('modal-dialog-pulse');
-        }, 450);
-    }
-
     function bindDirtyCloseGuard(modalId, formId) {
         const modalEl = document.getElementById(modalId);
         const form = document.getElementById(formId);
@@ -628,20 +615,6 @@
         modalEl.addEventListener('shown.bs.modal', () => {
             initialState = serializeFormState(form);
             allowDismiss = false;
-        });
-
-        modalEl.addEventListener('hide.bs.modal', (event) => {
-            if (allowDismiss) {
-                allowDismiss = false;
-                return;
-            }
-
-            if (serializeFormState(form) === initialState) {
-                return;
-            }
-
-            event.preventDefault();
-            pulseModalDialog(modalEl);
         });
 
         modalEl.addEventListener('hidden.bs.modal', () => {

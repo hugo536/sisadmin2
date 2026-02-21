@@ -358,7 +358,7 @@ foreach ($permisos as $permiso) {
     </div>
 </div>
 
-<div class="modal fade" id="modalCrearRol" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCrearRol" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -386,7 +386,7 @@ foreach ($permisos as $permiso) {
     </div>
 </div>
 
-<div class="modal fade" id="modalEditarRol" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarRol" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-light border-bottom-0">

@@ -132,7 +132,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 </div>
 
-<div class="modal fade" id="modalAlmacen" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalAlmacen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content border-0 shadow-lg" method="post" action="<?php echo e(route_url('almacenes/guardar')); ?>">
             <div class="modal-header bg-primary text-white">

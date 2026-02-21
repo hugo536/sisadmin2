@@ -575,7 +575,7 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
-<div class="modal fade" id="modalGestionItems" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalGestionItems" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-secondary text-white py-2">
@@ -673,7 +673,7 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
-<div class="modal fade" id="modalGestionCategorias" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalGestionCategorias" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-secondary text-white py-2">
@@ -712,7 +712,7 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
-<div class="modal fade" id="modalEditarAtributo" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarAtributo" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-light">

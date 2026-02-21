@@ -93,7 +93,7 @@ $resumen = $resumen ?? ['activos' => 0, 'inactivos' => 0, 'default' => 0];
 </div>
 
 <?php if (tiene_permiso('config.editar')): ?>
-<div class="modal fade" id="modalImpuesto" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalImpuesto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <form method="post" action="<?php echo e(route_url('impuestos/guardar')); ?>" id="formImpuesto">

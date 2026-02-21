@@ -225,7 +225,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCrearTercero" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCrearTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
@@ -413,7 +413,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalEditarTercero" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
