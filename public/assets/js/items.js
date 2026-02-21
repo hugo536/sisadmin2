@@ -258,6 +258,8 @@
         const nombreBadge = document.getElementById(config.nombreBadgeId);
         const skuBadge = document.getElementById(config.skuBadgeId);
         const autoGenerate = config.autoGenerate !== false;
+        let previousIsItemDetallado = null;
+        let previousAutoActivo = null;
         if (!tipo || !sku) return;
 
         const updateBadges = (visible) => {
@@ -273,6 +275,8 @@
             const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
             const autoActivo = !!(autoIdentidad && autoIdentidad.checked && isItemDetallado);
             const modoManual = isItemDetallado && !autoActivo;
+            const salioDeItemDetallado = previousIsItemDetallado === true && !isItemDetallado;
+            const debeLimpiarIdentidad = salioDeItemDetallado && previousAutoActivo === true;
 
             if (!hasTipo) {
                 sku.readOnly = true;
@@ -286,6 +290,8 @@
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
                 }
+                previousIsItemDetallado = isItemDetallado;
+                previousAutoActivo = autoActivo;
                 return;
             }
 
@@ -294,11 +300,19 @@
                 if (nombre) {
                     nombre.readOnly = false;
                 }
+                if (debeLimpiarIdentidad) {
+                    sku.value = '';
+                    if (nombre) {
+                        nombre.value = '';
+                    }
+                }
                 updateBadges(false);
                 if (autoIdentidad) {
                     autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
                 }
+                previousIsItemDetallado = isItemDetallado;
+                previousAutoActivo = autoActivo;
                 return;
             }
 
@@ -330,6 +344,8 @@
             }
 
             if (!autoGenerate) {
+                previousIsItemDetallado = isItemDetallado;
+                previousAutoActivo = autoActivo;
                 return;
             }
 
@@ -346,6 +362,9 @@
             if (nombre && autoActivo) {
                 nombre.value = nombreGenerado;
             }
+
+            previousIsItemDetallado = isItemDetallado;
+            previousAutoActivo = autoActivo;
         };
 
         if (!tipo.dataset.skuAutoBound) {
@@ -449,7 +468,7 @@
             marcaContainer?.classList.toggle('d-none', isServicio);
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
-            autoIdentidadWrap?.classList.toggle('opacity-75', !isItemDetallado);
+            autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
             autoIdentityHint?.classList.toggle('d-none', !isItemDetallado);
 
             if (!isItemDetallado && autoIdentidadInput) {
