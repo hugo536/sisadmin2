@@ -236,25 +236,21 @@
             const hasTipo = value.trim() !== '';
             const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
 
-            const skuBloqueado = forceDisabled || !hasTipo || isItemDetallado;
-            sku.readOnly = skuBloqueado;
-            sku.disabled = skuBloqueado;
-
-            if (!hasTipo) {
-                sku.value = '';
-                return;
-            }
-            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
-
-            sku.readOnly = forceDisabled || !hasTipo || isItemDetallado;
-            sku.disabled = forceDisabled;
+            // El SKU se muestra siempre bloqueado para evitar edición manual.
+            sku.readOnly = true;
+            sku.disabled = true;
 
             if (!hasTipo) {
                 sku.value = '';
                 return;
             }
 
-            if (!isItemDetallado || !autoGenerate) {
+            if (!isItemDetallado) {
+                sku.value = '';
+                return;
+            }
+
+            if (!autoGenerate) {
                 return;
             }
 
