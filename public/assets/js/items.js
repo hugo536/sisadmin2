@@ -126,31 +126,14 @@
 
     async function refreshAtributosSelectores() {
         const data = await fetchOpcionesAtributos();
-        fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
-        fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
+        fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
+        fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
         fillSelect('newSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('editSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('newPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
         fillSelect('editPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
     }
 
-
-    function bindSelectPlaceholderState(selectId) {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-
-        const applyState = () => {
-            const hasValue = (select.value || '').trim() !== '';
-            select.classList.toggle('has-value', hasValue);
-        };
-
-        if (!select.dataset.placeholderBound) {
-            select.addEventListener('change', applyState);
-            select.dataset.placeholderBound = '1';
-        }
-
-        applyState();
-    }
 
     function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
         const trigger = document.getElementById(inputId);
@@ -250,10 +233,16 @@
 
         const apply = () => {
             const value = tipo.value;
+            const hasTipo = value.trim() !== '';
             const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
 
-            sku.readOnly = forceDisabled || isItemDetallado;
+            sku.readOnly = forceDisabled || !hasTipo || isItemDetallado;
             sku.disabled = forceDisabled;
+
+            if (!hasTipo) {
+                sku.value = '';
+                return;
+            }
 
             if (!isItemDetallado || !autoGenerate) {
                 return;
@@ -409,6 +398,84 @@
         apply();
     }
 
+
+    function serializeFormState(form) {
+        if (!(form instanceof HTMLFormElement)) return '';
+
+        const entries = [];
+        const fields = form.querySelectorAll('input, select, textarea');
+        fields.forEach((field) => {
+            if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            const name = field.name || field.id;
+            if (!name) return;
+
+            if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
+                entries.push(`${name}:${field.checked ? '1' : '0'}`);
+                return;
+            }
+
+            entries.push(`${name}:${field.value ?? ''}`);
+        });
+
+        return entries.join('|');
+    }
+
+    function pulseModalDialog(modalEl) {
+        const dialog = modalEl?.querySelector('.modal-dialog');
+        if (!dialog) return;
+
+        dialog.classList.remove('modal-dialog-pulse');
+        void dialog.offsetWidth;
+        dialog.classList.add('modal-dialog-pulse');
+
+        window.setTimeout(() => {
+            dialog.classList.remove('modal-dialog-pulse');
+        }, 450);
+    }
+
+    function bindDirtyCloseGuard(modalId, formId) {
+        const modalEl = document.getElementById(modalId);
+        const form = document.getElementById(formId);
+        if (!modalEl || !form || modalEl.dataset.dirtyCloseGuardBound === '1') return;
+
+        let initialState = '';
+        let allowDismiss = false;
+
+        modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                allowDismiss = true;
+            });
+        });
+
+        modalEl.addEventListener('shown.bs.modal', () => {
+            initialState = serializeFormState(form);
+            allowDismiss = false;
+        });
+
+        modalEl.addEventListener('hide.bs.modal', (event) => {
+            if (allowDismiss) {
+                allowDismiss = false;
+                return;
+            }
+
+            if (serializeFormState(form) === initialState) {
+                return;
+            }
+
+            event.preventDefault();
+            pulseModalDialog(modalEl);
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            allowDismiss = false;
+        });
+
+        modalEl.dataset.dirtyCloseGuardBound = '1';
+    }
+
     function initCreateModal() {
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
@@ -416,7 +483,6 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
-            bindSelectPlaceholderState('newTipo');
 
             applyTipoItemRules({
                 tipoId: 'newTipo',
@@ -454,6 +520,8 @@
                 costoId: 'newCosto'
             });
         });
+
+        bindDirtyCloseGuard('modalCrearItem', 'formCrearItem');
 
         document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('newTipo')?.value;
@@ -555,6 +623,8 @@
                 costoId: 'editCosto'
             });
         });
+
+        bindDirtyCloseGuard('modalEditarItem', 'formEditarItem');
 
         document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('editTipo')?.value;
