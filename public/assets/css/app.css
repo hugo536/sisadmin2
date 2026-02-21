@@ -193,6 +193,17 @@ body {
   100% { transform: scale(1); }
 }
 
+
+.item-autoidentity-hint {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.2rem;
+}
+
 /* =======================
    BADGES
    ======================= */
