@@ -436,6 +436,7 @@
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
         const autoIdentidadWrap = document.getElementById(config.autoIdentidadWrapId);
         const autoIdentidadInput = document.getElementById(config.autoIdentidadId);
+        const autoIdentidadHelp = document.getElementById(config.autoIdentidadHelpId);
         const autoIdentityHint = document.getElementById(config.autoIdentityHintId);
 
         const apply = () => {
@@ -448,11 +449,19 @@
             marcaContainer?.classList.toggle('d-none', isServicio);
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
-            autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
+            autoIdentidadWrap?.classList.toggle('opacity-75', !isItemDetallado);
             autoIdentityHint?.classList.toggle('d-none', !isItemDetallado);
 
             if (!isItemDetallado && autoIdentidadInput) {
                 autoIdentidadInput.checked = true;
+            }
+            if (autoIdentidadInput) {
+                autoIdentidadInput.disabled = !isItemDetallado;
+            }
+            if (autoIdentidadHelp) {
+                autoIdentidadHelp.textContent = isItemDetallado
+                    ? 'Activa o desactiva la generación automática de nombre y SKU.'
+                    : 'Se activa automáticamente al seleccionar producto terminado o semielaborado.';
             }
 
             if (saborSelect) {
@@ -622,6 +631,7 @@
                 diasAlertaId: 'newDiasAlerta',
                 autoIdentidadWrapId: 'newAutoIdentidadWrap',
                 autoIdentidadId: 'newAutoIdentidad',
+                autoIdentidadHelpId: 'newAutoIdentidadHelp',
                 autoIdentityHintId: 'newAutoIdentityHint'
             });
 
@@ -735,6 +745,7 @@
                 diasAlertaId: 'editDiasAlerta',
                 autoIdentidadWrapId: 'editAutoIdentidadWrap',
                 autoIdentidadId: 'editAutoIdentidad',
+                autoIdentidadHelpId: 'editAutoIdentidadHelp',
                 autoIdentityHintId: 'editAutoIdentityHint'
             });
 
