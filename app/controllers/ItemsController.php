@@ -522,15 +522,16 @@ class ItemsController extends Controlador
         }
 
         if ($esItemDetallado && trim((string) ($data['sku'] ?? '')) === '') {
-            $data['sku'] = $this->generarSkuProductoTerminado($data);
+            $data['sku'] = $this->generarSkuItemDetallado($data);
         }
 
         return $data;
     }
 
 
-    private function generarSkuProductoTerminado(array $data): string
+    private function generarSkuItemDetallado(array $data): string
     {
+        $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
         $categoriaId = (int) ($data['id_categoria'] ?? 0);
         $categoriaNombre = '';
         if ($categoriaId > 0) {
@@ -564,6 +565,10 @@ class ItemsController extends Controlador
             }
         }
 
+        if ($tipo === 'semielaborado') {
+            $presentacionNombre = $this->limpiarPresentacionSemielaborado($presentacionNombre);
+        }
+
         $marcaNombre = trim((string) ($data['marca'] ?? ''));
 
         $bloques = [];
@@ -588,6 +593,16 @@ class ItemsController extends Controlador
         }
 
         return implode('-', $bloques);
+    }
+
+    private function limpiarPresentacionSemielaborado(string $presentacion): string
+    {
+        $limpia = preg_replace('/\bx\s*\d+\b/i', ' ', $presentacion);
+        if ($limpia === null) {
+            return trim($presentacion);
+        }
+
+        return trim((string) preg_replace('/\s+/', ' ', $limpia));
     }
 
     private function prefijoSku(string $texto): string

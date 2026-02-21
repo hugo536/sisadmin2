@@ -205,12 +205,22 @@
         return base === '' || base === 'ninguno' || base === 'sin sabor';
     }
 
-    function generarSkuProducto({ categoria, marca, sabor, presentacion }) {
+    function limpiarPresentacionSemielaborado(presentacion = '') {
+        const base = normalizarTextoSku(presentacion)
+            .replace(/\bx\s*\d+\b/gi, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        return base;
+    }
+
+    function generarSkuProducto({ tipo, categoria, marca, sabor, presentacion }) {
         const bloques = [];
         const prefCategoria = obtenerPrefijo(categoria);
         const prefMarca = obtenerPrefijo(marca);
         const prefSabor = obtenerPrefijo(sabor);
-        const bloquePresentacion = normalizarTextoSku(presentacion);
+        const bloquePresentacion = tipo === 'semielaborado'
+            ? limpiarPresentacionSemielaborado(presentacion)
+            : normalizarTextoSku(presentacion);
 
         if (prefCategoria) bloques.push(prefCategoria);
         if (prefMarca) bloques.push(prefMarca);
@@ -253,6 +263,7 @@
             }
 
             const generado = generarSkuProducto({
+                tipo: value,
                 categoria: obtenerTextoSeleccionado(categoria),
                 marca: obtenerTextoSeleccionado(marca),
                 sabor: obtenerTextoSeleccionado(sabor),
