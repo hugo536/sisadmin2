@@ -244,6 +244,15 @@
                 sku.value = '';
                 return;
             }
+            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
+
+            sku.readOnly = forceDisabled || !hasTipo || isItemDetallado;
+            sku.disabled = forceDisabled;
+
+            if (!hasTipo) {
+                sku.value = '';
+                return;
+            }
 
             if (!isItemDetallado || !autoGenerate) {
                 return;
@@ -400,6 +409,83 @@
     }
 
 
+    function serializeFormState(form) {
+        if (!(form instanceof HTMLFormElement)) return '';
+
+        const entries = [];
+        const fields = form.querySelectorAll('input, select, textarea');
+        fields.forEach((field) => {
+            if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            const name = field.name || field.id;
+            if (!name) return;
+
+            if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
+                entries.push(`${name}:${field.checked ? '1' : '0'}`);
+                return;
+            }
+
+            entries.push(`${name}:${field.value ?? ''}`);
+        });
+
+        return entries.join('|');
+    }
+
+    function pulseModalDialog(modalEl) {
+        const dialog = modalEl?.querySelector('.modal-dialog');
+        if (!dialog) return;
+
+        dialog.classList.remove('modal-dialog-pulse');
+        void dialog.offsetWidth;
+        dialog.classList.add('modal-dialog-pulse');
+
+        window.setTimeout(() => {
+            dialog.classList.remove('modal-dialog-pulse');
+        }, 450);
+    }
+
+    function bindDirtyCloseGuard(modalId, formId) {
+        const modalEl = document.getElementById(modalId);
+        const form = document.getElementById(formId);
+        if (!modalEl || !form || modalEl.dataset.dirtyCloseGuardBound === '1') return;
+
+        let initialState = '';
+        let allowDismiss = false;
+
+        modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                allowDismiss = true;
+            });
+        });
+
+        modalEl.addEventListener('shown.bs.modal', () => {
+            initialState = serializeFormState(form);
+            allowDismiss = false;
+        });
+
+        modalEl.addEventListener('hide.bs.modal', (event) => {
+            if (allowDismiss) {
+                allowDismiss = false;
+                return;
+            }
+
+            if (serializeFormState(form) === initialState) {
+                return;
+            }
+
+            event.preventDefault();
+            pulseModalDialog(modalEl);
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            allowDismiss = false;
+        });
+
+        modalEl.dataset.dirtyCloseGuardBound = '1';
+    }
+
     function initCreateModal() {
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
@@ -445,7 +531,7 @@
             });
         });
 
-
+        bindDirtyCloseGuard('modalCrearItem', 'formCrearItem');
         document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('newTipo')?.value;
             if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
@@ -547,7 +633,7 @@
             });
         });
 
-
+        bindDirtyCloseGuard('modalEditarItem', 'formEditarItem');
         document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('editTipo')?.value;
             if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
