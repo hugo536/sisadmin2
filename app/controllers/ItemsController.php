@@ -467,7 +467,10 @@ class ItemsController extends Controlador
         }
 
         $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
-        $nombreManualOverride = isset($data['nombre_manual_override']) && (int) $data['nombre_manual_override'] === 1;
+        $autoGenerarIdentidad = !isset($data['autogenerar_identidad']) || (int) $data['autogenerar_identidad'] === 1;
+        $nombreManualOverride = isset($data['nombre_manual_override'])
+            ? (int) $data['nombre_manual_override'] === 1
+            : !$autoGenerarIdentidad;
 
         if ($esItemDetallado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
@@ -538,7 +541,7 @@ class ItemsController extends Controlador
             $data['sku'] = $this->generarSkuItemDetallado($data);
         }
 
-        unset($data['nombre_manual_override']);
+        unset($data['nombre_manual_override'], $data['autogenerar_identidad']);
 
         return $data;
     }
