@@ -211,7 +211,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
-                            <div class="card-body">
+                            <div class="card-body item-identidad-card">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="form-floating">
@@ -230,6 +230,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
                                     </div>
+                                    <div class="col-md-4" id="newAutoIdentidadWrap">
                                     <div class="col-md-4 d-none" id="newAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
@@ -238,7 +239,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                         <div class="form-text">Visible solo para producto terminado o semielaborado.</div>
                                     </div>
-
+                                    <div class="col-12" id="newAutoIdentityHint" style="display:none;">
                                     <div class="col-12 d-none" id="newAutoIdentityHint">
                                         <div class="item-autoidentity-hint">
                                             <i class="bi bi-magic me-2"></i>
@@ -248,7 +249,7 @@ $tipoItemLabel = static function (string $tipo): string {
 
                                     <div class="col-md-9">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="newNombre" name="nombre" placeholder="Nombre" required>
+                                            <input type="text" class="form-control" id="newNombre" name="nombre" placeholder="Nombre" required>
                                             <label for="newNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
                                         <div class="form-text mt-2 d-flex align-items-center gap-2">
@@ -427,7 +428,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
-                            <div class="card-body">
+                            <div class="card-body item-identidad-card">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="form-floating">
@@ -444,7 +445,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <div class="form-text">
                                             Producto terminado y semielaborado requieren marca, sabor y presentación.
                                         </div>
-                                    </div>
+                                    </div>                                    <div class="col-md-4" id="editAutoIdentidadWrap">
                                     <div class="col-md-4 d-none" id="editAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
@@ -454,6 +455,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <div class="form-text">Visible solo para producto terminado o semielaborado.</div>
                                     </div>
 
+                                    <div class="col-12" id="editAutoIdentityHint" style="display:none;">
                                     <div class="col-12 d-none" id="editAutoIdentityHint">
                                         <div class="item-autoidentity-hint">
                                             <i class="bi bi-magic me-2"></i>
@@ -463,7 +465,7 @@ $tipoItemLabel = static function (string $tipo): string {
 
                                     <div class="col-md-9">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control fw-bold" id="editNombre" name="nombre" required>
+                                            <input type="text" class="form-control" id="editNombre" name="nombre" required>
                                             <label for="editNombre">Nombre del producto <span class="text-danger">*</span></label>
                                         </div>
                                         <div class="form-text mt-2 d-flex align-items-center gap-2">

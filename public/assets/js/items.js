@@ -448,6 +448,12 @@
             marcaContainer?.classList.toggle('d-none', isServicio);
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
+            if (autoIdentidadWrap) {
+                autoIdentidadWrap.style.display = isItemDetallado ? '' : 'none';
+            }
+            if (autoIdentityHint) {
+                autoIdentityHint.style.display = isItemDetallado ? '' : 'none';
+            }
             autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
             autoIdentityHint?.classList.toggle('d-none', !isItemDetallado);
 

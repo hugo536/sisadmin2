@@ -194,6 +194,17 @@ body {
 }
 
 
+
+.item-identidad-card .form-control,
+.item-identidad-card .form-select {
+  font-size: 0.95rem;
+}
+
+.item-identidad-card .form-label,
+.item-identidad-card .form-floating > label {
+  font-size: 0.82rem;
+}
+
 .item-autoidentity-hint {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
