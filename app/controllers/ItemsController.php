@@ -428,8 +428,8 @@ class ItemsController extends Controlador
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
         $tiposPermitidos = ['producto_terminado', 'materia_prima', 'material_empaque', 'servicio', 'insumo', 'semielaborado'];
 
-        if ($nombre === '' || $tipo === '') {
-            throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
+        if ($tipo === '') {
+            throw new RuntimeException('El tipo de ítem es obligatorio.');
         }
 
         if (!in_array($tipo, $tiposPermitidos, true)) {
@@ -467,6 +467,7 @@ class ItemsController extends Controlador
         }
 
         $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
+        $nombreManualOverride = isset($data['nombre_manual_override']) && (int) $data['nombre_manual_override'] === 1;
 
         if ($esItemDetallado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
@@ -480,9 +481,21 @@ class ItemsController extends Controlador
             if (empty($data['id_presentacion'])) {
                 throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado o semielaborado.');
             }
+
+            if ($nombreManualOverride) {
+                if ($nombre === '') {
+                    throw new RuntimeException('Debe ingresar un nombre manual cuando activa la edición manual.');
+                }
+                $data['nombre'] = $nombre;
+            } else {
+                $data['nombre'] = $this->generarNombreItemDetallado($data);
+            }
         }
 
         if (!$esItemDetallado) {
+            if ($nombre === '') {
+                throw new RuntimeException('El nombre es obligatorio para este tipo de ítem.');
+            }
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
         }
@@ -524,6 +537,8 @@ class ItemsController extends Controlador
         if ($esItemDetallado && trim((string) ($data['sku'] ?? '')) === '') {
             $data['sku'] = $this->generarSkuItemDetallado($data);
         }
+
+        unset($data['nombre_manual_override']);
 
         return $data;
     }
@@ -625,6 +640,47 @@ class ItemsController extends Controlador
 
         $base = strtolower(trim((string) $baseNormalizada));
         return $base === '' || $base === 'ninguno' || $base === 'sin sabor';
+    }
+
+
+    private function generarNombreItemDetallado(array $data): string
+    {
+        $marcaNombre = trim((string) ($data['marca'] ?? ''));
+        $saborNombre = $this->obtenerNombreAtributo((int) ($data['id_sabor'] ?? 0), $this->itemsModel->listarSabores());
+        $presentacionNombre = $this->obtenerNombreAtributo((int) ($data['id_presentacion'] ?? 0), $this->itemsModel->listarPresentaciones());
+
+        $partes = [];
+        if ($marcaNombre !== '') {
+            $partes[] = $marcaNombre;
+        }
+        if (!$this->esSaborOmitible($saborNombre)) {
+            $partes[] = $saborNombre;
+        }
+        if ($presentacionNombre !== '') {
+            $partes[] = $presentacionNombre;
+        }
+
+        $nombreGenerado = trim(implode(' - ', $partes));
+        if ($nombreGenerado === '') {
+            throw new RuntimeException('No fue posible generar el nombre del ítem con los atributos seleccionados.');
+        }
+
+        return $nombreGenerado;
+    }
+
+    private function obtenerNombreAtributo(int $id, array $catalogo): string
+    {
+        if ($id <= 0) {
+            return '';
+        }
+
+        foreach ($catalogo as $registro) {
+            if ((int) ($registro['id'] ?? 0) === $id) {
+                return trim((string) ($registro['nombre'] ?? ''));
+            }
+        }
+
+        return '';
     }
 
     private function validarCategoria(array $data): array

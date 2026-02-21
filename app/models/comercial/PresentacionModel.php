@@ -13,27 +13,12 @@ class PresentacionModel extends Modelo {
     $sql = "SELECT p.*,
                    i.sku AS codigo_presentacion,
                    
-                   -- LÓGICA DE NOMBRE ROBUSTA
-                   COALESCE(
-                        p.nombre_manual, 
-                        CONCAT(
-                            i.nombre,
-                            -- Si tiene sabor y no es 'Ninguno', lo agregamos
-                            CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
-                            -- Si tiene presentación (450ml, 3L, etc), la agregamos
-                            CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END,
-                            -- Agregamos el factor de venta (x15, x20, etc)
-                            ' x ', CAST(p.factor AS UNSIGNED)
-                        )
-                   ) as item_nombre_full,
+                   COALESCE(p.nombre_manual, i.nombre) AS item_nombre_full,
 
                    COALESCE(det.cantidad_items, 0) as cantidad_items_distintos,
                    COALESCE(det.composicion, '') AS composicion_mixta
             FROM {$this->table} p
             INNER JOIN items i ON p.id_item = i.id
-            -- Traemos sabores y presentaciones del ítem para armar el nombre
-            LEFT JOIN item_sabores s ON i.id_sabor = s.id
-            LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
             LEFT JOIN (
                 SELECT d.id_presentacion,
                        COUNT(d.id_item) AS cantidad_items, 
@@ -76,18 +61,12 @@ class PresentacionModel extends Modelo {
     public function listarProductosParaSelect() {
         // Se mantiene igual, sirve para poblar los selects con los líquidos base.
         $sql = "SELECT i.id,
-                       CONCAT(
-                           i.nombre,
-                           CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
-                           CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END
-                       ) as nombre_completo,
+                       i.nombre AS nombre_completo,
                        i.nombre,
                        i.sku,
                        i.unidad_base,
                        i.precio_venta
                 FROM items i
-                LEFT JOIN item_sabores s ON i.id_sabor = s.id
-                LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
                 WHERE i.estado = 1 
                   AND i.deleted_at IS NULL 
                   AND i.tipo_item = 'semielaborado'
@@ -128,10 +107,8 @@ class PresentacionModel extends Modelo {
                 
                 // Obtener datos del semielaborado para heredar nombre si no se envía uno manual
                 $stmtBase = $this->db->prepare("
-                    SELECT i.sku, i.nombre, s.nombre as sabor, ip.nombre as pres 
-                    FROM items i 
-                    LEFT JOIN item_sabores s ON i.id_sabor = s.id 
-                    LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id 
+                    SELECT i.sku, i.nombre
+                    FROM items i
                     WHERE i.id = :id
                 ");
                 $stmtBase->execute([':id' => $idSemielaborado]);
@@ -142,9 +119,7 @@ class PresentacionModel extends Modelo {
                 
                 $nombreManual = trim($datos['nombre_manual'] ?? '');
                 if (empty($nombreManual) && $base) {
-                    $nombreSabor = ($base['sabor'] && $base['sabor'] !== 'Ninguno') ? ' ' . $base['sabor'] : '';
-                    $nombrePres = ($base['pres']) ? ' ' . $base['pres'] : '';
-                    $nombreManual = trim($base['nombre'] . $nombreSabor . $nombrePres) . ' x ' . (int)$factor;
+                    $nombreManual = trim((string) ($base['nombre'] ?? '')) . ' x ' . (int) $factor;
                 }
 
                 // El detalle de un pack simple es su único semielaborado
@@ -334,16 +309,10 @@ class PresentacionModel extends Modelo {
 
     private function obtenerDetalleMixto(int $idPresentacion): array {
         $sql = 'SELECT d.id, d.id_item, d.cantidad, i.unidad_base, i.precio_venta,
-                       CONCAT(
-                           i.nombre,
-                           CASE WHEN s.nombre IS NOT NULL AND s.nombre != "Ninguno" THEN CONCAT(" ", s.nombre) ELSE "" END,
-                           CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(" ", ip.nombre) ELSE "" END
-                       ) AS item_nombre,
+                       i.nombre AS item_nombre,
                        i.nombre as nombre_base
                 FROM precios_presentaciones_detalle d
                 INNER JOIN items i ON i.id = d.id_item
-                LEFT JOIN item_sabores s ON i.id_sabor = s.id
-                LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
                 WHERE d.id_presentacion = :id
                 ORDER BY d.id ASC';
 
