@@ -68,7 +68,7 @@ class ComprasOrdenModel extends Modelo
             return [];
         }
 
-        // Corregido: Seleccionamos los campos correctos de la BD (cantidad_solicitada, costo_unitario_pactado)
+        // Seleccionamos los campos correctos de la BD (cantidad_solicitada, costo_unitario_pactado)
         // Calculamos el subtotal al vuelo ya que no existe en la tabla detalle
         $detalleSql = 'SELECT d.id,
                               d.id_item,
@@ -192,7 +192,7 @@ class ComprasOrdenModel extends Modelo
                 $idOrden = (int) $db->lastInsertId();
             }
 
-            // Inserción del detalle corregida (usando nombres de columna correctos y sin subtotal)
+            // Inserción del detalle
             $sqlDet = 'INSERT INTO compras_ordenes_detalle (
                             id_orden,
                             id_item,
@@ -265,7 +265,6 @@ class ComprasOrdenModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // CORRECCIÓN: Separamos :user en :deleted_by y :updated_by para que PDO no se confunda
             $stmt = $db->prepare('UPDATE compras_ordenes
                                   SET estado = 9,
                                       deleted_at = NOW(),
@@ -285,7 +284,6 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException('No se pudo anular la orden.');
             }
 
-            // CORRECCIÓN: Hacemos lo mismo para el detalle
             $db->prepare('UPDATE compras_ordenes_detalle
                           SET deleted_at = NOW(), 
                               deleted_by = :deleted_by, 
@@ -347,12 +345,14 @@ class ComprasOrdenModel extends Modelo
 
     public function listarItemsActivos(): array
     {
-        // Filtramos para que NO aparezcan productos terminados ni semielaborados
+        // CORRECCIÓN DEFINITIVA: 
+        // Usamos una lista blanca (IN) en lugar de exclusión (NOT IN).
+        // Solo permitimos que se compren componentes operativos o materias primas.
         $sql = "SELECT id, sku, nombre
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
-                  AND tipo_item NOT IN ('producto_terminado', 'semielaborado')
+                  AND tipo_item IN ('materia_prima', 'insumo', 'material_empaque', 'servicio')
                 ORDER BY nombre ASC";
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];

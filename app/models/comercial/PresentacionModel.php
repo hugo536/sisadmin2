@@ -1,4 +1,5 @@
 <?php
+
 class PresentacionModel extends Modelo {
 
     private const MARGEN_MIXTO_DEFAULT = 0.20;
@@ -9,55 +10,49 @@ class PresentacionModel extends Modelo {
     }
 
     public function listarTodo() {
-        // MODIFICACIÓN CLAVE: 
-        // 1. Contamos cuántos ítems tiene el detalle (cantidad_items).
-        // 2. Si es 1, la vista sabrá que NO debe mostrar el icono de "red".
-        
-        $sql = "SELECT p.*,
-                       p.codigo_presentacion,
-                       
-                       -- Traemos el conteo para la lógica visual del icono
-                       COALESCE(det.cantidad_items, 0) as cantidad_items_distintos,
+    $sql = "SELECT p.*,
+                   i.sku AS codigo_presentacion,
+                   
+                   -- LÓGICA DE NOMBRE ROBUSTA
+                   COALESCE(
+                        p.nombre_manual, 
+                        CONCAT(
+                            i.nombre,
+                            -- Si tiene sabor y no es 'Ninguno', lo agregamos
+                            CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
+                            -- Si tiene presentación (450ml, 3L, etc), la agregamos
+                            CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END,
+                            -- Agregamos el factor de venta (x15, x20, etc)
+                            ' x ', CAST(p.factor AS UNSIGNED)
+                        )
+                   ) as item_nombre_full,
 
-                       COALESCE(
-                            p.nombre_manual, 
-                            CONCAT(
-                                i.nombre,
-                                CASE 
-                                    WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) 
-                                    ELSE '' 
-                                END,
-                                CASE 
-                                    WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) 
-                                    ELSE '' 
-                                END,
-                                ' x ', CAST(p.factor AS UNSIGNED)
-                            )
-                       ) as item_nombre_full,
-                       
-                       COALESCE(det.composicion, '') AS composicion_mixta
+                   COALESCE(det.cantidad_items, 0) as cantidad_items_distintos,
+                   COALESCE(det.composicion, '') AS composicion_mixta
+            FROM {$this->table} p
+            INNER JOIN items i ON p.id_item = i.id
+            -- Traemos sabores y presentaciones del ítem para armar el nombre
+            LEFT JOIN item_sabores s ON i.id_sabor = s.id
+            LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
+            LEFT JOIN (
+                SELECT d.id_presentacion,
+                       COUNT(d.id_item) AS cantidad_items, 
+                       GROUP_CONCAT(CONCAT(TRIM(TRAILING '.0000' FROM TRIM(TRAILING '0' FROM FORMAT(d.cantidad, 4))), ' ', i2.nombre) ORDER BY d.id SEPARATOR ' + ') AS composicion
+                FROM precios_presentaciones_detalle d
+                INNER JOIN items i2 ON i2.id = d.id_item
+                GROUP BY d.id_presentacion
+            ) det ON det.id_presentacion = p.id
+            WHERE p.deleted_at IS NULL AND p.estado = 1
+            ORDER BY p.id DESC";
 
-                FROM {$this->table} p
-                LEFT JOIN items i ON p.id_item = i.id
-                LEFT JOIN item_sabores s ON i.id_sabor = s.id
-                LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id
-                LEFT JOIN (
-                    SELECT d.id_presentacion,
-                           -- Aquí contamos cuántos productos componen el pack
-                           COUNT(d.id_item) AS cantidad_items, 
-                           GROUP_CONCAT(CONCAT(TRIM(TRAILING '.0000' FROM TRIM(TRAILING '0' FROM FORMAT(d.cantidad, 4))), ' ', i2.nombre) ORDER BY d.id SEPARATOR ' + ') AS composicion
-                    FROM precios_presentaciones_detalle d
-                    INNER JOIN items i2 ON i2.id = d.id_item
-                    GROUP BY d.id_presentacion
-                ) det ON det.id_presentacion = p.id
-                WHERE p.deleted_at IS NULL AND p.estado = 1
-                ORDER BY p.id DESC"; // Ordenamos por ID descendente para ver lo último creado arriba
-
-        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-    }
+    return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+}
 
     public function obtener($id) {
-        $sql = "SELECT * FROM {$this->table} WHERE id = :id";
+        $sql = "SELECT p.*, i.sku as codigo_presentacion, i.nombre as nombre_manual 
+                FROM {$this->table} p
+                INNER JOIN items i ON p.id_item = i.id
+                WHERE p.id = :id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -66,22 +61,25 @@ class PresentacionModel extends Modelo {
             return [];
         }
 
+        // Si es pack simple, la lógica Frontend tal vez necesite saber cuál era el semielaborado base.
+        // Lo sacamos del detalle ya que ahora TODO tiene detalle.
         $row['detalle_mixto'] = $this->obtenerDetalleMixto((int) $id);
+        
+        if ($row['es_mixto'] == 0 && !empty($row['detalle_mixto'])) {
+             $row['id_item_base'] = $row['detalle_mixto'][0]['id_item'];
+             $row['factor'] = $row['detalle_mixto'][0]['cantidad'];
+        }
+
         return $row;
     }
 
     public function listarProductosParaSelect() {
+        // Se mantiene igual, sirve para poblar los selects con los líquidos base.
         $sql = "SELECT i.id,
                        CONCAT(
                            i.nombre,
-                           CASE 
-                               WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) 
-                               ELSE '' 
-                           END,
-                           CASE 
-                               WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) 
-                               ELSE '' 
-                           END
+                           CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
+                           CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END
                        ) as nombre_completo,
                        i.nombre,
                        i.sku,
@@ -102,6 +100,7 @@ class PresentacionModel extends Modelo {
         try {
             $this->db->beginTransaction();
 
+            $idPresentacionForm = !empty($datos['id']) ? (int)$datos['id'] : 0;
             $esMixto = (int) ($datos['es_mixto'] ?? 0) === 1;
             
             $precioMenor = !empty($datos['precio_x_menor']) ? (float) $datos['precio_x_menor'] : 0;
@@ -109,63 +108,87 @@ class PresentacionModel extends Modelo {
             $cantMinima  = !empty($datos['cantidad_minima_mayor']) ? (int) $datos['cantidad_minima_mayor'] : null;
             $pesoBruto   = isset($datos['peso_bruto']) && $datos['peso_bruto'] !== '' ? (float) $datos['peso_bruto'] : 0;
             $stockMinimo = isset($datos['stock_minimo']) && $datos['stock_minimo'] !== '' ? (float) $datos['stock_minimo'] : 0;
-            $usuario     = $_SESSION['id_usuario'] ?? 1;
-
-            $idItem = null;
-            $factor = 0;
-            $codigoFinal = null;
-            $nombreManual = null;
             
-            // Capturar Nota/Observación
             $notaPack = !empty($datos['nota_pack']) ? trim($datos['nota_pack']) : null;
-
-            // NUEVO: Capturar Configuración Avanzada (Lote y Vencimiento)
             $exigirLote = !empty($datos['exigir_lote']) ? 1 : 0;
             $requiereVencimiento = !empty($datos['requiere_vencimiento']) ? 1 : 0;
             $diasVencimiento = !empty($datos['dias_vencimiento_alerta']) ? (int) $datos['dias_vencimiento_alerta'] : 0;
+            
+            $usuario = $_SESSION['id_usuario'] ?? 1;
 
+            $nombreManual = '';
+            $codigoFinal = '';
+            $factor = 0;
+            $detalleComponentes = [];
+
+            // 1. Preparar Datos Estructurales (Unificando Flujos)
             if (!$esMixto) {
-                $idItem = (int) ($datos['id_item'] ?? 0);
+                $idSemielaborado = (int) ($datos['id_item'] ?? 0);
                 $factor = (float) ($datos['factor'] ?? 0);
                 
-                $stmtItem = $this->db->prepare("SELECT sku FROM items WHERE id = :id");
-                $stmtItem->execute([':id' => $idItem]);
-                $skuBase = $stmtItem->fetchColumn();
+                // Obtener datos del semielaborado para heredar nombre si no se envía uno manual
+                $stmtBase = $this->db->prepare("
+                    SELECT i.sku, i.nombre, s.nombre as sabor, ip.nombre as pres 
+                    FROM items i 
+                    LEFT JOIN item_sabores s ON i.id_sabor = s.id 
+                    LEFT JOIN item_presentaciones ip ON i.id_presentacion = ip.id 
+                    WHERE i.id = :id
+                ");
+                $stmtBase->execute([':id' => $idSemielaborado]);
+                $base = $stmtBase->fetch(PDO::FETCH_ASSOC);
+
+                $skuBase = $base ? $base['sku'] : 'GEN';
+                $codigoFinal = !empty($datos['codigo_presentacion']) ? $datos['codigo_presentacion'] : ($skuBase . '-X' . (int)$factor);
                 
-                if (!empty($datos['codigo_presentacion'])) {
-                     $codigoFinal = $datos['codigo_presentacion'];
-                } else {
-                     $codigoFinal = ($skuBase ? $skuBase : 'GEN') . '-X' . (int) $factor;
+                $nombreManual = trim($datos['nombre_manual'] ?? '');
+                if (empty($nombreManual) && $base) {
+                    $nombreSabor = ($base['sabor'] && $base['sabor'] !== 'Ninguno') ? ' ' . $base['sabor'] : '';
+                    $nombrePres = ($base['pres']) ? ' ' . $base['pres'] : '';
+                    $nombreManual = trim($base['nombre'] . $nombreSabor . $nombrePres) . ' x ' . (int)$factor;
                 }
 
+                // El detalle de un pack simple es su único semielaborado
+                $detalleComponentes = [
+                    ['id_item' => $idSemielaborado, 'cantidad' => $factor]
+                ];
+
             } else {
-                $idItem = null; 
                 $nombreManual = trim($datos['nombre_manual'] ?? 'Pack Mixto'); 
+                $codigoFinal = !empty($datos['codigo_presentacion']) ? strtoupper(trim($datos['codigo_presentacion'])) : ('MIX-' . date('ymdHis'));
                 
-                $calculos = $this->calcularTotalesDetalle($datos['detalle_mixto'] ?? []);
+                $detalleComponentes = $datos['detalle_mixto'] ?? [];
+                $calculos = $this->calcularTotalesDetalle($detalleComponentes);
+                
                 $factor = $calculos['factor_total'];
-                
                 if ($pesoBruto == 0) {
                     $pesoBruto = $calculos['peso'];
                 }
-
-                if (!empty($datos['codigo_presentacion'])) {
-                    $codigoFinal = strtoupper(trim($datos['codigo_presentacion']));
-                } else {
-                    $codigoFinal = 'MIX-' . date('ymdHis');
-                }
             }
 
-            if (empty($datos['id'])) {
-                // INSERTAR (Incluye campos de lote y vencimiento)
-                $sql = "INSERT INTO {$this->table}
-                        (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, exigir_lote, requiere_vencimiento, dias_vencimiento_alerta, created_by)
-                        VALUES (:id_item, :nombre_manual, :nota_pack, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :exigir_lote, :requiere_vencimiento, :dias_vencimiento_alerta, :created_by)";
-                $params = [
-                    ':id_item'               => $idItem,
+            // 2. Ejecutar Guardado (Tabla Items -> Tabla Presentaciones -> Tabla Detalles)
+            if ($idPresentacionForm === 0) {
+                // A) Crear Ítem Comercial
+                $sqlItem = "INSERT INTO items (sku, nombre, tipo_item, id_categoria, unidad_base, controla_stock, moneda, estado, created_by) 
+                            VALUES (:sku, :nombre, 'producto_terminado', 2, 'UND', 1, 'PEN', 1, :user)";
+                $stmtItem = $this->db->prepare($sqlItem);
+                $stmtItem->execute([
+                    ':sku' => $codigoFinal,
+                    ':nombre' => $nombreManual,
+                    ':user' => $usuario
+                ]);
+                $idItemComercial = (int) $this->db->lastInsertId();
+
+                // B) Crear Configuración de Venta
+                $sqlPP = "INSERT INTO {$this->table} 
+                          (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, precio_x_mayor, cantidad_minima_mayor, peso_bruto, stock_minimo, exigir_lote, requiere_vencimiento, dias_vencimiento_alerta, created_by)
+                          VALUES (:id_item, :nombre_manual, :nota_pack, :codigo, :factor, :es_mixto, :precio_x_menor, :precio_x_mayor, :cantidad_minima_mayor, :peso_bruto, :stock_minimo, :exigir_lote, :requiere_vencimiento, :dias_vencimiento_alerta, :created_by)";
+                
+                $stmtPP = $this->db->prepare($sqlPP);
+                $stmtPP->execute([
+                    ':id_item'               => $idItemComercial,
                     ':nombre_manual'         => $nombreManual,
                     ':nota_pack'             => $notaPack,
-                    ':codigo'                => $codigoFinal,
+                    ':codigo'                => $codigoFinal, // Mantenemos redundancia temporal para vistas viejas
                     ':factor'                => $factor,
                     ':es_mixto'              => $esMixto ? 1 : 0,
                     ':precio_x_menor'        => $precioMenor,
@@ -177,46 +200,47 @@ class PresentacionModel extends Modelo {
                     ':requiere_vencimiento'  => $requiereVencimiento,
                     ':dias_vencimiento_alerta'=> $diasVencimiento,
                     ':created_by'            => $usuario
-                ];
+                ]);
                 
-                $stmt = $this->db->prepare($sql);
-                $ok = $stmt->execute($params);
-                
-                if (!$ok) {
-                    $this->db->rollBack();
-                    return false;
-                }
-                $presentacionId = (int) $this->db->lastInsertId();
+                $idPresentacionForm = (int) $this->db->lastInsertId();
 
             } else {
-                // ACTUALIZAR (Incluye campos de lote y vencimiento)
-                $presentacionId = (int) $datos['id'];
-                $actual = $this->obtener($presentacionId);
+                // A) Obtener ID del Ítem vinculado
+                $actual = $this->obtener($idPresentacionForm);
                 if (!$actual) {
                     $this->db->rollBack(); return false;
                 }
+                $idItemComercial = $actual['id_item'];
 
-                $sql = "UPDATE {$this->table} SET
-                        id_item = :id_item,
-                        nombre_manual = :nombre_manual,
-                        nota_pack = :nota_pack,
-                        codigo_presentacion = :codigo,
-                        factor = :factor,
-                        es_mixto = :es_mixto,
-                        precio_x_menor = :precio_x_menor,
-                        precio_x_mayor = :precio_x_mayor,
-                        cantidad_minima_mayor = :cantidad_minima_mayor,
-                        peso_bruto = :peso_bruto,
-                        stock_minimo = :stock_minimo,
-                        exigir_lote = :exigir_lote,
-                        requiere_vencimiento = :requiere_vencimiento,
-                        dias_vencimiento_alerta = :dias_vencimiento_alerta,
-                        updated_by = :updated_by,
-                        updated_at = NOW()
-                        WHERE id = :id";
+                // B) Actualizar tabla Items
+                $sqlUpdateItem = "UPDATE items SET sku = :sku, nombre = :nombre WHERE id = :id";
+                $this->db->prepare($sqlUpdateItem)->execute([
+                    ':sku' => $codigoFinal,
+                    ':nombre' => $nombreManual,
+                    ':id' => $idItemComercial
+                ]);
+
+                // C) Actualizar Configuración de Venta
+                $sqlPP = "UPDATE {$this->table} SET
+                            nombre_manual = :nombre_manual,
+                            nota_pack = :nota_pack,
+                            codigo_presentacion = :codigo,
+                            factor = :factor,
+                            es_mixto = :es_mixto,
+                            precio_x_menor = :precio_x_menor,
+                            precio_x_mayor = :precio_x_mayor,
+                            cantidad_minima_mayor = :cantidad_minima_mayor,
+                            peso_bruto = :peso_bruto,
+                            stock_minimo = :stock_minimo,
+                            exigir_lote = :exigir_lote,
+                            requiere_vencimiento = :requiere_vencimiento,
+                            dias_vencimiento_alerta = :dias_vencimiento_alerta,
+                            updated_by = :updated_by,
+                            updated_at = NOW()
+                          WHERE id = :id";
                 
-                $params = [
-                    ':id_item'               => $idItem,
+                $stmtPP = $this->db->prepare($sqlPP);
+                $stmtPP->execute([
                     ':nombre_manual'         => $nombreManual,
                     ':nota_pack'             => $notaPack,
                     ':codigo'                => $codigoFinal,
@@ -231,25 +255,18 @@ class PresentacionModel extends Modelo {
                     ':requiere_vencimiento'  => $requiereVencimiento,
                     ':dias_vencimiento_alerta'=> $diasVencimiento,
                     ':updated_by'            => $usuario,
-                    ':id'                    => $presentacionId
-                ];
-                
-                $stmt = $this->db->prepare($sql);
-                $ok = $stmt->execute($params);
-                
-                if (!$ok) {
-                    $this->db->rollBack(); return false;
-                }
+                    ':id'                    => $idPresentacionForm
+                ]);
 
-                $this->eliminarDetalleMixto($presentacionId);
+                $this->eliminarDetalleMixto($idPresentacionForm);
             }
 
-            if ($esMixto) {
-                $this->guardarDetalleMixto($presentacionId, $datos['detalle_mixto'] ?? []);
-            }
+            // 3. Guardar Componentes (Para simple y mixto)
+            $this->guardarDetalleMixto($idPresentacionForm, $detalleComponentes);
 
             $this->db->commit();
             return true;
+
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -259,26 +276,43 @@ class PresentacionModel extends Modelo {
     }
 
     public function eliminar($id) {
+        $stmtGet = $this->db->prepare("SELECT id_item FROM {$this->table} WHERE id = :id");
+        $stmtGet->execute([':id' => $id]);
+        $idItem = $stmtGet->fetchColumn();
+
+        $user = $_SESSION['id_usuario'] ?? 1;
+
+        // Desactivar presentación
         $sql = "UPDATE {$this->table} SET estado = 0, deleted_at = NOW(), deleted_by = :user WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':id', $id);
-        $stmt->bindValue(':user', $_SESSION['id_usuario'] ?? 1);
-        return $stmt->execute();
+        $this->db->prepare($sql)->execute([':id' => $id, ':user' => $user]);
+
+        // Desactivar ítem asociado
+        if ($idItem) {
+            $sqlItem = "UPDATE items SET estado = 0, deleted_at = NOW(), deleted_by = :user WHERE id = :id";
+            $this->db->prepare($sqlItem)->execute([':id' => $idItem, ':user' => $user]);
+        }
+
+        return true;
     }
 
     public function actualizarEstado(int $id, int $estado): bool {
-        $sql = "UPDATE {$this->table}
-                SET estado = :estado,
-                    updated_by = :user,
-                    updated_at = NOW()
-                WHERE id = :id AND deleted_at IS NULL";
+        $stmtGet = $this->db->prepare("SELECT id_item FROM {$this->table} WHERE id = :id");
+        $stmtGet->execute([':id' => $id]);
+        $idItem = $stmtGet->fetchColumn();
 
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            ':estado' => $estado,
-            ':user' => $_SESSION['id_usuario'] ?? 1,
-            ':id' => $id,
-        ]);
+        $user = $_SESSION['id_usuario'] ?? 1;
+
+        $sql = "UPDATE {$this->table}
+                SET estado = :estado, updated_by = :user, updated_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL";
+        $this->db->prepare($sql)->execute([':estado' => $estado, ':user' => $user, ':id' => $id]);
+
+        if ($idItem) {
+            $sqlItem = "UPDATE items SET estado = :estado, updated_by = :user, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL";
+            $this->db->prepare($sqlItem)->execute([':estado' => $estado, ':user' => $user, ':id' => $idItem]);
+        }
+
+        return true;
     }
 
     private function calcularTotalesDetalle(array $detalle): array {

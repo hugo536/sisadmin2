@@ -77,7 +77,7 @@ class ComercialController extends Controlador {
                 'id' => !empty($_POST['id']) ? (int)$_POST['id'] : null,
                 'es_mixto' => $esMixto ? 1 : 0,
                 
-                // Campos Estándar
+                // Campos Estándar (id_item aquí es el semielaborado base seleccionado)
                 'id_item' => !empty($_POST['id_item']) ? (int)$_POST['id_item'] : null,
                 'factor' => !empty($_POST['factor']) ? (float)$_POST['factor'] : 0,
                 
@@ -88,13 +88,13 @@ class ComercialController extends Controlador {
                 'detalle_mixto' => $detalleMixto,
                 
                 // Precios y Pesos
-                'precio_x_menor' => $_POST['precio_x_menor'],
-                'precio_x_mayor' => $_POST['precio_x_mayor'] ?? null,
-                'cantidad_minima_mayor' => $_POST['cantidad_minima_mayor'] ?? null,
+                'precio_x_menor' => !empty($_POST['precio_x_menor']) ? (float)$_POST['precio_x_menor'] : 0,
+                'precio_x_mayor' => !empty($_POST['precio_x_mayor']) ? (float)$_POST['precio_x_mayor'] : null,
+                'cantidad_minima_mayor' => !empty($_POST['cantidad_minima_mayor']) ? (int)$_POST['cantidad_minima_mayor'] : null,
                 'peso_bruto' => isset($_POST['peso_bruto']) ? (float) $_POST['peso_bruto'] : 0,
                 'stock_minimo' => isset($_POST['stock_minimo']) ? (float) $_POST['stock_minimo'] : 0,
 
-                // NUEVO: Configuración Avanzada (Calidad y Fechas)
+                // Configuración Avanzada (Calidad y Fechas)
                 'exigir_lote' => isset($_POST['exigir_lote']) ? 1 : 0,
                 'requiere_vencimiento' => isset($_POST['requiere_vencimiento']) ? 1 : 0,
                 'dias_vencimiento_alerta' => isset($_POST['dias_vencimiento_alerta']) ? (int)$_POST['dias_vencimiento_alerta'] : 0,
@@ -109,7 +109,7 @@ class ComercialController extends Controlador {
                     return;
                 }
             } 
-            // Caso B: Presentación Mixta (Requiere Nombre y Detalle)
+            // Caso B: Presentación Mixta (Requiere Detalle)
             else {
                 if (empty($detalleMixto)) {
                     redirect('comercial/presentaciones?error=sin_detalle_mixto');

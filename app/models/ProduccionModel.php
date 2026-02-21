@@ -11,20 +11,14 @@ class ProduccionModel extends Modelo
                        r.rendimiento_base, r.unidad_rendimiento,
                        r.brix_objetivo, r.ph_objetivo, r.carbonatacion_vol,
                        r.temp_pasteurizacion, r.tiempo_pasteurizacion,
+                       r.costo_teorico_unitario, -- AHORA LEEMOS EL COSTO GUARDADO
                        i.id AS id_producto, i.sku AS producto_sku, i.nombre AS producto_nombre,
                        (
                            SELECT COUNT(*)
                            FROM produccion_recetas_detalle d
                            WHERE d.id_receta = r.id
                              AND d.deleted_at IS NULL
-                       ) AS total_insumos,
-                       (
-                            SELECT COALESCE(SUM((d.cantidad_por_unidad * (1 + (d.merma_porcentaje / 100))) * i2.costo_referencial), 0)
-                            FROM produccion_recetas_detalle d
-                            INNER JOIN items i2 ON i2.id = d.id_insumo
-                            WHERE d.id_receta = r.id
-                              AND d.deleted_at IS NULL
-                       ) AS costo_teorico
+                       ) AS total_insumos
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.deleted_at IS NULL
@@ -36,7 +30,6 @@ class ProduccionModel extends Modelo
 
     public function listarOrdenes(): array
     {
-        // Se eliminaron los JOINS duplicados
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
@@ -108,43 +101,63 @@ class ProduccionModel extends Modelo
         $tiempoPasteurizacion = (float) ($payload['tiempo_pasteurizacion'] ?? 0);
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
 
-        if ($idProducto <= 0 || $codigo === '' || $detalles === []) {
-            throw new RuntimeException('Debe completar producto, código y al menos un detalle.');
+        if ($idProducto <= 0 || $codigo === '' || $detalles === [] || $rendimientoBase <= 0) {
+            throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle.');
         }
 
         $db = $this->db();
         $db->beginTransaction();
 
         try {
+            // 1. Calcular Costo Total Teórico de la Receta
+            $costoTotalReceta = 0.0;
+            foreach ($detalles as $detalle) {
+                $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+                $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
+                $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
+                
+                if ($idInsumo > 0 && $cantidad > 0) {
+                    $costoInsumo = $this->obtenerCostoReferencial($idInsumo);
+                    $cantidadReal = $cantidad * (1 + ($merma / 100));
+                    $costoTotalReceta += ($costoInsumo * $cantidadReal);
+                }
+            }
+
+            // Costo por cada unidad producida (ej: costo de 1 pack)
+            $costoUnitarioTeorico = $costoTotalReceta / $rendimientoBase;
+
+            // 2. Insertar Receta
             $stmt = $db->prepare('INSERT INTO produccion_recetas
                                     (id_producto, codigo, version, descripcion,
                                      rendimiento_base, unidad_rendimiento,
                                      brix_objetivo, ph_objetivo, carbonatacion_vol, temp_pasteurizacion, tiempo_pasteurizacion,
-                                     estado, created_by, updated_by)
+                                     costo_teorico_unitario, estado, created_by, updated_by)
                                   VALUES
                                     (:id_producto, :codigo, :version, :descripcion,
                                      :rendimiento_base, :unidad_rendimiento,
                                      :brix_objetivo, :ph_objetivo, :carbonatacion_vol, :temp_pasteurizacion, :tiempo_pasteurizacion,
-                                     1, :created_by, :updated_by)');
+                                     :costo_unitario, 1, :created_by, :updated_by)');
             
             $stmt->execute([
                 'id_producto' => $idProducto,
                 'codigo' => $codigo,
                 'version' => $version,
                 'descripcion' => $descripcion !== '' ? $descripcion : null,
-                'rendimiento_base' => $rendimientoBase > 0 ? number_format($rendimientoBase, 4, '.', '') : null,
+                'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                 'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
                 'brix_objetivo' => $brixObjetivo > 0 ? number_format($brixObjetivo, 4, '.', '') : null,
                 'ph_objetivo' => $phObjetivo > 0 ? number_format($phObjetivo, 4, '.', '') : null,
                 'carbonatacion_vol' => $carbonatacionVol > 0 ? number_format($carbonatacionVol, 4, '.', '') : null,
                 'temp_pasteurizacion' => $tempPasteurizacion > 0 ? number_format($tempPasteurizacion, 4, '.', '') : null,
                 'tiempo_pasteurizacion' => $tiempoPasteurizacion > 0 ? number_format($tiempoPasteurizacion, 4, '.', '') : null,
+                'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
 
             $idReceta = (int) $db->lastInsertId();
 
+            // 3. Desactivar versiones anteriores de receta
             $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
                                             SET estado = 0,
                                                 updated_at = NOW(),
@@ -158,6 +171,7 @@ class ProduccionModel extends Modelo
                 'id_receta' => $idReceta,
             ]);
 
+            // 4. Insertar Detalle
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
                                         (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
                                      VALUES
@@ -183,6 +197,18 @@ class ProduccionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
             }
+
+            // 5. Actualizar Costo Referencial en el Item Principal
+            $stmtUpdateItem = $db->prepare('UPDATE items 
+                                            SET costo_referencial = :costo,
+                                                updated_at = NOW(),
+                                                updated_by = :user
+                                            WHERE id = :id');
+            $stmtUpdateItem->execute([
+                'costo' => number_format($costoUnitarioTeorico, 4, '.', ''),
+                'user' => $userId,
+                'id' => $idProducto
+            ]);
 
             $db->commit();
             return $idReceta;
@@ -227,7 +253,6 @@ class ProduccionModel extends Modelo
         return (int) $this->db()->lastInsertId();
     }
 
-    // Esta es la función crítica corregida
     public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = '', array $lotesConsumo = []): void
     {
         if ($idOrden <= 0 || $cantidadProducida <= 0) {
@@ -254,9 +279,7 @@ class ProduccionModel extends Modelo
                 throw new RuntimeException('La receta no tiene detalle activo.');
             }
 
-            // Instancia de Inventario para mover kardex
             $inventarioModel = new InventarioModel(); 
-            // IMPORTANTE: Asegúrate de que InventarioModel tenga el método registrarMovimiento compatible
 
             $idAlmacenOrigen = (int) $orden['id_almacen_origen'];
             $idAlmacenDestino = (int) $orden['id_almacen_destino'];
@@ -267,16 +290,13 @@ class ProduccionModel extends Modelo
                                          VALUES
                                             (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
-            // 1. Procesar CONSUMOS (Salidas)
             foreach ($detalle as $linea) {
                 $idInsumo = (int) $linea['id_insumo'];
                 $qtyBase = (float) $linea['cantidad_por_unidad'];
                 $merma = (float) $linea['merma_porcentaje'];
                 
-                // Cálculo: (Base * Producido) * (1 + %merma)
                 $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
                 
-                // Validar Stock
                 $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
                 if ($stock < $cantidadRequerida) {
                     throw new RuntimeException('Stock insuficiente para el ítem ID ' . $idInsumo . '. Requerido: ' . number_format($cantidadRequerida, 2));
@@ -285,27 +305,24 @@ class ProduccionModel extends Modelo
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $costoTotalConsumo += ($costoUnitario * $cantidadRequerida);
                 
-                $loteConsumo = $lotesConsumo[$idInsumo] ?? null; // Obtener lote seleccionado si existe
+                $loteConsumo = $lotesConsumo[$idInsumo] ?? null;
 
-                // A. Registrar en tabla de consumos
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_lote' => null, // Aquí podrías mapear el ID del lote si tu lógica lo requiere
+                    'id_lote' => null,
                     'cantidad' => number_format($cantidadRequerida, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
 
-                // B. Mover Kardex (Salida)
-                // Nota: Verificamos si existe el método antes de llamar para evitar crash si InventarioModel es viejo
                 if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
-                        'tipo_movimiento' => 'CON', // Consumo
+                        'tipo_movimiento' => 'CON', 
                         'id_item' => $idInsumo,
                         'id_almacen_origen' => $idAlmacenOrigen,
-                        'id_almacen_destino' => null, // Es consumo, no traslado
+                        'id_almacen_destino' => null, 
                         'cantidad' => $cantidadRequerida,
                         'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
                         'lote' => $loteConsumo,
@@ -315,7 +332,6 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            // 2. Procesar INGRESO (Entrada Producto Terminado)
             $costoUnitarioIngreso = $cantidadProducida > 0 ? ($costoTotalConsumo / $cantidadProducida) : 0;
 
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
@@ -326,17 +342,16 @@ class ProduccionModel extends Modelo
             $stmtIngreso->execute([
                 'id_orden_produccion' => $idOrden,
                 'id_item' => (int) $orden['id_producto'],
-                'id_lote' => null, // Se asignaría si creas un lote nuevo
+                'id_lote' => null,
                 'cantidad' => number_format($cantidadProducida, 4, '.', ''),
                 'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
 
-            // C. Mover Kardex (Entrada)
             if (method_exists($inventarioModel, 'registrarMovimiento')) {
                 $inventarioModel->registrarMovimiento([
-                    'tipo_movimiento' => 'PROD', // Producción (Asegúrate que tu Inventario acepte este código o usa AJ+)
+                    'tipo_movimiento' => 'PROD', 
                     'id_item' => (int) $orden['id_producto'],
                     'id_almacen_origen' => null,
                     'id_almacen_destino' => $idAlmacenDestino,
@@ -348,7 +363,6 @@ class ProduccionModel extends Modelo
                 ]);
             }
 
-            // 3. Actualizar Estado Orden
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             estado = 2,
