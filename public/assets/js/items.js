@@ -621,6 +621,47 @@
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
 
+        const tipoConfig = {
+            tipoId: 'newTipo',
+            marcaContainerId: 'newMarcaContainer',
+            saborContainerId: 'newSaborContainer',
+            presentacionContainerId: 'newPresentacionContainer',
+            saborId: 'newSabor',
+            presentacionId: 'newPresentacion',
+            controlaStockId: 'newControlaStock',
+            stockContainerId: 'newStockMinContainer',
+            stockInputId: 'newStockMin',
+            permiteDecimalesContainerId: 'newPermiteDecimalesContainer',
+            requiereLoteContainerId: 'newRequiereLoteContainer',
+            requiereVencimientoContainerId: 'newRequiereVencimientoContainer',
+            permiteDecimalesId: 'newPermiteDecimales',
+            requiereLoteId: 'newRequiereLote',
+            requiereVencimientoId: 'newRequiereVencimiento',
+            diasAlertaContainerId: 'newDiasAlertaContainer',
+            diasAlertaId: 'newDiasAlerta',
+            autoIdentidadWrapId: 'newAutoIdentidadWrap',
+            autoIdentidadId: 'newAutoIdentidad',
+            autoIdentidadHelpId: 'newAutoIdentidadHelp',
+            autoIdentityHintId: 'newAutoIdentityHint'
+        };
+
+        const skuConfig = {
+            tipoId: 'newTipo',
+            skuId: 'newSku',
+            nombreId: 'newNombre',
+            autoIdentidadId: 'newAutoIdentidad',
+            categoriaId: 'newCategoria',
+            marcaId: 'newMarca',
+            saborId: 'newSabor',
+            presentacionId: 'newPresentacion',
+            nombreBadgeId: 'newNombreAutoBadge',
+            skuBadgeId: 'newSkuAutoBadge',
+            autoGenerate: true
+        };
+
+        applyTipoItemRules(tipoConfig);
+        bindSkuAuto(skuConfig);
+
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
@@ -630,43 +671,8 @@
                 delete autoIdentidad.dataset.manualDetected;
             }
 
-            applyTipoItemRules({
-                tipoId: 'newTipo',
-                marcaContainerId: 'newMarcaContainer',
-                saborContainerId: 'newSaborContainer',
-                presentacionContainerId: 'newPresentacionContainer',
-                saborId: 'newSabor',
-                presentacionId: 'newPresentacion',
-                controlaStockId: 'newControlaStock',
-                stockContainerId: 'newStockMinContainer',
-                stockInputId: 'newStockMin',
-                permiteDecimalesContainerId: 'newPermiteDecimalesContainer',
-                requiereLoteContainerId: 'newRequiereLoteContainer',
-                requiereVencimientoContainerId: 'newRequiereVencimientoContainer',
-                permiteDecimalesId: 'newPermiteDecimales',
-                requiereLoteId: 'newRequiereLote',
-                requiereVencimientoId: 'newRequiereVencimiento',
-                diasAlertaContainerId: 'newDiasAlertaContainer',
-                diasAlertaId: 'newDiasAlerta',
-                autoIdentidadWrapId: 'newAutoIdentidadWrap',
-                autoIdentidadId: 'newAutoIdentidad',
-                autoIdentidadHelpId: 'newAutoIdentidadHelp',
-                autoIdentityHintId: 'newAutoIdentityHint'
-            });
-
-            bindSkuAuto({
-                tipoId: 'newTipo',
-                skuId: 'newSku',
-                nombreId: 'newNombre',
-                autoIdentidadId: 'newAutoIdentidad',
-                categoriaId: 'newCategoria',
-                marcaId: 'newMarca',
-                saborId: 'newSabor',
-                presentacionId: 'newPresentacion',
-                nombreBadgeId: 'newNombreAutoBadge',
-                skuBadgeId: 'newSkuAutoBadge',
-                autoGenerate: true
-            });
+            applyTipoItemRules(tipoConfig);
+            bindSkuAuto(skuConfig);
 
             bindComercialVisibility({
                 tipoId: 'newTipo',
@@ -690,6 +696,49 @@
     function initEditModal() {
         const modalEdit = document.getElementById('modalEditarItem');
         if (!modalEdit) return;
+
+        const tipoConfig = {
+            tipoId: 'editTipo',
+            marcaContainerId: 'editMarcaContainer',
+            saborContainerId: 'editSaborContainer',
+            presentacionContainerId: 'editPresentacionContainer',
+            saborId: 'editSabor',
+            presentacionId: 'editPresentacion',
+            controlaStockId: 'editControlaStock',
+            stockContainerId: 'editStockMinimoContainer',
+            stockInputId: 'editStockMinimo',
+            permiteDecimalesContainerId: 'editPermiteDecimalesContainer',
+            requiereLoteContainerId: 'editRequiereLoteContainer',
+            requiereVencimientoContainerId: 'editRequiereVencimientoContainer',
+            permiteDecimalesId: 'editPermiteDecimales',
+            requiereLoteId: 'editRequiereLote',
+            requiereVencimientoId: 'editRequiereVencimiento',
+            diasAlertaContainerId: 'editDiasAlertaContainer',
+            diasAlertaId: 'editDiasAlerta',
+            autoIdentidadWrapId: 'editAutoIdentidadWrap',
+            autoIdentidadId: 'editAutoIdentidad',
+            autoIdentidadHelpId: 'editAutoIdentidadHelp',
+            autoIdentityHintId: 'editAutoIdentityHint'
+        };
+
+        const skuConfig = {
+            tipoId: 'editTipo',
+            skuId: 'editSku',
+            nombreId: 'editNombre',
+            autoIdentidadId: 'editAutoIdentidad',
+            categoriaId: 'editCategoria',
+            marcaId: 'editMarca',
+            saborId: 'editSabor',
+            presentacionId: 'editPresentacion',
+            nombreBadgeId: 'editNombreAutoBadge',
+            skuBadgeId: 'editSkuAutoBadge',
+            autoGenerate: true,
+            detectManualOnInit: true,
+            forceDisabled: true
+        };
+
+        applyTipoItemRules(tipoConfig);
+        bindSkuAuto(skuConfig);
 
         modalEdit.addEventListener('show.bs.modal', function (event) {
             const btn = event.relatedTarget;
@@ -744,45 +793,8 @@
                 if (el) el.checked = btn.getAttribute(checks[id]) === '1';
             });
 
-            applyTipoItemRules({
-                tipoId: 'editTipo',
-                marcaContainerId: 'editMarcaContainer',
-                saborContainerId: 'editSaborContainer',
-                presentacionContainerId: 'editPresentacionContainer',
-                saborId: 'editSabor',
-                presentacionId: 'editPresentacion',
-                controlaStockId: 'editControlaStock',
-                stockContainerId: 'editStockMinimoContainer',
-                stockInputId: 'editStockMinimo',
-                permiteDecimalesContainerId: 'editPermiteDecimalesContainer',
-                requiereLoteContainerId: 'editRequiereLoteContainer',
-                requiereVencimientoContainerId: 'editRequiereVencimientoContainer',
-                permiteDecimalesId: 'editPermiteDecimales',
-                requiereLoteId: 'editRequiereLote',
-                requiereVencimientoId: 'editRequiereVencimiento',
-                diasAlertaContainerId: 'editDiasAlertaContainer',
-                diasAlertaId: 'editDiasAlerta',
-                autoIdentidadWrapId: 'editAutoIdentidadWrap',
-                autoIdentidadId: 'editAutoIdentidad',
-                autoIdentidadHelpId: 'editAutoIdentidadHelp',
-                autoIdentityHintId: 'editAutoIdentityHint'
-            });
-
-            bindSkuAuto({
-                tipoId: 'editTipo',
-                skuId: 'editSku',
-                nombreId: 'editNombre',
-                autoIdentidadId: 'editAutoIdentidad',
-                categoriaId: 'editCategoria',
-                marcaId: 'editMarca',
-                saborId: 'editSabor',
-                presentacionId: 'editPresentacion',
-                nombreBadgeId: 'editNombreAutoBadge',
-                skuBadgeId: 'editSkuAutoBadge',
-                autoGenerate: true,
-                detectManualOnInit: true,
-                forceDisabled: true
-            });
+            applyTipoItemRules(tipoConfig);
+            bindSkuAuto(skuConfig);
 
             bindComercialVisibility({
                 tipoId: 'editTipo',
