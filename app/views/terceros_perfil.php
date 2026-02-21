@@ -403,7 +403,7 @@ function showVal($val, $suffix = '') {
 </div>
 
 <!-- MODAL EDITAR DOC -->
-<div class="modal fade" id="modalEditarDoc" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarDoc" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-light py-2">

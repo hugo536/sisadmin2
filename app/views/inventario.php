@@ -224,7 +224,7 @@ $hoy = new DateTimeImmutable('today');
 
 </div>
 
-<div class="modal fade" id="modalMovimientoInventario" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalMovimientoInventario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">

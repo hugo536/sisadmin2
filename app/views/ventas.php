@@ -121,7 +121,7 @@ $estadoLabels = [
     </div>
 </div>
 
-<div class="modal fade" id="modalVenta" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+<div class="modal fade" id="modalVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -195,7 +195,7 @@ $estadoLabels = [
     </div>
 </div>
 
-<div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white">
