@@ -252,7 +252,7 @@
             partes.push(presLimpia);
         }
 
-        return partes.filter((p) => p !== '').join(' - ');
+        return partes.filter((p) => p !== '').join(' ');
     }
 
     function bindSkuAuto(config) {
