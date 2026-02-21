@@ -176,8 +176,12 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
-
-
+.sku-lockable:disabled {
+  background-color: #eef2f6;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 1;
+}
 
 .modal-dialog.modal-dialog-pulse {
   animation: modalDialogPulse 0.35s ease-in-out;

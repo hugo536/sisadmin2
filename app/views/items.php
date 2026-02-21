@@ -192,12 +192,12 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
         <div class="small text-muted" id="itemsPaginationInfo">Cargando...</div>
         <nav aria-label="Paginación de ítems">
-            <ul class="pagination pagination-sm mb-0 justify-content-end" id="itemsPaginationControls"></ul>
+            <ul class="pagination pagination-sm mb-0" id="itemsPaginationControls"></ul>
         </nav>
     </div>
 </div>
 
-<div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCrearItem" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -221,7 +221,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
+                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU">
                                             <label for="newSku">SKU</label>
                                         </div>
                                     </div>
@@ -391,7 +391,7 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
-<div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarItem" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -416,7 +416,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU" readonly disabled>
+                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly disabled>
                                             <label for="editSku">SKU</label>
                                         </div>
                                     </div>
