@@ -415,10 +415,6 @@ class ItemsController extends Controlador
 
     private function normalizarBanderas(array $data): array
     {
-        if (isset($data['id_marca']) && !isset($data['marca'])) {
-            $data['marca'] = $data['id_marca'];
-        }
-
         foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento'] as $flag) {
             $data[$flag] = isset($data[$flag]) ? 1 : 0;
         }
@@ -430,7 +426,7 @@ class ItemsController extends Controlador
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $tiposPermitidos = ['producto', 'producto_terminado', 'materia_prima', 'material_empaque', 'servicio', 'insumo', 'semielaborado'];
+        $tiposPermitidos = ['producto_terminado', 'materia_prima', 'material_empaque', 'servicio', 'insumo', 'semielaborado'];
 
         if ($nombre === '' || $tipo === '') {
             throw new RuntimeException('Nombre y tipo de ítem son obligatorios.');
@@ -438,16 +434,6 @@ class ItemsController extends Controlador
 
         if (!in_array($tipo, $tiposPermitidos, true)) {
             throw new RuntimeException('El tipo de ítem no es válido.');
-        }
-
-        if ($tipo === 'producto_terminado') {
-            // Compatibilidad: persistimos el valor histórico "producto" hasta migrar BD.
-            $tipo = 'producto';
-        }
-
-        if ($tipo === 'insumo') {
-            // Alias funcional para mantener catálogos históricos.
-            $tipo = 'materia_prima';
         }
 
         $data['tipo_item'] = $tipo;
@@ -460,7 +446,27 @@ class ItemsController extends Controlador
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        $esItemDetallado = in_array($tipo, ['producto', 'producto_terminado', 'semielaborado'], true);
+        $idMarca = isset($data['id_marca']) && $data['id_marca'] !== ''
+            ? (int) $data['id_marca']
+            : 0;
+
+        $data['id_marca'] = $idMarca > 0 ? $idMarca : null;
+        $data['marca'] = null;
+
+        if ($idMarca > 0) {
+            foreach ($this->itemsModel->listarMarcas() as $marca) {
+                if ((int) ($marca['id'] ?? 0) === $idMarca) {
+                    $data['marca'] = trim((string) ($marca['nombre'] ?? ''));
+                    break;
+                }
+            }
+
+            if ($data['marca'] === null) {
+                throw new RuntimeException('La marca seleccionada no existe o está inactiva.');
+            }
+        }
+
+        $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
 
         if ($esItemDetallado) {
             if (empty($data['id_marca']) && empty($data['marca'])) {
@@ -492,8 +498,8 @@ class ItemsController extends Controlador
         }
 
         if ($tipo === 'servicio') {
-            $data['marca'] = null;
             $data['id_marca'] = null;
+            $data['marca'] = null;
             $data['controla_stock'] = 0;
             $data['stock_minimo'] = 0;
             $data['permite_decimales'] = 0;
@@ -515,7 +521,7 @@ class ItemsController extends Controlador
             $data['stock_minimo'] = 0;
         }
 
-        if ($esProductoTerminado) {
+        if ($esItemDetallado && trim((string) ($data['sku'] ?? '')) === '') {
             $data['sku'] = $this->generarSkuProductoTerminado($data);
         }
 
@@ -558,7 +564,7 @@ class ItemsController extends Controlador
             }
         }
 
-        $marcaNombre = trim((string) ($data['id_marca'] ?? $data['marca'] ?? ''));
+        $marcaNombre = trim((string) ($data['marca'] ?? ''));
 
         $bloques = [];
         $prefCategoria = $this->prefijoSku($categoriaNombre);

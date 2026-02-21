@@ -126,31 +126,14 @@
 
     async function refreshAtributosSelectores() {
         const data = await fetchOpcionesAtributos();
-        fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
-        fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.nombre, (item) => item.nombre);
+        fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
+        fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
         fillSelect('newSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('editSabor', data.sabores || [], 'Seleccionar sabor...');
         fillSelect('newPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
         fillSelect('editPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
     }
 
-
-    function bindSelectPlaceholderState(selectId) {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-
-        const applyState = () => {
-            const hasValue = (select.value || '').trim() !== '';
-            select.classList.toggle('has-value', hasValue);
-        };
-
-        if (!select.dataset.placeholderBound) {
-            select.addEventListener('change', applyState);
-            select.dataset.placeholderBound = '1';
-        }
-
-        applyState();
-    }
 
     function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
         const trigger = document.getElementById(inputId);
@@ -250,10 +233,17 @@
 
         const apply = () => {
             const value = tipo.value;
-            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
+            const hasTipo = value.trim() !== '';
+            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
 
-            sku.readOnly = forceDisabled || isItemDetallado;
-            sku.disabled = forceDisabled;
+            const skuBloqueado = forceDisabled || !hasTipo || isItemDetallado;
+            sku.readOnly = skuBloqueado;
+            sku.disabled = skuBloqueado;
+
+            if (!hasTipo) {
+                sku.value = '';
+                return;
+            }
 
             if (!isItemDetallado || !autoGenerate) {
                 return;
@@ -290,7 +280,7 @@
         const apply = () => {
             const value = tipo.value;
             const editable = tiposComercialesEditables.has(value);
-            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
+            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
             const fields = card.querySelectorAll('input, select, textarea');
 
             card.classList.toggle('opacity-75', !editable);
@@ -347,7 +337,7 @@
 
         const apply = () => {
             const value = tipo.value;
-            const isItemDetallado = value === 'producto' || value === 'producto_terminado' || value === 'semielaborado';
+            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
             const isMateriaPrima = value === 'materia_prima';
             const isMaterialEmpaque = value === 'material_empaque';
             const isServicio = value === 'servicio';
@@ -409,6 +399,7 @@
         apply();
     }
 
+
     function initCreateModal() {
         const modalCreate = document.getElementById('modalCrearItem');
         if (!modalCreate) return;
@@ -416,7 +407,6 @@
         modalCreate.addEventListener('show.bs.modal', function () {
             const form = document.getElementById('formCrearItem');
             if (form) form.reset();
-            bindSelectPlaceholderState('newTipo');
 
             applyTipoItemRules({
                 tipoId: 'newTipo',
@@ -455,9 +445,10 @@
             });
         });
 
+
         document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('newTipo')?.value;
-            if (tipo !== 'producto' && tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
+            if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
                 const sabor = document.getElementById('newSabor');
                 const presentacion = document.getElementById('newPresentacion');
                 if (sabor) sabor.value = '';
@@ -556,9 +547,10 @@
             });
         });
 
+
         document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
             const tipo = document.getElementById('editTipo')?.value;
-            if (tipo !== 'producto' && tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
+            if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
                 const sabor = document.getElementById('editSabor');
                 const presentacion = document.getElementById('editPresentacion');
                 if (sabor) sabor.value = '';
@@ -777,7 +769,7 @@
             wrapper.className = 'table-responsive tabla-global-scroll-wrapper';
             parent.insertBefore(wrapper, table);
             wrapper.appendChild(table);
-        } else if (parent) {
+        } else if (parent && !parent.classList.contains('inventario-table-wrapper')) {
             parent.classList.add('tabla-global-scroll-wrapper');
         }
 

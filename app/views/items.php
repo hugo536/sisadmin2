@@ -147,7 +147,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-nombre="<?php echo e($item['nombre']); ?>"
                                             data-descripcion="<?php echo e($item['descripcion'] ?? ''); ?>"
                                             data-tipo="<?php echo e($tipoItemUi); ?>"
-                                            data-marca="<?php echo e($item['marca'] ?? ''); ?>"
+                                            data-marca="<?php echo e((string) ($item['id_marca'] ?? '')); ?>"
                                             data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
                                             data-moneda="<?php echo e($item['moneda'] ?? ''); ?>"
                                             data-impuesto="<?php echo e((string) ($item['impuesto'] ?? '18.00')); ?>"
@@ -192,12 +192,12 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
         <div class="small text-muted" id="itemsPaginationInfo">Cargando...</div>
         <nav aria-label="Paginación de ítems">
-            <ul class="pagination pagination-sm mb-0 justify-content-end" id="itemsPaginationControls"></ul>
+            <ul class="pagination pagination-sm mb-0" id="itemsPaginationControls"></ul>
         </nav>
     </div>
 </div>
 
-<div class="modal fade" id="modalCrearItem" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCrearItem" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -221,14 +221,14 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="newSku" name="sku" placeholder="SKU">
+                                            <input type="text" class="form-control sku-lockable" id="newSku" name="sku" placeholder="SKU">
                                             <label for="newSku">SKU</label>
                                         </div>
                                     </div>
 
                                     <div class="col-md-6">
                                         <div class="form-floating">
-                                            <select class="form-select select-placeholder" id="newTipo" name="tipo_item" required>
+                                            <select class="form-select" id="newTipo" name="tipo_item" required>
                                                 <option value="" selected>Seleccionar tipo</option>
                                                 <option value="producto_terminado">Producto terminado</option>
                                                 <option value="materia_prima">Materia Prima</option>
@@ -292,7 +292,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <select class="form-select" id="newMarca" name="id_marca">
                                             <option value="" selected>Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
-                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                                <option value="<?php echo (int) ($marca['id'] ?? 0); ?>"><?php echo e((string) $marca['nombre']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -391,7 +391,7 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
-<div class="modal fade" id="modalEditarItem" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEditarItem" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -416,7 +416,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <div class="form-floating">
-                                            <input type="text" class="form-control" id="editSku" name="sku" placeholder="SKU" readonly disabled>
+                                            <input type="text" class="form-control sku-lockable" id="editSku" name="sku" placeholder="SKU" readonly disabled>
                                             <label for="editSku">SKU</label>
                                         </div>
                                     </div>
@@ -484,7 +484,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <select class="form-select" id="editMarca" name="id_marca">
                                             <option value="">Seleccionar...</option>
                                             <?php foreach ($marcas as $marca): ?>
-                                                <option value="<?php echo e((string) $marca['nombre']); ?>"><?php echo e((string) $marca['nombre']); ?></option>
+                                                <option value="<?php echo (int) ($marca['id'] ?? 0); ?>"><?php echo e((string) $marca['nombre']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
