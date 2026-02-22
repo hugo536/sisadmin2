@@ -23,7 +23,7 @@ class ListaPrecioModel extends Modelo {
                 INNER JOIN terceros t ON t.id = ca.id_tercero
                 LEFT JOIN comercial_acuerdos_precios cap ON cap.id_acuerdo = ca.id
                 GROUP BY ca.id, ca.id_tercero, ca.estado, ca.observaciones
-                ORDER BY TRIM(CONCAT(COALESCE(MAX({$nombreComercialExpr}), ''), ' ', COALESCE(MAX({$nombreExpr}), ''), ' ', COALESCE(MAX({$apellidoExpr}), ''))) ASC";
+                ORDER BY ca.created_at DESC, ca.id DESC";
 
         $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$row) {

@@ -5,7 +5,7 @@ class AlmacenModel extends Modelo
 {
     public function listarActivos(): array
     {
-        $sql = 'SELECT * FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
+        $sql = 'SELECT * FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY COALESCE(updated_at, created_at) DESC, id DESC';
         $stmt = $this->db()->query($sql);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -48,7 +48,7 @@ class AlmacenModel extends Modelo
             $params['fecha_hasta'] = $fechaHasta;
         }
 
-        $orden = (string) ($filtros['orden'] ?? 'nombre_asc');
+        $orden = (string) ($filtros['orden'] ?? 'fecha_desc');
         $orderBy = match ($orden) {
             'codigo_asc' => 'codigo ASC',
             'codigo_desc' => 'codigo DESC',

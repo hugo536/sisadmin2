@@ -40,7 +40,7 @@ class VentasDocumentoModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $sql .= ' ORDER BY v.id DESC';
+        $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);

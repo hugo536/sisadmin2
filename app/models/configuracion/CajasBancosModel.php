@@ -11,7 +11,7 @@ class CajasBancosModel extends Modelo
         $sql = 'SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda 
                 FROM configuracion_cajas_bancos 
                 WHERE estado = 1 AND deleted_at IS NULL 
-                ORDER BY tipo ASC, nombre ASC';
+                ORDER BY COALESCE(updated_at, created_at) DESC, id DESC';
                 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
@@ -53,7 +53,7 @@ class CajasBancosModel extends Modelo
             $where[] = $estadoFiltro === 'inactivos' ? 'estado = 0' : 'estado = 1';
         }
 
-        $orderBy = 'nombre ASC';
+        $orderBy = 'COALESCE(updated_at, created_at) DESC, id DESC';
         $sql = 'SELECT * FROM configuracion_cajas_bancos WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $orderBy;
         
         $stmt = $this->db()->prepare($sql);

@@ -32,7 +32,7 @@ class UsuariosModel extends Modelo
                 FROM usuarios u
                 LEFT JOIN roles r ON r.id = u.id_rol
                 WHERE u.deleted_at IS NULL
-                ORDER BY u.id DESC';
+                ORDER BY COALESCE(u.updated_at, u.created_at) DESC, u.id DESC';
 
         return $this->db()->query($sql)->fetchAll();
     }

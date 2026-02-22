@@ -17,7 +17,7 @@ class ItemsModel extends Modelo
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado
                 FROM items i
                 WHERE i.deleted_at IS NULL
-                ORDER BY i.id DESC";
+                ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();

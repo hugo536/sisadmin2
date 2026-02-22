@@ -55,7 +55,7 @@ class TercerosModel extends Modelo
                 LEFT JOIN distritos dist ON dist.nombre COLLATE utf8mb4_unicode_ci = t.distrito COLLATE utf8mb4_unicode_ci AND dist.provincia_id = prov.id
                 LEFT JOIN distribuidores d ON t.id = d.id_tercero AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
-                ORDER BY t.id DESC";
+                ORDER BY COALESCE(t.updated_at, t.created_at) DESC, t.id DESC";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
@@ -116,7 +116,7 @@ class TercerosModel extends Modelo
         $sql = "SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda
                 FROM configuracion_cajas_bancos
                 WHERE estado = 1 AND deleted_at IS NULL
-                ORDER BY tipo ASC, nombre ASC";
+                ORDER BY COALESCE(updated_at, created_at) DESC, id DESC";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();

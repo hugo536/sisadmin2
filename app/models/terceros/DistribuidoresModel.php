@@ -210,7 +210,7 @@ class DistribuidoresModel extends Modelo
                 FROM distribuidores d
                 INNER JOIN terceros t ON t.id = d.id_tercero
                 WHERE t.deleted_at IS NULL AND d.deleted_at IS NULL
-                ORDER BY t.id DESC";
+                ORDER BY COALESCE(t.updated_at, t.created_at) DESC, t.id DESC";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
