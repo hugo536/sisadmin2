@@ -56,7 +56,7 @@ class RolModel extends Modelo
         $sql = 'SELECT ' . implode(', ', $select) . '
                 FROM roles r' . $join . '
                 WHERE r.deleted_at IS NULL
-                ORDER BY r.id DESC';
+                ORDER BY COALESCE(r.updated_at, r.created_at) DESC, r.id DESC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }

@@ -24,7 +24,7 @@ class AlmacenesController extends Controlador
             'estado_filtro' => (string) ($_GET['estado_filtro'] ?? 'activos'),
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? ''),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? ''),
-            'orden' => (string) ($_GET['orden'] ?? 'nombre_asc'),
+            'orden' => (string) ($_GET['orden'] ?? 'fecha_desc'),
         ];
 
         $this->render('configuracion/almacenes', [

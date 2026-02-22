@@ -22,7 +22,7 @@ class ProduccionModel extends Modelo
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.deleted_at IS NULL
-                ORDER BY r.id DESC';
+                ORDER BY COALESCE(r.updated_at, r.created_at) DESC, r.id DESC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -42,7 +42,7 @@ class ProduccionModel extends Modelo
                 INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                 WHERE o.deleted_at IS NULL
-                ORDER BY o.id DESC';
+                ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

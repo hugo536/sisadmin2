@@ -27,7 +27,7 @@ class ImpuestoModel extends Modelo
             $where[] = 'estado = 0';
         }
 
-        $sql = 'SELECT * FROM configuracion_impuestos WHERE ' . implode(' AND ', $where) . ' ORDER BY es_default DESC, nombre ASC';
+        $sql = 'SELECT * FROM configuracion_impuestos WHERE ' . implode(' AND ', $where) . ' ORDER BY COALESCE(updated_at, created_at) DESC, id DESC';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
 

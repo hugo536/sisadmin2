@@ -28,7 +28,7 @@ class PresentacionModel extends Modelo {
                 GROUP BY d.id_presentacion
             ) det ON det.id_presentacion = p.id
             WHERE p.deleted_at IS NULL AND p.estado = 1
-            ORDER BY p.id DESC";
+            ORDER BY COALESCE(p.updated_at, p.created_at) DESC, p.id DESC";
 
     return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }

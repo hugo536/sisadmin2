@@ -27,7 +27,7 @@ class SerieModel extends Modelo
             $where[] = 'estado = 0';
         }
 
-        $sql = 'SELECT * FROM configuracion_series WHERE ' . implode(' AND ', $where) . ' ORDER BY modulo ASC, tipo_documento ASC, predeterminada DESC, codigo_serie ASC';
+        $sql = 'SELECT * FROM configuracion_series WHERE ' . implode(' AND ', $where) . ' ORDER BY COALESCE(updated_at, created_at) DESC, id DESC';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
 

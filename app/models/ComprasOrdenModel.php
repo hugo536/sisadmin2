@@ -42,7 +42,7 @@ class ComprasOrdenModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $sql .= ' ORDER BY o.id DESC';
+        $sql .= ' ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
