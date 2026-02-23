@@ -163,6 +163,9 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-permite-decimales="<?php echo (int) ($item['permite_decimales'] ?? 0); ?>"
                                             data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
                                             data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
+                                            data-requiere-formula-bom="<?php echo (int) ($item['requiere_formula_bom'] ?? 0); ?>"
+                                            data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>"
+                                            data-es-envase-retornable="<?php echo (int) ($item['es_envase_retornable'] ?? 0); ?>"
                                             data-dias-alerta-vencimiento="<?php echo e((string) ($item['dias_alerta_vencimiento'] ?? '')); ?>"
                                             data-rubro="<?php echo e((string) ($item['id_rubro'] ?? '')); ?>"
                                             data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
@@ -392,6 +395,23 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
                                 </div>
+                                    <div class="col-12">
+                                        <hr class="my-2">
+                                        <div class="d-flex flex-column gap-2">
+                                            <div class="form-check form-switch mb-0" id="newRequiereFormulaBomContainer">
+                                                <input class="form-check-input" type="checkbox" id="newRequiereFormulaBom" name="requiere_formula_bom" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newRequiereFormulaBom">Requiere Fórmula (BOM)</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-0" id="newRequiereFactorConversionContainer">
+                                                <input class="form-check-input" type="checkbox" id="newRequiereFactorConversion" name="requiere_factor_conversion" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newRequiereFactorConversion">Requiere Factor de Conversión</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-0" id="newEsEnvaseRetornableContainer">
+                                                <input class="form-check-input" type="checkbox" id="newEsEnvaseRetornable" name="es_envase_retornable" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="newEsEnvaseRetornable">Es Envase Retornable</label>
+                                            </div>
+                                        </div>
+                                    </div>
                             </div>
                         </div>
                     </div>
@@ -589,6 +609,23 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                     </div>
                                 </div>
+                                    <div class="col-12">
+                                        <hr class="my-2">
+                                        <div class="d-flex flex-column gap-2">
+                                            <div class="form-check form-switch mb-0" id="editRequiereFormulaBomContainer">
+                                                <input class="form-check-input" type="checkbox" id="editRequiereFormulaBom" name="requiere_formula_bom" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editRequiereFormulaBom">Requiere Fórmula (BOM)</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-0" id="editRequiereFactorConversionContainer">
+                                                <input class="form-check-input" type="checkbox" id="editRequiereFactorConversion" name="requiere_factor_conversion" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editRequiereFactorConversion">Requiere Factor de Conversión</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-0" id="editEsEnvaseRetornableContainer">
+                                                <input class="form-check-input" type="checkbox" id="editEsEnvaseRetornable" name="es_envase_retornable" value="1">
+                                                <label class="form-check-label fw-semibold text-dark" for="editEsEnvaseRetornable">Es Envase Retornable</label>
+                                            </div>
+                                        </div>
+                                    </div>
                             </div>
                         </div>
                     </div>

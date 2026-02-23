@@ -13,7 +13,8 @@ class ItemsModel extends Modelo
         $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
                        i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
                        i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
-                       i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
+                       i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
+                       i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado
                 FROM items i
                 WHERE i.deleted_at IS NULL
@@ -39,7 +40,8 @@ class ItemsModel extends Modelo
         // CORREGIDO: Usamos un alias aquí también
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                       dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
+                       dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
+                       es_envase_retornable, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
                 FROM items
                 WHERE id = :id
@@ -59,7 +61,8 @@ class ItemsModel extends Modelo
                        c.nombre AS categoria_nombre,
                        i.id_marca, i.id_sabor, i.id_presentacion,
                        i.marca, i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
-                       i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
+                       i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
+                       i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
                        i.created_at, i.updated_at
                 FROM items i
@@ -291,11 +294,13 @@ class ItemsModel extends Modelo
         // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                                    unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
-                                   dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
+                                   dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
+                                   es_envase_retornable, stock_minimo, precio_venta, costo_referencial,
                                    moneda, impuesto_porcentaje, estado, created_by, updated_by)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_rubro, :id_categoria, :id_marca, :id_sabor, :id_presentacion, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
-                        :dias_alerta_vencimiento, :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
+                        :dias_alerta_vencimiento, :controla_stock, :requiere_formula_bom, :requiere_factor_conversion,
+                        :es_envase_retornable, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($this->filtrarParametrosSql($sql, $payload));
@@ -322,6 +327,9 @@ class ItemsModel extends Modelo
                     requiere_vencimiento = :requiere_vencimiento,
                     dias_alerta_vencimiento = :dias_alerta_vencimiento,
                     controla_stock = :controla_stock,
+                    requiere_formula_bom = :requiere_formula_bom,
+                    requiere_factor_conversion = :requiere_factor_conversion,
+                    es_envase_retornable = :es_envase_retornable,
                     stock_minimo = :stock_minimo,
                     precio_venta = :precio_venta,
                     costo_referencial = :costo_referencial,
@@ -426,6 +434,9 @@ class ItemsModel extends Modelo
                 'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
                 'dias_alerta_vencimiento' => $item['dias_alerta_vencimiento'] !== null ? (int) $item['dias_alerta_vencimiento'] : null,
                 'controla_stock' => (int) ($item['controla_stock'] ?? 0),
+                'requiere_formula_bom' => (int) ($item['requiere_formula_bom'] ?? 0),
+                'requiere_factor_conversion' => (int) ($item['requiere_factor_conversion'] ?? 0),
+                'es_envase_retornable' => (int) ($item['es_envase_retornable'] ?? 0),
                 'stock_minimo' => (float) ($item['stock_minimo'] ?? 0),
                 'precio_venta' => (float) ($item['precio_venta'] ?? 0),
                 'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
@@ -739,6 +750,174 @@ class ItemsModel extends Modelo
         return (int) $stmt->fetchColumn();
     }
 
+
+
+    public function sincronizarDependenciasConfiguracion(int $idItem, array $data, int $userId): void
+    {
+        if ($idItem <= 0) {
+            return;
+        }
+
+        if ((int) ($data['requiere_formula_bom'] ?? 0) === 1) {
+            $this->asegurarRecetaBase($idItem, $userId);
+        }
+
+        if ((int) ($data['requiere_factor_conversion'] ?? 0) === 1) {
+            $this->asegurarPresentacionBase($idItem, $userId);
+        }
+    }
+
+    private function asegurarRecetaBase(int $idItem, int $userId): void
+    {
+        if (!$this->tablaTieneColumna('produccion_recetas', 'id_producto')) {
+            return;
+        }
+
+        $sqlExiste = 'SELECT id FROM produccion_recetas WHERE id_producto = :id_item';
+        if ($this->tablaTieneColumna('produccion_recetas', 'deleted_at')) {
+            $sqlExiste .= ' AND deleted_at IS NULL';
+        }
+        $sqlExiste .= ' ORDER BY id DESC LIMIT 1';
+
+        $stmtExiste = $this->db()->prepare($sqlExiste);
+        $stmtExiste->execute(['id_item' => $idItem]);
+        if ($stmtExiste->fetchColumn()) {
+            return;
+        }
+
+        $item = $this->obtener($idItem);
+        $codigoBase = 'REC-ITEM-' . str_pad((string) $idItem, 6, '0', STR_PAD_LEFT);
+
+        $columnas = ['id_producto', 'codigo'];
+        $placeholders = [':id_producto', ':codigo'];
+        $params = ['id_producto' => $idItem, 'codigo' => $codigoBase];
+
+        if ($this->tablaTieneColumna('produccion_recetas', 'version')) {
+            $columnas[] = 'version';
+            $placeholders[] = ':version';
+            $params['version'] = 1;
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'descripcion')) {
+            $columnas[] = 'descripcion';
+            $placeholders[] = ':descripcion';
+            $params['descripcion'] = 'Fórmula pendiente de configuración.';
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'estado')) {
+            $columnas[] = 'estado';
+            $placeholders[] = ':estado';
+            $params['estado'] = 1;
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'rendimiento_base')) {
+            $columnas[] = 'rendimiento_base';
+            $placeholders[] = ':rendimiento_base';
+            $params['rendimiento_base'] = 1;
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'unidad_rendimiento')) {
+            $columnas[] = 'unidad_rendimiento';
+            $placeholders[] = ':unidad_rendimiento';
+            $params['unidad_rendimiento'] = trim((string) ($item['unidad_base'] ?? 'UND')) ?: 'UND';
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'costo_teorico_unitario')) {
+            $columnas[] = 'costo_teorico_unitario';
+            $placeholders[] = ':costo_teorico_unitario';
+            $params['costo_teorico_unitario'] = 0;
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'created_by')) {
+            $columnas[] = 'created_by';
+            $placeholders[] = ':created_by';
+            $params['created_by'] = $userId > 0 ? $userId : 1;
+        }
+        if ($this->tablaTieneColumna('produccion_recetas', 'updated_by')) {
+            $columnas[] = 'updated_by';
+            $placeholders[] = ':updated_by';
+            $params['updated_by'] = $userId > 0 ? $userId : 1;
+        }
+
+        $sqlInsert = 'INSERT INTO produccion_recetas (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $placeholders) . ')';
+        $this->db()->prepare($sqlInsert)->execute($this->filtrarParametrosSql($sqlInsert, $params));
+    }
+
+    private function asegurarPresentacionBase(int $idItem, int $userId): void
+    {
+        if (!$this->tablaTieneColumna('precios_presentaciones', 'id_item')) {
+            return;
+        }
+
+        $sqlExiste = 'SELECT id FROM precios_presentaciones WHERE id_item = :id_item';
+        if ($this->tablaTieneColumna('precios_presentaciones', 'deleted_at')) {
+            $sqlExiste .= ' AND deleted_at IS NULL';
+        }
+        $sqlExiste .= ' ORDER BY id DESC LIMIT 1';
+
+        $stmtExiste = $this->db()->prepare($sqlExiste);
+        $stmtExiste->execute(['id_item' => $idItem]);
+        if ($stmtExiste->fetchColumn()) {
+            return;
+        }
+
+        $item = $this->obtener($idItem);
+        $sku = trim((string) ($item['sku'] ?? 'ITM-' . $idItem));
+        $nombre = trim((string) ($item['nombre'] ?? ('Item ' . $idItem)));
+
+        $columnas = ['id_item'];
+        $placeholders = [':id_item'];
+        $params = ['id_item' => $idItem];
+
+        if ($this->tablaTieneColumna('precios_presentaciones', 'nombre_manual')) {
+            $columnas[] = 'nombre_manual';
+            $placeholders[] = ':nombre_manual';
+            $params['nombre_manual'] = $nombre;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'nota_pack')) {
+            $columnas[] = 'nota_pack';
+            $placeholders[] = ':nota_pack';
+            $params['nota_pack'] = 'Falta configurar factor de conversión.';
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'codigo_presentacion')) {
+            $columnas[] = 'codigo_presentacion';
+            $placeholders[] = ':codigo_presentacion';
+            $params['codigo_presentacion'] = $sku . '-FC';
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'factor')) {
+            $columnas[] = 'factor';
+            $placeholders[] = ':factor';
+            $params['factor'] = 1;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'es_mixto')) {
+            $columnas[] = 'es_mixto';
+            $placeholders[] = ':es_mixto';
+            $params['es_mixto'] = 0;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'precio_x_menor')) {
+            $columnas[] = 'precio_x_menor';
+            $placeholders[] = ':precio_x_menor';
+            $params['precio_x_menor'] = 0;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'stock_minimo')) {
+            $columnas[] = 'stock_minimo';
+            $placeholders[] = ':stock_minimo';
+            $params['stock_minimo'] = 0;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'estado')) {
+            $columnas[] = 'estado';
+            $placeholders[] = ':estado';
+            $params['estado'] = 1;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'created_by')) {
+            $columnas[] = 'created_by';
+            $placeholders[] = ':created_by';
+            $params['created_by'] = $userId > 0 ? $userId : 1;
+        }
+        if ($this->tablaTieneColumna('precios_presentaciones', 'updated_by')) {
+            $columnas[] = 'updated_by';
+            $placeholders[] = ':updated_by';
+            $params['updated_by'] = $userId > 0 ? $userId : 1;
+        }
+
+        $sqlInsert = 'INSERT INTO precios_presentaciones (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $placeholders) . ')';
+        $this->db()->prepare($sqlInsert)->execute($this->filtrarParametrosSql($sqlInsert, $params));
+    }
+
     private function mapPayload(array $data): array
     {
         return [
@@ -760,6 +939,9 @@ class ItemsModel extends Modelo
                 ? ((isset($data['dias_alerta_vencimiento']) && $data['dias_alerta_vencimiento'] !== '') ? (int) $data['dias_alerta_vencimiento'] : 0)
                 : null,
             'controla_stock' => !empty($data['controla_stock']) ? 1 : 0,
+            'requiere_formula_bom' => !empty($data['requiere_formula_bom']) ? 1 : 0,
+            'requiere_factor_conversion' => !empty($data['requiere_factor_conversion']) ? 1 : 0,
+            'es_envase_retornable' => !empty($data['es_envase_retornable']) ? 1 : 0,
             'stock_minimo' => (float) ($data['stock_minimo'] ?? 0),
             'precio_venta' => (float) ($data['precio_venta'] ?? 0),
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),

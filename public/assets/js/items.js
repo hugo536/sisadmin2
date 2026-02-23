@@ -761,7 +761,7 @@
                 delete autoIdentidad.dataset.manualDetected;
             }
 
-            ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento'].forEach((id) => {
+            ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento', 'editRequiereFormulaBom', 'editRequiereFactorConversion', 'editEsEnvaseRetornable'].forEach((id) => {
                 const input = document.getElementById(id);
                 if (input) input.checked = false;
             });
@@ -796,7 +796,10 @@
                 editControlaStock: 'data-controla-stock',
                 editPermiteDecimales: 'data-permite-decimales',
                 editRequiereLote: 'data-requiere-lote',
-                editRequiereVencimiento: 'data-requiere-vencimiento'
+                editRequiereVencimiento: 'data-requiere-vencimiento',
+                editRequiereFormulaBom: 'data-requiere-formula-bom',
+                editRequiereFactorConversion: 'data-requiere-factor-conversion',
+                editEsEnvaseRetornable: 'data-es-envase-retornable'
             };
 
             Object.keys(checks).forEach((id) => {
