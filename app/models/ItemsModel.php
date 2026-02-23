@@ -10,7 +10,7 @@ class ItemsModel extends Modelo
 
     public function listar(): array
     {
-        $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_categoria,
+        $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
                        i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
                        i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
                        i.dias_alerta_vencimiento, i.controla_stock, i.stock_minimo, i.precio_venta,
@@ -37,7 +37,7 @@ class ItemsModel extends Modelo
     public function obtener(int $id): array
     {
         // CORREGIDO: Usamos un alias aquí también
-        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_categoria, id_marca, id_sabor, id_presentacion, marca,
+        $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
@@ -54,7 +54,8 @@ class ItemsModel extends Modelo
 
     public function obtenerPerfil(int $id): array
     {
-        $sql = 'SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_categoria,
+        $sql = 'SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
+                       r.nombre AS rubro_nombre,
                        c.nombre AS categoria_nombre,
                        i.id_marca, i.id_sabor, i.id_presentacion,
                        i.marca, i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
@@ -62,6 +63,7 @@ class ItemsModel extends Modelo
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
                        i.created_at, i.updated_at
                 FROM items i
+                LEFT JOIN item_rubros r ON r.id = i.id_rubro
                 LEFT JOIN categorias c ON c.id = i.id_categoria
                 WHERE i.id = :id
                   AND i.deleted_at IS NULL
@@ -101,6 +103,98 @@ class ItemsModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function listarRubrosActivos(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM item_rubros
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function listarRubros(): array
+    {
+        $sql = 'SELECT id, nombre, descripcion, estado
+                FROM item_rubros
+                WHERE deleted_at IS NULL
+                ORDER BY nombre ASC';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function rubroExisteActivo(int $idRubro): bool
+    {
+        $sql = 'SELECT 1
+                FROM item_rubros
+                WHERE id = :id
+                  AND estado = 1
+                  AND deleted_at IS NULL
+                LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idRubro]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function crearRubro(array $data, int $userId): int
+    {
+        $sql = 'INSERT INTO item_rubros (nombre, descripcion, estado, created_by, updated_by)
+                VALUES (:nombre, :descripcion, :estado, :created_by, :updated_by)';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'nombre' => trim((string) ($data['nombre'] ?? '')),
+            'descripcion' => trim((string) ($data['descripcion'] ?? '')) !== '' ? trim((string) $data['descripcion']) : null,
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+
+        return (int) $this->db()->lastInsertId();
+    }
+
+    public function actualizarRubro(int $id, array $data, int $userId): bool
+    {
+        $sql = 'UPDATE item_rubros
+                SET nombre = :nombre,
+                    descripcion = :descripcion,
+                    estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'nombre' => trim((string) ($data['nombre'] ?? '')),
+            'descripcion' => trim((string) ($data['descripcion'] ?? '')) !== '' ? trim((string) $data['descripcion']) : null,
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    public function eliminarRubro(int $id, int $userId): bool
+    {
+        $sql = 'UPDATE item_rubros
+                SET estado = 0,
+                    deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_by = :updated_by
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'deleted_by' => $userId,
+            'updated_by' => $userId,
+        ]);
     }
 
     public function listarCategorias(): array
@@ -195,11 +289,11 @@ class ItemsModel extends Modelo
         $payload['updated_by'] = $userId;
 
         // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
-        $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_categoria, id_marca, id_sabor, id_presentacion, marca,
+        $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                                    unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                                    dias_alerta_vencimiento, controla_stock, stock_minimo, precio_venta, costo_referencial,
                                    moneda, impuesto_porcentaje, estado, created_by, updated_by)
-                VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_categoria, :id_marca, :id_sabor, :id_presentacion, :marca,
+                VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_rubro, :id_categoria, :id_marca, :id_sabor, :id_presentacion, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
                         :dias_alerta_vencimiento, :controla_stock, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
@@ -216,6 +310,7 @@ class ItemsModel extends Modelo
                 SET nombre = :nombre,
                     descripcion = :descripcion,
                     tipo_item = :tipo_item,
+                    id_rubro = :id_rubro,
                     id_categoria = :id_categoria,
                     id_marca = :id_marca,
                     id_sabor = :id_sabor,
@@ -319,6 +414,7 @@ class ItemsModel extends Modelo
                 'nombre' => (string) $item['nombre'],
                 'descripcion' => (string) ($item['descripcion'] ?? ''),
                 'tipo_item' => (string) $item['tipo_item'],
+                'id_rubro' => $item['id_rubro'] !== null ? (int) $item['id_rubro'] : null,
                 'id_categoria' => $item['id_categoria'] !== null ? (int) $item['id_categoria'] : null,
                 'id_marca' => $item['id_marca'] !== null ? (int) $item['id_marca'] : null,
                 'id_sabor' => $item['id_sabor'] !== null ? (int) $item['id_sabor'] : null,
@@ -650,6 +746,7 @@ class ItemsModel extends Modelo
             'nombre' => trim((string) ($data['nombre'] ?? '')),
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
             'tipo_item' => trim((string) ($data['tipo_item'] ?? '')),
+            'id_rubro' => (isset($data['id_rubro']) && $data['id_rubro'] !== '') ? (int) $data['id_rubro'] : null,
             'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? $data['id_categoria'] : null,
             'id_marca' => (isset($data['id_marca']) && $data['id_marca'] !== '') ? (int) $data['id_marca'] : null,
             'id_sabor' => (isset($data['id_sabor']) && $data['id_sabor'] !== '') ? (int) $data['id_sabor'] : null,
