@@ -79,6 +79,7 @@ class ItemsController extends Controlador
                     }
                     
                     $nuevoId = $this->itemsModel->crear($data, $userId);
+                    $this->itemsModel->sincronizarDependenciasConfiguracion($nuevoId, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem creado correctamente.', 'id' => $nuevoId];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem creado correctamente.'];
                 }
@@ -100,6 +101,7 @@ class ItemsController extends Controlador
                     }
 
                     $this->itemsModel->actualizar($id, $data, $userId);
+                    $this->itemsModel->sincronizarDependenciasConfiguracion($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem actualizado correctamente.'];
                 }
@@ -451,7 +453,7 @@ class ItemsController extends Controlador
 
     private function normalizarBanderas(array $data): array
     {
-        foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento'] as $flag) {
+        foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento', 'requiere_formula_bom', 'requiere_factor_conversion', 'es_envase_retornable'] as $flag) {
             $data[$flag] = isset($data[$flag]) ? 1 : 0;
         }
 
