@@ -126,6 +126,8 @@
 
     async function refreshAtributosSelectores() {
         const data = await fetchOpcionesAtributos();
+        fillSelect('newRubro', data.rubros || [], 'Seleccionar...');
+        fillSelect('editRubro', data.rubros || [], 'Seleccionar...');
         fillSelectMapped('newMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
         fillSelectMapped('editMarca', data.marcas || [], 'Seleccionar marca...', (item) => item.id, (item) => item.nombre);
         fillSelect('newSabor', data.sabores || [], 'Seleccionar sabor...');
@@ -777,6 +779,7 @@
                 editPrecio: 'data-precio',
                 editStockMinimo: 'data-stock-minimo',
                 editCosto: 'data-costo',
+                editRubro: 'data-rubro',
                 editCategoria: 'data-categoria',
                 editEstado: 'data-estado',
                 editSabor: 'data-sabor',
@@ -821,6 +824,43 @@
                 if (presentacion) presentacion.value = '';
             }
         });
+    }
+
+    function initRubrosModal() {
+        const form = document.getElementById('formGestionRubro');
+        if (!form) return;
+
+        const accion = document.getElementById('rubroAccion');
+        const idInput = document.getElementById('rubroId');
+        const nombre = document.getElementById('rubroNombre');
+        const descripcion = document.getElementById('rubroDescripcion');
+        const estado = document.getElementById('rubroEstado');
+        const btnGuardar = document.getElementById('btnGuardarRubro');
+        const btnReset = document.getElementById('btnResetRubro');
+
+        const resetForm = () => {
+            if (accion) accion.value = 'crear_rubro';
+            if (idInput) idInput.value = '';
+            if (nombre) nombre.value = '';
+            if (descripcion) descripcion.value = '';
+            if (estado) estado.value = '1';
+            if (btnGuardar) btnGuardar.textContent = 'Guardar rubro';
+        };
+
+        document.querySelectorAll('.btn-editar-rubro').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (accion) accion.value = 'editar_rubro';
+                if (idInput) idInput.value = btn.getAttribute('data-id') || '';
+                if (nombre) nombre.value = btn.getAttribute('data-nombre') || '';
+                if (descripcion) descripcion.value = btn.getAttribute('data-descripcion') || '';
+                if (estado) estado.value = btn.getAttribute('data-estado') || '1';
+                if (btnGuardar) btnGuardar.textContent = 'Actualizar rubro';
+                nombre?.focus();
+            });
+        });
+
+        btnReset?.addEventListener('click', resetForm);
+        document.getElementById('modalGestionRubros')?.addEventListener('show.bs.modal', resetForm);
     }
 
     function initCategoriasModal() {
@@ -1196,6 +1236,7 @@
         
         // Inicializamos el resto de los componentes
         initTableManager();
+        initRubrosModal();
         initCategoriasModal();
         initGestionItemsModal();
         initEstadoSwitches();

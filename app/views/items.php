@@ -1,5 +1,7 @@
 <?php
 $items = $items ?? [];
+$rubros = $rubros ?? [];
+$rubrosGestion = $rubros_gestion ?? [];
 $categorias = $categorias ?? [];
 $categoriasGestion = $categorias_gestion ?? [];
 $marcas = $marcas ?? [];
@@ -38,6 +40,9 @@ $tipoItemLabel = static function (string $tipo): string {
             <p class="text-muted small mb-0 ms-1">Administra el catálogo maestro de ítems.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionRubros">
+                <i class="bi bi-diagram-3 me-2 text-info"></i>Rubros
+            </button>
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
                 <i class="bi bi-tags me-2 text-info"></i>Categorías
             </button>
@@ -159,6 +164,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
                                             data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
                                             data-dias-alerta-vencimiento="<?php echo e((string) ($item['dias_alerta_vencimiento'] ?? '')); ?>"
+                                            data-rubro="<?php echo e((string) ($item['id_rubro'] ?? '')); ?>"
                                             data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
                                             data-sabor="<?php echo e((string) ($item['id_sabor'] ?? '')); ?>"
                                             data-presentacion="<?php echo e((string) ($item['id_presentacion'] ?? '')); ?>"
@@ -214,6 +220,28 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
                             <div class="card-body">
                                 <div class="row g-3">
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Rubro</label>
+                                        <select class="form-select" id="newRubro" name="id_rubro">
+                                            <option value="" selected>Seleccionar...</option>
+                                            <?php foreach ($rubros as $rubro): ?>
+                                                <option value="<?php echo (int) $rubro['id']; ?>"><?php echo e((string) $rubro['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Categoría</label>
+                                        <select class="form-select" id="newCategoria" name="id_categoria">
+                                            <option value="" selected>Seleccionar...</option>
+                                            <?php foreach ($categorias as $categoria): ?>
+                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+
                                     <div class="col-md-6">
                                         <label for="newTipo" class="form-label small text-muted mb-1">Tipo de ítem <span class="text-danger">*</span></label>
                                         <select class="form-select" id="newTipo" name="tipo_item" required>
@@ -276,16 +304,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Categoría</label>
-                                        <select class="form-select" id="newCategoria" name="id_categoria">
-                                            <option value="" selected>Seleccionar...</option>
-                                            <?php foreach ($categorias as $categoria): ?>
-                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    
                                     <div class="col-md-6" id="newMarcaContainer">
                                         <label class="form-label small text-muted mb-1">Marca <span class="text-danger">*</span></label>
                                         <select class="form-select" id="newMarca" name="id_marca">
@@ -408,6 +426,25 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-header bg-white fw-bold text-primary py-2"><i class="bi bi-tag me-2"></i>Identidad</div>
                             <div class="card-body">
                                 <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Rubro</label>
+                                        <select class="form-select" id="editRubro" name="id_rubro">
+                                            <option value="">Seleccionar...</option>
+                                            <?php foreach ($rubros as $rubro): ?>
+                                                <option value="<?php echo (int) $rubro['id']; ?>"><?php echo e((string) $rubro['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-1">Categoría</label>
+                                        <select class="form-select" id="editCategoria" name="id_categoria">
+                                            <option value="">Seleccionar...</option>
+                                            <?php foreach ($categorias as $categoria): ?>
+                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
                                     <div class="col-md-8">
                                         <label for="editTipo" class="form-label small text-muted mb-1">Tipo de ítem <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editTipo" name="tipo_item" required>
@@ -467,15 +504,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Categoría</label>
-                                        <select class="form-select" id="editCategoria" name="id_categoria">
-                                            <option value="">Seleccionar...</option>
-                                            <?php foreach ($categorias as $categoria): ?>
-                                                <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
                                     <div class="col-md-6" id="editMarcaContainer">
                                         <label class="form-label small text-muted mb-1">Marca <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editMarca" name="id_marca">
@@ -667,6 +695,46 @@ $tipoItemLabel = static function (string $tipo): string {
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalGestionRubros" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title mb-0"><i class="bi bi-diagram-3 me-2"></i>Administrar rubros</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" id="formGestionRubro" class="row g-2 mb-3 border rounded-3 p-3 bg-light">
+                    <input type="hidden" name="accion" id="rubroAccion" value="crear_rubro">
+                    <input type="hidden" name="id" id="rubroId" value="">
+                    <div class="col-md-4 form-floating"><input type="text" class="form-control" id="rubroNombre" name="nombre" required><label>Nombre</label></div>
+                    <div class="col-md-5 form-floating"><input type="text" class="form-control" id="rubroDescripcion" name="descripcion"><label>Descripción</label></div>
+                    <div class="col-md-3 form-floating"><select class="form-select" id="rubroEstado" name="estado"><option value="1">Activo</option><option value="0">Inactivo</option></select><label>Estado</label></div>
+                    <div class="col-12 d-flex justify-content-end gap-2"><button type="button" class="btn btn-light" id="btnResetRubro">Limpiar</button><button type="submit" class="btn btn-primary" id="btnGuardarRubro">Guardar</button></div>
+                </form>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($rubrosGestion as $rubro): ?>
+                                <tr>
+                                    <td class="fw-semibold"><?php echo e((string)$rubro['nombre']); ?></td>
+                                    <td><?php echo e((string)($rubro['descripcion'] ?? '')); ?></td>
+                                    <td><?php if((int)($rubro['estado']??0)===1): ?><span class="badge bg-success-subtle text-success">Activo</span><?php else: ?><span class="badge bg-secondary-subtle text-secondary">Inactivo</span><?php endif; ?></td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary btn-editar-rubro" data-id="<?php echo (int)$rubro['id']; ?>" data-nombre="<?php echo e((string)$rubro['nombre']); ?>" data-descripcion="<?php echo e((string)($rubro['descripcion']??'')); ?>" data-estado="<?php echo (int)($rubro['estado']??1); ?>">Editar</button>
+                                        <form method="post" class="d-inline js-swal-confirm"><input type="hidden" name="accion" value="eliminar_rubro"><input type="hidden" name="id" value="<?php echo (int)$rubro['id']; ?>"><button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button></form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

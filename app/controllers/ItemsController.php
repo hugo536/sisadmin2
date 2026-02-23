@@ -30,6 +30,7 @@ class ItemsController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'opciones_atributos_items') {
             json_response([
                 'ok' => true,
+                'rubros' => $this->itemsModel->listarRubrosActivos(),
                 'marcas' => $this->itemsModel->listarMarcas(true),
                 'sabores' => $this->itemsModel->listarSabores(true),
                 'presentaciones' => $this->itemsModel->listarPresentaciones(true),
@@ -119,6 +120,39 @@ class ItemsController extends Controlador
                     $this->itemsModel->crearCategoria($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría creada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría creada correctamente.'];
+                }
+
+                if ($accion === 'crear_rubro') {
+                    require_permiso('configuracion.editar');
+                    $data = $this->validarRubro($_POST);
+                    $this->itemsModel->crearRubro($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Rubro creado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Rubro creado correctamente.'];
+                }
+
+                if ($accion === 'editar_rubro') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de rubro inválido.');
+                    }
+
+                    $data = $this->validarRubro($_POST);
+                    $this->itemsModel->actualizarRubro($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Rubro actualizado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Rubro actualizado correctamente.'];
+                }
+
+                if ($accion === 'eliminar_rubro') {
+                    require_permiso('configuracion.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID de rubro inválido.');
+                    }
+
+                    $this->itemsModel->eliminarRubro($id, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Rubro eliminado correctamente.'];
+                    $flash = ['tipo' => 'success', 'texto' => 'Rubro eliminado correctamente.'];
                 }
 
                 if ($accion === 'editar_categoria') {
@@ -283,6 +317,8 @@ class ItemsController extends Controlador
 
         $this->render('items', [
             'items' => $this->itemsModel->listar(),
+            'rubros' => $this->itemsModel->listarRubrosActivos(),
+            'rubros_gestion' => $this->itemsModel->listarRubros(),
             'categorias' => $this->itemsModel->listarCategoriasActivas(),
             'categorias_gestion' => $this->itemsModel->listarCategorias(),
             'marcas' => $this->itemsModel->listarMarcas(true),
@@ -441,6 +477,14 @@ class ItemsController extends Controlador
         $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== ''
             ? (int) $data['id_categoria']
             : 0;
+
+        $idRubro = isset($data['id_rubro']) && $data['id_rubro'] !== ''
+            ? (int) $data['id_rubro']
+            : 0;
+
+        if ($idRubro > 0 && !$this->itemsModel->rubroExisteActivo($idRubro)) {
+            throw new RuntimeException('El rubro seleccionado no existe o está inactivo.');
+        }
 
         if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
@@ -709,6 +753,20 @@ class ItemsController extends Controlador
 
         return [
             'nombre' => $nombre,
+            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+        ];
+    }
+
+    private function validarRubro(array $data): array
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del rubro es obligatorio.');
+        }
+
+        return [
+            'nombre' => $nombre,
+            'descripcion' => trim((string) ($data['descripcion'] ?? '')),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
     }
