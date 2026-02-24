@@ -38,6 +38,14 @@ class ItemsController extends Controlador
             return;
         }
 
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar_unidades_conversion') {
+            json_response([
+                'ok' => true,
+                'items' => $this->itemsModel->listarUnidadesConversion(),
+            ]);
+            return;
+        }
+
         if (es_ajax() && (string) ($_POST['accion'] ?? '') === 'toggle_estado_item') {
             require_permiso('items.editar');
             $id = (int) ($_POST['id'] ?? 0);
@@ -329,6 +337,7 @@ class ItemsController extends Controlador
             'sabores_gestion' => $this->itemsModel->listarSabores(),
             'presentaciones' => $this->itemsModel->listarPresentaciones(true),
             'presentaciones_gestion' => $this->itemsModel->listarPresentaciones(),
+            'unidades_conversion' => $this->itemsModel->listarUnidadesConversion(),
             'flash' => $flash,
             'ruta_actual' => 'items', 
         ]);

@@ -10,6 +10,8 @@ $sabores = $sabores ?? [];
 $saboresGestion = $sabores_gestion ?? [];
 $presentaciones = $presentaciones ?? [];
 $presentacionesGestion = $presentaciones_gestion ?? [];
+$unidadesConversion = $unidades_conversion ?? [];
+$pendientesConversion = array_values(array_filter($unidadesConversion, static fn(array $row): bool => (int) ($row['total_unidades'] ?? 0) <= 0));
 
 // Helpers para UI
 $tipoItemValueForUi = static function (string $tipo): string {
@@ -40,6 +42,12 @@ $tipoItemLabel = static function (string $tipo): string {
             <p class="text-muted small mb-0 ms-1">Administra el catálogo maestro de ítems.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalUnidadesConversion">
+                <i class="bi bi-arrow-left-right me-2 text-warning"></i>Unidades y Conversiones
+                <?php if (count($pendientesConversion) > 0): ?>
+                    <span class="badge rounded-pill bg-warning text-dark ms-2"><?php echo count($pendientesConversion); ?></span>
+                <?php endif; ?>
+            </button>
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionRubros">
                 <i class="bi bi-diagram-3 me-2 text-info"></i>Rubros
             </button>
@@ -798,6 +806,66 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 </div>
 
+
+
+<div class="modal fade" id="modalUnidadesConversion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning-subtle py-2">
+                <h6 class="modal-title mb-0"><i class="bi bi-arrow-left-right me-2 text-warning"></i>Unidades y Conversiones</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Los ítems con <strong>Factor Conversión</strong> activo deben tener al menos una unidad declarada.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" id="tablaUnidadesConversion">
+                        <thead>
+                            <tr>
+                                <th>Ítem</th>
+                                <th>Unidad base</th>
+                                <th class="text-center">Unidades declaradas</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($unidadesConversion === []): ?>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No hay ítems con factor de conversión activo.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($unidadesConversion as $unidad): ?>
+                                    <?php $totalUnidades = (int) ($unidad['total_unidades'] ?? 0); ?>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold"><?php echo e((string) ($unidad['nombre'] ?? '')); ?></div>
+                                            <div class="small text-muted"><?php echo e((string) ($unidad['sku'] ?? '')); ?></div>
+                                        </td>
+                                        <td><?php echo e((string) ($unidad['unidad_base'] ?? 'UND')); ?></td>
+                                        <td class="text-center"><?php echo $totalUnidades; ?></td>
+                                        <td class="text-center">
+                                            <?php if ($totalUnidades <= 0): ?>
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Pendiente
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>Configurado
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="modalGestionRubros" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
