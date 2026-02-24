@@ -1,6 +1,7 @@
 <?php
 $recetas = $recetas ?? [];
 $itemsStockeables = $items_stockeables ?? [];
+// Estas etapas son perfectas para el flujo de bebidas que conversamos
 $etapasProduccion = [
     'Tratamiento Agua',
     'Jarabe',
@@ -8,6 +9,7 @@ $etapasProduccion = [
     'Pasteurización',
     'Carbonatación',
     'Envasado',
+    'Empaque' // Añadí esta para cuando hagas el Pack x15
 ];
 ?>
 <div class="container-fluid p-4">
@@ -16,7 +18,7 @@ $etapasProduccion = [
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-journal-check me-2 text-primary"></i> Recetas (BOM)
             </h1>
-            <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas de producción.</p>
+            <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas de producción y semielaborados.</p>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta">
@@ -153,7 +155,7 @@ $etapasProduccion = [
                                 </div>
                                 <div class="col-md-3 form-floating">
                                     <input type="text" class="form-control" id="newUnidadRendimiento" name="unidad_rendimiento" placeholder="Unidad">
-                                    <label for="newUnidadRendimiento">Unidad rendimiento</label>
+                                    <label for="newUnidadRendimiento">Unidad rendimiento (Ej. Lts, Packs)</label>
                                 </div>
                                 <div class="col-md-9 form-floating">
                                     <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
@@ -165,13 +167,13 @@ $etapasProduccion = [
 
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Parámetros Finales</h6>
+                            <h6 class="fw-bold text-muted mb-3">Parámetros de Calidad (IPC)</h6>
                             <div class="row g-2">
                                 <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="brix_objetivo" placeholder="Brix"><label>Brix objetivo</label></div>
                                 <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="ph_objetivo" placeholder="pH"><label>pH objetivo</label></div>
                                 <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="carbonatacion_vol" placeholder="CO2"><label>Carbonatación (vol)</label></div>
                                 <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="temp_pasteurizacion" placeholder="Temperatura"><label>Temp. pasteurización</label></div>
-                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="tiempo_pasteurizacion" placeholder="Tiempo"><label>Tiempo pasteurización</label></div>
+                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="tiempo_pasteurizacion" placeholder="Tiempo"><label>Tiempo pasteuriz. (min)</label></div>
                             </div>
                         </div>
                     </div>
@@ -179,27 +181,24 @@ $etapasProduccion = [
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0">Etapas</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarDetalleReceta">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar línea
-                                </button>
+                                <h6 class="fw-bold text-muted mb-0">Composición (BOM) por Etapas</h6>
                             </div>
                             <div class="accordion" id="accordionEtapasReceta">
                                 <?php foreach ($etapasProduccion as $index => $etapa): ?>
                                     <div class="accordion-item">
                                         <h2 class="accordion-header" id="heading-<?php echo $index; ?>">
                                             <button class="accordion-button <?php echo $index > 0 ? 'collapsed' : ''; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $index; ?>">
-                                                <?php echo e($etapa); ?>
+                                                <i class="bi bi-diagram-2 me-2 text-primary"></i> <?php echo e($etapa); ?>
                                             </button>
                                         </h2>
                                         <div id="collapse-<?php echo $index; ?>" class="accordion-collapse collapse <?php echo $index === 0 ? 'show' : ''; ?>" data-bs-parent="#accordionEtapasReceta">
-                                            <div class="accordion-body">
+                                            <div class="accordion-body bg-light">
                                                 <div class="d-flex justify-content-end mb-2">
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-add-etapa="<?php echo e($etapa); ?>">
-                                                        <i class="bi bi-plus-lg me-1"></i>Agregar insumo
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" data-add-etapa="<?php echo e($etapa); ?>">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar insumo a <?php echo e($etapa); ?>
                                                     </button>
                                                 </div>
-                                                <div data-etapa-container="<?php echo e($etapa); ?>"></div>
+                                                <div data-etapa-container="<?php echo e($etapa); ?>" class="lista-insumos-etapa"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -208,19 +207,22 @@ $etapasProduccion = [
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm">
+                    <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-2">BOM resumen</h6>
-                            <div id="bomResumen" class="small text-muted">0 líneas cargadas.</div>
+                            <h6 class="fw-bold text-muted mb-2">Resumen de la Receta</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div id="bomResumen" class="small text-muted">0 insumos/semielaborados agregados.</div>
+                            </div>
                         </div>
                     </div>
 
                     <template id="detalleRecetaTemplate">
-                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2" data-etapa="">
-                            <input type="hidden" name="detalle_etapa[]" value="">
+                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2 shadow-sm">
+                            <input type="hidden" name="detalle_etapa[]" class="input-etapa-hidden" value="">
+                            
                             <div class="col-md-5">
-                                <label class="form-label small text-muted mb-0">Insumo</label>
-                                <select class="form-select form-select-sm" name="detalle_id_insumo[]" required>
+                                <label class="form-label small text-muted mb-0 fw-bold">Insumo / Semielaborado</label>
+                                <select class="form-select form-select-sm select-insumo" name="detalle_id_insumo[]" required>
                                     <option value="">Seleccione...</option>
                                     <?php foreach ($itemsStockeables as $item): ?>
                                         <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
@@ -228,21 +230,23 @@ $etapasProduccion = [
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small text-muted mb-0">Cantidad Base</label>
-                                <input step="0.0001" min="0.0001" type="number" required name="detalle_cantidad[]" class="form-control form-control-sm" placeholder="0.00">
+                                <label class="form-label small text-muted mb-0 fw-bold">Cantidad Base</label>
+                                <input step="0.0001" min="0.0001" type="number" required name="detalle_cantidad_por_unidad[]" class="form-control form-control-sm input-cantidad" placeholder="0.0000">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small text-muted mb-0">Merma %</label>
-                                <input step="0.01" min="0" type="number" name="detalle_merma[]" value="0" class="form-control form-control-sm">
+                                <label class="form-label small text-muted mb-0 fw-bold">Merma %</label>
+                                <input step="0.01" min="0" type="number" name="detalle_merma_porcentaje[]" value="0.00" class="form-control form-control-sm input-merma">
                             </div>
                             <div class="col-md-1 text-end">
-                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-row" title="Quitar"><i class="bi bi-trash"></i></button>
+                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-row" title="Quitar línea">
+                                    <i class="bi bi-trash fs-5"></i>
+                                </button>
                             </div>
                         </div>
                     </template>
 
-                    <div class="d-flex justify-content-end pt-3">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="d-flex justify-content-end pt-2">
+                        <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar Receta</button>
                     </div>
                 </form>
@@ -251,4 +255,4 @@ $etapasProduccion = [
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.1"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=1.1"></script>

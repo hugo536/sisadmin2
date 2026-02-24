@@ -103,11 +103,14 @@ class ProduccionModel extends Modelo
         $descripcion = trim((string) ($payload['descripcion'] ?? ''));
         $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
         $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
-        $brixObjetivo = (float) ($payload['brix_objetivo'] ?? 0);
-        $phObjetivo = (float) ($payload['ph_objetivo'] ?? 0);
-        $carbonatacionVol = (float) ($payload['carbonatacion_vol'] ?? 0);
-        $tempPasteurizacion = (float) ($payload['temp_pasteurizacion'] ?? 0);
-        $tiempoPasteurizacion = (float) ($payload['tiempo_pasteurizacion'] ?? 0);
+        
+        // Mantener como nulos si no fueron proporcionados para evitar falsos "0.00"
+        $brixObjetivo = $payload['brix_objetivo'] ?? null;
+        $phObjetivo = $payload['ph_objetivo'] ?? null;
+        $carbonatacionVol = $payload['carbonatacion_vol'] ?? null;
+        $tempPasteurizacion = $payload['temp_pasteurizacion'] ?? null;
+        $tiempoPasteurizacion = $payload['tiempo_pasteurizacion'] ?? null;
+        
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
 
         if ($idProducto <= 0 || $codigo === '' || $detalles === [] || $rendimientoBase <= 0) {
@@ -132,7 +135,7 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            // Costo por cada unidad producida (ej: costo de 1 pack)
+            // Costo por cada unidad producida (ej: costo de 1 pack o 1 botella)
             $costoUnitarioTeorico = $costoTotalReceta / $rendimientoBase;
 
             // 2. Insertar Receta
@@ -154,11 +157,14 @@ class ProduccionModel extends Modelo
                 'descripcion' => $descripcion !== '' ? $descripcion : null,
                 'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                 'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
-                'brix_objetivo' => $brixObjetivo > 0 ? number_format($brixObjetivo, 4, '.', '') : null,
-                'ph_objetivo' => $phObjetivo > 0 ? number_format($phObjetivo, 4, '.', '') : null,
-                'carbonatacion_vol' => $carbonatacionVol > 0 ? number_format($carbonatacionVol, 4, '.', '') : null,
-                'temp_pasteurizacion' => $tempPasteurizacion > 0 ? number_format($tempPasteurizacion, 4, '.', '') : null,
-                'tiempo_pasteurizacion' => $tiempoPasteurizacion > 0 ? number_format($tiempoPasteurizacion, 4, '.', '') : null,
+                
+                // Formateo seguro para evitar error de number_format(null) en PHP 8+
+                'brix_objetivo' => $brixObjetivo !== null ? number_format((float)$brixObjetivo, 4, '.', '') : null,
+                'ph_objetivo' => $phObjetivo !== null ? number_format((float)$phObjetivo, 4, '.', '') : null,
+                'carbonatacion_vol' => $carbonatacionVol !== null ? number_format((float)$carbonatacionVol, 4, '.', '') : null,
+                'temp_pasteurizacion' => $tempPasteurizacion !== null ? number_format((float)$tempPasteurizacion, 4, '.', '') : null,
+                'tiempo_pasteurizacion' => $tiempoPasteurizacion !== null ? number_format((float)$tiempoPasteurizacion, 4, '.', '') : null,
+                
                 'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -166,7 +172,7 @@ class ProduccionModel extends Modelo
 
             $idReceta = (int) $db->lastInsertId();
 
-            // 3. Desactivar versiones anteriores de receta
+            // 3. Desactivar versiones anteriores de receta para este producto
             $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
                                             SET estado = 0,
                                                 updated_at = NOW(),
@@ -180,7 +186,7 @@ class ProduccionModel extends Modelo
                 'id_receta' => $idReceta,
             ]);
 
-            // 4. Insertar Detalle
+            // 4. Insertar Detalles de la BOM
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
                                         (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
                                      VALUES
@@ -207,7 +213,7 @@ class ProduccionModel extends Modelo
                 ]);
             }
 
-            // 5. Actualizar Costo Referencial en el Item Principal
+            // 5. Actualizar Costo Referencial en la tabla de Items
             $stmtUpdateItem = $db->prepare('UPDATE items 
                                             SET costo_referencial = :costo,
                                                 updated_at = NOW(),
@@ -304,6 +310,7 @@ class ProduccionModel extends Modelo
                 $qtyBase = (float) $linea['cantidad_por_unidad'];
                 $merma = (float) $linea['merma_porcentaje'];
                 
+                // Cálculo de la cantidad total requerida basada en la BOM
                 $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
                 
                 $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
@@ -319,7 +326,7 @@ class ProduccionModel extends Modelo
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_lote' => null,
+                    'id_lote' => null, // Esto se enlazaría a la tabla lotes si corresponde
                     'cantidad' => number_format($cantidadRequerida, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
                     'created_by' => $userId,
@@ -492,11 +499,14 @@ class ProduccionModel extends Modelo
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
             'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
-            'brix_objetivo' => (float) ($receta['brix_objetivo'] ?? 0),
-            'ph_objetivo' => (float) ($receta['ph_objetivo'] ?? 0),
-            'carbonatacion_vol' => (float) ($receta['carbonatacion_vol'] ?? 0),
-            'temp_pasteurizacion' => (float) ($receta['temp_pasteurizacion'] ?? 0),
-            'tiempo_pasteurizacion' => (float) ($receta['tiempo_pasteurizacion'] ?? 0),
+            
+            // Pasar los valores de IPC tal como están (si son nulos en BD, seguirán siendo nulos)
+            'brix_objetivo' => $receta['brix_objetivo'] ?? null,
+            'ph_objetivo' => $receta['ph_objetivo'] ?? null,
+            'carbonatacion_vol' => $receta['carbonatacion_vol'] ?? null,
+            'temp_pasteurizacion' => $receta['temp_pasteurizacion'] ?? null,
+            'tiempo_pasteurizacion' => $receta['tiempo_pasteurizacion'] ?? null,
+            
             'detalles' => array_map(static fn (array $d): array => [
                 'id_insumo' => (int) $d['id_insumo'],
                 'etapa' => (string) ($d['etapa'] ?? ''),

@@ -33,18 +33,27 @@ class ProduccionController extends Controlador
             try {
                 if ($accion === 'crear_receta') {
                     $detalles = [];
+                    // Las claves de $_POST ahora coinciden con los 'name' del HTML
                     $insumos = $_POST['detalle_id_insumo'] ?? [];
-                    $cantidades = $_POST['detalle_cantidad'] ?? [];
-                    $mermas = $_POST['detalle_merma'] ?? [];
+                    $cantidades = $_POST['detalle_cantidad_por_unidad'] ?? [];
+                    $mermas = $_POST['detalle_merma_porcentaje'] ?? [];
                     $etapas = $_POST['detalle_etapa'] ?? [];
 
                     foreach ((array) $insumos as $idx => $idInsumo) {
+                        // Evitamos insertar filas vacías si el usuario no seleccionó un insumo
+                        if (empty($idInsumo)) continue;
+
                         $detalles[] = [
                             'id_insumo' => (int) $idInsumo,
                             'etapa' => (string) ($etapas[$idx] ?? ''),
                             'cantidad_por_unidad' => (float) ($cantidades[$idx] ?? 0),
                             'merma_porcentaje' => (float) ($mermas[$idx] ?? 0),
                         ];
+                    }
+
+                    // Validación rápida antes de enviar al modelo
+                    if (empty($detalles)) {
+                        throw new Exception("La receta debe tener al menos un insumo.");
                     }
 
                     $this->produccionModel->crearReceta([
@@ -54,11 +63,11 @@ class ProduccionController extends Controlador
                         'descripcion' => (string) ($_POST['descripcion'] ?? ''),
                         'rendimiento_base' => (float) ($_POST['rendimiento_base'] ?? 0),
                         'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? ''),
-                        'brix_objetivo' => (float) ($_POST['brix_objetivo'] ?? 0),
-                        'ph_objetivo' => (float) ($_POST['ph_objetivo'] ?? 0),
-                        'carbonatacion_vol' => (float) ($_POST['carbonatacion_vol'] ?? 0),
-                        'temp_pasteurizacion' => (float) ($_POST['temp_pasteurizacion'] ?? 0),
-                        'tiempo_pasteurizacion' => (float) ($_POST['tiempo_pasteurizacion'] ?? 0),
+                        'brix_objetivo' => ($_POST['brix_objetivo'] !== '') ? (float) $_POST['brix_objetivo'] : null,
+                        'ph_objetivo' => ($_POST['ph_objetivo'] !== '') ? (float) $_POST['ph_objetivo'] : null,
+                        'carbonatacion_vol' => ($_POST['carbonatacion_vol'] !== '') ? (float) $_POST['carbonatacion_vol'] : null,
+                        'temp_pasteurizacion' => ($_POST['temp_pasteurizacion'] !== '') ? (float) $_POST['temp_pasteurizacion'] : null,
+                        'tiempo_pasteurizacion' => ($_POST['tiempo_pasteurizacion'] !== '') ? (float) $_POST['tiempo_pasteurizacion'] : null,
                         'detalles' => $detalles,
                     ], $userId);
 
@@ -81,7 +90,7 @@ class ProduccionController extends Controlador
         $this->render('produccion_recetas', [
             'flash' => $flash,
             'recetas' => $this->produccionModel->listarRecetas(),
-            'items_stockeables' => $this->produccionModel->listarItemsStockeables(), // Asegúrate que tu modelo tenga este método
+            'items_stockeables' => $this->produccionModel->listarItemsStockeables(), 
             'ruta_actual' => 'produccion/recetas',
         ]);
     }
@@ -121,7 +130,6 @@ class ProduccionController extends Controlador
                         $lotesConsumo[(int) $idItem] = (string) $lote;
                     }
 
-                    // Aquí estaba el error: argumentos sueltos se han unificado correctamente
                     $this->produccionModel->ejecutarOrden(
                         (int) ($_POST['id_orden'] ?? 0),
                         (float) ($_POST['cantidad_producida'] ?? 0),
