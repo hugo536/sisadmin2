@@ -101,19 +101,15 @@ function initFormularioRecetas() {
             const inputCostoUnitario = row.querySelector('.input-costo-unitario');
             const inputCostoItem = row.querySelector('.input-costo-item');
 
-            const optionSelected = select && select.value ? select.options[select.selectedIndex] : null;
-            const costoUnitario = optionSelected ? (parseFloat(optionSelected.getAttribute('data-costo')) || 0) : 0;
-
-            if (inputCostoUnitario) {
-                inputCostoUnitario.value = costoUnitario.toFixed(4);
-            }
-
             if (select && select.value && inputCant) {
                 totalItems++;
+                
+                // Leemos los valores directamente de los inputs
                 const cantidad = parseFloat(inputCant.value) || 0;
                 const merma = parseFloat(inputMerma.value) || 0;
+                const costoUnitario = parseFloat(inputCostoUnitario.value) || 0;
 
-                // Calcular el costo real incluyendo la merma
+                // Fórmula matemática: Cantidad * (1 + porcentaje de merma) * Costo
                 const cantidadReal = cantidad * (1 + (merma / 100));
                 const costoItem = cantidadReal * costoUnitario;
                 costoTotal += costoItem;
@@ -122,9 +118,7 @@ function initFormularioRecetas() {
                     inputCostoItem.value = costoItem.toFixed(4);
                 }
             } else {
-                if (inputCostoItem) {
-                    inputCostoItem.value = '0.0000';
-                }
+                if (inputCostoItem) inputCostoItem.value = '0.0000';
             }
         });
 
@@ -163,7 +157,7 @@ function initFormularioRecetas() {
         });
     };
 
-    const inicializarBuscadorInsumo = (select) => {
+    const inicializarBuscadorInsumo = (select, row) => {
         if (!select || typeof TomSelect === 'undefined') return;
 
         const tom = new TomSelect(select, {
@@ -173,27 +167,60 @@ function initFormularioRecetas() {
             labelField: 'text',
             searchField: ['text'],
             sortField: [{ field: 'text', direction: 'asc' }],
+            onChange: function(value) {
+                // Cuando el usuario elige un item, sacamos su costo de la base de datos (data-costo)
+                const opt = select.querySelector(`option[value="${value}"]`);
+                const costoBD = opt ? (parseFloat(opt.getAttribute('data-costo')) || 0) : 0;
+                
+                // Actualizamos el input de costo unitario
+                const inputCostoUni = row.querySelector('.input-costo-unitario');
+                if (inputCostoUni) {
+                    inputCostoUni.value = costoBD.toFixed(4);
+                }
+                
+                sincronizarOpcionesInsumo();
+                calcularResumenYCostos();
+            }
         });
 
         instanciasTomSelect.set(select, tom);
     };
 
     const crearFilaInsumo = () => {
+        // 1. Bloqueo de seguridad: Obligar a seleccionar producto primero
+        if (!inputProducto || !inputProducto.value) {
+            alert('Por favor, seleccione el "Producto Destino" primero para evitar circularidad.');
+            if (inputProducto) inputProducto.focus();
+            return;
+        }
+
         if (!templateInsumo || !listaInsumos) return;
         const fragment = templateInsumo.content.cloneNode(true);
         const row = fragment.querySelector('.detalle-row');
         const selectInsumo = row.querySelector('.select-insumo');
 
-        // Asignar listeners para actualizar costos si el usuario edita
-        selectInsumo.addEventListener('change', () => {
-            sincronizarOpcionesInsumo();
-            calcularResumenYCostos();
-        });
+        // 2. PREVENIR CIRCULARIDAD: Eliminar el producto actual de la lista ANTES de Tom Select
+        const idProductoActual = inputProducto.value;
+        const opcionMismoProducto = selectInsumo.querySelector(`option[value="${idProductoActual}"]`);
+        if (opcionMismoProducto) {
+            opcionMismoProducto.remove(); 
+        }
+
+        // 3. Permitir escribir el costo a mano (ya que en tu BD están en 0.00)
+        const inputCostoUni = row.querySelector('.input-costo-unitario');
+        if (inputCostoUni) {
+            inputCostoUni.removeAttribute('readonly'); 
+            inputCostoUni.addEventListener('input', calcularResumenYCostos);
+        }
+
+        // 4. Listeners de cantidad y merma
         row.querySelector('.input-cantidad').addEventListener('input', calcularResumenYCostos);
         row.querySelector('.input-merma').addEventListener('input', calcularResumenYCostos);
 
         listaInsumos.appendChild(fragment);
-        inicializarBuscadorInsumo(selectInsumo);
+        
+        // Pasamos 'row' como segundo parámetro para que TomSelect actualice el costo de esta fila
+        inicializarBuscadorInsumo(selectInsumo, row);
         sincronizarOpcionesInsumo();
         calcularResumenYCostos();
     };
