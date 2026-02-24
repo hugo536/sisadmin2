@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const ordenTotal = document.getElementById('ordenTotal');
     const templateFila = document.getElementById('templateFilaDetalle');
     const btnGuardarOrden = document.getElementById('btnGuardarOrden');
+    const tituloModalOrden = document.querySelector('#modalOrdenCompra .modal-title');
+    const btnAgregarFila = document.getElementById('btnAgregarFila');
 
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
     const recepcionAlmacen = document.getElementById('recepcionAlmacen');
@@ -324,6 +326,56 @@ document.addEventListener('DOMContentLoaded', () => {
         recalcularFila(fila);
     }
 
+    function setModoSoloLectura(esSoloLectura = false, estado = 0) {
+        const deshabilitar = Boolean(esSoloLectura);
+
+        if (tituloModalOrden) {
+            if (deshabilitar && Number(estado) === 3) {
+                tituloModalOrden.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Compra finalizada (solo lectura)';
+            } else if (deshabilitar) {
+                tituloModalOrden.innerHTML = '<i class="bi bi-eye me-2"></i>Orden de Compra (solo lectura)';
+            } else {
+                tituloModalOrden.innerHTML = '<i class="bi bi-receipt-cutoff me-2"></i>Orden de Compra';
+            }
+        }
+
+        [idProveedor, fechaEntrega, observaciones].forEach((el) => {
+            if (!el) return;
+            el.disabled = deshabilitar;
+            el.readOnly = deshabilitar;
+        });
+
+        tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
+            fila.querySelectorAll('input, select, button').forEach((control) => {
+                if (control.classList.contains('btn-quitar-fila')) {
+                    control.style.display = deshabilitar ? 'none' : '';
+                    control.disabled = deshabilitar;
+                    return;
+                }
+
+                if (control.classList.contains('detalle-subtotal')) return;
+
+                control.disabled = deshabilitar;
+                if (control.tagName === 'INPUT') {
+                    control.readOnly = deshabilitar;
+                }
+            });
+
+            const selectItem = fila.querySelector('.detalle-item');
+            if (selectItem?.tomselect) {
+                if (deshabilitar) selectItem.tomselect.disable();
+                else selectItem.tomselect.enable();
+            }
+        });
+
+        if (btnAgregarFila) {
+            btnAgregarFila.style.display = deshabilitar ? 'none' : 'inline-block';
+            btnAgregarFila.disabled = deshabilitar;
+        }
+
+        btnGuardarOrden.style.display = deshabilitar ? 'none' : 'block';
+    }
+
     function limpiarModalOrden() {
         formOrden.reset();
         setOrdenEnEdicion(0);
@@ -340,6 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
+        setModoSoloLectura(false, 0);
     }
 
     btnGuardarOrden.addEventListener('click', async () => {
@@ -454,7 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         agregarFila();
                     }
 
-                    btnGuardarOrden.style.display = Number(d.estado) === 0 ? 'block' : 'none';
+                    const estadoDoc = Number(d.estado || 0);
+                    setModoSoloLectura(estadoDoc !== 0, estadoDoc);
                     modalOrden.show();
                 }
             } catch (error) {
@@ -518,11 +572,13 @@ document.addEventListener('DOMContentLoaded', () => {
         limpiarModalOrden();
         setOrdenEnEdicion(0);
         agregarFila();
-        btnGuardarOrden.style.display = 'block';
+        setModoSoloLectura(false, 0);
         modalOrden.show();
     });
 
-    document.getElementById('btnAgregarFila').addEventListener('click', () => agregarFila());
+    if (btnAgregarFila) {
+        btnAgregarFila.addEventListener('click', () => agregarFila());
+    }
 
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach((el) => {
         el.addEventListener('change', recargarPagina);

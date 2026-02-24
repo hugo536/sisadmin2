@@ -2,6 +2,9 @@
 $movimientos = $movimientos ?? [];
 $items = $items ?? [];
 $filtros = $filtros ?? [];
+
+$tiposEntrada = ['INI', 'AJ+', 'COM', 'PROD'];
+$tiposSalida = ['AJ-', 'CON', 'VEN'];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -44,11 +47,36 @@ $filtros = $filtros ?? [];
                 <?php else: foreach ($movimientos as $mov): ?>
                     <tr>
                         <td><?php echo e((string) ($mov['created_at'] ?? '')); ?></td>
-                        <td><span class="badge bg-secondary"><?php echo e((string) ($mov['tipo_movimiento'] ?? '')); ?></span></td>
+                        <?php $tipoMov = strtoupper(trim((string) ($mov['tipo_movimiento'] ?? ''))); ?>
+                        <td>
+                            <?php if (in_array($tipoMov, $tiposEntrada, true)): ?>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">ENT - <?php echo e($tipoMov); ?></span>
+                            <?php elseif (in_array($tipoMov, $tiposSalida, true)): ?>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">SAL - <?php echo e($tipoMov); ?></span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary"><?php echo e($tipoMov); ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo e((string) ($mov['sku'] ?? '') . ' - ' . (string) ($mov['item_nombre'] ?? '')); ?></td>
                         <td><?php echo e((string) ($mov['almacen_origen'] ?? '-')); ?></td>
                         <td><?php echo e((string) ($mov['almacen_destino'] ?? '-')); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format((float) ($mov['cantidad'] ?? 0), 4, '.', ''); ?></td>
+                        <?php
+                            $cantidadBase = (float) ($mov['cantidad'] ?? 0);
+                            $cantidadPrincipal = number_format($cantidadBase, 4, '.', '');
+                            $referencia = (string) ($mov['referencia'] ?? '');
+                            $detalleConversion = '';
+                            if (preg_match('/Conv:\s*([^|]+)/i', $referencia, $matchConv)) {
+                                $detalleConversion = trim((string) ($matchConv[1] ?? ''));
+                            }
+                        ?>
+                        <td class="text-end fw-semibold">
+                            <?php if ($detalleConversion !== ''): ?>
+                                <div><?php echo e($detalleConversion); ?></div>
+                                <div class="small text-muted"><?php echo e($cantidadPrincipal); ?></div>
+                            <?php else: ?>
+                                <?php echo e($cantidadPrincipal); ?>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo e((string) ($mov['usuario'] ?? '-')); ?></td>
                         <td><?php echo e((string) ($mov['referencia'] ?? '')); ?></td>
                     </tr>

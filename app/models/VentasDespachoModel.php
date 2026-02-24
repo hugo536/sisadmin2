@@ -173,7 +173,7 @@ class VentasDespachoModel extends Modelo
                 $stmtMov->execute([
                     'id_item' => $lineaValida['id_item'],
                     'id_almacen_origen' => $idAlmacen,
-                    'tipo' => 'VTA', // Venta / Salida
+                    'tipo' => 'VEN', // Venta / Salida
                     'cantidad' => $lineaValida['cantidad'],
                     'referencia' => 'Despacho ' . $codigoDespacho,
                     'created_by' => $userId,
