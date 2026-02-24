@@ -6,119 +6,128 @@ class InventarioModel extends Modelo
 
     public function obtenerStock(int $idAlmacen = 0): array
     {
+        $tablaPacksDisponible = $this->tablaExiste('precios_presentaciones');
+
         if ($idAlmacen > 0) {
-            $sql = 'SELECT i.id AS id_item,
-                           i.sku,
-                           CONCAT(
-                               i.nombre,
-                               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \', sbr.nombre) ELSE \'\' END,
-                               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \', prs.nombre) ELSE \'\' END
-                           ) AS item_nombre,
-                           i.nombre AS item_nombre_base,
-                           i.descripcion AS item_descripcion,
-                           i.estado AS item_estado,
-                           a.id AS id_almacen,
-                           a.nombre AS almacen_nombre,
-                           i.stock_minimo,
-                           i.requiere_vencimiento,
-                           i.dias_alerta_vencimiento,
-                           i.controla_stock,
-                           i.permite_decimales,
-                           \'item\' AS tipo_registro,
-                           COALESCE(s.stock_actual, 0) AS stock_actual,
-                           (
-                               SELECT l.lote
-                               FROM inventario_lotes l
-                               WHERE l.id_item = i.id
-                                 AND l.id_almacen = :id_almacen_lote
-                                 AND l.stock_lote > 0
-                               ORDER BY (l.fecha_vencimiento IS NULL) ASC,
-                                        l.fecha_vencimiento ASC,
-                                        l.id ASC
-                               LIMIT 1
-                           ) AS lote_actual,
-                           (
-                               SELECT MIN(l.fecha_vencimiento)
-                               FROM inventario_lotes l
-                               WHERE l.id_item = i.id
-                                 AND l.id_almacen = :id_almacen_venc
-                                 AND l.stock_lote > 0
-                                 AND l.fecha_vencimiento IS NOT NULL
-                           ) AS proximo_vencimiento,
-                           (
-                               SELECT MAX(m.created_at)
-                               FROM inventario_movimientos m
-                               WHERE m.id_item = i.id
-                                 AND (m.id_almacen_origen = :id_almacen_mov_ult OR m.id_almacen_destino = :id_almacen_mov_ult)
-                           ) AS ultimo_movimiento
-                    FROM items i
-                    INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
-                    LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
-                    LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
-                    LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
-                    WHERE i.controla_stock = 1
-                      AND i.deleted_at IS NULL
-                      AND (
-                        s.id IS NOT NULL
-                        OR EXISTS (
-                            SELECT 1
-                            FROM inventario_lotes lx
-                            WHERE lx.id_item = i.id
-                              AND lx.id_almacen = :id_almacen_mov_item
-                        )
-                      )
-                    UNION ALL
-                    SELECT
-                        p.id AS id_item,
-                        p.codigo_presentacion AS sku,
-                        COALESCE(
-                            p.nombre_manual,
-                            CONCAT(
-                                i.nombre,
-                                CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
-                                CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
-                                \' x \', CAST(p.factor AS UNSIGNED)
-                            )
-                        ) AS item_nombre,
-                        COALESCE(
-                            p.nombre_manual,
-                            CONCAT(
-                                i.nombre,
-                                CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
-                                CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
-                                \' x \', CAST(p.factor AS UNSIGNED)
-                            )
-                        ) AS item_nombre_base,
-                        \'Pack Comercial\' AS item_descripcion,
-                        p.estado AS item_estado,
-                        a.id AS id_almacen,
-                        a.nombre AS almacen_nombre,
-                        p.stock_minimo AS stock_minimo,
-                        p.requiere_vencimiento,
-                        p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
-                        1 AS controla_stock,
-                        0 AS permite_decimales,
-                        \'pack\' AS tipo_registro,
-                        COALESCE(sp.stock_actual, 0) AS stock_actual,
-                        NULL AS lote_actual,
-                        NULL AS proximo_vencimiento,
-                        (
-                            SELECT MAX(m.created_at)
-                            FROM inventario_movimientos m
-                            WHERE m.id_item = i.id
-                              AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
-                              AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
-                        ) AS ultimo_movimiento
-                    FROM precios_presentaciones p
-                    LEFT JOIN items i ON i.id = p.id_item
-                    LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
-                    LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
-                    INNER JOIN almacenes a ON a.id = :id_almacen_pack AND a.estado = 1 AND a.deleted_at IS NULL
-                    LEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen_stock_pack
-                    WHERE p.estado = 1
-                      AND p.deleted_at IS NULL
-                      AND sp.id IS NOT NULL
-                    ORDER BY ultimo_movimiento DESC, sku ASC';
+            $sql = <<<'SQL'
+SELECT i.id AS id_item,
+       i.sku,
+       CONCAT(
+           i.nombre,
+           CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ', sbr.nombre) ELSE '' END,
+           CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ', prs.nombre) ELSE '' END
+       ) AS item_nombre,
+       i.nombre AS item_nombre_base,
+       i.descripcion AS item_descripcion,
+       i.estado AS item_estado,
+       a.id AS id_almacen,
+       a.nombre AS almacen_nombre,
+       i.stock_minimo,
+       i.requiere_vencimiento,
+       i.dias_alerta_vencimiento,
+       i.controla_stock,
+       i.permite_decimales,
+       'item' AS tipo_registro,
+       COALESCE(s.stock_actual, 0) AS stock_actual,
+       (
+           SELECT l.lote
+           FROM inventario_lotes l
+           WHERE l.id_item = i.id
+             AND l.id_almacen = :id_almacen_lote
+             AND l.stock_lote > 0
+           ORDER BY (l.fecha_vencimiento IS NULL) ASC,
+                    l.fecha_vencimiento ASC,
+                    l.id ASC
+           LIMIT 1
+       ) AS lote_actual,
+       (
+           SELECT MIN(l.fecha_vencimiento)
+           FROM inventario_lotes l
+           WHERE l.id_item = i.id
+             AND l.id_almacen = :id_almacen_venc
+             AND l.stock_lote > 0
+             AND l.fecha_vencimiento IS NOT NULL
+       ) AS proximo_vencimiento,
+       (
+           SELECT MAX(m.created_at)
+           FROM inventario_movimientos m
+           WHERE m.id_item = i.id
+             AND (m.id_almacen_origen = :id_almacen_mov_ult OR m.id_almacen_destino = :id_almacen_mov_ult)
+       ) AS ultimo_movimiento
+FROM items i
+INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
+LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
+LEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen_stock
+WHERE i.controla_stock = 1
+  AND i.deleted_at IS NULL
+  AND (
+    s.id IS NOT NULL
+    OR EXISTS (
+        SELECT 1
+        FROM inventario_lotes lx
+        WHERE lx.id_item = i.id
+          AND lx.id_almacen = :id_almacen_mov_item
+    )
+  )
+SQL;
+
+            if ($tablaPacksDisponible) {
+                $sql .= <<<'SQL'
+ UNION ALL
+SELECT p.id AS id_item,
+       p.codigo_presentacion AS sku,
+       COALESCE(
+           p.nombre_manual,
+           CONCAT(
+               i.nombre,
+               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END,
+               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END,
+               ' x ', CAST(p.factor AS UNSIGNED)
+           )
+       ) AS item_nombre,
+       COALESCE(
+           p.nombre_manual,
+           CONCAT(
+               i.nombre,
+               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END,
+               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END,
+               ' x ', CAST(p.factor AS UNSIGNED)
+           )
+       ) AS item_nombre_base,
+       'Pack Comercial' AS item_descripcion,
+       p.estado AS item_estado,
+       a.id AS id_almacen,
+       a.nombre AS almacen_nombre,
+       p.stock_minimo AS stock_minimo,
+       p.requiere_vencimiento,
+       p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
+       1 AS controla_stock,
+       0 AS permite_decimales,
+       'pack' AS tipo_registro,
+       COALESCE(sp.stock_actual, 0) AS stock_actual,
+       NULL AS lote_actual,
+       NULL AS proximo_vencimiento,
+       (
+           SELECT MAX(m.created_at)
+           FROM inventario_movimientos m
+           WHERE m.id_item = i.id
+             AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
+             AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')
+       ) AS ultimo_movimiento
+FROM precios_presentaciones p
+LEFT JOIN items i ON i.id = p.id_item
+LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
+INNER JOIN almacenes a ON a.id = :id_almacen_pack AND a.estado = 1 AND a.deleted_at IS NULL
+LEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen_stock_pack
+WHERE p.estado = 1
+  AND p.deleted_at IS NULL
+  AND sp.id IS NOT NULL
+SQL;
+            }
+
+            $sql .= ' ORDER BY ultimo_movimiento DESC, sku ASC';
 
             $stmt = $this->db()->prepare($sql);
             $stmt->bindValue(':id_almacen', $idAlmacen, PDO::PARAM_INT);
@@ -127,116 +136,125 @@ class InventarioModel extends Modelo
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_mov_item', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_mov_ult', $idAlmacen, PDO::PARAM_INT);
-            $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
-            $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
-            $stmt->bindValue(':id_almacen_mov_pack', $idAlmacen, PDO::PARAM_INT);
+            if ($tablaPacksDisponible) {
+                $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
+                $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
+                $stmt->bindValue(':id_almacen_mov_pack', $idAlmacen, PDO::PARAM_INT);
+            }
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         }
 
-        $sql = 'SELECT i.id AS id_item,
-                       i.sku,
-                       CONCAT(
-                           i.nombre,
-                           CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \', sbr.nombre) ELSE \'\' END,
-                           CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \', prs.nombre) ELSE \'\' END
-                       ) AS item_nombre,
-                       i.nombre AS item_nombre_base,
-                       i.descripcion AS item_descripcion,
-                       i.estado AS item_estado,
-                       0 AS id_almacen,
-                       \'Global / Todos\' AS almacen_nombre,
-                       i.stock_minimo,
-                       i.requiere_vencimiento,
-                       i.dias_alerta_vencimiento,
-                       i.controla_stock,
-                       i.permite_decimales,
-                       \'item\' AS tipo_registro,
-                       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
-                       (
-                           SELECT l.lote
-                           FROM inventario_lotes l
-                           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
-                           WHERE l.id_item = i.id
-                             AND l.stock_lote > 0
-                           ORDER BY (l.fecha_vencimiento IS NULL) ASC,
-                                    l.fecha_vencimiento ASC,
-                                    l.id ASC
-                           LIMIT 1
-                       ) AS lote_actual,
-                       (
-                           SELECT MIN(l.fecha_vencimiento)
-                           FROM inventario_lotes l
-                           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
-                           WHERE l.id_item = i.id
-                             AND l.stock_lote > 0
-                             AND l.fecha_vencimiento IS NOT NULL
-                       ) AS proximo_vencimiento,
-                       (
-                           SELECT MAX(m.created_at)
-                           FROM inventario_movimientos m
-                           WHERE m.id_item = i.id
-                       ) AS ultimo_movimiento
-                FROM items i
-                LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
-                LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
-                LEFT JOIN inventario_stock s ON s.id_item = i.id
-                LEFT JOIN almacenes a ON a.id = s.id_almacen
-                WHERE i.controla_stock = 1
-                  AND i.deleted_at IS NULL
-                GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
-                UNION ALL
-                SELECT
-                    p.id AS id_item,
-                    p.codigo_presentacion AS sku,
-                    COALESCE(
-                        p.nombre_manual,
-                        CONCAT(
-                            i.nombre,
-                            CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
-                            CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
-                            \' x \', CAST(p.factor AS UNSIGNED)
-                        )
-                    ) AS item_nombre,
-                    COALESCE(
-                        p.nombre_manual,
-                        CONCAT(
-                            i.nombre,
-                            CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != \'Ninguno\' THEN CONCAT(\' \' , sbr.nombre) ELSE \'\' END,
-                            CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(\' \' , prs.nombre) ELSE \'\' END,
-                            \' x \', CAST(p.factor AS UNSIGNED)
-                        )
-                    ) AS item_nombre_base,
-                    \'Pack Comercial\' AS item_descripcion,
-                    p.estado AS item_estado,
-                    0 AS id_almacen,
-                    \'Global / Todos\' AS almacen_nombre,
-                    p.stock_minimo AS stock_minimo,
-                    p.requiere_vencimiento,
-                    p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
-                    1 AS controla_stock,
-                    0 AS permite_decimales,
-                    \'pack\' AS tipo_registro,
-                    COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
-                    NULL AS lote_actual,
-                    NULL AS proximo_vencimiento,
-                    (
-                        SELECT MAX(m.created_at)
-                        FROM inventario_movimientos m
-                        WHERE m.id_item = i.id
-                          AND m.referencia LIKE CONCAT(\'Pack: \', p.codigo_presentacion, \'%\')
-                    ) AS ultimo_movimiento
-                FROM precios_presentaciones p
-                LEFT JOIN items i ON i.id = p.id_item
-                LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
-                LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
-                LEFT JOIN inventario_stock sp ON sp.id_pack = p.id
-                LEFT JOIN almacenes a ON a.id = sp.id_almacen
-                WHERE p.estado = 1
-                  AND p.deleted_at IS NULL
-                GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta
-                ORDER BY ultimo_movimiento DESC, sku ASC';
+        $sql = <<<'SQL'
+SELECT i.id AS id_item,
+       i.sku,
+       CONCAT(
+           i.nombre,
+           CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ', sbr.nombre) ELSE '' END,
+           CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ', prs.nombre) ELSE '' END
+       ) AS item_nombre,
+       i.nombre AS item_nombre_base,
+       i.descripcion AS item_descripcion,
+       i.estado AS item_estado,
+       0 AS id_almacen,
+       'Global / Todos' AS almacen_nombre,
+       i.stock_minimo,
+       i.requiere_vencimiento,
+       i.dias_alerta_vencimiento,
+       i.controla_stock,
+       i.permite_decimales,
+       'item' AS tipo_registro,
+       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
+       (
+           SELECT l.lote
+           FROM inventario_lotes l
+           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
+           WHERE l.id_item = i.id
+             AND l.stock_lote > 0
+           ORDER BY (l.fecha_vencimiento IS NULL) ASC,
+                    l.fecha_vencimiento ASC,
+                    l.id ASC
+           LIMIT 1
+       ) AS lote_actual,
+       (
+           SELECT MIN(l.fecha_vencimiento)
+           FROM inventario_lotes l
+           INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1
+           WHERE l.id_item = i.id
+             AND l.stock_lote > 0
+             AND l.fecha_vencimiento IS NOT NULL
+       ) AS proximo_vencimiento,
+       (
+           SELECT MAX(m.created_at)
+           FROM inventario_movimientos m
+           WHERE m.id_item = i.id
+       ) AS ultimo_movimiento
+FROM items i
+LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
+LEFT JOIN inventario_stock s ON s.id_item = i.id
+LEFT JOIN almacenes a ON a.id = s.id_almacen
+WHERE i.controla_stock = 1
+  AND i.deleted_at IS NULL
+GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
+SQL;
+
+        if ($tablaPacksDisponible) {
+            $sql .= <<<'SQL'
+ UNION ALL
+SELECT p.id AS id_item,
+       p.codigo_presentacion AS sku,
+       COALESCE(
+           p.nombre_manual,
+           CONCAT(
+               i.nombre,
+               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END,
+               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END,
+               ' x ', CAST(p.factor AS UNSIGNED)
+           )
+       ) AS item_nombre,
+       COALESCE(
+           p.nombre_manual,
+           CONCAT(
+               i.nombre,
+               CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END,
+               CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END,
+               ' x ', CAST(p.factor AS UNSIGNED)
+           )
+       ) AS item_nombre_base,
+       'Pack Comercial' AS item_descripcion,
+       p.estado AS item_estado,
+       0 AS id_almacen,
+       'Global / Todos' AS almacen_nombre,
+       p.stock_minimo AS stock_minimo,
+       p.requiere_vencimiento,
+       p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
+       1 AS controla_stock,
+       0 AS permite_decimales,
+       'pack' AS tipo_registro,
+       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
+       NULL AS lote_actual,
+       NULL AS proximo_vencimiento,
+       (
+           SELECT MAX(m.created_at)
+           FROM inventario_movimientos m
+           WHERE m.id_item = i.id
+             AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')
+       ) AS ultimo_movimiento
+FROM precios_presentaciones p
+LEFT JOIN items i ON i.id = p.id_item
+LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
+LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
+LEFT JOIN inventario_stock sp ON sp.id_pack = p.id
+LEFT JOIN almacenes a ON a.id = sp.id_almacen
+WHERE p.estado = 1
+  AND p.deleted_at IS NULL
+GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta
+SQL;
+        }
+
+        $sql .= ' ORDER BY ultimo_movimiento DESC, sku ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -319,13 +337,16 @@ class InventarioModel extends Modelo
         $stmtItems->execute();
         $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        $stmtPacks = $this->db()->prepare($sqlPacks);
-        $stmtPacks->bindValue(':termino_sku_pack', $busqueda, PDO::PARAM_STR);
-        $stmtPacks->bindValue(':termino_nombre_pack', $busqueda, PDO::PARAM_STR);
-        $stmtPacks->bindValue(':termino_nombre_base_pack', $busqueda, PDO::PARAM_STR);
-        $stmtPacks->bindValue(':termino_nota_pack', $busqueda, PDO::PARAM_STR);
-        $stmtPacks->execute();
-        $packs = $stmtPacks->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $packs = [];
+        if ($this->tablaExiste('precios_presentaciones')) {
+            $stmtPacks = $this->db()->prepare($sqlPacks);
+            $stmtPacks->bindValue(':termino_sku_pack', $busqueda, PDO::PARAM_STR);
+            $stmtPacks->bindValue(':termino_nombre_pack', $busqueda, PDO::PARAM_STR);
+            $stmtPacks->bindValue(':termino_nombre_base_pack', $busqueda, PDO::PARAM_STR);
+            $stmtPacks->bindValue(':termino_nota_pack', $busqueda, PDO::PARAM_STR);
+            $stmtPacks->execute();
+            $packs = $stmtPacks->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
 
         $resultado = [];
         foreach ($items as $fila) {
@@ -748,6 +769,10 @@ class InventarioModel extends Modelo
 
     private function obtenerConfiguracionPack(PDO $db, int $idPack): array
     {
+        if (!$this->tablaExiste('precios_presentaciones')) {
+            throw new RuntimeException('No existe la tabla de presentaciones comerciales en esta base de datos.');
+        }
+
         $sql = 'SELECT p.id, p.id_item AS id_item_base, p.codigo_presentacion, 1 AS controla_stock, 0 AS requiere_lote, 0 AS requiere_vencimiento
                 FROM precios_presentaciones p
                 WHERE p.id = :id_pack
@@ -936,4 +961,26 @@ class InventarioModel extends Modelo
             'stock_actual' => $delta,
         ]);
     }
+
+
+    private function tablaExiste(string $tabla): bool
+    {
+        static $cache = [];
+
+        $tabla = trim($tabla);
+        if ($tabla === '') {
+            return false;
+        }
+
+        if (array_key_exists($tabla, $cache)) {
+            return $cache[$tabla];
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :tabla LIMIT 1');
+        $stmt->execute(['tabla' => $tabla]);
+        $cache[$tabla] = (bool) $stmt->fetchColumn();
+
+        return $cache[$tabla];
+    }
+
 }

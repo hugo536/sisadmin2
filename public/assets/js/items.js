@@ -1203,6 +1203,8 @@
         const btnAgregar = document.getElementById('btnAgregarUnidadConversion');
         const form = document.getElementById('formUnidadConversion');
         const btnCancelar = document.getElementById('btnCancelarUnidadConversion');
+        const alertPendientes = document.getElementById('ucPendientesAlert');
+        const btnHeaderConversion = document.querySelector('[data-bs-target="#modalUnidadesConversion"]');
 
         const inputAccion = document.getElementById('ucAccion');
         const inputId = document.getElementById('ucId');
@@ -1327,6 +1329,32 @@
             });
         };
 
+
+        const actualizarPendientesUi = (items = []) => {
+            const pendientes = Array.isArray(items)
+                ? items.filter((item) => Number(item.total_unidades || 0) <= 0).length
+                : 0;
+
+            if (alertPendientes) {
+                alertPendientes.classList.toggle('d-none', pendientes === 0);
+            }
+
+            if (!btnHeaderConversion) return;
+
+            let badge = document.getElementById('ucPendientesBadge');
+            if (pendientes > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.id = 'ucPendientesBadge';
+                    badge.className = 'badge rounded-pill bg-warning text-dark ms-2';
+                    btnHeaderConversion.appendChild(badge);
+                }
+                badge.textContent = String(pendientes);
+            } else if (badge) {
+                badge.remove();
+            }
+        };
+
         const renderResumen = (items = []) => {
             if (!Array.isArray(items) || items.length === 0) {
                 tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hay ítems con factor de conversión activo.</td></tr>';
@@ -1373,6 +1401,7 @@
             const data = await response.json();
             if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar el resumen de conversiones.');
             itemsResumen = data.items || [];
+            actualizarPendientesUi(itemsResumen);
             renderResumen(itemsResumen);
         }
 
