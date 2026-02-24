@@ -200,6 +200,24 @@ class ProduccionModel extends Modelo
             throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle de insumos.');
         }
 
+        $insumosUtilizados = [];
+        foreach ($detalles as $detalle) {
+            $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+            if ($idInsumo <= 0) {
+                continue;
+            }
+
+            if ($idInsumo === $idProducto) {
+                throw new RuntimeException('No se puede usar el mismo producto destino como insumo de su propia receta.');
+            }
+
+            if (isset($insumosUtilizados[$idInsumo])) {
+                throw new RuntimeException('No se permiten insumos repetidos en la misma receta.');
+            }
+
+            $insumosUtilizados[$idInsumo] = true;
+        }
+
         $db = $this->db();
         $db->beginTransaction();
 
@@ -220,29 +238,73 @@ class ProduccionModel extends Modelo
 
             $costoUnitarioTeorico = $costoTotalReceta / $rendimientoBase;
 
-            // 2. Insertar Receta (sin columnas de parámetros físicos)
-            $stmt = $db->prepare('INSERT INTO produccion_recetas
-                                    (id_producto, codigo, version, descripcion,
-                                     rendimiento_base, unidad_rendimiento,
-                                     costo_teorico_unitario, estado, created_by, updated_by)
-                                  VALUES
-                                    (:id_producto, :codigo, :version, :descripcion,
-                                     :rendimiento_base, :unidad_rendimiento,
-                                     :costo_unitario, 1, :created_by, :updated_by)');
-            
-            $stmt->execute([
-                'id_producto' => $idProducto,
+            // 2. Reusar receta pendiente sin detalle o insertar una nueva receta
+            $stmtPendiente = $db->prepare('SELECT r.id
+                                           FROM produccion_recetas r
+                                           LEFT JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                                           WHERE r.codigo = :codigo
+                                             AND r.id_producto = :id_producto
+                                             AND r.deleted_at IS NULL
+                                           GROUP BY r.id
+                                           HAVING COUNT(d.id) = 0
+                                           LIMIT 1');
+            $stmtPendiente->execute([
                 'codigo' => $codigo,
-                'version' => $version,
-                'descripcion' => $descripcion !== '' ? $descripcion : null,
-                'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
-                'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
-                'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
-                'created_by' => $userId,
-                'updated_by' => $userId,
+                'id_producto' => $idProducto,
             ]);
+            $idRecetaPendiente = (int) ($stmtPendiente->fetchColumn() ?: 0);
 
-            $idReceta = (int) $db->lastInsertId();
+            if ($idRecetaPendiente > 0) {
+                $stmt = $db->prepare('UPDATE produccion_recetas
+                                      SET version = :version,
+                                          descripcion = :descripcion,
+                                          rendimiento_base = :rendimiento_base,
+                                          unidad_rendimiento = :unidad_rendimiento,
+                                          costo_teorico_unitario = :costo_unitario,
+                                          estado = 1,
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id_receta');
+                $stmt->execute([
+                    'version' => $version,
+                    'descripcion' => $descripcion !== '' ? $descripcion : null,
+                    'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
+                    'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
+                    'updated_by' => $userId,
+                    'id_receta' => $idRecetaPendiente,
+                ]);
+                $idReceta = $idRecetaPendiente;
+            } else {
+                $stmtExiste = $db->prepare('SELECT id FROM produccion_recetas WHERE codigo = :codigo AND deleted_at IS NULL LIMIT 1');
+                $stmtExiste->execute(['codigo' => $codigo]);
+                if ((int) ($stmtExiste->fetchColumn() ?: 0) > 0) {
+                    throw new RuntimeException('Ya existe una receta con ese código. Use "Nueva Versión" o cambie el código.');
+                }
+
+                $stmt = $db->prepare('INSERT INTO produccion_recetas
+                                        (id_producto, codigo, version, descripcion,
+                                         rendimiento_base, unidad_rendimiento,
+                                         costo_teorico_unitario, estado, created_by, updated_by)
+                                      VALUES
+                                        (:id_producto, :codigo, :version, :descripcion,
+                                         :rendimiento_base, :unidad_rendimiento,
+                                         :costo_unitario, 1, :created_by, :updated_by)');
+
+                $stmt->execute([
+                    'id_producto' => $idProducto,
+                    'codigo' => $codigo,
+                    'version' => $version,
+                    'descripcion' => $descripcion !== '' ? $descripcion : null,
+                    'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
+                    'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                $idReceta = (int) $db->lastInsertId();
+            }
 
             // 3. Desactivar versiones anteriores de receta para este producto
             $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
