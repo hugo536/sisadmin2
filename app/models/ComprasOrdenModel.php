@@ -386,11 +386,6 @@ class ComprasOrdenModel extends Modelo
         }
 
         if (!$this->tablaTieneColumna('items_unidades', 'id') || !$this->tablaTieneColumna('items_unidades', 'id_item')) {
-        if (!$this->tablaExiste('items_unidades')) {
-            return [];
-        }
-
-        if (!$this->tablaTieneColumna('items_unidades', 'id_item')) {
             return [];
         }
 
