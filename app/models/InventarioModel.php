@@ -523,7 +523,7 @@ SQL;
     public function registrarMovimiento(array $datos): int
     {
         $tipo = (string) ($datos['tipo_movimiento'] ?? '');
-        $tiposValidos = ['INI', 'AJ+', 'AJ-', 'TRF', 'CON'];
+        $tiposValidos = ['INI', 'AJ+', 'AJ-', 'TRF', 'CON', 'COM', 'VEN', 'PROD'];
 
         if (!in_array($tipo, $tiposValidos, true)) {
             throw new InvalidArgumentException('Tipo de movimiento inválido.');
@@ -709,22 +709,22 @@ SQL;
                     COALESCE(m.id_item_unidad, 0) AS id_item_unidad,
                     COALESCE(u.nombre_unidad, i.unidad_base) AS unidad_nombre,
                     SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'TRF\') AND m.id_almacen_destino IS NOT NULL THEN m.cantidad
+                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'TRF\', \'COM\', \'PROD\') AND m.id_almacen_destino IS NOT NULL THEN m.cantidad
                             ELSE 0
                         END) AS total_entradas,
                     SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'TRF\') AND m.id_almacen_origen IS NOT NULL THEN m.cantidad
+                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'TRF\', \'VEN\') AND m.id_almacen_origen IS NOT NULL THEN m.cantidad
                             ELSE 0
                         END) AS total_salidas,
                     SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\') THEN m.cantidad
+                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'COM\', \'PROD\') THEN m.cantidad
                             WHEN m.tipo_movimiento = \'TRF\' THEN
                                 CASE
                                     WHEN :id_almacen_trf > 0 AND m.id_almacen_destino = :id_almacen_trf THEN m.cantidad
                                     WHEN :id_almacen_trf > 0 AND m.id_almacen_origen = :id_almacen_trf THEN -m.cantidad
                                     ELSE 0
                                 END
-                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\') THEN -m.cantidad
+                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'VEN\') THEN -m.cantidad
                             ELSE 0
                         END) AS saldo_neto
                 FROM inventario_movimientos m

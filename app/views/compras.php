@@ -228,7 +228,7 @@ $estadoLabels = [
                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <label for="recepcionAlmacen" class="fw-semibold text-muted">Almacén de Destino <span class="text-danger">*</span></label>
+                    <label for="recepcionAlmacen" class="fw-semibold text-muted">Almacén de Ingreso (Origen en Kardex) <span class="text-danger">*</span></label>
                 </div>
             </div>
             <div class="modal-footer bg-white border-top-0">

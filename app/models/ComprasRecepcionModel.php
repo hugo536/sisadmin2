@@ -143,14 +143,39 @@ class ComprasRecepcionModel extends Modelo
                 ]);
 
                 // 2. Generar Movimiento (Kardex)
+                $unidadNombre = trim((string) ($linea['unidad_nombre'] ?? ''));
+                if ($unidadNombre === '') {
+                    $unidadNombre = trim((string) ($linea['unidad_base'] ?? 'UND'));
+                }
+
+                $factorConversion = (float) ($linea['factor_conversion_aplicado'] ?? 1);
+                if ($factorConversion <= 0) {
+                    $factorConversion = 1;
+                }
+
+                $cantidadCompra = (float) ($linea['cantidad_conversion'] ?? $cantidad);
+                if ($cantidadCompra <= 0) {
+                    $cantidadCompra = $cantidad;
+                }
+
+                $unidadBase = trim((string) ($linea['unidad_base'] ?? 'UND'));
+                if ($unidadBase === '') {
+                    $unidadBase = 'UND';
+                }
+
+                $referencia = 'Recepción ' . $codigo . ' - OC ' . (string) $orden['codigo']
+                    . ' | Conv: ' . $this->normalizarNumero($cantidadCompra) . ' ' . $unidadNombre
+                    . ' x ' . $this->normalizarNumero($factorConversion)
+                    . ' = ' . $this->normalizarNumero($cantidad) . ' ' . $unidadBase;
+
                 $stmtMov->execute([
-                    'tipo_movimiento' => 'INI', // O 'COM' (Compra) según tu lógica
+                    'tipo_movimiento' => 'COM',
                     'id_item' => (int) $linea['id_item'],
                     'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
-                    'id_almacen_origen' => null,
-                    'id_almacen_destino' => $idAlmacen,
+                    'id_almacen_origen' => $idAlmacen,
+                    'id_almacen_destino' => null,
                     'cantidad' => $cantidad,
-                    'referencia' => 'Recepción ' . $codigo . ' - OC ' . (string) $orden['codigo'],
+                    'referencia' => $referencia,
                     'created_by' => $userId,
                 ]);
 
@@ -229,19 +254,33 @@ class ComprasRecepcionModel extends Modelo
     {
         // Se corrige para traer cantidad_solicitada como 'cantidad' y costo_unitario_pactado como 'costo_unitario'
         // para mantener compatibilidad con el loop de inserción
-        $sql = 'SELECT id_item,
-                       id_item_unidad,
+        $sql = 'SELECT d.id_item,
+                       d.id_item_unidad,
                        COALESCE(factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
+                       COALESCE(cantidad_conversion, cantidad_solicitada) AS cantidad_conversion,
                        COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad,
+                       COALESCE(d.unidad_nombre, i.unidad_base, "UND") AS unidad_nombre,
+                       COALESCE(i.unidad_base, "UND") AS unidad_base,
                        costo_unitario_pactado as costo_unitario
-                FROM compras_ordenes_detalle
+                FROM compras_ordenes_detalle d
+                INNER JOIN items i ON i.id = d.id_item
                 WHERE id_orden = :id_orden
-                  AND deleted_at IS NULL
-                ORDER BY id ASC';
+                  AND d.deleted_at IS NULL
+                ORDER BY d.id ASC';
         $stmt = $db->prepare($sql);
         $stmt->execute(['id_orden' => $idOrden]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function normalizarNumero(float $valor): string
+    {
+        if (abs($valor) < 0.0000001) {
+            return '0';
+        }
+
+        $texto = rtrim(rtrim(number_format($valor, 4, '.', ''), '0'), '.');
+        return $texto === '' ? '0' : $texto;
     }
 
     private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
