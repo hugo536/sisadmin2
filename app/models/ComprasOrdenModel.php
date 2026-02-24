@@ -385,6 +385,10 @@ class ComprasOrdenModel extends Modelo
             return [];
         }
 
+        if (!$this->tablaExiste('items_unidades')) {
+            return [];
+        }
+
         if (!$this->tablaTieneColumna('items_unidades', 'id_item')) {
             return [];
         }
@@ -422,6 +426,13 @@ class ComprasOrdenModel extends Modelo
         $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
         $stmt->execute(['columna' => $columna]);
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+        $stmt->execute(['tabla' => $tabla]);
+        return (bool) $stmt->fetch(PDO::FETCH_NUM);
     }
 
     private function generarCodigo(PDO $db): string
