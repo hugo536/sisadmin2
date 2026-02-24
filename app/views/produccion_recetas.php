@@ -140,7 +140,7 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                                         <?php foreach ($itemsStockeables as $item): ?>
                                             <option value="<?php echo (int) $item['id']; ?>" 
                                                     data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
-                                                    data-costo="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
+                                                    data-costo="<?php echo (float) ($item['costo_calculado'] ?? $item['costo_referencial'] ?? 0); ?>">
                                                 <?php echo e((string) $item['nombre']); ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -242,7 +242,7 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                                     <?php foreach ($itemsStockeables as $item): ?>
                                         <option value="<?php echo (int) $item['id']; ?>"
                                                 data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
-                                                data-costo="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
+                                                data-costo="<?php echo (float) ($item['costo_calculado'] ?? $item['costo_referencial'] ?? 0); ?>">
                                             <?php echo e((string) $item['nombre']); ?>
                                         </option>
                                     <?php endforeach; ?>
