@@ -941,6 +941,11 @@ class ItemsModel extends Modelo
 
     private function tablaTieneColumna(string $tabla, string $columna): bool
     {
+        if (!$this->tablaExiste($tabla)) {
+            $this->cacheColumnasPorTabla[$tabla] = [];
+            return false;
+        }
+
         if (!isset($this->cacheColumnasPorTabla[$tabla])) {
             $stmt = $this->db()->prepare('SHOW COLUMNS FROM ' . $tabla);
             $stmt->execute();
