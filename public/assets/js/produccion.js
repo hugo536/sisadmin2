@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     initFiltrosTablas();
     initFormularioRecetas();
+    initAccionesRecetaPendiente();
     initModalEjecucion();
 });
 
@@ -107,5 +108,42 @@ function initModalEjecucion() {
         const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
         document.getElementById('execLote').value = 'L' + today + '-' + btn.getAttribute('data-id');
         modalEjecutar.show();
+    });
+}
+
+
+function initAccionesRecetaPendiente() {
+    const modalEl = document.getElementById('modalCrearReceta');
+    if (!modalEl || !window.bootstrap || !bootstrap.Modal) return;
+
+    const form = document.getElementById('formCrearReceta');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.js-agregar-receta');
+        if (!btn || !form) return;
+
+        const idProducto = btn.getAttribute('data-id-producto') || '';
+        const codigo = btn.getAttribute('data-codigo') || '';
+        const version = btn.getAttribute('data-version') || '1';
+        const productoNombre = btn.getAttribute('data-producto') || '';
+
+        const inputCodigo = document.getElementById('newCodigo');
+        const inputVersion = document.getElementById('newVersion');
+        const inputProducto = document.getElementById('newProducto');
+        const inputDescripcion = document.getElementById('newDescripcion');
+        const inputRendimiento = document.getElementById('newRendimientoBase');
+
+        if (inputCodigo) inputCodigo.value = codigo;
+        if (inputVersion) inputVersion.value = version;
+        if (inputProducto) inputProducto.value = idProducto;
+        if (inputDescripcion && !inputDescripcion.value.trim()) {
+            inputDescripcion.value = 'Receta inicial de ' + productoNombre;
+        }
+        if (inputRendimiento && !inputRendimiento.value) {
+            inputRendimiento.value = '1';
+        }
+
+        modal.show();
     });
 }

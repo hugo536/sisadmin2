@@ -11,14 +11,23 @@ class ProduccionModel extends Modelo
                        r.rendimiento_base, r.unidad_rendimiento,
                        r.brix_objetivo, r.ph_objetivo, r.carbonatacion_vol,
                        r.temp_pasteurizacion, r.tiempo_pasteurizacion,
-                       r.costo_teorico_unitario, -- AHORA LEEMOS EL COSTO GUARDADO
+                       r.costo_teorico_unitario AS costo_teorico,
                        i.id AS id_producto, i.sku AS producto_sku, i.nombre AS producto_nombre,
                        (
                            SELECT COUNT(*)
                            FROM produccion_recetas_detalle d
                            WHERE d.id_receta = r.id
                              AND d.deleted_at IS NULL
-                       ) AS total_insumos
+                       ) AS total_insumos,
+                       CASE
+                           WHEN (
+                               SELECT COUNT(*)
+                               FROM produccion_recetas_detalle d
+                               WHERE d.id_receta = r.id
+                                 AND d.deleted_at IS NULL
+                           ) = 0 THEN 1
+                           ELSE 0
+                       END AS sin_receta
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.deleted_at IS NULL
