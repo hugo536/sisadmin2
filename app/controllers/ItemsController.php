@@ -46,6 +46,16 @@ class ItemsController extends Controlador
             return;
         }
 
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar_detalle_unidades_conversion') {
+            require_permiso('items.ver');
+            $idItem = (int) ($_GET['id_item'] ?? 0);
+            json_response([
+                'ok' => true,
+                'items' => $this->itemsModel->listarDetalleUnidadesConversion($idItem),
+            ]);
+            return;
+        }
+
         if (es_ajax() && (string) ($_POST['accion'] ?? '') === 'toggle_estado_item') {
             require_permiso('items.editar');
             $id = (int) ($_POST['id'] ?? 0);
@@ -90,6 +100,35 @@ class ItemsController extends Controlador
                     $this->itemsModel->sincronizarDependenciasConfiguracion($nuevoId, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem creado correctamente.', 'id' => $nuevoId];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem creado correctamente.'];
+                }
+
+                if ($accion === 'crear_item_unidad_conversion') {
+                    require_permiso('items.editar');
+                    $data = $this->validarUnidadConversion($_POST);
+                    $id = $this->itemsModel->crearUnidadConversion($data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión creada correctamente.', 'id' => $id];
+                }
+
+                if ($accion === 'editar_item_unidad_conversion') {
+                    require_permiso('items.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    if ($id <= 0) {
+                        throw new RuntimeException('ID inválido.');
+                    }
+                    $data = $this->validarUnidadConversion($_POST);
+                    $this->itemsModel->actualizarUnidadConversion($id, $data, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión actualizada correctamente.'];
+                }
+
+                if ($accion === 'eliminar_item_unidad_conversion') {
+                    require_permiso('items.editar');
+                    $id = (int) ($_POST['id'] ?? 0);
+                    $idItem = (int) ($_POST['id_item'] ?? 0);
+                    if ($id <= 0 || $idItem <= 0) {
+                        throw new RuntimeException('Parámetros inválidos.');
+                    }
+                    $this->itemsModel->eliminarUnidadConversion($id, $idItem, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión eliminada correctamente.'];
                 }
 
                 if ($accion === 'editar') {
@@ -599,6 +638,47 @@ class ItemsController extends Controlador
         unset($data['nombre_manual_override'], $data['autogenerar_identidad']);
 
         return $data;
+    }
+
+    private function validarUnidadConversion(array $data): array
+    {
+        $idItem = (int) ($data['id_item'] ?? 0);
+        if ($idItem <= 0) {
+            throw new RuntimeException('Debe seleccionar un ítem válido.');
+        }
+
+        $item = $this->itemsModel->obtener($idItem);
+        if ($item === []) {
+            throw new RuntimeException('El ítem seleccionado no existe.');
+        }
+
+        if ((int) ($item['requiere_factor_conversion'] ?? 0) !== 1) {
+            throw new RuntimeException('El ítem no tiene habilitado factor de conversión.');
+        }
+
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre de la unidad es obligatorio.');
+        }
+
+        $factor = (float) ($data['factor_conversion'] ?? 0);
+        if ($factor <= 0) {
+            throw new RuntimeException('El factor de conversión debe ser mayor a 0.');
+        }
+
+        $pesoKg = (float) ($data['peso_kg'] ?? 0);
+        if ($pesoKg < 0) {
+            throw new RuntimeException('El peso no puede ser negativo.');
+        }
+
+        return [
+            'id_item' => $idItem,
+            'nombre' => $nombre,
+            'codigo_unidad' => trim((string) ($data['codigo_unidad'] ?? '')),
+            'factor_conversion' => round($factor, 4),
+            'peso_kg' => round($pesoKg, 3),
+            'estado' => ((int) ($data['estado'] ?? 1) === 1) ? 1 : 0,
+        ];
     }
 
 

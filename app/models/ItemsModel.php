@@ -168,6 +168,188 @@ class ItemsModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function listarDetalleUnidadesConversion(int $idItem): array
+    {
+        if ($idItem <= 0 || !$this->tablaExiste('items_unidades')) {
+            return [];
+        }
+
+        $columnas = [
+            'id',
+            'id_item',
+            'nombre',
+            $this->tablaTieneColumna('items_unidades', 'codigo_unidad') ? 'codigo_unidad' : "'' AS codigo_unidad",
+            $this->tablaTieneColumna('items_unidades', 'factor_conversion') ? 'factor_conversion' : '1.0000 AS factor_conversion',
+            $this->tablaTieneColumna('items_unidades', 'peso_kg') ? 'peso_kg' : '0.000 AS peso_kg',
+            $this->tablaTieneColumna('items_unidades', 'estado') ? 'estado' : '1 AS estado',
+        ];
+
+        $sql = 'SELECT ' . implode(', ', $columnas) . '
+                FROM items_unidades
+                WHERE id_item = :id_item';
+
+        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        $sql .= ' ORDER BY nombre ASC, id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function crearUnidadConversion(array $data, int $userId): int
+    {
+        if (!$this->tablaExiste('items_unidades')) {
+            throw new RuntimeException('La tabla de unidades de conversión no existe.');
+        }
+
+        $columnas = ['id_item', 'nombre'];
+        $valores = [':id_item', ':nombre'];
+        $params = [
+            'id_item' => (int) $data['id_item'],
+            'nombre' => trim((string) $data['nombre']),
+        ];
+
+        if ($this->tablaTieneColumna('items_unidades', 'codigo_unidad')) {
+            $columnas[] = 'codigo_unidad';
+            $valores[] = ':codigo_unidad';
+            $params['codigo_unidad'] = trim((string) ($data['codigo_unidad'] ?? '')) !== ''
+                ? trim((string) $data['codigo_unidad'])
+                : null;
+        }
+
+        if ($this->tablaTieneColumna('items_unidades', 'factor_conversion')) {
+            $columnas[] = 'factor_conversion';
+            $valores[] = ':factor_conversion';
+            $params['factor_conversion'] = (float) $data['factor_conversion'];
+        }
+
+        if ($this->tablaTieneColumna('items_unidades', 'peso_kg')) {
+            $columnas[] = 'peso_kg';
+            $valores[] = ':peso_kg';
+            $params['peso_kg'] = (float) $data['peso_kg'];
+        }
+
+        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
+            $columnas[] = 'estado';
+            $valores[] = ':estado';
+            $params['estado'] = (int) ($data['estado'] ?? 1);
+        }
+
+        if ($this->tablaTieneColumna('items_unidades', 'created_by')) {
+            $columnas[] = 'created_by';
+            $valores[] = ':created_by';
+            $params['created_by'] = $userId;
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
+            $columnas[] = 'updated_by';
+            $valores[] = ':updated_by';
+            $params['updated_by'] = $userId;
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'created_at')) {
+            $columnas[] = 'created_at';
+            $valores[] = 'NOW()';
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
+            $columnas[] = 'updated_at';
+            $valores[] = 'NOW()';
+        }
+
+        $sql = 'INSERT INTO items_unidades (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $valores) . ')';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($this->filtrarParametrosSql($sql, $params));
+
+        return (int) $this->db()->lastInsertId();
+    }
+
+    public function actualizarUnidadConversion(int $id, array $data, int $userId): bool
+    {
+        if (!$this->tablaExiste('items_unidades')) {
+            throw new RuntimeException('La tabla de unidades de conversión no existe.');
+        }
+
+        $set = [
+            'nombre = :nombre',
+        ];
+        $params = [
+            'id' => $id,
+            'id_item' => (int) $data['id_item'],
+            'nombre' => trim((string) $data['nombre']),
+        ];
+
+        if ($this->tablaTieneColumna('items_unidades', 'codigo_unidad')) {
+            $set[] = 'codigo_unidad = :codigo_unidad';
+            $params['codigo_unidad'] = trim((string) ($data['codigo_unidad'] ?? '')) !== ''
+                ? trim((string) $data['codigo_unidad'])
+                : null;
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'factor_conversion')) {
+            $set[] = 'factor_conversion = :factor_conversion';
+            $params['factor_conversion'] = (float) $data['factor_conversion'];
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'peso_kg')) {
+            $set[] = 'peso_kg = :peso_kg';
+            $params['peso_kg'] = (float) $data['peso_kg'];
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
+            $set[] = 'estado = :estado';
+            $params['estado'] = (int) ($data['estado'] ?? 1);
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
+            $set[] = 'updated_at = NOW()';
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
+            $set[] = 'updated_by = :updated_by';
+            $params['updated_by'] = $userId;
+        }
+
+        $sql = 'UPDATE items_unidades
+                SET ' . implode(', ', $set) . '
+                WHERE id = :id
+                  AND id_item = :id_item';
+        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
+    }
+
+    public function eliminarUnidadConversion(int $id, int $idItem, int $userId): bool
+    {
+        if (!$this->tablaExiste('items_unidades') || !$this->tablaTieneColumna('items_unidades', 'deleted_at')) {
+            throw new RuntimeException('No se puede eliminar: el modo soft delete no está disponible.');
+        }
+
+        $set = ['deleted_at = NOW()'];
+        $params = ['id' => $id, 'id_item' => $idItem];
+
+        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
+            $set[] = 'estado = 0';
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
+            $set[] = 'updated_at = NOW()';
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'deleted_by')) {
+            $set[] = 'deleted_by = :deleted_by';
+            $params['deleted_by'] = $userId;
+        }
+        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
+            $set[] = 'updated_by = :updated_by';
+            $params['updated_by'] = $userId;
+        }
+
+        $sql = 'UPDATE items_unidades
+                SET ' . implode(', ', $set) . '
+                WHERE id = :id
+                  AND id_item = :id_item
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
+    }
+
     public function rubroExisteActivo(int $idRubro): bool
     {
         $sql = 'SELECT 1
