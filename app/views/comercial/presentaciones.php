@@ -1,5 +1,6 @@
 <?php
 $items = $items ?? [];
+$componentesPack = $componentes_pack ?? [];
 $presentaciones = $presentaciones ?? [];
 ?>
 
@@ -216,10 +217,10 @@ $presentaciones = $presentaciones ?? [];
 
                         <div class="card border-0 shadow-sm mb-3 d-none js-modo-mixto" id="seccionComposicionMixta">
                             <div class="card-header bg-white border-bottom-0 pt-3">
-                                <label class="fw-bold text-dark mb-1"><i class="bi bi-search me-1"></i> Contenido del pack (Buscar semielaborados):</label>
+                                <label class="fw-bold text-dark mb-1"><i class="bi bi-search me-1"></i> Contenido del pack (Semielaborado / Insumo):</label>
                                 <select class="form-select" id="inputBusquedaComponente">
-                                    <option value="">Buscar semielaborado...</option>
-                                    <?php foreach ($items as $item): ?>
+                                    <option value="">Buscar semielaborado o insumo...</option>
+                                    <?php foreach ($componentesPack as $item): ?>
                                         <option value="<?php echo $item['id']; ?>" 
                                                 data-nombre="<?php echo htmlspecialchars($item['nombre_completo'] ?? $item['nombre']); ?>"
                                                 data-unidad="<?php echo htmlspecialchars((string) ($item['unidad_base'] ?? 'UND')); ?>">

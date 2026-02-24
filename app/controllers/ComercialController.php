@@ -30,6 +30,7 @@ class ComercialController extends Controlador {
         $datos = [
             'titulo' => 'Gestión de Presentaciones',
             'items' => $this->presentacionModel->listarProductosParaSelect(),
+            'componentes_pack' => $this->presentacionModel->listarComponentesPackParaSelect(),
             'presentaciones' => $this->presentacionModel->listarTodo()
         ];
 
@@ -70,6 +71,15 @@ class ComercialController extends Controlador {
                         ];
                     }
                 }
+            }
+
+            $idsDetalleMixto = array_map(static function ($linea) {
+                return (int)($linea['id_item'] ?? 0);
+            }, $detalleMixto);
+
+            if (!$this->presentacionModel->sonItemsPermitidosComoComponente($idsDetalleMixto)) {
+                redirect('comercial/presentaciones?error=componentes_no_permitidos');
+                return;
             }
 
             // 3. Preparar array de datos para el Modelo
