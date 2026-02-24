@@ -544,6 +544,7 @@ SQL;
         $lote = trim((string) ($datos['lote'] ?? ''));
         $fechaVencimiento = isset($datos['fecha_vencimiento']) ? trim((string) $datos['fecha_vencimiento']) : '';
         $costoUnitario = isset($datos['costo_unitario']) ? (float) $datos['costo_unitario'] : 0.0;
+        $idItemUnidad = isset($datos['id_item_unidad']) ? (int) $datos['id_item_unidad'] : 0;
         $createdBy = (int) ($datos['created_by'] ?? 0);
 
         if ($idRegistro <= 0 || $createdBy <= 0) {
@@ -631,12 +632,13 @@ SQL;
             }
 
             $sqlMovimiento = 'INSERT INTO inventario_movimientos
-                                (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
+                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
                               VALUES
-                                (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
+                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItemMovimiento,
+                'id_item_unidad' => $idItemUnidad > 0 ? $idItemUnidad : null,
                 'id_almacen_origen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null,
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                 'tipo_movimiento' => $tipo,
@@ -695,6 +697,57 @@ SQL;
             }
             throw $e;
         }
+    }
+
+    public function obtenerDesglosePresentaciones(int $idItem, int $idAlmacen = 0): array
+    {
+        if ($idItem <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT
+                    COALESCE(m.id_item_unidad, 0) AS id_item_unidad,
+                    COALESCE(u.nombre_unidad, i.unidad_base) AS unidad_nombre,
+                    SUM(CASE
+                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'TRF\') AND m.id_almacen_destino IS NOT NULL THEN m.cantidad
+                            ELSE 0
+                        END) AS total_entradas,
+                    SUM(CASE
+                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'TRF\') AND m.id_almacen_origen IS NOT NULL THEN m.cantidad
+                            ELSE 0
+                        END) AS total_salidas,
+                    SUM(CASE
+                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\') THEN m.cantidad
+                            WHEN m.tipo_movimiento = \'TRF\' THEN
+                                CASE
+                                    WHEN :id_almacen_trf > 0 AND m.id_almacen_destino = :id_almacen_trf THEN m.cantidad
+                                    WHEN :id_almacen_trf > 0 AND m.id_almacen_origen = :id_almacen_trf THEN -m.cantidad
+                                    ELSE 0
+                                END
+                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\') THEN -m.cantidad
+                            ELSE 0
+                        END) AS saldo_neto
+                FROM inventario_movimientos m
+                INNER JOIN items i ON i.id = m.id_item
+                LEFT JOIN items_unidades u ON u.id = m.id_item_unidad
+                WHERE m.id_item = :id_item
+                  AND (
+                      :id_almacen = 0
+                      OR m.id_almacen_destino = :id_almacen
+                      OR m.id_almacen_origen = :id_almacen
+                  )
+                GROUP BY COALESCE(m.id_item_unidad, 0), COALESCE(u.nombre_unidad, i.unidad_base)
+                HAVING ABS(saldo_neto) > 0.000001 OR ABS(total_entradas) > 0.000001 OR ABS(total_salidas) > 0.000001
+                ORDER BY unidad_nombre ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
+            'id_almacen_trf' => $idAlmacen,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function validarStockDisponible(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void

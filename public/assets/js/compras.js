@@ -47,6 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const recepcionAlmacen = document.getElementById('recepcionAlmacen');
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
 
+    let ordenEnEdicionId = 0;
+
     function recargarPagina() {
         const params = new URLSearchParams(window.location.search);
         params.delete('ruta');
@@ -319,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function limpiarModalOrden() {
         formOrden.reset();
         ordenId.value = 0;
+        ordenEnEdicionId = 0;
 
         if (tomSelectProveedor) {
             tomSelectProveedor.clear();
@@ -370,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const payload = {
-                id: Number(ordenId.value),
+                id: Number(ordenId.value || ordenEnEdicionId || 0),
                 id_proveedor: Number(idProveedor.value),
                 fecha_entrega: fechaEntrega.value,
                 observaciones: observaciones.value,
@@ -434,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     limpiarModalOrden();
 
                     ordenId.value = d.id;
+                    ordenEnEdicionId = Number(d.id || 0);
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
                     else idProveedor.value = d.id_proveedor;
 
@@ -452,6 +456,27 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error(error);
                 Swal.fire('Error', 'No se pudo cargar la orden.', 'error');
+            }
+            return;
+        }
+
+        if (target.classList.contains('btn-aprobar')) {
+            const confirm = await Swal.fire({
+                title: '¿Aprobar Orden?',
+                text: 'Una orden aprobada quedará lista para recepción y ya no será editable.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, aprobar',
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                const res = await postJson(urls.aprobar, { id }, target);
+                await Swal.fire('Aprobada', res.mensaje, 'success');
+                recargarPagina();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
             }
             return;
         }
@@ -487,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btnNuevaOrden').addEventListener('click', () => {
         limpiarModalOrden();
+        ordenEnEdicionId = 0;
         agregarFila();
         btnGuardarOrden.style.display = 'block';
         modalOrden.show();
