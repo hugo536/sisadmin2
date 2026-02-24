@@ -45,7 +45,7 @@ $tipoItemLabel = static function (string $tipo): string {
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalUnidadesConversion">
                 <i class="bi bi-arrow-left-right me-2 text-warning"></i>Unidades y Conversiones
                 <?php if (count($pendientesConversion) > 0): ?>
-                    <span class="badge rounded-pill bg-warning text-dark ms-2"><?php echo count($pendientesConversion); ?></span>
+                    <span class="badge rounded-pill bg-warning text-dark ms-2" id="ucPendientesBadge"><?php echo count($pendientesConversion); ?></span>
                 <?php endif; ?>
             </button>
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionRubros">
@@ -816,7 +816,7 @@ $tipoItemLabel = static function (string $tipo): string {
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-warning py-2 small mb-3">
+                <div class="alert alert-warning py-2 small mb-3" id="ucPendientesAlert">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                     Los ítems con <strong>Factor Conversión</strong> activo deben tener al menos una unidad declarada.
                 </div>
