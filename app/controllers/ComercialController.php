@@ -45,6 +45,7 @@ class ComercialController extends Controlador {
             'acuerdos' => $acuerdos,
             'acuerdo_seleccionado' => $acuerdoSeleccionado,
             'precios_matriz' => $matriz,
+            'presentaciones_habilitadas' => $this->listaPrecioModel->soportaPresentacionesComerciales(),
         ];
 
         $this->vista('comercial/listas_precios', $datos);
@@ -115,6 +116,15 @@ class ComercialController extends Controlador {
             return;
         }
 
+        if (!$this->listaPrecioModel->soportaPresentacionesComerciales()) {
+            json_response([
+                'success' => true,
+                'data' => [],
+                'message' => 'Las presentaciones comerciales fueron retiradas y ya no están disponibles.'
+            ]);
+            return;
+        }
+
         $idAcuerdo = (int)($_GET['id_acuerdo'] ?? 0);
         if ($idAcuerdo <= 0) {
             json_response(['success' => false, 'message' => 'Acuerdo inválido'], 422);
@@ -130,6 +140,14 @@ class ComercialController extends Controlador {
     public function agregarProductoAcuerdoAjax() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
             json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        if (!$this->listaPrecioModel->soportaPresentacionesComerciales()) {
+            json_response([
+                'success' => false,
+                'message' => 'No se pueden agregar tarifas por presentación porque ese módulo fue retirado.'
+            ], 422);
             return;
         }
 

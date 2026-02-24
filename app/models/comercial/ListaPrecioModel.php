@@ -4,6 +4,10 @@ class ListaPrecioModel extends Modelo {
     /** @var array<string,bool> */
     private array $columnCache = [];
 
+    public function soportaPresentacionesComerciales(): bool {
+        return $this->tablaExiste('precios_presentaciones');
+    }
+
     public function listarAcuerdos(): array {
         $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
         $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
@@ -129,6 +133,10 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function obtenerMatrizPrecios(int $idAcuerdo): array {
+        if (!$this->soportaPresentacionesComerciales()) {
+            return [];
+        }
+
         $sql = "SELECT
                     cap.id,
                     cap.id_acuerdo,
@@ -160,6 +168,10 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function listarPresentacionesDisponibles(int $idAcuerdo): array {
+        if (!$this->soportaPresentacionesComerciales()) {
+            return [];
+        }
+
         $sql = "SELECT
                     p.id,
                     p.codigo_presentacion,
@@ -195,6 +207,10 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function agregarProductoAcuerdo(int $idAcuerdo, int $idPresentacion, float $precio): bool {
+        if (!$this->soportaPresentacionesComerciales()) {
+            return false;
+        }
+
         $sql = "INSERT INTO comercial_acuerdos_precios (id_acuerdo, id_presentacion, precio_pactado, estado)
                 VALUES (:id_acuerdo, :id_presentacion, :precio_pactado, 1)";
 
