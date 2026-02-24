@@ -8,6 +8,16 @@ class ProduccionController extends Controlador
 {
     private ProduccionModel $produccionModel;
 
+    private function parseDecimal($value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $normalizado = str_replace(',', '.', trim((string) $value));
+        return is_numeric($normalizado) ? (float) $normalizado : 0.0;
+    }
+
     public function __construct()
     {
         $this->produccionModel = new ProduccionModel();
@@ -46,9 +56,9 @@ class ProduccionController extends Controlador
                         $detalles[] = [
                             'id_insumo' => (int) $idInsumo,
                             'etapa' => (string) ($etapas[$idx] ?? 'General'),
-                            'cantidad_por_unidad' => (float) ($cantidades[$idx] ?? 0),
-                            'merma_porcentaje' => (float) ($mermas[$idx] ?? 0),
-                            'costo_unitario' => (float) ($costosUnitarios[$idx] ?? 0),
+                            'cantidad_por_unidad' => $this->parseDecimal($cantidades[$idx] ?? 0),
+                            'merma_porcentaje' => $this->parseDecimal($mermas[$idx] ?? 0),
+                            'costo_unitario' => $this->parseDecimal($costosUnitarios[$idx] ?? 0),
                         ];
                     }
 

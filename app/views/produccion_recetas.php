@@ -258,7 +258,7 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small text-muted mb-0 fw-bold">Costo unitario</label>
-                                <input type="text" class="form-control form-control-sm bg-light input-costo-unitario" name="detalle_costo_unitario[]" value="0.0000" readonly>
+                                <input type="number" step="0.0001" min="0" class="form-control form-control-sm bg-light input-costo-unitario" name="detalle_costo_unitario[]" value="0.0000" readonly>
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small text-muted mb-0 fw-bold">Costo total ítem</label>
