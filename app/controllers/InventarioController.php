@@ -149,6 +149,7 @@ class InventarioController extends Controlador
             $fechaVencimiento = $fechaPost !== '' ? $fechaPost : null;
             
             $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
+            $idItemUnidad = (int) ($_POST['id_item_unidad'] ?? 0);
 
             if (in_array($tipo, ['AJ+', 'AJ-', 'CON'], true) && $motivo === '') {
                 throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
@@ -167,6 +168,7 @@ class InventarioController extends Controlador
                 'tipo_registro' => $tipoRegistro,
                 'id_item' => $idItem,
                 'id_pack' => $idPack,
+                'id_item_unidad' => $idItemUnidad > 0 ? $idItemUnidad : null,
                 'cantidad' => $cantidad,
                 'referencia' => $referencia,
                 'lote' => $lote,
@@ -289,6 +291,28 @@ class InventarioController extends Controlador
 
         $resumen = $this->inventarioModel->obtenerResumenRegistro($idItem, $tipoRegistro);
         json_response(['ok' => true, 'resumen' => $resumen]);
+    }
+
+
+    public function desglosePresentaciones(): void
+    {
+        AuthMiddleware::handle();
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        $idItem = (int) ($_GET['id_item'] ?? 0);
+        $idAlmacen = (int) ($_GET['id_almacen'] ?? 0);
+
+        if ($idItem <= 0) {
+            json_response(['ok' => true, 'items' => []]);
+            return;
+        }
+
+        $desglose = $this->inventarioModel->obtenerDesglosePresentaciones($idItem, $idAlmacen);
+        json_response(['ok' => true, 'items' => $desglose]);
     }
 
     public function kardex(): void

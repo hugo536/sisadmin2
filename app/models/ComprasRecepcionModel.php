@@ -64,6 +64,7 @@ class ComprasRecepcionModel extends Modelo
             $sqlDet = 'INSERT INTO compras_recepciones_detalle (
                         id_recepcion,
                         id_item,
+                        id_item_unidad,
                         cantidad_recibida,
                         costo_unitario_real,
                         lote,
@@ -75,6 +76,7 @@ class ComprasRecepcionModel extends Modelo
                        ) VALUES (
                         :id_recepcion,
                         :id_item,
+                        :id_item_unidad,
                         :cantidad,
                         :costo_unitario,
                         :lote,
@@ -90,6 +92,7 @@ class ComprasRecepcionModel extends Modelo
             $sqlMov = 'INSERT INTO inventario_movimientos (
                             tipo_movimiento,
                             id_item,
+                            id_item_unidad,
                             id_almacen_origen,
                             id_almacen_destino,
                             cantidad,
@@ -98,6 +101,7 @@ class ComprasRecepcionModel extends Modelo
                        ) VALUES (
                             :tipo_movimiento,
                             :id_item,
+                            :id_item_unidad,
                             :id_almacen_origen,
                             :id_almacen_destino,
                             :cantidad,
@@ -109,7 +113,8 @@ class ComprasRecepcionModel extends Modelo
             // UPDATE Orden de Compra Detalle (Para actualizar lo recibido)
             $sqlUpdateOrdenDet = 'UPDATE compras_ordenes_detalle 
                                   SET cantidad_recibida = cantidad_recibida + :cantidad 
-                                  WHERE id_orden = :id_orden AND id_item = :id_item';
+                                  WHERE id_orden = :id_orden AND id_item = :id_item
+                                    AND ((:id_item_unidad IS NULL AND id_item_unidad IS NULL) OR id_item_unidad = :id_item_unidad)';
             $stmtUpdateOrdenDet = $db->prepare($sqlUpdateOrdenDet);
 
 
@@ -128,6 +133,7 @@ class ComprasRecepcionModel extends Modelo
                 $stmtDet->execute([
                     'id_recepcion' => $idRecepcion,
                     'id_item' => (int) $linea['id_item'],
+                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
                     'cantidad' => $cantidad,
                     'costo_unitario' => $costo,
                     'lote' => $lote,
@@ -140,6 +146,7 @@ class ComprasRecepcionModel extends Modelo
                 $stmtMov->execute([
                     'tipo_movimiento' => 'INI', // O 'COM' (Compra) según tu lógica
                     'id_item' => (int) $linea['id_item'],
+                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
                     'id_almacen_origen' => null,
                     'id_almacen_destino' => $idAlmacen,
                     'cantidad' => $cantidad,
@@ -154,7 +161,8 @@ class ComprasRecepcionModel extends Modelo
                 $stmtUpdateOrdenDet->execute([
                     'cantidad' => $cantidad,
                     'id_orden' => $idOrden,
-                    'id_item' => (int) $linea['id_item']
+                    'id_item' => (int) $linea['id_item'],
+                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
                 ]);
             }
 
@@ -219,6 +227,8 @@ class ComprasRecepcionModel extends Modelo
         // Se corrige para traer cantidad_solicitada como 'cantidad' y costo_unitario_pactado como 'costo_unitario'
         // para mantener compatibilidad con el loop de inserción
         $sql = 'SELECT id_item,
+                       id_item_unidad,
+                       COALESCE(factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
                        COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad,
                        costo_unitario_pactado as costo_unitario
                 FROM compras_ordenes_detalle
