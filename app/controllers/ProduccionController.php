@@ -37,6 +37,7 @@ class ProduccionController extends Controlador
                     $insumos = $_POST['detalle_id_insumo'] ?? [];
                     $cantidades = $_POST['detalle_cantidad_por_unidad'] ?? [];
                     $mermas = $_POST['detalle_merma_porcentaje'] ?? [];
+                    $costosUnitarios = $_POST['detalle_costo_unitario'] ?? [];
                     $etapas = $_POST['detalle_etapa'] ?? [];
 
                     foreach ((array) $insumos as $idx => $idInsumo) {
@@ -44,9 +45,10 @@ class ProduccionController extends Controlador
 
                         $detalles[] = [
                             'id_insumo' => (int) $idInsumo,
-                            'etapa' => (string) ($etapas[$idx] ?? ''),
+                            'etapa' => (string) ($etapas[$idx] ?? 'General'),
                             'cantidad_por_unidad' => (float) ($cantidades[$idx] ?? 0),
                             'merma_porcentaje' => (float) ($mermas[$idx] ?? 0),
+                            'costo_unitario' => (float) ($costosUnitarios[$idx] ?? 0),
                         ];
                     }
 
