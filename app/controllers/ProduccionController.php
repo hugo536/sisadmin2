@@ -32,15 +32,14 @@ class ProduccionController extends Controlador
 
             try {
                 if ($accion === 'crear_receta') {
+                    // 1. Procesar Detalles (Insumos)
                     $detalles = [];
-                    // Las claves de $_POST ahora coinciden con los 'name' del HTML
                     $insumos = $_POST['detalle_id_insumo'] ?? [];
                     $cantidades = $_POST['detalle_cantidad_por_unidad'] ?? [];
                     $mermas = $_POST['detalle_merma_porcentaje'] ?? [];
                     $etapas = $_POST['detalle_etapa'] ?? [];
 
                     foreach ((array) $insumos as $idx => $idInsumo) {
-                        // Evitamos insertar filas vacías si el usuario no seleccionó un insumo
                         if (empty($idInsumo)) continue;
 
                         $detalles[] = [
@@ -51,11 +50,28 @@ class ProduccionController extends Controlador
                         ];
                     }
 
-                    // Validación rápida antes de enviar al modelo
                     if (empty($detalles)) {
-                        throw new Exception("La receta debe tener al menos un insumo.");
+                        throw new Exception("La receta debe tener al menos un insumo o semielaborado.");
                     }
 
+                    // 2. Procesar Parámetros Dinámicos (IPC)
+                    $parametros = [];
+                    $paramIds = $_POST['parametro_id'] ?? [];
+                    $paramValores = $_POST['parametro_valor'] ?? [];
+
+                    foreach ((array) $paramIds as $idx => $idParam) {
+                        if (empty($idParam)) continue;
+                        
+                        $valor = trim((string) ($paramValores[$idx] ?? ''));
+                        if ($valor !== '') {
+                            $parametros[] = [
+                                'id_parametro' => (int) $idParam,
+                                'valor_objetivo' => (float) $valor,
+                            ];
+                        }
+                    }
+
+                    // 3. Enviar al Modelo
                     $this->produccionModel->crearReceta([
                         'id_producto' => (int) ($_POST['id_producto'] ?? 0),
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
@@ -63,12 +79,8 @@ class ProduccionController extends Controlador
                         'descripcion' => (string) ($_POST['descripcion'] ?? ''),
                         'rendimiento_base' => (float) ($_POST['rendimiento_base'] ?? 0),
                         'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? ''),
-                        'brix_objetivo' => ($_POST['brix_objetivo'] !== '') ? (float) $_POST['brix_objetivo'] : null,
-                        'ph_objetivo' => ($_POST['ph_objetivo'] !== '') ? (float) $_POST['ph_objetivo'] : null,
-                        'carbonatacion_vol' => ($_POST['carbonatacion_vol'] !== '') ? (float) $_POST['carbonatacion_vol'] : null,
-                        'temp_pasteurizacion' => ($_POST['temp_pasteurizacion'] !== '') ? (float) $_POST['temp_pasteurizacion'] : null,
-                        'tiempo_pasteurizacion' => ($_POST['tiempo_pasteurizacion'] !== '') ? (float) $_POST['tiempo_pasteurizacion'] : null,
                         'detalles' => $detalles,
+                        'parametros' => $parametros, // Pasamos el array dinámico
                     ], $userId);
 
                     $this->setFlash('success', 'Receta creada correctamente.');
@@ -91,6 +103,8 @@ class ProduccionController extends Controlador
             'flash' => $flash,
             'recetas' => $this->produccionModel->listarRecetas(),
             'items_stockeables' => $this->produccionModel->listarItemsStockeables(), 
+            // NUEVO: Enviamos el catálogo de parámetros a la vista
+            'parametros_catalogo' => $this->produccionModel->listarParametrosCatalogo(),
             'ruta_actual' => 'produccion/recetas',
         ]);
     }

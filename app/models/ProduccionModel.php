@@ -7,10 +7,9 @@ class ProduccionModel extends Modelo
 {
     public function listarRecetas(): array
     {
+        // Se quitaron las columnas fijas de parámetros (brix, ph, etc.)
         $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
                        r.rendimiento_base, r.unidad_rendimiento,
-                       r.brix_objetivo, r.ph_objetivo, r.carbonatacion_vol,
-                       r.temp_pasteurizacion, r.tiempo_pasteurizacion,
                        r.costo_teorico_unitario AS costo_teorico,
                        i.id AS id_producto, i.sku AS producto_sku, i.nombre AS producto_nombre,
                        (
@@ -72,6 +71,7 @@ class ProduccionModel extends Modelo
 
     public function listarItemsStockeables(): array
     {
+        // Se asegura de traer el tipo_item para las validaciones cruzadas
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote
                 FROM items
                 WHERE estado = 1
@@ -95,6 +95,29 @@ class ProduccionModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    // --- NUEVO MÉTODO: Catálogo de Parámetros ---
+    public function listarParametrosCatalogo(): array
+    {
+        $sql = 'SELECT id, nombre, unidad_medida, descripcion 
+                FROM produccion_parametros_catalogo 
+                ORDER BY nombre ASC';
+
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    // --- NUEVO MÉTODO: Parámetros específicos de una receta ---
+    public function obtenerParametrosReceta(int $idReceta): array
+    {
+        $sql = 'SELECT id_parametro, valor_objetivo, margen_tolerancia 
+                FROM produccion_recetas_parametros 
+                WHERE id_receta = :id_receta';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function crearReceta(array $payload, int $userId): int
     {
         $idProducto = (int) ($payload['id_producto'] ?? 0);
@@ -104,24 +127,19 @@ class ProduccionModel extends Modelo
         $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
         $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
         
-        // Mantener como nulos si no fueron proporcionados para evitar falsos "0.00"
-        $brixObjetivo = $payload['brix_objetivo'] ?? null;
-        $phObjetivo = $payload['ph_objetivo'] ?? null;
-        $carbonatacionVol = $payload['carbonatacion_vol'] ?? null;
-        $tempPasteurizacion = $payload['temp_pasteurizacion'] ?? null;
-        $tiempoPasteurizacion = $payload['tiempo_pasteurizacion'] ?? null;
-        
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
+        // Nueva variable para los parámetros dinámicos
+        $parametros = is_array($payload['parametros'] ?? null) ? $payload['parametros'] : [];
 
         if ($idProducto <= 0 || $codigo === '' || $detalles === [] || $rendimientoBase <= 0) {
-            throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle.');
+            throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle de insumos.');
         }
 
         $db = $this->db();
         $db->beginTransaction();
 
         try {
-            // 1. Calcular Costo Total Teórico de la Receta
+            // 1. Calcular Costo Total Teórico de la Receta (recursividad a través del costo_referencial)
             $costoTotalReceta = 0.0;
             foreach ($detalles as $detalle) {
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
@@ -135,19 +153,16 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            // Costo por cada unidad producida (ej: costo de 1 pack o 1 botella)
             $costoUnitarioTeorico = $costoTotalReceta / $rendimientoBase;
 
-            // 2. Insertar Receta
+            // 2. Insertar Receta (sin columnas de parámetros físicos)
             $stmt = $db->prepare('INSERT INTO produccion_recetas
                                     (id_producto, codigo, version, descripcion,
                                      rendimiento_base, unidad_rendimiento,
-                                     brix_objetivo, ph_objetivo, carbonatacion_vol, temp_pasteurizacion, tiempo_pasteurizacion,
                                      costo_teorico_unitario, estado, created_by, updated_by)
                                   VALUES
                                     (:id_producto, :codigo, :version, :descripcion,
                                      :rendimiento_base, :unidad_rendimiento,
-                                     :brix_objetivo, :ph_objetivo, :carbonatacion_vol, :temp_pasteurizacion, :tiempo_pasteurizacion,
                                      :costo_unitario, 1, :created_by, :updated_by)');
             
             $stmt->execute([
@@ -157,14 +172,6 @@ class ProduccionModel extends Modelo
                 'descripcion' => $descripcion !== '' ? $descripcion : null,
                 'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                 'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
-                
-                // Formateo seguro para evitar error de number_format(null) en PHP 8+
-                'brix_objetivo' => $brixObjetivo !== null ? number_format((float)$brixObjetivo, 4, '.', '') : null,
-                'ph_objetivo' => $phObjetivo !== null ? number_format((float)$phObjetivo, 4, '.', '') : null,
-                'carbonatacion_vol' => $carbonatacionVol !== null ? number_format((float)$carbonatacionVol, 4, '.', '') : null,
-                'temp_pasteurizacion' => $tempPasteurizacion !== null ? number_format((float)$tempPasteurizacion, 4, '.', '') : null,
-                'tiempo_pasteurizacion' => $tiempoPasteurizacion !== null ? number_format((float)$tiempoPasteurizacion, 4, '.', '') : null,
-                
                 'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -186,7 +193,7 @@ class ProduccionModel extends Modelo
                 'id_receta' => $idReceta,
             ]);
 
-            // 4. Insertar Detalles de la BOM
+            // 4. Insertar Detalles de la BOM (Insumos)
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
                                         (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
                                      VALUES
@@ -213,7 +220,28 @@ class ProduccionModel extends Modelo
                 ]);
             }
 
-            // 5. Actualizar Costo Referencial en la tabla de Items
+            // 5. NUEVO: Insertar Parámetros Dinámicos (IPC)
+            if (!empty($parametros)) {
+                $stmtParam = $db->prepare('INSERT INTO produccion_recetas_parametros 
+                                            (id_receta, id_parametro, valor_objetivo) 
+                                           VALUES 
+                                            (:id_receta, :id_parametro, :valor_objetivo)');
+
+                foreach ($parametros as $param) {
+                    $idParametro = (int) ($param['id_parametro'] ?? 0);
+                    $valorObjetivo = $param['valor_objetivo'] ?? '';
+
+                    if ($idParametro > 0 && $valorObjetivo !== '') {
+                        $stmtParam->execute([
+                            'id_receta' => $idReceta,
+                            'id_parametro' => $idParametro,
+                            'valor_objetivo' => number_format((float) $valorObjetivo, 4, '.', '')
+                        ]);
+                    }
+                }
+            }
+
+            // 6. Actualizar Costo Referencial en la tabla de Items
             $stmtUpdateItem = $db->prepare('UPDATE items 
                                             SET costo_referencial = :costo,
                                                 updated_at = NOW(),
@@ -310,7 +338,6 @@ class ProduccionModel extends Modelo
                 $qtyBase = (float) $linea['cantidad_por_unidad'];
                 $merma = (float) $linea['merma_porcentaje'];
                 
-                // Cálculo de la cantidad total requerida basada en la BOM
                 $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
                 
                 $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
@@ -326,7 +353,7 @@ class ProduccionModel extends Modelo
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_lote' => null, // Esto se enlazaría a la tabla lotes si corresponde
+                    'id_lote' => null, 
                     'cantidad' => number_format($cantidadRequerida, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
                     'created_by' => $userId,
@@ -490,6 +517,9 @@ class ProduccionModel extends Modelo
             throw new RuntimeException('La receta base no tiene detalles.');
         }
 
+        // Obtener los parámetros de la receta anterior
+        $parametrosOld = $this->obtenerParametrosReceta($idRecetaBase);
+
         $siguienteVersion = $this->obtenerSiguienteVersion((int) $receta['id_producto']);
 
         return $this->crearReceta([
@@ -500,19 +530,20 @@ class ProduccionModel extends Modelo
             'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
             
-            // Pasar los valores de IPC tal como están (si son nulos en BD, seguirán siendo nulos)
-            'brix_objetivo' => $receta['brix_objetivo'] ?? null,
-            'ph_objetivo' => $receta['ph_objetivo'] ?? null,
-            'carbonatacion_vol' => $receta['carbonatacion_vol'] ?? null,
-            'temp_pasteurizacion' => $receta['temp_pasteurizacion'] ?? null,
-            'tiempo_pasteurizacion' => $receta['tiempo_pasteurizacion'] ?? null,
-            
+            // Pasar los detalles
             'detalles' => array_map(static fn (array $d): array => [
                 'id_insumo' => (int) $d['id_insumo'],
                 'etapa' => (string) ($d['etapa'] ?? ''),
                 'cantidad_por_unidad' => (float) $d['cantidad_por_unidad'],
                 'merma_porcentaje' => (float) $d['merma_porcentaje'],
             ], $detalles),
+
+            // Pasar los parámetros dinámicos heredados
+            'parametros' => array_map(static fn (array $p): array => [
+                'id_parametro' => (int) $p['id_parametro'],
+                'valor_objetivo' => (float) $p['valor_objetivo']
+            ], $parametrosOld),
+
         ], $userId);
     }
 

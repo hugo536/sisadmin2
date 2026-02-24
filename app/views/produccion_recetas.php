@@ -1,6 +1,8 @@
 <?php
 $recetas = $recetas ?? [];
 $itemsStockeables = $items_stockeables ?? [];
+$parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESDE EL CONTROLLER
+
 // Estas etapas son perfectas para el flujo de bebidas que conversamos
 $etapasProduccion = [
     'Tratamiento Agua',
@@ -9,7 +11,7 @@ $etapasProduccion = [
     'Pasteurización',
     'Carbonatación',
     'Envasado',
-    'Empaque' // Añadí esta para cuando hagas el Pack x15
+    'Empaque'
 ];
 ?>
 <div class="container-fluid p-4">
@@ -18,7 +20,7 @@ $etapasProduccion = [
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-journal-check me-2 text-primary"></i> Recetas (BOM)
             </h1>
-            <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas de producción y semielaborados.</p>
+            <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas y semielaborados.</p>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta">
@@ -144,7 +146,11 @@ $etapasProduccion = [
                                     <select class="form-select" id="newProducto" name="id_producto" required>
                                         <option value="" selected>Seleccionar...</option>
                                         <?php foreach ($itemsStockeables as $item): ?>
-                                            <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
+                                            <option value="<?php echo (int) $item['id']; ?>" 
+                                                    data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
+                                                    data-costo="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
+                                                <?php echo e((string) $item['nombre']); ?>
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                     <label for="newProducto">Producto Destino</label>
@@ -155,7 +161,7 @@ $etapasProduccion = [
                                 </div>
                                 <div class="col-md-3 form-floating">
                                     <input type="text" class="form-control" id="newUnidadRendimiento" name="unidad_rendimiento" placeholder="Unidad">
-                                    <label for="newUnidadRendimiento">Unidad rendimiento (Ej. Lts, Packs)</label>
+                                    <label for="newUnidadRendimiento">Unidad rendimiento</label>
                                 </div>
                                 <div class="col-md-9 form-floating">
                                     <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
@@ -167,13 +173,17 @@ $etapasProduccion = [
 
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Parámetros de Calidad (IPC)</h6>
-                            <div class="row g-2">
-                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="brix_objetivo" placeholder="Brix"><label>Brix objetivo</label></div>
-                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="ph_objetivo" placeholder="pH"><label>pH objetivo</label></div>
-                                <div class="col-md-2 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="carbonatacion_vol" placeholder="CO2"><label>Carbonatación (vol)</label></div>
-                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="temp_pasteurizacion" placeholder="Temperatura"><label>Temp. pasteurización</label></div>
-                                <div class="col-md-3 form-floating"><input type="number" step="0.0001" min="0" class="form-control" name="tiempo_pasteurizacion" placeholder="Tiempo"><label>Tiempo pasteuriz. (min)</label></div>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-sliders me-2"></i>Parámetros de Control (IPC)</h6>
+                                <button type="button" class="btn btn-sm btn-outline-info" id="btnAgregarParametro">
+                                    <i class="bi bi-plus-lg me-1"></i>Añadir parámetro
+                                </button>
+                            </div>
+                            
+                            <div id="contenedorParametros"></div>
+                            
+                            <div id="emptyParametros" class="text-muted small fst-italic py-2 text-center">
+                                No se han definido parámetros de control para esta receta.
                             </div>
                         </div>
                     </div>
@@ -181,14 +191,14 @@ $etapasProduccion = [
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0">Composición (BOM) por Etapas</h6>
+                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM) por Etapas</h6>
                             </div>
                             <div class="accordion" id="accordionEtapasReceta">
                                 <?php foreach ($etapasProduccion as $index => $etapa): ?>
                                     <div class="accordion-item">
                                         <h2 class="accordion-header" id="heading-<?php echo $index; ?>">
                                             <button class="accordion-button <?php echo $index > 0 ? 'collapsed' : ''; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $index; ?>">
-                                                <i class="bi bi-diagram-2 me-2 text-primary"></i> <?php echo e($etapa); ?>
+                                                <i class="bi bi-boxes me-2 text-primary"></i> <?php echo e($etapa); ?>
                                             </button>
                                         </h2>
                                         <div id="collapse-<?php echo $index; ?>" class="accordion-collapse collapse <?php echo $index === 0 ? 'show' : ''; ?>" data-bs-parent="#accordionEtapasReceta">
@@ -207,17 +217,47 @@ $etapasProduccion = [
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-2">Resumen de la Receta</h6>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div id="bomResumen" class="small text-muted">0 insumos/semielaborados agregados.</div>
+                    <div class="card border-0 shadow-sm bg-primary-subtle bg-opacity-10">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold text-dark mb-1">Resumen de la Receta</h6>
+                                <div id="bomResumen" class="small text-muted">0 insumos agregados.</div>
+                            </div>
+                            <div class="text-end">
+                                <h5 class="fw-bold text-primary mb-0" id="costoTotalCalculado">S/ 0.0000</h5>
+                                <small class="text-muted fw-semibold">Costo teórico total</small>
                             </div>
                         </div>
                     </div>
 
+                    <template id="parametroTemplate">
+                        <div class="row g-2 mb-2 parametro-row align-items-center bg-white p-2 border rounded-2 shadow-sm animate__animated animate__fadeIn">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted mb-0 fw-bold">Parámetro</label>
+                                <select class="form-select form-select-sm" name="parametro_id[]" required>
+                                    <option value="">Seleccione parámetro del catálogo...</option>
+                                    <?php foreach ($parametrosCatalogo as $param): ?>
+                                        <option value="<?php echo (int) $param['id']; ?>">
+                                            <?php echo e((string) $param['nombre']); ?> 
+                                            <?php echo !empty($param['unidad_medida']) ? '(' . e((string) $param['unidad_medida']) . ')' : ''; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted mb-0 fw-bold">Valor Objetivo</label>
+                                <input step="0.0001" type="number" required name="parametro_valor[]" class="form-control form-control-sm" placeholder="Ej: 7.5">
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-param" title="Quitar parámetro">
+                                    <i class="bi bi-trash fs-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
                     <template id="detalleRecetaTemplate">
-                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2 shadow-sm">
+                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2 shadow-sm animate__animated animate__fadeIn">
                             <input type="hidden" name="detalle_etapa[]" class="input-etapa-hidden" value="">
                             
                             <div class="col-md-5">
@@ -225,7 +265,11 @@ $etapasProduccion = [
                                 <select class="form-select form-select-sm select-insumo" name="detalle_id_insumo[]" required>
                                     <option value="">Seleccione...</option>
                                     <?php foreach ($itemsStockeables as $item): ?>
-                                        <option value="<?php echo (int) $item['id']; ?>"><?php echo e((string) $item['nombre']); ?></option>
+                                        <option value="<?php echo (int) $item['id']; ?>"
+                                                data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
+                                                data-costo="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
+                                            <?php echo e((string) $item['nombre']); ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -245,9 +289,9 @@ $etapasProduccion = [
                         </div>
                     </template>
 
-                    <div class="d-flex justify-content-end pt-2">
+                    <div class="d-flex justify-content-end pt-3 pb-2">
                         <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar Receta</button>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Receta</button>
                     </div>
                 </form>
             </div>
@@ -255,4 +299,4 @@ $etapasProduccion = [
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=1.1"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.0"></script>
