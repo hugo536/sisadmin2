@@ -59,7 +59,6 @@ class PresentacionModel extends Modelo {
     }
 
     public function listarProductosParaSelect() {
-        // Se mantiene igual, sirve para poblar los selects con los líquidos base.
         $sql = "SELECT i.id,
                        i.nombre AS nombre_completo,
                        i.nombre,
@@ -73,6 +72,43 @@ class PresentacionModel extends Modelo {
                 ORDER BY i.nombre ASC";
 
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function listarComponentesPackParaSelect() {
+        $sql = "SELECT i.id,
+                       i.nombre AS nombre_completo,
+                       i.nombre,
+                       i.sku,
+                       i.unidad_base,
+                       i.tipo_item
+                FROM items i
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL
+                  AND LOWER(i.tipo_item) IN ('semielaborado', 'insumo')
+                ORDER BY i.nombre ASC";
+
+        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function sonItemsPermitidosComoComponente(array $ids): bool {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (empty($ids)) {
+            return true;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT COUNT(*)
+                FROM items i
+                WHERE i.id IN ($placeholders)
+                  AND i.estado = 1
+                  AND i.deleted_at IS NULL
+                  AND LOWER(i.tipo_item) IN ('semielaborado', 'insumo')";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($ids);
+        $permitidos = (int)$stmt->fetchColumn();
+
+        return $permitidos === count($ids);
     }
 
     public function guardar($datos) {

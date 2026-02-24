@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const initTomSelectComponentes = () => {
             if (tomSelectComponentes || !inputBusquedaComponente) return;
             tomSelectComponentes = new TomSelect(inputBusquedaComponente, {
-                create: false, sortField: { field: "text", direction: "asc" }, placeholder: 'Buscar semielaborado...',
+                create: false, sortField: { field: "text", direction: "asc" }, placeholder: 'Buscar semielaborado o insumo...',
                 onChange: function(value) {
                     if (!value) return;
                     const yaExiste = Array.from(document.querySelectorAll('#tablaComposicionMixta input[name*="[id_item]"]')).some(input => input.value === value);
