@@ -12,6 +12,15 @@ $presentaciones = $presentaciones ?? [];
 $presentacionesGestion = $presentaciones_gestion ?? [];
 $unidadesConversion = $unidades_conversion ?? [];
 $pendientesConversion = array_values(array_filter($unidadesConversion, static fn(array $row): bool => (int) ($row['total_unidades'] ?? 0) <= 0));
+$categoriasPorId = [];
+
+foreach ($categoriasGestion as $categoriaGestion) {
+    $categoriaId = (int) ($categoriaGestion['id'] ?? 0);
+    if ($categoriaId <= 0) {
+        continue;
+    }
+    $categoriasPorId[$categoriaId] = (string) ($categoriaGestion['nombre'] ?? '');
+}
 
 // Helpers para UI
 $tipoItemValueForUi = static function (string $tipo): string {
@@ -113,7 +122,7 @@ $tipoItemLabel = static function (string $tipo): string {
                             <th class="ps-4">SKU</th>
                             <th>Nombre</th>
                             <th>Tipo</th>
-                            <th>Stock mín.</th>
+                            <th>Categoría</th>
                             <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
@@ -132,11 +141,10 @@ $tipoItemLabel = static function (string $tipo): string {
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
                                 <?php
-                                    $stockMinimo = (string) ($item['stock_minimo'] ?? '');
-                                    $stockMinimoNumero = is_numeric($stockMinimo) ? (float) $stockMinimo : 0.0;
-                                    $mostrarStockSinDefinir = $stockMinimo === '' || $stockMinimoNumero <= 0.0;
+                                    $idCategoriaItem = (int) ($item['id_categoria'] ?? 0);
+                                    $categoriaNombre = trim((string) ($item['categoria_nombre'] ?? ($categoriasPorId[$idCategoriaItem] ?? '')));
                                 ?>
-                                <td><?php echo $mostrarStockSinDefinir ? 'Sin definir' : e(number_format($stockMinimoNumero, 4)); ?></td>
+                                <td><?php echo $categoriaNombre !== '' ? e($categoriaNombre) : 'Sin categoría'; ?></td>
                                 <td class="text-center">
                                     <?php if ((int) $item['estado'] === 1): ?>
                                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
@@ -154,6 +162,10 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </div>
                                         <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
                                         
+                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver perfil y documentos">
+                                            <i class="bi bi-person-badge fs-5"></i>
+                                        </a>
+
                                         <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
                                             data-id="<?php echo (int) $item['id']; ?>"
                                             data-sku="<?php echo e($item['sku']); ?>"
@@ -233,8 +245,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                 <div class="row g-3">
 
                                     <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Rubro</label>
-                                        <select class="form-select" id="newRubro" name="id_rubro">
+                                        <label class="form-label small text-muted mb-1">Rubro <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="newRubro" name="id_rubro" required>
                                             <option value="" selected>Seleccionar...</option>
                                             <?php foreach ($rubros as $rubro): ?>
                                                 <option value="<?php echo (int) $rubro['id']; ?>"><?php echo e((string) $rubro['nombre']); ?></option>
@@ -243,8 +255,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Categoría</label>
-                                        <select class="form-select" id="newCategoria" name="id_categoria">
+                                        <label class="form-label small text-muted mb-1">Categoría <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="newCategoria" name="id_categoria" required>
                                             <option value="" selected>Seleccionar...</option>
                                             <?php foreach ($categorias as $categoria): ?>
                                                 <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
@@ -485,8 +497,8 @@ $tipoItemLabel = static function (string $tipo): string {
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Rubro</label>
-                                        <select class="form-select" id="editRubro" name="id_rubro">
+                                        <label class="form-label small text-muted mb-1">Rubro <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="editRubro" name="id_rubro" required>
                                             <option value="">Seleccionar...</option>
                                             <?php foreach ($rubros as $rubro): ?>
                                                 <option value="<?php echo (int) $rubro['id']; ?>"><?php echo e((string) $rubro['nombre']); ?></option>
@@ -494,8 +506,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-1">Categoría</label>
-                                        <select class="form-select" id="editCategoria" name="id_categoria">
+                                        <label class="form-label small text-muted mb-1">Categoría <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="editCategoria" name="id_categoria" required>
                                             <option value="">Seleccionar...</option>
                                             <?php foreach ($categorias as $categoria): ?>
                                                 <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>

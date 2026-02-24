@@ -532,6 +532,14 @@ class ItemsController extends Controlador
             ? (int) $data['id_rubro']
             : 0;
 
+        if ($idRubro <= 0) {
+            throw new RuntimeException('El rubro es obligatorio.');
+        }
+
+        if ($idCategoria <= 0) {
+            throw new RuntimeException('La categoría es obligatoria.');
+        }
+
         if ($idRubro > 0 && !$this->itemsModel->rubroExisteActivo($idRubro)) {
             throw new RuntimeException('El rubro seleccionado no existe o está inactivo.');
         }
