@@ -2,6 +2,7 @@
 $acuerdos = $acuerdos ?? [];
 $acuerdoSeleccionado = $acuerdo_seleccionado ?? null;
 $preciosMatriz = $precios_matriz ?? [];
+$presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
 ?>
 <div class="container-fluid p-4" id="acuerdosComercialesApp"
      data-url-clientes-disponibles="<?php echo e(route_url('comercial/clientesDisponiblesAjax')); ?>"
@@ -82,9 +83,11 @@ $preciosMatriz = $precios_matriz ?? [];
                                 <small class="text-muted" id="acuerdoResumenTarifas"><?php echo count($preciosMatriz); ?> tarifas configuradas</small>
                             </div>
                             <div class="d-flex gap-2">
+                                <?php if ($presentacionesHabilitadas): ?>
                                 <button class="btn btn-primary btn-sm" id="btnAgregarProducto" type="button">
                                     <i class="bi bi-plus-lg me-1"></i>Agregar Producto
                                 </button>
+                                <?php endif; ?>
                                 <div class="dropdown">
                                     <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="bi bi-three-dots"></i> Opciones
@@ -119,6 +122,11 @@ $preciosMatriz = $precios_matriz ?? [];
 
                 <div class="card-body p-0">
                     <?php if ($acuerdoSeleccionado): ?>
+                        <?php if (!$presentacionesHabilitadas): ?>
+                            <div class="alert alert-warning m-3 mb-0">
+                                Las presentaciones comerciales fueron retiradas. Este acuerdo permanece activo para gestión de clientes, pero la matriz de tarifas por presentación no está disponible.
+                            </div>
+                        <?php endif; ?>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>">
                                 <thead class="table-light">
