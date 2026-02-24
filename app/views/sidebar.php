@@ -159,11 +159,6 @@ function renderSidebarInner(
             <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="menuComercial">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('comercial/presentaciones'); ?>" href="<?php echo e(route_url('comercial/presentaciones')); ?>">
-                            <i class="bi bi-box"></i> <span>Presentaciones y Packs</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('comercial/listas'); ?>" href="<?php echo e(route_url('comercial/listas')); ?>">
                             <i class="bi bi-currency-dollar"></i> <span>Listas de Precios</span>
                         </a>
