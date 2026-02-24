@@ -228,9 +228,10 @@ class ProduccionModel extends Modelo
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
                 $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
-                
+
                 if ($idInsumo > 0 && $cantidad > 0) {
-                    $costoInsumo = $this->obtenerCostoReferencial($idInsumo);
+                    $costoCapturado = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : 0.0;
+                    $costoInsumo = $costoCapturado > 0 ? $costoCapturado : $this->obtenerCostoReferencial($idInsumo);
                     $cantidadReal = $cantidad * (1 + ($merma / 100));
                     $costoTotalReceta += ($costoInsumo * $cantidadReal);
                 }
