@@ -114,7 +114,7 @@ class ComprasRecepcionModel extends Modelo
             $sqlUpdateOrdenDet = 'UPDATE compras_ordenes_detalle 
                                   SET cantidad_recibida = cantidad_recibida + :cantidad 
                                   WHERE id_orden = :id_orden AND id_item = :id_item
-                                    AND ((:id_item_unidad IS NULL AND id_item_unidad IS NULL) OR id_item_unidad = :id_item_unidad)';
+                                    AND ((:id_item_unidad_null IS NULL AND id_item_unidad IS NULL) OR id_item_unidad = :id_item_unidad_value)';
             $stmtUpdateOrdenDet = $db->prepare($sqlUpdateOrdenDet);
 
 
@@ -158,11 +158,14 @@ class ComprasRecepcionModel extends Modelo
                 $this->actualizarStock($db, (int) $linea['id_item'], $idAlmacen, $cantidad);
 
                 // 4. Actualizar acumulado recibido en la Orden de Compra
+                $idItemUnidad = !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null;
+
                 $stmtUpdateOrdenDet->execute([
                     'cantidad' => $cantidad,
                     'id_orden' => $idOrden,
                     'id_item' => (int) $linea['id_item'],
-                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
+                    'id_item_unidad_null' => $idItemUnidad,
+                    'id_item_unidad_value' => $idItemUnidad,
                 ]);
             }
 

@@ -49,6 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let ordenEnEdicionId = 0;
 
+    function setOrdenEnEdicion(id = 0) {
+        const parsedId = Number(id || 0);
+        ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
+        ordenId.value = String(ordenEnEdicionId);
+    }
+
     function recargarPagina() {
         const params = new URLSearchParams(window.location.search);
         params.delete('ruta');
@@ -320,8 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function limpiarModalOrden() {
         formOrden.reset();
-        ordenId.value = 0;
-        ordenEnEdicionId = 0;
+        setOrdenEnEdicion(0);
 
         if (tomSelectProveedor) {
             tomSelectProveedor.clear();
@@ -373,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const payload = {
-                id: Number(ordenId.value || ordenEnEdicionId || 0),
+                id: Number(ordenEnEdicionId || 0),
                 id_proveedor: Number(idProveedor.value),
                 fecha_entrega: fechaEntrega.value,
                 observaciones: observaciones.value,
@@ -436,8 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const d = json.data;
                     limpiarModalOrden();
 
-                    ordenId.value = d.id;
-                    ordenEnEdicionId = Number(d.id || 0);
+                    setOrdenEnEdicion(d.id);
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
                     else idProveedor.value = d.id_proveedor;
 
@@ -512,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btnNuevaOrden').addEventListener('click', () => {
         limpiarModalOrden();
-        ordenEnEdicionId = 0;
+        setOrdenEnEdicion(0);
         agregarFila();
         btnGuardarOrden.style.display = 'block';
         modalOrden.show();
