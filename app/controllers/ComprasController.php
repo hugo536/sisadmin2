@@ -39,6 +39,16 @@ class ComprasController extends Controlador
             return;
         }
 
+
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'unidades_item') {
+            $idItem = (int) ($_GET['id_item'] ?? 0);
+            json_response([
+                'ok' => true,
+                'items' => $this->ordenModel->listarUnidadesConversionItem($idItem),
+            ]);
+            return;
+        }
+
         // Ver detalle AJAX
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
             $id = (int) ($_GET['id'] ?? 0);
@@ -100,10 +110,15 @@ class ComprasController extends Controlador
             $total = 0.0;
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
+                $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
+                $factor = (float) ($linea['factor_conversion_aplicado'] ?? 1);
                 $costo = (float) ($linea['costo_unitario'] ?? 0);
 
                 if ($cantidad <= 0) {
-                    throw new RuntimeException('La cantidad de los ítems debe ser mayor a 0.');
+                    throw new RuntimeException('La cantidad de compra de los ítems debe ser mayor a 0.');
+                }
+                if ($cantidadBase <= 0 || $factor <= 0) {
+                    throw new RuntimeException('La conversión de unidades del ítem no es válida.');
                 }
                 if ($costo < 0) {
                     throw new RuntimeException('El costo no puede ser negativo.');

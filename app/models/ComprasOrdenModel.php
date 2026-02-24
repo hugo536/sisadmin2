@@ -74,9 +74,13 @@ class ComprasOrdenModel extends Modelo
                               d.id_item,
                               i.sku,
                               i.nombre AS item_nombre,
-                              d.cantidad_solicitada AS cantidad,
+                              d.id_item_unidad,
+                              COALESCE(d.unidad_nombre, i.unidad_base) AS unidad_nombre,
+                              COALESCE(d.factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
+                              COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad,
+                              COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) AS cantidad_base,
                               d.costo_unitario_pactado AS costo_unitario,
-                              (d.cantidad_solicitada * d.costo_unitario_pactado) AS subtotal
+                              (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal
                        FROM compras_ordenes_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
                        WHERE d.id_orden = :id_orden
@@ -196,6 +200,11 @@ class ComprasOrdenModel extends Modelo
             $sqlDet = 'INSERT INTO compras_ordenes_detalle (
                             id_orden,
                             id_item,
+                            id_item_unidad,
+                            unidad_nombre,
+                            factor_conversion_aplicado,
+                            cantidad_conversion,
+                            cantidad_base_solicitada,
                             cantidad_solicitada,
                             costo_unitario_pactado,
                             created_by,
@@ -205,6 +214,11 @@ class ComprasOrdenModel extends Modelo
                        ) VALUES (
                             :id_orden,
                             :id_item,
+                            :id_item_unidad,
+                            :unidad_nombre,
+                            :factor_conversion_aplicado,
+                            :cantidad_conversion,
+                            :cantidad_base,
                             :cantidad,
                             :costo_unitario,
                             :created_by,
@@ -216,17 +230,24 @@ class ComprasOrdenModel extends Modelo
             $stmtDet = $db->prepare($sqlDet);
             
             foreach ($detalle as $linea) {
-                $cantidad = (float) ($linea['cantidad'] ?? 0);
+                $cantidadConversion = (float) ($linea['cantidad'] ?? 0);
+                $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
+                $factorAplicado = (float) ($linea['factor_conversion_aplicado'] ?? 1);
                 $costo = (float) ($linea['costo_unitario'] ?? 0);
                 
-                if ($cantidad <= 0 || $costo < 0) {
+                if ($cantidadConversion <= 0 || $cantidadBase <= 0 || $factorAplicado <= 0 || $costo < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o costo inválido.');
                 }
 
                 $stmtDet->execute([
                     'id_orden' => $idOrden,
                     'id_item' => (int) ($linea['id_item'] ?? 0),
-                    'cantidad' => $cantidad,
+                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
+                    'unidad_nombre' => !empty($linea['unidad_nombre']) ? trim((string) $linea['unidad_nombre']) : null,
+                    'factor_conversion_aplicado' => $factorAplicado,
+                    'cantidad_conversion' => $cantidadConversion,
+                    'cantidad_base' => $cantidadBase,
+                    'cantidad' => $cantidadBase,
                     'costo_unitario' => $costo,
                     'created_by' => $userId,
                     'updated_by' => $userId,
@@ -348,7 +369,7 @@ class ComprasOrdenModel extends Modelo
         // CORRECCIÓN DEFINITIVA: 
         // Usamos una lista blanca (IN) en lugar de exclusión (NOT IN).
         // Solo permitimos que se compren componentes operativos o materias primas.
-        $sql = "SELECT id, sku, nombre
+        $sql = "SELECT id, sku, nombre, unidad_base, requiere_factor_conversion
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
@@ -356,6 +377,51 @@ class ComprasOrdenModel extends Modelo
                 ORDER BY nombre ASC";
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarUnidadesConversionItem(int $idItem): array
+    {
+        if ($idItem <= 0) {
+            return [];
+        }
+
+        if (!$this->tablaTieneColumna('items_unidades', 'id_item')) {
+            return [];
+        }
+
+        $condiciones = [
+            'u.id_item = :id_item',
+            'i.deleted_at IS NULL',
+            'i.requiere_factor_conversion = 1',
+        ];
+
+        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
+            $condiciones[] = 'u.estado = 1';
+        }
+
+        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
+            $condiciones[] = 'u.deleted_at IS NULL';
+        }
+
+        $sql = 'SELECT u.id,
+                       u.nombre,
+                       COALESCE(u.factor_conversion, 1.0000) AS factor_conversion,
+                       i.unidad_base
+                FROM items_unidades u
+                INNER JOIN items i ON i.id = u.id_item
+                WHERE ' . implode(' AND ', $condiciones) . '
+                ORDER BY u.nombre ASC, u.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
+        $stmt->execute(['columna' => $columna]);
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     private function generarCodigo(PDO $db): string

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Inicialización y Referencias
     const app = document.getElementById('comprasApp');
     if (!app) return;
 
@@ -9,27 +8,24 @@ document.addEventListener('DOMContentLoaded', () => {
         aprobar: app.dataset.urlAprobar,
         anular: app.dataset.urlAnular,
         recepcionar: app.dataset.urlRecepcionar,
+        unidadesItem: app.dataset.urlUnidadesItem,
     };
 
-    // --- MAGIA 1: Tom Select para Proveedor ---
+    const cacheUnidades = new Map();
+
     let tomSelectProveedor = null;
     if (document.getElementById('idProveedor')) {
-        tomSelectProveedor = new TomSelect("#idProveedor", {
+        tomSelectProveedor = new TomSelect('#idProveedor', {
             create: false,
-            sortField: { field: "text", direction: "asc" },
-            placeholder: "Escribe para buscar proveedor...",
-            dropdownParent: 'body' 
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Escribe para buscar proveedor...',
+            dropdownParent: 'body',
         });
     }
-    // ------------------------------------------
 
-    // Modales
-    const modalOrdenEl = document.getElementById('modalOrdenCompra');
-    const modalOrden = new bootstrap.Modal(modalOrdenEl);
-    const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
-    const modalRecepcion = new bootstrap.Modal(modalRecepcionEl);
+    const modalOrden = new bootstrap.Modal(document.getElementById('modalOrdenCompra'));
+    const modalRecepcion = new bootstrap.Modal(document.getElementById('modalRecepcionCompra'));
 
-    // Elementos del DOM
     const tablaCompras = document.getElementById('tablaCompras');
     const tbodyTabla = tablaCompras.querySelector('tbody');
     const filtroBusqueda = document.getElementById('filtroBusqueda');
@@ -37,10 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
 
-    // Elementos del Formulario Orden
     const formOrden = document.getElementById('formOrdenCompra');
     const ordenId = document.getElementById('ordenId');
-    const idProveedor = document.getElementById('idProveedor'); 
+    const idProveedor = document.getElementById('idProveedor');
     const fechaEntrega = document.getElementById('fechaEntrega');
     const observaciones = document.getElementById('observaciones');
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -48,17 +43,105 @@ document.addEventListener('DOMContentLoaded', () => {
     const templateFila = document.getElementById('templateFilaDetalle');
     const btnGuardarOrden = document.getElementById('btnGuardarOrden');
 
-    // Elementos del Formulario Recepción
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
     const recepcionAlmacen = document.getElementById('recepcionAlmacen');
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
 
-    // 2. Funciones de Cálculo y Detalle
+    function recargarPagina() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('q', filtroBusqueda.value.trim());
+        params.set('estado', filtroEstado.value);
+        params.set('fecha_desde', filtroFechaDesde.value);
+        params.set('fecha_hasta', filtroFechaHasta.value);
+        window.location.href = `${urls.index}?${params.toString()}`;
+    }
+
+    async function postJson(url, data, btnElement = null) {
+        let originalText = '';
+        if (btnElement) {
+            originalText = btnElement.innerHTML;
+            btnElement.disabled = true;
+            btnElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const json = await response.json();
+            if (!response.ok || !json.ok) {
+                throw new Error(json.mensaje || 'Error en la operación.');
+            }
+            return json;
+        } finally {
+            if (btnElement) {
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+            }
+        }
+    }
+
+    async function obtenerUnidadesItem(idItem) {
+        if (!idItem || idItem <= 0) return [];
+        if (cacheUnidades.has(idItem)) return cacheUnidades.get(idItem);
+
+        const separador = urls.unidadesItem.includes('?') ? '&' : '?';
+        const res = await fetch(`${urls.unidadesItem}${separador}accion=unidades_item&id_item=${idItem}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+            throw new Error(json.mensaje || 'No se pudieron cargar unidades de conversión.');
+        }
+
+        const items = Array.isArray(json.items) ? json.items : [];
+        cacheUnidades.set(idItem, items);
+        return items;
+    }
+
+    function getUnidadBaseDesdeSelect(inputItem) {
+        const selected = inputItem.options[inputItem.selectedIndex];
+        return selected?.dataset?.unidadBase || 'UND';
+    }
+
     function filaToPayload(fila) {
+        const inputItem = fila.querySelector('.detalle-item');
+        const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+        const info = fila.querySelector('.detalle-conversion-info');
+
+        const idItem = Number(inputItem.value || 0);
+        const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
+        const costoUnitario = parseFloat(fila.querySelector('.detalle-costo').value || 0);
+
+        let factor = parseFloat(inputUnidad.selectedOptions?.[0]?.dataset?.factor || 1);
+        if (!Number.isFinite(factor) || factor <= 0) factor = 1;
+
+        const unidadNombre = inputUnidad.classList.contains('d-none')
+            ? getUnidadBaseDesdeSelect(inputItem)
+            : (inputUnidad.selectedOptions?.[0]?.text || 'UND');
+
+        const cantidadBase = cantidad * factor;
+
+        if (info) {
+            info.textContent = idItem > 0 && cantidad > 0
+                ? `Total en base (${getUnidadBaseDesdeSelect(inputItem)}): ${cantidadBase.toFixed(4)}`
+                : '';
+        }
+
         return {
-            id_item: Number(fila.querySelector('.detalle-item').value || 0),
-            cantidad: parseFloat(fila.querySelector('.detalle-cantidad').value || 0),
-            costo_unitario: parseFloat(fila.querySelector('.detalle-costo').value || 0),
+            id_item: idItem,
+            id_item_unidad: inputUnidad.classList.contains('d-none') ? null : Number(inputUnidad.value || 0),
+            unidad_nombre: unidadNombre,
+            factor_conversion_aplicado: factor,
+            cantidad,
+            cantidad_base: cantidadBase,
+            costo_unitario: costoUnitario,
         };
     }
 
@@ -78,6 +161,50 @@ document.addEventListener('DOMContentLoaded', () => {
         ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
 
+    async function actualizarUnidadPorItem(fila, itemGuardado = null) {
+        const inputItem = fila.querySelector('.detalle-item');
+        const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+        const info = fila.querySelector('.detalle-conversion-info');
+
+        inputUnidad.innerHTML = '<option value="">Unidad de compra...</option>';
+        inputUnidad.classList.add('d-none');
+        inputUnidad.disabled = true;
+
+        const selected = inputItem.options[inputItem.selectedIndex];
+        const requiereFactor = Number(selected?.dataset?.requiereFactorConversion || 0) === 1;
+        const unidadBase = selected?.dataset?.unidadBase || 'UND';
+
+        if (!inputItem.value || !requiereFactor) {
+            if (info) info.textContent = inputItem.value ? `Unidad base: ${unidadBase}` : '';
+            recalcularFila(fila);
+            return;
+        }
+
+        try {
+            const unidades = await obtenerUnidadesItem(Number(inputItem.value));
+            unidades.forEach((u) => {
+                const option = document.createElement('option');
+                option.value = String(u.id || '');
+                option.dataset.factor = String(u.factor_conversion || '1');
+                option.textContent = `${u.nombre} (factor ${Number(u.factor_conversion || 1).toFixed(4)})`;
+                inputUnidad.appendChild(option);
+            });
+
+            inputUnidad.classList.remove('d-none');
+            inputUnidad.disabled = false;
+
+            if (itemGuardado?.id_item_unidad) {
+                inputUnidad.value = String(itemGuardado.id_item_unidad);
+            } else if (inputUnidad.options.length > 1) {
+                inputUnidad.selectedIndex = 1;
+            }
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+
+        recalcularFila(fila);
+    }
+
     function agregarFila(item = null) {
         const clone = templateFila.content.cloneNode(true);
         const fila = clone.querySelector('tr');
@@ -85,36 +212,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputItem = fila.querySelector('.detalle-item');
         const inputCantidad = fila.querySelector('.detalle-cantidad');
         const inputCosto = fila.querySelector('.detalle-costo');
+        const inputUnidad = fila.querySelector('.detalle-unidad-compra');
         const btnQuitar = fila.querySelector('.btn-quitar-fila');
 
         tbodyDetalle.appendChild(fila);
 
         const tomSelectItem = new TomSelect(inputItem, {
             create: false,
-            sortField: { field: "text", direction: "asc" },
-            placeholder: "Buscar ítem...",
-            dropdownParent: 'body'
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Buscar ítem...',
+            dropdownParent: 'body',
         });
 
-        if (item) {
-            tomSelectItem.setValue(item.id_item); 
-            inputCantidad.value = item.cantidad; 
-            inputCosto.value = item.costo_unitario; 
-        }
-
-        [inputCantidad, inputCosto].forEach(input => {
+        [inputCantidad, inputCosto, inputUnidad].forEach((input) => {
             input.addEventListener('input', () => recalcularFila(fila));
+            input.addEventListener('change', () => recalcularFila(fila));
         });
-        
-        // CORRECCIÓN: Evitar duplicados
-        tomSelectItem.on('change', function(value) {
-            if (!value) return;
-            
+
+        tomSelectItem.on('change', async (value) => {
+            if (!value) {
+                await actualizarUnidadPorItem(fila, null);
+                return;
+            }
+
             let contadorDuplicados = 0;
-            tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
-                if (select.value === value) {
-                    contadorDuplicados++;
-                }
+            tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
+                if (select.value === value) contadorDuplicados++;
             });
 
             if (contadorDuplicados > 1) {
@@ -122,124 +245,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     icon: 'warning',
                     title: 'Ítem duplicado',
                     text: 'Este producto ya está en la lista.',
-                    confirmButtonColor: '#3085d6'
+                    confirmButtonColor: '#3085d6',
                 });
-                tomSelectItem.clear(); // Limpia la selección para que elija otro
+                tomSelectItem.clear();
+                return;
             }
+
+            await actualizarUnidadPorItem(fila, null);
         });
 
         btnQuitar.addEventListener('click', () => {
-            tomSelectItem.destroy(); 
+            tomSelectItem.destroy();
             fila.remove();
             recalcularTotalGeneral();
         });
 
-        recalcularFila(fila); 
+        if (item) {
+            tomSelectItem.setValue(item.id_item);
+            inputCantidad.value = item.cantidad;
+            inputCosto.value = item.costo_unitario;
+            actualizarUnidadPorItem(fila, item);
+        } else {
+            actualizarUnidadPorItem(fila, null);
+        }
+
+        recalcularFila(fila);
     }
 
     function limpiarModalOrden() {
         formOrden.reset();
         ordenId.value = 0;
-        
+
         if (tomSelectProveedor) {
-            tomSelectProveedor.clear(); 
+            tomSelectProveedor.clear();
         } else {
             idProveedor.value = '';
         }
 
-        // Destruir TODOS los Tom Select de los detalles antes de vaciar la tabla
-        tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
-            if (select.tomselect) {
-                select.tomselect.destroy();
-            }
+        tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) select.tomselect.destroy();
         });
 
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
-        
-        // ELIMINAMOS agregarFila() de aquí para evitar el "choque" al editar
     }
 
-    // 3. Helpers de Red (AJAX)
-    async function postJson(url, data, btnElement = null) {
-        let originalText = '';
-        if (btnElement) {
-            originalText = btnElement.innerHTML;
-            btnElement.disabled = true;
-            btnElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify(data),
-            });
-            
-            const payload = await response.json();
-            
-            if (!response.ok || !payload.ok) {
-                throw new Error(payload.mensaje || 'Error desconocido en el servidor.');
-            }
-            return payload;
-        } finally {
-            if (btnElement) {
-                btnElement.disabled = false;
-                btnElement.innerHTML = originalText;
-            }
-        }
-    }
-
-    function recargarPagina() {
-        const params = new URLSearchParams({
-            q: filtroBusqueda.value,
-            estado: filtroEstado.value,
-            fecha_desde: filtroFechaDesde.value,
-            fecha_hasta: filtroFechaHasta.value
-        }).toString();
-        
-        // CORRECCIÓN 404: Verificamos si la url base ya tiene un "?" para usar "&" en su lugar
-        const separador = urls.index.includes('?') ? '&' : '?';
-        window.location.href = `${urls.index}${separador}${params}`;
-    }
-
-    // 4. Lógica de Botones Principales (Guardar / Recepcionar)
     btnGuardarOrden.addEventListener('click', async () => {
-        // Validaciones Frontend con SweetAlert2
         if (!idProveedor.value) {
             return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
         }
-        
-        // CORRECCIÓN: Validación de Fecha Obligatoria
+
         if (!fechaEntrega.value) {
             return Swal.fire('Falta Fecha', 'La fecha de entrega estimada es obligatoria.', 'warning');
         }
-        
+
         const detalle = [];
         let errorDetalle = false;
 
-        tbodyDetalle.querySelectorAll('tr').forEach(fila => {
+        tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const datos = filaToPayload(fila);
             if (datos.id_item > 0) {
-                if (datos.cantidad <= 0) errorDetalle = true;
+                if (datos.cantidad <= 0 || datos.cantidad_base <= 0 || datos.factor_conversion_aplicado <= 0) {
+                    errorDetalle = true;
+                }
                 detalle.push(datos);
             }
         });
 
-        // CORRECCIÓN: Debe haber mínimo 1 ítem
         if (detalle.length === 0) {
             return Swal.fire({
                 icon: 'error',
                 title: 'Orden vacía',
-                text: 'Debe agregar al menos un producto a la orden de compra.'
+                text: 'Debe agregar al menos un producto a la orden de compra.',
             });
         }
-        
+
         if (errorDetalle) {
-            return Swal.fire('Verifique Cantidades', 'Todos los ítems deben tener una cantidad mayor a 0.', 'warning');
+            return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
         }
 
         try {
@@ -248,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 id_proveedor: Number(idProveedor.value),
                 fecha_entrega: fechaEntrega.value,
                 observaciones: observaciones.value,
-                detalle: detalle
+                detalle,
             };
 
             const res = await postJson(urls.guardar, payload, btnGuardarOrden);
@@ -266,174 +348,116 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const confirm = await Swal.fire({
             title: '¿Confirmar ingreso?',
-            text: "Se actualizará el stock físico del almacén seleccionado.",
+            text: 'Se actualizará el stock físico del almacén seleccionado.',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, recepcionar'
+            confirmButtonText: 'Sí, recepcionar',
         });
 
-        if (confirm.isConfirmed) {
-            try {
-                const res = await postJson(urls.recepcionar, {
-                    id_orden: Number(recepcionOrdenId.value),
-                    id_almacen: almacenId
-                }, btnConfirmarRecepcion);
-                
-                await Swal.fire('Éxito', res.mensaje, 'success');
-                modalRecepcion.hide();
-                recargarPagina();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
+        if (!confirm.isConfirmed) return;
+
+        try {
+            const res = await postJson(urls.recepcionar, {
+                id_orden: Number(recepcionOrdenId.value),
+                id_almacen: almacenId,
+            }, btnConfirmarRecepcion);
+
+            await Swal.fire('Éxito', res.mensaje, 'success');
+            modalRecepcion.hide();
+            recargarPagina();
+        } catch (e) {
+            Swal.fire('Error', e.message, 'error');
         }
     });
 
-    // 5. Manejo de Acciones en Tabla (Delegación)
     tbodyTabla.addEventListener('click', async (e) => {
         const target = e.target.closest('button');
-        if (!target) return; 
+        if (!target) return;
 
         const fila = target.closest('tr');
         const id = Number(fila.dataset.id);
 
         if (target.classList.contains('btn-editar')) {
             try {
-                // Asegúrate de que urls.index tenga el formato correcto para concatenar
                 const separador = urls.index.includes('?') ? '&' : '?';
                 const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const json = await res.json();
-                
+
                 if (json.ok && json.data) {
                     const d = json.data;
                     limpiarModalOrden();
-                    
+
                     ordenId.value = d.id;
-                    
-                    if (tomSelectProveedor) {
-                        tomSelectProveedor.setValue(d.id_proveedor);
-                    } else {
-                        idProveedor.value = d.id_proveedor;
-                    }
+                    if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
+                    else idProveedor.value = d.id_proveedor;
 
                     fechaEntrega.value = d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
-                    
-                    // Llenar detalle
-                    // CORRECCIÓN: Primero destruimos las instancias de Tom Select antes de borrar el HTML
-                    tbodyDetalle.querySelectorAll('.detalle-item').forEach(select => {
-                        if (select.tomselect) {
-                            select.tomselect.destroy();
-                        }
-                    });
-                    tbodyDetalle.innerHTML = '';
+
                     if (d.detalle && d.detalle.length > 0) {
-                        d.detalle.forEach(item => agregarFila(item));
+                        d.detalle.forEach((item) => agregarFila(item));
                     } else {
                         agregarFila();
                     }
-                    
-                    const esEditable = Number(d.estado) === 0;
-                    btnGuardarOrden.style.display = esEditable ? 'block' : 'none';
-                    
+
+                    btnGuardarOrden.style.display = Number(d.estado) === 0 ? 'block' : 'none';
                     modalOrden.show();
                 }
             } catch (error) {
                 console.error(error);
                 Swal.fire('Error', 'No se pudo cargar la orden.', 'error');
             }
-        }
-
-        if (target.classList.contains('btn-editar')) {
-            try {
-                const separador = urls.index.includes('?') ? '&' : '?';
-                const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                const json = await res.json();
-                
-                if (json.ok && json.data) {
-                    const d = json.data;
-                    
-                    limpiarModalOrden(); // Limpia limpiamente, sin crear fantasmas
-                    
-                    ordenId.value = d.id;
-                    
-                    if (tomSelectProveedor) {
-                        tomSelectProveedor.setValue(d.id_proveedor);
-                    } else {
-                        idProveedor.value = d.id_proveedor;
-                    }
-
-                    fechaEntrega.value = d.fecha_entrega || '';
-                    observaciones.value = d.observaciones || '';
-                    
-                    // Llenar detalle con los datos de la BD
-                    if (d.detalle && d.detalle.length > 0) {
-                        d.detalle.forEach(item => agregarFila(item));
-                    } else {
-                        agregarFila(); // Por si la orden se guardó sin detalle (seguridad)
-                    }
-                    
-                    const esEditable = Number(d.estado) === 0;
-                    btnGuardarOrden.style.display = esEditable ? 'block' : 'none';
-                    
-                    modalOrden.show();
-                }
-            } catch (error) {
-                console.error(error);
-                Swal.fire('Error', 'No se pudo cargar la orden.', 'error');
-            }
+            return;
         }
 
         if (target.classList.contains('btn-anular')) {
             const confirm = await Swal.fire({
                 title: '¿Anular Orden?',
-                text: "Esta acción no se puede deshacer.",
+                text: 'Esta acción no se puede deshacer.',
                 icon: 'error',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                confirmButtonText: 'Sí, anular'
+                confirmButtonText: 'Sí, anular',
             });
 
-            if (confirm.isConfirmed) {
-                try {
-                    const res = await postJson(urls.anular, { id: id });
-                    await Swal.fire('Anulada', res.mensaje, 'success');
-                    recargarPagina();
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
-                }
+            if (!confirm.isConfirmed) return;
+
+            try {
+                const res = await postJson(urls.anular, { id });
+                await Swal.fire('Anulada', res.mensaje, 'success');
+                recargarPagina();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
             }
+            return;
         }
 
         if (target.classList.contains('btn-recepcionar')) {
             recepcionOrdenId.value = id;
-            recepcionAlmacen.value = ""; 
+            recepcionAlmacen.value = '';
             modalRecepcion.show();
         }
     });
 
-    // 6. Listeners Generales
     document.getElementById('btnNuevaOrden').addEventListener('click', () => {
         limpiarModalOrden();
-        agregarFila(); // Ahora SOLO agregamos la fila vacía si es una Nueva Orden
+        agregarFila();
         btnGuardarOrden.style.display = 'block';
         modalOrden.show();
     });
 
     document.getElementById('btnAgregarFila').addEventListener('click', () => agregarFila());
 
-    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
+    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach((el) => {
         el.addEventListener('change', recargarPagina);
     });
-    
+
     filtroBusqueda.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             recargarPagina();
         }
     });
-
 });
