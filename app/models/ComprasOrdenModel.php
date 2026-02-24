@@ -385,6 +385,10 @@ class ComprasOrdenModel extends Modelo
             return [];
         }
 
+        if (!$this->tablaExiste('items')) {
+            return [];
+        }
+
         if (!$this->tablaTieneColumna('items_unidades', 'id') || !$this->tablaTieneColumna('items_unidades', 'id_item')) {
             return [];
         }
@@ -399,8 +403,11 @@ class ComprasOrdenModel extends Modelo
 
         $condiciones = [
             'u.id_item = :id_item',
-            'i.deleted_at IS NULL',
         ];
+
+        if ($this->tablaTieneColumna('items', 'deleted_at')) {
+            $condiciones[] = 'i.deleted_at IS NULL';
+        }
 
         if ($this->tablaTieneColumna('items', 'requiere_factor_conversion')) {
             $condiciones[] = 'i.requiere_factor_conversion = 1';
@@ -430,16 +437,24 @@ class ComprasOrdenModel extends Modelo
 
     private function tablaTieneColumna(string $tabla, string $columna): bool
     {
-        $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
-        $stmt->execute(['columna' => $columna]);
-        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
+            $stmt->execute(['columna' => $columna]);
+            return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
     private function tablaExiste(string $tabla): bool
     {
-        $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
-        $stmt->execute(['tabla' => $tabla]);
-        return (bool) $stmt->fetch(PDO::FETCH_NUM);
+        try {
+            $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+            $stmt->execute(['tabla' => $tabla]);
+            return (bool) $stmt->fetch(PDO::FETCH_NUM);
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
     private function generarCodigo(PDO $db): string
