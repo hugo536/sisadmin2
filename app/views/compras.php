@@ -20,7 +20,8 @@ $estadoLabels = [
      data-url-guardar="<?php echo e(route_url('compras/guardar')); ?>"
      data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
      data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
-     data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>">
+     data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>"
+     data-url-unidades-item="<?php echo e(route_url('compras/index')); ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -249,11 +250,17 @@ $estadoLabels = [
             <select class="form-select form-select-sm detalle-item" required>
                 <option value="">Buscar ítem...</option>
                 <?php foreach ($items as $item): ?>
-                    <option value="<?php echo (int) ($item['id'] ?? 0); ?>">
+                    <option value="<?php echo (int) ($item['id'] ?? 0); ?>"
+                            data-unidad-base="<?php echo e((string) ($item['unidad_base'] ?? 'UND')); ?>"
+                            data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>">
                         <?php echo htmlspecialchars((string) ($item['sku'] ?? '') . ' - ' . (string) ($item['nombre'] ?? '')); ?>
                     </option>
                 <?php endforeach; ?>
             </select>
+            <select class="form-select form-select-sm mt-2 detalle-unidad-compra d-none" disabled>
+                <option value="">Unidad de compra...</option>
+            </select>
+            <div class="small text-muted mt-1 detalle-conversion-info"></div>
         </td>
         <td>
             <input type="number" class="form-control form-control-sm text-center detalle-cantidad" min="0.01" step="0.01" value="1" required>

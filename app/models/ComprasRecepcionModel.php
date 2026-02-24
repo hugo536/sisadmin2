@@ -218,7 +218,9 @@ class ComprasRecepcionModel extends Modelo
     {
         // Se corrige para traer cantidad_solicitada como 'cantidad' y costo_unitario_pactado como 'costo_unitario'
         // para mantener compatibilidad con el loop de inserción
-        $sql = 'SELECT id_item, cantidad_solicitada as cantidad, costo_unitario_pactado as costo_unitario
+        $sql = 'SELECT id_item,
+                       COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad,
+                       costo_unitario_pactado as costo_unitario
                 FROM compras_ordenes_detalle
                 WHERE id_orden = :id_orden
                   AND deleted_at IS NULL
