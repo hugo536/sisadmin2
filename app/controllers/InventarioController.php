@@ -54,6 +54,10 @@ class InventarioController extends Controlador
             $controlaStock = (int) ($fila['controla_stock'] ?? 1);
             $permiteDecimales = (int) ($fila['permite_decimales'] ?? 0);
             $lote = trim((string) ($fila['lote_actual'] ?? ''));
+            $ultimoMovimiento = trim((string) ($fila['ultimo_movimiento'] ?? ''));
+            $requiereVencimiento = (int) ($fila['requiere_vencimiento'] ?? 0) === 1;
+            $diasAlerta = max(0, (int) ($fila['dias_alerta_vencimiento'] ?? 0));
+            $proximoVencimiento = trim((string) ($fila['proximo_vencimiento'] ?? ''));
 
             if ((int)$fila['id_almacen'] === 0 && $stock === 0.0 && $lote === '') {
                 // Cambiamos el nombre visualmente solo para este caso
@@ -66,31 +70,45 @@ class InventarioController extends Controlador
             $fila['stock_minimo_formateado'] = number_format($stockMin, $permiteDecimales === 1 ? 3 : 0, '.', ',');
 
             // 2. Lógica de Estados y Colores (Acción 1)
+            $fila['estado_vencimiento'] = '';
+            $fila['detalle_alerta'] = '';
+
+            if ($requiereVencimiento && $proximoVencimiento !== '') {
+                $hoy = new DateTimeImmutable('today');
+                $fechaVencimiento = DateTimeImmutable::createFromFormat('Y-m-d', $proximoVencimiento);
+                if ($fechaVencimiento instanceof DateTimeImmutable) {
+                    $diasRestantes = (int) $hoy->diff($fechaVencimiento)->format('%r%a');
+                    if ($diasRestantes < 0) {
+                        $fila['estado_vencimiento'] = 'vencido';
+                        $fila['detalle_alerta'] = 'Venció el ' . $proximoVencimiento;
+                    } elseif ($diasRestantes <= $diasAlerta) {
+                        $fila['estado_vencimiento'] = 'proximo_a_vencer';
+                        $fila['detalle_alerta'] = 'Vence el ' . $proximoVencimiento;
+                    }
+                }
+            }
+
             if ($controlaStock === 0) {
-                $fila['badge_estado'] = 'N/A';
-                $fila['badge_color'] = 'bg-secondary bg-opacity-10 text-secondary'; // Gris claro / Azul claro
+                $fila['badge_estado'] = 'Disponible';
+                $fila['badge_color'] = 'bg-success bg-opacity-10 text-success';
+            } elseif ($ultimoMovimiento === '') {
+                $fila['badge_estado'] = 'Sin Movimientos';
+                $fila['badge_color'] = 'bg-light text-muted border border-secondary';
+            } elseif ($fila['estado_vencimiento'] === 'vencido') {
+                $fila['badge_estado'] = 'Vencido';
+                $fila['badge_color'] = 'bg-danger bg-opacity-10 text-danger border border-danger';
+            } elseif ($stock <= 0.0) {
+                $fila['badge_estado'] = 'Agotado';
+                $fila['badge_color'] = 'bg-danger bg-opacity-10 text-danger border border-danger';
+            } elseif ($stock <= $stockMin) {
+                $fila['badge_estado'] = 'Bajo Mínimo';
+                $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning';
+            } elseif ($fila['estado_vencimiento'] === 'proximo_a_vencer') {
+                $fila['badge_estado'] = 'Próximo a Vencer';
+                $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning';
             } else {
-                // Verificar si es un ítem nuevo sin movimientos (stock es 0 y no tiene lotes registrados)
-                // Usamos la ausencia de lote y stock 0 como indicador de que aún no se ha operado con él.
-                if ($stock === 0.0 && $lote === '') {
-                    $fila['badge_estado'] = 'Sin Movimiento';
-                    $fila['badge_color'] = 'bg-light text-muted border border-secondary'; // Gris neutral
-                } 
-                // Si el stock es 0 pero ya tuvo movimientos (se agotó)
-                elseif ($stock <= 0.0) {
-                    $fila['badge_estado'] = 'Agotado';
-                    $fila['badge_color'] = 'bg-danger bg-opacity-10 text-danger border border-danger'; // Rojo fuerte
-                }
-                // Si el stock está por debajo del mínimo
-                elseif ($stock <= $stockMin) {
-                    $fila['badge_estado'] = 'Alerta';
-                    $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning'; // Amarillo
-                } 
-                // Stock saludable
-                else {
-                    $fila['badge_estado'] = 'Disponible';
-                    $fila['badge_color'] = 'bg-success bg-opacity-10 text-success'; // Verde
-                }
+                $fila['badge_estado'] = 'Disponible';
+                $fila['badge_color'] = 'bg-success bg-opacity-10 text-success';
             }
 
             $resultado[] = $fila;
@@ -325,7 +343,7 @@ class InventarioController extends Controlador
         $out = fopen('php://output', 'wb');
         
         // NOTA: He actualizado los encabezados del exportable
-        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock Actual', 'Stock Mínimo', 'Estado', 'Vencimiento'];
+        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock Actual', 'Stock Mínimo', 'Situación / Alertas'];
         fputcsv($out, $headers, $separator);
 
         foreach ($filas as $fila) {
@@ -336,8 +354,7 @@ class InventarioController extends Controlador
                 (string) ($fila['lote_actual'] !== '' ? $fila['lote_actual'] : '-'),
                 (string) ($fila['stock_formateado'] ?? '0'), // Exporta el número ya formateado sin ceros inútiles
                 (string) ($fila['stock_minimo_formateado'] ?? '0'),
-                (string) ($fila['badge_estado'] ?? ''), // Exporta el nombre del estado (Agotado, Alerta, etc.)
-                (string) ($fila['proximo_vencimiento'] !== '' ? $fila['proximo_vencimiento'] : '-'),
+                trim((string) ($fila['badge_estado'] ?? '') . ' ' . (string) ($fila['detalle_alerta'] ?? '')),
             ], $separator);
         }
 

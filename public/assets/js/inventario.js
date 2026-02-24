@@ -45,7 +45,6 @@
   const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
-  const filtroVencimiento = document.getElementById('inventarioFiltroVencimiento');
   const tablaStock = document.getElementById('tablaInventarioStock');
   const paginationInfo = document.getElementById('inventarioPaginationInfo');
   const paginationControls = document.getElementById('inventarioPaginationControls');
@@ -268,15 +267,13 @@
     const termino = normalizarTexto(searchInput ? searchInput.value : '');
     const tipoFiltro = (filtroTipoRegistro ? filtroTipoRegistro.value : '').trim();
     const estado = (filtroEstado ? filtroEstado.value : '').trim();
-    const vencimiento = (filtroVencimiento ? filtroVencimiento.value : '').trim();
 
     const filas = Array.from(tablaStock.querySelectorAll('tbody tr')).filter((fila) => !!fila.dataset.search);
     const visibles = filas.filter((fila) => {
       const okTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
       const okTipo = tipoFiltro === '' || (fila.dataset.tipoRegistro || '') === tipoFiltro;
       const okEstado = estado === '' || (fila.dataset.estado || '') === estado;
-      const okVenc = vencimiento === '' || (fila.dataset.vencimiento || '') === vencimiento;
-      return okTexto && okTipo && okEstado && okVenc;
+      return okTexto && okTipo && okEstado;
     });
 
     const totalItems = visibles.length;
@@ -570,7 +567,6 @@
   if (searchInput) searchInput.addEventListener('input', () => { currentStockPage = 1; filtrarStock(); });
   if (filtroTipoRegistro) filtroTipoRegistro.addEventListener('change', () => { currentStockPage = 1; filtrarStock(); });
   if (filtroEstado) filtroEstado.addEventListener('change', () => { currentStockPage = 1; filtrarStock(); });
-  if (filtroVencimiento) filtroVencimiento.addEventListener('change', () => { currentStockPage = 1; filtrarStock(); });
   if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
   
   filtrarStock();

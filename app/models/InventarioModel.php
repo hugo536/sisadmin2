@@ -52,7 +52,7 @@ SELECT i.id AS id_item,
            SELECT MAX(m.created_at)
            FROM inventario_movimientos m
            WHERE m.id_item = i.id
-             AND (m.id_almacen_origen = :id_almacen_mov_ult OR m.id_almacen_destino = :id_almacen_mov_ult)
+             AND (m.id_almacen_origen = :id_almacen_mov_ult_origen OR m.id_almacen_destino = :id_almacen_mov_ult_destino)
        ) AS ultimo_movimiento
 FROM items i
 INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL
@@ -112,7 +112,7 @@ SELECT p.id AS id_item,
            SELECT MAX(m.created_at)
            FROM inventario_movimientos m
            WHERE m.id_item = i.id
-             AND (m.id_almacen_origen = :id_almacen_mov_pack OR m.id_almacen_destino = :id_almacen_mov_pack)
+             AND (m.id_almacen_origen = :id_almacen_mov_pack_origen OR m.id_almacen_destino = :id_almacen_mov_pack_destino)
              AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')
        ) AS ultimo_movimiento
 FROM precios_presentaciones p
@@ -135,11 +135,13 @@ SQL;
             $stmt->bindValue(':id_almacen_venc', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_stock', $idAlmacen, PDO::PARAM_INT);
             $stmt->bindValue(':id_almacen_mov_item', $idAlmacen, PDO::PARAM_INT);
-            $stmt->bindValue(':id_almacen_mov_ult', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_mov_ult_origen', $idAlmacen, PDO::PARAM_INT);
+            $stmt->bindValue(':id_almacen_mov_ult_destino', $idAlmacen, PDO::PARAM_INT);
             if ($tablaPacksDisponible) {
                 $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
                 $stmt->bindValue(':id_almacen_stock_pack', $idAlmacen, PDO::PARAM_INT);
-                $stmt->bindValue(':id_almacen_mov_pack', $idAlmacen, PDO::PARAM_INT);
+                $stmt->bindValue(':id_almacen_mov_pack_origen', $idAlmacen, PDO::PARAM_INT);
+                $stmt->bindValue(':id_almacen_mov_pack_destino', $idAlmacen, PDO::PARAM_INT);
             }
             $stmt->execute();
 

@@ -4,7 +4,6 @@ $almacenes = $almacenes ?? [];
 // NUEVO: Asegurarnos de recibir la variable proveedores (debemos enviarla desde el controlador)
 $proveedores = $proveedores ?? []; 
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
-$hoy = new DateTimeImmutable('today');
 ?>
 <div class="container-fluid p-4">
     
@@ -70,18 +69,13 @@ $hoy = new DateTimeImmutable('today');
                 </div>
                 <div class="col-6 col-md-2">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
-                        <option value="">Estado Stock</option>
-                        <option value="disponible">Saludable (Verde)</option>
-                        <option value="alerta">Alerta (Amarillo)</option>
+                        <option value="">Situación / Alertas</option>
+                        <option value="disponible">Disponible (Verde)</option>
+                        <option value="próximo_a_vencer">Próximo a Vencer (Amarillo)</option>
+                        <option value="bajo_mínimo">Bajo Mínimo (Amarillo)</option>
                         <option value="agotado">Agotado (Rojo)</option>
-                        <option value="sin_movimiento">Sin Movimientos (Gris)</option>
-                    </select>
-                </div>
-                <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="inventarioFiltroVencimiento">
-                        <option value="">Vencimiento</option>
-                        <option value="vencido">Vencido</option>
-                        <option value="proximo">Próximo</option>
+                        <option value="vencido">Vencido (Rojo)</option>
+                        <option value="sin_movimientos">Sin Movimientos (Gris)</option>
                     </select>
                 </div>
             </div>
@@ -99,8 +93,7 @@ $hoy = new DateTimeImmutable('today');
                             <th>Almacén</th>
                             <th>Lote</th>
                             <th class="text-end pe-4">Stock Actual</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-center">Vencimiento</th>
+                            <th class="text-center">Situación / Alertas</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
@@ -119,34 +112,7 @@ $hoy = new DateTimeImmutable('today');
                                 $badgeColor = (string) ($stock['badge_color'] ?? '');
                                 $badgeTexto = (string) ($stock['badge_estado'] ?? '');
 
-                                $requiereVencimiento = (int) ($stock['requiere_vencimiento'] ?? 0) === 1;
-                                $diasAlerta = (int) ($stock['dias_alerta_vencimiento'] ?? 0);
-                                $proximoVencimiento = (string) ($stock['proximo_vencimiento'] ?? '');
-                                $textoVencimiento = '-';
-                                $badgeVencimiento = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-                                $etiquetaVencimiento = '-';
-                                $estadoVencimiento = '';
-
-                                if ($requiereVencimiento && $proximoVencimiento !== '') {
-                                    $textoVencimiento = $proximoVencimiento;
-                                    $fechaVencimiento = DateTimeImmutable::createFromFormat('Y-m-d', $proximoVencimiento);
-                                    $limiteAlerta = $hoy->modify('+' . $diasAlerta . ' days');
-
-                                    if ($fechaVencimiento instanceof DateTimeImmutable) {
-                                        if ($fechaVencimiento < $hoy) {
-                                            $badgeVencimiento = 'bg-danger-subtle text-danger border border-danger-subtle';
-                                            $etiquetaVencimiento = 'VENCIDO';
-                                            $estadoVencimiento = 'vencido';
-                                        } elseif ($fechaVencimiento <= $limiteAlerta) {
-                                            $badgeVencimiento = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                                            $etiquetaVencimiento = 'PRÓXIMO';
-                                            $estadoVencimiento = 'proximo';
-                                        } else {
-                                            $badgeVencimiento = 'bg-success-subtle text-success border border-success-subtle';
-                                            $etiquetaVencimiento = 'OK';
-                                        }
-                                    }
-                                }
+                                $detalleAlerta = trim((string) ($stock['detalle_alerta'] ?? ''));
 
                                 $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre . ' ' . $loteActual);
                                 ?>
@@ -154,8 +120,7 @@ $hoy = new DateTimeImmutable('today');
                                     data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                     data-tipo-registro="<?php echo e($tipoRegistro); ?>"
                                     data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
-                                    data-almacen="<?php echo (int) $idAlmacen; ?>"
-                                    data-vencimiento="<?php echo e($estadoVencimiento); ?>">
+                                    data-almacen="<?php echo (int) $idAlmacen; ?>">
                                     
                                     <td class="ps-4 fw-semibold text-primary"><?php echo e($sku); ?></td>
                                     <td class="fw-semibold text-dark">
@@ -173,14 +138,8 @@ $hoy = new DateTimeImmutable('today');
                                         <span class="badge px-3 rounded-pill <?php echo $badgeColor; ?>">
                                             <?php echo e($badgeTexto); ?>
                                         </span>
-                                    </td>
-                                    
-                                    <td class="text-center">
-                                        <span class="badge px-3 rounded-pill <?php echo e($badgeVencimiento); ?>">
-                                            <?php echo e($etiquetaVencimiento); ?>
-                                        </span>
-                                        <?php if ($textoVencimiento !== '-'): ?>
-                                            <div class="small text-muted mt-1" style="font-size: 0.75rem;"><?php echo e($textoVencimiento); ?></div>
+                                        <?php if ($detalleAlerta !== ''): ?>
+                                            <div class="small text-muted mt-1" style="font-size: 0.75rem;"><?php echo e($detalleAlerta); ?></div>
                                         <?php endif; ?>
                                     </td>
                                     
@@ -207,7 +166,7 @@ $hoy = new DateTimeImmutable('today');
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>No hay registros de stock disponibles.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>No hay registros de stock disponibles.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
