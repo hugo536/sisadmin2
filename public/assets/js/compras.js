@@ -49,11 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function recargarPagina() {
         const params = new URLSearchParams(window.location.search);
+        params.delete('ruta');
         params.set('q', filtroBusqueda.value.trim());
         params.set('estado', filtroEstado.value);
         params.set('fecha_desde', filtroFechaDesde.value);
         params.set('fecha_hasta', filtroFechaHasta.value);
-        window.location.href = `${urls.index}?${params.toString()}`;
+
+        const separador = urls.index.includes('?') ? '&' : '?';
+        window.location.href = `${urls.index}${separador}${params.toString()}`;
     }
 
     async function parseJsonSafe(response) {
