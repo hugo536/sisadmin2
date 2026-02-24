@@ -23,6 +23,9 @@ $etapasProduccion = [
             <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas y semielaborados.</p>
         </div>
         <div class="d-flex gap-2">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionParametrosCatalogo">
+                <i class="bi bi-sliders me-2 text-info"></i>Parámetros
+            </button>
             <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta">
                 <i class="bi bi-plus-circle me-2"></i>Nueva receta
             </button>
@@ -299,4 +302,83 @@ $etapasProduccion = [
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.0"></script>
+
+<div class="modal fade" id="modalGestionParametrosCatalogo" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders me-2 text-info"></i>Gestión de Parámetros</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" id="formGestionParametroCatalogo" class="row g-2 mb-3 border rounded-3 p-3 bg-light">
+                    <input type="hidden" name="accion" id="accionParametroCatalogo" value="crear_parametro_catalogo">
+                    <input type="hidden" name="id_parametro_catalogo" id="idParametroCatalogo" value="">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small text-muted fw-bold mb-1">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nombreParametroCatalogo" name="nombre" maxlength="50" required>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Unidad</label>
+                        <input type="text" class="form-control" id="unidadParametroCatalogo" name="unidad_medida" maxlength="20" placeholder="Ej: °Bx">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Descripción</label>
+                        <input type="text" class="form-control" id="descripcionParametroCatalogo" name="descripcion" placeholder="Opcional">
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+                        <button type="button" class="btn btn-light" id="btnResetParametroCatalogo">Limpiar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarParametroCatalogo">Guardar</button>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table align-middle table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Unidad</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($parametrosCatalogo)): ?>
+                                <?php foreach ($parametrosCatalogo as $param): ?>
+                                    <tr>
+                                        <td class="fw-semibold"><?php echo e((string) ($param['nombre'] ?? '')); ?></td>
+                                        <td><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></td>
+                                        <td><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
+                                        <td class="text-end">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary js-editar-param-catalogo"
+                                                    data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
+                                                    data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
+                                                    data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
+                                                    data-descripcion="<?php echo e((string) ($param['descripcion'] ?? '')); ?>">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este parámetro?');">
+                                                <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
+                                                <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">No hay parámetros registrados.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.1"></script>
