@@ -40,6 +40,13 @@ function setupFiltro(inputId, selectId, tableId) {
 }
 
 function initFormularioRecetas() {
+    const parseNumero = (valor) => {
+        if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+        const normalizado = String(valor ?? '').trim().replace(',', '.');
+        const numero = parseFloat(normalizado);
+        return Number.isFinite(numero) ? numero : 0;
+    };
+
     // --- Elementos de Insumos ---
     const templateInsumo = document.getElementById('detalleRecetaTemplate');
     const resumenItems = document.getElementById('bomResumen');
@@ -105,9 +112,9 @@ function initFormularioRecetas() {
                 totalItems++;
                 
                 // Leemos los valores directamente de los inputs
-                const cantidad = parseFloat(inputCant.value) || 0;
-                const merma = parseFloat(inputMerma.value) || 0;
-                const costoUnitario = parseFloat(inputCostoUnitario.value) || 0;
+                const cantidad = parseNumero(inputCant.value);
+                const merma = parseNumero(inputMerma.value);
+                const costoUnitario = parseNumero(inputCostoUnitario.value);
 
                 // Fórmula matemática: Cantidad * (1 + porcentaje de merma) * Costo
                 const cantidadReal = cantidad * (1 + (merma / 100));
@@ -170,7 +177,7 @@ function initFormularioRecetas() {
             onChange: function(value) {
                 // Cuando el usuario elige un item, sacamos su costo de la base de datos (data-costo)
                 const opt = select.querySelector(`option[value="${value}"]`);
-                const costoBD = opt ? (parseFloat(opt.getAttribute('data-costo')) || 0) : 0;
+                const costoBD = opt ? parseNumero(opt.getAttribute('data-costo')) : 0;
                 
                 // Actualizamos el input de costo unitario
                 const inputCostoUni = row.querySelector('.input-costo-unitario');

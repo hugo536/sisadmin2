@@ -72,12 +72,40 @@ class ProduccionModel extends Modelo
     public function listarItemsStockeables(): array
     {
         // Se asegura de traer el tipo_item para las validaciones cruzadas
-        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
-                FROM items
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND controla_stock = 1
-                ORDER BY nombre ASC';
+        $sql = 'SELECT i.id, i.sku, i.nombre, i.tipo_item, i.requiere_lote, i.costo_referencial,
+                       COALESCE(
+                           NULLIF(i.costo_referencial, 0),
+                           rec.costo_teorico_unitario,
+                           mov.costo_unitario,
+                           0
+                       ) AS costo_calculado
+                FROM items i
+                LEFT JOIN (
+                    SELECT r1.id_producto, r1.costo_teorico_unitario
+                    FROM produccion_recetas r1
+                    INNER JOIN (
+                        SELECT id_producto, MAX(id) AS max_id
+                        FROM produccion_recetas
+                        WHERE estado = 1
+                          AND deleted_at IS NULL
+                        GROUP BY id_producto
+                    ) latest_receta ON latest_receta.max_id = r1.id
+                ) rec ON rec.id_producto = i.id
+                LEFT JOIN (
+                    SELECT m1.id_item, m1.costo_unitario
+                    FROM inventario_movimientos m1
+                    INNER JOIN (
+                        SELECT id_item, MAX(id) AS max_id
+                        FROM inventario_movimientos
+                        WHERE costo_unitario IS NOT NULL
+                          AND costo_unitario > 0
+                        GROUP BY id_item
+                    ) latest_mov ON latest_mov.max_id = m1.id
+                ) mov ON mov.id_item = i.id
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL
+                  AND i.controla_stock = 1
+                ORDER BY i.nombre ASC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -228,9 +256,10 @@ class ProduccionModel extends Modelo
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
                 $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
-                
+
                 if ($idInsumo > 0 && $cantidad > 0) {
-                    $costoInsumo = $this->obtenerCostoReferencial($idInsumo);
+                    $costoCapturado = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : 0.0;
+                    $costoInsumo = $costoCapturado > 0 ? $costoCapturado : $this->obtenerCostoReferencial($idInsumo);
                     $cantidadReal = $cantidad * (1 + ($merma / 100));
                     $costoTotalReceta += ($costoInsumo * $cantidadReal);
                 }
@@ -625,9 +654,36 @@ class ProduccionModel extends Modelo
 
     private function obtenerCostoReferencial(int $idItem): float
     {
-        $stmt = $this->db()->prepare('SELECT costo_referencial
-                                      FROM items
-                                      WHERE id = :id
+        $stmt = $this->db()->prepare('SELECT COALESCE(
+                                            NULLIF(i.costo_referencial, 0),
+                                            rec.costo_teorico_unitario,
+                                            mov.costo_unitario,
+                                            0
+                                        ) AS costo
+                                      FROM items i
+                                      LEFT JOIN (
+                                          SELECT r1.id_producto, r1.costo_teorico_unitario
+                                          FROM produccion_recetas r1
+                                          INNER JOIN (
+                                              SELECT id_producto, MAX(id) AS max_id
+                                              FROM produccion_recetas
+                                              WHERE estado = 1
+                                                AND deleted_at IS NULL
+                                              GROUP BY id_producto
+                                          ) latest_receta ON latest_receta.max_id = r1.id
+                                      ) rec ON rec.id_producto = i.id
+                                      LEFT JOIN (
+                                          SELECT m1.id_item, m1.costo_unitario
+                                          FROM inventario_movimientos m1
+                                          INNER JOIN (
+                                              SELECT id_item, MAX(id) AS max_id
+                                              FROM inventario_movimientos
+                                              WHERE costo_unitario IS NOT NULL
+                                                AND costo_unitario > 0
+                                              GROUP BY id_item
+                                          ) latest_mov ON latest_mov.max_id = m1.id
+                                      ) mov ON mov.id_item = i.id
+                                      WHERE i.id = :id
                                       LIMIT 1');
         $stmt->execute(['id' => $idItem]);
 
