@@ -381,19 +381,30 @@ class ComprasOrdenModel extends Modelo
 
     public function listarUnidadesConversionItem(int $idItem): array
     {
-        if ($idItem <= 0) {
+        if ($idItem <= 0 || !$this->tablaExiste('items_unidades')) {
             return [];
         }
 
-        if (!$this->tablaTieneColumna('items_unidades', 'id_item')) {
+        if (!$this->tablaTieneColumna('items_unidades', 'id') || !$this->tablaTieneColumna('items_unidades', 'id_item')) {
             return [];
         }
+
+        $nombreUnidad = $this->tablaTieneColumna('items_unidades', 'nombre')
+            ? 'u.nombre'
+            : "CONCAT('Unidad #', u.id)";
+
+        $factorConversion = $this->tablaTieneColumna('items_unidades', 'factor_conversion')
+            ? 'COALESCE(u.factor_conversion, 1.0000)'
+            : '1.0000';
 
         $condiciones = [
             'u.id_item = :id_item',
             'i.deleted_at IS NULL',
-            'i.requiere_factor_conversion = 1',
         ];
+
+        if ($this->tablaTieneColumna('items', 'requiere_factor_conversion')) {
+            $condiciones[] = 'i.requiere_factor_conversion = 1';
+        }
 
         if ($this->tablaTieneColumna('items_unidades', 'estado')) {
             $condiciones[] = 'u.estado = 1';
@@ -404,13 +415,13 @@ class ComprasOrdenModel extends Modelo
         }
 
         $sql = 'SELECT u.id,
-                       u.nombre,
-                       COALESCE(u.factor_conversion, 1.0000) AS factor_conversion,
+                       ' . $nombreUnidad . ' AS nombre,
+                       ' . $factorConversion . ' AS factor_conversion,
                        i.unidad_base
                 FROM items_unidades u
                 INNER JOIN items i ON i.id = u.id_item
                 WHERE ' . implode(' AND ', $condiciones) . '
-                ORDER BY u.nombre ASC, u.id ASC';
+                ORDER BY nombre ASC, u.id ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
@@ -422,6 +433,13 @@ class ComprasOrdenModel extends Modelo
         $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
         $stmt->execute(['columna' => $columna]);
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+        $stmt->execute(['tabla' => $tabla]);
+        return (bool) $stmt->fetch(PDO::FETCH_NUM);
     }
 
     private function generarCodigo(PDO $db): string

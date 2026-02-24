@@ -41,11 +41,18 @@ class ComprasController extends Controlador
 
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'unidades_item') {
-            $idItem = (int) ($_GET['id_item'] ?? 0);
-            json_response([
-                'ok' => true,
-                'items' => $this->ordenModel->listarUnidadesConversionItem($idItem),
-            ]);
+            try {
+                $idItem = (int) ($_GET['id_item'] ?? 0);
+                json_response([
+                    'ok' => true,
+                    'items' => $this->ordenModel->listarUnidadesConversionItem($idItem),
+                ]);
+            } catch (Throwable $e) {
+                json_response([
+                    'ok' => false,
+                    'mensaje' => 'No se pudieron cargar unidades de conversión.',
+                ], 500);
+            }
             return;
         }
 

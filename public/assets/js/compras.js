@@ -56,6 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = `${urls.index}?${params.toString()}`;
     }
 
+    async function parseJsonSafe(response) {
+        const contentType = response.headers.get('content-type') || '';
+        const raw = await response.text();
+
+        if (!contentType.includes('application/json')) {
+            throw new Error('El servidor devolvió una respuesta no válida. Revise el log del backend.');
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch (_) {
+            throw new Error('No se pudo interpretar la respuesta del servidor.');
+        }
+    }
+
     async function postJson(url, data, btnElement = null) {
         let originalText = '';
         if (btnElement) {
@@ -74,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(data),
             });
 
-            const json = await response.json();
+            const json = await parseJsonSafe(response);
             if (!response.ok || !json.ok) {
                 throw new Error(json.mensaje || 'Error en la operación.');
             }
@@ -95,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`${urls.unidadesItem}${separador}accion=unidades_item&id_item=${idItem}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
-        const json = await res.json();
+        const json = await parseJsonSafe(res);
         if (!res.ok || !json.ok) {
             throw new Error(json.mensaje || 'No se pudieron cargar unidades de conversión.');
         }
