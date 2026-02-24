@@ -72,7 +72,7 @@ class ProduccionModel extends Modelo
     public function listarItemsStockeables(): array
     {
         // Se asegura de traer el tipo_item para las validaciones cruzadas
-        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote
+        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
@@ -260,17 +260,18 @@ class ProduccionModel extends Modelo
 
             // 4. Insertar Detalles de la BOM (Insumos)
             $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
-                                        (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, created_by, updated_by)
+                                        (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, costo_unitario, created_by, updated_by)
                                      VALUES
-                                        (:id_receta, :id_insumo, :etapa, :cantidad_por_unidad, :merma_porcentaje, :created_by, :updated_by)');
+                                        (:id_receta, :id_insumo, :etapa, :cantidad_por_unidad, :merma_porcentaje, :costo_unitario, :created_by, :updated_by)');
 
             foreach ($detalles as $detalle) {
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
                 $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
-                $etapa = trim((string) ($detalle['etapa'] ?? ''));
+                $etapa = trim((string) ($detalle['etapa'] ?? 'General'));
+                $costoUnitario = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : $this->obtenerCostoReferencial($idInsumo);
 
-                if ($idInsumo <= 0 || $cantidad <= 0 || $etapa === '') {
+                if ($idInsumo <= 0 || $cantidad <= 0) {
                     throw new RuntimeException('Detalle de receta inválido.');
                 }
 
@@ -280,6 +281,7 @@ class ProduccionModel extends Modelo
                     'etapa' => $etapa,
                     'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
                     'merma_porcentaje' => number_format($merma, 2, '.', ''),
+                    'costo_unitario' => number_format(max(0, $costoUnitario), 4, '.', ''),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);

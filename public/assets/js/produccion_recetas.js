@@ -44,7 +44,8 @@ function initFormularioRecetas() {
     const templateInsumo = document.getElementById('detalleRecetaTemplate');
     const resumenItems = document.getElementById('bomResumen');
     const costoTotalEl = document.getElementById('costoTotalCalculado');
-    const buttonsEtapa = document.querySelectorAll('[data-add-etapa]');
+    const btnAgregarInsumo = document.getElementById('btnAgregarInsumo');
+    const listaInsumos = document.getElementById('listaInsumosReceta');
 
     // --- Elementos de Parámetros IPC ---
     const btnAgregarParametro = document.getElementById('btnAgregarParametro');
@@ -106,7 +107,26 @@ function initFormularioRecetas() {
 
                 // Calcular el costo real incluyendo la merma
                 const cantidadReal = cantidad * (1 + (merma / 100));
-                costoTotal += (cantidadReal * costoUnitario);
+                const costoItem = cantidadReal * costoUnitario;
+                costoTotal += costoItem;
+
+                const inputCostoUnitario = row.querySelector('.input-costo-unitario');
+                const inputCostoItem = row.querySelector('.input-costo-item');
+                if (inputCostoUnitario) {
+                    inputCostoUnitario.value = costoUnitario.toFixed(4);
+                }
+                if (inputCostoItem) {
+                    inputCostoItem.value = costoItem.toFixed(4);
+                }
+            } else {
+                const inputCostoUnitario = row.querySelector('.input-costo-unitario');
+                const inputCostoItem = row.querySelector('.input-costo-item');
+                if (inputCostoUnitario) {
+                    inputCostoUnitario.value = '0.0000';
+                }
+                if (inputCostoItem) {
+                    inputCostoItem.value = '0.0000';
+                }
             }
         });
 
@@ -118,35 +138,23 @@ function initFormularioRecetas() {
         }
     };
 
-    const crearFilaInsumo = (etapa, container) => {
-        if (!templateInsumo) return;
+    const crearFilaInsumo = () => {
+        if (!templateInsumo || !listaInsumos) return;
         const fragment = templateInsumo.content.cloneNode(true);
         const row = fragment.querySelector('.detalle-row');
-
-        // Asignar etapa
-        const etapaInput = row.querySelector('.input-etapa-hidden');
-        if (etapaInput) etapaInput.value = etapa;
 
         // Asignar listeners para actualizar costos si el usuario edita
         row.querySelector('.select-insumo').addEventListener('change', calcularResumenYCostos);
         row.querySelector('.input-cantidad').addEventListener('input', calcularResumenYCostos);
         row.querySelector('.input-merma').addEventListener('input', calcularResumenYCostos);
 
-        container.appendChild(fragment);
+        listaInsumos.appendChild(fragment);
         calcularResumenYCostos();
     };
 
-    // Event delegation para botones "Agregar insumo a X etapa" en el Acordeón
-    document.addEventListener('click', function(e) {
-        const btnAdd = e.target.closest('[data-add-etapa]');
-        if (btnAdd) {
-            const etapa = btnAdd.getAttribute('data-add-etapa');
-            const container = btnAdd.closest('.accordion-body').querySelector('[data-etapa-container]');
-            if (container) {
-                crearFilaInsumo(etapa, container);
-            }
-        }
-    });
+    if (btnAgregarInsumo) {
+        btnAgregarInsumo.addEventListener('click', crearFilaInsumo);
+    }
 
     // Delegación para eliminar fila de insumo
     document.addEventListener('click', function(e) {
@@ -173,7 +181,8 @@ function initAccionesRecetaPendiente() {
         if (form) form.reset();
         
         // Limpiar Insumos
-        document.querySelectorAll('.lista-insumos-etapa').forEach(c => c.innerHTML = '');
+        const contenedorInsumos = document.getElementById('listaInsumosReceta');
+        if (contenedorInsumos) contenedorInsumos.innerHTML = '';
         
         // Limpiar Parámetros
         const paramCont = document.getElementById('contenedorParametros');
