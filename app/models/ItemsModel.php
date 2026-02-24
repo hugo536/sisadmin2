@@ -133,6 +133,41 @@ class ItemsModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function listarUnidadesConversion(): array
+    {
+        if (!$this->tablaExiste('items_unidades')) {
+            return [];
+        }
+
+        $usaDeletedAtUnidades = $this->tablaTieneColumna('items_unidades', 'deleted_at');
+        $usaEstadoUnidades = $this->tablaTieneColumna('items_unidades', 'estado');
+
+        $sql = 'SELECT i.id,
+                       i.sku,
+                       i.nombre,
+                       i.unidad_base,
+                       i.requiere_factor_conversion,
+                       COUNT(u.id) AS total_unidades
+                FROM items i
+                LEFT JOIN items_unidades u ON u.id_item = i.id';
+
+        if ($usaDeletedAtUnidades) {
+            $sql .= ' AND u.deleted_at IS NULL';
+        }
+        if ($usaEstadoUnidades) {
+            $sql .= ' AND u.estado = 1';
+        }
+
+        $sql .= ' WHERE i.deleted_at IS NULL
+                  AND i.requiere_factor_conversion = 1
+                  GROUP BY i.id, i.sku, i.nombre, i.unidad_base, i.requiere_factor_conversion
+                  ORDER BY (COUNT(u.id) = 0) DESC, i.nombre ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function rubroExisteActivo(int $idRubro): bool
     {
         $sql = 'SELECT 1
@@ -732,6 +767,13 @@ class ItemsModel extends Modelo
         }
 
         return in_array(strtolower($columna), $this->cacheColumnasPorTabla[$tabla], true);
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+        $stmt->execute(['tabla' => $tabla]);
+        return (bool) $stmt->fetchColumn();
     }
 
     private function contarReferenciasActivas(string $tabla, string $foreignKey, int $id): int

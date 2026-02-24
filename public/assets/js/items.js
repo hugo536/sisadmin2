@@ -1194,6 +1194,53 @@
     }
 
 
+
+    function initUnidadesConversionModal() {
+        const modal = document.getElementById('modalUnidadesConversion');
+        const tbody = document.querySelector('#tablaUnidadesConversion tbody');
+        if (!modal || !tbody) return;
+
+        const renderRows = (items = []) => {
+            if (!Array.isArray(items) || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay ítems con factor de conversión activo.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map((item) => {
+                const total = Number(item.total_unidades || 0);
+                const estado = total <= 0
+                    ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pendiente</span>'
+                    : '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill me-1"></i>Configurado</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">${item.nombre || ''}</div>
+                            <div class="small text-muted">${item.sku || ''}</div>
+                        </td>
+                        <td>${item.unidad_base || 'UND'}</td>
+                        <td class="text-center">${total}</td>
+                        <td class="text-center">${estado}</td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        modal.addEventListener('show.bs.modal', async () => {
+            try {
+                const response = await fetch(getItemsEndpoint({ accion: 'listar_unidades_conversion' }), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) throw new Error('No se pudo cargar el resumen de conversiones.');
+                const data = await response.json();
+                if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar el resumen de conversiones.');
+                renderRows(data.items || []);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+    }
+
     function initEstadoSwitches() {
         document.querySelectorAll('.switch-estado-item').forEach((switchInput) => {
             if (switchInput.dataset.boundEstado === '1') return;
@@ -1242,6 +1289,7 @@
         initRubrosModal();
         initCategoriasModal();
         initGestionItemsModal();
+        initUnidadesConversionModal();
         initEstadoSwitches();
 
     });
