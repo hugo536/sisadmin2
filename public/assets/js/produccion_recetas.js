@@ -46,6 +46,9 @@ function initFormularioRecetas() {
     const costoTotalEl = document.getElementById('costoTotalCalculado');
     const btnAgregarInsumo = document.getElementById('btnAgregarInsumo');
     const listaInsumos = document.getElementById('listaInsumosReceta');
+    const inputProducto = document.getElementById('newProducto');
+
+    const instanciasTomSelect = new WeakMap();
 
     // --- Elementos de Parámetros IPC ---
     const btnAgregarParametro = document.getElementById('btnAgregarParametro');
@@ -95,35 +98,30 @@ function initFormularioRecetas() {
             const select = row.querySelector('.select-insumo');
             const inputCant = row.querySelector('.input-cantidad');
             const inputMerma = row.querySelector('.input-merma');
+            const inputCostoUnitario = row.querySelector('.input-costo-unitario');
+            const inputCostoItem = row.querySelector('.input-costo-item');
 
-            if (select && select.value && inputCant && inputCant.value) {
+            const optionSelected = select && select.value ? select.options[select.selectedIndex] : null;
+            const costoUnitario = optionSelected ? (parseFloat(optionSelected.getAttribute('data-costo')) || 0) : 0;
+
+            if (inputCostoUnitario) {
+                inputCostoUnitario.value = costoUnitario.toFixed(4);
+            }
+
+            if (select && select.value && inputCant) {
                 totalItems++;
                 const cantidad = parseFloat(inputCant.value) || 0;
                 const merma = parseFloat(inputMerma.value) || 0;
-
-                // Obtener el costo unitario referencial desde el atributo 'data-costo'
-                const optionSelected = select.options[select.selectedIndex];
-                const costoUnitario = parseFloat(optionSelected.getAttribute('data-costo')) || 0;
 
                 // Calcular el costo real incluyendo la merma
                 const cantidadReal = cantidad * (1 + (merma / 100));
                 const costoItem = cantidadReal * costoUnitario;
                 costoTotal += costoItem;
 
-                const inputCostoUnitario = row.querySelector('.input-costo-unitario');
-                const inputCostoItem = row.querySelector('.input-costo-item');
-                if (inputCostoUnitario) {
-                    inputCostoUnitario.value = costoUnitario.toFixed(4);
-                }
                 if (inputCostoItem) {
                     inputCostoItem.value = costoItem.toFixed(4);
                 }
             } else {
-                const inputCostoUnitario = row.querySelector('.input-costo-unitario');
-                const inputCostoItem = row.querySelector('.input-costo-item');
-                if (inputCostoUnitario) {
-                    inputCostoUnitario.value = '0.0000';
-                }
                 if (inputCostoItem) {
                     inputCostoItem.value = '0.0000';
                 }
@@ -138,17 +136,65 @@ function initFormularioRecetas() {
         }
     };
 
+    const sincronizarOpcionesInsumo = () => {
+        const idProducto = (inputProducto && inputProducto.value) ? String(inputProducto.value) : '';
+        const usados = new Set();
+
+        listaInsumos?.querySelectorAll('.select-insumo').forEach(select => {
+            if (select.value) {
+                usados.add(String(select.value));
+            }
+        });
+
+        listaInsumos?.querySelectorAll('.select-insumo').forEach(select => {
+            const seleccionadoActual = String(select.value || '');
+
+            Array.from(select.options).forEach(option => {
+                if (!option.value) return;
+                const isPropioProducto = idProducto !== '' && option.value === idProducto;
+                const isDuplicado = option.value !== seleccionadoActual && usados.has(option.value);
+                option.disabled = isPropioProducto || isDuplicado;
+            });
+
+            const tom = instanciasTomSelect.get(select);
+            if (tom) {
+                tom.sync();
+            }
+        });
+    };
+
+    const inicializarBuscadorInsumo = (select) => {
+        if (!select || typeof TomSelect === 'undefined') return;
+
+        const tom = new TomSelect(select, {
+            create: false,
+            maxItems: 1,
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text'],
+            sortField: [{ field: 'text', direction: 'asc' }],
+        });
+
+        instanciasTomSelect.set(select, tom);
+    };
+
     const crearFilaInsumo = () => {
         if (!templateInsumo || !listaInsumos) return;
         const fragment = templateInsumo.content.cloneNode(true);
         const row = fragment.querySelector('.detalle-row');
+        const selectInsumo = row.querySelector('.select-insumo');
 
         // Asignar listeners para actualizar costos si el usuario edita
-        row.querySelector('.select-insumo').addEventListener('change', calcularResumenYCostos);
+        selectInsumo.addEventListener('change', () => {
+            sincronizarOpcionesInsumo();
+            calcularResumenYCostos();
+        });
         row.querySelector('.input-cantidad').addEventListener('input', calcularResumenYCostos);
         row.querySelector('.input-merma').addEventListener('input', calcularResumenYCostos);
 
         listaInsumos.appendChild(fragment);
+        inicializarBuscadorInsumo(selectInsumo);
+        sincronizarOpcionesInsumo();
         calcularResumenYCostos();
     };
 
@@ -162,11 +208,19 @@ function initFormularioRecetas() {
         if (btnRemove) {
             const row = btnRemove.closest('.detalle-row');
             if (row) {
+                const select = row.querySelector('.select-insumo');
+                const tom = select ? instanciasTomSelect.get(select) : null;
+                if (tom) tom.destroy();
                 row.remove();
+                sincronizarOpcionesInsumo();
                 calcularResumenYCostos();
             }
         }
     });
+
+    if (inputProducto) {
+        inputProducto.addEventListener('change', sincronizarOpcionesInsumo);
+    }
 }
 
 function initAccionesRecetaPendiente() {
@@ -196,6 +250,11 @@ function initAccionesRecetaPendiente() {
         if (resumen) resumen.textContent = '0 insumos agregados.';
         const costoTotalEl = document.getElementById('costoTotalCalculado');
         if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
+
+        const inputCodigo = document.getElementById('newCodigo');
+        if (inputCodigo) {
+            inputCodigo.removeAttribute('readonly');
+        }
     });
 
     // Capturar clics en la tabla para "Agregar receta"
@@ -213,12 +272,15 @@ function initAccionesRecetaPendiente() {
         const inputProducto = document.getElementById('newProducto');
         const inputDescripcion = document.getElementById('newDescripcion');
         const inputRendimiento = document.getElementById('newRendimientoBase');
+        const inputUnidad = document.getElementById('newUnidadRendimiento');
 
         if (inputCodigo) inputCodigo.value = codigo;
+        if (inputCodigo) inputCodigo.setAttribute('readonly', 'readonly');
         if (inputVersion) inputVersion.value = version;
         if (inputProducto) inputProducto.value = idProducto;
         if (inputDescripcion) inputDescripcion.value = 'Fórmula inicial de ' + productoNombre;
         if (inputRendimiento) inputRendimiento.value = '1';
+        if (inputUnidad) inputUnidad.value = 'UND';
 
         modal.show();
     });
