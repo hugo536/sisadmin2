@@ -94,6 +94,35 @@ class ProduccionController extends Controlador
                     header('Location: ' . route_url('produccion/recetas'));
                     exit;
                 }
+
+                if ($accion === 'crear_parametro_catalogo') {
+                    $this->produccionModel->crearParametroCatalogo([
+                        'nombre' => (string) ($_POST['nombre'] ?? ''),
+                        'unidad_medida' => (string) ($_POST['unidad_medida'] ?? ''),
+                        'descripcion' => (string) ($_POST['descripcion'] ?? ''),
+                    ]);
+                    $this->setFlash('success', 'Parámetro creado correctamente.');
+                    header('Location: ' . route_url('produccion/recetas'));
+                    exit;
+                }
+
+                if ($accion === 'editar_parametro_catalogo') {
+                    $this->produccionModel->actualizarParametroCatalogo((int) ($_POST['id_parametro_catalogo'] ?? 0), [
+                        'nombre' => (string) ($_POST['nombre'] ?? ''),
+                        'unidad_medida' => (string) ($_POST['unidad_medida'] ?? ''),
+                        'descripcion' => (string) ($_POST['descripcion'] ?? ''),
+                    ]);
+                    $this->setFlash('success', 'Parámetro actualizado correctamente.');
+                    header('Location: ' . route_url('produccion/recetas'));
+                    exit;
+                }
+
+                if ($accion === 'eliminar_parametro_catalogo') {
+                    $this->produccionModel->eliminarParametroCatalogo((int) ($_POST['id_parametro_catalogo'] ?? 0));
+                    $this->setFlash('success', 'Parámetro eliminado correctamente.');
+                    header('Location: ' . route_url('produccion/recetas'));
+                    exit;
+                }
             } catch (Throwable $e) {
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
             }

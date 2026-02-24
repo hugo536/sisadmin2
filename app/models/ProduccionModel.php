@@ -106,6 +106,71 @@ class ProduccionModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function crearParametroCatalogo(array $data): int
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $unidadMedida = trim((string) ($data['unidad_medida'] ?? ''));
+        $descripcion = trim((string) ($data['descripcion'] ?? ''));
+
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del parámetro es obligatorio.');
+        }
+
+        $stmt = $this->db()->prepare('INSERT INTO produccion_parametros_catalogo (nombre, unidad_medida, descripcion)
+                                      VALUES (:nombre, :unidad_medida, :descripcion)');
+        $stmt->execute([
+            'nombre' => $nombre,
+            'unidad_medida' => $unidadMedida !== '' ? $unidadMedida : null,
+            'descripcion' => $descripcion !== '' ? $descripcion : null,
+        ]);
+
+        return (int) $this->db()->lastInsertId();
+    }
+
+    public function actualizarParametroCatalogo(int $id, array $data): bool
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Parámetro inválido.');
+        }
+
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $unidadMedida = trim((string) ($data['unidad_medida'] ?? ''));
+        $descripcion = trim((string) ($data['descripcion'] ?? ''));
+
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del parámetro es obligatorio.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE produccion_parametros_catalogo
+                                      SET nombre = :nombre,
+                                          unidad_medida = :unidad_medida,
+                                          descripcion = :descripcion
+                                      WHERE id = :id');
+
+        return $stmt->execute([
+            'id' => $id,
+            'nombre' => $nombre,
+            'unidad_medida' => $unidadMedida !== '' ? $unidadMedida : null,
+            'descripcion' => $descripcion !== '' ? $descripcion : null,
+        ]);
+    }
+
+    public function eliminarParametroCatalogo(int $id): bool
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Parámetro inválido.');
+        }
+
+        $stmtUso = $this->db()->prepare('SELECT COUNT(*) FROM produccion_recetas_parametros WHERE id_parametro = :id');
+        $stmtUso->execute(['id' => $id]);
+        if ((int) $stmtUso->fetchColumn() > 0) {
+            throw new RuntimeException('No se puede eliminar el parámetro porque está asociado a recetas.');
+        }
+
+        $stmt = $this->db()->prepare('DELETE FROM produccion_parametros_catalogo WHERE id = :id');
+        return $stmt->execute(['id' => $id]);
+    }
+
     // --- NUEVO MÉTODO: Parámetros específicos de una receta ---
     public function obtenerParametrosReceta(int $idReceta): array
     {

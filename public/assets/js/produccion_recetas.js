@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initFiltrosTablas();
     initFormularioRecetas();
     initAccionesRecetaPendiente();
+    initGestionParametrosCatalogo();
 });
 
 function initFiltrosTablas() {
@@ -211,5 +212,41 @@ function initAccionesRecetaPendiente() {
         if (inputRendimiento) inputRendimiento.value = '1';
 
         modal.show();
+    });
+}
+
+function initGestionParametrosCatalogo() {
+    const form = document.getElementById('formGestionParametroCatalogo');
+    if (!form) return;
+
+    const idInput = document.getElementById('idParametroCatalogo');
+    const accionInput = document.getElementById('accionParametroCatalogo');
+    const nombreInput = document.getElementById('nombreParametroCatalogo');
+    const unidadInput = document.getElementById('unidadParametroCatalogo');
+    const descripcionInput = document.getElementById('descripcionParametroCatalogo');
+    const btnGuardar = document.getElementById('btnGuardarParametroCatalogo');
+    const btnReset = document.getElementById('btnResetParametroCatalogo');
+    const modal = document.getElementById('modalGestionParametrosCatalogo');
+
+    const resetForm = () => {
+        form.reset();
+        if (idInput) idInput.value = '';
+        if (accionInput) accionInput.value = 'crear_parametro_catalogo';
+        if (btnGuardar) btnGuardar.textContent = 'Guardar';
+    };
+
+    btnReset?.addEventListener('click', resetForm);
+    modal?.addEventListener('show.bs.modal', resetForm);
+
+    document.addEventListener('click', function (e) {
+        const btnEdit = e.target.closest('.js-editar-param-catalogo');
+        if (!btnEdit) return;
+
+        if (idInput) idInput.value = btnEdit.getAttribute('data-id') || '';
+        if (accionInput) accionInput.value = 'editar_parametro_catalogo';
+        if (nombreInput) nombreInput.value = btnEdit.getAttribute('data-nombre') || '';
+        if (unidadInput) unidadInput.value = btnEdit.getAttribute('data-unidad') || '';
+        if (descripcionInput) descripcionInput.value = btnEdit.getAttribute('data-descripcion') || '';
+        if (btnGuardar) btnGuardar.textContent = 'Actualizar';
     });
 }
