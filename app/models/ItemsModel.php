@@ -10,12 +10,27 @@ class ItemsModel extends Modelo
 
     public function listar(): array
     {
+        $bomPendienteSql = '0 AS bom_pendiente';
+        if ($this->tablaExiste('produccion_recetas') && $this->tablaExiste('produccion_recetas_detalle')) {
+            $bomPendienteSql = "CASE
+                           WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
+                               SELECT 1
+                               FROM produccion_recetas r
+                               INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                               WHERE r.id_producto = i.id
+                                 AND r.deleted_at IS NULL
+                           ) THEN 1
+                           ELSE 0
+                       END AS bom_pendiente";
+        }
+
         $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
                        i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
                        i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
                        i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
                        i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
-                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado
+                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
+                       {$bomPendienteSql}
                 FROM items i
                 WHERE i.deleted_at IS NULL
                 ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC";

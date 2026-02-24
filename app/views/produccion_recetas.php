@@ -39,6 +39,7 @@ $etapasProduccion = [
                         <option value="">Todos los estados</option>
                         <option value="1">Activas</option>
                         <option value="0">Inactivas</option>
+                        <option value="2">Sin receta</option>
                     </select>
                 </div>
             </div>
@@ -63,7 +64,7 @@ $etapasProduccion = [
                     <tbody>
                         <?php foreach ($recetas as $receta): ?>
                             <tr data-search="<?php echo mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']); ?>"
-                                data-estado="<?php echo (int) ($receta['estado'] ?? 0); ?>">
+                                data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
                                 <td class="ps-4 fw-semibold text-primary"><?php echo e((string) $receta['codigo']); ?></td>
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
@@ -73,20 +74,34 @@ $etapasProduccion = [
                                 <td><?php echo (int) $receta['total_insumos']; ?> ítems</td>
                                 <td>S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?></td>
                                 <td class="text-center">
-                                    <?php if ((int) ($receta['estado'] ?? 0) === 1): ?>
+                                    <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Sin receta</span>
+                                    <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-3 rounded-pill">Activa</span>
                                     <?php else: ?>
                                         <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Inactiva</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
-                                    <form method="post" class="d-inline">
-                                        <input type="hidden" name="accion" value="nueva_version">
-                                        <input type="hidden" name="id_receta_base" value="<?php echo (int) $receta['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Crear nueva versión">
-                                            <i class="bi bi-files me-1"></i>Nueva Versión
+                                    <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-warning js-agregar-receta"
+                                                data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
+                                                data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
+                                                title="Agregar receta inicial">
+                                            <i class="bi bi-journal-plus me-1"></i>Agregar receta
                                         </button>
-                                    </form>
+                                    <?php else: ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="accion" value="nueva_version">
+                                            <input type="hidden" name="id_receta_base" value="<?php echo (int) $receta['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Crear nueva versión">
+                                                <i class="bi bi-files me-1"></i>Nueva Versión
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

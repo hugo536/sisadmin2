@@ -136,7 +136,13 @@ $tipoItemLabel = static function (string $tipo): string {
                                 data-search="<?php echo e(mb_strtolower($item['sku'].' '.($item['nombre'] ?? '').' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
                                 <td class="ps-4 fw-semibold text-secondary"><?php echo e($item['sku']); ?></td>
                                 <td>
-                                    <div class="fw-bold text-dark"><?php echo e($item['nombre']); ?></div>
+                                    <div class="fw-bold text-dark d-inline-flex align-items-center gap-2">
+                                        <span><?php echo e($item['nombre']); ?></span>
+                                        <?php if ((int) ($item['bom_pendiente'] ?? 0) === 1): ?>
+                                            <i class="bi bi-exclamation-triangle-fill text-warning"
+                                               title="Falta agregar una receta"></i>
+                                        <?php endif; ?>
+                                    </div>
                                     <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
