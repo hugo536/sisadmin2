@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function filaToPayload(fila) {
         const inputItem = fila.querySelector('.detalle-item');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
-        const info = fila.querySelector('.detalle-conversion-info');
+        const info = fila.querySelector('.detalle-conversion-info'); // Asegúrate de tener un span con esta clase debajo del select
 
         const idItem = Number(inputItem.value || 0);
         const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
@@ -139,19 +139,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const unidadNombre = inputUnidad.classList.contains('d-none')
             ? getUnidadBaseDesdeSelect(inputItem)
-            : (inputUnidad.selectedOptions?.[0]?.text || 'UND');
+            : (inputUnidad.selectedOptions?.[0]?.text.split(' (')[0] || 'UND'); // Extraemos el nombre limpio
 
         const cantidadBase = cantidad * factor;
 
+        // --- MEJORA: UI Intuitiva para la conversión ---
         if (info) {
-            info.textContent = idItem > 0 && cantidad > 0
-                ? `Total en base (${getUnidadBaseDesdeSelect(inputItem)}): ${cantidadBase.toFixed(4)}`
-                : '';
+            if (idItem > 0 && factor > 1) {
+                 info.innerHTML = `<small class="text-muted fw-bold">Entrarán al almacén: ${cantidadBase.toFixed(2)} ${getUnidadBaseDesdeSelect(inputItem)}</small>`;
+            } else if (idItem > 0) {
+                 info.innerHTML = `<small class="text-muted">Unidad base: ${getUnidadBaseDesdeSelect(inputItem)}</small>`;
+            } else {
+                 info.innerHTML = '';
+            }
         }
 
         return {
             id_item: idItem,
-            id_item_unidad: inputUnidad.classList.contains('d-none') ? null : Number(inputUnidad.value || 0),
+            id_item_unidad: inputUnidad.classList.contains('d-none') || !inputUnidad.value ? null : Number(inputUnidad.value),
             unidad_nombre: unidadNombre,
             factor_conversion_aplicado: factor,
             cantidad,
@@ -180,28 +185,47 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputItem = fila.querySelector('.detalle-item');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
         const info = fila.querySelector('.detalle-conversion-info');
+        const inputCosto = fila.querySelector('.detalle-costo');
 
+        // Reiniciar el select
         inputUnidad.innerHTML = '<option value="">Unidad de compra...</option>';
         inputUnidad.classList.add('d-none');
         inputUnidad.disabled = true;
 
         const selected = inputItem.options[inputItem.selectedIndex];
-        const requiereFactor = Number(selected?.dataset?.requiereFactorConversion || 0) === 1;
-        const unidadBase = selected?.dataset?.unidadBase || 'UND';
+        if (!selected) return;
+
+        const requiereFactor = Number(selected.dataset.requiereFactorConversion || 0) === 1;
+        const unidadBase = selected.dataset.unidadBase || 'UND';
+        
+        // --- MEJORA: Autocompletar costo referencial si es un ítem nuevo ---
+        if (!itemGuardado && selected.dataset.costoReferencial) {
+             const costoRef = parseFloat(selected.dataset.costoReferencial);
+             if (costoRef > 0) inputCosto.value = costoRef.toFixed(4);
+        }
 
         if (!inputItem.value || !requiereFactor) {
-            if (info) info.textContent = inputItem.value ? `Unidad base: ${unidadBase}` : '';
+            if (info) info.innerHTML = inputItem.value ? `<small class="text-muted">Unidad base: ${unidadBase}</small>` : '';
             recalcularFila(fila);
             return;
         }
 
         try {
             const unidades = await obtenerUnidadesItem(Number(inputItem.value));
+            
+            // --- MEJORA: Renderizado profesional de las opciones ---
             unidades.forEach((u) => {
                 const option = document.createElement('option');
                 option.value = String(u.id || '');
                 option.dataset.factor = String(u.factor_conversion || '1');
-                option.textContent = `${u.nombre} (factor ${Number(u.factor_conversion || 1).toFixed(4)})`;
+                
+                // Formateo limpio del factor (ej: 1000 en vez de 1000.0000)
+                const factorLimpio = parseFloat(u.factor_conversion).toString();
+                
+                // El texto que verá el usuario. Usamos 'text' o 'nombre' dependiendo del backend.
+                const nombreSelect = u.text || u.nombre;
+                option.textContent = `${nombreSelect} (Equivale a ${factorLimpio} ${unidadBase})`;
+                
                 inputUnidad.appendChild(option);
             });
 
@@ -211,10 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (itemGuardado?.id_item_unidad) {
                 inputUnidad.value = String(itemGuardado.id_item_unidad);
             } else if (inputUnidad.options.length > 1) {
+                // Seleccionamos la primera unidad por defecto (después del placeholder)
                 inputUnidad.selectedIndex = 1;
             }
         } catch (error) {
-            Swal.fire('Error', error.message, 'error');
+            console.error(error);
+            Swal.fire('Atención', 'No se pudieron cargar las unidades de este ítem.', 'warning');
         }
 
         recalcularFila(fila);

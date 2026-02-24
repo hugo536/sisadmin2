@@ -247,7 +247,9 @@ class ComprasOrdenModel extends Modelo
                     'factor_conversion_aplicado' => $factorAplicado,
                     'cantidad_conversion' => $cantidadConversion,
                     'cantidad_base' => $cantidadBase,
-                    'cantidad' => $cantidadBase,
+                    // ERROR CORREGIDO: Antes decía $cantidadBase. 
+                    // Debe ser la cantidad original solicitada en esa unidad.
+                    'cantidad' => $cantidadConversion, 
                     'costo_unitario' => $costo,
                     'created_by' => $userId,
                     'updated_by' => $userId,
@@ -366,14 +368,12 @@ class ComprasOrdenModel extends Modelo
 
     public function listarItemsActivos(): array
     {
-        // CORRECCIÓN DEFINITIVA: 
-        // Usamos una lista blanca (IN) en lugar de exclusión (NOT IN).
-        // Solo permitimos que se compren componentes operativos o materias primas.
-        $sql = "SELECT id, sku, nombre, unidad_base, requiere_factor_conversion
+        $sql = "SELECT id, sku, nombre, unidad_base, requiere_factor_conversion,
+                    costo_referencial, impuesto_porcentaje
                 FROM items
                 WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND tipo_item IN ('materia_prima', 'insumo', 'material_empaque', 'servicio')
+                AND deleted_at IS NULL
+                AND tipo_item IN ('materia_prima', 'insumo', 'material_empaque', 'servicio')
                 ORDER BY nombre ASC";
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -381,54 +381,25 @@ class ComprasOrdenModel extends Modelo
 
     public function listarUnidadesConversionItem(int $idItem): array
     {
-        if ($idItem <= 0 || !$this->tablaExiste('items_unidades')) {
+        if ($idItem <= 0) {
             return [];
         }
 
-        if (!$this->tablaExiste('items')) {
-            return [];
-        }
-
-        if (!$this->tablaTieneColumna('items_unidades', 'id') || !$this->tablaTieneColumna('items_unidades', 'id_item')) {
-            return [];
-        }
-
-        $nombreUnidad = $this->tablaTieneColumna('items_unidades', 'nombre')
-            ? 'u.nombre'
-            : "CONCAT('Unidad #', u.id)";
-
-        $factorConversion = $this->tablaTieneColumna('items_unidades', 'factor_conversion')
-            ? 'COALESCE(u.factor_conversion, 1.0000)'
-            : '1.0000';
-
-        $condiciones = [
-            'u.id_item = :id_item',
-        ];
-
-        if ($this->tablaTieneColumna('items', 'deleted_at')) {
-            $condiciones[] = 'i.deleted_at IS NULL';
-        }
-
-        if ($this->tablaTieneColumna('items', 'requiere_factor_conversion')) {
-            $condiciones[] = 'i.requiere_factor_conversion = 1';
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
-            $condiciones[] = 'u.estado = 1';
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
-            $condiciones[] = 'u.deleted_at IS NULL';
-        }
-
+        // Eliminamos las consultas dinámicas (SHOW COLUMNS/TABLES) para mejorar drásticamente la velocidad.
+        // Añadimos múltiples alias (nombre, text, label) para asegurar que el frontend lo lea sin importar el framework.
         $sql = 'SELECT u.id,
-                       ' . $nombreUnidad . ' AS nombre,
-                       ' . $factorConversion . ' AS factor_conversion,
-                       i.unidad_base
+                    u.nombre,
+                    u.nombre AS text,
+                    u.factor_conversion,
+                    i.unidad_base
                 FROM items_unidades u
                 INNER JOIN items i ON i.id = u.id_item
-                WHERE ' . implode(' AND ', $condiciones) . '
-                ORDER BY nombre ASC, u.id ASC';
+                WHERE u.id_item = :id_item
+                AND i.deleted_at IS NULL
+                AND i.requiere_factor_conversion = 1
+                AND u.estado = 1
+                AND u.deleted_at IS NULL
+                ORDER BY u.nombre ASC, u.id ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
