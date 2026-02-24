@@ -420,7 +420,7 @@ SQL;
             $sqlStock = 'SELECT COALESCE(SUM(stock_actual), 0)
                          FROM inventario_stock
                          WHERE id_pack = :id_registro';
-            $sqlMov = 'SELECT referencia
+            $sqlMov = 'SELECT referencia, costo_unitario
                        FROM inventario_movimientos
                        WHERE id_item = :id_registro
                          AND referencia LIKE "Pack:%"
@@ -430,7 +430,7 @@ SQL;
             $sqlStock = 'SELECT COALESCE(SUM(stock_actual), 0)
                          FROM inventario_stock
                          WHERE id_item = :id_registro';
-            $sqlMov = 'SELECT referencia
+            $sqlMov = 'SELECT referencia, costo_unitario
                        FROM inventario_movimientos
                        WHERE id_item = :id_registro
                          AND (referencia IS NULL OR referencia NOT LIKE "Pack:%")
@@ -444,10 +444,17 @@ SQL;
 
         $stmtMov = $this->db()->prepare($sqlMov);
         $stmtMov->execute(['id_registro' => $idRegistro]);
-        $referencias = $stmtMov->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $movimientos = $stmtMov->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $costoPromedio = 0.0;
-        foreach ($referencias as $ref) {
+        foreach ($movimientos as $movimiento) {
+            $costoUnitario = isset($movimiento['costo_unitario']) ? (float) $movimiento['costo_unitario'] : 0.0;
+            if ($costoUnitario > 0) {
+                $costoPromedio = $costoUnitario;
+                break;
+            }
+
+            $ref = (string) ($movimiento['referencia'] ?? '');
             if (!is_string($ref) || $ref === '') {
                 continue;
             }
@@ -624,9 +631,9 @@ SQL;
             }
 
             $sqlMovimiento = 'INSERT INTO inventario_movimientos
-                                (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by)
+                                (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
                               VALUES
-                                (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :referencia, :created_by)';
+                                (:id_item, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItemMovimiento,
@@ -634,6 +641,8 @@ SQL;
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                 'tipo_movimiento' => $tipo,
                 'cantidad' => $cantidad,
+                'costo_unitario' => $costoUnitario > 0 ? number_format($costoUnitario, 4, '.', '') : null,
+                'costo_total' => $costoTotal > 0 ? number_format($costoTotal, 4, '.', '') : null,
                 'referencia' => $referenciaFinal !== '' ? $referenciaFinal : null,
                 'created_by' => $createdBy,
             ]);
