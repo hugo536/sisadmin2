@@ -771,7 +771,13 @@ class ItemsModel extends Modelo
 
     private function tablaExiste(string $tabla): bool
     {
-        $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+        $sql = 'SELECT 1
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = :tabla
+                LIMIT 1';
+
+        $stmt = $this->db()->prepare($sql);
         $stmt->execute(['tabla' => $tabla]);
         return (bool) $stmt->fetchColumn();
     }
