@@ -142,6 +142,10 @@ class ItemsController extends Controlador
                     
                     if ($actual === []) throw new RuntimeException('El ítem no existe.');
 
+                    if (!isset($data['estado'])) {
+                        $data['estado'] = (int) ($actual['estado'] ?? 1);
+                    }
+
                     $skuIngresado = trim((string) ($data['sku'] ?? ''));
                     if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '') && $this->itemsModel->skuExiste($skuIngresado, $id)) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
@@ -606,7 +610,7 @@ class ItemsController extends Controlador
         }
 
 
-        if ($tipo === 'semielaborado') {
+        if ($tipo === 'semielaborado' && !$esEdicion) {
             $data['controla_stock'] = 1;
             $data['requiere_lote'] = 1;
             $data['requiere_vencimiento'] = 1;
