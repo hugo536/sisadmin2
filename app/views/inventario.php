@@ -111,6 +111,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
                                 $badgeColor = (string) ($stock['badge_color'] ?? '');
                                 $badgeTexto = (string) ($stock['badge_estado'] ?? '');
+                                $requiereFactorConversion = (int) ($stock['requiere_factor_conversion'] ?? 0) === 1;
 
                                 $detalleAlerta = trim((string) ($stock['detalle_alerta'] ?? ''));
 
@@ -134,7 +135,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     
                                     <td class="text-end pe-4 align-top pt-3">
                                         <div class="fw-bold fs-6 text-primary"><?php echo $stockFormateado; ?></div>
-                                        <?php if (!empty($stock['desglose']) && is_array($stock['desglose'])): ?>
+                                        <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
                                             <div class="d-flex flex-column align-items-end mt-1 pb-1" style="gap: 3px;">
                                                 <?php foreach ($stock['desglose'] as $d): ?>
                                                     <div class="badge bg-white text-secondary border border-secondary-subtle shadow-sm px-2 py-1 fw-medium" style="font-size: 0.7rem;">
