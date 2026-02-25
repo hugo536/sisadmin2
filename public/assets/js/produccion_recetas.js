@@ -416,8 +416,6 @@ function initAccionesRecetaPendiente() {
         }
 
 
-        const json = await resp.json();
-
         if (!json || json.success !== true) {
             throw new Error((json && json.message) || 'No se pudo completar la operación.');
         }
