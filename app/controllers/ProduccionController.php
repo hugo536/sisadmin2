@@ -177,13 +177,6 @@ class ProduccionController extends Controlador
                     $detalles = $this->produccionModel->obtenerDetalleReceta($idReceta);
                     $resultado = [];
 
-                    $db = $this->produccionModel->db();
-                    // Consulta para buscar en qué almacenes hay stock de este producto
-                    $stmtAlmacenes = $db->prepare('SELECT a.id, a.nombre, s.stock_actual 
-                                                   FROM inventario_stock s 
-                                                   INNER JOIN almacenes a ON a.id = s.id_almacen 
-                                                   WHERE s.id_item = :id_item AND s.stock_actual > 0');
-
                     foreach ($detalles as $d) {
                         $qtyBase = (float) $d['cantidad_por_unidad'];
                         $merma = (float) $d['merma_porcentaje'];
@@ -195,8 +188,7 @@ class ProduccionController extends Controlador
                         $stockTotal = $this->produccionModel->obtenerStockTotalItem((int) $d['id_insumo']);
 
                         // Extraer los almacenes específicos que tienen este insumo
-                        $stmtAlmacenes->execute(['id_item' => $d['id_insumo']]);
-                        $almacenesConStock = $stmtAlmacenes->fetchAll(PDO::FETCH_ASSOC);
+                        $almacenesConStock = $this->produccionModel->obtenerAlmacenesConStockItem((int) $d['id_insumo']);
 
                         $resultado[] = [
                             'id_insumo' => $d['id_insumo'],

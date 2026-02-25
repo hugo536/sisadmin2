@@ -623,6 +623,18 @@ class ProduccionModel extends Modelo
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
+    public function obtenerAlmacenesConStockItem(int $idItem): array
+    {
+        $stmt = $this->db()->prepare('SELECT a.id, a.nombre, s.stock_actual
+                                      FROM inventario_stock s
+                                      INNER JOIN almacenes a ON a.id = s.id_almacen
+                                      WHERE s.id_item = :id_item
+                                        AND s.stock_actual > 0');
+        $stmt->execute(['id_item' => $idItem]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function obtenerOrdenPorId(int $idOrden): array
     {
         // Se quitaron id_almacen_origen y destino porque ya no existen en tabla
