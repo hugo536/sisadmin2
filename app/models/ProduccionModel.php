@@ -426,7 +426,10 @@ class ProduccionModel extends Modelo
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
         $idAlmacenDestino = (int) ($payload['id_almacen_destino'] ?? 0);
-        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? $idAlmacenDestino);
+        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? 0);
+        if ($idAlmacenOrigen <= 0) {
+            $idAlmacenOrigen = $idAlmacenDestino;
+        }
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 

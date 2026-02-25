@@ -164,11 +164,17 @@ class ProduccionController extends Controlador
             try {
                 // 1. Crear Orden
                 if ($accion === 'crear_orden') {
+                    $idAlmacenDestino = (int) ($_POST['id_almacen_destino'] ?? 0);
+                    $idAlmacenOrigen = (int) ($_POST['id_almacen_origen'] ?? 0);
+                    if ($idAlmacenOrigen <= 0) {
+                        $idAlmacenOrigen = $idAlmacenDestino;
+                    }
+
                     $this->produccionModel->crearOrden([
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'id_receta' => (int) ($_POST['id_receta'] ?? 0),
-                        'id_almacen_origen' => (int) ($_POST['id_almacen_origen'] ?? ($_POST['id_almacen_destino'] ?? 0)),
-                        'id_almacen_destino' => (int) ($_POST['id_almacen_destino'] ?? 0),
+                        'id_almacen_origen' => $idAlmacenOrigen,
+                        'id_almacen_destino' => $idAlmacenDestino,
                         'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
