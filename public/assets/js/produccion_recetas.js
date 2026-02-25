@@ -385,7 +385,17 @@ function initAccionesRecetaPendiente() {
     const postAccion = async (accion, data = {}) => {
         const body = new URLSearchParams();
         body.append('accion', accion);
+
+        if (data && typeof data === 'object') {
+            Object.keys(data).forEach((k) => {
+                const v = data[k];
+                if (v === undefined || v === null) return;
+                body.append(k, String(v));
+            });
+        }
+
         Object.entries(data).forEach(([k, v]) => body.append(k, String(v)));
+
 
         const resp = await fetch(window.location.href, {
             method: 'POST',
@@ -396,7 +406,18 @@ function initAccionesRecetaPendiente() {
             body: body.toString(),
         });
 
+
+        const raw = await resp.text();
+        let json;
+        try {
+            json = JSON.parse(raw);
+        } catch (e) {
+            throw new Error('Respuesta inválida del servidor. Revise sesión/permisos y vuelva a intentar.');
+        }
+
+
         const json = await resp.json();
+
         if (!json || json.success !== true) {
             throw new Error((json && json.message) || 'No se pudo completar la operación.');
         }
@@ -408,6 +429,11 @@ function initAccionesRecetaPendiente() {
         if (!api) return;
 
         const dataReceta = await postAccion('obtener_receta_version_ajax', { id_receta: idReceta });
+
+        if (!dataReceta || typeof dataReceta !== 'object') {
+            throw new Error('No se pudo cargar la receta seleccionada.');
+        }
+
         api.setCabecera(dataReceta);
         api.setIdRecetaBase(idReceta);
         api.cargarDetalles(dataReceta.detalles || []);
