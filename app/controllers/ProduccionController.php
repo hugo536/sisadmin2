@@ -38,6 +38,7 @@ class ProduccionController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
+            $esAjaxReceta = ($accion === 'obtener_receta_ajax');
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
@@ -158,6 +159,7 @@ class ProduccionController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
+            $esAjaxReceta = ($accion === 'obtener_receta_ajax');
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
@@ -176,16 +178,11 @@ class ProduccionController extends Controlador
                     $detalles = $this->produccionModel->obtenerDetalleReceta($idReceta);
                     $resultado = [];
 
-                    $db = $this->produccionModel->db();
-                    $stmtStock = $db->prepare('SELECT COALESCE(SUM(stock_actual), 0) FROM inventario_stock WHERE id_item = :id_item');
-
                     foreach ($detalles as $d) {
                         $qtyBase = (float) $d['cantidad_por_unidad'];
                         $merma = (float) $d['merma_porcentaje'];
                         $cantidadRequerida = $qtyBase * $cantidadPlanificada * (1 + ($merma / 100));
-
-                        $stmtStock->execute(['id_item' => $d['id_insumo']]);
-                        $stockTotal = (float) $stmtStock->fetchColumn();
+                        $stockTotal = $this->produccionModel->obtenerStockTotalItem((int) $d['id_insumo']);
 
                         $resultado[] = [
                             'id_insumo' => $d['id_insumo'],
@@ -291,6 +288,15 @@ class ProduccionController extends Controlador
                 }
 
             } catch (Throwable $e) {
+                if ($esAjaxReceta) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode([
+                        'success' => false,
+                        'message' => $e->getMessage(),
+                    ]);
+                    exit;
+                }
+
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
             }
         }

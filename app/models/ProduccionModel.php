@@ -695,6 +695,16 @@ class ProduccionModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function obtenerStockTotalItem(int $idItem): float
+    {
+        $stmt = $this->db()->prepare('SELECT COALESCE(SUM(stock_actual), 0)
+                                      FROM inventario_stock
+                                      WHERE id_item = :id_item');
+        $stmt->execute(['id_item' => $idItem]);
+
+        return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
     private function obtenerOrdenPorId(int $idOrden): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado,
