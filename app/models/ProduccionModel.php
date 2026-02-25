@@ -204,6 +204,61 @@ class ProduccionModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function listarVersionesReceta(int $idRecetaBase): array
+    {
+        $recetaBase = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($recetaBase === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $codigoBase = $this->limpiarCodigoVersion((string) ($recetaBase['codigo'] ?? ''));
+
+        $stmt = $this->db()->prepare('SELECT id, codigo, version, estado
+                                      FROM produccion_recetas
+                                      WHERE id_producto = :id_producto
+                                        AND deleted_at IS NULL
+                                      ORDER BY version DESC, id DESC');
+        $stmt->execute(['id_producto' => (int) $recetaBase['id_producto']]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $versiones = [];
+        foreach ($rows as $row) {
+            $codigo = (string) ($row['codigo'] ?? '');
+            if ($this->limpiarCodigoVersion($codigo) !== $codigoBase) {
+                continue;
+            }
+
+            $versiones[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'codigo' => $codigo,
+                'version' => (int) ($row['version'] ?? 1),
+                'estado' => (int) ($row['estado'] ?? 0),
+            ];
+        }
+
+        return $versiones;
+    }
+
+    public function obtenerRecetaVersionParaEdicion(int $idReceta): array
+    {
+        $receta = $this->obtenerRecetaPorId($idReceta);
+        if ($receta === []) {
+            throw new RuntimeException('La receta no existe.');
+        }
+
+        return [
+            'id' => (int) $receta['id'],
+            'id_producto' => (int) $receta['id_producto'],
+            'codigo' => (string) ($receta['codigo'] ?? ''),
+            'version' => (int) ($receta['version'] ?? 1),
+            'descripcion' => (string) ($receta['descripcion'] ?? ''),
+            'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
+            'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
+            'detalles' => $this->obtenerDetalleRecetaVersion($idReceta),
+            'parametros' => $this->obtenerParametrosReceta($idReceta),
+        ];
+    }
+
     public function crearReceta(array $payload, int $userId): int
     {
         $idProducto = (int) ($payload['id_producto'] ?? 0);
@@ -777,6 +832,123 @@ class ProduccionModel extends Modelo
         ], $userId);
     }
 
+    public function crearNuevaVersionDesdePayload(int $idRecetaBase, array $payload, int $userId): int
+    {
+        $recetaBase = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($recetaBase === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $detallesBase = $this->obtenerDetalleRecetaVersion($idRecetaBase);
+        if ($detallesBase === []) {
+            throw new RuntimeException('La receta base no tiene detalles.');
+        }
+
+        $parametrosBase = $this->obtenerParametrosReceta($idRecetaBase);
+
+        $idProductoPayload = (int) ($payload['id_producto'] ?? 0);
+        if ($idProductoPayload !== (int) $recetaBase['id_producto']) {
+            throw new RuntimeException('No se puede cambiar el producto destino al crear una versión.');
+        }
+
+        $normalizadoBase = [
+            'descripcion' => trim((string) ($recetaBase['descripcion'] ?? '')),
+            'rendimiento_base' => number_format((float) ($recetaBase['rendimiento_base'] ?? 0), 4, '.', ''),
+            'unidad_rendimiento' => trim((string) ($recetaBase['unidad_rendimiento'] ?? '')),
+            'detalles' => $this->normalizarDetallesComparacion($detallesBase),
+            'parametros' => $this->normalizarParametrosComparacion($parametrosBase),
+        ];
+
+        $normalizadoPayload = [
+            'descripcion' => trim((string) ($payload['descripcion'] ?? '')),
+            'rendimiento_base' => number_format((float) ($payload['rendimiento_base'] ?? 0), 4, '.', ''),
+            'unidad_rendimiento' => trim((string) ($payload['unidad_rendimiento'] ?? '')),
+            'detalles' => $this->normalizarDetallesComparacion((array) ($payload['detalles'] ?? [])),
+            'parametros' => $this->normalizarParametrosComparacion((array) ($payload['parametros'] ?? [])),
+        ];
+
+        if ($normalizadoBase === $normalizadoPayload) {
+            throw new RuntimeException('No se detectaron cambios frente a la versión seleccionada.');
+        }
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int) $recetaBase['id_producto']);
+
+        return $this->crearReceta([
+            'id_producto' => (int) $recetaBase['id_producto'],
+            'codigo' => $this->generarCodigoVersion((string) $recetaBase['codigo'], $siguienteVersion),
+            'version' => $siguienteVersion,
+            'descripcion' => $normalizadoPayload['descripcion'],
+            'rendimiento_base' => (float) $normalizadoPayload['rendimiento_base'],
+            'unidad_rendimiento' => $normalizadoPayload['unidad_rendimiento'],
+            'detalles' => (array) ($payload['detalles'] ?? []),
+            'parametros' => (array) ($payload['parametros'] ?? []),
+        ], $userId);
+    }
+
+    private function obtenerDetalleRecetaVersion(int $idReceta): array
+    {
+        $sql = 'SELECT d.id_insumo,
+                       d.etapa,
+                       d.cantidad_por_unidad,
+                       d.merma_porcentaje,
+                       d.costo_unitario
+                FROM produccion_recetas_detalle d
+                WHERE d.id_receta = :id_receta
+                  AND d.deleted_at IS NULL
+                ORDER BY d.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function normalizarDetallesComparacion(array $detalles): array
+    {
+        $normalizados = [];
+        foreach ($detalles as $detalle) {
+            $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+            $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
+            if ($idInsumo <= 0 || $cantidad <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_insumo' => $idInsumo,
+                'etapa' => trim((string) ($detalle['etapa'] ?? 'General')),
+                'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
+                'merma_porcentaje' => number_format((float) ($detalle['merma_porcentaje'] ?? 0), 4, '.', ''),
+                'costo_unitario' => number_format((float) ($detalle['costo_unitario'] ?? 0), 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => [$a['id_insumo'], $a['etapa']] <=> [$b['id_insumo'], $b['etapa']]);
+        return $normalizados;
+    }
+
+    private function normalizarParametrosComparacion(array $parametros): array
+    {
+        $normalizados = [];
+        foreach ($parametros as $parametro) {
+            $idParametro = (int) ($parametro['id_parametro'] ?? 0);
+            if ($idParametro <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_parametro' => $idParametro,
+                'valor_objetivo' => number_format((float) ($parametro['valor_objetivo'] ?? 0), 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => $a['id_parametro'] <=> $b['id_parametro']);
+        return $normalizados;
+    }
+
+    private function limpiarCodigoVersion(string $codigo): string
+    {
+        return (string) preg_replace('/-V\d+$/', '', trim($codigo));
+    }
+
     private function obtenerRecetaPorId(int $idReceta): array
     {
         $stmt = $this->db()->prepare('SELECT * FROM produccion_recetas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
@@ -794,7 +966,7 @@ class ProduccionModel extends Modelo
 
     private function generarCodigoVersion(string $codigoBase, int $version): string
     {
-        $codigoLimpio = preg_replace('/-V\d+$/', '', trim($codigoBase));
+        $codigoLimpio = $this->limpiarCodigoVersion($codigoBase);
         return sprintf('%s-V%d', $codigoLimpio ?: 'REC', $version);
     }
 

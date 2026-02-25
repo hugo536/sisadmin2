@@ -41,6 +41,36 @@ class ProduccionController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                if ($accion === 'listar_versiones_receta_ajax') {
+                    header('Content-Type: application/json; charset=utf-8');
+                    $idRecetaBase = (int) ($_POST['id_receta_base'] ?? 0);
+                    if ($idRecetaBase <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Receta base inválida.']);
+                        exit;
+                    }
+
+                    echo json_encode([
+                        'success' => true,
+                        'data' => $this->produccionModel->listarVersionesReceta($idRecetaBase),
+                    ]);
+                    exit;
+                }
+
+                if ($accion === 'obtener_receta_version_ajax') {
+                    header('Content-Type: application/json; charset=utf-8');
+                    $idReceta = (int) ($_POST['id_receta'] ?? 0);
+                    if ($idReceta <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Receta inválida.']);
+                        exit;
+                    }
+
+                    echo json_encode([
+                        'success' => true,
+                        'data' => $this->produccionModel->obtenerRecetaVersionParaEdicion($idReceta),
+                    ]);
+                    exit;
+                }
+
                 if ($accion === 'crear_receta') {
                     // 1. Procesar Detalles (Insumos)
                     $detalles = [];
@@ -83,8 +113,7 @@ class ProduccionController extends Controlador
                         }
                     }
 
-                    // 3. Enviar al Modelo
-                    $this->produccionModel->crearReceta([
+                    $payloadReceta = [
                         'id_producto' => (int) ($_POST['id_producto'] ?? 0),
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'version' => (int) ($_POST['version'] ?? 1),
@@ -93,9 +122,17 @@ class ProduccionController extends Controlador
                         'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? ''),
                         'detalles' => $detalles,
                         'parametros' => $parametros,
-                    ], $userId);
+                    ];
 
-                    $this->setFlash('success', 'Receta creada correctamente.');
+                    $idRecetaBase = (int) ($_POST['id_receta_base'] ?? 0);
+                    if ($idRecetaBase > 0) {
+                        $this->produccionModel->crearNuevaVersionDesdePayload($idRecetaBase, $payloadReceta, $userId);
+                        $this->setFlash('success', 'Nueva versión creada y activada correctamente.');
+                    } else {
+                        $this->produccionModel->crearReceta($payloadReceta, $userId);
+                        $this->setFlash('success', 'Receta creada correctamente.');
+                    }
+
                     header('Location: ' . route_url('produccion/recetas'));
                     exit;
                 }
