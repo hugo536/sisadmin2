@@ -42,12 +42,12 @@ class ProduccionModel extends Modelo
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre,
-                       ao.nombre AS almacen_origen_nombre,
+                       COALESCE(ao.nombre, ad.nombre) AS almacen_origen_nombre,
                        ad.nombre AS almacen_destino_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
-                INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen
+                LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
@@ -425,12 +425,12 @@ class ProduccionModel extends Modelo
     {
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
-        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? 0);
         $idAlmacenDestino = (int) ($payload['id_almacen_destino'] ?? 0);
+        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? $idAlmacenDestino);
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
-        if ($codigo === '' || $idReceta <= 0 || $idAlmacenOrigen <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
+        if ($codigo === '' || $idReceta <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
@@ -482,8 +482,11 @@ class ProduccionModel extends Modelo
 
             $inventarioModel = new InventarioModel(); 
 
-            $idAlmacenOrigen = (int) $orden['id_almacen_origen'];
             $idAlmacenDestino = (int) $orden['id_almacen_destino'];
+            $idAlmacenOrigen = (int) ($orden['id_almacen_origen'] ?? 0);
+            if ($idAlmacenOrigen <= 0) {
+                $idAlmacenOrigen = $idAlmacenDestino;
+            }
             $costoTotalConsumo = 0.0;
 
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos

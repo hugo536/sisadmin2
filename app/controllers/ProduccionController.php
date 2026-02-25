@@ -167,7 +167,7 @@ class ProduccionController extends Controlador
                     $this->produccionModel->crearOrden([
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'id_receta' => (int) ($_POST['id_receta'] ?? 0),
-                        'id_almacen_origen' => (int) ($_POST['id_almacen_origen'] ?? 0),
+                        'id_almacen_origen' => (int) ($_POST['id_almacen_origen'] ?? ($_POST['id_almacen_destino'] ?? 0)),
                         'id_almacen_destino' => (int) ($_POST['id_almacen_destino'] ?? 0),
                         'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
@@ -215,7 +215,7 @@ class ProduccionController extends Controlador
         $this->render('produccion_ordenes', [
             'flash' => $flash,
             'ordenes' => $this->produccionModel->listarOrdenes(),
-            'recetas_activas' => $this->produccionModel->listarRecetasActivas(),
+            'recetasActivas' => $this->produccionModel->listarRecetasActivas(),
             'almacenes' => $this->produccionModel->listarAlmacenesActivos(),
             'ruta_actual' => 'produccion/ordenes',
         ]);
