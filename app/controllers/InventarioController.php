@@ -201,10 +201,13 @@ class InventarioController extends Controlador
             if ($tipo === 'TRF') {
                 $datos['id_almacen_origen'] = $idAlmacen;
                 $datos['id_almacen_destino'] = (int) ($_POST['id_almacen_destino'] ?? 0);
-            } elseif (in_array($tipo, ['AJ-', 'CON'], true)) {
+            } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN'], true)) {
+                // Las SALIDAS solo tienen origen
                 $datos['id_almacen_origen'] = $idAlmacen;
+                $datos['id_almacen_destino'] = 0;
             } else {
-                $datos['id_almacen_origen'] = $idAlmacen;
+                // Las ENTRADAS (INI, AJ+, COM, PROD) solo tienen destino
+                $datos['id_almacen_origen'] = 0;
                 $datos['id_almacen_destino'] = $idAlmacen;
             }
 

@@ -459,24 +459,32 @@ class ProduccionModel extends Modelo
             $inventarioModel = new InventarioModel(); 
             $costoTotalConsumo = 0.0;
 
-            // --- 1. PROCESAR CONSUMOS (Salidas Multi-Almacén) ---
+            // Preparamos una consulta rápida para saber si el ítem exige stock o vencimientos
+            $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento FROM items WHERE id = :id LIMIT 1');
+
+            // --- 1. PROCESAR CONSUMOS (Materia Prima) ---
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
                                             (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
                                          VALUES
                                             (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
             foreach ($consumos as $consumo) {
-                $idInsumo = (int) $consumo['id_insumo'];
-                $idAlmacenOrigen = (int) $consumo['id_almacen'];
-                $cantidadUsada = (float) $consumo['cantidad'];
+                $idInsumo = (int) ($consumo['id_insumo'] ?? 0);
+                $cantidadUsada = (float) ($consumo['cantidad'] ?? 0);
+                
+                if ($idInsumo <= 0 || $cantidadUsada <= 0) continue;
+
+                $stmtInfoItem->execute(['id' => $idInsumo]);
+                $infoInsumo = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
+                $controlaStock = (int)($infoInsumo['controla_stock'] ?? 0) === 1;
+                
+                $idAlmacenOrigen = (int) ($consumo['id_almacen'] ?? 0);
                 $idLote = !empty($consumo['id_lote']) ? (int)$consumo['id_lote'] : null;
                 $lote = trim((string) ($consumo['lote'] ?? ''));
 
-                if ($cantidadUsada <= 0 || $idAlmacenOrigen <= 0) continue;
-
-                // Nota: Eliminamos el bloqueo estricto (throw Exception) si falta stock, 
-                // permitiendo el flujo de "producción flexible" que solicitaste.
-                // El inventario quedará en negativo temporalmente si no ingresaron el producto a tiempo.
+                if ($controlaStock && $idAlmacenOrigen <= 0) {
+                    throw new RuntimeException("El insumo (ID {$idInsumo}) controla stock. Debe seleccionar obligatoriamente un almacén de origen.");
+                }
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $costoTotalConsumo += ($costoUnitario * $cantidadUsada);
@@ -484,7 +492,7 @@ class ProduccionModel extends Modelo
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_almacen' => $idAlmacenOrigen,
+                    'id_almacen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null, // Permitimos null si no controla stock
                     'id_lote' => $idLote, 
                     'cantidad' => number_format($cantidadUsada, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
@@ -492,11 +500,14 @@ class ProduccionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                // Descontar de inventario específico
-                if (method_exists($inventarioModel, 'registrarMovimiento')) {
+                $idItemUnidadInsumo = $this->obtenerUnidadPorDefecto($idInsumo);
+
+                // FLEXIBILIDAD: Solo restamos del inventario si el ítem exige control de stock
+                if ($controlaStock && method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
                         'id_item' => $idInsumo,
+                        'id_item_unidad' => $idItemUnidadInsumo, 
                         'id_almacen_origen' => $idAlmacenOrigen,
                         'id_almacen_destino' => null, 
                         'cantidad' => $cantidadUsada,
@@ -508,7 +519,7 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            // --- 2. PROCESAR INGRESOS (Entradas de producto terminado) ---
+            // --- 2. PROCESAR INGRESOS (Producto Final) ---
             $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
             
             if ($cantidadTotalProducida <= 0) {
@@ -517,23 +528,34 @@ class ProduccionModel extends Modelo
 
             $costoUnitarioIngreso = $costoTotalConsumo / $cantidadTotalProducida;
 
+            $stmtInfoItem->execute(['id' => (int) $orden['id_producto']]);
+            $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
+            $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
+
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
                                             (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
                                          VALUES
                                             (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
+            $idItemUnidadTerminado = $this->obtenerUnidadPorDefecto((int) $orden['id_producto']);
+
             foreach ($ingresos as $ingreso) {
-                $idAlmacenDestino = (int) $ingreso['id_almacen'];
-                $cantidadIngresada = (float) $ingreso['cantidad'];
+                $cantidadIngresada = (float) ($ingreso['cantidad'] ?? 0);
+                if ($cantidadIngresada <= 0) continue; 
+
+                $idAlmacenDestino = (int) ($ingreso['id_almacen'] ?? 0);
                 $idLote = !empty($ingreso['id_lote']) ? (int)$ingreso['id_lote'] : null;
                 $lote = trim((string) ($ingreso['lote'] ?? ''));
+                $fechaVencimiento = trim((string) ($ingreso['fecha_vencimiento'] ?? ''));
 
-                if ($cantidadIngresada <= 0 || $idAlmacenDestino <= 0) continue;
+                if ($controlaStockProd && $idAlmacenDestino <= 0) {
+                    throw new RuntimeException("El producto fabricado controla stock. Debe seleccionar un almacén de destino.");
+                }
 
                 $stmtIngreso->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => (int) $orden['id_producto'],
-                    'id_almacen' => $idAlmacenDestino,
+                    'id_almacen' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
                     'id_lote' => $idLote,
                     'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
                     'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
@@ -541,16 +563,18 @@ class ProduccionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                // Ingresar a inventario específico
-                if (method_exists($inventarioModel, 'registrarMovimiento')) {
+                // FLEXIBILIDAD: Solo sumamos al inventario si el ítem exige control de stock
+                if ($controlaStockProd && method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'PROD', 
                         'id_item' => (int) $orden['id_producto'],
+                        'id_item_unidad' => $idItemUnidadTerminado, 
                         'id_almacen_origen' => null,
                         'id_almacen_destino' => $idAlmacenDestino,
                         'cantidad' => $cantidadIngresada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
                         'lote' => $lote,
+                        'fecha_vencimiento' => $fechaVencimiento, // Preparado por si en el futuro lo mandas
                         'costo_unitario' => $costoUnitarioIngreso,
                         'created_by' => $userId
                     ]);
@@ -767,5 +791,17 @@ class ProduccionModel extends Modelo
     {
         $codigoLimpio = preg_replace('/-V\d+$/', '', trim($codigoBase));
         return sprintf('%s-V%d', $codigoLimpio ?: 'REC', $version);
+    }
+
+    private function obtenerUnidadPorDefecto(int $idItem): ?int
+    {
+        $stmt = $this->db()->prepare('SELECT id_item_unidad 
+                                      FROM inventario_movimientos 
+                                      WHERE id_item = :id_item 
+                                        AND id_item_unidad IS NOT NULL 
+                                      ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id_item' => $idItem]);
+        $val = $stmt->fetchColumn();
+        return $val ? (int) $val : null;
     }
 }
