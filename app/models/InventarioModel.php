@@ -182,7 +182,16 @@ SELECT i.id AS id_item,
        i.requiere_factor_conversion,
        i.permite_decimales,
        'item' AS tipo_registro,
-       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
+       COALESCE(
+           SUM(
+               CASE
+                   WHEN s.id_almacen = 0 THEN s.stock_actual
+                   WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual
+                   ELSE 0
+               END
+           ),
+           0
+       ) AS stock_actual,
        (
            SELECT l.lote
            FROM inventario_lotes l
@@ -251,7 +260,16 @@ SELECT p.id AS id_item,
        0 AS requiere_factor_conversion,
        0 AS permite_decimales,
        'pack' AS tipo_registro,
-       COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
+       COALESCE(
+           SUM(
+               CASE
+                   WHEN sp.id_almacen = 0 THEN sp.stock_actual
+                   WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual
+                   ELSE 0
+               END
+           ),
+           0
+       ) AS stock_actual,
        NULL AS lote_actual,
        NULL AS proximo_vencimiento,
        (
