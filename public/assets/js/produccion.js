@@ -239,6 +239,7 @@ if (!window.produccionJsInitialized) {
 
     function addIngresoRow(cantidadDefecto = '') {
         const tbody = document.querySelector('#tablaIngresosDynamic tbody');
+        // Generamos un número de lote aleatorio amigable por defecto
         const autoLote = 'L' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 90 + 10);
         const templateAlmacenes = document.getElementById('tplSelectAlmacenes').innerHTML;
 
@@ -249,9 +250,18 @@ if (!window.produccionJsInitialized) {
                     ${templateAlmacenes}
                 </select>
             </td>
-            <td class="align-middle"><input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control form-control-sm fw-bold border-success" required value="${cantidadDefecto}"></td>
-            <td class="align-middle"><input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}"></td>
-            <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
+            <td class="align-middle">
+                <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control form-control-sm fw-bold border-success" required value="${cantidadDefecto}">
+            </td>
+            <td class="align-middle">
+                <input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}">
+            </td>
+            <td class="align-middle">
+                <input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm text-muted">
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>
+            </td>
         `;
         tbody.appendChild(tr);
     }

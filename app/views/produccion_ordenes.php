@@ -255,8 +255,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <tr>
                                             <th>Almacén Destino (A dónde entra)</th>
                                             <th style="width: 150px;">Cant. Ingresada</th>
-                                            <th>Lote Final Asignado</th>
-                                            <th style="width: 50px;"></th>
+                                            <th>Lote (Opcional)</th>
+                                            <th style="width: 140px;">Fecha Venc.</th> <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody>

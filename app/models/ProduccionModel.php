@@ -532,10 +532,11 @@ class ProduccionModel extends Modelo
             $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
             $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
 
+            // ACTUALIZADO: Añadidos los campos lote y fecha_vencimiento
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
-                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
+                                            (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by)
                                          VALUES
-                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+                                            (:id_orden_produccion, :id_item, :id_almacen, :lote, :fecha_vencimiento, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
             $idItemUnidadTerminado = $this->obtenerUnidadPorDefecto((int) $orden['id_producto']);
 
@@ -544,9 +545,12 @@ class ProduccionModel extends Modelo
                 if ($cantidadIngresada <= 0) continue; 
 
                 $idAlmacenDestino = (int) ($ingreso['id_almacen'] ?? 0);
-                $idLote = !empty($ingreso['id_lote']) ? (int)$ingreso['id_lote'] : null;
                 $lote = trim((string) ($ingreso['lote'] ?? ''));
                 $fechaVencimiento = trim((string) ($ingreso['fecha_vencimiento'] ?? ''));
+
+                // Forzamos a nulo para la BD si vienen vacíos
+                $loteDb = $lote !== '' ? $lote : null;
+                $fechaVencDb = $fechaVencimiento !== '' ? $fechaVencimiento : null;
 
                 if ($controlaStockProd && $idAlmacenDestino <= 0) {
                     throw new RuntimeException("El producto fabricado controla stock. Debe seleccionar un almacén de destino.");
@@ -556,7 +560,8 @@ class ProduccionModel extends Modelo
                     'id_orden_produccion' => $idOrden,
                     'id_item' => (int) $orden['id_producto'],
                     'id_almacen' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
-                    'id_lote' => $idLote,
+                    'lote' => $loteDb, // ACTUALIZADO
+                    'fecha_vencimiento' => $fechaVencDb, // NUEVO
                     'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
                     'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
                     'created_by' => $userId,
@@ -574,7 +579,7 @@ class ProduccionModel extends Modelo
                         'cantidad' => $cantidadIngresada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
                         'lote' => $lote,
-                        'fecha_vencimiento' => $fechaVencimiento, // Preparado por si en el futuro lo mandas
+                        'fecha_vencimiento' => $fechaVencimiento, // NUEVO: Pasamos la fecha al inventario
                         'costo_unitario' => $costoUnitarioIngreso,
                         'created_by' => $userId
                     ]);

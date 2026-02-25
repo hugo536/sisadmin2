@@ -250,17 +250,21 @@ class ProduccionController extends Controlador
                     $ingIdsAlmacen = $_POST['ingreso_id_almacen'] ?? [];
                     $ingCantidades = $_POST['ingreso_cantidad'] ?? [];
                     $ingIdsLote = $_POST['ingreso_id_lote'] ?? [];
+                    $ingFechasVencimiento = $_POST['ingresos_fecha_vencimiento'] ?? []; // <--- NUEVO CAMPO CAPTURADO
 
                     foreach ((array) $ingIdsAlmacen as $idx => $idAlmacen) {
                         if (empty($idAlmacen)) continue;
                         $cantidad = $this->parseDecimal($ingCantidades[$idx] ?? 0);
                         if ($cantidad > 0) {
                             $loteTexto = trim((string) ($ingIdsLote[$idx] ?? ''));
+                            $fechaVencTexto = trim((string) ($ingFechasVencimiento[$idx] ?? '')); // <--- NUEVO
+
                             $ingresos[] = [
                                 'id_almacen' => (int) $idAlmacen,
                                 'cantidad' => $cantidad,
                                 'id_lote' => ctype_digit($loteTexto) ? (int) $loteTexto : null,
                                 'lote' => $loteTexto,
+                                'fecha_vencimiento' => $fechaVencTexto // <--- NUEVO
                             ];
                         }
                     }
