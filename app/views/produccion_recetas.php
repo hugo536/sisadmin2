@@ -90,13 +90,14 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                                             <i class="bi bi-journal-plus me-1"></i>Agregar receta
                                         </button>
                                     <?php else: ?>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="accion" value="nueva_version">
-                                            <input type="hidden" name="id_receta_base" value="<?php echo (int) $receta['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Crear nueva versión">
-                                                <i class="bi bi-files me-1"></i>Nueva Versión
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary js-nueva-version"
+                                                data-id-receta="<?php echo (int) $receta['id']; ?>"
+                                                data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                title="Editar y crear nueva versión">
+                                            <i class="bi bi-files me-1"></i>Nueva Versión
+                                        </button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -115,12 +116,13 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nueva receta</h5>
+                <h5 class="modal-title fw-bold" id="modalCrearRecetaTitle"><i class="bi bi-plus-circle me-2"></i>Nueva receta</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4 bg-light">
                 <form method="post" id="formCrearReceta">
                     <input type="hidden" name="accion" value="crear_receta">
+                    <input type="hidden" name="id_receta_base" id="newIdRecetaBase" value="0">
 
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
@@ -158,6 +160,13 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                                 <div class="col-md-9 form-floating">
                                     <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
                                     <label for="newDescripcion">Descripción / Observaciones</label>
+                                </div>
+                                <div class="col-md-6" id="contenedorVersionesPrevias" style="display:none;">
+                                    <label for="newVersionBase" class="form-label small text-muted fw-bold mb-1">Versiones anteriores</label>
+                                    <select class="form-select" id="newVersionBase">
+                                        <option value="">Seleccione versión...</option>
+                                    </select>
+                                    <small class="text-muted">Seleccione una versión para cargar sus datos en el formulario.</small>
                                 </div>
                             </div>
                         </div>

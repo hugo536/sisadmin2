@@ -63,6 +63,25 @@ function initFormularioRecetas() {
     const templateParametro = document.getElementById('parametroTemplate');
     const emptyParametros = document.getElementById('emptyParametros');
 
+    const limpiarFormularioReceta = () => {
+        const form = document.getElementById('formCrearReceta');
+        if (form) form.reset();
+
+        listaInsumos.innerHTML = '';
+        contenedorParametros.innerHTML = '';
+        if (emptyParametros) emptyParametros.style.display = 'block';
+
+        const resumen = document.getElementById('bomResumen');
+        if (resumen) resumen.textContent = '0 insumos agregados.';
+        if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
+
+        const inputCodigo = document.getElementById('newCodigo');
+        if (inputCodigo) inputCodigo.removeAttribute('readonly');
+
+        const inputIdRecetaBase = document.getElementById('newIdRecetaBase');
+        if (inputIdRecetaBase) inputIdRecetaBase.value = '0';
+    };
+
     // =========================================================================
     // 1. GESTIÓN DE PARÁMETROS DINÁMICOS
     // =========================================================================
@@ -255,6 +274,102 @@ function initFormularioRecetas() {
     if (inputProducto) {
         inputProducto.addEventListener('change', sincronizarOpcionesInsumo);
     }
+
+    const crearFilaParametro = (data = null) => {
+        if (!templateParametro || !contenedorParametros) return;
+        const fragment = templateParametro.content.cloneNode(true);
+        const row = fragment.querySelector('.parametro-row');
+        if (!row) return;
+
+        const selectParametro = row.querySelector('select[name="parametro_id[]"]');
+        const inputValor = row.querySelector('input[name="parametro_valor[]"]');
+
+        if (selectParametro && data && data.id_parametro) {
+            selectParametro.value = String(data.id_parametro);
+        }
+        if (inputValor && data && data.valor_objetivo !== undefined) {
+            inputValor.value = parseNumero(data.valor_objetivo).toFixed(4);
+        }
+
+        contenedorParametros.appendChild(fragment);
+        if (emptyParametros) {
+            emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
+        }
+    };
+
+    const crearFilaInsumoConData = (detalle = null) => {
+        crearFilaInsumo();
+        if (!detalle) return;
+
+        const rows = listaInsumos.querySelectorAll('.detalle-row');
+        const row = rows[rows.length - 1];
+        if (!row) return;
+
+        const select = row.querySelector('.select-insumo');
+        const inputEtapa = row.querySelector('.input-etapa-hidden');
+        const inputCantidad = row.querySelector('.input-cantidad');
+        const inputMerma = row.querySelector('.input-merma');
+        const inputCostoUnitario = row.querySelector('.input-costo-unitario');
+
+        if (select && detalle.id_insumo) {
+            const tom = instanciasTomSelect.get(select);
+            if (tom) {
+                tom.setValue(String(detalle.id_insumo), true);
+            } else {
+                select.value = String(detalle.id_insumo);
+            }
+        }
+        if (inputEtapa) inputEtapa.value = String(detalle.etapa || 'General');
+        if (inputCantidad) inputCantidad.value = parseNumero(detalle.cantidad_por_unidad).toFixed(4);
+        if (inputMerma) inputMerma.value = parseNumero(detalle.merma_porcentaje).toFixed(4);
+        if (inputCostoUnitario) inputCostoUnitario.value = parseNumero(detalle.costo_unitario).toFixed(4);
+
+        calcularResumenYCostos();
+    };
+
+    window.produccionRecetaFormAPI = {
+        limpiarFormularioReceta,
+        setCabecera(data) {
+            const inputCodigo = document.getElementById('newCodigo');
+            const inputVersion = document.getElementById('newVersion');
+            const inputProducto = document.getElementById('newProducto');
+            const inputDescripcion = document.getElementById('newDescripcion');
+            const inputRendimiento = document.getElementById('newRendimientoBase');
+            const inputUnidad = document.getElementById('newUnidadRendimiento');
+
+            if (inputCodigo) {
+                inputCodigo.value = String(data.codigo || '');
+                inputCodigo.setAttribute('readonly', 'readonly');
+            }
+            if (inputVersion) inputVersion.value = String(data.version || 1);
+            if (inputProducto) inputProducto.value = String(data.id_producto || '');
+            if (inputDescripcion) inputDescripcion.value = String(data.descripcion || '');
+            if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base).toFixed(4);
+            if (inputUnidad) inputUnidad.value = String(data.unidad_rendimiento || '');
+
+            sincronizarOpcionesInsumo();
+        },
+        setIdRecetaBase(idReceta) {
+            const inputIdRecetaBase = document.getElementById('newIdRecetaBase');
+            if (inputIdRecetaBase) inputIdRecetaBase.value = String(idReceta || 0);
+        },
+        cargarDetalles(detalles) {
+            listaInsumos.innerHTML = '';
+            (Array.isArray(detalles) ? detalles : []).forEach((detalle) => {
+                crearFilaInsumoConData(detalle);
+            });
+            calcularResumenYCostos();
+        },
+        cargarParametros(parametros) {
+            contenedorParametros.innerHTML = '';
+            (Array.isArray(parametros) ? parametros : []).forEach((parametro) => {
+                crearFilaParametro(parametro);
+            });
+            if (emptyParametros) {
+                emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
+            }
+        },
+    };
 }
 
 function initAccionesRecetaPendiente() {
@@ -263,32 +378,75 @@ function initAccionesRecetaPendiente() {
 
     const form = document.getElementById('formCrearReceta');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const selectVersionBase = document.getElementById('newVersionBase');
+    const contenedorVersionesPrevias = document.getElementById('contenedorVersionesPrevias');
+    const modalTitle = document.getElementById('modalCrearRecetaTitle');
+
+    const postAccion = async (accion, data = {}) => {
+        const body = new URLSearchParams();
+        body.append('accion', accion);
+        if (data && typeof data === 'object') {
+            Object.keys(data).forEach((k) => {
+                const v = data[k];
+                if (v === undefined || v === null) return;
+                body.append(k, String(v));
+            });
+        }
+
+        const resp = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body.toString(),
+        });
+
+        const raw = await resp.text();
+        let json;
+        try {
+            json = JSON.parse(raw);
+        } catch (e) {
+            throw new Error('Respuesta inválida del servidor. Revise sesión/permisos y vuelva a intentar.');
+        }
+
+        if (!json || json.success !== true) {
+            throw new Error((json && json.message) || 'No se pudo completar la operación.');
+        }
+        return json.data;
+    };
+
+    const cargarRecetaEnFormulario = async (idReceta) => {
+        const api = window.produccionRecetaFormAPI;
+        if (!api) return;
+
+        const dataReceta = await postAccion('obtener_receta_version_ajax', { id_receta: idReceta });
+        if (!dataReceta || typeof dataReceta !== 'object') {
+            throw new Error('No se pudo cargar la receta seleccionada.');
+        }
+
+        api.setCabecera(dataReceta);
+        api.setIdRecetaBase(idReceta);
+        api.cargarDetalles(dataReceta.detalles || []);
+        api.cargarParametros(dataReceta.parametros || []);
+    };
 
     // Limpiar el formulario y las filas dinámicas al cerrar el modal
     modalEl.addEventListener('hidden.bs.modal', function () {
-        if (form) form.reset();
-        
-        // Limpiar Insumos
-        const contenedorInsumos = document.getElementById('listaInsumosReceta');
-        if (contenedorInsumos) contenedorInsumos.innerHTML = '';
-        
-        // Limpiar Parámetros
-        const paramCont = document.getElementById('contenedorParametros');
-        if (paramCont) paramCont.innerHTML = '';
-        
-        const emptyParametros = document.getElementById('emptyParametros');
-        if (emptyParametros) emptyParametros.style.display = 'block';
-
-        // Resetear Totales
-        const resumen = document.getElementById('bomResumen');
-        if (resumen) resumen.textContent = '0 insumos agregados.';
-        const costoTotalEl = document.getElementById('costoTotalCalculado');
-        if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
-
-        const inputCodigo = document.getElementById('newCodigo');
-        if (inputCodigo) {
-            inputCodigo.removeAttribute('readonly');
+        const api = window.produccionRecetaFormAPI;
+        if (api) {
+            api.limpiarFormularioReceta();
+        } else if (form) {
+            form.reset();
         }
+
+        if (selectVersionBase) {
+            selectVersionBase.innerHTML = '<option value="">Seleccione versión...</option>';
+            selectVersionBase.value = '';
+        }
+
+        if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = 'none';
+        if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva receta';
     });
 
     // Capturar clics en la tabla para "Agregar receta"
@@ -317,6 +475,52 @@ function initAccionesRecetaPendiente() {
         if (inputUnidad) inputUnidad.value = 'UND';
 
         modal.show();
+    });
+
+    document.addEventListener('click', async function (e) {
+        const btn = e.target.closest('.js-nueva-version');
+        if (!btn || !form) return;
+
+        const idRecetaBase = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
+        if (!idRecetaBase) return;
+
+        try {
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-files me-2"></i>Nueva versión de receta';
+            if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = '';
+
+            const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
+
+            if (selectVersionBase) {
+                selectVersionBase.innerHTML = '';
+                (Array.isArray(versiones) ? versiones : []).forEach((version) => {
+                    const option = document.createElement('option');
+                    option.value = String(version.id);
+                    option.textContent = `v.${version.version} - ${version.codigo}${Number(version.estado) === 1 ? ' (Activa)' : ''}`;
+                    selectVersionBase.appendChild(option);
+                });
+
+                if (selectVersionBase.options.length > 0) {
+                    selectVersionBase.value = selectVersionBase.options[0].value;
+                }
+            }
+
+            const idVersionInicial = selectVersionBase?.value ? parseInt(selectVersionBase.value, 10) : idRecetaBase;
+            await cargarRecetaEnFormulario(idVersionInicial);
+            modal.show();
+        } catch (error) {
+            alert(error.message || 'No se pudo cargar la receta para versionar.');
+        }
+    });
+
+    selectVersionBase?.addEventListener('change', async function () {
+        const idReceta = parseInt(this.value || '0', 10);
+        if (!idReceta) return;
+
+        try {
+            await cargarRecetaEnFormulario(idReceta);
+        } catch (error) {
+            alert(error.message || 'No se pudo cargar la versión seleccionada.');
+        }
     });
 }
 
