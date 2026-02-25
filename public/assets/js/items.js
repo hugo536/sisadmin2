@@ -499,6 +499,7 @@
         const autoIdentidadInput = document.getElementById(config.autoIdentidadId);
         const autoIdentidadHelp = document.getElementById(config.autoIdentidadHelpId);
         const autoIdentityHint = document.getElementById(config.autoIdentityHintId);
+        const aplicarPresetsDetallado = config.aplicarPresetsDetallado !== false;
 
         const apply = () => {
             const value = tipo.value;
@@ -541,7 +542,7 @@
                 requiereLote.checked = true;
             }
 
-            if (isItemDetallado) {
+            if (isItemDetallado && aplicarPresetsDetallado) {
                 controlaStock.checked = true;
                 requiereLote.checked = true;
                 requiereVencimiento.checked = true;
@@ -651,7 +652,8 @@
             autoIdentidadWrapId: 'newAutoIdentidadWrap',
             autoIdentidadId: 'newAutoIdentidad',
             autoIdentidadHelpId: 'newAutoIdentidadHelp',
-            autoIdentityHintId: 'newAutoIdentityHint'
+            autoIdentityHintId: 'newAutoIdentityHint',
+            aplicarPresetsDetallado: true
         };
 
         const skuConfig = {
@@ -728,7 +730,8 @@
             autoIdentidadWrapId: 'editAutoIdentidadWrap',
             autoIdentidadId: 'editAutoIdentidad',
             autoIdentidadHelpId: 'editAutoIdentidadHelp',
-            autoIdentityHintId: 'editAutoIdentityHint'
+            autoIdentityHintId: 'editAutoIdentityHint',
+            aplicarPresetsDetallado: false
         };
 
         const skuConfig = {
