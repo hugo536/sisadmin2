@@ -49,10 +49,6 @@ class ProduccionModel extends Modelo
                 INNER JOIN items p ON p.id = r.id_producto
                 LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
-                       p.nombre AS producto_nombre
-                FROM produccion_ordenes o
-                INNER JOIN produccion_recetas r ON r.id = o.id_receta
-                INNER JOIN items p ON p.id = r.id_producto
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
@@ -438,22 +434,20 @@ class ProduccionModel extends Modelo
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
         if ($codigo === '' || $idReceta <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
-        $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
-        $observaciones = trim((string) ($payload['observaciones'] ?? ''));
-
-        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, cantidad_planificada, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
+            'id_almacen_origen' => $idAlmacenOrigen,
+            'id_almacen_destino' => $idAlmacenDestino,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'created_by' => $userId,
             'updated_by' => $userId,
