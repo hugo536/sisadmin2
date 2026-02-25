@@ -5,6 +5,8 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class ProduccionModel extends Modelo
 {
+    private ?bool $produccionOrdenesTieneAlmacenOrigen = null;
+
     public function listarRecetas(): array
     {
         // Se quitaron las columnas fijas de parámetros (brix, ph, etc.)
@@ -38,22 +40,50 @@ class ProduccionModel extends Modelo
 
     public function listarOrdenes(): array
     {
+        $usaAlmacenOrigen = $this->tablaTieneColumna('produccion_ordenes', 'id_almacen_origen');
+
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre,
-                       COALESCE(ao.nombre, ad.nombre) AS almacen_origen_nombre,
+                       ' . ($usaAlmacenOrigen ? 'COALESCE(ao.nombre, ad.nombre)' : 'ad.nombre') . ' AS almacen_origen_nombre,
                        ad.nombre AS almacen_destino_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
-                LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen
+                ' . ($usaAlmacenOrigen ? 'LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen' : '') . '
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function tablaTieneColumna(string $tabla, string $columna): bool
+    {
+        if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen' && $this->produccionOrdenesTieneAlmacenOrigen !== null) {
+            return $this->produccionOrdenesTieneAlmacenOrigen;
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :tabla
+              AND COLUMN_NAME = :columna
+            LIMIT 1');
+        $stmt->execute([
+            'tabla' => $tabla,
+            'columna' => $columna,
+        ]);
+
+        $existe = (bool) $stmt->fetchColumn();
+
+        if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen') {
+            $this->produccionOrdenesTieneAlmacenOrigen = $existe;
+        }
+
+        return $existe;
     }
 
     public function listarRecetasActivas(): array
