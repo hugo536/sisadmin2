@@ -27,115 +27,72 @@ class ComprasRecepcionModel extends Modelo
             $codigo = $this->generarCodigoRecepcion($db);
 
             // INSERT Cabecera Recepción
-            // Corregido: id_orden_compra en lugar de id_orden. Sin campo 'total'.
             $sqlRecep = 'INSERT INTO compras_recepciones (
-                            codigo,
-                            id_orden_compra,
-                            id_almacen,
-                            fecha_recepcion,
-                            created_by,
-                            updated_by,
-                            created_at,
-                            updated_at
+                            codigo, id_orden_compra, id_almacen, fecha_recepcion,
+                            created_by, updated_by, created_at, updated_at
                           ) VALUES (
-                            :codigo,
-                            :id_orden,
-                            :id_almacen,
-                            NOW(),
-                            :created_by,
-                            :updated_by,
-                            NOW(),
-                            NOW()
+                            :codigo, :id_orden, :id_almacen, NOW(),
+                            :created_by, :updated_by, NOW(), NOW()
                           )';
-
-            $stmtRecep = $db->prepare($sqlRecep);
-            $stmtRecep->execute([
+            $db->prepare($sqlRecep)->execute([
                 'codigo' => $codigo,
                 'id_orden' => $idOrden,
                 'id_almacen' => $idAlmacen,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
-
             $idRecepcion = (int) $db->lastInsertId();
 
-            // INSERT Detalle Recepción
-            // Corregido: nombres de columnas (cantidad_recibida, costo_unitario_real) y sin subtotal.
+            // PREPARAR SENTENCIAS
+            // 1. Detalle de Recepción
             $sqlDet = 'INSERT INTO compras_recepciones_detalle (
-                        id_recepcion,
-                        id_item,
-                        id_item_unidad,
-                        cantidad_recibida,
-                        costo_unitario_real,
-                        lote,
-                        fecha_vencimiento,
-                        created_by,
-                        updated_by,
-                        created_at,
-                        updated_at
+                        id_recepcion, id_item, id_item_unidad, cantidad_recibida,
+                        costo_unitario_real, lote, fecha_vencimiento,
+                        created_by, updated_by, created_at, updated_at
                        ) VALUES (
-                        :id_recepcion,
-                        :id_item,
-                        :id_item_unidad,
-                        :cantidad,
-                        :costo_unitario,
-                        :lote,
-                        :fecha_vencimiento,
-                        :created_by,
-                        :updated_by,
-                        NOW(),
-                        NOW()
+                        :id_recepcion, :id_item, :id_item_unidad, :cantidad_base,
+                        :costo_unitario, :lote, :fecha_vencimiento,
+                        :created_by, :updated_by, NOW(), NOW()
                        )';
             $stmtDet = $db->prepare($sqlDet);
 
-            // INSERT Movimiento Inventario
+            // 2. Movimiento de Inventario (Guardamos id_item_unidad y cantidad base)
             $sqlMov = 'INSERT INTO inventario_movimientos (
-                            tipo_movimiento,
-                            id_item,
-                            id_item_unidad,
-                            id_almacen_origen,
-                            id_almacen_destino,
-                            cantidad,
-                            referencia,
-                            created_by
+                        tipo_movimiento, id_item, id_item_unidad,
+                        id_almacen_origen, id_almacen_destino, cantidad, referencia, created_by
                        ) VALUES (
-                            :tipo_movimiento,
-                            :id_item,
-                            :id_item_unidad,
-                            :id_almacen_origen,
-                            :id_almacen_destino,
-                            :cantidad,
-                            :referencia,
-                            :created_by
+                        :tipo_movimiento, :id_item, :id_item_unidad,
+                        :id_almacen_origen, :id_almacen_destino, :cantidad_base, :referencia, :created_by
                        )';
             $stmtMov = $db->prepare($sqlMov);
 
-            // UPDATE Orden de Compra Detalle (Para actualizar lo recibido)
+            // 3. Actualizar Orden de Compra Detalle
             $sqlUpdateOrdenDet = 'UPDATE compras_ordenes_detalle 
-                                  SET cantidad_recibida = cantidad_recibida + :cantidad 
+                                  SET cantidad_recibida = cantidad_recibida + :cantidad_unidad 
                                   WHERE id_orden = :id_orden AND id_item = :id_item
                                     AND ((:id_item_unidad_null IS NULL AND id_item_unidad IS NULL) OR id_item_unidad = :id_item_unidad_value)';
             $stmtUpdateOrdenDet = $db->prepare($sqlUpdateOrdenDet);
 
-
+            // PROCESAR CADA LÍNEA
             foreach ($detalle as $linea) {
-                // Mapeo de datos (asumiendo que $linea viene con los datos correctos del frontend o de la orden)
-                // Nota: Aquí se asume que recibimos todo lo de la orden.
-                // Si la recepción es parcial, la lógica del frontend debe enviar 'cantidad_recibir'
-                $cantidad = (float) $linea['cantidad']; 
-                $costo = (float) $linea['costo_unitario'];
+                $idItem = (int) $linea['id_item'];
+                $idItemUnidad = !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null;
                 
-                // Campos opcionales
+                // Separación estricta de las cantidades para evitar corrupción de kardex
+                $cantidadUnidad = (float) $linea['cantidad_unidad']; // Ej: 2 (Cajas)
+                $cantidadBase = (float) $linea['cantidad_base'];     // Ej: 10400 (Tapas)
+                $costoUnitario = (float) $linea['costo_unitario'];
+                
                 $lote = isset($linea['lote']) ? $linea['lote'] : null;
                 $fechaVencimiento = isset($linea['fecha_vencimiento']) ? $linea['fecha_vencimiento'] : null;
 
                 // 1. Guardar detalle de recepción
                 $stmtDet->execute([
                     'id_recepcion' => $idRecepcion,
-                    'id_item' => (int) $linea['id_item'],
-                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
-                    'cantidad' => $cantidad,
-                    'costo_unitario' => $costo,
+                    'id_item' => $idItem,
+                    'id_item_unidad' => $idItemUnidad,
+                    'cantidad_base' => $cantidadBase,
+                    'costo_unitario' => $costoUnitario,
                     'lote' => $lote,
                     'fecha_vencimiento' => $fechaVencimiento,
                     'created_by' => $userId,
@@ -143,59 +100,44 @@ class ComprasRecepcionModel extends Modelo
                 ]);
 
                 // 2. Generar Movimiento (Kardex)
-                $unidadNombre = trim((string) ($linea['unidad_nombre'] ?? ''));
-                if ($unidadNombre === '') {
-                    $unidadNombre = trim((string) ($linea['unidad_base'] ?? 'UND'));
-                }
-
                 $factorConversion = (float) ($linea['factor_conversion_aplicado'] ?? 1);
-                if ($factorConversion <= 0) {
-                    $factorConversion = 1;
-                }
+                $unidadNombre = trim((string) ($linea['unidad_nombre'] ?? 'UND'));
+                $unidadBaseTexto = trim((string) ($linea['unidad_base'] ?? 'UND'));
 
-                $cantidadCompra = (float) ($linea['cantidad_conversion'] ?? $cantidad);
-                if ($cantidadCompra <= 0) {
-                    $cantidadCompra = $cantidad;
+                $referencia = 'Recepción ' . $codigo . ' - OC ' . (string) $orden['codigo'];
+                if ($factorConversion > 1) {
+                    $referencia .= ' | Conv: ' . $this->normalizarNumero($cantidadUnidad) . ' ' . $unidadNombre
+                                 . ' x ' . $this->normalizarNumero($factorConversion)
+                                 . ' = ' . $this->normalizarNumero($cantidadBase) . ' ' . $unidadBaseTexto;
+                } else {
+                    $referencia .= ' | ' . $this->normalizarNumero($cantidadBase) . ' ' . $unidadBaseTexto;
                 }
-
-                $unidadBase = trim((string) ($linea['unidad_base'] ?? 'UND'));
-                if ($unidadBase === '') {
-                    $unidadBase = 'UND';
-                }
-
-                $referencia = 'Recepción ' . $codigo . ' - OC ' . (string) $orden['codigo']
-                    . ' | Conv: ' . $this->normalizarNumero($cantidadCompra) . ' ' . $unidadNombre
-                    . ' x ' . $this->normalizarNumero($factorConversion)
-                    . ' = ' . $this->normalizarNumero($cantidad) . ' ' . $unidadBase;
 
                 $stmtMov->execute([
-                    'tipo_movimiento' => 'COM',
-                    'id_item' => (int) $linea['id_item'],
-                    'id_item_unidad' => !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null,
-                    'id_almacen_origen' => $idAlmacen,
-                    'id_almacen_destino' => null,
-                    'cantidad' => $cantidad,
+                    'tipo_movimiento' => 'COM', // Compra
+                    'id_item' => $idItem,
+                    'id_item_unidad' => $idItemUnidad,
+                    'id_almacen_origen' => null,
+                    'id_almacen_destino' => $idAlmacen,
+                    'cantidad_base' => $cantidadBase, // El kardex siempre suma manzanas con manzanas
                     'referencia' => $referencia,
                     'created_by' => $userId,
                 ]);
 
-                // 3. Actualizar Stock Físico
-                $this->actualizarStock($db, (int) $linea['id_item'], $idAlmacen, $cantidad);
+                // 3. Actualizar Stock Físico Global
+                $this->actualizarStock($db, $idItem, $idAlmacen, $cantidadBase);
 
                 // 4. Actualizar acumulado recibido en la Orden de Compra
-                $idItemUnidad = !empty($linea['id_item_unidad']) ? (int) $linea['id_item_unidad'] : null;
-
                 $stmtUpdateOrdenDet->execute([
-                    'cantidad' => $cantidad,
+                    'cantidad_unidad' => $cantidadUnidad,
                     'id_orden' => $idOrden,
-                    'id_item' => (int) $linea['id_item'],
+                    'id_item' => $idItem,
                     'id_item_unidad_null' => $idItemUnidad,
                     'id_item_unidad_value' => $idItemUnidad,
                 ]);
             }
 
-            // Cambiar estado de Orden a 3 (Recepcionado / Cerrado)
-            // Nota: En un sistema más complejo, validarías si ya se recibió todo antes de cerrar la orden.
+            // Cambiar estado de Orden a 3 (Recepcionado)
             $db->prepare('UPDATE compras_ordenes SET estado = 3, updated_by = :user, updated_at = NOW() WHERE id = :id_orden AND deleted_at IS NULL')
                 ->execute(['user' => $userId, 'id_orden' => $idOrden]);
 
@@ -211,90 +153,65 @@ class ComprasRecepcionModel extends Modelo
 
     public function listarAlmacenesActivos(): array
     {
-        $sql = 'SELECT id, nombre
-                FROM almacenes
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                ORDER BY nombre ASC';
-
+        $sql = 'SELECT id, nombre FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function obtenerOrdenAprobada(PDO $db, int $idOrden): array
     {
-        $sql = 'SELECT id, codigo, id_proveedor, total, estado
-                FROM compras_ordenes
-                WHERE id = :id
-                  AND estado = 2
-                  AND deleted_at IS NULL
-                LIMIT 1';
+        $sql = 'SELECT id, codigo, id_proveedor, total, estado FROM compras_ordenes WHERE id = :id AND estado = 2 AND deleted_at IS NULL LIMIT 1';
         $stmt = $db->prepare($sql);
         $stmt->execute(['id' => $idOrden]);
-
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function proveedorActivo(PDO $db, int $idProveedor): bool
     {
-        $sql = 'SELECT id
-                FROM terceros
-                WHERE id = :id
-                  AND es_proveedor = 1
-                  AND estado = 1
-                  AND deleted_at IS NULL
-                LIMIT 1';
-
+        $sql = 'SELECT id FROM terceros WHERE id = :id AND es_proveedor = 1 AND estado = 1 AND deleted_at IS NULL LIMIT 1';
         $stmt = $db->prepare($sql);
         $stmt->execute(['id' => $idProveedor]);
-
         return (bool) $stmt->fetchColumn();
     }
 
     private function obtenerDetalleOrden(PDO $db, int $idOrden): array
     {
-        // Se corrige para traer cantidad_solicitada como 'cantidad' y costo_unitario_pactado como 'costo_unitario'
-        // para mantener compatibilidad con el loop de inserción
+        // Optimizamos la consulta para devolver explícitamente la cantidad en unidad y la base
         $sql = 'SELECT d.id_item,
                        d.id_item_unidad,
-                       COALESCE(factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
-                       COALESCE(cantidad_conversion, cantidad_solicitada) AS cantidad_conversion,
-                       COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad,
+                       COALESCE(d.factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
+                       d.cantidad_solicitada AS cantidad_unidad,
+                       COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) AS cantidad_base,
                        COALESCE(d.unidad_nombre, i.unidad_base, "UND") AS unidad_nombre,
                        COALESCE(i.unidad_base, "UND") AS unidad_base,
-                       costo_unitario_pactado as costo_unitario
+                       d.costo_unitario_pactado as costo_unitario
                 FROM compras_ordenes_detalle d
                 INNER JOIN items i ON i.id = d.id_item
-                WHERE id_orden = :id_orden
+                WHERE d.id_orden = :id_orden
                   AND d.deleted_at IS NULL
                 ORDER BY d.id ASC';
         $stmt = $db->prepare($sql);
         $stmt->execute(['id_orden' => $idOrden]);
-
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function normalizarNumero(float $valor): string
     {
-        if (abs($valor) < 0.0000001) {
-            return '0';
-        }
-
+        if (abs($valor) < 0.0000001) return '0';
         $texto = rtrim(rtrim(number_format($valor, 4, '.', ''), '0'), '.');
         return $texto === '' ? '0' : $texto;
     }
 
-    private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
+    private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidadBase): void
     {
         $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, updated_at)
                 VALUES (:id_item, :id_almacen, :cantidad, NOW())
                 ON DUPLICATE KEY UPDATE
                     stock_actual = stock_actual + VALUES(stock_actual),
                     updated_at = NOW()';
-
         $db->prepare($sql)->execute([
             'id_item' => $idItem,
             'id_almacen' => $idAlmacen,
-            'cantidad' => $cantidad,
+            'cantidad' => $cantidadBase,
         ]);
     }
 

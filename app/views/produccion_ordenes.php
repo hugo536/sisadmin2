@@ -1,6 +1,6 @@
 <?php
 $ordenes = $ordenes ?? [];
-$recetasActivas = $recetasActivas ?? [];
+$recetasActivas = $recetas_activas ?? []; // <-- ¡Cambiado para que coincida con el controlador!
 $almacenes = $almacenes ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
@@ -26,7 +26,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <div class="col-12 col-md-5">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="opSearch" placeholder="Buscar OP, producto, almacén...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="opSearch" placeholder="Buscar OP, producto...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
@@ -50,7 +50,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         <tr>
                             <th class="ps-4">Código OP</th>
                             <th>Producto / Receta</th>
-                            <th>Ruta (Almacenes)</th>
                             <th>Planificado / Real</th>
                             <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
@@ -59,7 +58,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <tbody>
                         <?php foreach ($ordenes as $orden): ?>
                             <?php $estado = (int) ($orden['estado'] ?? 0); ?>
-                            <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre'] . ' ' . $orden['almacen_origen_nombre']); ?>" 
+                            <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre']); ?>" 
                                 data-estado="<?php echo $estado; ?>">
                                 
                                 <td class="ps-4 fw-bold text-primary"><?php echo e((string) $orden['codigo']); ?></td>
@@ -67,13 +66,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e((string) $orden['producto_nombre']); ?></div>
                                     <div class="small text-muted"><i class="bi bi-receipt me-1"></i><?php echo e((string) $orden['receta_codigo']); ?></div>
-                                </td>
-                                
-                                <td>
-                                    <div class="small">
-                                        <div class="text-muted"><i class="bi bi-box-arrow-right text-danger me-1"></i><?php echo e((string) $orden['almacen_origen_nombre']); ?></div>
-                                        <div class="text-muted"><i class="bi bi-box-arrow-in-down text-success me-1"></i><?php echo e((string) $orden['almacen_destino_nombre']); ?></div>
-                                    </div>
                                 </td>
                                 
                                 <td>
@@ -102,6 +94,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <button class="btn btn-sm btn-outline-success js-abrir-ejecucion"
                                                 data-id="<?php echo (int) $orden['id']; ?>"
                                                 data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                data-receta="<?php echo (int) $orden['id_receta']; ?>"
                                                 data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                 title="Ejecutar Producción">
                                             <i class="bi bi-play-fill"></i> Ejecutar
@@ -134,7 +127,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nueva Orden de Producción</h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Planificar Producción</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="post" class="modal-body p-4 bg-light">
@@ -156,26 +149,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <label for="newRecetaOP">Receta / Producto</label>
-                            </div>
-                            
-                            <div class="col-md-6 form-floating mt-3">
-                                <select name="id_almacen_origen" id="newAlmacenOrigen" required class="form-select">
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($almacenes as $a): ?>
-                                        <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="newAlmacenOrigen">Almacén Origen (Insumos)</label>
-                            </div>
-                            <div class="col-md-6 form-floating mt-3">
-                                <select name="id_almacen_destino" id="newAlmacenDestino" required class="form-select">
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($almacenes as $a): ?>
-                                        <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="newAlmacenDestino">Almacén Destino (Producto)</label>
+                                <label for="newRecetaOP">Receta / Producto Terminado</label>
                             </div>
                             
                             <div class="col-md-4 form-floating mt-3">
@@ -192,53 +166,109 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                 <div class="d-flex justify-content-end pt-2">
                     <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar OP</button>
+                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar Borrador</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-play-fill me-2"></i>Ejecutar Producción</h5>
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción <span id="lblExecCodigo" class="badge bg-light text-dark ms-2"></span>
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" class="modal-body p-4">
+            
+            <form method="post" id="formEjecutarOrden">
                 <input type="hidden" name="accion" value="ejecutar_orden">
                 <input type="hidden" name="id_orden" id="execIdOrden">
                 
-                <div class="alert alert-info small d-flex align-items-center mb-3">
-                    <i class="bi bi-info-circle fs-4 me-2"></i>
-                    <div>
-                        Se generarán los consumos de insumos y el ingreso del producto terminado automáticamente.
+                <div class="modal-body p-0">
+                    <ul class="nav nav-tabs nav-fill bg-light pt-2 px-2 border-bottom-0" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
+                                <i class="bi bi-box-seam me-1 text-danger"></i> 1. Consumos (Materia Prima)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
+                                <i class="bi bi-box-arrow-in-down me-1 text-success"></i> 2. Ingresos (Producto Final)
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4 bg-white">
+                        <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold text-muted">Registro de Insumos Utilizados</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarConsumo">
+                                    <i class="bi bi-plus"></i> Fila Extra
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm" id="tablaConsumosDynamic">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Insumo (ID/Nombre)</th>
+                                            <th>Almacén Origen</th>
+                                            <th style="width: 120px;">Cantidad</th>
+                                            <th>Lote (Opcional)</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
+                            <div class="d-flex justify-content-between mb-2">
+                                <h6 class="fw-bold text-muted">Distribución de Lotes Finales</h6>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="btnAgregarIngreso">
+                                    <i class="bi bi-plus"></i> Agregar Destino
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm" id="tablaIngresosDynamic">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Almacén Destino</th>
+                                            <th style="width: 150px;">Cant. Ingresada</th>
+                                            <th>Lote Final Asignado</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="alert alert-info mt-3 py-2 small">
+                                <i class="bi bi-info-circle me-1"></i> La cantidad total producida será la suma de todas las filas de ingreso.
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="mb-3 form-floating">
-                    <input type="text" class="form-control bg-light" id="execCodigo" readonly>
-                    <label>Código OP</label>
-                </div>
-
-                <div class="mb-3 form-floating">
-                    <input type="number" step="0.0001" name="cantidad_producida" id="execCantidad" class="form-control border-success fw-bold" placeholder="Cant" required>
-                    <label for="execCantidad">Cantidad Real Producida</label>
-                </div>
-
-                <div class="mb-3 form-floating">
-                    <input type="text" name="lote_ingreso" id="execLote" class="form-control" placeholder="Lote" required>
-                    <label for="execLote">Lote Asignado (Nuevo Lote)</label>
-                </div>
-
-                <div class="d-flex justify-content-end pt-2">
-                    <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-4 fw-bold">Confirmar Ejecución</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 fw-bold">Guardar Ejecución</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.0"></script>
+<template id="tplSelectAlmacenes">
+    <option value="">Seleccione...</option>
+    <?php foreach ($almacenes as $a): ?>
+        <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
+    <?php endforeach; ?>
+</template>
+
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.2"></script>

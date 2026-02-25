@@ -41,14 +41,10 @@ class ProduccionModel extends Modelo
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
-                       p.nombre AS producto_nombre,
-                       ao.nombre AS almacen_origen_nombre,
-                       ad.nombre AS almacen_destino_nombre
+                       p.nombre AS producto_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
-                INNER JOIN almacenes ao ON ao.id = o.id_almacen_origen
-                INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
@@ -425,26 +421,22 @@ class ProduccionModel extends Modelo
     {
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
-        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? 0);
-        $idAlmacenDestino = (int) ($payload['id_almacen_destino'] ?? 0);
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
-        if ($codigo === '' || $idReceta <= 0 || $idAlmacenOrigen <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
+        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, cantidad_planificada, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
-            'id_almacen_origen' => $idAlmacenOrigen,
-            'id_almacen_destino' => $idAlmacenDestino,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'created_by' => $userId,
             'updated_by' => $userId,
@@ -454,10 +446,10 @@ class ProduccionModel extends Modelo
         return (int) $this->db()->lastInsertId();
     }
 
-    public function ejecutarOrden(int $idOrden, float $cantidadProducida, int $userId, string $loteIngreso = '', array $lotesConsumo = []): void
+    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId): void
     {
-        if ($idOrden <= 0 || $cantidadProducida <= 0) {
-            throw new RuntimeException('Datos inválidos para ejecutar la orden.');
+        if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
+            throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
         }
 
         $db = $this->db();
@@ -475,95 +467,109 @@ class ProduccionModel extends Modelo
                 throw new RuntimeException('No se puede ejecutar una orden anulada.');
             }
 
-            $detalle = $this->obtenerDetalleReceta((int) $orden['id_receta']);
-            if (empty($detalle)) {
-                throw new RuntimeException('La receta no tiene detalle activo.');
-            }
-
             $inventarioModel = new InventarioModel(); 
-
-            $idAlmacenOrigen = (int) $orden['id_almacen_origen'];
-            $idAlmacenDestino = (int) $orden['id_almacen_destino'];
             $costoTotalConsumo = 0.0;
 
+            // --- 1. PROCESAR CONSUMOS (Salidas) ---
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
-                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario, created_by, updated_by)
+                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
                                          VALUES
-                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
-            foreach ($detalle as $linea) {
-                $idInsumo = (int) $linea['id_insumo'];
-                $qtyBase = (float) $linea['cantidad_por_unidad'];
-                $merma = (float) $linea['merma_porcentaje'];
-                
-                $cantidadRequerida = $qtyBase * $cantidadProducida * (1 + ($merma / 100));
-                
+            foreach ($consumos as $consumo) {
+                $idInsumo = (int) $consumo['id_insumo'];
+                $idAlmacenOrigen = (int) $consumo['id_almacen'];
+                $cantidadUsada = (float) $consumo['cantidad'];
+                $idLote = !empty($consumo['id_lote']) ? (int)$consumo['id_lote'] : null;
+
+                if ($cantidadUsada <= 0) continue;
+
+                // Validamos que exista stock en ese almacén específico
                 $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
-                if ($stock < $cantidadRequerida) {
-                    throw new RuntimeException('Stock insuficiente para el ítem ID ' . $idInsumo . '. Requerido: ' . number_format($cantidadRequerida, 2));
+                if ($stock < $cantidadUsada) {
+                    throw new RuntimeException('Stock insuficiente para el insumo ID ' . $idInsumo . ' en el almacén seleccionado.');
                 }
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
-                $costoTotalConsumo += ($costoUnitario * $cantidadRequerida);
-                
-                $loteConsumo = $lotesConsumo[$idInsumo] ?? null;
+                $costoTotalConsumo += ($costoUnitario * $cantidadUsada);
 
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_lote' => null, 
-                    'cantidad' => number_format($cantidadRequerida, 4, '.', ''),
+                    'id_almacen' => $idAlmacenOrigen,
+                    'id_lote' => $idLote, 
+                    'cantidad' => number_format($cantidadUsada, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
 
+                // Descontar de inventario
                 if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
                         'id_item' => $idInsumo,
                         'id_almacen_origen' => $idAlmacenOrigen,
                         'id_almacen_destino' => null, 
-                        'cantidad' => $cantidadRequerida,
+                        'cantidad' => $cantidadUsada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
-                        'lote' => $loteConsumo,
+                        'lote' => $idLote,
                         'costo_unitario' => $costoUnitario,
                         'created_by' => $userId
                     ]);
                 }
             }
 
-            $costoUnitarioIngreso = $cantidadProducida > 0 ? ($costoTotalConsumo / $cantidadProducida) : 0;
-
-            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
-                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
-                                         VALUES
-                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+            // --- 2. PROCESAR INGRESOS (Entradas de producto terminado) ---
+            // Sumamos la cantidad total real producida para calcular el costo unitario
+            $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
             
-            $stmtIngreso->execute([
-                'id_orden_produccion' => $idOrden,
-                'id_item' => (int) $orden['id_producto'],
-                'id_lote' => null,
-                'cantidad' => number_format($cantidadProducida, 4, '.', ''),
-                'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]);
-
-            if (method_exists($inventarioModel, 'registrarMovimiento')) {
-                $inventarioModel->registrarMovimiento([
-                    'tipo_movimiento' => 'PROD', 
-                    'id_item' => (int) $orden['id_producto'],
-                    'id_almacen_origen' => null,
-                    'id_almacen_destino' => $idAlmacenDestino,
-                    'cantidad' => $cantidadProducida,
-                    'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
-                    'lote' => $loteIngreso,
-                    'costo_unitario' => $costoUnitarioIngreso,
-                    'created_by' => $userId
-                ]);
+            if ($cantidadTotalProducida <= 0) {
+                throw new RuntimeException('La cantidad total producida debe ser mayor a cero.');
             }
 
+            $costoUnitarioIngreso = $costoTotalConsumo / $cantidadTotalProducida;
+
+            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
+                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
+                                         VALUES
+                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+            
+            foreach ($ingresos as $ingreso) {
+                $idAlmacenDestino = (int) $ingreso['id_almacen'];
+                $cantidadIngresada = (float) $ingreso['cantidad'];
+                $idLote = !empty($ingreso['id_lote']) ? (int)$ingreso['id_lote'] : null;
+
+                if ($cantidadIngresada <= 0) continue;
+
+                $stmtIngreso->execute([
+                    'id_orden_produccion' => $idOrden,
+                    'id_item' => (int) $orden['id_producto'],
+                    'id_almacen' => $idAlmacenDestino,
+                    'id_lote' => $idLote,
+                    'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
+                    'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                // Ingresar a inventario
+                if (method_exists($inventarioModel, 'registrarMovimiento')) {
+                    $inventarioModel->registrarMovimiento([
+                        'tipo_movimiento' => 'PROD', 
+                        'id_item' => (int) $orden['id_producto'],
+                        'id_almacen_origen' => null,
+                        'id_almacen_destino' => $idAlmacenDestino,
+                        'cantidad' => $cantidadIngresada,
+                        'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
+                        'lote' => $idLote,
+                        'costo_unitario' => $costoUnitarioIngreso,
+                        'created_by' => $userId
+                    ]);
+                }
+            }
+
+            // --- 3. ACTUALIZAR CABECERA DE LA OP ---
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             estado = 2,
@@ -574,7 +580,7 @@ class ProduccionModel extends Modelo
                                         WHERE id = :id
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
-                'cantidad_producida' => number_format($cantidadProducida, 4, '.', ''),
+                'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
                 'updated_by' => $userId,
                 'id' => $idOrden,
             ]);
@@ -621,7 +627,7 @@ class ProduccionModel extends Modelo
 
     private function obtenerOrdenPorId(int $idOrden): array
     {
-        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.id_almacen_origen, o.id_almacen_destino, o.estado,
+        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado,
                        r.id_producto
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
