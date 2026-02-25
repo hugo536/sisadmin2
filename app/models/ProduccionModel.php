@@ -5,10 +5,6 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class ProduccionModel extends Modelo
 {
-    /** @var array<string,bool> */
-    private array $columnasTablaCache = [];
-    private ?bool $produccionOrdenesTieneAlmacenOrigen = null;
-
     public function listarRecetas(): array
     {
         $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
@@ -41,90 +37,19 @@ class ProduccionModel extends Modelo
 
     public function listarOrdenes(): array
     {
-        $columnaAlmacenOrigen = null;
-        if ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen_origen')) {
-            $columnaAlmacenOrigen = 'id_almacen_origen';
-        } elseif ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen')) {
-            $columnaAlmacenOrigen = 'id_almacen';
-        }
-
-        $columnaAlmacenDestino = null;
-        if ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen_destino')) {
-            $columnaAlmacenDestino = 'id_almacen_destino';
-        } elseif ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen')) {
-            $columnaAlmacenDestino = 'id_almacen';
-        }
-
-        $joinAlmacenOrigen = $columnaAlmacenOrigen !== null
-            ? 'LEFT JOIN almacenes ao ON ao.id = o.' . $columnaAlmacenOrigen
-            : '';
-        $joinAlmacenDestino = $columnaAlmacenDestino !== null
-            ? 'LEFT JOIN almacenes ad ON ad.id = o.' . $columnaAlmacenDestino
-            : '';
-
-        if ($columnaAlmacenOrigen !== null && $columnaAlmacenDestino !== null) {
-            $selectAlmacenOrigen = 'COALESCE(ao.nombre, ad.nombre)';
-        } elseif ($columnaAlmacenOrigen !== null) {
-            $selectAlmacenOrigen = 'ao.nombre';
-        } elseif ($columnaAlmacenDestino !== null) {
-            $selectAlmacenOrigen = 'ad.nombre';
-        } else {
-            $selectAlmacenOrigen = "''";
-        }
-
-        $selectAlmacenDestino = $columnaAlmacenDestino !== null ? 'ad.nombre' : "''";
-
+        // Limpiado de almacenes fijos. Ahora la cabecera es mucho más ligera.
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
-                       o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
+                       o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        r.codigo AS receta_codigo,
-                       p.nombre AS producto_nombre,
-                       ' . $selectAlmacenOrigen . ' AS almacen_origen_nombre,
-                       ' . $selectAlmacenDestino . ' AS almacen_destino_nombre
+                       p.nombre AS producto_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
-                ' . $joinAlmacenOrigen . '
-                ' . $joinAlmacenDestino . '
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    // --- AQUI ESTABA EL ERROR DE SINTAXIS (CORREGIDO) ---
-    private function tablaTieneColumna(string $tabla, string $columna): bool
-    {
-        $cacheKey = $tabla . '.' . $columna;
-        
-        if (array_key_exists($cacheKey, $this->columnasTablaCache)) {
-            return $this->columnasTablaCache[$cacheKey];
-        }
-
-        if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen' && $this->produccionOrdenesTieneAlmacenOrigen !== null) {
-            return $this->produccionOrdenesTieneAlmacenOrigen;
-        }
-
-        $stmt = $this->db()->prepare('SELECT 1
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = :tabla
-              AND COLUMN_NAME = :columna
-            LIMIT 1');
-        
-        $stmt->execute([
-            'tabla' => $tabla,
-            'columna' => $columna,
-        ]);
-
-        $existe = (bool) $stmt->fetchColumn();
-
-        if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen') {
-            $this->produccionOrdenesTieneAlmacenOrigen = $existe;
-        }
-
-        $this->columnasTablaCache[$cacheKey] = $existe;
-        return $existe;
     }
 
     public function listarRecetasActivas(): array
@@ -484,31 +409,23 @@ class ProduccionModel extends Modelo
     {
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
-        $idAlmacenDestino = (int) ($payload['id_almacen_destino'] ?? 0);
-        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? 0);
-        
-        if ($idAlmacenOrigen <= 0) {
-            $idAlmacenOrigen = $idAlmacenDestino;
-        }
-        
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
-        if ($codigo === '' || $idReceta <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
+        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
+        // Eliminados los almacenes de la cabecera
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, id_almacen_origen, id_almacen_destino, cantidad_planificada, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, cantidad_planificada, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :id_almacen_origen, :id_almacen_destino, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
-            'id_almacen_origen' => $idAlmacenOrigen,
-            'id_almacen_destino' => $idAlmacenDestino,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'created_by' => $userId,
             'updated_by' => $userId,
@@ -518,7 +435,7 @@ class ProduccionModel extends Modelo
         return (int) $this->db()->lastInsertId();
     }
 
-    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId): void
+    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = ''): void
     {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
@@ -540,31 +457,25 @@ class ProduccionModel extends Modelo
             }
 
             $inventarioModel = new InventarioModel(); 
-
-            $idAlmacenDestino = (int) $orden['id_almacen_destino'];
-            $idAlmacenOrigen = (int) ($orden['id_almacen_origen'] ?? 0);
-            if ($idAlmacenOrigen <= 0) {
-                $idAlmacenOrigen = $idAlmacenDestino;
-            }
             $costoTotalConsumo = 0.0;
 
-            // --- 1. PROCESAR CONSUMOS (Salidas) ---
+            // --- 1. PROCESAR CONSUMOS (Salidas Multi-Almacén) ---
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
-                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario, created_by, updated_by)
+                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
                                          VALUES
-                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
             foreach ($consumos as $consumo) {
                 $idInsumo = (int) $consumo['id_insumo'];
+                $idAlmacenOrigen = (int) $consumo['id_almacen'];
                 $cantidadUsada = (float) $consumo['cantidad'];
                 $idLote = !empty($consumo['id_lote']) ? (int)$consumo['id_lote'] : null;
 
-                if ($cantidadUsada <= 0) continue;
+                if ($cantidadUsada <= 0 || $idAlmacenOrigen <= 0) continue;
 
-                $stock = $this->obtenerStockItemAlmacen($idInsumo, $idAlmacenOrigen);
-                if ($stock < $cantidadUsada) {
-                    throw new RuntimeException('Stock insuficiente para el insumo ID ' . $idInsumo . ' en el almacén de origen de esta orden.');
-                }
+                // Nota: Eliminamos el bloqueo estricto (throw Exception) si falta stock, 
+                // permitiendo el flujo de "producción flexible" que solicitaste.
+                // El inventario quedará en negativo temporalmente si no ingresaron el producto a tiempo.
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $costoTotalConsumo += ($costoUnitario * $cantidadUsada);
@@ -572,6 +483,7 @@ class ProduccionModel extends Modelo
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
+                    'id_almacen' => $idAlmacenOrigen,
                     'id_lote' => $idLote, 
                     'cantidad' => number_format($cantidadUsada, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
@@ -579,6 +491,7 @@ class ProduccionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
+                // Descontar de inventario específico
                 if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
@@ -604,19 +517,21 @@ class ProduccionModel extends Modelo
             $costoUnitarioIngreso = $costoTotalConsumo / $cantidadTotalProducida;
 
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
-                                            (id_orden_produccion, id_item, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
+                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario_calculado, created_by, updated_by)
                                          VALUES
-                                            (:id_orden_produccion, :id_item, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
             foreach ($ingresos as $ingreso) {
+                $idAlmacenDestino = (int) $ingreso['id_almacen'];
                 $cantidadIngresada = (float) $ingreso['cantidad'];
                 $idLote = !empty($ingreso['id_lote']) ? (int)$ingreso['id_lote'] : null;
 
-                if ($cantidadIngresada <= 0) continue;
+                if ($cantidadIngresada <= 0 || $idAlmacenDestino <= 0) continue;
 
                 $stmtIngreso->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => (int) $orden['id_producto'],
+                    'id_almacen' => $idAlmacenDestino,
                     'id_lote' => $idLote,
                     'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
                     'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
@@ -624,6 +539,7 @@ class ProduccionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
+                // Ingresar a inventario específico
                 if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'PROD', 
@@ -645,12 +561,14 @@ class ProduccionModel extends Modelo
                                             estado = 2,
                                             fecha_inicio = COALESCE(fecha_inicio, NOW()),
                                             fecha_fin = NOW(),
+                                            justificacion_ajuste = :justificacion,
                                             updated_at = NOW(),
                                             updated_by = :updated_by
                                         WHERE id = :id
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
+                'justificacion' => $justificacion !== '' ? $justificacion : null,
                 'updated_by' => $userId,
                 'id' => $idOrden,
             ]);
@@ -707,8 +625,8 @@ class ProduccionModel extends Modelo
 
     private function obtenerOrdenPorId(int $idOrden): array
     {
+        // Se quitaron id_almacen_origen y destino porque ya no existen en tabla
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado,
-                       o.id_almacen_origen, o.id_almacen_destino,
                        r.id_producto
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta

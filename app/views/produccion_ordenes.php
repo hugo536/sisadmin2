@@ -1,6 +1,6 @@
 <?php
 $ordenes = $ordenes ?? [];
-$recetasActivas = $recetas_activas ?? []; // <-- ¡Cambiado para que coincida con el controlador!
+$recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
@@ -66,6 +66,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <td>
                                     <div class="fw-bold text-dark"><?php echo e((string) $orden['producto_nombre']); ?></div>
                                     <div class="small text-muted"><i class="bi bi-receipt me-1"></i><?php echo e((string) $orden['receta_codigo']); ?></div>
+                                    <?php if (!empty($orden['justificacion_ajuste'])): ?>
+                                        <div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Con ajuste de stock</div>
+                                    <?php endif; ?>
                                 </td>
                                 
                                 <td>
@@ -149,20 +152,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <label for="newRecetaOP">Receta / Producto</label>
-                            </div>
-                            
-                            <div class="col-md-12 form-floating mt-3">
-                                <select name="id_almacen_destino" id="newAlmacenDestino" required class="form-select">
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($almacenes as $a): ?>
-                                        <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <label for="newAlmacenDestino">Almacén de Producción (Consumo e Ingreso)</label>
                                 <label for="newRecetaOP">Receta / Producto Terminado</label>
                             </div>
-                            <input type="hidden" name="id_almacen_origen" id="newAlmacenOrigen" value="0">
                             
                             <div class="col-md-4 form-floating mt-3">
                                 <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control" placeholder="Cantidad">
@@ -170,7 +161,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             </div>
                             <div class="col-md-8 form-floating mt-3">
                                 <input name="observaciones" id="newObsOP" class="form-control" placeholder="Obs">
-                                <label for="newObsOP">Observaciones</label>
+                                <label for="newObsOP">Observaciones / Lote Estimado</label>
                             </div>
                         </div>
                     </div>
@@ -184,7 +175,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         </div>
     </div>
 </div>
-
 
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -215,6 +205,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </ul>
 
                     <div class="tab-content p-4 bg-white">
+                        
                         <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
                             <div class="d-flex justify-content-between mb-2">
                                 <h6 class="fw-bold text-muted">Registro de Insumos Utilizados</h6>
@@ -222,26 +213,38 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <i class="bi bi-plus"></i> Fila Extra
                                 </button>
                             </div>
+                            
                             <div class="table-responsive">
                                 <table class="table table-bordered table-sm" id="tablaConsumosDynamic">
                                     <thead class="table-light">
                                         <tr>
                                             <th>Insumo (ID/Nombre)</th>
-                                            <th>Almacén Origen</th>
-                                            <th style="width: 120px;">Cantidad</th>
+                                            <th>Almacén Origen (De donde sale)</th>
+                                            <th style="width: 140px;">Cantidad</th>
                                             <th>Lote (Opcional)</th>
                                             <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    </tbody>
+                                        </tbody>
                                 </table>
+                            </div>
+
+                            <div id="boxJustificacionFaltante" class="alert alert-warning mt-3 mb-0" style="display: none;">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3 mt-1"></i>
+                                    <div class="w-100">
+                                        <h6 class="fw-bold mb-1">¡Advertencia! Consumo Incompleto o Faltante de Stock</h6>
+                                        <p class="small mb-2">Has indicado que usarás menos material del que la receta exige, o estás forzando el stock. Por favor, justifica el motivo para poder cerrar esta orden.</p>
+                                        <input type="text" name="justificacion" id="inputJustificacionFaltante" class="form-control form-control-sm" placeholder="Ej. El camión descargó directo en planta y aún no ingresa al sistema...">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
                             <div class="d-flex justify-content-between mb-2">
-                                <h6 class="fw-bold text-muted">Distribución de Lotes Finales</h6>
+                                <h6 class="fw-bold text-muted">Distribución de Producto Final</h6>
                                 <button type="button" class="btn btn-sm btn-outline-success" id="btnAgregarIngreso">
                                     <i class="bi bi-plus"></i> Agregar Destino
                                 </button>
@@ -250,26 +253,27 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <table class="table table-bordered table-sm" id="tablaIngresosDynamic">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Almacén Destino</th>
+                                            <th>Almacén Destino (A dónde entra)</th>
                                             <th style="width: 150px;">Cant. Ingresada</th>
                                             <th>Lote Final Asignado</th>
                                             <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    </tbody>
+                                        </tbody>
                                 </table>
                             </div>
                             <div class="alert alert-info mt-3 py-2 small">
-                                <i class="bi bi-info-circle me-1"></i> La cantidad total producida será la suma de todas las filas de ingreso.
+                                <i class="bi bi-info-circle me-1"></i> La cantidad total de producción será la suma de las cantidades ingresadas aquí.
                             </div>
                         </div>
+
                     </div>
                 </div>
 
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-4 fw-bold">Guardar Ejecución</button>
+                    <button type="submit" class="btn btn-success px-4 fw-bold"><i class="bi bi-check2-circle me-2"></i>Guardar Ejecución</button>
                 </div>
             </form>
         </div>
@@ -277,10 +281,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 </div>
 
 <template id="tplSelectAlmacenes">
-    <option value="">Seleccione...</option>
     <?php foreach ($almacenes as $a): ?>
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=1.2"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.2"></script>

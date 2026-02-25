@@ -38,7 +38,6 @@ class ProduccionController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
-            $esAjaxReceta = ($accion === 'obtener_receta_ajax');
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
@@ -93,7 +92,7 @@ class ProduccionController extends Controlador
                         'rendimiento_base' => (float) ($_POST['rendimiento_base'] ?? 0),
                         'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? ''),
                         'detalles' => $detalles,
-                        'parametros' => $parametros, // Pasamos el array dinámico
+                        'parametros' => $parametros,
                     ], $userId);
 
                     $this->setFlash('success', 'Receta creada correctamente.');
@@ -163,7 +162,7 @@ class ProduccionController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
-                // --- NUEVO BLOQUE: AJAX PARA OBTENER RECETA Y STOCK ---
+                // --- BLOQUE AJAX: OBTENER RECETA Y ALMACENES CON STOCK ---
                 if ($accion === 'obtener_receta_ajax') {
                     header('Content-Type: application/json; charset=utf-8');
                     
@@ -178,37 +177,45 @@ class ProduccionController extends Controlador
                     $detalles = $this->produccionModel->obtenerDetalleReceta($idReceta);
                     $resultado = [];
 
+                    $db = $this->produccionModel->db();
+                    // Consulta para buscar en qué almacenes hay stock de este producto
+                    $stmtAlmacenes = $db->prepare('SELECT a.id, a.nombre, s.stock_actual 
+                                                   FROM inventario_stock s 
+                                                   INNER JOIN almacenes a ON a.id = s.id_almacen 
+                                                   WHERE s.id_item = :id_item AND s.stock_actual > 0');
+
                     foreach ($detalles as $d) {
                         $qtyBase = (float) $d['cantidad_por_unidad'];
                         $merma = (float) $d['merma_porcentaje'];
+                        
+                        // Necesidad total
                         $cantidadRequerida = $qtyBase * $cantidadPlanificada * (1 + ($merma / 100));
+                        
+                        // Stock total (sumando todos los almacenes)
                         $stockTotal = $this->produccionModel->obtenerStockTotalItem((int) $d['id_insumo']);
+
+                        // Extraer los almacenes específicos que tienen este insumo
+                        $stmtAlmacenes->execute(['id_item' => $d['id_insumo']]);
+                        $almacenesConStock = $stmtAlmacenes->fetchAll(PDO::FETCH_ASSOC);
 
                         $resultado[] = [
                             'id_insumo' => $d['id_insumo'],
                             'insumo_nombre' => $d['insumo_nombre'],
                             'cantidad_calculada' => round($cantidadRequerida, 4),
-                            'stock_disponible' => round($stockTotal, 4)
+                            'stock_disponible' => round($stockTotal, 4),
+                            'almacenes' => $almacenesConStock // Nuevo dato para el JS
                         ];
                     }
 
                     echo json_encode(['success' => true, 'data' => $resultado]);
-                    exit; // Detiene la ejecución aquí para que no imprima la vista HTML
+                    exit;
                 }
 
-                // 1. Crear Orden
+                // 1. Crear Orden (Limpia, sin almacenes)
                 if ($accion === 'crear_orden') {
-                    $idAlmacenDestino = (int) ($_POST['id_almacen_destino'] ?? 0);
-                    $idAlmacenOrigen = (int) ($_POST['id_almacen_origen'] ?? 0);
-                    if ($idAlmacenOrigen <= 0) {
-                        $idAlmacenOrigen = $idAlmacenDestino;
-                    }
-
                     $this->produccionModel->crearOrden([
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'id_receta' => (int) ($_POST['id_receta'] ?? 0),
-                        'id_almacen_origen' => $idAlmacenOrigen,
-                        'id_almacen_destino' => $idAlmacenDestino,
                         'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
@@ -218,11 +225,12 @@ class ProduccionController extends Controlador
                     exit;
                 }
 
-                // 2. Ejecutar Orden
+                // 2. Ejecutar Orden (Multialmacén Dinámico)
                 if ($accion === 'ejecutar_orden') {
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    $justificacion = trim((string) ($_POST['justificacion'] ?? ''));
 
-                    // A. Procesar arreglo de Consumos (Materia prima saliente)
+                    // A. Consumos (Materia prima)
                     $consumos = [];
                     $consIdsInsumo = $_POST['consumo_id_insumo'] ?? [];
                     $consIdsAlmacen = $_POST['consumo_id_almacen'] ?? [];
@@ -243,7 +251,7 @@ class ProduccionController extends Controlador
                         throw new Exception("Debe registrar al menos un consumo de insumos.");
                     }
 
-                    // B. Procesar arreglo de Ingresos (Producto terminado entrante)
+                    // B. Ingresos (Producto terminado)
                     $ingresos = [];
                     $ingIdsAlmacen = $_POST['ingreso_id_almacen'] ?? [];
                     $ingCantidades = $_POST['ingreso_cantidad'] ?? [];
@@ -265,12 +273,13 @@ class ProduccionController extends Controlador
                         throw new Exception("Debe registrar al menos un ingreso de producto terminado.");
                     }
 
-                    // C. Enviar al Modelo
+                    // C. Enviar al Modelo con la justificación
                     $this->produccionModel->ejecutarOrden(
                         $idOrden,
                         $consumos,
                         $ingresos,
-                        $userId
+                        $userId,
+                        $justificacion
                     );
 
                     $this->setFlash('success', 'Orden ejecutada y existencias actualizadas correctamente.');
@@ -304,7 +313,7 @@ class ProduccionController extends Controlador
         $this->render('produccion_ordenes', [
             'flash' => $flash,
             'ordenes' => $this->produccionModel->listarOrdenes(),
-            'recetasActivas' => $this->produccionModel->listarRecetasActivas(),
+            'recetas_activas' => $this->produccionModel->listarRecetasActivas(),
             'almacenes' => $this->produccionModel->listarAlmacenesActivos(),
             'ruta_actual' => 'produccion/ordenes',
         ]);
