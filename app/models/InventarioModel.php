@@ -145,7 +145,15 @@ SQL;
             }
             $stmt->execute();
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            
+            // ANEXAR DESGLOSE AUTOMÁTICAMENTE
+            foreach ($resultados as &$fila) {
+                if ($fila['tipo_registro'] === 'item' && $fila['controla_stock'] == 1) {
+                    $fila['desglose'] = $this->obtenerDesglosePresentaciones((int)$fila['id_item'], $idAlmacen);
+                }
+            }
+            return $resultados;
         }
 
         $sql = <<<'SQL'
@@ -259,7 +267,15 @@ SQL;
         $sql .= ' ORDER BY ultimo_movimiento DESC, sku ASC';
 
         $stmt = $this->db()->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        
+        // ANEXAR DESGLOSE AUTOMÁTICAMENTE PARA ALMACÉN GLOBAL
+        foreach ($resultados as &$fila) {
+            if ($fila['tipo_registro'] === 'item' && $fila['controla_stock'] == 1) {
+                $fila['desglose'] = $this->obtenerDesglosePresentaciones((int)$fila['id_item'], 0);
+            }
+        }
+        return $resultados;
     }
 
     public function listarItems(): array
@@ -699,55 +715,94 @@ SQL;
         }
     }
 
+    // --- NUEVO: FUNCIÓN INTELIGENTE DE DESGLOSE ---
     public function obtenerDesglosePresentaciones(int $idItem, int $idAlmacen = 0): array
     {
-        if ($idItem <= 0) {
-            return [];
+        $params = [];
+        
+        // Construimos las condiciones dinámicas y el orden estricto de parámetros
+        if ($idAlmacen > 0) {
+            $selectDestino = 'm.id_almacen_destino = ?';
+            $selectOrigen  = 'm.id_almacen_origen = ?';
+            $whereAlmacen  = 'AND (m.id_almacen_destino = ? OR m.id_almacen_origen = ?)';
+            
+            // Orden para los CASE del SELECT (2 parámetros)
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
+            
+            // Orden para el WHERE id_item (1 parámetro)
+            $params[] = $idItem;
+            
+            // Orden para el WHERE del filtroAlmacen (2 parámetros)
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
+        } else {
+            // Vista Global: Todo lo que entra menos todo lo que sale
+            $selectDestino = 'm.id_almacen_destino IS NOT NULL';
+            $selectOrigen  = 'm.id_almacen_origen IS NOT NULL';
+            $whereAlmacen  = '';
+            
+            // Orden para el WHERE id_item (1 parámetro)
+            $params[] = $idItem;
         }
 
-        $sql = 'SELECT
-                    COALESCE(m.id_item_unidad, 0) AS id_item_unidad,
-                    COALESCE(u.nombre_unidad, i.unidad_base) AS unidad_nombre,
-                    SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'TRF\', \'COM\', \'PROD\') AND m.id_almacen_destino IS NOT NULL THEN m.cantidad
-                            ELSE 0
-                        END) AS total_entradas,
-                    SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'TRF\', \'VEN\') AND m.id_almacen_origen IS NOT NULL THEN m.cantidad
-                            ELSE 0
-                        END) AS total_salidas,
-                    SUM(CASE
-                            WHEN m.tipo_movimiento IN (\'INI\', \'AJ+\', \'COM\', \'PROD\') THEN m.cantidad
-                            WHEN m.tipo_movimiento = \'TRF\' THEN
-                                CASE
-                                    WHEN :id_almacen_trf > 0 AND m.id_almacen_destino = :id_almacen_trf THEN m.cantidad
-                                    WHEN :id_almacen_trf > 0 AND m.id_almacen_origen = :id_almacen_trf THEN -m.cantidad
-                                    ELSE 0
-                                END
-                            WHEN m.tipo_movimiento IN (\'AJ-\', \'CON\', \'VEN\') THEN -m.cantidad
-                            ELSE 0
-                        END) AS saldo_neto
+        $sql = "SELECT 
+                    m.id_item_unidad,
+                    u.nombre AS unidad_nombre,
+                    u.factor_conversion,
+                    SUM(CASE WHEN {$selectDestino} THEN m.cantidad ELSE 0 END) - 
+                    SUM(CASE WHEN {$selectOrigen} THEN m.cantidad ELSE 0 END) AS saldo_unidades
                 FROM inventario_movimientos m
-                INNER JOIN items i ON i.id = m.id_item
-                LEFT JOIN items_unidades u ON u.id = m.id_item_unidad
-                WHERE m.id_item = :id_item
-                  AND (
-                      :id_almacen = 0
-                      OR m.id_almacen_destino = :id_almacen
-                      OR m.id_almacen_origen = :id_almacen
-                  )
-                GROUP BY COALESCE(m.id_item_unidad, 0), COALESCE(u.nombre_unidad, i.unidad_base)
-                HAVING ABS(saldo_neto) > 0.000001 OR ABS(total_entradas) > 0.000001 OR ABS(total_salidas) > 0.000001
-                ORDER BY unidad_nombre ASC';
+                LEFT JOIN items_unidades u ON m.id_item_unidad = u.id
+                WHERE m.id_item = ?
+                AND m.deleted_at IS NULL
+                {$whereAlmacen}
+                GROUP BY m.id_item_unidad
+                HAVING saldo_unidades > 0";
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
-            'id_item' => $idItem,
-            'id_almacen' => $idAlmacen,
-            'id_almacen_trf' => $idAlmacen,
-        ]);
+        $stmt->execute($params);
+        $desglose = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $resultado = [];
+        foreach ($desglose as $fila) {
+            $factor = (float)($fila['factor_conversion'] ?? 1);
+            $totalUnidades = (float)$fila['saldo_unidades'];
+
+            if ($factor <= 0) $factor = 1; // Prevención de división por cero
+
+            if (empty($fila['id_item_unidad'])) {
+                // Movimientos antiguos o sin presentación definida
+                $resultado[] = [
+                    'texto' => number_format($totalUnidades, 0) . " sueltas (UND)",
+                    'cantidad' => $totalUnidades
+                ];
+            } else {
+                // Cálculo de Cajas y Sobrantes
+                $cantidadPresentacion = floor($totalUnidades / $factor);
+                $sobrante = $totalUnidades - ($cantidadPresentacion * $factor);
+
+                if ($cantidadPresentacion > 0) {
+                    $texto = "{$cantidadPresentacion} " . $fila['unidad_nombre'];
+                    if ($sobrante > 0) {
+                        $texto .= " + " . number_format($sobrante, 0) . " sueltas";
+                    }
+                    
+                    $resultado[] = [
+                        'texto' => $texto,
+                        'cantidad' => $totalUnidades
+                    ];
+                } elseif ($sobrante > 0) {
+                    // Tienes unidades sueltas que pertenecían a esta caja pero no completan una
+                    $resultado[] = [
+                        'texto' => number_format($sobrante, 0) . " sueltas (de " . $fila['unidad_nombre'] . ")",
+                        'cantidad' => $totalUnidades
+                    ];
+                }
+            }
+        }
+
+        return $resultado;
     }
 
     private function validarStockDisponible(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void

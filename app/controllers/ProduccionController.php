@@ -144,7 +144,6 @@ class ProduccionController extends Controlador
             'flash' => $flash,
             'recetas' => $this->produccionModel->listarRecetas(),
             'items_stockeables' => $this->produccionModel->listarItemsStockeables(), 
-            // NUEVO: Enviamos el catálogo de parámetros a la vista
             'parametros_catalogo' => $this->produccionModel->listarParametrosCatalogo(),
             'ruta_actual' => 'produccion/recetas',
         ]);
@@ -162,6 +161,44 @@ class ProduccionController extends Controlador
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                // --- NUEVO BLOQUE: AJAX PARA OBTENER RECETA Y STOCK ---
+                if ($accion === 'obtener_receta_ajax') {
+                    header('Content-Type: application/json; charset=utf-8');
+                    
+                    $idReceta = (int) ($_POST['id_receta'] ?? 0);
+                    $cantidadPlanificada = (float) ($_POST['cantidad'] ?? 0);
+
+                    if ($idReceta <= 0 || $cantidadPlanificada <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
+                        exit;
+                    }
+
+                    $detalles = $this->produccionModel->obtenerDetalleReceta($idReceta);
+                    $resultado = [];
+
+                    $db = $this->produccionModel->db();
+                    $stmtStock = $db->prepare('SELECT COALESCE(SUM(stock_actual), 0) FROM inventario_stock WHERE id_item = :id_item');
+
+                    foreach ($detalles as $d) {
+                        $qtyBase = (float) $d['cantidad_por_unidad'];
+                        $merma = (float) $d['merma_porcentaje'];
+                        $cantidadRequerida = $qtyBase * $cantidadPlanificada * (1 + ($merma / 100));
+
+                        $stmtStock->execute(['id_item' => $d['id_insumo']]);
+                        $stockTotal = (float) $stmtStock->fetchColumn();
+
+                        $resultado[] = [
+                            'id_insumo' => $d['id_insumo'],
+                            'insumo_nombre' => $d['insumo_nombre'],
+                            'cantidad_calculada' => round($cantidadRequerida, 4),
+                            'stock_disponible' => round($stockTotal, 4)
+                        ];
+                    }
+
+                    echo json_encode(['success' => true, 'data' => $resultado]);
+                    exit; // Detiene la ejecución aquí para que no imprima la vista HTML
+                }
+
                 // 1. Crear Orden
                 if ($accion === 'crear_orden') {
                     $idAlmacenDestino = (int) ($_POST['id_almacen_destino'] ?? 0);
@@ -186,20 +223,60 @@ class ProduccionController extends Controlador
 
                 // 2. Ejecutar Orden
                 if ($accion === 'ejecutar_orden') {
-                    $lotesConsumo = [];
-                    foreach ((array) ($_POST['lote_consumo_item'] ?? []) as $idItem => $lote) {
-                        $lotesConsumo[(int) $idItem] = (string) $lote;
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+
+                    // A. Procesar arreglo de Consumos (Materia prima saliente)
+                    $consumos = [];
+                    $consIdsInsumo = $_POST['consumo_id_insumo'] ?? [];
+                    $consIdsAlmacen = $_POST['consumo_id_almacen'] ?? [];
+                    $consCantidades = $_POST['consumo_cantidad'] ?? [];
+                    $consIdsLote = $_POST['consumo_id_lote'] ?? [];
+
+                    foreach ((array) $consIdsInsumo as $idx => $idInsumo) {
+                        if (empty($idInsumo)) continue;
+                        $consumos[] = [
+                            'id_insumo' => (int) $idInsumo,
+                            'id_almacen' => (int) ($consIdsAlmacen[$idx] ?? 0),
+                            'cantidad' => $this->parseDecimal($consCantidades[$idx] ?? 0),
+                            'id_lote' => !empty($consIdsLote[$idx]) ? (int) $consIdsLote[$idx] : null,
+                        ];
                     }
 
+                    if (empty($consumos)) {
+                        throw new Exception("Debe registrar al menos un consumo de insumos.");
+                    }
+
+                    // B. Procesar arreglo de Ingresos (Producto terminado entrante)
+                    $ingresos = [];
+                    $ingIdsAlmacen = $_POST['ingreso_id_almacen'] ?? [];
+                    $ingCantidades = $_POST['ingreso_cantidad'] ?? [];
+                    $ingIdsLote = $_POST['ingreso_id_lote'] ?? [];
+
+                    foreach ((array) $ingIdsAlmacen as $idx => $idAlmacen) {
+                        if (empty($idAlmacen)) continue;
+                        $cantidad = $this->parseDecimal($ingCantidades[$idx] ?? 0);
+                        if ($cantidad > 0) {
+                            $ingresos[] = [
+                                'id_almacen' => (int) $idAlmacen,
+                                'cantidad' => $cantidad,
+                                'id_lote' => !empty($ingIdsLote[$idx]) ? (int) $ingIdsLote[$idx] : null,
+                            ];
+                        }
+                    }
+
+                    if (empty($ingresos)) {
+                        throw new Exception("Debe registrar al menos un ingreso de producto terminado.");
+                    }
+
+                    // C. Enviar al Modelo
                     $this->produccionModel->ejecutarOrden(
-                        (int) ($_POST['id_orden'] ?? 0),
-                        (float) ($_POST['cantidad_producida'] ?? 0),
-                        $userId,
-                        trim((string) ($_POST['lote_ingreso'] ?? '')),
-                        $lotesConsumo
+                        $idOrden,
+                        $consumos,
+                        $ingresos,
+                        $userId
                     );
 
-                    $this->setFlash('success', 'Orden ejecutada correctamente.');
+                    $this->setFlash('success', 'Orden ejecutada y existencias actualizadas correctamente.');
                     header('Location: ' . route_url('produccion/ordenes'));
                     exit;
                 }

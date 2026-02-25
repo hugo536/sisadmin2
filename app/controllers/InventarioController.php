@@ -43,7 +43,7 @@ class InventarioController extends Controlador
         $this->vista('inventario', $datos);
     }
 
-    // --- LÓGICA DE ESTADOS Y FORMATOS (ACCIÓN 1 Y 2) ---
+    // --- LÓGICA DE ESTADOS Y FORMATOS ---
     private function procesarEstadosStock(array $filas): array
     {
         $resultado = [];
@@ -60,16 +60,26 @@ class InventarioController extends Controlador
             $proximoVencimiento = trim((string) ($fila['proximo_vencimiento'] ?? ''));
 
             if ((int)$fila['id_almacen'] === 0 && $stock === 0.0 && $lote === '') {
-                // Cambiamos el nombre visualmente solo para este caso
-                $fila['almacen_nombre'] = 'Sin Ubicación Física'; // O el nombre que prefieras
+                $fila['almacen_nombre'] = 'Sin Ubicación Física';
             }
             
-            // 1. Lógica de Decimales (Acción 2)
-            // Si permite decimales (ej. Insumos), mostramos 3. Si no (botellas), mostramos 0.
+            // 1. Lógica de Decimales
             $fila['stock_formateado'] = number_format($stock, $permiteDecimales === 1 ? 3 : 0, '.', ',');
             $fila['stock_minimo_formateado'] = number_format($stockMin, $permiteDecimales === 1 ? 3 : 0, '.', ',');
 
-            // 2. Lógica de Estados y Colores (Acción 1)
+            // 2. Procesar Desglose para Texto Plano (Usado en Exportación Excel/CSV)
+            $desgloseText = '';
+            if (!empty($fila['desglose']) && is_array($fila['desglose'])) {
+                $partes = [];
+                foreach ($fila['desglose'] as $d) {
+                    // Extraemos solo el texto del badge
+                    $partes[] = $d['texto'];
+                }
+                $desgloseText = implode(' + ', $partes);
+            }
+            $fila['desglose_texto'] = $desgloseText;
+
+            // 3. Lógica de Estados y Colores
             $fila['estado_vencimiento'] = '';
             $fila['detalle_alerta'] = '';
 
@@ -116,7 +126,6 @@ class InventarioController extends Controlador
         
         return $resultado;
     }
-
 
     public function guardarMovimiento(): void
     {
@@ -348,7 +357,6 @@ class InventarioController extends Controlador
         $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
         $filasRaw = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
         
-        // También procesamos los datos para el exportable para que coincida con la vista
         $filas = $this->procesarEstadosStock($filasRaw);
 
         if ($formato === 'pdf') {
@@ -366,17 +374,18 @@ class InventarioController extends Controlador
 
         $out = fopen('php://output', 'wb');
         
-        // NOTA: He actualizado los encabezados del exportable
-        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock Actual', 'Stock Mínimo', 'Situación / Alertas'];
+        // COLUMNA AGREGADA PARA EXCEL: 'Desglose Físico'
+        $headers = ['SKU', 'Producto', 'Almacén', 'Lote', 'Stock Base (UND)', 'Desglose Físico', 'Stock Mínimo', 'Situación / Alertas'];
         fputcsv($out, $headers, $separator);
 
         foreach ($filas as $fila) {
             fputcsv($out, [
                 (string) ($fila['sku'] ?? ''),
-                (string) ($fila['item_nombre'] ?? ''), // Ahora exportará "Cola Belén Piña 3L"
+                (string) ($fila['item_nombre'] ?? ''),
                 (string) ($fila['almacen_nombre'] ?? ''),
                 (string) ($fila['lote_actual'] !== '' ? $fila['lote_actual'] : '-'),
-                (string) ($fila['stock_formateado'] ?? '0'), // Exporta el número ya formateado sin ceros inútiles
+                (string) ($fila['stock_formateado'] ?? '0'),
+                (string) ($fila['desglose_texto'] ?? '-'), // INSERCIÓN DEL DESGLOSE EN EXCEL
                 (string) ($fila['stock_minimo_formateado'] ?? '0'),
                 trim((string) ($fila['badge_estado'] ?? '') . ' ' . (string) ($fila['detalle_alerta'] ?? '')),
             ], $separator);

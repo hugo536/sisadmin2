@@ -85,16 +85,16 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="tablaInventarioStock">
-                    <thead class="inventario-sticky-thead">
+                <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock">
+                    <thead class="inventario-sticky-thead table-light border-bottom">
                         <tr>
-                            <th class="ps-4">SKU</th>
-                            <th>Producto (Nombre Completo)</th>
-                            <th>Almacén</th>
-                            <th>Lote</th>
-                            <th class="text-end pe-4">Stock Actual</th>
-                            <th class="text-center">Situación / Alertas</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="ps-4 text-secondary fw-semibold">SKU</th>
+                            <th class="text-secondary fw-semibold">Producto (Nombre Completo)</th>
+                            <th class="text-secondary fw-semibold">Almacén</th>
+                            <th class="text-secondary fw-semibold">Lote</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Stock Actual</th>
+                            <th class="text-center text-secondary fw-semibold">Situación / Alertas</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -120,22 +120,32 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                     data-tipo-registro="<?php echo e($tipoRegistro); ?>"
                                     data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
-                                    data-almacen="<?php echo (int) $idAlmacen; ?>">
+                                    data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
                                     
-                                    <td class="ps-4 fw-semibold text-primary"><?php echo e($sku); ?></td>
-                                    <td class="fw-semibold text-dark">
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3"><?php echo e($sku); ?></td>
+                                    <td class="fw-semibold text-dark align-top pt-3">
                                         <?php echo e($itemNombreCompleto); ?>
                                         <?php if($tipoRegistro === 'pack'): ?>
                                             <span class="badge bg-info text-dark ms-1" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
-                                    <td><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
+                                    <td class="text-muted small align-top pt-3"><?php echo e($almacenNombre); ?></td>
+                                    <td class="align-top pt-3"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
-                                    <td class="text-end pe-4 fw-bold fs-6"><?php echo $stockFormateado; ?></td>
-                                    
-                                    <td class="text-center">
-                                        <span class="badge px-3 rounded-pill <?php echo $badgeColor; ?>">
+                                    <td class="text-end pe-4 align-top pt-3">
+                                        <div class="fw-bold fs-6 text-primary"><?php echo $stockFormateado; ?></div>
+                                        <?php if (!empty($stock['desglose']) && is_array($stock['desglose'])): ?>
+                                            <div class="d-flex flex-column align-items-end mt-1 pb-1" style="gap: 3px;">
+                                                <?php foreach ($stock['desglose'] as $d): ?>
+                                                    <div class="badge bg-white text-secondary border border-secondary-subtle shadow-sm px-2 py-1 fw-medium" style="font-size: 0.7rem;">
+                                                        <?php echo e($d['texto']); ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-center align-top pt-3">
+                                        <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                             <?php echo e($badgeTexto); ?>
                                         </span>
                                         <?php if ($detalleAlerta !== ''): ?>
@@ -143,7 +153,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                         <?php endif; ?>
                                     </td>
                                     
-                                    <td class="text-end pe-4">
+                                    <td class="text-end pe-4 align-top pt-3">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
                                             <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
                                             <span class="badge rounded-pill <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
@@ -154,7 +164,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
                                             <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
                                                 <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                                   class="btn btn-sm btn-light text-primary border-0 bg-transparent"
+                                                   class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
                                                    data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
                                                     <i class="bi bi-eye fs-5"></i>
                                                 </a>
@@ -166,7 +176,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>No hay registros de stock disponibles.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -175,9 +185,9 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
     </div>
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
-        <div class="small text-muted" id="inventarioPaginationInfo">Mostrando 0-0 de 0 resultados</div>
+        <div class="small text-muted fw-medium" id="inventarioPaginationInfo">Mostrando 0-0 de 0 resultados</div>
         <nav aria-label="Paginación de inventario">
-            <ul class="pagination pagination-sm mb-0" id="inventarioPaginationControls"></ul>
+            <ul class="pagination pagination-sm mb-0 shadow-sm" id="inventarioPaginationControls"></ul>
         </nav>
     </div>
 
@@ -186,23 +196,23 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 <div class="modal fade" id="modalMovimientoInventario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-arrow-left-right me-2"></i>Registrar Movimiento</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <form id="formMovimientoInventario" autocomplete="off">
                     <input type="hidden" id="idItemMovimiento" name="id_item" value="0">
                     <input type="hidden" id="idPackMovimiento" name="id_pack" value="0">
                     <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
                     <input type="hidden" name="lote" id="loteFinalEnviar">
 
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Datos del Movimiento</h6>
-                            <div class="row g-2">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Datos del Movimiento</h6>
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="tipoMovimiento" class="form-label small text-muted">Tipo de Movimiento <span class="text-danger fw-bold">*</span></label>
+                                    <label for="tipoMovimiento" class="form-label small text-muted fw-bold">Tipo de Movimiento <span class="text-danger">*</span></label>
                                     <select id="tipoMovimiento" name="tipo_movimiento" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <option value="INI">INI - Inicial</option>
@@ -213,7 +223,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="almacenMovimiento" class="form-label small text-muted">Almacén Origen <span class="text-danger fw-bold">*</span></label>
+                                    <label for="almacenMovimiento" class="form-label small text-muted fw-bold">Almacén Origen <span class="text-danger">*</span></label>
                                     <select id="almacenMovimiento" name="id_almacen" class="form-select" required disabled>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
@@ -224,7 +234,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
-                                    <label for="proveedorMovimiento" class="form-label small text-muted">Proveedor (Opcional / Para compras)</label>
+                                    <label for="proveedorMovimiento" class="form-label small text-muted fw-bold">Proveedor (Opcional / Para compras)</label>
                                     <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
                                         <option value="">Seleccione proveedor...</option>
                                         <?php foreach (($proveedores ?? []) as $proveedor): ?>
@@ -234,7 +244,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
 
                                 <div class="col-md-12 d-none mt-2" id="grupoAlmacenDestino">
-                                    <label for="almacenDestinoMovimiento" class="form-label small text-muted">Almacén Destino (Solo Transferencias)</label>
+                                    <label for="almacenDestinoMovimiento" class="form-label small text-muted fw-bold">Almacén Destino (Solo Transferencias)</label>
                                     <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
@@ -244,7 +254,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
 
                                 <div class="col-md-12 d-none mt-2" id="grupoMotivoMovimiento">
-                                    <label for="motivoMovimiento" class="form-label small text-muted">Motivo del Movimiento</label>
+                                    <label for="motivoMovimiento" class="form-label small text-muted fw-bold">Motivo del Movimiento</label>
                                     <select id="motivoMovimiento" name="motivo" class="form-select">
                                         <option value="">Seleccione motivo...</option>
                                         <option value="Merma recuperada">Merma recuperada</option>
@@ -266,59 +276,61 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Detalle del Producto</h6>
-                            <div class="row g-2">
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                <h6 class="fw-bold text-dark mb-0">Detalle del Producto</h6>
+                            </div>
+                            <div class="row g-3">
                                 
                                 <div class="col-12 mb-2">
-                                    <label class="form-label small text-muted mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger fw-bold">*</span></label>
-                                    <select id="itemMovimiento" class="form-select" placeholder="Escriba para buscar..." required>
+                                    <label class="form-label small text-muted fw-bold mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger">*</span></label>
+                                    <select id="itemMovimiento" class="form-select shadow-none" placeholder="Escriba para buscar..." required>
                                         <option value="">Escriba para buscar...</option>
                                     </select>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <div class="p-2 border rounded bg-light-subtle text-center">
-                                        <small class="text-muted d-block">Stock Actual</small>
-                                        <span class="fw-bold text-dark fs-5" id="stockActualItemSeleccionado">0.00</span>
+                                    <div class="p-3 border rounded-3 bg-white text-center shadow-sm">
+                                        <small class="text-muted d-block fw-semibold mb-1">Stock Actual</small>
+                                        <span class="fw-bold text-primary fs-4" id="stockActualItemSeleccionado">0.00</span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="p-2 border rounded bg-light-subtle text-center">
-                                        <small class="text-muted d-block">Costo Promedio</small>
-                                        <span class="fw-bold text-dark fs-5" id="costoPromedioActual">S/ 0.00</span>
+                                    <div class="p-3 border rounded-3 bg-white text-center shadow-sm">
+                                        <small class="text-muted d-block fw-semibold mb-1">Costo Promedio</small>
+                                        <span class="fw-bold text-success fs-4" id="costoPromedioActual">S/ 0.00</span>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6 form-floating mt-2">
-                                    <input type="number" step="0.0001" min="0.0001" class="form-control" id="cantidadMovimiento" name="cantidad" required>
+                                <div class="col-md-6 form-floating mt-3">
+                                    <input type="number" step="0.0001" min="0.0001" class="form-control fw-bold fs-5 shadow-none border-secondary-subtle" id="cantidadMovimiento" name="cantidad" required>
                                     <label for="cantidadMovimiento">Cantidad a Mover <span class="text-danger fw-bold">*</span></label>
-                                    <div class="form-text" id="stockDisponibleHint"></div>
+                                    <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
                                 </div>
-                                <div class="col-md-6 form-floating mt-2">
-                                    <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
+                                <div class="col-md-6 form-floating mt-3">
+                                    <input type="number" step="0.0001" min="0" class="form-control shadow-none border-secondary-subtle" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                                     <label for="costoUnitarioMovimiento">Costo Unitario (S/)</label>
                                 </div>
 
                                 <div class="col-md-6 d-none mt-2" id="grupoLoteInput">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" id="loteMovimientoInput" maxlength="100" placeholder="Lote">
+                                        <input type="text" class="form-control shadow-none border-secondary-subtle" id="loteMovimientoInput" maxlength="100" placeholder="Lote">
                                         <label>Nuevo Lote</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6 d-none mt-2" id="grupoLoteSelect">
                                     <div class="form-floating">
-                                        <select class="form-select" id="loteMovimientoSelect">
+                                        <select class="form-select shadow-none border-secondary-subtle" id="loteMovimientoSelect">
                                             <option value="">Seleccione lote...</option>
                                         </select>
                                         <label>Lote Existente</label>
                                     </div>
-                                    <div class="form-text small text-danger d-none" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes disponibles.</div>
+                                    <div class="form-text small text-danger d-none mt-1" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes disponibles.</div>
                                 </div>
                                 <div class="col-md-6 d-none mt-2" id="grupoVencimientoMovimiento">
                                     <div class="form-floating">
-                                        <input type="date" class="form-control" id="vencimientoMovimiento" name="fecha_vencimiento">
+                                        <input type="date" class="form-control shadow-none border-secondary-subtle" id="vencimientoMovimiento" name="fecha_vencimiento">
                                         <label>Fecha Vencimiento</label>
                                     </div>
                                 </div>
@@ -326,14 +338,14 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                         </div>
                     </div>
 
-                    <div class="form-floating mb-3">
-                        <textarea class="form-control" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento">Referencia / Comentario <small class="text-muted">(obligatorio para INI, AJ+ y AJ-)</small></label>
+                    <div class="form-floating mb-2 shadow-sm rounded">
+                        <textarea class="form-control border-0" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
+                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para INI, AJ+ y AJ-)</small></label>
                     </div>
 
-                    <div class="d-flex justify-content-end pt-2">
-                        <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar Movimiento</button>
+                    <div class="d-flex justify-content-end pt-3 border-top mt-4">
+                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Movimiento</button>
                     </div>
                 </form>
             </div>
