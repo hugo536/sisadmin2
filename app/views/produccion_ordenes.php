@@ -149,8 +149,20 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <label for="newRecetaOP">Receta / Producto</label>
+                            </div>
+                            
+                            <div class="col-md-12 form-floating mt-3">
+                                <select name="id_almacen_destino" id="newAlmacenDestino" required class="form-select">
+                                    <option value="">Seleccione...</option>
+                                    <?php foreach ($almacenes as $a): ?>
+                                        <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="newAlmacenDestino">Almacén de Producción (Consumo e Ingreso)</label>
                                 <label for="newRecetaOP">Receta / Producto Terminado</label>
                             </div>
+                            <input type="hidden" name="id_almacen_origen" id="newAlmacenOrigen" value="0">
                             
                             <div class="col-md-4 form-floating mt-3">
                                 <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control" placeholder="Cantidad">

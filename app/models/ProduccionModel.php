@@ -41,6 +41,14 @@ class ProduccionModel extends Modelo
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
+                       p.nombre AS producto_nombre,
+                       COALESCE(ao.nombre, ad.nombre) AS almacen_origen_nombre,
+                       ad.nombre AS almacen_destino_nombre
+                FROM produccion_ordenes o
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta
+                INNER JOIN items p ON p.id = r.id_producto
+                LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen
+                INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
                        p.nombre AS producto_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
@@ -421,6 +429,15 @@ class ProduccionModel extends Modelo
     {
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
+        $idAlmacenDestino = (int) ($payload['id_almacen_destino'] ?? 0);
+        $idAlmacenOrigen = (int) ($payload['id_almacen_origen'] ?? 0);
+        if ($idAlmacenOrigen <= 0) {
+            $idAlmacenOrigen = $idAlmacenDestino;
+        }
+        $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
+        $observaciones = trim((string) ($payload['observaciones'] ?? ''));
+
+        if ($codigo === '' || $idReceta <= 0 || $idAlmacenDestino <= 0 || $cantidadPlanificada <= 0) {
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
@@ -468,6 +485,12 @@ class ProduccionModel extends Modelo
             }
 
             $inventarioModel = new InventarioModel(); 
+
+            $idAlmacenDestino = (int) $orden['id_almacen_destino'];
+            $idAlmacenOrigen = (int) ($orden['id_almacen_origen'] ?? 0);
+            if ($idAlmacenOrigen <= 0) {
+                $idAlmacenOrigen = $idAlmacenDestino;
+            }
             $costoTotalConsumo = 0.0;
 
             // --- 1. PROCESAR CONSUMOS (Salidas) ---
