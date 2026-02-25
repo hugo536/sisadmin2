@@ -610,7 +610,7 @@ class ItemsController extends Controlador
         }
 
 
-        if ($tipo === 'semielaborado') {
+        if ($tipo === 'semielaborado' && !$esEdicion) {
             $data['controla_stock'] = 1;
             $data['requiere_lote'] = 1;
             $data['requiere_vencimiento'] = 1;
