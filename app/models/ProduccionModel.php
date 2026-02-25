@@ -5,6 +5,8 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class ProduccionModel extends Modelo
 {
+    /** @var array<string,bool> */
+    private array $columnasTablaCache = [];
     private ?bool $produccionOrdenesTieneAlmacenOrigen = null;
 
     public function listarRecetas(): array
@@ -40,12 +42,55 @@ class ProduccionModel extends Modelo
 
     public function listarOrdenes(): array
     {
+
+        $columnaAlmacenOrigen = null;
+        if ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen_origen')) {
+            $columnaAlmacenOrigen = 'id_almacen_origen';
+        } elseif ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen')) {
+            $columnaAlmacenOrigen = 'id_almacen';
+        }
+
+        $columnaAlmacenDestino = null;
+        if ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen_destino')) {
+            $columnaAlmacenDestino = 'id_almacen_destino';
+        } elseif ($this->tablaTieneColumna('produccion_ordenes', 'id_almacen')) {
+            $columnaAlmacenDestino = 'id_almacen';
+        }
+
+        $joinAlmacenOrigen = $columnaAlmacenOrigen !== null
+            ? 'LEFT JOIN almacenes ao ON ao.id = o.' . $columnaAlmacenOrigen
+            : '';
+        $joinAlmacenDestino = $columnaAlmacenDestino !== null
+            ? 'LEFT JOIN almacenes ad ON ad.id = o.' . $columnaAlmacenDestino
+            : '';
+
+        if ($columnaAlmacenOrigen !== null && $columnaAlmacenDestino !== null) {
+            $selectAlmacenOrigen = 'COALESCE(ao.nombre, ad.nombre)';
+        } elseif ($columnaAlmacenOrigen !== null) {
+            $selectAlmacenOrigen = 'ao.nombre';
+        } elseif ($columnaAlmacenDestino !== null) {
+            $selectAlmacenOrigen = 'ad.nombre';
+        } else {
+            $selectAlmacenOrigen = "''";
+        }
+
+        $selectAlmacenDestino = $columnaAlmacenDestino !== null ? 'ad.nombre' : "''";
+
         $usaAlmacenOrigen = $this->tablaTieneColumna('produccion_ordenes', 'id_almacen_origen');
+
 
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.created_at,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre,
+                       ' . $selectAlmacenOrigen . ' AS almacen_origen_nombre,
+                       ' . $selectAlmacenDestino . ' AS almacen_destino_nombre
+                FROM produccion_ordenes o
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta
+                INNER JOIN items p ON p.id = r.id_producto
+                ' . $joinAlmacenOrigen . '
+                ' . $joinAlmacenDestino . '
+
                        ' . ($usaAlmacenOrigen ? 'COALESCE(ao.nombre, ad.nombre)' : 'ad.nombre') . ' AS almacen_origen_nombre,
                        ad.nombre AS almacen_destino_nombre
                 FROM produccion_ordenes o
@@ -53,6 +98,7 @@ class ProduccionModel extends Modelo
                 INNER JOIN items p ON p.id = r.id_producto
                 ' . ($usaAlmacenOrigen ? 'LEFT JOIN almacenes ao ON ao.id = o.id_almacen_origen' : '') . '
                 INNER JOIN almacenes ad ON ad.id = o.id_almacen_destino
+
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
@@ -62,8 +108,14 @@ class ProduccionModel extends Modelo
 
     private function tablaTieneColumna(string $tabla, string $columna): bool
     {
+
+        $cacheKey = $tabla . '.' . $columna;
+        if (array_key_exists($cacheKey, $this->columnasTablaCache)) {
+            return $this->columnasTablaCache[$cacheKey];
+
         if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen' && $this->produccionOrdenesTieneAlmacenOrigen !== null) {
             return $this->produccionOrdenesTieneAlmacenOrigen;
+
         }
 
         $stmt = $this->db()->prepare('SELECT 1
@@ -77,6 +129,10 @@ class ProduccionModel extends Modelo
             'columna' => $columna,
         ]);
 
+
+        $this->columnasTablaCache[$cacheKey] = (bool) $stmt->fetchColumn();
+        return $this->columnasTablaCache[$cacheKey];
+
         $existe = (bool) $stmt->fetchColumn();
 
         if ($tabla === 'produccion_ordenes' && $columna === 'id_almacen_origen') {
@@ -84,6 +140,7 @@ class ProduccionModel extends Modelo
         }
 
         return $existe;
+
     }
 
     public function listarRecetasActivas(): array
