@@ -26,6 +26,7 @@ SELECT i.id AS id_item,
        i.requiere_vencimiento,
        i.dias_alerta_vencimiento,
        i.controla_stock,
+       i.requiere_factor_conversion,
        i.permite_decimales,
        'item' AS tipo_registro,
        COALESCE(s.stock_actual, 0) AS stock_actual,
@@ -103,6 +104,7 @@ SELECT p.id AS id_item,
        p.requiere_vencimiento,
        p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
        1 AS controla_stock,
+       0 AS requiere_factor_conversion,
        0 AS permite_decimales,
        'pack' AS tipo_registro,
        COALESCE(sp.stock_actual, 0) AS stock_actual,
@@ -149,7 +151,11 @@ SQL;
             
             // ANEXAR DESGLOSE AUTOMÁTICAMENTE
             foreach ($resultados as &$fila) {
-                if ($fila['tipo_registro'] === 'item' && $fila['controla_stock'] == 1) {
+                if (
+                    $fila['tipo_registro'] === 'item'
+                    && $fila['controla_stock'] == 1
+                    && (int) ($fila['requiere_factor_conversion'] ?? 0) === 1
+                ) {
                     $fila['desglose'] = $this->obtenerDesglosePresentaciones((int)$fila['id_item'], $idAlmacen);
                 }
             }
@@ -173,6 +179,7 @@ SELECT i.id AS id_item,
        i.requiere_vencimiento,
        i.dias_alerta_vencimiento,
        i.controla_stock,
+       i.requiere_factor_conversion,
        i.permite_decimales,
        'item' AS tipo_registro,
        COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN s.stock_actual ELSE 0 END), 0) AS stock_actual,
@@ -207,7 +214,7 @@ LEFT JOIN inventario_stock s ON s.id_item = i.id
 LEFT JOIN almacenes a ON a.id = s.id_almacen
 WHERE i.controla_stock = 1
   AND i.deleted_at IS NULL
-GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.permite_decimales
+GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.requiere_factor_conversion, i.permite_decimales
 SQL;
 
         if ($tablaPacksDisponible) {
@@ -241,6 +248,7 @@ SELECT p.id AS id_item,
        p.requiere_vencimiento,
        p.dias_vencimiento_alerta AS dias_alerta_vencimiento,
        1 AS controla_stock,
+       0 AS requiere_factor_conversion,
        0 AS permite_decimales,
        'pack' AS tipo_registro,
        COALESCE(SUM(CASE WHEN a.estado = 1 AND a.deleted_at IS NULL THEN sp.stock_actual ELSE 0 END), 0) AS stock_actual,
@@ -271,7 +279,11 @@ SQL;
         
         // ANEXAR DESGLOSE AUTOMÁTICAMENTE PARA ALMACÉN GLOBAL
         foreach ($resultados as &$fila) {
-            if ($fila['tipo_registro'] === 'item' && $fila['controla_stock'] == 1) {
+            if (
+                $fila['tipo_registro'] === 'item'
+                && $fila['controla_stock'] == 1
+                && (int) ($fila['requiere_factor_conversion'] ?? 0) === 1
+            ) {
                 $fila['desglose'] = $this->obtenerDesglosePresentaciones((int)$fila['id_item'], 0);
             }
         }
