@@ -231,11 +231,13 @@ class ProduccionController extends Controlador
 
                     foreach ((array) $consIdsInsumo as $idx => $idInsumo) {
                         if (empty($idInsumo)) continue;
+                        $loteTexto = trim((string) ($consIdsLote[$idx] ?? ''));
                         $consumos[] = [
                             'id_insumo' => (int) $idInsumo,
                             'id_almacen' => (int) ($consIdsAlmacen[$idx] ?? 0),
                             'cantidad' => $this->parseDecimal($consCantidades[$idx] ?? 0),
-                            'id_lote' => !empty($consIdsLote[$idx]) ? (int) $consIdsLote[$idx] : null,
+                            'id_lote' => ctype_digit($loteTexto) ? (int) $loteTexto : null,
+                            'lote' => $loteTexto,
                         ];
                     }
 
@@ -253,10 +255,12 @@ class ProduccionController extends Controlador
                         if (empty($idAlmacen)) continue;
                         $cantidad = $this->parseDecimal($ingCantidades[$idx] ?? 0);
                         if ($cantidad > 0) {
+                            $loteTexto = trim((string) ($ingIdsLote[$idx] ?? ''));
                             $ingresos[] = [
                                 'id_almacen' => (int) $idAlmacen,
                                 'cantidad' => $cantidad,
-                                'id_lote' => !empty($ingIdsLote[$idx]) ? (int) $ingIdsLote[$idx] : null,
+                                'id_lote' => ctype_digit($loteTexto) ? (int) $loteTexto : null,
+                                'lote' => $loteTexto,
                             ];
                         }
                     }

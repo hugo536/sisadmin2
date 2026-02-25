@@ -679,9 +679,12 @@ SQL;
                     $this->validarStockDisponiblePack($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                     $this->ajustarStockPack($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
                 } else {
+                    $requiereLote = (int) ($configRegistro['requiere_lote'] ?? 0) === 1;
                     $this->validarStockDisponible($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                     $this->ajustarStock($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
-                    $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    if ($requiereLote || $lote !== '') {
+                        $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    }
                 }
             }
 
@@ -691,12 +694,17 @@ SQL;
                     $this->ajustarStockPack($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
                     $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad);
                 } else {
+                    $requiereLote = (int) ($configRegistro['requiere_lote'] ?? 0) === 1;
                     $this->validarStockDisponible($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                     $this->ajustarStock($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
-                    $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    if ($requiereLote || $lote !== '') {
+                        $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    }
                     $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad);
-                    $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idRegistro, $idAlmacenOrigen, $lote);
-                    $this->incrementarStockLote($db, $idRegistro, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
+                    if ($lote !== '') {
+                        $vencimientoLote = $fechaVencimiento !== '' ? $fechaVencimiento : $this->obtenerVencimientoLote($db, $idRegistro, $idAlmacenOrigen, $lote);
+                        $this->incrementarStockLote($db, $idRegistro, $idAlmacenDestino, $lote, $vencimientoLote, $cantidad);
+                    }
                 }
             }
 

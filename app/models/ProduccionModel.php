@@ -470,6 +470,7 @@ class ProduccionModel extends Modelo
                 $idAlmacenOrigen = (int) $consumo['id_almacen'];
                 $cantidadUsada = (float) $consumo['cantidad'];
                 $idLote = !empty($consumo['id_lote']) ? (int)$consumo['id_lote'] : null;
+                $lote = trim((string) ($consumo['lote'] ?? ''));
 
                 if ($cantidadUsada <= 0 || $idAlmacenOrigen <= 0) continue;
 
@@ -500,7 +501,7 @@ class ProduccionModel extends Modelo
                         'id_almacen_destino' => null, 
                         'cantidad' => $cantidadUsada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
-                        'lote' => $idLote,
+                        'lote' => $lote,
                         'costo_unitario' => $costoUnitario,
                         'created_by' => $userId
                     ]);
@@ -525,6 +526,7 @@ class ProduccionModel extends Modelo
                 $idAlmacenDestino = (int) $ingreso['id_almacen'];
                 $cantidadIngresada = (float) $ingreso['cantidad'];
                 $idLote = !empty($ingreso['id_lote']) ? (int)$ingreso['id_lote'] : null;
+                $lote = trim((string) ($ingreso['lote'] ?? ''));
 
                 if ($cantidadIngresada <= 0 || $idAlmacenDestino <= 0) continue;
 
@@ -548,7 +550,7 @@ class ProduccionModel extends Modelo
                         'id_almacen_destino' => $idAlmacenDestino,
                         'cantidad' => $cantidadIngresada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
-                        'lote' => $idLote,
+                        'lote' => $lote,
                         'costo_unitario' => $costoUnitarioIngreso,
                         'created_by' => $userId
                     ]);
