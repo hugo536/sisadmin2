@@ -12,14 +12,12 @@ class InventarioModel extends Modelo
         // 1. DEFINIMOS LAS PIEZAS DINÁMICAS PARA ÍTEMS
         if ($idAlmacen > 0) {
             $selectAlmacen   = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(s.stock_actual, 0) AS stock_actual,";
-            $subqueryLote    = "SELECT l.lote FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = :id_almacen AND l.stock_lote > 0 ORDER BY (l.fecha_vencimiento IS NULL) ASC, l.fecha_vencimiento ASC, l.id ASC LIMIT 1";
-            $subqueryVenc    = "SELECT MIN(l.fecha_vencimiento) FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = :id_almacen AND l.stock_lote > 0 AND l.fecha_vencimiento IS NOT NULL";
-            $subqueryMov     = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = :id_almacen OR m.id_almacen_destino = :id_almacen)";
-            $joinsExtra      = "INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = :id_almacen";
-            $whereExtra      = "AND (s.id IS NOT NULL OR EXISTS (SELECT 1 FROM inventario_lotes lx WHERE lx.id_item = i.id AND lx.id_almacen = :id_almacen))";
+            $subqueryLote    = "SELECT l.lote FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = {$idAlmacen} AND l.stock_lote > 0 ORDER BY (l.fecha_vencimiento IS NULL) ASC, l.fecha_vencimiento ASC, l.id ASC LIMIT 1";
+            $subqueryVenc    = "SELECT MIN(l.fecha_vencimiento) FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = {$idAlmacen} AND l.stock_lote > 0 AND l.fecha_vencimiento IS NOT NULL";
+            $subqueryMov     = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen})";
+            $joinsExtra      = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock s ON s.id_item = i.id AND s.id_almacen = {$idAlmacen}";
+            $whereExtra      = "AND (s.id IS NOT NULL OR EXISTS (SELECT 1 FROM inventario_lotes lx WHERE lx.id_item = i.id AND lx.id_almacen = {$idAlmacen}))";
             $groupBy         = "";
-            
-            $params[':id_almacen'] = $idAlmacen;
         } else {
             // VISTA GLOBAL INTELIGENTE PARA ÍTEMS
             $selectAlmacen   = "0 AS id_almacen, 
@@ -64,14 +62,14 @@ class InventarioModel extends Modelo
                 {$groupBy}";
 
         // 3. AGREGAMOS LA LÓGICA DE PACKS (SI APLICA)
-        if ($tablaPacksDisponible) {
-            if ($idAlmacen > 0) {
-                $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
-                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = :id_almacen OR m.id_almacen_destino = :id_almacen) AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
-                $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = :id_almacen AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = :id_almacen";
-                $whereExtraPack    = "AND sp.id IS NOT NULL";
-                $groupByPack       = "";
-            } else {
+            if ($tablaPacksDisponible) {
+                if ($idAlmacen > 0) {
+                    $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
+                    $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen}) AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
+                    $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = {$idAlmacen}";
+                    $whereExtraPack    = "AND sp.id IS NOT NULL";
+                    $groupByPack       = "";
+                } else {
                 // VISTA GLOBAL INTELIGENTE PARA PACKS
                 $selectAlmacenPack = "0 AS id_almacen, 
                                       CASE 
@@ -550,13 +548,23 @@ class InventarioModel extends Modelo
         if ($idAlmacen > 0) {
             $whereAlmacen = 'AND (m.id_almacen_destino = ? OR m.id_almacen_origen = ?)';
             $calcTrf = 'CASE WHEN m.id_almacen_destino = ? THEN m.cantidad WHEN m.id_almacen_origen = ? THEN -m.cantidad ELSE 0 END';
-            array_push($params, $idAlmacen, $idAlmacen, $idAlmacen, $idAlmacen);
+            
+            // ORDEN ESTRICTO:
+            // 1. SELECT
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
+            
+            // 2. WHERE (ID del ítem)
+            $params[] = $idItem;
+            
+            // 3. WHERE (Almacenes)
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
         } else {
             $whereAlmacen = '';
             $calcTrf = '0';
+            $params[] = $idItem;
         }
-
-        $params[] = $idItem;
 
         $sql = "SELECT 
                     m.id_item_unidad,
@@ -613,7 +621,6 @@ class InventarioModel extends Modelo
 
         return $resultado;
     }
-
     private function validarStockDisponible(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
     {
         $sql = 'SELECT stock_actual
@@ -921,17 +928,29 @@ class InventarioModel extends Modelo
         $inQuery = implode(',', array_fill(0, count($itemIds), '?'));
         $params = [];
 
-        // NUEVA LÓGICA: Basada en tipo de movimiento para evitar choques de historial
         if ($idAlmacen > 0) {
             $whereAlmacen = 'AND (m.id_almacen_destino = ? OR m.id_almacen_origen = ?)';
             $calcTrf = 'CASE WHEN m.id_almacen_destino = ? THEN m.cantidad WHEN m.id_almacen_origen = ? THEN -m.cantidad ELSE 0 END';
-            array_push($params, $idAlmacen, $idAlmacen, $idAlmacen, $idAlmacen);
+            
+            // ORDEN ESTRICTO PARA PDO:
+            // 1. Dos parámetros para el SELECT ($calcTrf)
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
+            
+            // 2. Parámetros para el WHERE IN (IDs de los ítems)
+            $params = array_merge($params, $itemIds);
+            
+            // 3. Dos parámetros para el WHERE final ($whereAlmacen)
+            $params[] = $idAlmacen;
+            $params[] = $idAlmacen;
+
         } else {
             $whereAlmacen = '';
             $calcTrf = '0'; // En la vista global, las transferencias no alteran el stock total
+            
+            // Solo necesitamos los IDs de los ítems
+            $params = array_merge($params, $itemIds);
         }
-
-        $params = array_merge($params, $itemIds);
 
         $sql = "SELECT 
                     m.id_item,
