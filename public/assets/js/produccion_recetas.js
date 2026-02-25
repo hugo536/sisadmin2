@@ -387,14 +387,11 @@ function initAccionesRecetaPendiente() {
         body.append('accion', accion);
 
         if (data && typeof data === 'object') {
-            Object.keys(data).forEach((k) => {
-                const v = data[k];
+            Object.entries(data).forEach(([k, v]) => {
                 if (v === undefined || v === null) return;
                 body.append(k, String(v));
             });
         }
-
-        Object.entries(data).forEach(([k, v]) => body.append(k, String(v)));
 
 
         const resp = await fetch(window.location.href, {
