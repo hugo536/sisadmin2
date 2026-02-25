@@ -51,6 +51,18 @@ class InventarioController extends Controlador
         foreach ($filas as $fila) {
             $stock = (float) ($fila['stock_actual'] ?? 0);
             $stockMin = (float) ($fila['stock_minimo'] ?? 0);
+            // Fallback: en algunos registros heredados el stock consolidado puede estar en 0
+            // pero el desglose por movimientos sí refleja saldo positivo.
+            if ($stock <= 0.0 && !empty($fila['desglose']) && is_array($fila['desglose'])) {
+                $stockDesdeDesglose = 0.0;
+                foreach ($fila['desglose'] as $desgloseFila) {
+                    $stockDesdeDesglose += (float) ($desgloseFila['cantidad'] ?? 0);
+                }
+                if ($stockDesdeDesglose > 0.0) {
+                    $stock = $stockDesdeDesglose;
+                    $fila['stock_actual'] = $stock;
+                }
+            }
             $controlaStock = (int) ($fila['controla_stock'] ?? 1);
             $permiteDecimales = (int) ($fila['permite_decimales'] ?? 0);
             $lote = trim((string) ($fila['lote_actual'] ?? ''));
