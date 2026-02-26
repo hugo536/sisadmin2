@@ -156,11 +156,19 @@ class InventarioModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function buscarItems(string $termino, int $limite = 20): array
+    public function buscarItems(string $termino, int $limite = 20, int $idAlmacen = 0, bool $soloConStock = false): array
     {
         $limite = max(1, (int) $limite);
         $busqueda = '%' . $termino . '%';
         $tablaPacksDisponible = $this->tablaExiste('precios_presentaciones');
+
+
+        $filtroStockItems = '';
+        $filtroStockPacks = '';
+        if ($soloConStock && $idAlmacen > 0) {
+            $filtroStockItems = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_item = i.id AND st.id_almacen = :id_almacen_item AND st.stock_actual > 0)';
+            $filtroStockPacks = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_pack = p.id AND st.id_almacen = :id_almacen_pack AND st.stock_actual > 0)';
+        }
 
         // 1. Consulta para los ítems
         $sql = "SELECT i.id,
@@ -178,7 +186,8 @@ class InventarioModel extends Modelo
                 LEFT JOIN item_presentaciones p ON p.id = i.id_presentacion
                 WHERE i.estado = 1
                   AND i.deleted_at IS NULL
-                  AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)";
+                  AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)
+                  {$filtroStockItems}";
 
         // 2. Si hay packs, los unimos con UNION ALL
         if ($tablaPacksDisponible) {
@@ -202,6 +211,7 @@ class InventarioModel extends Modelo
                       LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
                       WHERE p.estado = 1
                         AND p.deleted_at IS NULL
+                        {$filtroStockPacks}
                         AND (
                             p.codigo_presentacion LIKE :termino_sku_pack
                             OR p.nombre_manual LIKE :termino_nombre_pack
@@ -222,6 +232,13 @@ class InventarioModel extends Modelo
             $stmt->bindValue(':termino_nombre_pack', $busqueda, PDO::PARAM_STR);
             $stmt->bindValue(':termino_nombre_base_pack', $busqueda, PDO::PARAM_STR);
             $stmt->bindValue(':termino_nota_pack', $busqueda, PDO::PARAM_STR);
+        }
+
+        if ($soloConStock && $idAlmacen > 0) {
+            $stmt->bindValue(':id_almacen_item', $idAlmacen, PDO::PARAM_INT);
+            if ($tablaPacksDisponible) {
+                $stmt->bindValue(':id_almacen_pack', $idAlmacen, PDO::PARAM_INT);
+            }
         }
 
         $stmt->execute();

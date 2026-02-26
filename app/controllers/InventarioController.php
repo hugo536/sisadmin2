@@ -294,7 +294,10 @@ class InventarioController extends Controlador
             return;
         }
 
-        $items = $this->inventarioModel->buscarItems($q, 25);
+        $idAlmacen = (int) ($_GET['id_almacen'] ?? 0);
+        $soloConStock = (string) ($_GET['solo_con_stock'] ?? '0') === '1';
+
+        $items = $this->inventarioModel->buscarItems($q, 25, $idAlmacen, $soloConStock);
         json_response(['ok' => true, 'items' => $items]);
     }
 
