@@ -591,6 +591,36 @@ class InventarioModel extends Modelo
         $ids = [];
         $errores = [];
 
+        $lineasNormalizadas = [];
+        $lineasDuplicadas = [];
+        foreach ($lineas as $idx => $linea) {
+            if (!is_array($linea)) {
+                throw new InvalidArgumentException('La línea ' . ($idx + 1) . ' no tiene formato válido.');
+            }
+
+            $tipoRegistro = trim((string) ($linea['tipo_registro'] ?? 'item'));
+            if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+                $tipoRegistro = 'item';
+            }
+
+            $idItem = (int) ($linea['id_item'] ?? 0);
+            $idPack = (int) ($linea['id_pack'] ?? 0);
+            $idRegistro = $tipoRegistro === 'pack' ? $idPack : $idItem;
+            $lote = strtolower(trim((string) ($linea['lote'] ?? '')));
+            $clave = $tipoRegistro . '|' . $idRegistro . '|' . $lote;
+
+            if (isset($lineasNormalizadas[$clave])) {
+                $lineasDuplicadas[] = $idx + 1;
+                continue;
+            }
+
+            $lineasNormalizadas[$clave] = $idx + 1;
+        }
+
+        if (!empty($lineasDuplicadas)) {
+            throw new InvalidArgumentException('Hay líneas duplicadas en la operación (línea(s): ' . implode(', ', $lineasDuplicadas) . ').');
+        }
+
         $iniciaTransaccion = !$db->inTransaction();
         if ($iniciaTransaccion) {
             $db->beginTransaction();

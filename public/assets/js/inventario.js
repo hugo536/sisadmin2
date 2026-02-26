@@ -656,7 +656,11 @@
       });
     }
 
-    function agregarLineaMovimiento() {
+    function construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal) {
+      return [tipoRegistroVal, idRegistroVal, (loteVal || '').trim().toLowerCase()].join('|');
+    }
+
+    async function agregarLineaMovimiento() {
       const idItemVal = Number((itemIdInput && itemIdInput.value) || '0');
       const idPackVal = Number((packIdInput && packIdInput.value) || '0');
       const tipoRegistroVal = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
@@ -709,6 +713,44 @@
         return;
       }
 
+      const loteVal = (loteFinalEnviar.value || '').trim();
+      const claveLinea = construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal);
+      const existeDuplicado = lineasMovimiento.some((linea) => {
+        const idRegistroLinea = linea.tipo_registro === 'pack' ? Number(linea.id_pack || 0) : Number(linea.id_item || 0);
+        return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote) === claveLinea;
+      });
+
+      if (existeDuplicado) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Ítem duplicado',
+          text: 'Este producto ya fue agregado a la operación. Edite la cantidad o elimine la línea existente.'
+        });
+        return;
+      }
+
+      if (esTipoSalida(tipoVal)) {
+        const cantidadAcumulada = lineasMovimiento
+          .filter((linea) => {
+            const idRegistroLinea = linea.tipo_registro === 'pack' ? Number(linea.id_pack || 0) : Number(linea.id_item || 0);
+            return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote) === claveLinea;
+          })
+          .reduce((total, linea) => total + Number(linea.cantidad || 0), 0);
+
+        const idConsulta = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
+        const stockDisponible = await obtenerStockActual(idConsulta, idAlmacenVal, tipoRegistroVal);
+        const cantidadSolicitada = cantidadAcumulada + cantidadVal;
+
+        if (cantidadSolicitada > stockDisponible) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Stock insuficiente',
+            text: `No puedes mover ${cantidadSolicitada.toFixed(4)}. Stock disponible: ${stockDisponible.toFixed(4)}.`
+          });
+          return;
+        }
+      }
+
       const selectedValue = tomSelectItem ? tomSelectItem.getValue() : '';
       const selectedData = (tomSelectItem && selectedValue) ? tomSelectItem.options[selectedValue] : {};
       const etiqueta = `${selectedData.sku || ''} - ${selectedData.nombre_full || selectedData.nombre || 'Ítem'}`;
@@ -718,7 +760,7 @@
         id_item: tipoRegistroVal === 'item' ? idItemVal : 0,
         id_pack: tipoRegistroVal === 'pack' ? idPackVal : 0,
         cantidad: cantidadVal,
-        lote: (loteFinalEnviar.value || '').trim(),
+        lote: loteVal,
         fecha_vencimiento: (inputVencimiento && inputVencimiento.value) ? inputVencimiento.value : '',
         costo_unitario: Number((costoUnitarioInput && costoUnitarioInput.value) || 0),
         etiqueta,
