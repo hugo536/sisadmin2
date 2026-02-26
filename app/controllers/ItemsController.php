@@ -2,23 +2,19 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-// CAMBIO: Apunta al archivo en plural
 require_once BASE_PATH . '/app/models/ItemsModel.php';
 
 class ItemsController extends Controlador
 {
-    // CAMBIO: Propiedad en plural
     private ItemsModel $itemsModel;
 
     public function __construct()
     {
-        // CAMBIO: Instancia la clase en plural
         $this->itemsModel = new ItemsModel(); 
     }
 
     public function index(): void
     {
-        
         AuthMiddleware::handle();
         require_permiso('items.ver');
 
@@ -72,7 +68,6 @@ class ItemsController extends Controlador
             return;
         }
 
-
         $flash = ['tipo' => '', 'texto' => ''];
         if (isset($_SESSION['items_flash']) && is_array($_SESSION['items_flash'])) {
             $flash = [
@@ -89,8 +84,7 @@ class ItemsController extends Controlador
             try {
                 if ($accion === 'crear') {
                     require_permiso('items.crear');
-                    $data = $this->normalizarBanderas($_POST);
-                    $data = $this->validarItem($data, false);
+                    $data = $this->validarItem($_POST, false);
                     
                     if ($data['sku'] !== '' && $this->itemsModel->skuExiste($data['sku'])) {
                         throw new RuntimeException('El SKU ya se encuentra registrado.');
@@ -136,23 +130,22 @@ class ItemsController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID inválido.');
 
-                    $data = $this->normalizarBanderas($_POST);
-                    $data = $this->validarItem($data, true);
                     $actual = $this->itemsModel->obtener($id);
-                    
                     if ($actual === []) throw new RuntimeException('El ítem no existe.');
 
+                    $data = $this->validarItem($_POST, true);
+                    
+                    // Aseguramos que el estado original se mantenga si no viene en el form
                     if (!isset($data['estado'])) {
                         $data['estado'] = (int) ($actual['estado'] ?? 1);
                     }
 
-                    $skuIngresado = trim((string) ($data['sku'] ?? ''));
-                    if ($skuIngresado !== '' && $skuIngresado !== (string) ($actual['sku'] ?? '') && $this->itemsModel->skuExiste($skuIngresado, $id)) {
-                        throw new RuntimeException('El SKU ya se encuentra registrado.');
-                    }
+                    // En edición, ignoramos el SKU que viene del formulario para no romper el Kardex
+                    unset($data['sku']);
 
                     $this->itemsModel->actualizar($id, $data, $userId);
                     $this->itemsModel->sincronizarDependenciasConfiguracion($id, $data, $userId);
+                    
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem actualizado correctamente.'];
                 }
@@ -186,9 +179,7 @@ class ItemsController extends Controlador
                 if ($accion === 'editar_rubro') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de rubro inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
                     $data = $this->validarRubro($_POST);
                     $this->itemsModel->actualizarRubro($id, $data, $userId);
@@ -199,9 +190,7 @@ class ItemsController extends Controlador
                 if ($accion === 'eliminar_rubro') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de rubro inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
                     $this->itemsModel->eliminarRubro($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Rubro eliminado correctamente.'];
@@ -211,9 +200,7 @@ class ItemsController extends Controlador
                 if ($accion === 'editar_categoria') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de categoría inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
                     $data = $this->validarCategoria($_POST);
                     $this->itemsModel->actualizarCategoria($id, $data, $userId);
@@ -224,9 +211,7 @@ class ItemsController extends Controlador
                 if ($accion === 'eliminar_categoria') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de categoría inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
                     $this->itemsModel->eliminarCategoria($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría eliminada correctamente.'];
@@ -244,9 +229,8 @@ class ItemsController extends Controlador
                 if ($accion === 'editar_marca') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de marca inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
+                    
                     $data = $this->validarAtributoItem($_POST);
                     $this->itemsModel->actualizarMarca($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca actualizada correctamente.'];
@@ -256,14 +240,12 @@ class ItemsController extends Controlador
                 if ($accion === 'eliminar_marca') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de marca inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
+                    
                     $this->itemsModel->eliminarMarca($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca eliminada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Marca eliminada correctamente.'];
                 }
-
 
                 if ($accion === 'crear_sabor') {
                     require_permiso('configuracion.editar');
@@ -276,12 +258,9 @@ class ItemsController extends Controlador
                 if ($accion === 'editar_sabor') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de sabor inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
                     // --- INICIO BLOQUE DE SEGURIDAD ---
-                    // Buscamos si este ID corresponde al registro "Ninguno"
                     $todosLosSabores = $this->itemsModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
@@ -299,12 +278,9 @@ class ItemsController extends Controlador
                 if ($accion === 'eliminar_sabor') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de sabor inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
                     // --- INICIO BLOQUE DE SEGURIDAD ---
-                    // Verificamos antes de intentar eliminar
                     $todosLosSabores = $this->itemsModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
@@ -329,9 +305,8 @@ class ItemsController extends Controlador
                 if ($accion === 'editar_presentacion') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de presentación inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
+                    
                     $data = $this->validarAtributoItem($_POST);
                     $this->itemsModel->actualizarPresentacion($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación actualizada correctamente.'];
@@ -341,9 +316,8 @@ class ItemsController extends Controlador
                 if ($accion === 'eliminar_presentacion') {
                     require_permiso('configuracion.editar');
                     $id = (int) ($_POST['id'] ?? 0);
-                    if ($id <= 0) {
-                        throw new RuntimeException('ID de presentación inválido.');
-                    }
+                    if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
+                    
                     $this->itemsModel->eliminarPresentacion($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación eliminada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Presentación eliminada correctamente.'];
@@ -385,7 +359,6 @@ class ItemsController extends Controlador
             'ruta_actual' => 'items', 
         ]);
     }
-
 
     public function perfil(): void
     {
@@ -503,18 +476,13 @@ class ItemsController extends Controlador
         ]);
     }
 
-    private function normalizarBanderas(array $data): array
-    {
-        foreach (['controla_stock', 'permite_decimales', 'requiere_lote', 'requiere_vencimiento', 'requiere_formula_bom', 'requiere_factor_conversion', 'es_envase_retornable'] as $flag) {
-            $data[$flag] = isset($data[$flag]) ? 1 : 0;
-        }
-
-        return $data;
-    }
-
     private function validarItem(array $data, bool $esEdicion): array
     {
         $nombre = trim((string) ($data['nombre'] ?? ''));
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del ítem es obligatorio.');
+        }
+
         $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
         $tiposPermitidos = ['producto_terminado', 'materia_prima', 'material_empaque', 'servicio', 'insumo', 'semielaborado'];
 
@@ -526,37 +494,20 @@ class ItemsController extends Controlador
             throw new RuntimeException('El tipo de ítem no es válido.');
         }
 
-        $data['tipo_item'] = $tipo;
+        $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== '' ? (int) $data['id_categoria'] : 0;
+        $idRubro = isset($data['id_rubro']) && $data['id_rubro'] !== '' ? (int) $data['id_rubro'] : 0;
 
-        $idCategoria = isset($data['id_categoria']) && $data['id_categoria'] !== ''
-            ? (int) $data['id_categoria']
-            : 0;
+        if ($idRubro <= 0) throw new RuntimeException('El rubro es obligatorio.');
+        if ($idCategoria <= 0) throw new RuntimeException('La categoría es obligatoria.');
 
-        $idRubro = isset($data['id_rubro']) && $data['id_rubro'] !== ''
-            ? (int) $data['id_rubro']
-            : 0;
-
-        if ($idRubro <= 0) {
-            throw new RuntimeException('El rubro es obligatorio.');
-        }
-
-        if ($idCategoria <= 0) {
-            throw new RuntimeException('La categoría es obligatoria.');
-        }
-
-        if ($idRubro > 0 && !$this->itemsModel->rubroExisteActivo($idRubro)) {
+        if (!$this->itemsModel->rubroExisteActivo($idRubro)) {
             throw new RuntimeException('El rubro seleccionado no existe o está inactivo.');
         }
-
-        if ($idCategoria > 0 && !$this->itemsModel->categoriaExisteActiva($idCategoria)) {
+        if (!$this->itemsModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        $idMarca = isset($data['id_marca']) && $data['id_marca'] !== ''
-            ? (int) $data['id_marca']
-            : 0;
-
-        $data['id_marca'] = $idMarca > 0 ? $idMarca : null;
+        $idMarca = isset($data['id_marca']) && $data['id_marca'] !== '' ? (int) $data['id_marca'] : 0;
         $data['marca'] = null;
 
         if ($idMarca > 0) {
@@ -566,49 +517,21 @@ class ItemsController extends Controlador
                     break;
                 }
             }
-
             if ($data['marca'] === null) {
                 throw new RuntimeException('La marca seleccionada no existe o está inactiva.');
             }
         }
 
         $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
-        $autoGenerarIdentidad = !isset($data['autogenerar_identidad']) || (int) $data['autogenerar_identidad'] === 1;
-        $nombreManualOverride = isset($data['nombre_manual_override'])
-            ? (int) $data['nombre_manual_override'] === 1
-            : !$autoGenerarIdentidad;
 
         if ($esItemDetallado) {
-            if (empty($data['id_marca']) && empty($data['marca'])) {
-                throw new RuntimeException('La marca es obligatoria para ítems de tipo producto terminado o semielaborado.');
-            }
-
-            if (empty($data['id_sabor'])) {
-                throw new RuntimeException('El sabor es obligatorio para ítems de tipo producto terminado o semielaborado.');
-            }
-
-            if (empty($data['id_presentacion'])) {
-                throw new RuntimeException('La presentación es obligatoria para ítems de tipo producto terminado o semielaborado.');
-            }
-
-            if ($nombreManualOverride) {
-                if ($nombre === '') {
-                    throw new RuntimeException('Debe ingresar un nombre manual cuando activa la edición manual.');
-                }
-                $data['nombre'] = $nombre;
-            } else {
-                $data['nombre'] = $this->generarNombreItemDetallado($data);
-            }
-        }
-
-        if (!$esItemDetallado) {
-            if ($nombre === '') {
-                throw new RuntimeException('El nombre es obligatorio para este tipo de ítem.');
-            }
+            if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para ítems detallados.');
+            if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para ítems detallados.');
+            if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para ítems detallados.');
+        } else {
             $data['id_sabor'] = null;
             $data['id_presentacion'] = null;
         }
-
 
         if ($tipo === 'semielaborado' && !$esEdicion) {
             $data['controla_stock'] = 1;
@@ -639,15 +562,14 @@ class ItemsController extends Controlador
             $data['permite_decimales'] = 0;
         }
 
-        if ((int) ($data['controla_stock'] ?? 0) !== 1) {
+        if (!isset($data['controla_stock']) || (int)$data['controla_stock'] !== 1) {
             $data['stock_minimo'] = 0;
         }
 
-        if ($esItemDetallado && trim((string) ($data['sku'] ?? '')) === '') {
-            $data['sku'] = $this->generarSkuItemDetallado($data);
+        // Si no mandan SKU (lo mandan vacío), lo dejamos vacío para que el modelo lo genere
+        if (!isset($data['sku']) || trim($data['sku']) === '') {
+             $data['sku'] = '';
         }
-
-        unset($data['nombre_manual_override'], $data['autogenerar_identidad']);
 
         return $data;
     }
@@ -691,146 +613,6 @@ class ItemsController extends Controlador
             'peso_kg' => round($pesoKg, 3),
             'estado' => ((int) ($data['estado'] ?? 1) === 1) ? 1 : 0,
         ];
-    }
-
-
-    private function generarSkuItemDetallado(array $data): string
-    {
-        $tipo = strtolower(trim((string) ($data['tipo_item'] ?? '')));
-        $categoriaId = (int) ($data['id_categoria'] ?? 0);
-        $categoriaNombre = '';
-        if ($categoriaId > 0) {
-            foreach ($this->itemsModel->listarCategorias() as $categoria) {
-                if ((int) ($categoria['id'] ?? 0) === $categoriaId) {
-                    $categoriaNombre = (string) ($categoria['nombre'] ?? '');
-                    break;
-                }
-            }
-        }
-
-        $saborId = (int) ($data['id_sabor'] ?? 0);
-        $saborNombre = '';
-        if ($saborId > 0) {
-            foreach ($this->itemsModel->listarSabores() as $sabor) {
-                if ((int) ($sabor['id'] ?? 0) === $saborId) {
-                    $saborNombre = (string) ($sabor['nombre'] ?? '');
-                    break;
-                }
-            }
-        }
-
-        $presentacionId = (int) ($data['id_presentacion'] ?? 0);
-        $presentacionNombre = '';
-        if ($presentacionId > 0) {
-            foreach ($this->itemsModel->listarPresentaciones() as $presentacion) {
-                if ((int) ($presentacion['id'] ?? 0) === $presentacionId) {
-                    $presentacionNombre = trim((string) ($presentacion['nombre'] ?? ''));
-                    break;
-                }
-            }
-        }
-
-        if ($tipo === 'semielaborado') {
-            $presentacionNombre = $this->limpiarPresentacionSemielaborado($presentacionNombre);
-        }
-
-        $marcaNombre = trim((string) ($data['marca'] ?? ''));
-
-        $bloques = [];
-        $prefCategoria = $this->prefijoSku($categoriaNombre);
-        $prefMarca = $this->prefijoSku($marcaNombre);
-        if ($prefCategoria !== '') {
-            $bloques[] = $prefCategoria;
-        }
-        if ($prefMarca !== '') {
-            $bloques[] = $prefMarca;
-        }
-
-        if (!$this->esSaborOmitible($saborNombre)) {
-            $prefSabor = $this->prefijoSku($saborNombre);
-            if ($prefSabor !== '') {
-                $bloques[] = $prefSabor;
-            }
-        }
-
-        if ($presentacionNombre !== '') {
-            $bloques[] = $presentacionNombre;
-        }
-
-        return implode('-', $bloques);
-    }
-
-    private function limpiarPresentacionSemielaborado(string $presentacion): string
-    {
-        $limpia = preg_replace('/\bx\s*\d+\b/i', ' ', $presentacion);
-        if ($limpia === null) {
-            return trim($presentacion);
-        }
-
-        return trim((string) preg_replace('/\s+/', ' ', $limpia));
-    }
-
-    private function prefijoSku(string $texto): string
-    {
-        $normalizado = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
-        if ($normalizado === false) {
-            $normalizado = $texto;
-        }
-
-        $normalizado = preg_replace('/[^A-Za-z0-9]/', '', strtoupper(trim((string) $normalizado)));
-        return substr((string) $normalizado, 0, 2);
-    }
-
-    private function esSaborOmitible(string $sabor): bool
-    {
-        $baseNormalizada = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $sabor);
-        if ($baseNormalizada === false) {
-            $baseNormalizada = $sabor;
-        }
-
-        $base = strtolower(trim((string) $baseNormalizada));
-        return $base === '' || $base === 'ninguno' || $base === 'sin sabor';
-    }
-
-
-    private function generarNombreItemDetallado(array $data): string
-    {
-        $marcaNombre = trim((string) ($data['marca'] ?? ''));
-        $saborNombre = $this->obtenerNombreAtributo((int) ($data['id_sabor'] ?? 0), $this->itemsModel->listarSabores());
-        $presentacionNombre = $this->obtenerNombreAtributo((int) ($data['id_presentacion'] ?? 0), $this->itemsModel->listarPresentaciones());
-
-        $partes = [];
-        if ($marcaNombre !== '') {
-            $partes[] = $marcaNombre;
-        }
-        if (!$this->esSaborOmitible($saborNombre)) {
-            $partes[] = $saborNombre;
-        }
-        if ($presentacionNombre !== '') {
-            $partes[] = $presentacionNombre;
-        }
-
-        $nombreGenerado = trim(implode(' - ', $partes));
-        if ($nombreGenerado === '') {
-            throw new RuntimeException('No fue posible generar el nombre del ítem con los atributos seleccionados.');
-        }
-
-        return $nombreGenerado;
-    }
-
-    private function obtenerNombreAtributo(int $id, array $catalogo): string
-    {
-        if ($id <= 0) {
-            return '';
-        }
-
-        foreach ($catalogo as $registro) {
-            if ((int) ($registro['id'] ?? 0) === $id) {
-                return trim((string) ($registro['nombre'] ?? ''));
-            }
-        }
-
-        return '';
     }
 
     private function validarCategoria(array $data): array

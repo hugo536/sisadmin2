@@ -6,23 +6,20 @@ class ItemsModel extends Modelo
     private const TABLA_MARCAS = 'item_marcas';
     private const TABLA_SABORES = 'item_sabores';
     private const TABLA_PRESENTACIONES = 'item_presentaciones';
-    private array $cacheColumnasPorTabla = [];
 
     public function listar(): array
     {
-        $bomPendienteSql = '0 AS bom_pendiente';
-        if ($this->tablaExiste('produccion_recetas') && $this->tablaExiste('produccion_recetas_detalle')) {
-            $bomPendienteSql = "CASE
-                           WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
-                               SELECT 1
-                               FROM produccion_recetas r
-                               INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
-                               WHERE r.id_producto = i.id
-                                 AND r.deleted_at IS NULL
-                           ) THEN 1
-                           ELSE 0
-                       END AS bom_pendiente";
-        }
+        // Se asume que las tablas de recetas existen según el diseño del sistema
+        $bomPendienteSql = "CASE
+                               WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
+                                   SELECT 1
+                                   FROM produccion_recetas r
+                                   INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                                   WHERE r.id_producto = i.id
+                                     AND r.deleted_at IS NULL
+                               ) THEN 1
+                               ELSE 0
+                           END AS bom_pendiente";
 
         $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
                        i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
@@ -52,7 +49,6 @@ class ItemsModel extends Modelo
 
     public function obtener(int $id): array
     {
-        // CORREGIDO: Usamos un alias aquí también
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                        unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                        dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
@@ -105,7 +101,7 @@ class ItemsModel extends Modelo
 
         $sql .= ' LIMIT 1';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->filtrarParametrosSql($sql, $params));
+        $stmt->execute($params);
 
         return (bool) $stmt->fetchColumn();
     }
@@ -150,33 +146,14 @@ class ItemsModel extends Modelo
 
     public function listarUnidadesConversion(): array
     {
-        if (!$this->tablaExiste('items_unidades')) {
-            return [];
-        }
-
-        $usaDeletedAtUnidades = $this->tablaTieneColumna('items_unidades', 'deleted_at');
-        $usaEstadoUnidades = $this->tablaTieneColumna('items_unidades', 'estado');
-
-        $sql = 'SELECT i.id,
-                       i.sku,
-                       i.nombre,
-                       i.unidad_base,
-                       i.requiere_factor_conversion,
+        $sql = 'SELECT i.id, i.sku, i.nombre, i.unidad_base, i.requiere_factor_conversion,
                        COUNT(u.id) AS total_unidades
                 FROM items i
-                LEFT JOIN items_unidades u ON u.id_item = i.id';
-
-        if ($usaDeletedAtUnidades) {
-            $sql .= ' AND u.deleted_at IS NULL';
-        }
-        if ($usaEstadoUnidades) {
-            $sql .= ' AND u.estado = 1';
-        }
-
-        $sql .= ' WHERE i.deleted_at IS NULL
+                LEFT JOIN items_unidades u ON u.id_item = i.id AND u.deleted_at IS NULL AND u.estado = 1
+                WHERE i.deleted_at IS NULL
                   AND i.requiere_factor_conversion = 1
-                  GROUP BY i.id, i.sku, i.nombre, i.unidad_base, i.requiere_factor_conversion
-                  ORDER BY (COUNT(u.id) = 0) DESC, i.nombre ASC';
+                GROUP BY i.id, i.sku, i.nombre, i.unidad_base, i.requiere_factor_conversion
+                ORDER BY (COUNT(u.id) = 0) DESC, i.nombre ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute();
@@ -185,29 +162,15 @@ class ItemsModel extends Modelo
 
     public function listarDetalleUnidadesConversion(int $idItem): array
     {
-        if ($idItem <= 0 || !$this->tablaExiste('items_unidades')) {
+        if ($idItem <= 0) {
             return [];
         }
 
-        $columnas = [
-            'id',
-            'id_item',
-            'nombre',
-            $this->tablaTieneColumna('items_unidades', 'codigo_unidad') ? 'codigo_unidad' : "'' AS codigo_unidad",
-            $this->tablaTieneColumna('items_unidades', 'factor_conversion') ? 'factor_conversion' : '1.0000 AS factor_conversion',
-            $this->tablaTieneColumna('items_unidades', 'peso_kg') ? 'peso_kg' : '0.000 AS peso_kg',
-            $this->tablaTieneColumna('items_unidades', 'estado') ? 'estado' : '1 AS estado',
-        ];
-
-        $sql = 'SELECT ' . implode(', ', $columnas) . '
+        $sql = 'SELECT id, id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado
                 FROM items_unidades
-                WHERE id_item = :id_item';
-
-        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
-            $sql .= ' AND deleted_at IS NULL';
-        }
-
-        $sql .= ' ORDER BY nombre ASC, id ASC';
+                WHERE id_item = :id_item
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC, id ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
@@ -217,152 +180,68 @@ class ItemsModel extends Modelo
 
     public function crearUnidadConversion(array $data, int $userId): int
     {
-        if (!$this->tablaExiste('items_unidades')) {
-            throw new RuntimeException('La tabla de unidades de conversión no existe.');
-        }
-
-        $columnas = ['id_item', 'nombre'];
-        $valores = [':id_item', ':nombre'];
-        $params = [
+        $sql = 'INSERT INTO items_unidades (id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, created_by, updated_by, created_at, updated_at)
+                VALUES (:id_item, :nombre, :codigo_unidad, :factor_conversion, :peso_kg, :estado, :created_by, :updated_by, NOW(), NOW())';
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
             'id_item' => (int) $data['id_item'],
             'nombre' => trim((string) $data['nombre']),
-        ];
-
-        if ($this->tablaTieneColumna('items_unidades', 'codigo_unidad')) {
-            $columnas[] = 'codigo_unidad';
-            $valores[] = ':codigo_unidad';
-            $params['codigo_unidad'] = trim((string) ($data['codigo_unidad'] ?? '')) !== ''
-                ? trim((string) $data['codigo_unidad'])
-                : null;
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'factor_conversion')) {
-            $columnas[] = 'factor_conversion';
-            $valores[] = ':factor_conversion';
-            $params['factor_conversion'] = (float) $data['factor_conversion'];
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'peso_kg')) {
-            $columnas[] = 'peso_kg';
-            $valores[] = ':peso_kg';
-            $params['peso_kg'] = (float) $data['peso_kg'];
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
-            $columnas[] = 'estado';
-            $valores[] = ':estado';
-            $params['estado'] = (int) ($data['estado'] ?? 1);
-        }
-
-        if ($this->tablaTieneColumna('items_unidades', 'created_by')) {
-            $columnas[] = 'created_by';
-            $valores[] = ':created_by';
-            $params['created_by'] = $userId;
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
-            $columnas[] = 'updated_by';
-            $valores[] = ':updated_by';
-            $params['updated_by'] = $userId;
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'created_at')) {
-            $columnas[] = 'created_at';
-            $valores[] = 'NOW()';
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
-            $columnas[] = 'updated_at';
-            $valores[] = 'NOW()';
-        }
-
-        $sql = 'INSERT INTO items_unidades (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $valores) . ')';
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->filtrarParametrosSql($sql, $params));
+            'codigo_unidad' => trim((string) ($data['codigo_unidad'] ?? '')) !== '' ? trim((string) $data['codigo_unidad']) : null,
+            'factor_conversion' => (float) ($data['factor_conversion'] ?? 1),
+            'peso_kg' => (float) ($data['peso_kg'] ?? 0),
+            'estado' => (int) ($data['estado'] ?? 1),
+            'created_by' => $userId,
+            'updated_by' => $userId
+        ]);
 
         return (int) $this->db()->lastInsertId();
     }
 
     public function actualizarUnidadConversion(int $id, array $data, int $userId): bool
     {
-        if (!$this->tablaExiste('items_unidades')) {
-            throw new RuntimeException('La tabla de unidades de conversión no existe.');
-        }
-
-        $set = [
-            'nombre = :nombre',
-        ];
-        $params = [
-            'id' => $id,
-            'id_item' => (int) $data['id_item'],
-            'nombre' => trim((string) $data['nombre']),
-        ];
-
-        if ($this->tablaTieneColumna('items_unidades', 'codigo_unidad')) {
-            $set[] = 'codigo_unidad = :codigo_unidad';
-            $params['codigo_unidad'] = trim((string) ($data['codigo_unidad'] ?? '')) !== ''
-                ? trim((string) $data['codigo_unidad'])
-                : null;
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'factor_conversion')) {
-            $set[] = 'factor_conversion = :factor_conversion';
-            $params['factor_conversion'] = (float) $data['factor_conversion'];
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'peso_kg')) {
-            $set[] = 'peso_kg = :peso_kg';
-            $params['peso_kg'] = (float) $data['peso_kg'];
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
-            $set[] = 'estado = :estado';
-            $params['estado'] = (int) ($data['estado'] ?? 1);
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
-            $set[] = 'updated_at = NOW()';
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
-            $set[] = 'updated_by = :updated_by';
-            $params['updated_by'] = $userId;
-        }
-
         $sql = 'UPDATE items_unidades
-                SET ' . implode(', ', $set) . '
-                WHERE id = :id
-                  AND id_item = :id_item';
-        if ($this->tablaTieneColumna('items_unidades', 'deleted_at')) {
-            $sql .= ' AND deleted_at IS NULL';
-        }
-
-        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
-    }
-
-    public function eliminarUnidadConversion(int $id, int $idItem, int $userId): bool
-    {
-        if (!$this->tablaExiste('items_unidades') || !$this->tablaTieneColumna('items_unidades', 'deleted_at')) {
-            throw new RuntimeException('No se puede eliminar: el modo soft delete no está disponible.');
-        }
-
-        $set = ['deleted_at = NOW()'];
-        $params = ['id' => $id, 'id_item' => $idItem];
-
-        if ($this->tablaTieneColumna('items_unidades', 'estado')) {
-            $set[] = 'estado = 0';
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_at')) {
-            $set[] = 'updated_at = NOW()';
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'deleted_by')) {
-            $set[] = 'deleted_by = :deleted_by';
-            $params['deleted_by'] = $userId;
-        }
-        if ($this->tablaTieneColumna('items_unidades', 'updated_by')) {
-            $set[] = 'updated_by = :updated_by';
-            $params['updated_by'] = $userId;
-        }
-
-        $sql = 'UPDATE items_unidades
-                SET ' . implode(', ', $set) . '
+                SET nombre = :nombre,
+                    codigo_unidad = :codigo_unidad,
+                    factor_conversion = :factor_conversion,
+                    peso_kg = :peso_kg,
+                    estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
                 WHERE id = :id
                   AND id_item = :id_item
                   AND deleted_at IS NULL';
 
-        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
+        return $this->db()->prepare($sql)->execute([
+            'nombre' => trim((string) $data['nombre']),
+            'codigo_unidad' => trim((string) ($data['codigo_unidad'] ?? '')) !== '' ? trim((string) $data['codigo_unidad']) : null,
+            'factor_conversion' => (float) ($data['factor_conversion'] ?? 1),
+            'peso_kg' => (float) ($data['peso_kg'] ?? 0),
+            'estado' => (int) ($data['estado'] ?? 1),
+            'updated_by' => $userId,
+            'id' => $id,
+            'id_item' => (int) $data['id_item']
+        ]);
+    }
+
+    public function eliminarUnidadConversion(int $id, int $idItem, int $userId): bool
+    {
+        $sql = 'UPDATE items_unidades
+                SET deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_at = NOW(),
+                    updated_by = :updated_by,
+                    estado = 0
+                WHERE id = :id
+                  AND id_item = :id_item
+                  AND deleted_at IS NULL';
+
+        return $this->db()->prepare($sql)->execute([
+            'deleted_by' => $userId,
+            'updated_by' => $userId,
+            'id' => $id,
+            'id_item' => $idItem
+        ]);
     }
 
     public function rubroExisteActivo(int $idRubro): bool
@@ -381,8 +260,8 @@ class ItemsModel extends Modelo
 
     public function crearRubro(array $data, int $userId): int
     {
-        $sql = 'INSERT INTO item_rubros (nombre, descripcion, estado, created_by, updated_by)
-                VALUES (:nombre, :descripcion, :estado, :created_by, :updated_by)';
+        $sql = 'INSERT INTO item_rubros (nombre, descripcion, estado, created_by, updated_by, created_at, updated_at)
+                VALUES (:nombre, :descripcion, :estado, :created_by, :updated_by, NOW(), NOW())';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -421,6 +300,7 @@ class ItemsModel extends Modelo
                 SET estado = 0,
                     deleted_at = NOW(),
                     deleted_by = :deleted_by,
+                    updated_at = NOW(),
                     updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
@@ -460,8 +340,8 @@ class ItemsModel extends Modelo
 
     public function crearCategoria(array $data, int $userId): int
     {
-        $sql = 'INSERT INTO categorias (nombre, descripcion, estado, created_by, updated_by)
-                VALUES (:nombre, :descripcion, :estado, :created_by, :updated_by)';
+        $sql = 'INSERT INTO categorias (nombre, descripcion, estado, created_by, updated_by, fecha_creacion)
+                VALUES (:nombre, :descripcion, :estado, :created_by, :updated_by, NOW())';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -523,26 +403,24 @@ class ItemsModel extends Modelo
         $payload['created_by'] = $userId;
         $payload['updated_by'] = $userId;
 
-        // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
                                    unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
                                    dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
                                    es_envase_retornable, stock_minimo, precio_venta, costo_referencial,
-                                   moneda, impuesto_porcentaje, estado, created_by, updated_by)
+                                   moneda, impuesto_porcentaje, estado, created_by, updated_by, created_at, updated_at)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_rubro, :id_categoria, :id_marca, :id_sabor, :id_presentacion, :marca,
                         :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
                         :dias_alerta_vencimiento, :controla_stock, :requiere_formula_bom, :requiere_factor_conversion,
                         :es_envase_retornable, :stock_minimo, :precio_venta, :costo_referencial,
-                        :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by)';
+                        :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by, NOW(), NOW())';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->filtrarParametrosSql($sql, $payload));
+        $stmt->execute($payload);
 
         return (int) $this->db()->lastInsertId();
     }
 
     public function actualizar(int $id, array $data, int $userId): bool
     {
-        // CORREGIDO: Nombre real de la columna en BD (impuesto_porcentaje)
         $sql = 'UPDATE items
                 SET nombre = :nombre,
                     descripcion = :descripcion,
@@ -568,15 +446,19 @@ class ItemsModel extends Modelo
                     moneda = :moneda,
                     impuesto_porcentaje = :impuesto_porcentaje,
                     estado = :estado,
+                    updated_at = NOW(),
                     updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
         
         $payload = $this->mapPayload($data);
+        // Excluimos el SKU para que no pueda ser alterado en una edición directa
+        unset($payload['sku'], $payload['created_by']);
+        
         $payload['id'] = $id;
         $payload['updated_by'] = $userId;
 
-        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $payload));
+        return $this->db()->prepare($sql)->execute($payload);
     }
 
     public function eliminar(int $id, int $userId): bool
@@ -589,11 +471,14 @@ class ItemsModel extends Modelo
         $sql = 'UPDATE items
                 SET estado = 0,
                     deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_at = NOW(),
                     updated_by = :updated_by
                 WHERE id = :id
                   AND deleted_at IS NULL';
         return $this->db()->prepare($sql)->execute([
             'id' => $id,
+            'deleted_by' => $userId,
             'updated_by' => $userId,
         ]);
     }
@@ -626,7 +511,6 @@ class ItemsModel extends Modelo
             'motivo' => 'No se puede eliminar: el ítem tiene movimientos activos (' . implode(', ', $referencias) . '). Puedes desactivarlo.',
         ];
     }
-
 
     public function actualizarEstado(int $id, int $estado, int $userId): bool
     {
@@ -673,7 +557,6 @@ class ItemsModel extends Modelo
                 'precio_venta' => (float) ($item['precio_venta'] ?? 0),
                 'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
                 'moneda' => (string) ($item['moneda'] ?? ''),
-                // Aquí usamos 'impuesto' porque en el SELECT usamos "AS impuesto"
                 'impuesto' => (float) ($item['impuesto'] ?? 0),
                 'estado' => (int) ($item['estado'] ?? 1),
             ];
@@ -685,7 +568,6 @@ class ItemsModel extends Modelo
             'recordsFiltered' => count($data),
         ];
     }
-
 
     public function listarMarcas(bool $soloActivos = false): array
     {
@@ -713,15 +595,15 @@ class ItemsModel extends Modelo
 
     public function guardarDocumento(array $docData): bool
     {
-        $sql = 'INSERT INTO item_documentos (id_item, tipo_documento, nombre_archivo, ruta_archivo, extension, created_by)
-                VALUES (:id_item, :tipo_documento, :nombre_archivo, :ruta_archivo, :extension, :created_by)';
+        $sql = 'INSERT INTO item_documentos (id_item, tipo_documento, nombre_archivo, ruta_archivo, extension, created_by, created_at, updated_at)
+                VALUES (:id_item, :tipo_documento, :nombre_archivo, :ruta_archivo, :extension, :created_by, NOW(), NOW())';
 
         return $this->db()->prepare($sql)->execute($docData);
     }
 
     public function actualizarDocumento(int $id, string $tipo): bool
     {
-        $sql = 'UPDATE item_documentos SET tipo_documento = :tipo WHERE id = :id';
+        $sql = 'UPDATE item_documentos SET tipo_documento = :tipo, updated_at = NOW() WHERE id = :id';
 
         return $this->db()->prepare($sql)->execute([
             'tipo' => $tipo,
@@ -795,11 +677,7 @@ class ItemsModel extends Modelo
     {
         $sql = "SELECT id, nombre, estado
                 FROM {$tabla}
-                WHERE 1 = 1";
-
-        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
-            $sql .= ' AND deleted_at IS NULL';
-        }
+                WHERE deleted_at IS NULL";
 
         if ($soloActivos) {
             $sql .= ' AND estado = 1';
@@ -820,39 +698,16 @@ class ItemsModel extends Modelo
             throw new RuntimeException('Ya existe un registro con ese nombre.');
         }
 
-        $columnas = ['nombre', 'estado'];
-        $valores = [':nombre', ':estado'];
-        $params = [
+        // Estas tablas no tienen columna created_by en el SQL original, solo updated_by.
+        $sql = "INSERT INTO {$tabla} (nombre, estado, updated_by, created_at, updated_at)
+                VALUES (:nombre, :estado, :updated_by, NOW(), NOW())";
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
             'nombre' => $nombre,
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
-        ];
-
-        if ($this->tablaTieneColumna($tabla, 'created_by')) {
-            $columnas[] = 'created_by';
-            $valores[] = ':created_by';
-            $params['created_by'] = $userId;
-        }
-
-        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
-            $columnas[] = 'updated_by';
-            $valores[] = ':updated_by';
-            $params['updated_by'] = $userId;
-        }
-
-        if ($this->tablaTieneColumna($tabla, 'created_at')) {
-            $columnas[] = 'created_at';
-            $valores[] = 'NOW()';
-        }
-
-        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
-            $columnas[] = 'updated_at';
-            $valores[] = 'NOW()';
-        }
-
-        $sql = "INSERT INTO {$tabla} (" . implode(', ', $columnas) . ")
-                VALUES (" . implode(', ', $valores) . ")";
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->filtrarParametrosSql($sql, $params));
+            'updated_by' => $userId
+        ]);
 
         return (int) $this->db()->lastInsertId();
     }
@@ -864,81 +719,43 @@ class ItemsModel extends Modelo
             throw new RuntimeException('Ya existe un registro con ese nombre.');
         }
 
-        $set = [
-            'nombre = :nombre',
-            'estado = :estado',
-        ];
-
-        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
-            $set[] = 'updated_at = NOW()';
-        }
-
-        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
-            $set[] = 'updated_by = :updated_by';
-        }
-
         $sql = "UPDATE {$tabla}
-                SET " . implode(",\n                    ", $set) . "
-                WHERE id = :id";
-
-        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
-            $sql .= "
+                SET nombre = :nombre,
+                    estado = :estado,
+                    updated_at = NOW(),
+                    updated_by = :updated_by
+                WHERE id = :id
                   AND deleted_at IS NULL";
-        }
 
-        $params = [
+        return $this->db()->prepare($sql)->execute([
             'id' => $id,
             'nombre' => $nombre,
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
             'updated_by' => $userId,
-        ];
-
-        if (!$this->tablaTieneColumna($tabla, 'updated_by')) {
-            unset($params['updated_by']);
-        }
-
-        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
+        ]);
     }
 
     private function eliminarAtributo(string $tabla, int $id, int $userId): bool
     {
-        if (!$this->tablaTieneColumna($tabla, 'deleted_at')) {
-            $sql = "DELETE FROM {$tabla} WHERE id = :id";
-
-            return $this->db()->prepare($sql)->execute(['id' => $id]);
-        }
-
-        $set = ['deleted_at = NOW()'];
-        $params = ['id' => $id];
-
-        if ($this->tablaTieneColumna($tabla, 'updated_at')) {
-            $set[] = 'updated_at = NOW()';
-        }
-        if ($this->tablaTieneColumna($tabla, 'deleted_by')) {
-            $set[] = 'deleted_by = :deleted_by';
-            $params['deleted_by'] = $userId;
-        }
-        if ($this->tablaTieneColumna($tabla, 'updated_by')) {
-            $set[] = 'updated_by = :updated_by';
-            $params['updated_by'] = $userId;
-        }
-
         $sql = "UPDATE {$tabla}
-                SET " . implode(",\n                    ", $set) . "
+                SET deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_at = NOW(),
+                    updated_by = :updated_by,
+                    estado = 0
                 WHERE id = :id
                   AND deleted_at IS NULL";
 
-        return $this->db()->prepare($sql)->execute($this->filtrarParametrosSql($sql, $params));
+        return $this->db()->prepare($sql)->execute([
+            'id' => $id,
+            'deleted_by' => $userId,
+            'updated_by' => $userId,
+        ]);
     }
 
     private function atributoDuplicado(string $tabla, string $nombre, ?int $excludeId = null): bool
     {
-        $sql = "SELECT 1 FROM {$tabla} WHERE LOWER(nombre) = LOWER(:nombre)";
-
-        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
-            $sql .= ' AND deleted_at IS NULL';
-        }
-
+        $sql = "SELECT 1 FROM {$tabla} WHERE LOWER(nombre) = LOWER(:nombre) AND deleted_at IS NULL";
         $params = ['nombre' => $nombre];
 
         if ($excludeId !== null) {
@@ -949,49 +766,18 @@ class ItemsModel extends Modelo
         $sql .= ' LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute($this->filtrarParametrosSql($sql, $params));
+        $stmt->execute($params);
 
-        return (bool) $stmt->fetchColumn();
-    }
-
-    private function tablaTieneColumna(string $tabla, string $columna): bool
-    {
-        if (!$this->tablaExiste($tabla)) {
-            $this->cacheColumnasPorTabla[$tabla] = [];
-            return false;
-        }
-
-        if (!isset($this->cacheColumnasPorTabla[$tabla])) {
-            $stmt = $this->db()->prepare('SHOW COLUMNS FROM ' . $tabla);
-            $stmt->execute();
-            $columnas = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            $this->cacheColumnasPorTabla[$tabla] = array_map('strtolower', $columnas ?: []);
-        }
-
-        return in_array(strtolower($columna), $this->cacheColumnasPorTabla[$tabla], true);
-    }
-
-    private function tablaExiste(string $tabla): bool
-    {
-        $sql = 'SELECT 1
-                FROM information_schema.TABLES
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = :tabla
-                LIMIT 1';
-
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute(['tabla' => $tabla]);
         return (bool) $stmt->fetchColumn();
     }
 
     private function contarReferenciasActivas(string $tabla, string $foreignKey, int $id): int
     {
-        if (!$this->tablaTieneColumna($tabla, $foreignKey)) {
-            return 0;
-        }
-
+        // Se hardcodean las condiciones porque ya conocemos la estructura de la base de datos
+        $tieneDeletedAt = in_array($tabla, ['compras_ordenes_detalle', 'inventario_movimientos', 'ventas_documentos_detalle']);
+        
         $sql = "SELECT COUNT(*) FROM {$tabla} WHERE {$foreignKey} = :id";
-        if ($this->tablaTieneColumna($tabla, 'deleted_at')) {
+        if ($tieneDeletedAt) {
             $sql .= ' AND deleted_at IS NULL';
         }
 
@@ -1000,37 +786,31 @@ class ItemsModel extends Modelo
         return (int) $stmt->fetchColumn();
     }
 
-
-
     public function sincronizarDependenciasConfiguracion(int $idItem, array $data, int $userId): void
     {
         if ($idItem <= 0) {
             return;
         }
 
-        if ((int) ($data['requiere_formula_bom'] ?? 0) === 1) {
+        // Evalúa a true si manda 1, '1', 'on'
+        $requiereFormula = (isset($data['requiere_formula_bom']) && in_array($data['requiere_formula_bom'], [1, '1', 'on', true], true));
+        $requiereFactor = (isset($data['requiere_factor_conversion']) && in_array($data['requiere_factor_conversion'], [1, '1', 'on', true], true));
+
+        if ($requiereFormula) {
             $this->asegurarRecetaBase($idItem, $userId);
         }
 
-        if ((int) ($data['requiere_factor_conversion'] ?? 0) === 1) {
+        if ($requiereFactor) {
             $this->asegurarPresentacionBase($idItem, $userId);
         }
     }
 
     private function asegurarRecetaBase(int $idItem, int $userId): void
     {
-        if (!$this->tablaTieneColumna('produccion_recetas', 'id_producto')) {
-            return;
-        }
-
-        $sqlExiste = 'SELECT id FROM produccion_recetas WHERE id_producto = :id_item';
-        if ($this->tablaTieneColumna('produccion_recetas', 'deleted_at')) {
-            $sqlExiste .= ' AND deleted_at IS NULL';
-        }
-        $sqlExiste .= ' ORDER BY id DESC LIMIT 1';
-
+        $sqlExiste = 'SELECT id FROM produccion_recetas WHERE id_producto = :id_item AND deleted_at IS NULL ORDER BY id DESC LIMIT 1';
         $stmtExiste = $this->db()->prepare($sqlExiste);
         $stmtExiste->execute(['id_item' => $idItem]);
+        
         if ($stmtExiste->fetchColumn()) {
             return;
         }
@@ -1038,185 +818,99 @@ class ItemsModel extends Modelo
         $item = $this->obtener($idItem);
         $codigoBase = 'REC-ITEM-' . str_pad((string) $idItem, 6, '0', STR_PAD_LEFT);
 
-        $columnas = ['id_producto', 'codigo'];
-        $placeholders = [':id_producto', ':codigo'];
-        $params = ['id_producto' => $idItem, 'codigo' => $codigoBase];
-
-        if ($this->tablaTieneColumna('produccion_recetas', 'version')) {
-            $columnas[] = 'version';
-            $placeholders[] = ':version';
-            $params['version'] = 1;
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'descripcion')) {
-            $columnas[] = 'descripcion';
-            $placeholders[] = ':descripcion';
-            $params['descripcion'] = 'Fórmula pendiente de configuración.';
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'estado')) {
-            $columnas[] = 'estado';
-            $placeholders[] = ':estado';
-            $params['estado'] = 1;
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'rendimiento_base')) {
-            $columnas[] = 'rendimiento_base';
-            $placeholders[] = ':rendimiento_base';
-            $params['rendimiento_base'] = 1;
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'unidad_rendimiento')) {
-            $columnas[] = 'unidad_rendimiento';
-            $placeholders[] = ':unidad_rendimiento';
-            $params['unidad_rendimiento'] = trim((string) ($item['unidad_base'] ?? 'UND')) ?: 'UND';
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'costo_teorico_unitario')) {
-            $columnas[] = 'costo_teorico_unitario';
-            $placeholders[] = ':costo_teorico_unitario';
-            $params['costo_teorico_unitario'] = 0;
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'created_by')) {
-            $columnas[] = 'created_by';
-            $placeholders[] = ':created_by';
-            $params['created_by'] = $userId > 0 ? $userId : 1;
-        }
-        if ($this->tablaTieneColumna('produccion_recetas', 'updated_by')) {
-            $columnas[] = 'updated_by';
-            $placeholders[] = ':updated_by';
-            $params['updated_by'] = $userId > 0 ? $userId : 1;
-        }
-
-        $sqlInsert = 'INSERT INTO produccion_recetas (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $placeholders) . ')';
-        $this->db()->prepare($sqlInsert)->execute($this->filtrarParametrosSql($sqlInsert, $params));
+        $sqlInsert = 'INSERT INTO produccion_recetas 
+                        (id_producto, codigo, version, descripcion, estado, rendimiento_base, unidad_rendimiento, costo_teorico_unitario, created_by, updated_by, created_at, updated_at) 
+                      VALUES 
+                        (:id_producto, :codigo, :version, :descripcion, :estado, :rendimiento_base, :unidad_rendimiento, :costo_teorico_unitario, :created_by, :updated_by, NOW(), NOW())';
+        
+        $this->db()->prepare($sqlInsert)->execute([
+            'id_producto' => $idItem,
+            'codigo' => $codigoBase,
+            'version' => 1,
+            'descripcion' => 'Fórmula pendiente de configuración.',
+            'estado' => 1,
+            'rendimiento_base' => 1,
+            'unidad_rendimiento' => trim((string) ($item['unidad_base'] ?? 'UND')) ?: 'UND',
+            'costo_teorico_unitario' => 0,
+            'created_by' => $userId > 0 ? $userId : 1,
+            'updated_by' => $userId > 0 ? $userId : 1
+        ]);
     }
 
     private function asegurarPresentacionBase(int $idItem, int $userId): void
     {
-        if (!$this->tablaTieneColumna('precios_presentaciones', 'id_item')) {
-            return;
-        }
+        try {
+            // Intenta guardar en la tabla externa, si el módulo está instalado. 
+            // Manejamos la excepción por si la tabla precios_presentaciones no existe en este despliegue.
+            $sqlExiste = 'SELECT id FROM precios_presentaciones WHERE id_item = :id_item AND deleted_at IS NULL ORDER BY id DESC LIMIT 1';
+            $stmtExiste = $this->db()->prepare($sqlExiste);
+            $stmtExiste->execute(['id_item' => $idItem]);
+            
+            if ($stmtExiste->fetchColumn()) {
+                return;
+            }
 
-        $sqlExiste = 'SELECT id FROM precios_presentaciones WHERE id_item = :id_item';
-        if ($this->tablaTieneColumna('precios_presentaciones', 'deleted_at')) {
-            $sqlExiste .= ' AND deleted_at IS NULL';
-        }
-        $sqlExiste .= ' ORDER BY id DESC LIMIT 1';
+            $item = $this->obtener($idItem);
+            $sku = trim((string) ($item['sku'] ?? 'ITM-' . $idItem));
+            $nombre = trim((string) ($item['nombre'] ?? ('Item ' . $idItem)));
 
-        $stmtExiste = $this->db()->prepare($sqlExiste);
-        $stmtExiste->execute(['id_item' => $idItem]);
-        if ($stmtExiste->fetchColumn()) {
-            return;
+            $sqlInsert = 'INSERT INTO precios_presentaciones 
+                            (id_item, nombre_manual, nota_pack, codigo_presentacion, factor, es_mixto, precio_x_menor, stock_minimo, estado, created_by, updated_by) 
+                          VALUES 
+                            (:id_item, :nombre_manual, :nota_pack, :codigo_presentacion, :factor, :es_mixto, :precio_x_menor, :stock_minimo, :estado, :created_by, :updated_by)';
+            
+            $this->db()->prepare($sqlInsert)->execute([
+                'id_item' => $idItem,
+                'nombre_manual' => $nombre,
+                'nota_pack' => 'Falta configurar factor de conversión.',
+                'codigo_presentacion' => $sku . '-FC',
+                'factor' => 1,
+                'es_mixto' => 0,
+                'precio_x_menor' => 0,
+                'stock_minimo' => 0,
+                'estado' => 1,
+                'created_by' => $userId > 0 ? $userId : 1,
+                'updated_by' => $userId > 0 ? $userId : 1
+            ]);
+        } catch (Throwable $e) {
+            // Se silencia si la tabla "precios_presentaciones" no está instalada o es de otro módulo independiente
         }
-
-        $item = $this->obtener($idItem);
-        $sku = trim((string) ($item['sku'] ?? 'ITM-' . $idItem));
-        $nombre = trim((string) ($item['nombre'] ?? ('Item ' . $idItem)));
-
-        $columnas = ['id_item'];
-        $placeholders = [':id_item'];
-        $params = ['id_item' => $idItem];
-
-        if ($this->tablaTieneColumna('precios_presentaciones', 'nombre_manual')) {
-            $columnas[] = 'nombre_manual';
-            $placeholders[] = ':nombre_manual';
-            $params['nombre_manual'] = $nombre;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'nota_pack')) {
-            $columnas[] = 'nota_pack';
-            $placeholders[] = ':nota_pack';
-            $params['nota_pack'] = 'Falta configurar factor de conversión.';
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'codigo_presentacion')) {
-            $columnas[] = 'codigo_presentacion';
-            $placeholders[] = ':codigo_presentacion';
-            $params['codigo_presentacion'] = $sku . '-FC';
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'factor')) {
-            $columnas[] = 'factor';
-            $placeholders[] = ':factor';
-            $params['factor'] = 1;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'es_mixto')) {
-            $columnas[] = 'es_mixto';
-            $placeholders[] = ':es_mixto';
-            $params['es_mixto'] = 0;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'precio_x_menor')) {
-            $columnas[] = 'precio_x_menor';
-            $placeholders[] = ':precio_x_menor';
-            $params['precio_x_menor'] = 0;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'stock_minimo')) {
-            $columnas[] = 'stock_minimo';
-            $placeholders[] = ':stock_minimo';
-            $params['stock_minimo'] = 0;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'estado')) {
-            $columnas[] = 'estado';
-            $placeholders[] = ':estado';
-            $params['estado'] = 1;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'created_by')) {
-            $columnas[] = 'created_by';
-            $placeholders[] = ':created_by';
-            $params['created_by'] = $userId > 0 ? $userId : 1;
-        }
-        if ($this->tablaTieneColumna('precios_presentaciones', 'updated_by')) {
-            $columnas[] = 'updated_by';
-            $placeholders[] = ':updated_by';
-            $params['updated_by'] = $userId > 0 ? $userId : 1;
-        }
-
-        $sqlInsert = 'INSERT INTO precios_presentaciones (' . implode(', ', $columnas) . ') VALUES (' . implode(', ', $placeholders) . ')';
-        $this->db()->prepare($sqlInsert)->execute($this->filtrarParametrosSql($sqlInsert, $params));
     }
 
     private function mapPayload(array $data): array
     {
+        // Función auxiliar para mapear de forma segura Checkboxes / Switches del Frontend a 1 o 0
+        $parseBool = fn($val) => (isset($val) && in_array($val, [1, '1', 'on', true], true)) ? 1 : 0;
+
         return [
             'sku' => trim((string) ($data['sku'] ?? '')),
             'nombre' => trim((string) ($data['nombre'] ?? '')),
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
             'tipo_item' => trim((string) ($data['tipo_item'] ?? '')),
             'id_rubro' => (isset($data['id_rubro']) && $data['id_rubro'] !== '') ? (int) $data['id_rubro'] : null,
-            'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? $data['id_categoria'] : null,
+            'id_categoria' => (isset($data['id_categoria']) && $data['id_categoria'] !== '') ? (int) $data['id_categoria'] : null,
             'id_marca' => (isset($data['id_marca']) && $data['id_marca'] !== '') ? (int) $data['id_marca'] : null,
             'id_sabor' => (isset($data['id_sabor']) && $data['id_sabor'] !== '') ? (int) $data['id_sabor'] : null,
             'id_presentacion' => (isset($data['id_presentacion']) && $data['id_presentacion'] !== '') ? (int) $data['id_presentacion'] : null,
             'marca' => trim((string) ($data['marca'] ?? '')),
             'unidad_base' => trim((string) ($data['unidad_base'] ?? 'UND')),
-            'permite_decimales' => !empty($data['permite_decimales']) ? 1 : 0,
-            'requiere_lote' => !empty($data['requiere_lote']) ? 1 : 0,
-            'requiere_vencimiento' => !empty($data['requiere_vencimiento']) ? 1 : 0,
-            'dias_alerta_vencimiento' => !empty($data['requiere_vencimiento'])
+            'permite_decimales' => $parseBool($data['permite_decimales'] ?? 0),
+            'requiere_lote' => $parseBool($data['requiere_lote'] ?? 0),
+            'requiere_vencimiento' => $parseBool($data['requiere_vencimiento'] ?? 0),
+            'dias_alerta_vencimiento' => $parseBool($data['requiere_vencimiento'] ?? 0)
                 ? ((isset($data['dias_alerta_vencimiento']) && $data['dias_alerta_vencimiento'] !== '') ? (int) $data['dias_alerta_vencimiento'] : 0)
                 : null,
-            'controla_stock' => !empty($data['controla_stock']) ? 1 : 0,
-            'requiere_formula_bom' => !empty($data['requiere_formula_bom']) ? 1 : 0,
-            'requiere_factor_conversion' => !empty($data['requiere_factor_conversion']) ? 1 : 0,
-            'es_envase_retornable' => !empty($data['es_envase_retornable']) ? 1 : 0,
+            'controla_stock' => $parseBool($data['controla_stock'] ?? 0),
+            'requiere_formula_bom' => $parseBool($data['requiere_formula_bom'] ?? 0),
+            'requiere_factor_conversion' => $parseBool($data['requiere_factor_conversion'] ?? 0),
+            'es_envase_retornable' => $parseBool($data['es_envase_retornable'] ?? 0),
             'stock_minimo' => (float) ($data['stock_minimo'] ?? 0),
             'precio_venta' => (float) ($data['precio_venta'] ?? 0),
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),
             'moneda' => trim((string) ($data['moneda'] ?? 'PEN')),
-            // CORREGIDO: Mapeamos el input 'impuesto' a la clave de BD 'impuesto_porcentaje'
             'impuesto_porcentaje' => (float) ($data['impuesto'] ?? 0),
             'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
         ];
-    }
-
-
-    private function filtrarParametrosSql(string $sql, array $params): array
-    {
-        if ($params === []) {
-            return [];
-        }
-
-        preg_match_all('/:([a-zA-Z_][a-zA-Z0-9_]*)/', $sql, $coincidencias);
-        $placeholders = array_flip($coincidencias[1] ?? []);
-
-        if ($placeholders === []) {
-            return [];
-        }
-
-        return array_intersect_key($params, $placeholders);
     }
 
     private function generarSku(): string

@@ -1,7 +1,6 @@
 <?php
 $recetas = $recetas ?? [];
-$itemsStockeables = $items_stockeables ?? [];
-$parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESDE EL CONTROLLER
+$parametrosCatalogo = $parametros_catalogo ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -15,12 +14,13 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionParametrosCatalogo">
                 <i class="bi bi-sliders me-2 text-info"></i>Parámetros
             </button>
-            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta">
+            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta" id="btnNuevaReceta">
                 <i class="bi bi-plus-circle me-2"></i>Nueva receta
             </button>
         </div>
     </div>
 
+    <!-- Tabla y filtros (sin cambios) -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
@@ -112,11 +112,14 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
     </div>
 </div>
 
+<!-- ====================== MODAL NUEVA RECETA / NUEVA VERSIÓN ====================== -->
 <div class="modal fade" id="modalCrearReceta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold" id="modalCrearRecetaTitle"><i class="bi bi-plus-circle me-2"></i>Nueva receta</h5>
+                <h5 class="modal-title fw-bold" id="modalCrearRecetaTitle">
+                    <i class="bi bi-plus-circle me-2"></i><span id="modalTitleText">Nueva receta</span>
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4 bg-light">
@@ -127,48 +130,61 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <h6 class="fw-bold text-muted mb-3">Información General</h6>
-                            <div class="row g-2">
-                                <div class="col-md-3 form-floating">
-                                    <input type="text" class="form-control" id="newCodigo" name="codigo" placeholder="Código" required>
-                                    <label for="newCodigo">Código</label>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newCodigo">Código</label>
+                                    <input type="text" class="form-control fw-semibold" id="newCodigo" name="codigo" required>
                                 </div>
-                                <div class="col-md-2 form-floating">
-                                    <input type="number" class="form-control" id="newVersion" name="version" value="1" min="1">
-                                    <label for="newVersion">Versión</label>
+
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newVersion">Versión</label>
+                                    <input type="number" class="form-control bg-light fw-bold text-center border" id="newVersion" name="version" value="1" readonly>
                                 </div>
-                                <div class="col-md-4 form-floating">
+
+                                <div class="col-md-4" id="productoSelectContainer">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newProducto">Producto Terminado</label>
                                     <select class="form-select" id="newProducto" name="id_producto" required>
-                                        <option value="" selected>Seleccionar...</option>
-                                        <?php foreach ($itemsStockeables as $item): ?>
-                                            <option value="<?php echo (int) $item['id']; ?>" 
-                                                    data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
-                                                    data-costo="<?php echo (float) ($item['costo_calculado'] ?? $item['costo_referencial'] ?? 0); ?>">
-                                                <?php echo e((string) $item['nombre']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
+                                        <option value="" selected>Seleccionar producto...</option>
                                     </select>
-                                    <label for="newProducto">Producto Destino</label>
                                 </div>
-                                <div class="col-md-3 form-floating">
-                                    <input type="number" step="0.0001" min="0" class="form-control" id="newRendimientoBase" name="rendimiento_base" placeholder="Rendimiento base">
-                                    <label for="newRendimientoBase">Rendimiento base</label>
+
+                                <div class="col-md-4" id="productoDisplayContainer" style="display: none;">
+                                    <label class="form-label small text-muted fw-bold mb-1">Producto Terminado</label>
+                                    <div id="newProductoNombreDisplay" class="form-control bg-light fw-bold"></div>
+                                    <input type="hidden" id="newIdProductoHidden" name="id_producto">
                                 </div>
-                                <div class="col-md-3 form-floating">
-                                    <input type="text" class="form-control" id="newUnidadRendimiento" name="unidad_rendimiento" placeholder="Unidad">
-                                    <label for="newUnidadRendimiento">Unidad rendimiento</label>
+
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold mb-1">Unidad rendimiento</label>
+                                    <input type="text" class="form-control bg-light fw-bold" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
                                 </div>
-                                <div class="col-md-9 form-floating">
-                                    <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Descripción">
-                                    <label for="newDescripcion">Descripción / Observaciones</label>
+
+                                <div class="col-12">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newDescripcion">Descripción / Observaciones</label>
+                                    <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial...">
                                 </div>
-                                <div class="col-md-6" id="contenedorVersionesPrevias" style="display:none;">
+
+                                <div class="col-12" id="contenedorVersionesPrevias" style="display:none;">
                                     <label for="newVersionBase" class="form-label small text-muted fw-bold mb-1">Versiones anteriores</label>
                                     <select class="form-select" id="newVersionBase">
-                                        <option value="">Seleccione versión...</option>
+                                        <option value="">Seleccione versión para cargar...</option>
                                     </select>
-                                    <small class="text-muted">Seleccione una versión para cargar sus datos en el formulario.</small>
+                                    <small class="text-muted">Seleccione una versión para precargar sus datos.</small>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- El resto del modal (BOM, Parámetros, Resumen) permanece igual -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM)</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarInsumo">
+                                    <i class="bi bi-plus-lg me-1"></i>Agregar insumo
+                                </button>
+                            </div>
+                            <div id="listaInsumosReceta" class="lista-insumos-etapa"></div>
                         </div>
                     </div>
 
@@ -180,24 +196,7 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                                     <i class="bi bi-plus-lg me-1"></i>Añadir parámetro
                                 </button>
                             </div>
-                            
                             <div id="contenedorParametros"></div>
-                            
-                            <div id="emptyParametros" class="text-muted small fst-italic py-2 text-center">
-                                No se han definido parámetros de control para esta receta.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM)</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarInsumo">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar insumo
-                                </button>
-                            </div>
-                            <div id="listaInsumosReceta" class="lista-insumos-etapa"></div>
                         </div>
                     </div>
 
@@ -215,71 +214,59 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
                     </div>
 
                     <template id="parametroTemplate">
-                        <div class="row g-2 mb-2 parametro-row align-items-center bg-white p-2 border rounded-2 shadow-sm animate__animated animate__fadeIn">
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted mb-0 fw-bold">Parámetro</label>
-                                <select class="form-select form-select-sm" name="parametro_id[]" required>
-                                    <option value="">Seleccione parámetro del catálogo...</option>
-                                    <?php foreach ($parametrosCatalogo as $param): ?>
-                                        <option value="<?php echo (int) $param['id']; ?>">
-                                            <?php echo e((string) $param['nombre']); ?> 
-                                            <?php echo !empty($param['unidad_medida']) ? '(' . e((string) $param['unidad_medida']) . ')' : ''; ?>
-                                        </option>
-                                    <?php endforeach; ?>
+                    <div class="row g-2 align-items-center mb-2 parametro-row">
+                        <div class="col-md-5">
+                            <select class="form-select form-select-sm" name="parametro_id[]" required>
+                                <option value="">Seleccione parámetro...</option>
                                 </select>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label small text-muted mb-0 fw-bold">Valor Objetivo</label>
-                                <input step="0.0001" type="number" required name="parametro_valor[]" class="form-control form-control-sm" placeholder="Ej: 7.5">
-                            </div>
-                            <div class="col-md-1 text-end">
-                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-param" title="Quitar parámetro">
-                                    <i class="bi bi-trash fs-5"></i>
-                                </button>
-                            </div>
                         </div>
-                    </template>
+                        <div class="col-md-5">
+                            <input type="number" class="form-control form-control-sm" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo" required>
+                        </div>
+                        <div class="col-md-2 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger js-remove-param" title="Eliminar parámetro">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
 
-                    <template id="detalleRecetaTemplate">
-                        <div class="row g-2 mb-2 detalle-row align-items-center bg-white p-2 border rounded-2 shadow-sm animate__animated animate__fadeIn">
-                            <input type="hidden" name="detalle_etapa[]" class="input-etapa-hidden" value="General">
-                            
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-0 fw-bold">Insumo / Semielaborado</label>
-                                <select class="form-select form-select-sm select-insumo" name="detalle_id_insumo[]" required>
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($itemsStockeables as $item): ?>
-                                        <option value="<?php echo (int) $item['id']; ?>"
-                                                data-tipo="<?php echo (int) ($item['tipo_item'] ?? 0); ?>"
-                                                data-costo="<?php echo (float) ($item['costo_calculado'] ?? $item['costo_referencial'] ?? 0); ?>">
-                                            <?php echo e((string) $item['nombre']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-0 fw-bold">Cantidad Base</label>
-                                <input step="0.0001" min="0.0001" type="number" required name="detalle_cantidad_por_unidad[]" class="form-control form-control-sm input-cantidad" placeholder="0.0000">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-0 fw-bold">Merma %</label>
-                                <input step="0.01" min="0" type="number" name="detalle_merma_porcentaje[]" value="0.00" class="form-control form-control-sm input-merma">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-0 fw-bold">Costo unitario</label>
-                                <input type="number" step="0.0001" min="0" class="form-control form-control-sm bg-light input-costo-unitario" name="detalle_costo_unitario[]" value="0.0000" readonly>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-0 fw-bold">Costo total ítem</label>
-                                <input type="text" class="form-control form-control-sm bg-light input-costo-item" value="0.0000" readonly>
-                            </div>
-                            <div class="col-md-1 text-end">
-                                <button type="button" class="btn btn-sm text-danger border-0 bg-transparent mt-3 js-remove-row" title="Quitar línea">
-                                    <i class="bi bi-trash fs-5"></i>
-                                </button>
+                <template id="detalleRecetaTemplate">
+                    <div class="row g-2 align-items-center mb-2 detalle-row pb-2 border-bottom">
+                        <div class="col-md-4">
+                            <select class="form-select form-select-sm select-insumo" name="insumo_id[]" required></select>
+                            <input type="hidden" class="input-etapa-hidden" name="insumo_etapa[]" value="General">
+                        </div>
+                        <div class="col-md-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted" title="Cantidad">Cant.</span>
+                                <input type="number" class="form-control input-cantidad" name="insumo_cantidad[]" step="0.0001" value="1" required>
                             </div>
                         </div>
-                    </template>
+                        <div class="col-md-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted" title="% de Merma">% M.</span>
+                                <input type="number" class="form-control input-merma" name="insumo_merma[]" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted" title="Costo Unitario">C.U. S/</span>
+                                <input type="number" class="form-control bg-light input-costo-unitario" name="insumo_costo[]" step="0.0001" value="0" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control bg-light input-costo-item text-primary fw-bold px-1 text-center" value="0.0000" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Eliminar insumo">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
 
                     <div class="d-flex justify-content-end pt-3 pb-2">
                         <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
@@ -290,7 +277,6 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
         </div>
     </div>
 </div>
-
 
 <div class="modal fade" id="modalGestionParametrosCatalogo" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -370,4 +356,4 @@ $parametrosCatalogo = $parametros_catalogo ?? []; // RECIBIMOS EL CATÁLOGO DESD
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.2"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.3"></script>

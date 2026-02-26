@@ -14,7 +14,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             <p class="text-muted small mb-0 ms-1">Planificación, ejecución y control de fabricación.</p>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearOrden">
+            <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPlanificarOP">
                 <i class="bi bi-plus-circle me-2"></i>Nueva OP
             </button>
         </div>
@@ -126,7 +126,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     </div>
 </div>
 
-<div class="modal fade" id="modalCrearOrden" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+<div class="modal fade" id="modalPlanificarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
@@ -138,12 +138,19 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <div class="row g-2">
-                            <div class="col-md-4 form-floating">
-                                <input type="text" required name="codigo" id="newCodigoOP" class="form-control" placeholder="Código">
-                                <label for="newCodigoOP">Código OP</label>
+                        <div class="row g-3">
+                            
+                            <div class="col-md-4">
+                                <label for="newCodigoOP" class="form-label small text-muted fw-bold mb-1">
+                                    Código OP <span class="text-danger fs-6">*</span>
+                                </label>
+                                <input type="text" required name="codigo" id="newCodigoOP" class="form-control bg-light fw-bold text-primary" placeholder="Generando..." readonly>
                             </div>
-                            <div class="col-md-8 form-floating">
+                            
+                            <div class="col-md-8">
+                                <label for="newRecetaOP" class="form-label small text-muted fw-bold mb-1">
+                                    Receta / Producto Terminado <span class="text-danger fs-6">*</span>
+                                </label>
                                 <select name="id_receta" id="newRecetaOP" required class="form-select">
                                     <option value="">Seleccione...</option>
                                     <?php foreach ($recetasActivas as $r): ?>
@@ -152,24 +159,29 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <label for="newRecetaOP">Receta / Producto Terminado</label>
                             </div>
                             
-                            <div class="col-md-4 form-floating mt-3">
-                                <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control" placeholder="Cantidad">
-                                <label for="newCantPlan">Cantidad Planificada</label>
+                            <div class="col-md-4">
+                                <label for="newCantPlan" class="form-label small text-muted fw-bold mb-1">
+                                    Cantidad Planificada <span class="text-danger fs-6">*</span>
+                                </label>
+                                <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control border-primary" placeholder="Ej: 100">
                             </div>
-                            <div class="col-md-8 form-floating mt-3">
-                                <input name="observaciones" id="newObsOP" class="form-control" placeholder="Obs">
-                                <label for="newObsOP">Observaciones / Lote Estimado</label>
+                            
+                            <div class="col-md-8">
+                                <label for="newObsOP" class="form-label small text-muted fw-bold mb-1">
+                                    Observaciones / Lote Estimado
+                                </label>
+                                <input name="observaciones" id="newObsOP" class="form-control" placeholder="Opcional">
                             </div>
+
                         </div>
                     </div>
                 </div>
 
                 <div class="d-flex justify-content-end pt-2">
-                    <button type="button" class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-2"></i>Guardar Borrador</button>
+                    <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Borrador</button>
                 </div>
             </form>
         </div>
@@ -286,4 +298,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.2"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.3"></script>

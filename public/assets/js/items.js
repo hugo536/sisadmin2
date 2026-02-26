@@ -4,7 +4,6 @@
     const ROWS_PER_PAGE = 20;
     let currentPage = 1;
 
-    // --- NUEVA FUNCIÓN AGREGADA (PARCHE) ---
     function getItemsEndpoint(extraParams = {}) {
         const url = new URL(window.location.href);
 
@@ -136,7 +135,6 @@
         fillSelect('editPresentacion', data.presentaciones || [], 'Seleccionar presentación...');
     }
 
-
     function toggleAlertaVencimiento(inputId, containerId, diasInputId) {
         const trigger = document.getElementById(inputId);
         const diasInput = document.getElementById(diasInputId);
@@ -145,7 +143,6 @@
 
         const applyVisibility = () => {
             const visible = trigger.checked;
-            
             diasInput.disabled = !visible;
             
             if (!visible) {
@@ -170,7 +167,6 @@
 
         const applyVisibility = () => {
             const visible = controlaStock.checked;
-            
             stockInput.disabled = !visible;
             
             if (!visible) {
@@ -184,6 +180,8 @@
         }
         applyVisibility();
     }
+
+    // --- FUNCIONES DE AUTOGENERACIÓN ---
 
     function normalizarTextoSku(value = '') {
         return String(value || '')
@@ -199,12 +197,7 @@
 
     function obtenerTextoSeleccionado(select) {
         if (!select || !select.selectedOptions || !select.selectedOptions[0]) return '';
-        
-        // --- LA SOLUCIÓN ESTÁ AQUÍ ---
-        // Si el valor del select está vacío (es decir, es la opción por defecto), 
-        // devolvemos un texto vacío para que no ensucie el Nombre ni el SKU.
         if (select.value === '') return ''; 
-
         return (select.selectedOptions[0].textContent || '').trim();
     }
 
@@ -238,11 +231,7 @@
         return bloques.join('-');
     }
 
-
-
-    // Busca esta función y quita el "normalizarTextoSku"
     function generarNombreProducto({ marca, sabor, presentacion }) {
-        // Usamos el texto tal cual viene, solo quitando espacios extras con .trim()
         const partes = [marca.trim()]; 
 
         if (!saborDebeOmitirse(sabor)) {
@@ -257,174 +246,103 @@
         return partes.filter((p) => p !== '').join(' ');
     }
 
+    // --- NUEVO: REESCRITURA DE BIND SKU AUTO ---
     function bindSkuAuto(config) {
         const tipo = document.getElementById(config.tipoId);
         const sku = document.getElementById(config.skuId);
         const nombre = document.getElementById(config.nombreId);
         const autoIdentidad = document.getElementById(config.autoIdentidadId);
-        const manualOverride = document.getElementById(config.manualOverrideId);
         const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
-        const nombreBadge = document.getElementById(config.nombreBadgeId);
-        const skuBadge = document.getElementById(config.skuBadgeId);
-        const autoGenerate = config.autoGenerate !== false;
-        let previousIsItemDetallado = null;
-        let previousAutoActivo = null;
+        const mode = config.mode || 'new'; // 'new' o 'edit'
         
         if (!tipo || !sku) return;
 
-        const updateBadges = (visible) => {
-            [nombreBadge, skuBadge].forEach((badge) => {
-                if (!badge) return;
-                badge.classList.toggle('d-none', !visible);
-            });
-        };
-
         const apply = () => {
-            const value = tipo.value;
-            const hasTipo = value.trim() !== '';
-            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
-            const autoActivo = !!(autoIdentidad && autoIdentidad.checked && isItemDetallado);
-            const modoManual = isItemDetallado && !autoActivo;
-            const salioDeItemDetallado = previousIsItemDetallado === true && !isItemDetallado;
-            const debeLimpiarIdentidad = salioDeItemDetallado && previousAutoActivo === true;
+            const tipoVal = tipo.value;
+            const hasTipo = tipoVal.trim() !== '';
+            const isItemDetallado = tipoVal === 'producto_terminado' || tipoVal === 'semielaborado';
+            const autoOn = autoIdentidad && autoIdentidad.checked;
 
+            // 1. Si no hay tipo seleccionado, bloqueamos todo
             if (!hasTipo) {
                 sku.readOnly = true;
-                sku.value = '';
-                if (nombre) {
-                    nombre.readOnly = false;
-                    nombre.value = '';
-                }
-                updateBadges(false);
+                if (nombre) nombre.readOnly = true;
                 if (autoIdentidad) {
-                    autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
+                    autoIdentidad.checked = true;
                 }
-                if (manualOverride) {
-                    manualOverride.value = '0';
-                }
-                previousIsItemDetallado = isItemDetallado;
-                previousAutoActivo = autoActivo;
                 return;
             }
 
+            // 2. Si NO es un ítem detallado, liberamos (excepto SKU en edición)
             if (!isItemDetallado) {
-                sku.readOnly = false;
-                if (nombre) {
-                    nombre.readOnly = false;
-                }
-                if (debeLimpiarIdentidad) {
-                    sku.value = '';
-                    if (nombre) {
-                        nombre.value = '';
-                    }
-                }
-                updateBadges(false);
+                if (nombre) nombre.readOnly = false;
+                sku.readOnly = (mode === 'edit');
                 if (autoIdentidad) {
-                    autoIdentidad.checked = true;
                     autoIdentidad.disabled = true;
+                    autoIdentidad.checked = false;
                 }
-                if (manualOverride) {
-                    manualOverride.value = '0';
-                }
-                previousIsItemDetallado = isItemDetallado;
-                previousAutoActivo = autoActivo;
                 return;
             }
 
-            if (autoIdentidad) {
-                autoIdentidad.disabled = false;
-            }
-            updateBadges(autoActivo);
+            // 3. SI ES ítem detallado
+            if (autoIdentidad) autoIdentidad.disabled = false;
 
-            const marcaTexto = obtenerTextoSeleccionado(marca);
-            const saborTexto = obtenerTextoSeleccionado(sabor);
-            const presentacionTexto = obtenerTextoSeleccionado(presentacion);
-            
-            const nombreGenerado = generarNombreProducto({
-                marca: marcaTexto,
-                sabor: saborTexto,
-                presentacion: presentacionTexto
-            });
+            if (autoOn) {
+                // BLOQUEAR Y GENERAR
+                if (nombre) nombre.readOnly = true;
+                sku.readOnly = true; // El SKU siempre se bloquea si Auto está activo
 
-            const generado = generarSkuProducto({
-                tipo: value,
-                categoria: obtenerTextoSeleccionado(categoria),
-                marca: marcaTexto,
-                sabor: saborTexto,
-                presentacion: presentacionTexto
-            });
+                const catText = obtenerTextoSeleccionado(categoria);
+                const marText = obtenerTextoSeleccionado(marca);
+                const sabText = obtenerTextoSeleccionado(sabor);
+                const presText = obtenerTextoSeleccionado(presentacion);
 
-            // Dentro de bindSkuAuto, busca el bloque de detectManualOnInit y cámbialo por este:
-            if (config.detectManualOnInit && autoIdentidad && !autoIdentidad.dataset.manualDetected) {
-                const nombreActual = (nombre?.value || '').trim();
-                const skuActual = (sku?.value || '').trim();
-
-                // Comparamos sin importar mayúsculas/minúsculas para mayor precisión
-                const esNombreDiferente = nombreGenerado !== '' && nombreActual.toLowerCase() !== nombreGenerado.toLowerCase();
-                const esSkuDiferente = generado !== '' && skuActual.toLowerCase() !== generado.toLowerCase();
-
-                if (nombreActual !== '' && (esNombreDiferente || esSkuDiferente)) {
-                    autoIdentidad.checked = false; // Se apaga si detecta cambios manuales
-                }
-                autoIdentidad.dataset.manualDetected = '1';
-            }
-
-            // --- CAMBIO 1: El SKU y el Nombre comparten la misma regla de solo lectura ---
-            sku.readOnly = !modoManual;
-            if (nombre) {
-                nombre.readOnly = !modoManual;
-            }
-            if (manualOverride) {
-                manualOverride.value = modoManual ? '1' : '0';
-            }
-
-            if (!autoGenerate) {
-                previousIsItemDetallado = isItemDetallado;
-                previousAutoActivo = autoActivo;
-                return;
-            }
-
-            // --- CAMBIO 2: Solo sobreescribimos los valores si el modo automático está ACTIVO ---
-            if (autoActivo) {
-                sku.value = generado;
+                // Generamos Nombre
                 if (nombre) {
-                    nombre.value = nombreGenerado;
+                    nombre.value = generarNombreProducto({
+                        marca: marText,
+                        sabor: sabText,
+                        presentacion: presText
+                    });
                 }
-            }
 
-            previousIsItemDetallado = isItemDetallado;
-            previousAutoActivo = autoActivo;
+                // Generamos SKU (SOLO si estamos en modo CREAR)
+                if (mode === 'new') {
+                    sku.value = generarSkuProducto({
+                        tipo: tipoVal,
+                        categoria: catText,
+                        marca: marText,
+                        sabor: sabText,
+                        presentacion: presText
+                    });
+                }
+
+            } else {
+                // DESBLOQUEAR
+                if (nombre) nombre.readOnly = false;
+                sku.readOnly = (mode === 'edit'); // Si es edición, el SKU siempre sigue bloqueado
+            }
         };
 
         if (!tipo.dataset.skuAutoBound) {
             [tipo, categoria, marca, sabor, presentacion].forEach((el) => {
                 el?.addEventListener('change', apply);
             });
-            tipo.dataset.skuAutoBound = '1';
-        }
 
-        // --- CAMBIO 3: Al apagar el switch, limpiamos y enfocamos correctamente ---
-        if (autoIdentidad && !autoIdentidad.dataset.autoToggleBound) {
-            autoIdentidad.addEventListener('change', () => {
-                if (!autoIdentidad.checked) {
-                    // Limpiamos ambos
-                    if (nombre) nombre.value = '';
-                    if (sku) sku.value = '';
-                    
-                    // Enfocamos el primero disponible
-                    if (nombre) {
+            if (autoIdentidad) {
+                autoIdentidad.addEventListener('change', () => {
+                    // Si el usuario apaga el switch manualmente, enfocamos el campo nombre
+                    if (!autoIdentidad.checked && nombre) {
                         nombre.focus();
-                    } else if (sku) {
-                        sku.focus();
                     }
-                }
-                apply();
-            });
-            autoIdentidad.dataset.autoToggleBound = '1';
+                    apply();
+                });
+            }
+            tipo.dataset.skuAutoBound = '1';
         }
 
         apply();
@@ -496,9 +414,6 @@
         const requiereLote = document.getElementById(config.requiereLoteId);
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
         const autoIdentidadWrap = document.getElementById(config.autoIdentidadWrapId);
-        const autoIdentidadInput = document.getElementById(config.autoIdentidadId);
-        const autoIdentidadHelp = document.getElementById(config.autoIdentidadHelpId);
-        const autoIdentityHint = document.getElementById(config.autoIdentityHintId);
         const aplicarPresetsDetallado = config.aplicarPresetsDetallado !== false;
 
         const apply = () => {
@@ -512,14 +427,7 @@
             saborContainer?.classList.toggle('d-none', !(isItemDetallado));
             presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
             autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
-            autoIdentityHint?.classList.toggle('d-none', !isItemDetallado);
 
-            if (!isItemDetallado && autoIdentidadInput) {
-                autoIdentidadInput.checked = true;
-            }
-            if (autoIdentidadInput) {
-                autoIdentidadInput.disabled = !isItemDetallado;
-            }
             if (saborSelect) {
                 saborSelect.required = isItemDetallado;
                 if (!isItemDetallado) saborSelect.value = '';
@@ -557,11 +465,6 @@
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
             requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
 
-            if (isMateriaPrima || isMaterialEmpaque || isServicio || value === '') {
-                if (saborSelect) saborSelect.value = '';
-                if (presentacionSelect) presentacionSelect.value = '';
-            }
-
             toggleStockMinimo(config.controlaStockId, config.stockContainerId, config.stockInputId);
             toggleAlertaVencimiento(config.requiereVencimientoId, config.diasAlertaContainerId, config.diasAlertaId);
         };
@@ -573,28 +476,22 @@
         apply();
     }
 
-
     function serializeFormState(form) {
         if (!(form instanceof HTMLFormElement)) return '';
-
         const entries = [];
         const fields = form.querySelectorAll('input, select, textarea');
         fields.forEach((field) => {
             if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
                 return;
             }
-
             const name = field.name || field.id;
             if (!name) return;
-
             if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
                 entries.push(`${name}:${field.checked ? '1' : '0'}`);
                 return;
             }
-
             entries.push(`${name}:${field.value ?? ''}`);
         });
-
         return entries.join('|');
     }
 
@@ -603,27 +500,16 @@
         const form = document.getElementById(formId);
         if (!modalEl || !form || modalEl.dataset.dirtyCloseGuardBound === '1') return;
 
-        let initialState = '';
         let allowDismiss = false;
 
         modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((btn) => {
-            const allowAndClose = () => {
-                allowDismiss = true;
-            };
-
+            const allowAndClose = () => { allowDismiss = true; };
             btn.addEventListener('pointerdown', allowAndClose, true);
             btn.addEventListener('click', allowAndClose, true);
         });
 
-        modalEl.addEventListener('shown.bs.modal', () => {
-            initialState = serializeFormState(form);
-            allowDismiss = false;
-        });
-
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            allowDismiss = false;
-        });
-
+        modalEl.addEventListener('shown.bs.modal', () => { allowDismiss = false; });
+        modalEl.addEventListener('hidden.bs.modal', () => { allowDismiss = false; });
         modalEl.dataset.dirtyCloseGuardBound = '1';
     }
 
@@ -651,12 +537,11 @@
             diasAlertaId: 'newDiasAlerta',
             autoIdentidadWrapId: 'newAutoIdentidadWrap',
             autoIdentidadId: 'newAutoIdentidad',
-            autoIdentidadHelpId: 'newAutoIdentidadHelp',
-            autoIdentityHintId: 'newAutoIdentityHint',
             aplicarPresetsDetallado: true
         };
 
         const skuConfig = {
+            mode: 'new', // INDICA QUE ES MODO CREAR
             tipoId: 'newTipo',
             skuId: 'newSku',
             nombreId: 'newNombre',
@@ -664,11 +549,7 @@
             categoriaId: 'newCategoria',
             marcaId: 'newMarca',
             saborId: 'newSabor',
-            presentacionId: 'newPresentacion',
-            nombreBadgeId: 'newNombreAutoBadge',
-            skuBadgeId: 'newSkuAutoBadge',
-            manualOverrideId: 'newNombreManualOverride',
-            autoGenerate: true
+            presentacionId: 'newPresentacion'
         };
 
         applyTipoItemRules(tipoConfig);
@@ -680,7 +561,6 @@
             const autoIdentidad = document.getElementById('newAutoIdentidad');
             if (autoIdentidad) {
                 autoIdentidad.checked = true;
-                delete autoIdentidad.dataset.manualDetected;
             }
 
             applyTipoItemRules(tipoConfig);
@@ -694,15 +574,6 @@
         });
 
         bindDirtyCloseGuard('modalCrearItem', 'formCrearItem');
-        document.getElementById('formCrearItem')?.addEventListener('submit', (event) => {
-            const tipo = document.getElementById('newTipo')?.value;
-            if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
-                const sabor = document.getElementById('newSabor');
-                const presentacion = document.getElementById('newPresentacion');
-                if (sabor) sabor.value = '';
-                if (presentacion) presentacion.value = '';
-            }
-        });
     }
 
     function initEditModal() {
@@ -729,12 +600,11 @@
             diasAlertaId: 'editDiasAlerta',
             autoIdentidadWrapId: 'editAutoIdentidadWrap',
             autoIdentidadId: 'editAutoIdentidad',
-            autoIdentidadHelpId: 'editAutoIdentidadHelp',
-            autoIdentityHintId: 'editAutoIdentityHint',
             aplicarPresetsDetallado: false
         };
 
         const skuConfig = {
+            mode: 'edit', // INDICA QUE ES MODO EDITAR
             tipoId: 'editTipo',
             skuId: 'editSku',
             nombreId: 'editNombre',
@@ -742,13 +612,7 @@
             categoriaId: 'editCategoria',
             marcaId: 'editMarca',
             saborId: 'editSabor',
-            presentacionId: 'editPresentacion',
-            nombreBadgeId: 'editNombreAutoBadge',
-            skuBadgeId: 'editSkuAutoBadge',
-            manualOverrideId: 'editNombreManualOverride',
-            autoGenerate: true,
-            detectManualOnInit: true,
-            forceDisabled: true
+            presentacionId: 'editPresentacion'
         };
 
         applyTipoItemRules(tipoConfig);
@@ -759,9 +623,11 @@
             if (!btn) return;
             const form = document.getElementById('formEditarItem');
             form?.reset();
+            
+            // Forzamos que el switch inicie APAGADO en la edición
             const autoIdentidad = document.getElementById('editAutoIdentidad');
             if (autoIdentidad) {
-                delete autoIdentidad.dataset.manualDetected;
+                autoIdentidad.checked = false;
             }
 
             ['editControlaStock', 'editPermiteDecimales', 'editRequiereLote', 'editRequiereVencimiento', 'editRequiereFormulaBom', 'editRequiereFactorConversion', 'editEsEnvaseRetornable'].forEach((id) => {
@@ -811,7 +677,7 @@
             });
 
             applyTipoItemRules(tipoConfig);
-            bindSkuAuto(skuConfig);
+            bindSkuAuto(skuConfig); // Dispara la actualización visual bloqueando el SKU
 
             bindComercialVisibility({
                 tipoId: 'editTipo',
@@ -821,15 +687,6 @@
         });
 
         bindDirtyCloseGuard('modalEditarItem', 'formEditarItem');
-        document.getElementById('formEditarItem')?.addEventListener('submit', (event) => {
-            const tipo = document.getElementById('editTipo')?.value;
-            if (tipo !== 'producto_terminado' && tipo !== 'semielaborado') {
-                const sabor = document.getElementById('editSabor');
-                const presentacion = document.getElementById('editPresentacion');
-                if (sabor) sabor.value = '';
-                if (presentacion) presentacion.value = '';
-            }
-        });
     }
 
     function initRubrosModal() {
@@ -1013,7 +870,6 @@
             });
         });
 
-
         document.querySelectorAll('.js-swal-confirm').forEach((form) => {
             form.addEventListener('submit', async (event) => {
                 if (form.dataset.confirmed === '1') {
@@ -1050,12 +906,10 @@
         modalEl.addEventListener('hidden.bs.modal', async () => {
             try {
                 await refreshAtributosSelectores();
-            } catch (_) {
-            }
+            } catch (_) { }
         });
     }
 
-    // --- REESCRITO: GESTOR DE TABLA PRINCIPAL AL ESTILO INVENTARIO ---
     function initTableManager() {
         const searchInput = document.getElementById('itemSearch');
         const filtroCategoria = document.getElementById('itemFiltroCategoria');
@@ -1067,7 +921,6 @@
         
         if (!table) return;
 
-        // Estilos automáticos: Aseguramos el thead sticky y el contenedor responsive
         const thead = table.querySelector('thead');
         if (thead && !thead.classList.contains('tabla-global-sticky-thead')) {
             thead.classList.add('tabla-global-sticky-thead');
@@ -1116,7 +969,6 @@
             const start = (currentPage - 1) * ROWS_PER_PAGE;
             const end = start + ROWS_PER_PAGE;
 
-            // Usamos las clases d-none como en inventario
             allRows.forEach((row) => row.classList.add('d-none'));
             visibleRows.slice(start, end).forEach((row) => row.classList.remove('d-none'));
 
@@ -1195,8 +1047,6 @@
         });
         updateTable();
     }
-
-
 
     function initUnidadesConversionModal() {
         const modal = document.getElementById('modalUnidadesConversion');
@@ -1508,17 +1358,13 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Inicializamos los modales y sus reglas (aquí ya van las configuraciones completas)
         initCreateModal();
         initEditModal();
-        
-        // Inicializamos el resto de los componentes
         initTableManager();
         initRubrosModal();
         initCategoriasModal();
         initGestionItemsModal();
         initUnidadesConversionModal();
         initEstadoSwitches();
-
     });
 })();

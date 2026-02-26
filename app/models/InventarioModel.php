@@ -46,7 +46,7 @@ class InventarioModel extends Modelo
 
         // 2. CONSTRUIMOS LA CONSULTA BASE PARA ÍTEMS
         $sql = "SELECT i.id AS id_item, i.sku, 
-                       CONCAT(i.nombre, CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ', sbr.nombre) ELSE '' END, CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ', prs.nombre) ELSE '' END) AS item_nombre,
+                       i.nombre AS item_nombre, 
                        i.nombre AS item_nombre_base, i.descripcion AS item_descripcion, i.estado AS item_estado,
                        i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.requiere_factor_conversion, i.permite_decimales,
                        'item' AS tipo_registro,
@@ -62,14 +62,14 @@ class InventarioModel extends Modelo
                 {$groupBy}";
 
         // 3. AGREGAMOS LA LÓGICA DE PACKS (SI APLICA)
-            if ($tablaPacksDisponible) {
-                if ($idAlmacen > 0) {
-                    $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
-                    $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen}) AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
-                    $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = {$idAlmacen}";
-                    $whereExtraPack    = "AND sp.id IS NOT NULL";
-                    $groupByPack       = "";
-                } else {
+        if ($tablaPacksDisponible) {
+            if ($idAlmacen > 0) {
+                $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
+                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen}) AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
+                $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = {$idAlmacen}";
+                $whereExtraPack    = "AND sp.id IS NOT NULL";
+                $groupByPack       = "";
+            } else {
                 // VISTA GLOBAL INTELIGENTE PARA PACKS
                 $selectAlmacenPack = "0 AS id_almacen, 
                                       CASE 
@@ -95,8 +95,8 @@ class InventarioModel extends Modelo
 
             $sql .= " UNION ALL
                       SELECT p.id AS id_item, p.codigo_presentacion AS sku,
-                             COALESCE(p.nombre_manual, CONCAT(i.nombre, CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END, CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre,
-                             COALESCE(p.nombre_manual, CONCAT(i.nombre, CASE WHEN sbr.nombre IS NOT NULL AND sbr.nombre != 'Ninguno' THEN CONCAT(' ' , sbr.nombre) ELSE '' END, CASE WHEN prs.nombre IS NOT NULL THEN CONCAT(' ' , prs.nombre) ELSE '' END, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre_base,
+                             COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre,
+                             COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre_base,
                              'Pack Comercial' AS item_descripcion, p.estado AS item_estado, p.stock_minimo AS stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta AS dias_alerta_vencimiento, 1 AS controla_stock, 0 AS requiere_factor_conversion, 0 AS permite_decimales, 'pack' AS tipo_registro,
                              {$selectAlmacenPack}
                              NULL AS lote_actual, NULL AS proximo_vencimiento,
@@ -170,11 +170,7 @@ class InventarioModel extends Modelo
                        'item' AS tipo_registro,
                        i.requiere_lote,
                        i.requiere_vencimiento,
-                       CONCAT(
-                           i.nombre,
-                           CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
-                           CASE WHEN p.nombre IS NOT NULL THEN CONCAT(' ', p.nombre) ELSE '' END
-                       ) AS nombre_full,
+                       i.nombre AS nombre_full,
                        '' AS nota,
                        CONCAT('item:', i.id) AS value
                 FROM items i
@@ -196,12 +192,7 @@ class InventarioModel extends Modelo
                              0 AS requiere_vencimiento,
                              COALESCE(
                                  p.nombre_manual,
-                                 CONCAT(
-                                     i.nombre,
-                                     CASE WHEN s.nombre IS NOT NULL AND s.nombre != 'Ninguno' THEN CONCAT(' ', s.nombre) ELSE '' END,
-                                     CASE WHEN ip.nombre IS NOT NULL THEN CONCAT(' ', ip.nombre) ELSE '' END,
-                                     ' x ', CAST(p.factor AS UNSIGNED)
-                                 )
+                                 CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))
                              ) AS nombre_full,
                              COALESCE(NULLIF(TRIM(p.nota_pack), ''), '') AS nota,
                              CONCAT('pack:', p.id) AS value

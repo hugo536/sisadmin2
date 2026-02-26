@@ -1,6 +1,7 @@
 /**
- * SISTEMA SISADMIN2 - Módulo de Producción
- * Archivo actualizado para manejo multi-almacén, división de filas y semáforos.
+ * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
+ * Archivo actualizado para manejo multi-almacén, división de filas, semáforos
+ * y auto-generación de Código OP.
  */
 
 if (!window.produccionJsInitialized) {
@@ -9,6 +10,7 @@ if (!window.produccionJsInitialized) {
     document.addEventListener('DOMContentLoaded', function() {
         initFiltrosOrdenes();
         initModalEjecucion();
+        initModalPlanificacion();
     });
 
     // =========================================================================
@@ -274,6 +276,9 @@ if (!window.produccionJsInitialized) {
         let agrupado = {};
         let faltaMaterialEnProduccion = false;
 
+        // Tolerancia para evitar errores por decimales ínfimos
+        const toleranciaError = 0.001;
+
         // Agrupar cantidades por ID de insumo (por si dividieron la fila)
         filas.forEach(tr => {
             const idInsumo = tr.getAttribute('data-id-insumo');
@@ -295,7 +300,7 @@ if (!window.produccionJsInitialized) {
             // Tomamos la primera fila del grupo para actualizar su "Insignia"
             const badge = data.elementosTr[0].querySelector('.badge-req');
 
-            if (diferencia > 0.001) {
+            if (diferencia > toleranciaError) {
                 // FALTAN INSUMOS (Naranja)
                 data.elementosTr.forEach(tr => {
                     tr.querySelector('input[name="consumo_cantidad[]"]').classList.replace('border-success', 'border-warning');
@@ -333,5 +338,40 @@ if (!window.produccionJsInitialized) {
                 inputJustificacion.value = '';
             }
         }
+    }
+
+    // =========================================================================
+    // 5. MODAL DE PLANIFICACIÓN (Generador de Código OP)
+    // =========================================================================
+    function initModalPlanificacion() {
+        const modalPlanificar = document.getElementById('modalPlanificarOP'); // Verifica este ID en tu HTML
+        if (!modalPlanificar) return;
+
+        modalPlanificar.addEventListener('show.bs.modal', function () {
+            const inputCodigo = document.getElementById('newCodigoOP'); // Verifica este ID en tu HTML
+            
+            if (inputCodigo) {
+                // Generar código único: OP-AAMMDD-HHMMSS
+                const now = new Date();
+                const yy = String(now.getFullYear()).slice(-2);
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                const sec = String(now.getSeconds()).padStart(2, '0');
+                
+                inputCodigo.value = `OP-${yy}${mm}${dd}-${hh}${min}${sec}`;
+                
+                // Aseguramos que esté bloqueado (readonly) y tenga fondo gris (bg-light)
+                inputCodigo.setAttribute('readonly', 'true');
+                inputCodigo.classList.add('bg-light');
+            }
+        });
+        
+        // Limpiar el formulario al cerrar el modal (si el usuario cancela)
+        modalPlanificar.addEventListener('hidden.bs.modal', function () {
+            const form = modalPlanificar.querySelector('form');
+            if (form) form.reset();
+        });
     }
 }

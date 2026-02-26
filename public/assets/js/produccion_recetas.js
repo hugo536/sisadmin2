@@ -1,32 +1,41 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Recetas BOM)
- * Archivo exclusivo para la gestión de fórmulas, listas de materiales y parámetros.
+ * Optimizado con Tom Select AJAX y SweetAlert2.
+ * Versión FINAL CORREGIDA - Estructura Limpia
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+    inyectarFijacionCSS();
     initFiltrosTablas();
     initFormularioRecetas();
     initAccionesRecetaPendiente();
     initGestionParametrosCatalogo();
+    initGuardadoReceta(); // Se inicializa el guardado correctamente
 });
 
-function initFiltrosTablas() {
-    setupFiltro('recetaSearch', 'recetaFiltroEstado', 'tablaRecetas');
+// --- PARCHE CSS ---
+function inyectarFijacionCSS() {
+    if (document.getElementById('tomSelectFix')) return;
+    const style = document.createElement('style');
+    style.id = 'tomSelectFix';
+    style.innerHTML = `
+        .ts-wrapper .ts-control { display: flex !important; align-items: center; flex-wrap: nowrap !important; overflow: hidden; }
+        .ts-wrapper.single.full .ts-control > input { display: none !important; }
+        .ts-wrapper.form-select, .ts-wrapper.form-control { padding: 0 !important; border: none !important; }
+    `;
+    document.head.appendChild(style);
 }
 
-function setupFiltro(inputId, selectId, tableId) {
-    const input = document.getElementById(inputId);
-    const select = document.getElementById(selectId);
-    const table = document.getElementById(tableId);
-    
+function initFiltrosTablas() {
+    const input = document.getElementById('recetaSearch');
+    const select = document.getElementById('recetaFiltroEstado');
+    const table = document.getElementById('tablaRecetas');
     if (!input || !table) return;
 
     const filterFn = () => {
         const term = input.value.toLowerCase();
         const estado = select ? select.value : '';
-        const rows = table.querySelectorAll('tbody tr');
-
-        rows.forEach(row => {
+        table.querySelectorAll('tbody tr').forEach(row => {
             const matchText = (row.getAttribute('data-search') || '').toLowerCase().includes(term);
             const matchEstado = estado === '' || (row.getAttribute('data-estado') || '') === estado;
             row.style.display = (matchText && matchEstado) ? '' : 'none';
@@ -34,9 +43,7 @@ function setupFiltro(inputId, selectId, tableId) {
     };
 
     input.addEventListener('keyup', filterFn);
-    if (select) {
-        select.addEventListener('change', filterFn);
-    }
+    if (select) select.addEventListener('change', filterFn);
 }
 
 function initFormularioRecetas() {
@@ -47,7 +54,6 @@ function initFormularioRecetas() {
         return Number.isFinite(numero) ? numero : 0;
     };
 
-    // --- Elementos de Insumos ---
     const templateInsumo = document.getElementById('detalleRecetaTemplate');
     const resumenItems = document.getElementById('bomResumen');
     const costoTotalEl = document.getElementById('costoTotalCalculado');
@@ -56,12 +62,57 @@ function initFormularioRecetas() {
     const inputProducto = document.getElementById('newProducto');
 
     const instanciasTomSelect = new WeakMap();
+    let tomProductoDestino = null;
 
-    // --- Elementos de Parámetros IPC ---
     const btnAgregarParametro = document.getElementById('btnAgregarParametro');
     const contenedorParametros = document.getElementById('contenedorParametros');
     const templateParametro = document.getElementById('parametroTemplate');
     const emptyParametros = document.getElementById('emptyParametros');
+
+    function initTomSelectAjax(selectEl, placeholderText, onChangeCallback = null) {
+        if (!selectEl || typeof TomSelect === 'undefined') return null;
+        selectEl.classList.remove('form-select', 'form-control', 'form-select-sm');
+        return new TomSelect(selectEl, {
+            valueField: 'id',
+            labelField: 'nombre',
+            searchField: ['nombre', 'sku'],
+            maxItems: 1,
+            maxOptions: 30,
+            loadThrottle: 300,
+            placeholder: placeholderText,
+            preload: true,
+            load: function(query, callback) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('accion', 'buscar_insumos_ajax');
+                url.searchParams.set('q', query);
+                fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(r => r.json())
+                    .then(json => callback(json.success && json.data ? json.data : []))
+                    .catch(() => callback());
+            },
+            render: {
+                option: (item, escape) => `<div class="p-2 border-bottom">
+                    <div class="fw-bold text-dark">${escape(item.nombre)}</div>
+                    <div class="small text-muted d-flex justify-content-between">
+                        <span>SKU: ${escape(item.sku || '-')}</span>
+                        <span class="text-primary fw-semibold">S/ ${Number(item.costo_calculado || 0).toFixed(4)}</span>
+                    </div>
+                </div>`,
+                item: (item, escape) => `<span class="text-truncate d-inline-block align-middle" style="max-width: 95%;" data-costo="${item.costo_calculado || 0}">${escape(item.nombre)}</span>`
+            },
+            onChange: (value) => { if (onChangeCallback) onChangeCallback(value, this); }
+        });
+    }
+
+    if (inputProducto) {
+        tomProductoDestino = initTomSelectAjax(inputProducto, 'Seleccione producto a fabricar...');
+    }
+
+    const getProductoDestinoId = () => {
+        const hidden = document.getElementById('newIdProductoHidden');
+        if (hidden && hidden.value) return hidden.value;
+        return tomProductoDestino ? tomProductoDestino.getValue() : '';
+    };
 
     const limpiarFormularioReceta = () => {
         const form = document.getElementById('formCrearReceta');
@@ -71,54 +122,35 @@ function initFormularioRecetas() {
         contenedorParametros.innerHTML = '';
         if (emptyParametros) emptyParametros.style.display = 'block';
 
-        const resumen = document.getElementById('bomResumen');
-        if (resumen) resumen.textContent = '0 insumos agregados.';
+        if (resumenItems) resumenItems.textContent = '0 insumos agregados.';
         if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
 
         const inputCodigo = document.getElementById('newCodigo');
-        if (inputCodigo) inputCodigo.removeAttribute('readonly');
+        if (inputCodigo) { inputCodigo.removeAttribute('readonly'); inputCodigo.classList.remove('bg-light'); }
 
-        const inputIdRecetaBase = document.getElementById('newIdRecetaBase');
-        if (inputIdRecetaBase) inputIdRecetaBase.value = '0';
+        const inputVersion = document.getElementById('newVersion');
+        if (inputVersion) { inputVersion.removeAttribute('readonly'); inputVersion.classList.remove('bg-light'); }
+
+        const hiddenIdBase = document.getElementById('newIdRecetaBase');
+        if (hiddenIdBase) hiddenIdBase.value = '0';
+        
+        const hiddenIdProd = document.getElementById('newIdProductoHidden');
+        if (hiddenIdProd) hiddenIdProd.value = '';
+
+        if (tomProductoDestino) tomProductoDestino.clear(true);
+
+        const selectCont = document.getElementById('productoSelectContainer');
+        const displayCont = document.getElementById('productoDisplayContainer');
+        const displayNombre = document.getElementById('newProductoNombreDisplay');
+
+        if (selectCont) selectCont.style.display = '';
+        if (displayCont) displayCont.style.display = 'none';
+        if (displayNombre) displayNombre.textContent = '';
     };
 
-    // =========================================================================
-    // 1. GESTIÓN DE PARÁMETROS DINÁMICOS
-    // =========================================================================
-    if (btnAgregarParametro && templateParametro && contenedorParametros) {
-        const actualizarEstadoParametros = () => {
-            const rows = contenedorParametros.querySelectorAll('.parametro-row');
-            if (emptyParametros) {
-                emptyParametros.style.display = rows.length === 0 ? 'block' : 'none';
-            }
-        };
-
-        btnAgregarParametro.addEventListener('click', function() {
-            const fragment = templateParametro.content.cloneNode(true);
-            contenedorParametros.appendChild(fragment);
-            actualizarEstadoParametros();
-        });
-
-        // Delegación de eventos para eliminar parámetro
-        document.addEventListener('click', function(e) {
-            const btnRemove = e.target.closest('.js-remove-param');
-            if (btnRemove) {
-                const row = btnRemove.closest('.parametro-row');
-                if (row) {
-                    row.remove();
-                    actualizarEstadoParametros();
-                }
-            }
-        });
-    }
-
-    // =========================================================================
-    // 2. GESTIÓN DE INSUMOS (BOM) Y COSTOS EN TIEMPO REAL
-    // =========================================================================
     const calcularResumenYCostos = () => {
         const rows = document.querySelectorAll('.detalle-row');
-        let totalItems = 0;
-        let costoTotal = 0;
+        let totalItems = 0, costoTotal = 0;
 
         rows.forEach(row => {
             const select = row.querySelector('.select-insumo');
@@ -129,199 +161,173 @@ function initFormularioRecetas() {
 
             if (select && select.value && inputCant) {
                 totalItems++;
-                
-                // Leemos los valores directamente de los inputs
                 const cantidad = parseNumero(inputCant.value);
                 const merma = parseNumero(inputMerma.value);
                 const costoUnitario = parseNumero(inputCostoUnitario.value);
 
-                // Fórmula matemática: Cantidad * (1 + porcentaje de merma) * Costo
                 const cantidadReal = cantidad * (1 + (merma / 100));
                 const costoItem = cantidadReal * costoUnitario;
                 costoTotal += costoItem;
 
-                if (inputCostoItem) {
-                    inputCostoItem.value = costoItem.toFixed(4);
-                }
-            } else {
-                if (inputCostoItem) inputCostoItem.value = '0.0000';
+                if (inputCostoItem) inputCostoItem.value = costoItem.toFixed(4);
+            } else if (inputCostoItem) {
+                inputCostoItem.value = '0.0000';
             }
         });
 
-        if (resumenItems) {
-            resumenItems.textContent = `${totalItems} insumos/semielaborados agregados.`;
-        }
-        if (costoTotalEl) {
-            costoTotalEl.textContent = `S/ ${costoTotal.toFixed(4)}`;
-        }
+        if (resumenItems) resumenItems.textContent = `${totalItems} insumos agregados.`;
+        if (costoTotalEl) costoTotalEl.textContent = `S/ ${costoTotal.toFixed(4)}`;
     };
 
-    const sincronizarOpcionesInsumo = () => {
-        const idProducto = (inputProducto && inputProducto.value) ? String(inputProducto.value) : '';
-        const usados = new Set();
-
-        listaInsumos?.querySelectorAll('.select-insumo').forEach(select => {
-            if (select.value) {
-                usados.add(String(select.value));
-            }
-        });
-
-        listaInsumos?.querySelectorAll('.select-insumo').forEach(select => {
-            const seleccionadoActual = String(select.value || '');
-
-            Array.from(select.options).forEach(option => {
-                if (!option.value) return;
-                const isPropioProducto = idProducto !== '' && option.value === idProducto;
-                const isDuplicado = option.value !== seleccionadoActual && usados.has(option.value);
-                option.disabled = isPropioProducto || isDuplicado;
-            });
-
-            const tom = instanciasTomSelect.get(select);
-            if (tom) {
-                tom.sync();
-            }
-        });
-    };
-
-    const inicializarBuscadorInsumo = (select, row) => {
-        if (!select || typeof TomSelect === 'undefined') return;
-
-        const tom = new TomSelect(select, {
-            create: false,
-            maxItems: 1,
-            valueField: 'value',
-            labelField: 'text',
-            searchField: ['text'],
-            sortField: [{ field: 'text', direction: 'asc' }],
-            onChange: function(value) {
-                // Cuando el usuario elige un item, sacamos su costo de la base de datos (data-costo)
-                const opt = select.querySelector(`option[value="${value}"]`);
-                const costoBD = opt ? parseNumero(opt.getAttribute('data-costo')) : 0;
-                
-                // Actualizamos el input de costo unitario
-                const inputCostoUni = row.querySelector('.input-costo-unitario');
-                if (inputCostoUni) {
-                    inputCostoUni.value = costoBD.toFixed(4);
-                }
-                
-                sincronizarOpcionesInsumo();
-                calcularResumenYCostos();
-            }
-        });
-
-        instanciasTomSelect.set(select, tom);
+    const validarInsumoSeleccionado = (valorSeleccionado, tomInstance) => {
+        if (!valorSeleccionado) return true;
+        const idProductoFinal = getProductoDestinoId();
+        if (idProductoFinal !== '' && valorSeleccionado === idProductoFinal) {
+            Swal.fire({ icon: 'error', title: 'Acción no permitida', text: 'No puedes usar el producto final como insumo de su propia receta.' });
+            tomInstance.clear(true);
+            return false;
+        }
+        let coincidencias = 0;
+        document.querySelectorAll('.select-insumo').forEach(sel => { if (sel.value === valorSeleccionado) coincidencias++; });
+        if (coincidencias > 1) {
+            Swal.fire({ icon: 'warning', title: 'Insumo duplicado', text: 'Este insumo ya fue agregado a la receta.' });
+            tomInstance.clear(true);
+            return false;
+        }
+        return true;
     };
 
     const crearFilaInsumo = () => {
-        // 1. Bloqueo de seguridad: Obligar a seleccionar producto primero
-        if (!inputProducto || !inputProducto.value) {
-            alert('Por favor, seleccione el "Producto Destino" primero para evitar circularidad.');
-            if (inputProducto) inputProducto.focus();
-            return;
+        if (!getProductoDestinoId()) {
+            Swal.fire({ icon: 'info', title: 'Atención', text: 'Por favor, seleccione el "Producto Destino" primero.', confirmButtonText: 'Entendido' });
+            return null;
         }
 
-        if (!templateInsumo || !listaInsumos) return;
+        if (!templateInsumo || !listaInsumos) return null;
         const fragment = templateInsumo.content.cloneNode(true);
-        const row = fragment.querySelector('.detalle-row');
-        const selectInsumo = row.querySelector('.select-insumo');
-
-        // 2. PREVENIR CIRCULARIDAD: Eliminar el producto actual de la lista ANTES de Tom Select
-        const idProductoActual = inputProducto.value;
-        const opcionMismoProducto = selectInsumo.querySelector(`option[value="${idProductoActual}"]`);
-        if (opcionMismoProducto) {
-            opcionMismoProducto.remove(); 
+        
+        let row = fragment.querySelector('.detalle-row');
+        if (!row) row = fragment.firstElementChild; 
+        
+        if (!row) {
+            console.error('El template de insumos está vacío o es inválido en el HTML.');
+            return null;
         }
 
-        // 3. Permitir escribir el costo a mano (ya que en tu BD están en 0.00)
+        const selectInsumo = row.querySelector('.select-insumo');
+        if (!selectInsumo) return null;
+
         const inputCostoUni = row.querySelector('.input-costo-unitario');
         if (inputCostoUni) {
-            inputCostoUni.removeAttribute('readonly'); 
+            inputCostoUni.removeAttribute('readonly');
+            inputCostoUni.classList.remove('bg-light');
             inputCostoUni.addEventListener('input', calcularResumenYCostos);
         }
 
-        // 4. Listeners de cantidad y merma
-        row.querySelector('.input-cantidad').addEventListener('input', calcularResumenYCostos);
-        row.querySelector('.input-merma').addEventListener('input', calcularResumenYCostos);
+        const inputCant = row.querySelector('.input-cantidad');
+        if (inputCant) inputCant.addEventListener('input', calcularResumenYCostos);
+        
+        const inputMerma = row.querySelector('.input-merma');
+        if (inputMerma) inputMerma.addEventListener('input', calcularResumenYCostos);
 
         listaInsumos.appendChild(fragment);
-        
-        // Pasamos 'row' como segundo parámetro para que TomSelect actualice el costo de esta fila
-        inicializarBuscadorInsumo(selectInsumo, row);
-        sincronizarOpcionesInsumo();
+
+        const tom = initTomSelectAjax(selectInsumo, 'Buscar insumo...', (value, tomInstance) => {
+            if (!validarInsumoSeleccionado(value, tomInstance)) return;
+            let costoBD = 0;
+            if (value) {
+                const opt = tomInstance.options[value];
+                if (opt) costoBD = parseNumero(opt.costo_calculado);
+            }
+            if (inputCostoUni) inputCostoUni.value = costoBD.toFixed(4);
+            calcularResumenYCostos();
+        });
+
+        instanciasTomSelect.set(selectInsumo, tom);
         calcularResumenYCostos();
+        return row;
     };
 
-    if (btnAgregarInsumo) {
-        btnAgregarInsumo.addEventListener('click', crearFilaInsumo);
-    }
+    if (btnAgregarInsumo) btnAgregarInsumo.addEventListener('click', crearFilaInsumo);
 
-    // Delegación para eliminar fila de insumo
-    document.addEventListener('click', function(e) {
-        const btnRemove = e.target.closest('.js-remove-row');
-        if (btnRemove) {
-            const row = btnRemove.closest('.detalle-row');
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.js-remove-row');
+        if (btn) {
+            const row = btn.closest('.detalle-row');
             if (row) {
                 const select = row.querySelector('.select-insumo');
                 const tom = select ? instanciasTomSelect.get(select) : null;
                 if (tom) tom.destroy();
                 row.remove();
-                sincronizarOpcionesInsumo();
                 calcularResumenYCostos();
             }
         }
     });
 
-    if (inputProducto) {
-        inputProducto.addEventListener('change', sincronizarOpcionesInsumo);
-    }
-
+    // RESTAURADO: Función para parámetros
     const crearFilaParametro = (data = null) => {
         if (!templateParametro || !contenedorParametros) return;
         const fragment = templateParametro.content.cloneNode(true);
-        const row = fragment.querySelector('.parametro-row');
-        if (!row) return;
+        
+        // Protección similar a insumos
+        let row = fragment.querySelector('.parametro-row');
+        if (!row) row = fragment.firstElementChild;
+        if (!row) {
+            console.error('El template de parámetros está vacío o es inválido en el HTML.');
+            return;
+        }
 
         const selectParametro = row.querySelector('select[name="parametro_id[]"]');
         const inputValor = row.querySelector('input[name="parametro_valor[]"]');
 
-        if (selectParametro && data && data.id_parametro) {
-            selectParametro.value = String(data.id_parametro);
-        }
-        if (inputValor && data && data.valor_objetivo !== undefined) {
-            inputValor.value = parseNumero(data.valor_objetivo).toFixed(4);
-        }
+        if (selectParametro && data?.id_parametro) selectParametro.value = String(data.id_parametro);
+        if (inputValor && data?.valor_objetivo !== undefined) inputValor.value = parseNumero(data.valor_objetivo).toFixed(4);
 
         contenedorParametros.appendChild(fragment);
-        if (emptyParametros) {
-            emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
-        }
+        if (emptyParametros) emptyParametros.style.display = 'none';
     };
 
-    const crearFilaInsumoConData = (detalle = null) => {
-        crearFilaInsumo();
-        if (!detalle) return;
+    if (btnAgregarParametro) btnAgregarParametro.addEventListener('click', () => crearFilaParametro());
 
-        const rows = listaInsumos.querySelectorAll('.detalle-row');
-        const row = rows[rows.length - 1];
-        if (!row) return;
-
-        const select = row.querySelector('.select-insumo');
-        const inputEtapa = row.querySelector('.input-etapa-hidden');
-        const inputCantidad = row.querySelector('.input-cantidad');
-        const inputMerma = row.querySelector('.input-merma');
-        const inputCostoUnitario = row.querySelector('.input-costo-unitario');
-
-        if (select && detalle.id_insumo) {
-            const tom = instanciasTomSelect.get(select);
-            if (tom) {
-                tom.setValue(String(detalle.id_insumo), true);
-            } else {
-                select.value = String(detalle.id_insumo);
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.js-remove-param');
+        if (btn) {
+            const row = btn.closest('.parametro-row');
+            if (row) {
+                row.remove();
+                if (emptyParametros) emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
             }
         }
-        if (inputEtapa) inputEtapa.value = String(detalle.etapa || 'General');
+    });
+
+    const crearFilaInsumoConData = (detalle = null) => {
+        const row = crearFilaInsumo();
+        if (!detalle || !row) return;
+
+        const select = row.querySelector('.select-insumo');
+        if (select) {
+            const tom = instanciasTomSelect.get(select);
+            if (tom) {
+                tom.addOption({
+                    id: detalle.id_insumo,
+                    nombre: detalle.insumo_nombre || `Insumo ID: ${detalle.id_insumo}`,
+                    sku: detalle.sku || '',
+                    costo_calculado: detalle.costo_unitario
+                });
+                tom.setValue(String(detalle.id_insumo), true);
+            }
+        }
+
+        const inputEtapa = row.querySelector('.input-etapa-hidden');
+        if(inputEtapa) inputEtapa.value = detalle.etapa || 'General';
+        
+        const inputCantidad = row.querySelector('.input-cantidad');
         if (inputCantidad) inputCantidad.value = parseNumero(detalle.cantidad_por_unidad).toFixed(4);
+        
+        const inputMerma = row.querySelector('.input-merma');
         if (inputMerma) inputMerma.value = parseNumero(detalle.merma_porcentaje).toFixed(4);
+        
+        const inputCostoUnitario = row.querySelector('.input-costo-unitario');
         if (inputCostoUnitario) inputCostoUnitario.value = parseNumero(detalle.costo_unitario).toFixed(4);
 
         calcularResumenYCostos();
@@ -330,45 +336,62 @@ function initFormularioRecetas() {
     window.produccionRecetaFormAPI = {
         limpiarFormularioReceta,
         setCabecera(data) {
+            if (!data) return;
             const inputCodigo = document.getElementById('newCodigo');
             const inputVersion = document.getElementById('newVersion');
-            const inputProducto = document.getElementById('newProducto');
-            const inputDescripcion = document.getElementById('newDescripcion');
-            const inputRendimiento = document.getElementById('newRendimientoBase');
-            const inputUnidad = document.getElementById('newUnidadRendimiento');
+            const hiddenIdProd = document.getElementById('newIdProductoHidden');
+            
+            if(inputCodigo) inputCodigo.value = data.codigo || '';
+            if(inputVersion) inputVersion.value = data.version || '1';
+            if(hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
-            if (inputCodigo) {
-                inputCodigo.value = String(data.codigo || '');
-                inputCodigo.setAttribute('readonly', 'readonly');
+            if (tomProductoDestino && data.id_producto) {
+                tomProductoDestino.addOption({ id: data.id_producto, nombre: data.producto_nombre || 'Producto Seleccionado' });
+                tomProductoDestino.setValue(data.id_producto, true);
             }
-            if (inputVersion) inputVersion.value = String(data.version || 1);
-            if (inputProducto) inputProducto.value = String(data.id_producto || '');
-            if (inputDescripcion) inputDescripcion.value = String(data.descripcion || '');
-            if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base).toFixed(4);
-            if (inputUnidad) inputUnidad.value = String(data.unidad_rendimiento || '');
+        },
+        setCabeceraNuevaVersion(data) {
+            if (!data) return;
+            const inputCodigo = document.getElementById('newCodigo');
+            const inputVersion = document.getElementById('newVersion');
+            const hiddenIdProd = document.getElementById('newIdProductoHidden');
+            
+            if (inputCodigo) {
+                inputCodigo.value = data.codigo || '';
+                inputCodigo.setAttribute('readonly', 'true');
+                inputCodigo.classList.add('bg-light');
+            }
+            
+            if (inputVersion) {
+                // Tu backend ya nos manda la versión correcta sumada, así que solo la asignamos
+                inputVersion.value = data.version || '';
+                inputVersion.setAttribute('readonly', 'true');
+                inputVersion.classList.add('bg-light');
+            }
+            if (hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
-            sincronizarOpcionesInsumo();
+            const containerSelect = document.getElementById('productoSelectContainer');
+            const containerDisplay = document.getElementById('productoDisplayContainer');
+            const displayNombre = document.getElementById('newProductoNombreDisplay');
+
+            if (containerSelect) containerSelect.style.display = 'none';
+            if (containerDisplay) containerDisplay.style.display = 'block';
+            if (displayNombre) displayNombre.textContent = data.producto_nombre || 'Producto';
         },
         setIdRecetaBase(idReceta) {
-            const inputIdRecetaBase = document.getElementById('newIdRecetaBase');
-            if (inputIdRecetaBase) inputIdRecetaBase.value = String(idReceta || 0);
+            const hiddenBase = document.getElementById('newIdRecetaBase');
+            if(hiddenBase) hiddenBase.value = String(idReceta || 0);
         },
         cargarDetalles(detalles) {
             listaInsumos.innerHTML = '';
-            (Array.isArray(detalles) ? detalles : []).forEach((detalle) => {
-                crearFilaInsumoConData(detalle);
-            });
+            (detalles || []).forEach(d => crearFilaInsumoConData(d));
             calcularResumenYCostos();
         },
         cargarParametros(parametros) {
             contenedorParametros.innerHTML = '';
-            (Array.isArray(parametros) ? parametros : []).forEach((parametro) => {
-                crearFilaParametro(parametro);
-            });
-            if (emptyParametros) {
-                emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
-            }
-        },
+            (parametros || []).forEach(p => crearFilaParametro(p));
+            if (emptyParametros) emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
+        }
     };
 }
 
@@ -385,49 +408,30 @@ function initAccionesRecetaPendiente() {
     const postAccion = async (accion, data = {}) => {
         const body = new URLSearchParams();
         body.append('accion', accion);
-
         if (data && typeof data === 'object') {
             Object.entries(data).forEach(([k, v]) => {
-                if (v === undefined || v === null) return;
-                body.append(k, String(v));
+                if (v !== undefined && v !== null) body.append(k, String(v));
             });
         }
 
-
         const resp = await fetch(window.location.href, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
             body: body.toString(),
         });
 
-
         const raw = await resp.text();
         let json;
-        try {
-            json = JSON.parse(raw);
-        } catch (e) {
-            throw new Error('Respuesta inválida del servidor. Revise sesión/permisos y vuelva a intentar.');
-        }
-
-
-        if (!json || json.success !== true) {
-            throw new Error((json && json.message) || 'No se pudo completar la operación.');
-        }
+        try { json = JSON.parse(raw); } catch (e) { throw new Error('Respuesta inválida del servidor.'); }
+        if (!json || json.success !== true) throw new Error((json && json.message) || 'Error en la operación.');
         return json.data;
     };
 
     const cargarRecetaEnFormulario = async (idReceta) => {
         const api = window.produccionRecetaFormAPI;
         if (!api) return;
-
         const dataReceta = await postAccion('obtener_receta_version_ajax', { id_receta: idReceta });
-
-        if (!dataReceta || typeof dataReceta !== 'object') {
-            throw new Error('No se pudo cargar la receta seleccionada.');
-        }
+        if (!dataReceta || typeof dataReceta !== 'object') throw new Error('No se pudo cargar la receta seleccionada.');
 
         api.setCabecera(dataReceta);
         api.setIdRecetaBase(idReceta);
@@ -435,56 +439,37 @@ function initAccionesRecetaPendiente() {
         api.cargarParametros(dataReceta.parametros || []);
     };
 
-    // Limpiar el formulario y las filas dinámicas al cerrar el modal
     modalEl.addEventListener('hidden.bs.modal', function () {
         const api = window.produccionRecetaFormAPI;
-        if (api) {
-            api.limpiarFormularioReceta();
-        } else if (form) {
-            form.reset();
-        }
+        if (api) api.limpiarFormularioReceta();
+        else if (form) form.reset();
 
         if (selectVersionBase) {
             selectVersionBase.innerHTML = '<option value="">Seleccione versión...</option>';
             selectVersionBase.value = '';
         }
-
         if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = 'none';
         if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva receta';
     });
 
-    // Capturar clics en la tabla para "Agregar receta"
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.js-agregar-receta');
         if (!btn || !form) return;
-
-        const idProducto = btn.getAttribute('data-id-producto') || '';
-        const codigo = btn.getAttribute('data-codigo') || '';
-        const version = btn.getAttribute('data-version') || '1';
-        const productoNombre = btn.getAttribute('data-producto') || '';
-
-        const inputCodigo = document.getElementById('newCodigo');
-        const inputVersion = document.getElementById('newVersion');
-        const inputProducto = document.getElementById('newProducto');
-        const inputDescripcion = document.getElementById('newDescripcion');
-        const inputRendimiento = document.getElementById('newRendimientoBase');
-        const inputUnidad = document.getElementById('newUnidadRendimiento');
-
-        if (inputCodigo) inputCodigo.value = codigo;
-        if (inputCodigo) inputCodigo.setAttribute('readonly', 'readonly');
-        if (inputVersion) inputVersion.value = version;
-        if (inputProducto) inputProducto.value = idProducto;
-        if (inputDescripcion) inputDescripcion.value = 'Fórmula inicial de ' + productoNombre;
-        if (inputRendimiento) inputRendimiento.value = '1';
-        if (inputUnidad) inputUnidad.value = 'UND';
-
+        const api = window.produccionRecetaFormAPI;
+        if (api) {
+            api.setCabecera({
+                codigo: btn.getAttribute('data-codigo') || '',
+                version: btn.getAttribute('data-version') || '1',
+                id_producto: btn.getAttribute('data-id-producto') || '',
+                producto_nombre: btn.getAttribute('data-producto') || ''
+            });
+        }
         modal.show();
     });
 
     document.addEventListener('click', async function (e) {
         const btn = e.target.closest('.js-nueva-version');
         if (!btn || !form) return;
-
         const idRecetaBase = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
         if (!idRecetaBase) return;
 
@@ -492,8 +477,15 @@ function initAccionesRecetaPendiente() {
             if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-files me-2"></i>Nueva versión de receta';
             if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = '';
 
-            const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
+            const datosNuevaVersion = await postAccion('obtener_datos_nueva_version_ajax', { id_receta_base: idRecetaBase });
+            const api = window.produccionRecetaFormAPI;
+            
+            api.setCabeceraNuevaVersion(datosNuevaVersion);
+            api.setIdRecetaBase(idRecetaBase);
+            api.cargarDetalles(datosNuevaVersion.detalles || []);
+            api.cargarParametros(datosNuevaVersion.parametros || []);
 
+            const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
             if (selectVersionBase) {
                 selectVersionBase.innerHTML = '';
                 (Array.isArray(versiones) ? versiones : []).forEach((version) => {
@@ -502,29 +494,19 @@ function initAccionesRecetaPendiente() {
                     option.textContent = `v.${version.version} - ${version.codigo}${Number(version.estado) === 1 ? ' (Activa)' : ''}`;
                     selectVersionBase.appendChild(option);
                 });
-
-                if (selectVersionBase.options.length > 0) {
-                    selectVersionBase.value = selectVersionBase.options[0].value;
-                }
+                if (selectVersionBase.options.length > 0) selectVersionBase.value = selectVersionBase.options[0].value;
             }
-
-            const idVersionInicial = selectVersionBase?.value ? parseInt(selectVersionBase.value, 10) : idRecetaBase;
-            await cargarRecetaEnFormulario(idVersionInicial);
             modal.show();
         } catch (error) {
-            alert(error.message || 'No se pudo cargar la receta para versionar.');
+            Swal.fire({ icon: 'error', title: 'Error de Carga', text: error.message || 'No se pudo cargar la receta para versionar.' });
         }
     });
 
     selectVersionBase?.addEventListener('change', async function () {
         const idReceta = parseInt(this.value || '0', 10);
         if (!idReceta) return;
-
-        try {
-            await cargarRecetaEnFormulario(idReceta);
-        } catch (error) {
-            alert(error.message || 'No se pudo cargar la versión seleccionada.');
-        }
+        try { await cargarRecetaEnFormulario(idReceta); } 
+        catch (error) { Swal.fire({ icon: 'error', title: 'Error de Versión', text: error.message || 'Error al cargar versión.' }); }
     });
 }
 
@@ -534,12 +516,7 @@ function initGestionParametrosCatalogo() {
 
     const idInput = document.getElementById('idParametroCatalogo');
     const accionInput = document.getElementById('accionParametroCatalogo');
-    const nombreInput = document.getElementById('nombreParametroCatalogo');
-    const unidadInput = document.getElementById('unidadParametroCatalogo');
-    const descripcionInput = document.getElementById('descripcionParametroCatalogo');
     const btnGuardar = document.getElementById('btnGuardarParametroCatalogo');
-    const btnReset = document.getElementById('btnResetParametroCatalogo');
-    const modal = document.getElementById('modalGestionParametrosCatalogo');
 
     const resetForm = () => {
         form.reset();
@@ -548,18 +525,95 @@ function initGestionParametrosCatalogo() {
         if (btnGuardar) btnGuardar.textContent = 'Guardar';
     };
 
-    btnReset?.addEventListener('click', resetForm);
-    modal?.addEventListener('show.bs.modal', resetForm);
+    document.getElementById('btnResetParametroCatalogo')?.addEventListener('click', resetForm);
+    document.getElementById('modalGestionParametrosCatalogo')?.addEventListener('show.bs.modal', resetForm);
 
     document.addEventListener('click', function (e) {
         const btnEdit = e.target.closest('.js-editar-param-catalogo');
         if (!btnEdit) return;
-
         if (idInput) idInput.value = btnEdit.getAttribute('data-id') || '';
         if (accionInput) accionInput.value = 'editar_parametro_catalogo';
-        if (nombreInput) nombreInput.value = btnEdit.getAttribute('data-nombre') || '';
-        if (unidadInput) unidadInput.value = btnEdit.getAttribute('data-unidad') || '';
-        if (descripcionInput) descripcionInput.value = btnEdit.getAttribute('data-descripcion') || '';
+        document.getElementById('nombreParametroCatalogo').value = btnEdit.getAttribute('data-nombre') || '';
+        document.getElementById('unidadParametroCatalogo').value = btnEdit.getAttribute('data-unidad') || '';
+        document.getElementById('descripcionParametroCatalogo').value = btnEdit.getAttribute('data-descripcion') || '';
         if (btnGuardar) btnGuardar.textContent = 'Actualizar';
+    });
+}
+
+function initGuardadoReceta() {
+    const form = document.getElementById('formCrearReceta');
+    if (!form) return;
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const idProductoDestino = document.getElementById('newIdProductoHidden')?.value 
+                               || document.getElementById('newProducto')?.tomselect?.getValue();
+        
+        if (!idProductoDestino) {
+            Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Debes seleccionar un Producto Destino.' });
+            return;
+        }
+
+        const filasInsumos = document.querySelectorAll('.detalle-row');
+        if (filasInsumos.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Receta vacía', text: 'Debes agregar al menos un insumo (BOM).' });
+            return;
+        }
+
+        let filasValidas = true, mensajeError = '';
+
+        filasInsumos.forEach((row, index) => {
+            const selectInsumo = row.querySelector('.select-insumo');
+            const inputCantidad = row.querySelector('.input-cantidad');
+
+            if (!selectInsumo || !selectInsumo.value) {
+                filasValidas = false; mensajeError = `Falta seleccionar el insumo en la fila ${index + 1}.`; return;
+            }
+            const cantidad = parseFloat(inputCantidad.value);
+            if (isNaN(cantidad) || cantidad <= 0) {
+                filasValidas = false; mensajeError = `La cantidad en la fila ${index + 1} debe ser mayor a 0.`; return;
+            }
+        });
+
+        if (!filasValidas) {
+            Swal.fire({ icon: 'warning', title: 'Revisa los insumos', text: mensajeError });
+            return;
+        }
+
+        try {
+            const btnSubmit = form.querySelector('button[type="submit"]');
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+            }
+
+            const formData = new FormData(form);
+            formData.append('accion', 'guardar_receta_ajax');
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Receta guardada.', timer: 2000, showConfirmButton: false }).then(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalCrearReceta'))?.hide();
+                    window.location.reload(); 
+                });
+            } else {
+                throw new Error(data.message || 'Error desconocido.');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Error al guardar', text: error.message });
+        } finally {
+            const btnSubmit = form.querySelector('button[type="submit"]');
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="bi bi-save me-2"></i>Guardar Receta';
+            }
+        }
     });
 }

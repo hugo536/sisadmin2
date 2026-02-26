@@ -16,28 +16,32 @@ class ProduccionModel extends Modelo
                            FROM produccion_recetas_detalle d
                            WHERE d.id_receta = r.id
                              AND d.deleted_at IS NULL
-                       ) AS total_insumos,
-                       CASE
-                           WHEN (
-                               SELECT COUNT(*)
-                               FROM produccion_recetas_detalle d
-                               WHERE d.id_receta = r.id
-                                 AND d.deleted_at IS NULL
-                           ) = 0 THEN 1
-                           ELSE 0
-                       END AS sin_receta
-                FROM produccion_recetas r
-                INNER JOIN items i ON i.id = r.id_producto
-                WHERE r.deleted_at IS NULL
-                ORDER BY COALESCE(r.updated_at, r.created_at) DESC, r.id DESC';
+                       ) AS total_insumos
+                FROM items i
+                INNER JOIN produccion_recetas r ON r.id = (
+                    SELECT pr.id 
+                    FROM produccion_recetas pr
+                    WHERE pr.id_producto = i.id 
+                      AND pr.deleted_at IS NULL
+                    ORDER BY pr.estado DESC, pr.version DESC 
+                    LIMIT 1
+                )
+                WHERE i.deleted_at IS NULL
+                ORDER BY i.nombre ASC';
 
         $stmt = $this->db()->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Generamos la variable "sin_receta" en memoria (CPU), aliviando a la Base de Datos
+        foreach ($resultados as &$fila) {
+            $fila['sin_receta'] = ((int)$fila['total_insumos'] === 0) ? 1 : 0;
+        }
+
+        return $resultados;
     }
 
     public function listarOrdenes(): array
     {
-        // Limpiado de almacenes fijos. Ahora la cabecera es mucho más ligera.
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        r.codigo AS receta_codigo,
@@ -65,45 +69,55 @@ class ProduccionModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
+    public function buscarInsumosStockeables(string $termino, int $limite = 30): array
+    {
+        $busqueda = '%' . $termino . '%';
+        
+        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
+                FROM items
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND controla_stock = 1
+                  AND (nombre LIKE :termino_nombre OR sku LIKE :termino_sku)
+                ORDER BY nombre ASC
+                LIMIT ' . (int)$limite;
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'termino_nombre' => $busqueda,
+            'termino_sku' => $busqueda
+        ]);
+        
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Calculamos el costo dinámico en un loop rápido (Máximo 30 iteraciones)
+        // Esto es muchísimo más eficiente que agrupar toda la tabla en un JOIN
+        foreach ($items as &$item) {
+            $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
+        }
+
+        return $items;
+    }
+
+    // Se mantiene por retrocompatibilidad, pero ahora usa la lógica rápida
     public function listarItemsStockeables(): array
     {
-        $sql = 'SELECT i.id, i.sku, i.nombre, i.tipo_item, i.requiere_lote, i.costo_referencial,
-                       COALESCE(
-                           NULLIF(i.costo_referencial, 0),
-                           rec.costo_teorico_unitario,
-                           mov.costo_unitario,
-                           0
-                       ) AS costo_calculado
-                FROM items i
-                LEFT JOIN (
-                    SELECT r1.id_producto, r1.costo_teorico_unitario
-                    FROM produccion_recetas r1
-                    INNER JOIN (
-                        SELECT id_producto, MAX(id) AS max_id
-                        FROM produccion_recetas
-                        WHERE estado = 1
-                          AND deleted_at IS NULL
-                        GROUP BY id_producto
-                    ) latest_receta ON latest_receta.max_id = r1.id
-                ) rec ON rec.id_producto = i.id
-                LEFT JOIN (
-                    SELECT m1.id_item, m1.costo_unitario
-                    FROM inventario_movimientos m1
-                    INNER JOIN (
-                        SELECT id_item, MAX(id) AS max_id
-                        FROM inventario_movimientos
-                        WHERE costo_unitario IS NOT NULL
-                          AND costo_unitario > 0
-                        GROUP BY id_item
-                    ) latest_mov ON latest_mov.max_id = m1.id
-                ) mov ON mov.id_item = i.id
-                WHERE i.estado = 1
-                  AND i.deleted_at IS NULL
-                  AND i.controla_stock = 1
-                ORDER BY i.nombre ASC';
+        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
+                FROM items
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND controla_stock = 1
+                ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($items as &$item) {
+            $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
+        }
+
+        return $items;
     }
 
     public function listarAlmacenesActivos(): array
@@ -241,14 +255,23 @@ class ProduccionModel extends Modelo
 
     public function obtenerRecetaVersionParaEdicion(int $idReceta): array
     {
-        $receta = $this->obtenerRecetaPorId($idReceta);
-        if ($receta === []) {
+        // Añadido el JOIN para traer el nombre del producto destino
+        $sql = 'SELECT r.*, i.nombre AS producto_nombre 
+                FROM produccion_recetas r 
+                INNER JOIN items i ON i.id = r.id_producto 
+                WHERE r.id = :id LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idReceta]);
+        $receta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$receta) {
             throw new RuntimeException('La receta no existe.');
         }
 
         return [
             'id' => (int) $receta['id'],
             'id_producto' => (int) $receta['id_producto'],
+            'producto_nombre' => (string) $receta['producto_nombre'], // <-- Nuevo
             'codigo' => (string) ($receta['codigo'] ?? ''),
             'version' => (int) ($receta['version'] ?? 1),
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
@@ -309,7 +332,7 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            $costoUnitarioTeorico = $costoTotalReceta / $rendimientoBase;
+            $costoUnitarioTeorico = $costoTotalReceta;
 
             $stmtPendiente = $db->prepare('SELECT r.id
                                            FROM produccion_recetas r
@@ -471,7 +494,6 @@ class ProduccionModel extends Modelo
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
-        // Eliminados los almacenes de la cabecera
         $sql = 'INSERT INTO produccion_ordenes
                     (codigo, id_receta, cantidad_planificada, estado, created_by, updated_by, observaciones)
                 VALUES
@@ -514,10 +536,8 @@ class ProduccionModel extends Modelo
             $inventarioModel = new InventarioModel(); 
             $costoTotalConsumo = 0.0;
 
-            // Preparamos una consulta rápida para saber si el ítem exige stock o vencimientos
             $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento FROM items WHERE id = :id LIMIT 1');
 
-            // --- 1. PROCESAR CONSUMOS (Materia Prima) ---
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
                                             (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
                                          VALUES
@@ -547,7 +567,7 @@ class ProduccionModel extends Modelo
                 $stmtConsumo->execute([
                     'id_orden_produccion' => $idOrden,
                     'id_item' => $idInsumo,
-                    'id_almacen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null, // Permitimos null si no controla stock
+                    'id_almacen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null,
                     'id_lote' => $idLote, 
                     'cantidad' => number_format($cantidadUsada, 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
@@ -557,7 +577,6 @@ class ProduccionModel extends Modelo
 
                 $idItemUnidadInsumo = $this->obtenerUnidadPorDefecto($idInsumo);
 
-                // FLEXIBILIDAD: Solo restamos del inventario si el ítem exige control de stock
                 if ($controlaStock && method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
@@ -574,7 +593,6 @@ class ProduccionModel extends Modelo
                 }
             }
 
-            // --- 2. PROCESAR INGRESOS (Producto Final) ---
             $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
             
             if ($cantidadTotalProducida <= 0) {
@@ -587,7 +605,6 @@ class ProduccionModel extends Modelo
             $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
             $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
 
-            // ACTUALIZADO: Añadidos los campos lote y fecha_vencimiento
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
                                             (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by)
                                          VALUES
@@ -603,7 +620,6 @@ class ProduccionModel extends Modelo
                 $lote = trim((string) ($ingreso['lote'] ?? ''));
                 $fechaVencimiento = trim((string) ($ingreso['fecha_vencimiento'] ?? ''));
 
-                // Forzamos a nulo para la BD si vienen vacíos
                 $loteDb = $lote !== '' ? $lote : null;
                 $fechaVencDb = $fechaVencimiento !== '' ? $fechaVencimiento : null;
 
@@ -615,15 +631,14 @@ class ProduccionModel extends Modelo
                     'id_orden_produccion' => $idOrden,
                     'id_item' => (int) $orden['id_producto'],
                     'id_almacen' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
-                    'lote' => $loteDb, // ACTUALIZADO
-                    'fecha_vencimiento' => $fechaVencDb, // NUEVO
+                    'lote' => $loteDb, 
+                    'fecha_vencimiento' => $fechaVencDb, 
                     'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
                     'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
 
-                // FLEXIBILIDAD: Solo sumamos al inventario si el ítem exige control de stock
                 if ($controlaStockProd && method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'PROD', 
@@ -634,14 +649,13 @@ class ProduccionModel extends Modelo
                         'cantidad' => $cantidadIngresada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' finalizado',
                         'lote' => $lote,
-                        'fecha_vencimiento' => $fechaVencimiento, // NUEVO: Pasamos la fecha al inventario
+                        'fecha_vencimiento' => $fechaVencimiento, 
                         'costo_unitario' => $costoUnitarioIngreso,
                         'created_by' => $userId
                     ]);
                 }
             }
 
-            // --- 3. ACTUALIZAR CABECERA DE LA OP ---
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             estado = 2,
@@ -723,7 +737,6 @@ class ProduccionModel extends Modelo
 
     private function obtenerOrdenPorId(int $idOrden): array
     {
-        // Se quitaron id_almacen_origen y destino porque ya no existen en tabla
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado,
                        r.id_producto
                 FROM produccion_ordenes o
@@ -755,42 +768,31 @@ class ProduccionModel extends Modelo
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
+    // FUNCIÓN EXTREMADAMENTE OPTIMIZADA
     private function obtenerCostoReferencial(int $idItem): float
     {
-        $stmt = $this->db()->prepare('SELECT COALESCE(
-                                            NULLIF(i.costo_referencial, 0),
-                                            rec.costo_teorico_unitario,
-                                            mov.costo_unitario,
-                                            0
-                                        ) AS costo
-                                      FROM items i
-                                      LEFT JOIN (
-                                          SELECT r1.id_producto, r1.costo_teorico_unitario
-                                          FROM produccion_recetas r1
-                                          INNER JOIN (
-                                              SELECT id_producto, MAX(id) AS max_id
-                                              FROM produccion_recetas
-                                              WHERE estado = 1
-                                                AND deleted_at IS NULL
-                                              GROUP BY id_producto
-                                          ) latest_receta ON latest_receta.max_id = r1.id
-                                      ) rec ON rec.id_producto = i.id
-                                      LEFT JOIN (
-                                          SELECT m1.id_item, m1.costo_unitario
-                                          FROM inventario_movimientos m1
-                                          INNER JOIN (
-                                              SELECT id_item, MAX(id) AS max_id
-                                              FROM inventario_movimientos
-                                              WHERE costo_unitario IS NOT NULL
-                                                AND costo_unitario > 0
-                                              GROUP BY id_item
-                                          ) latest_mov ON latest_mov.max_id = m1.id
-                                      ) mov ON mov.id_item = i.id
-                                      WHERE i.id = :id
-                                      LIMIT 1');
+        // 1. Primero buscamos el costo fijo en el ítem
+        $stmt = $this->db()->prepare('SELECT costo_referencial FROM items WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $idItem]);
+        $costoFijo = (float)($stmt->fetchColumn() ?: 0);
+        if ($costoFijo > 0) return $costoFijo;
 
-        return (float) ($stmt->fetchColumn() ?: 0);
+        // 2. Si no hay, buscamos el costo de su última receta (Si es producto terminado)
+        $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario 
+                                         FROM produccion_recetas 
+                                         WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL 
+                                         ORDER BY id DESC LIMIT 1');
+        $stmtRec->execute(['id' => $idItem]);
+        $costoReceta = (float)($stmtRec->fetchColumn() ?: 0);
+        if ($costoReceta > 0) return $costoReceta;
+
+        // 3. Si no hay receta, buscamos el último costo al que se compró o movió
+        $stmtMov = $this->db()->prepare('SELECT costo_unitario 
+                                         FROM inventario_movimientos 
+                                         WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 
+                                         ORDER BY id DESC LIMIT 1');
+        $stmtMov->execute(['id' => $idItem]);
+        return (float)($stmtMov->fetchColumn() ?: 0);
     }
 
     public function crearNuevaVersion(int $idRecetaBase, int $userId): int
@@ -839,24 +841,29 @@ class ProduccionModel extends Modelo
             throw new RuntimeException('La receta base no existe.');
         }
 
-        $detallesBase = $this->obtenerDetalleRecetaVersion($idRecetaBase);
-        if ($detallesBase === []) {
-            throw new RuntimeException('La receta base no tiene detalles.');
-        }
-
-        $parametrosBase = $this->obtenerParametrosReceta($idRecetaBase);
-
         $idProductoPayload = (int) ($payload['id_producto'] ?? 0);
         if ($idProductoPayload !== (int) $recetaBase['id_producto']) {
             throw new RuntimeException('No se puede cambiar el producto destino al crear una versión.');
         }
 
-        $normalizadoBase = [
-            'descripcion' => trim((string) ($recetaBase['descripcion'] ?? '')),
-            'rendimiento_base' => number_format((float) ($recetaBase['rendimiento_base'] ?? 0), 4, '.', ''),
-            'unidad_rendimiento' => trim((string) ($recetaBase['unidad_rendimiento'] ?? '')),
-            'detalles' => $this->normalizarDetallesComparacion($detallesBase),
-            'parametros' => $this->normalizarParametrosComparacion($parametrosBase),
+        // --- LÓGICA DE TRAZABILIDAD ---
+        // Buscamos cuál es la receta ACTIVA actualmente para compararla con lo que envían.
+        // Esto permite cargar la v.1 y guardarla como v.5, porque la v.1 es distinta a la v.4 (activa).
+        $stmtActiva = $this->db()->prepare('SELECT id FROM produccion_recetas WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmtActiva->execute(['id' => $idProductoPayload]);
+        $idRecetaActiva = (int) ($stmtActiva->fetchColumn() ?: $idRecetaBase);
+
+        $detallesActiva = $this->obtenerDetalleRecetaVersion($idRecetaActiva);
+        $parametrosActiva = $this->obtenerParametrosReceta($idRecetaActiva);
+
+        $recetaActivaFila = $this->obtenerRecetaPorId($idRecetaActiva);
+
+        $normalizadoActiva = [
+            'descripcion' => trim((string) ($recetaActivaFila['descripcion'] ?? '')),
+            'rendimiento_base' => number_format((float) ($recetaActivaFila['rendimiento_base'] ?? 0), 4, '.', ''),
+            'unidad_rendimiento' => trim((string) ($recetaActivaFila['unidad_rendimiento'] ?? '')),
+            'detalles' => $this->normalizarDetallesComparacion($detallesActiva),
+            'parametros' => $this->normalizarParametrosComparacion($parametrosActiva),
         ];
 
         $normalizadoPayload = [
@@ -867,8 +874,8 @@ class ProduccionModel extends Modelo
             'parametros' => $this->normalizarParametrosComparacion((array) ($payload['parametros'] ?? [])),
         ];
 
-        if ($normalizadoBase === $normalizadoPayload) {
-            throw new RuntimeException('No se detectaron cambios frente a la versión seleccionada.');
+        if ($normalizadoActiva === $normalizadoPayload) {
+            throw new RuntimeException('La fórmula ingresada es exactamente igual a la versión activa actual. No se generó una nueva versión.');
         }
 
         $siguienteVersion = $this->obtenerSiguienteVersion((int) $recetaBase['id_producto']);
@@ -887,12 +894,15 @@ class ProduccionModel extends Modelo
 
     private function obtenerDetalleRecetaVersion(int $idReceta): array
     {
+        // Añadido el JOIN para traer el nombre del insumo y arreglar el "Insumo ID: 32"
         $sql = 'SELECT d.id_insumo,
                        d.etapa,
                        d.cantidad_por_unidad,
                        d.merma_porcentaje,
-                       d.costo_unitario
+                       d.costo_unitario,
+                       i.nombre AS insumo_nombre 
                 FROM produccion_recetas_detalle d
+                INNER JOIN items i ON i.id = d.id_insumo
                 WHERE d.id_receta = :id_receta
                   AND d.deleted_at IS NULL
                 ORDER BY d.id ASC';
@@ -980,5 +990,34 @@ class ProduccionModel extends Modelo
         $stmt->execute(['id_item' => $idItem]);
         $val = $stmt->fetchColumn();
         return $val ? (int) $val : null;
+    }
+
+    public function obtenerDatosParaNuevaVersion(int $idRecetaBase): array
+    {
+        $receta = $this->obtenerRecetaVersionParaEdicion($idRecetaBase);
+        if ($receta === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int)$receta['id_producto']);
+
+        return [
+            'id'                  => $receta['id'],
+            'id_producto'         => $receta['id_producto'],
+            'producto_nombre'     => $receta['producto_nombre'],
+            'version'             => $siguienteVersion,
+            'codigo'              => $this->generarCodigoVersion($receta['codigo'], $siguienteVersion),
+            'descripcion'         => $receta['descripcion'],
+            'detalles'            => $receta['detalles'],
+            'parametros'          => $receta['parametros'],
+            'es_nueva_version'    => true,
+        ];
+    }
+
+    private function obtenerUnidadPrincipalItem(int $idItem): string
+    {
+        $stmt = $this->db()->prepare('SELECT COALESCE(unidad_principal, "UND") FROM items WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $idItem]);
+        return (string)$stmt->fetchColumn();
     }
 }
