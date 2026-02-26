@@ -42,6 +42,8 @@ $tipoItemLabel = static function (string $tipo): string {
 };
 ?>
 
+<meta name="csrf-token" content="<?php echo e((string) ($csrf_token ?? '')); ?>">
+
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in inventario-sticky-header">
         <div>
@@ -116,10 +118,13 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
+                <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive inventario-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="itemsTable">
-                    <thead class="inventario-sticky-thead">
+                    <thead class="inventario-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4">SKU</th>
+                            <th class="ps-4 text-center" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> <th>SKU</th>
                             <th>Nombre</th>
                             <th>Tipo</th>
                             <th>Categoría</th>
@@ -127,99 +132,26 @@ $tipoItemLabel = static function (string $tipo): string {
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach ($items as $item): ?>
-                            <?php $tipoItemUi = $tipoItemValueForUi((string) ($item['tipo_item'] ?? '')); ?>
-                            <tr data-estado="<?php echo (int) $item['estado']; ?>"
-                                data-tipo="<?php echo e($tipoItemUi); ?>"
-                                data-categoria="<?php echo (int) ($item['id_categoria'] ?? 0); ?>"
-                                data-search="<?php echo e(mb_strtolower($item['sku'].' '.($item['nombre'] ?? '').' '.($item['descripcion'] ?? '').' '.($item['marca'] ?? ''))); ?>">
-                                <td class="ps-4 fw-semibold text-secondary"><?php echo e($item['sku']); ?></td>
-                                <td>
-                                    <div class="fw-bold text-dark d-inline-flex align-items-center gap-2">
-                                        <span><?php echo e($item['nombre']); ?></span>
-                                        <?php if ((int) ($item['bom_pendiente'] ?? 0) === 1): ?>
-                                            <i class="bi bi-exclamation-triangle-fill text-warning"
-                                               title="Falta agregar una receta"></i>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="small text-muted"><?php echo e($item['descripcion'] ?? ''); ?></div>
-                                </td>
-                                <td><span class="badge bg-light text-dark border"><?php echo e($tipoItemLabel((string) ($item['tipo_item'] ?? ''))); ?></span></td>
-                                <?php
-                                    $idCategoriaItem = (int) ($item['id_categoria'] ?? 0);
-                                    $categoriaNombre = trim((string) ($item['categoria_nombre'] ?? ($categoriasPorId[$idCategoriaItem] ?? '')));
-                                ?>
-                                <td><?php echo $categoriaNombre !== '' ? e($categoriaNombre) : 'Sin categoría'; ?></td>
-                                <td class="text-center">
-                                    <?php if ((int) $item['estado'] === 1): ?>
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Activo</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" id="badge_status_item_<?php echo (int) $item['id']; ?>">Inactivo</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <div class="d-flex align-items-center justify-content-end gap-2">
-                                        <div class="form-check form-switch pt-1" title="Cambiar estado">
-                                            <input class="form-check-input switch-estado-item" type="checkbox" role="switch"
-                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                                   data-id="<?php echo (int) $item['id']; ?>"
-                                                   <?php echo ((int) $item['estado'] === 1) ? 'checked' : ''; ?>>
-                                        </div>
-                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
-                                        
-                                        <a href="?ruta=items/perfil&id=<?php echo (int) $item['id']; ?>" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver perfil y documentos">
-                                            <i class="bi bi-person-badge fs-5"></i>
-                                        </a>
-
-                                        <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
-                                            data-id="<?php echo (int) $item['id']; ?>"
-                                            data-sku="<?php echo e($item['sku']); ?>"
-                                            data-nombre="<?php echo e($item['nombre']); ?>"
-                                            data-descripcion="<?php echo e($item['descripcion'] ?? ''); ?>"
-                                            data-tipo="<?php echo e($tipoItemUi); ?>"
-                                            data-marca="<?php echo e((string) ($item['id_marca'] ?? '')); ?>"
-                                            data-unidad="<?php echo e($item['unidad_base'] ?? ''); ?>"
-                                            data-moneda="<?php echo e($item['moneda'] ?? ''); ?>"
-                                            data-impuesto="<?php echo e((string) ($item['impuesto'] ?? '18.00')); ?>"
-                                            data-precio="<?php echo e((string) $item['precio_venta']); ?>"
-                                            data-stock-minimo="<?php echo e((string) $item['stock_minimo']); ?>"
-                                            data-costo="<?php echo e((string) $item['costo_referencial']); ?>"
-                                            data-controla-stock="<?php echo (int) $item['controla_stock']; ?>"
-                                            data-permite-decimales="<?php echo (int) ($item['permite_decimales'] ?? 0); ?>"
-                                            data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
-                                            data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
-                                            data-requiere-formula-bom="<?php echo (int) ($item['requiere_formula_bom'] ?? 0); ?>"
-                                            data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>"
-                                            data-es-envase-retornable="<?php echo (int) ($item['es_envase_retornable'] ?? 0); ?>"
-                                            data-dias-alerta-vencimiento="<?php echo e((string) ($item['dias_alerta_vencimiento'] ?? '')); ?>"
-                                            data-rubro="<?php echo e((string) ($item['id_rubro'] ?? '')); ?>"
-                                            data-categoria="<?php echo e((string) ($item['id_categoria'] ?? '')); ?>"
-                                            data-sabor="<?php echo e((string) ($item['id_sabor'] ?? '')); ?>"
-                                            data-presentacion="<?php echo e((string) ($item['id_presentacion'] ?? '')); ?>"
-                                            data-estado="<?php echo (int) $item['estado']; ?>">
-                                            <i class="bi bi-pencil-square fs-5"></i>
-                                        </button>
-
-                                        <?php
-                                            $puedeEliminarItem = (int) ($item['puede_eliminar'] ?? 1) === 1;
-                                            $motivoNoEliminarItem = (string) ($item['motivo_no_eliminar'] ?? 'No se puede eliminar este ítem.');
-                                        ?>
-                                        <form method="post" class="d-inline m-0 js-swal-confirm" data-confirm-title="¿Eliminar ítem?" data-confirm-text="Esta acción no se puede deshacer.">
-                                            <input type="hidden" name="accion" value="eliminar">
-                                            <input type="hidden" name="id" value="<?php echo (int) $item['id']; ?>">
-                                            <button type="submit" class="btn btn-sm border-0 bg-transparent <?php echo $puedeEliminarItem ? 'btn-light text-danger' : 'btn-light text-muted opacity-50'; ?>"
-                                                title="<?php echo $puedeEliminarItem ? 'Eliminar' : e($motivoNoEliminarItem); ?>"
-                                                <?php echo $puedeEliminarItem ? '' : 'disabled aria-disabled="true"'; ?>>
-                                                <i class="bi bi-trash fs-5"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+                    <tbody id="itemsTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                Cargando ítems...
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
+        <div class="small text-muted" id="itemsPaginationInfo">Cargando información...</div>
+        <nav aria-label="Paginación de ítems">
+            <ul class="pagination pagination-sm mb-0" id="itemsPaginationControls">
+                </ul>
+        </nav>
+    </div>
             </div>
         </div>
     </div>
@@ -299,6 +231,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="col-md-3">
                                         <label for="newSku" class="form-label small text-muted mb-1">SKU</label>
                                         <input type="text" class="form-control sku-lockable" id="newSku" name="sku" readonly>
+                                        <div class="invalid-feedback" style="font-size: 0.75rem;">Este SKU ya está en uso.</div>
+                                        <div class="valid-feedback" style="font-size: 0.75rem;">SKU disponible.</div>
                                     </div>
 
                                     <div class="col-md-6">

@@ -7,44 +7,181 @@ class ItemsModel extends Modelo
     private const TABLA_SABORES = 'item_sabores';
     private const TABLA_PRESENTACIONES = 'item_presentaciones';
 
-    public function listar(): array
+    /**
+     * Helper privado para construir la cláusula WHERE y los parámetros basados en los filtros
+     */
+    private function construirFiltrosBusqueda(array $filtros): array
     {
-        // Se asume que las tablas de recetas existen según el diseño del sistema
-        $bomPendienteSql = "CASE
-                               WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
-                                   SELECT 1
-                                   FROM produccion_recetas r
-                                   INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
-                                   WHERE r.id_producto = i.id
-                                     AND r.deleted_at IS NULL
-                               ) THEN 1
-                               ELSE 0
-                           END AS bom_pendiente";
+        $where = ['i.deleted_at IS NULL'];
+        $params = [];
 
-        $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
-                       i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
-                       i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
-                       i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
-                       i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
-                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
-                       {$bomPendienteSql}
-                FROM items i
-                WHERE i.deleted_at IS NULL
-                ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC";
-
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($rows as &$row) {
-            $id = (int) ($row['id'] ?? 0);
-            $bloqueo = $this->obtenerBloqueoEliminacion($id);
-            $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
-            $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+        // Búsqueda general (por SKU, Nombre o Descripción)
+        $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
+        if ($busqueda !== '') {
+            $where[] = '(i.sku LIKE :q OR i.nombre LIKE :q OR i.descripcion LIKE :q)';
+            $params['q'] = '%' . $busqueda . '%';
         }
-        unset($row);
 
-        return $rows;
+        // Filtro por Categoría
+        $categoria = trim((string) ($filtros['categoria'] ?? ''));
+        if ($categoria !== '') {
+            $where[] = 'i.id_categoria = :categoria';
+            $params['categoria'] = $categoria;
+        }
+
+        // Filtro por Tipo de Ítem
+        $tipo = trim((string) ($filtros['tipo'] ?? ''));
+        if ($tipo !== '') {
+            $where[] = 'i.tipo_item = :tipo';
+            $params['tipo'] = $tipo;
+        }
+
+        // Filtro por Estado
+        $estado = trim((string) ($filtros['estado'] ?? ''));
+        if ($estado !== '') {
+            $where[] = 'i.estado = :estado';
+            $params['estado'] = $estado;
+        }
+
+        return [
+            'where' => implode(' AND ', $where),
+            'params' => $params
+        ];
+    }
+
+    /**
+     * Cuenta el total de registros aplicando los filtros (Server-Side Pagination)
+     */
+    public function contar(array $filtros = []): int
+    {
+        $filtrosData = $this->construirFiltrosBusqueda($filtros);
+        
+        $sql = "SELECT COUNT(*) FROM items i WHERE " . $filtrosData['where'];
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($filtrosData['params']);
+        
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Lista los registros paginados y filtrados (Server-Side Pagination)
+     */
+    public function listar(int $offset = 0, int $limite = 20, array $filtros = []): array
+{
+    $filtrosData = $this->construirFiltrosBusqueda($filtros);
+    $whereSql = $filtrosData['where'];
+    $params = $filtrosData['params'];
+
+    // Se asume que las tablas de recetas existen según el diseño del sistema
+    $bomPendienteSql = "CASE
+                           WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
+                               SELECT 1
+                               FROM produccion_recetas r
+                               INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                               WHERE r.id_producto = i.id
+                                 AND r.deleted_at IS NULL
+                           ) THEN 1
+                           ELSE 0
+                       END AS bom_pendiente";
+
+    // NUEVO: Subconsulta para traer la primera imagen asociada al ítem
+    $imagenSql = "(
+        SELECT ruta_archivo 
+        FROM item_documentos 
+        WHERE id_item = i.id 
+          AND extension IN ('jpg', 'jpeg', 'png', 'webp', 'gif') 
+          AND estado = 1 
+        ORDER BY created_at ASC 
+        LIMIT 1
+    ) AS imagen_principal";
+
+    $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
+                   i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
+                   i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                   i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
+                   i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
+                   i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
+                   {$bomPendienteSql},
+                   {$imagenSql} /* <--- NUEVA LÍNEA */
+            FROM items i
+            WHERE {$whereSql}
+            ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
+            LIMIT " . (int)$limite . " OFFSET " . (int)$offset;
+
+    $stmt = $this->db()->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Agregamos la lógica de bloqueo de eliminación a cada fila obtenida
+    foreach ($rows as &$row) {
+        $id = (int) ($row['id'] ?? 0);
+        $bloqueo = $this->obtenerBloqueoEliminacion($id);
+        $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
+        $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+    }
+    unset($row);
+
+    return $rows;
+}
+
+    /**
+     * Genera la respuesta para el endpoint AJAX del datatable
+     */
+    public function datatable(int $pagina = 1, int $limite = 20, array $filtros = []): array
+    {
+        // Calcular OFFSET
+        $offset = ($pagina - 1) * $limite;
+        if ($offset < 0) $offset = 0;
+
+        // Obtener datos paginados y totales
+        $items = $this->listar($offset, $limite, $filtros);
+        $totalFiltrado = $this->contar($filtros);
+        
+        // Opcional: Total absoluto sin filtros (a veces requerido por librerías como DataTables)
+        // $totalAbsoluto = $this->contar([]); 
+
+        $data = array_map(static function (array $item): array {
+            return [
+                'id' => (int) $item['id'],
+                'sku' => (string) $item['sku'],
+                'nombre' => (string) $item['nombre'],
+                'descripcion' => (string) ($item['descripcion'] ?? ''),
+                'tipo_item' => (string) $item['tipo_item'],
+                'id_rubro' => $item['id_rubro'] !== null ? (int) $item['id_rubro'] : null,
+                'id_categoria' => $item['id_categoria'] !== null ? (int) $item['id_categoria'] : null,
+                'id_marca' => $item['id_marca'] !== null ? (int) $item['id_marca'] : null,
+                'id_sabor' => $item['id_sabor'] !== null ? (int) $item['id_sabor'] : null,
+                'id_presentacion' => $item['id_presentacion'] !== null ? (int) $item['id_presentacion'] : null,
+                'marca' => (string) ($item['marca'] ?? ''),
+                'unidad_base' => (string) ($item['unidad_base'] ?? ''),
+                'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
+                'requiere_lote' => (int) ($item['requiere_lote'] ?? 0),
+                'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
+                'dias_alerta_vencimiento' => $item['dias_alerta_vencimiento'] !== null ? (int) $item['dias_alerta_vencimiento'] : null,
+                'controla_stock' => (int) ($item['controla_stock'] ?? 0),
+                'requiere_formula_bom' => (int) ($item['requiere_formula_bom'] ?? 0),
+                'requiere_factor_conversion' => (int) ($item['requiere_factor_conversion'] ?? 0),
+                'es_envase_retornable' => (int) ($item['es_envase_retornable'] ?? 0),
+                'stock_minimo' => (float) ($item['stock_minimo'] ?? 0),
+                'precio_venta' => (float) ($item['precio_venta'] ?? 0),
+                'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
+                'moneda' => (string) ($item['moneda'] ?? ''),
+                'impuesto' => (float) ($item['impuesto'] ?? 0),
+                'estado' => (int) ($item['estado'] ?? 1),
+                'bom_pendiente' => (int) ($item['bom_pendiente'] ?? 0), // Necesario para la UI
+                'puede_eliminar' => (int) ($item['puede_eliminar'] ?? 1), // Necesario para la UI
+                'motivo_no_eliminar' => (string) ($item['motivo_no_eliminar'] ?? ''), // Necesario para la UI
+            ];
+        }, $items);
+
+        return [
+            'data' => $data,
+            'recordsFiltered' => $totalFiltrado,
+            'recordsTotal' => $totalFiltrado, // Por ahora enviamos el mismo, ajusta si usas DataTables puro
+            'paginaActual' => $pagina,
+            'limite' => $limite
+        ];
     }
 
     public function obtener(int $id): array
@@ -431,7 +568,7 @@ class ItemsModel extends Modelo
                     id_sabor = :id_sabor,
                     id_presentacion = :id_presentacion,
                     marca = :marca,
-                    /* unidad_base ELIMINADA DE AQUÍ POR SEGURIDAD */
+                    /* unidad_base eliminada por seguridad */
                     permite_decimales = :permite_decimales,
                     requiere_lote = :requiere_lote,
                     requiere_vencimiento = :requiere_vencimiento,
@@ -452,8 +589,6 @@ class ItemsModel extends Modelo
                   AND deleted_at IS NULL';
         
         $payload = $this->mapPayload($data);
-        
-        // NUEVO: Excluimos SKU, Unidad Base y Creador para evitar alteraciones en edición
         unset($payload['sku'], $payload['unidad_base'], $payload['created_by']);
         
         $payload['id'] = $id;
@@ -527,47 +662,6 @@ class ItemsModel extends Modelo
             'updated_by' => $userId,
             'id' => $id,
         ]);
-    }
-
-    public function datatable(): array
-    {
-        $items = $this->listar();
-        $data = array_map(static function (array $item): array {
-            return [
-                'id' => (int) $item['id'],
-                'sku' => (string) $item['sku'],
-                'nombre' => (string) $item['nombre'],
-                'descripcion' => (string) ($item['descripcion'] ?? ''),
-                'tipo_item' => (string) $item['tipo_item'],
-                'id_rubro' => $item['id_rubro'] !== null ? (int) $item['id_rubro'] : null,
-                'id_categoria' => $item['id_categoria'] !== null ? (int) $item['id_categoria'] : null,
-                'id_marca' => $item['id_marca'] !== null ? (int) $item['id_marca'] : null,
-                'id_sabor' => $item['id_sabor'] !== null ? (int) $item['id_sabor'] : null,
-                'id_presentacion' => $item['id_presentacion'] !== null ? (int) $item['id_presentacion'] : null,
-                'marca' => (string) ($item['marca'] ?? ''),
-                'unidad_base' => (string) ($item['unidad_base'] ?? ''),
-                'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
-                'requiere_lote' => (int) ($item['requiere_lote'] ?? 0),
-                'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
-                'dias_alerta_vencimiento' => $item['dias_alerta_vencimiento'] !== null ? (int) $item['dias_alerta_vencimiento'] : null,
-                'controla_stock' => (int) ($item['controla_stock'] ?? 0),
-                'requiere_formula_bom' => (int) ($item['requiere_formula_bom'] ?? 0),
-                'requiere_factor_conversion' => (int) ($item['requiere_factor_conversion'] ?? 0),
-                'es_envase_retornable' => (int) ($item['es_envase_retornable'] ?? 0),
-                'stock_minimo' => (float) ($item['stock_minimo'] ?? 0),
-                'precio_venta' => (float) ($item['precio_venta'] ?? 0),
-                'costo_referencial' => (float) ($item['costo_referencial'] ?? 0),
-                'moneda' => (string) ($item['moneda'] ?? ''),
-                'impuesto' => (float) ($item['impuesto'] ?? 0),
-                'estado' => (int) ($item['estado'] ?? 1),
-            ];
-        }, $items);
-
-        return [
-            'data' => $data,
-            'recordsTotal' => count($data),
-            'recordsFiltered' => count($data),
-        ];
     }
 
     public function listarMarcas(bool $soloActivos = false): array
@@ -699,7 +793,6 @@ class ItemsModel extends Modelo
             throw new RuntimeException('Ya existe un registro con ese nombre.');
         }
 
-        // Estas tablas no tienen columna created_by en el SQL original, solo updated_by.
         $sql = "INSERT INTO {$tabla} (nombre, estado, updated_by, created_at, updated_at)
                 VALUES (:nombre, :estado, :updated_by, NOW(), NOW())";
         
@@ -774,7 +867,6 @@ class ItemsModel extends Modelo
 
     private function contarReferenciasActivas(string $tabla, string $foreignKey, int $id): int
     {
-        // Se hardcodean las condiciones porque ya conocemos la estructura de la base de datos
         $tieneDeletedAt = in_array($tabla, ['compras_ordenes_detalle', 'inventario_movimientos', 'ventas_documentos_detalle']);
         
         $sql = "SELECT COUNT(*) FROM {$tabla} WHERE {$foreignKey} = :id";
@@ -793,7 +885,6 @@ class ItemsModel extends Modelo
             return;
         }
 
-        // Evalúa a true si manda 1, '1', 'on'
         $requiereFormula = (isset($data['requiere_formula_bom']) && in_array($data['requiere_formula_bom'], [1, '1', 'on', true], true));
         $requiereFactor = (isset($data['requiere_factor_conversion']) && in_array($data['requiere_factor_conversion'], [1, '1', 'on', true], true));
 
@@ -841,8 +932,6 @@ class ItemsModel extends Modelo
     private function asegurarPresentacionBase(int $idItem, int $userId): void
     {
         try {
-            // Intenta guardar en la tabla externa, si el módulo está instalado. 
-            // Manejamos la excepción por si la tabla precios_presentaciones no existe en este despliegue.
             $sqlExiste = 'SELECT id FROM precios_presentaciones WHERE id_item = :id_item AND deleted_at IS NULL ORDER BY id DESC LIMIT 1';
             $stmtExiste = $this->db()->prepare($sqlExiste);
             $stmtExiste->execute(['id_item' => $idItem]);
@@ -874,13 +963,11 @@ class ItemsModel extends Modelo
                 'updated_by' => $userId > 0 ? $userId : 1
             ]);
         } catch (Throwable $e) {
-            // Se silencia si la tabla "precios_presentaciones" no está instalada o es de otro módulo independiente
         }
     }
 
     private function mapPayload(array $data): array
     {
-        // Función auxiliar para mapear de forma segura Checkboxes / Switches del Frontend a 1 o 0
         $parseBool = fn($val) => (isset($val) && in_array($val, [1, '1', 'on', true], true)) ? 1 : 0;
 
         return [

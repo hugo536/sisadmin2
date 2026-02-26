@@ -45,6 +45,10 @@
     }
 
     async function postAction(payload) {
+        // Leer el token de la meta etiqueta e inyectarlo en el payload AJAX
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        payload.csrf_token = csrfToken; 
+
         const body = new URLSearchParams(payload);
         const response = await fetch(getItemsEndpoint(), {
             method: 'POST',
@@ -97,7 +101,6 @@
             select.value = selected;
         }
     }
-
 
     function fillSelectMapped(selectId, items, placeholder, mapValue, mapLabel) {
         const select = document.getElementById(selectId);
@@ -182,7 +185,6 @@
     }
 
     // --- FUNCIONES DE AUTOGENERACIÓN ---
-
     function normalizarTextoSku(value = '') {
         return String(value || '')
             .normalize('NFD')
@@ -246,7 +248,6 @@
         return partes.filter((p) => p !== '').join(' ');
     }
 
-    // --- NUEVO: REESCRITURA DE BIND SKU AUTO ---
     function bindSkuAuto(config) {
         const tipo = document.getElementById(config.tipoId);
         const sku = document.getElementById(config.skuId);
@@ -256,7 +257,7 @@
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
-        const mode = config.mode || 'new'; // 'new' o 'edit'
+        const mode = config.mode || 'new'; 
         
         if (!tipo || !sku) return;
 
@@ -266,7 +267,6 @@
             const isItemDetallado = tipoVal === 'producto_terminado' || tipoVal === 'semielaborado';
             const autoOn = autoIdentidad && autoIdentidad.checked;
 
-            // 1. Si no hay tipo seleccionado, bloqueamos todo
             if (!hasTipo) {
                 sku.readOnly = true;
                 if (nombre) nombre.readOnly = true;
@@ -277,7 +277,6 @@
                 return;
             }
 
-            // 2. Si NO es un ítem detallado, liberamos (excepto SKU en edición)
             if (!isItemDetallado) {
                 if (nombre) nombre.readOnly = false;
                 sku.readOnly = (mode === 'edit');
@@ -288,20 +287,17 @@
                 return;
             }
 
-            // 3. SI ES ítem detallado
             if (autoIdentidad) autoIdentidad.disabled = false;
 
             if (autoOn) {
-                // BLOQUEAR Y GENERAR
                 if (nombre) nombre.readOnly = true;
-                sku.readOnly = true; // El SKU siempre se bloquea si Auto está activo
+                sku.readOnly = true; 
 
                 const catText = obtenerTextoSeleccionado(categoria);
                 const marText = obtenerTextoSeleccionado(marca);
                 const sabText = obtenerTextoSeleccionado(sabor);
                 const presText = obtenerTextoSeleccionado(presentacion);
 
-                // Generamos Nombre
                 if (nombre) {
                     nombre.value = generarNombreProducto({
                         marca: marText,
@@ -310,7 +306,6 @@
                     });
                 }
 
-                // Generamos SKU (SOLO si estamos en modo CREAR)
                 if (mode === 'new') {
                     sku.value = generarSkuProducto({
                         tipo: tipoVal,
@@ -322,9 +317,8 @@
                 }
 
             } else {
-                // DESBLOQUEAR
                 if (nombre) nombre.readOnly = false;
-                sku.readOnly = (mode === 'edit'); // Si es edición, el SKU siempre sigue bloqueado
+                sku.readOnly = (mode === 'edit'); 
             }
         };
 
@@ -335,7 +329,6 @@
 
             if (autoIdentidad) {
                 autoIdentidad.addEventListener('change', () => {
-                    // Si el usuario apaga el switch manualmente, enfocamos el campo nombre
                     if (!autoIdentidad.checked && nombre) {
                         nombre.focus();
                     }
@@ -476,25 +469,6 @@
         apply();
     }
 
-    function serializeFormState(form) {
-        if (!(form instanceof HTMLFormElement)) return '';
-        const entries = [];
-        const fields = form.querySelectorAll('input, select, textarea');
-        fields.forEach((field) => {
-            if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
-                return;
-            }
-            const name = field.name || field.id;
-            if (!name) return;
-            if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
-                entries.push(`${name}:${field.checked ? '1' : '0'}`);
-                return;
-            }
-            entries.push(`${name}:${field.value ?? ''}`);
-        });
-        return entries.join('|');
-    }
-
     function bindDirtyCloseGuard(modalId, formId) {
         const modalEl = document.getElementById(modalId);
         const form = document.getElementById(formId);
@@ -541,7 +515,7 @@
         };
 
         const skuConfig = {
-            mode: 'new', // INDICA QUE ES MODO CREAR
+            mode: 'new', 
             tipoId: 'newTipo',
             skuId: 'newSku',
             nombreId: 'newNombre',
@@ -574,6 +548,42 @@
         });
 
         bindDirtyCloseGuard('modalCrearItem', 'formCrearItem');
+
+        const skuInput = document.getElementById('newSku');
+        let skuDebounceTimer = null;
+
+        skuInput.addEventListener('input', function () {
+            // Si está readonly (autogenerando), ignoramos
+            if (this.readOnly) {
+                this.classList.remove('is-valid', 'is-invalid');
+                return;
+            }
+
+            clearTimeout(skuDebounceTimer);
+            const skuVal = this.value.trim();
+            this.classList.remove('is-valid', 'is-invalid');
+
+            if (!skuVal) return;
+
+            // Esperamos 500ms a que termine de escribir para no saturar el servidor
+            skuDebounceTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(getItemsEndpoint({ accion: 'validar_sku', sku: skuVal }), {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+                    if (data.ok) {
+                        if (data.existe) {
+                            skuInput.classList.add('is-invalid'); // Pone el borde rojo y muestra el error
+                        } else {
+                            skuInput.classList.add('is-valid'); // Pone el borde verde
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error validando SKU:", error);
+                }
+            }, 500);
+        });
     }
 
     function initEditModal() {
@@ -604,7 +614,7 @@
         };
 
         const skuConfig = {
-            mode: 'edit', // INDICA QUE ES MODO EDITAR
+            mode: 'edit', 
             tipoId: 'editTipo',
             skuId: 'editSku',
             nombreId: 'editNombre',
@@ -624,7 +634,6 @@
             const form = document.getElementById('formEditarItem');
             form?.reset();
             
-            // Forzamos que el switch inicie APAGADO en la edición
             const autoIdentidad = document.getElementById('editAutoIdentidad');
             if (autoIdentidad) {
                 autoIdentidad.checked = false;
@@ -635,7 +644,6 @@
                 if (input) input.checked = false;
             });
 
-            // MODIFICADO: Se ajustó el manejo de editUnidad y editUnidadSelect
             const fields = {
                 editId: 'data-id',
                 editSku: 'data-sku',
@@ -643,8 +651,8 @@
                 editDescripcion: 'data-descripcion',
                 editTipo: 'data-tipo',
                 editMarca: 'data-marca',
-                editUnidad: 'data-unidad',       // Actualiza el hidden
-                editUnidadSelect: 'data-unidad', // Actualiza el select visual
+                editUnidad: 'data-unidad',       
+                editUnidadSelect: 'data-unidad', 
                 editMoneda: 'data-moneda',
                 editImpuesto: 'data-impuesto',
                 editPrecio: 'data-precio',
@@ -679,7 +687,7 @@
             });
 
             applyTipoItemRules(tipoConfig);
-            bindSkuAuto(skuConfig); // Dispara la actualización visual bloqueando el SKU
+            bindSkuAuto(skuConfig);
 
             bindComercialVisibility({
                 tipoId: 'editTipo',
@@ -919,75 +927,180 @@
         const filtroEstado = document.getElementById('itemFiltroEstado');
         const paginationControls = document.getElementById('itemsPaginationControls');
         const paginationInfo = document.getElementById('itemsPaginationInfo');
-        const table = document.getElementById('itemsTable');
-        
-        if (!table) return;
+        const tableBody = document.getElementById('itemsTableBody');
 
-        const thead = table.querySelector('thead');
-        if (thead && !thead.classList.contains('tabla-global-sticky-thead')) {
-            thead.classList.add('tabla-global-sticky-thead');
-        }
+        if (!tableBody) return;
 
-        const parent = table.parentElement;
-        if (parent && !parent.classList.contains('table-responsive')) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'table-responsive tabla-global-scroll-wrapper';
-            parent.insertBefore(wrapper, table);
-            wrapper.appendChild(table);
-        } else if (parent && !parent.classList.contains('inventario-table-wrapper')) {
-            parent.classList.add('tabla-global-scroll-wrapper');
-        }
+        let debounceTimer = null;
 
-        const allRows = Array.from(table.querySelectorAll('tbody tr'));
-
-        function normalizarTexto(valor) {
-            return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
-
-        const updateTable = function () {
-            const texto = normalizarTexto(searchInput?.value || '');
-            const categoria = filtroCategoria?.value || '';
-            const tipo = filtroTipo?.value || '';
-            const estado = filtroEstado?.value || '';
-
-            const visibleRows = allRows.filter((row) => {
-                const rowSearch = normalizarTexto(row.getAttribute('data-search') || '');
-                const rowCategoria = row.getAttribute('data-categoria') || '';
-                const rowTipo = row.getAttribute('data-tipo') || '';
-                const rowEstado = row.getAttribute('data-estado') || '';
-                
-                const okTexto = texto === '' || rowSearch.includes(texto);
-                const okCategoria = categoria === '' || rowCategoria === categoria;
-                const okTipo = tipo === '' || rowTipo === tipo;
-                const okEstado = estado === '' || rowEstado === estado;
-
-                return okTexto && okCategoria && okTipo && okEstado;
-            });
-
-            const totalItems = visibleRows.length;
-            const totalPages = Math.max(1, Math.ceil(totalItems / ROWS_PER_PAGE));
-            if (currentPage > totalPages) currentPage = totalPages;
-
-            const start = (currentPage - 1) * ROWS_PER_PAGE;
-            const end = start + ROWS_PER_PAGE;
-
-            allRows.forEach((row) => row.classList.add('d-none'));
-            visibleRows.slice(start, end).forEach((row) => row.classList.remove('d-none'));
-
-            if (paginationInfo) {
-                if (totalItems === 0) {
-                    paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
-                } else {
-                    paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
-                }
-            }
-            
-            renderPagination(totalPages);
+        const tipoLabels = {
+            'producto': 'Producto terminado',
+            'producto_terminado': 'Producto terminado',
+            'materia_prima': 'Materia prima',
+            'material_empaque': 'Material de empaque',
+            'servicio': 'Servicio',
+            'semielaborado': 'Semielaborado',
+            'insumo': 'Insumo'
         };
 
-        function renderPagination(totalPages) {
+        const getCategoriaNombre = (id) => {
+            if (!id || id === 0) return 'Sin categoría';
+            const opt = filtroCategoria?.querySelector(`option[value="${id}"]`);
+            return opt ? opt.textContent.trim() : 'Sin categoría';
+        };
+
+        const escapeHtml = (unsafe) => {
+            return (unsafe || '').toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        const loadTableData = async () => {
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando ítems...</td></tr>`;
+
+            try {
+                const params = {
+                    accion: 'datatable',
+                    pagina: currentPage,
+                    limite: ROWS_PER_PAGE,
+                    busqueda: searchInput?.value || '',
+                    categoria: filtroCategoria?.value || '',
+                    tipo: filtroTipo?.value || '',
+                    estado: filtroEstado?.value || ''
+                };
+
+                const response = await fetch(getItemsEndpoint(params), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) throw new Error('Error al obtener datos');
+                const data = await response.json();
+
+                renderTable(data.data || []);
+                renderPagination(data.recordsFiltered || 0);
+
+                if (paginationInfo) {
+                    const total = data.recordsFiltered || 0;
+                    if (total === 0) {
+                        paginationInfo.innerHTML = 'Mostrando <strong>0</strong> resultados';
+                    } else {
+                        const start = (currentPage - 1) * ROWS_PER_PAGE + 1;
+                        const end = Math.min(currentPage * ROWS_PER_PAGE, total);
+                        paginationInfo.innerHTML = `Mostrando <strong>${start}-${end}</strong> de <strong>${total}</strong> resultados`;
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-x-circle me-2"></i>Ocurrió un error al cargar los datos.</td></tr>`;
+            }
+        };
+
+        const renderTable = (items) => {
+            if (items.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5">No se encontraron ítems con los filtros actuales.</td></tr>`;
+                return;
+            }
+
+            // SE AGREGÓ ESTA LÍNEA PARA LEER EL TOKEN Y PONERLO EN EL BOTON DE ELIMINAR DINAMICO
+            const csrfMetaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            tableBody.innerHTML = items.map(item => {
+                const isActivo = item.estado === 1;
+                const estadoBadge = isActivo 
+                    ? `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="badge_status_item_${item.id}">Activo</span>` 
+                    : `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" id="badge_status_item_${item.id}">Inactivo</span>`;
+                
+                const tipoLabel = tipoLabels[item.tipo_item] || item.tipo_item;
+                const catNombre = getCategoriaNombre(item.id_categoria);
+                const bomIcon = item.bom_pendiente === 1 
+                    ? `<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Falta agregar una receta"></i>` 
+                    : '';
+
+const imgHtml = item.imagen_principal
+    ? `<img src="/${escapeHtml(item.imagen_principal)}" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">`
+    : `<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>`;
+                const btnEliminar = item.puede_eliminar === 1
+                    ? `<button type="submit" class="btn btn-sm border-0 bg-transparent btn-light text-danger" title="Eliminar"><i class="bi bi-trash fs-5"></i></button>`
+                    : `<button type="button" class="btn btn-sm border-0 bg-transparent btn-light text-muted opacity-50" title="${escapeHtml(item.motivo_no_eliminar)}" disabled aria-disabled="true"><i class="bi bi-trash fs-5"></i></button>`;
+
+                return `
+                    <tr data-id="${item.id}">
+                        <td class="ps-4 align-middle text-center">${imgHtml}</td>
+                        <td class="fw-semibold text-secondary">${escapeHtml(item.sku)}</td>
+                        <td>
+                            <div class="fw-bold text-dark d-inline-flex align-items-center gap-1">
+                                <span>${escapeHtml(item.nombre)}</span>
+                                ${bomIcon}
+                            </div>
+                            <div class="small text-muted">${escapeHtml(item.descripcion)}</div>
+                        </td>
+                        <td><span class="badge bg-light text-dark border">${escapeHtml(tipoLabel)}</span></td>
+                        <td>${escapeHtml(catNombre)}</td>
+                        <td class="text-center">${estadoBadge}</td>
+                        <td class="text-end pe-4">
+                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                    <input class="form-check-input switch-estado-item-dynamic" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" data-id="${item.id}" ${isActivo ? 'checked' : ''}>
+                                </div>
+                                <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+                                
+                                <a href="?ruta=items/perfil&id=${item.id}" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver perfil y documentos">
+                                    <i class="bi bi-person-badge fs-5"></i>
+                                </a>
+
+                                <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
+                                    data-id="${item.id}"
+                                    data-sku="${escapeHtml(item.sku)}"
+                                    data-nombre="${escapeHtml(item.nombre)}"
+                                    data-descripcion="${escapeHtml(item.descripcion)}"
+                                    data-tipo="${escapeHtml(item.tipo_item)}"
+                                    data-marca="${item.id_marca || ''}"
+                                    data-unidad="${escapeHtml(item.unidad_base)}"
+                                    data-moneda="${escapeHtml(item.moneda)}"
+                                    data-impuesto="${item.impuesto}"
+                                    data-precio="${item.precio_venta}"
+                                    data-stock-minimo="${item.stock_minimo}"
+                                    data-costo="${item.costo_referencial}"
+                                    data-controla-stock="${item.controla_stock}"
+                                    data-permite-decimales="${item.permite_decimales}"
+                                    data-requiere-lote="${item.requiere_lote}"
+                                    data-requiere-vencimiento="${item.requiere_vencimiento}"
+                                    data-requiere-formula-bom="${item.requiere_formula_bom}"
+                                    data-requiere-factor-conversion="${item.requiere_factor_conversion}"
+                                    data-es-envase-retornable="${item.es_envase_retornable}"
+                                    data-dias-alerta-vencimiento="${item.dias_alerta_vencimiento || ''}"
+                                    data-rubro="${item.id_rubro || ''}"
+                                    data-categoria="${item.id_categoria || ''}"
+                                    data-sabor="${item.id_sabor || ''}"
+                                    data-presentacion="${item.id_presentacion || ''}"
+                                    data-estado="${item.estado}">
+                                    <i class="bi bi-pencil-square fs-5"></i>
+                                </button>
+
+                                <form method="post" class="d-inline m-0 form-eliminar-dinamico">
+                                    <input type="hidden" name="accion" value="eliminar">
+                                    <input type="hidden" name="id" value="${item.id}">
+                                    <input type="hidden" name="csrf_token" value="${csrfMetaToken}">
+                                    ${btnEliminar}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            bindDynamicEvents();
+        };
+
+        const renderPagination = (totalItems) => {
             if (!paginationControls) return;
             paginationControls.innerHTML = '';
+            
+            const totalPages = Math.max(1, Math.ceil(totalItems / ROWS_PER_PAGE));
+            if (currentPage > totalPages) currentPage = totalPages || 1;
 
             const addBtn = (label, page, active = false, disabled = false) => {
                 const li = document.createElement('li');
@@ -995,12 +1108,12 @@
                 const a = document.createElement('a');
                 a.className = 'page-link';
                 a.href = '#';
-                a.textContent = label;
+                a.innerHTML = label;
                 a.addEventListener('click', (ev) => {
                     ev.preventDefault();
                     if (disabled || active || page == null) return;
                     currentPage = page;
-                    updateTable();
+                    loadTableData();
                 });
                 li.appendChild(a);
                 paginationControls.appendChild(li);
@@ -1009,10 +1122,7 @@
             const addDots = () => {
                 const li = document.createElement('li');
                 li.className = 'page-item disabled';
-                const span = document.createElement('span');
-                span.className = 'page-link';
-                span.textContent = '...';
-                li.appendChild(span);
+                li.innerHTML = '<span class="page-link">...</span>';
                 paginationControls.appendChild(li);
             };
 
@@ -1030,24 +1140,70 @@
                 return tokens;
             };
 
-            addBtn('Anterior', currentPage - 1, false, currentPage === 1);
+            addBtn('&laquo; Anterior', currentPage - 1, false, currentPage <= 1);
             buildPages().forEach((token) => {
                 if (token === 'dots') addDots();
                 else addBtn(String(token), token, token === currentPage, false);
             });
-            addBtn('Siguiente', currentPage + 1, false, currentPage === totalPages || totalPages === 0);
-        }
+            addBtn('Siguiente &raquo;', currentPage + 1, false, currentPage >= totalPages || totalPages === 0);
+        };
 
-        [searchInput, filtroCategoria, filtroTipo, filtroEstado].forEach((el) => {
-            if (!el) return;
-            const onFilterChange = () => {
-                currentPage = 1;
-                updateTable();
-            };
-            el.addEventListener('input', onFilterChange);
-            el.addEventListener('change', onFilterChange);
+        const bindDynamicEvents = () => {
+            tableBody.querySelectorAll('.switch-estado-item-dynamic').forEach((switchInput) => {
+                switchInput.addEventListener('change', async function () {
+                    const id = Number(this.getAttribute('data-id') || 0);
+                    if (id <= 0) return;
+
+                    const nuevoEstado = this.checked ? 1 : 0;
+                    this.disabled = true;
+
+                    try {
+                        await postAction({ accion: 'toggle_estado_item', id: String(id), estado: String(nuevoEstado) });
+                        const badge = document.getElementById(`badge_status_item_${id}`);
+                        if (badge) {
+                            badge.textContent = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+                            badge.className = nuevoEstado === 1 
+                                ? 'badge bg-success-subtle text-success border border-success-subtle rounded-pill'
+                                : 'badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill';
+                        }
+                    } catch (error) {
+                        this.checked = !this.checked;
+                        showError(error?.message || 'No se pudo actualizar el estado.');
+                    } finally {
+                        this.disabled = false;
+                    }
+                });
+            });
+
+            tableBody.querySelectorAll('.form-eliminar-dinamico').forEach((form) => {
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    const confirmed = await confirmAction({
+                        title: '¿Eliminar ítem?',
+                        text: 'Esta acción no se puede deshacer.'
+                    });
+                    if (confirmed) form.submit();
+                });
+            });
+        };
+
+        const onFilterChange = () => {
+            currentPage = 1;
+            loadTableData();
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(onFilterChange, 350); 
+            });
+        }
+        
+        [filtroCategoria, filtroTipo, filtroEstado].forEach(el => {
+            if (el) el.addEventListener('change', onFilterChange);
         });
-        updateTable();
+
+        loadTableData();
     }
 
     function initUnidadesConversionModal() {
@@ -1183,7 +1339,6 @@
                 });
             });
         };
-
 
         const actualizarPendientesUi = (items = []) => {
             const pendientes = Array.isArray(items)
@@ -1360,6 +1515,19 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // --- SE AGREGÓ ESTE BLOQUE PARA PROTEGER LOS FORMULARIOS ESTÁTICOS ---
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (token) {
+            document.querySelectorAll('form[method="post"]').forEach(form => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrf_token';
+                input.value = token;
+                form.appendChild(input);
+            });
+        }
+        // ---------------------------------------------------------------------
+
         initCreateModal();
         initEditModal();
         initTableManager();

@@ -18,8 +18,50 @@ class ItemsController extends Controlador
         AuthMiddleware::handle();
         require_permiso('items.ver');
 
+        // --- INICIO BLOQUE SEGURIDAD CSRF ---
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Genera un token seguro de 64 caracteres
+        }
+        $csrfToken = $_SESSION['csrf_token'];
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $postToken = (string) ($_POST['csrf_token'] ?? '');
+            if (!hash_equals($csrfToken, $postToken)) {
+                if (es_ajax()) {
+                    json_response(['ok' => false, 'mensaje' => 'Error de seguridad (CSRF). Recarga la página.'], 403);
+                    return;
+                }
+                die('Error de seguridad (CSRF). Por favor, retrocede y recarga la página.');
+            }
+        }
+        // --- FIN BLOQUE SEGURIDAD CSRF ---
+
+        // Agrega esto debajo de la validación del CSRF o junto a los otros es_ajax()
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'validar_sku') {
+            $sku = trim((string) ($_GET['sku'] ?? ''));
+            if ($sku === '') {
+                json_response(['ok' => true, 'existe' => false]);
+                return;
+            }
+            $existe = $this->itemsModel->skuExiste($sku);
+            json_response(['ok' => true, 'existe' => $existe]);
+            return;
+        }
+
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
-            json_response($this->itemsModel->datatable());
+            // Capturar parámetros de paginación y filtros desde el Request GET
+            $pagina = (int) ($_GET['pagina'] ?? 1);
+            $limite = (int) ($_GET['limite'] ?? 20);
+            
+            $filtros = [
+                'busqueda' => (string) ($_GET['busqueda'] ?? ''),
+                'categoria' => (string) ($_GET['categoria'] ?? ''),
+                'tipo' => (string) ($_GET['tipo'] ?? ''),
+                'estado' => (string) ($_GET['estado'] ?? ''),
+            ];
+
+            // Pasamos los parámetros al nuevo método del modelo
+            json_response($this->itemsModel->datatable($pagina, $limite, $filtros));
             return;
         }
 
@@ -77,6 +119,8 @@ class ItemsController extends Controlador
             unset($_SESSION['items_flash']);
         }
 
+        // BLOQUE DE ACCIONES POST (crear, editar, eliminar, etc.) 
+        // ... (Mantén todo tu código POST exactamente igual, no hay cambios aquí) ...
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
             $userId = (int) ($_SESSION['id'] ?? 0);
@@ -86,12 +130,32 @@ class ItemsController extends Controlador
                     require_permiso('items.crear');
                     $data = $this->validarItem($_POST, false);
                     
-                    if ($data['sku'] !== '' && $this->itemsModel->skuExiste($data['sku'])) {
-                        throw new RuntimeException('El SKU ya se encuentra registrado.');
+                    // Verificamos si el switch de autogeneración estaba encendido en el formulario
+                    $autoIdentidad = (isset($_POST['autogenerar_identidad']) && $_POST['autogenerar_identidad'] == '1');
+                    
+                    if ($data['sku'] !== '') {
+                        if ($autoIdentidad) {
+                            // Lógica inteligente: Añadir sufijo -01, -02, etc., si ya existe
+                            $baseSku = $data['sku'];
+                            $contador = 1;
+                            
+                            // Mientras el SKU exista en la BD, seguimos sumando al contador
+                            while ($this->itemsModel->skuExiste($data['sku'])) {
+                                // str_pad asegura que se vea como -01, -02 en lugar de -1, -2
+                                $data['sku'] = $baseSku . '-' . str_pad((string)$contador, 2, '0', STR_PAD_LEFT);
+                                $contador++;
+                            }
+                        } else {
+                            // Si el usuario lo escribió a mano, mostramos el error original
+                            if ($this->itemsModel->skuExiste($data['sku'])) {
+                                throw new RuntimeException('El SKU ya se encuentra registrado. Por favor, escribe uno diferente.');
+                            }
+                        }
                     }
                     
                     $nuevoId = $this->itemsModel->crear($data, $userId);
                     $this->itemsModel->sincronizarDependenciasConfiguracion($nuevoId, $data, $userId);
+                    
                     $respuesta = ['ok' => true, 'mensaje' => 'Ítem creado correctamente.', 'id' => $nuevoId];
                     $flash = ['tipo' => 'success', 'texto' => 'Ítem creado correctamente.'];
                 }
@@ -135,15 +199,11 @@ class ItemsController extends Controlador
 
                     $data = $this->validarItem($_POST, true);
                     
-                    // Aseguramos que el estado original se mantenga si no viene en el form
                     if (!isset($data['estado'])) {
                         $data['estado'] = (int) ($actual['estado'] ?? 1);
                     }
 
-                    // En edición, ignoramos el SKU que viene del formulario para no romper el Kardex
                     unset($data['sku']);
-                    
-                    // NUEVO: Ignoramos la unidad base que viene del formulario y forzamos la original de la BD
                     $data['unidad_base'] = (string) ($actual['unidad_base'] ?? 'UND');
 
                     $this->itemsModel->actualizar($id, $data, $userId);
@@ -263,14 +323,12 @@ class ItemsController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
-                    // --- INICIO BLOQUE DE SEGURIDAD ---
                     $todosLosSabores = $this->itemsModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
                             throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema y no se puede editar.');
                         }
                     }
-                    // --- FIN BLOQUE DE SEGURIDAD ---
 
                     $data = $this->validarAtributoItem($_POST);
                     $this->itemsModel->actualizarSabor($id, $data, $userId);
@@ -283,14 +341,12 @@ class ItemsController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
-                    // --- INICIO BLOQUE DE SEGURIDAD ---
                     $todosLosSabores = $this->itemsModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
                             throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema protegido.');
                         }
                     }
-                    // --- FIN BLOQUE DE SEGURIDAD ---
 
                     $this->itemsModel->eliminarSabor($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor eliminado correctamente.'];
@@ -346,7 +402,7 @@ class ItemsController extends Controlador
         }
 
         $this->render('items', [
-            'items' => $this->itemsModel->listar(),
+            // YA NO CARGAMOS LOS ITEMS AQUÍ: 'items' => $this->itemsModel->listar(),
             'rubros' => $this->itemsModel->listarRubrosActivos(),
             'rubros_gestion' => $this->itemsModel->listarRubros(),
             'categorias' => $this->itemsModel->listarCategoriasActivas(),
@@ -367,6 +423,24 @@ class ItemsController extends Controlador
     {
         AuthMiddleware::handle();
         require_permiso('items.ver');
+
+        // --- INICIO BLOQUE SEGURIDAD CSRF ---
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        $csrfToken = $_SESSION['csrf_token'];
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $postToken = (string) ($_POST['csrf_token'] ?? '');
+            if (!hash_equals($csrfToken, $postToken)) {
+                if (es_ajax()) {
+                    json_response(['ok' => false, 'mensaje' => 'Error de seguridad (CSRF). Recarga la página.'], 403);
+                    return;
+                }
+                die('Error de seguridad (CSRF). Por favor, retrocede y recarga la página.');
+            }
+        }
+        // --- FIN BLOQUE SEGURIDAD CSRF ---
 
         $idItem = (int) ($_GET['id'] ?? 0);
         if ($idItem <= 0) {
@@ -476,6 +550,7 @@ class ItemsController extends Controlador
             'documentos' => $this->itemsModel->listarDocumentos($idItem),
             'flash' => $flash,
             'ruta_actual' => 'items/perfil',
+            'csrf_token' => $csrfToken, // NUEVO: Pasamos el token a la vista del perfil
         ]);
     }
 
