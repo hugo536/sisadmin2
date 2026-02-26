@@ -225,13 +225,13 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
                                 <div class="col-md-6">
                                     <label for="almacenMovimiento" class="form-label small text-muted fw-bold">Almacén Origen <span class="text-danger">*</span></label>
-                                    <select id="almacenMovimiento" name="id_almacen" class="form-select" required disabled>
+                                    <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <small class="text-muted d-block mt-1">Seleccione primero el ítem para habilitar los almacenes con stock disponible.</small>
+                                    <small class="text-muted d-block mt-1">Seleccione primero el almacén origen para filtrar los ítems con stock disponible.</small>
                                 </div>
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">

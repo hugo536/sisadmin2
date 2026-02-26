@@ -68,17 +68,23 @@
     destino: []
   };
 
-  function toggleAlmacenOrigenSegunItem() {
-    if (!almacen || !tomSelectAlmacen || !itemIdInput) return;
-    const hayItemSeleccionado = Number(itemIdInput.value || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0;
+  function esTipoSalida(tipoVal) {
+    return ['AJ-', 'CON', 'TRF'].includes(tipoVal);
+  }
 
-    almacen.disabled = !hayItemSeleccionado;
-    if (hayItemSeleccionado) {
-      tomSelectAlmacen.enable();
-    } else {
-      tomSelectAlmacen.clear(true);
-      tomSelectAlmacen.disable();
-      if (stockHint) stockHint.textContent = '';
+  function actualizarBloqueoCabecera() {
+    const bloquear = lineasMovimiento.length > 0;
+    if (tipo) {
+      tipo.disabled = bloquear;
+      if (tomSelectTipo) bloquear ? tomSelectTipo.disable() : tomSelectTipo.enable();
+    }
+    if (almacen) {
+      almacen.disabled = bloquear;
+      if (tomSelectAlmacen) bloquear ? tomSelectAlmacen.disable() : tomSelectAlmacen.enable();
+    }
+    if (almacenDestino) {
+      almacenDestino.disabled = bloquear;
+      if (tomSelectAlmacenDestino) bloquear ? tomSelectAlmacenDestino.disable() : tomSelectAlmacenDestino.enable();
     }
   }
 
@@ -126,8 +132,15 @@
             dropdownParent: 'body',
             load: function(query, callback) {
                 if (!query.length) return callback();
-                
-                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}`, {
+                const idAlmacen = Number((almacen && almacen.value) || 0);
+                if (idAlmacen <= 0) {
+                    callback();
+                    return;
+                }
+                const tipoVal = (tipo && tipo.value) || '';
+                const soloConStock = esTipoSalida(tipoVal) ? '1' : '0';
+
+                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
                 .then(async (response) => {
@@ -195,12 +208,10 @@
                 filtrarAlmacenesPorTipo();
                 actualizarStockHint();
                 cargarResumenItem();
-                toggleAlmacenOrigenSegunItem();
             }
         });
     }
 
-    toggleAlmacenOrigenSegunItem();
     // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
@@ -358,9 +369,12 @@
     }
 
     if(grupoVencimiento) {
-        const visible = esEntrada && requiereVenc;
+        const visible = (esEntrada && requiereVenc) || (!esEntrada && requiereLote && requiereVenc);
         grupoVencimiento.classList.toggle('d-none', !visible);
-        if(inputVencimiento) inputVencimiento.required = visible;
+        if(inputVencimiento) {
+          inputVencimiento.required = visible;
+          inputVencimiento.readOnly = !esEntrada;
+        }
     }
 
     if (costoUnitarioInput) {
@@ -411,36 +425,17 @@
   }
 
   async function filtrarAlmacenesPorTipo() {
-    if (!tipo || !itemIdInput || !tomSelectAlmacen) return;
+    if (!tipo || !tomSelectAlmacen) return;
     const tipoVal = tipo.value;
-    const idItem = Number(itemIdInput.value || '0');
-    const idPack = Number((packIdInput && packIdInput.value) || '0');
-    const idRegistro = idPack > 0 ? idPack : idItem;
-    const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
     const origenActual = almacen ? almacen.value : '';
 
-    if (tipoVal === '' || idRegistro <= 0) {
+    if (tipoVal === '') {
       setSelectOptions(tomSelectAlmacen, almacenesBase.origen, origenActual);
-      toggleAlmacenOrigenSegunItem();
       actualizarOpcionesDestino();
       return;
     }
 
-    const requiereStockOrigen = ['TRF', 'AJ-', 'CON'].includes(tipoVal);
-    let origenFiltrado = almacenesBase.origen.filter((opt) => opt.value === '' || Number(opt.value) > 0);
-
-    if (requiereStockOrigen) {
-      const validaciones = await Promise.all(origenFiltrado.map(async (opt) => {
-        if (opt.value === '') return opt;
-        const stock = await obtenerStockActual(idRegistro, Number(opt.value), tipoRegistro);
-        return stock > 0 ? opt : null;
-      }));
-      origenFiltrado = validaciones.filter(Boolean);
-    }
-
-    setSelectOptions(tomSelectAlmacen, origenFiltrado, origenActual);
-    toggleAlmacenOrigenSegunItem();
-
+    setSelectOptions(tomSelectAlmacen, almacenesBase.origen, origenActual);
     actualizarOpcionesDestino();
   }
 
@@ -526,6 +521,7 @@
                 const option = document.createElement('option');
                 option.value = l.lote;
                 option.textContent = texto;
+                option.dataset.vencimiento = l.fecha_vencimiento || '';
                 selectLoteExistente.appendChild(option);
             });
         } else {
@@ -539,7 +535,7 @@
   async function actualizarStockHint() {
     if (!stockHint || !itemIdInput || !almacen) return;
     
-    const esSalida = ['AJ-', 'CON', 'TRF'].includes((tipo && tipo.value) || '');
+    const esSalida = esTipoSalida((tipo && tipo.value) || '');
     if (!esSalida) {
       stockHint.textContent = '';
       return;
@@ -556,7 +552,8 @@
     }
 
     try {
-      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idItem}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
+      const idConsulta = tipoRegistro === 'pack' ? idPack : idItem;
+      const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idConsulta}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await response.json();
       const stock = Number((data && data.stock) || 0);
@@ -586,11 +583,25 @@
 
     if (almacen) {
         almacen.addEventListener('change', () => {
+            if (tomSelectItem) {
+              tomSelectItem.clearOptions();
+              tomSelectItem.clear(true);
+            }
+            if (itemIdInput) itemIdInput.value = '0';
+            if (packIdInput) packIdInput.value = '0';
             if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
             actualizarOpcionesDestino();
             actualizarStockHint();
             cargarResumenItem();
         });
+    }
+
+    if (selectLoteExistente) {
+      selectLoteExistente.addEventListener('change', () => {
+        if (!inputVencimiento) return;
+        const opcion = selectLoteExistente.options[selectLoteExistente.selectedIndex];
+        inputVencimiento.value = (opcion && opcion.dataset && opcion.dataset.vencimiento) ? opcion.dataset.vencimiento : '';
+      });
     }
 
     if (almacenDestino) {
@@ -618,7 +629,6 @@
       if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = 'S/ 0.00';
       if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
       actualizarUIModal();
-      toggleAlmacenOrigenSegunItem();
     }
 
     function renderLineasMovimiento() {
@@ -661,6 +671,12 @@
 
       if (idRegistroVal <= 0) {
         Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem válido.' });
+        return;
+      }
+
+      const idAlmacenVal = Number((almacen && almacen.value) || '0');
+      if (idAlmacenVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen antes de agregar ítems.' });
         return;
       }
 
@@ -709,6 +725,7 @@
       });
 
       renderLineasMovimiento();
+      actualizarBloqueoCabecera();
       limpiarEditorLinea();
     }
 
@@ -725,6 +742,7 @@
         if (Number.isNaN(idx) || idx < 0 || idx >= lineasMovimiento.length) return;
         lineasMovimiento.splice(idx, 1);
         renderLineasMovimiento();
+        actualizarBloqueoCabecera();
       });
     }
 
@@ -748,7 +766,7 @@
             if (stockHint) stockHint.textContent = '';
             if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
             if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
-            toggleAlmacenOrigenSegunItem();
+            actualizarBloqueoCabecera();
             
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
@@ -761,6 +779,7 @@
             }
             lineasMovimiento.length = 0;
             renderLineasMovimiento();
+            actualizarBloqueoCabecera();
         });
     }
 
