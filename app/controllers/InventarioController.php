@@ -226,6 +226,58 @@ class InventarioController extends Controlador
         }
     }
 
+    public function guardarMovimientoLote(): void
+    {
+        AuthMiddleware::handle();
+        if (!PermisosController::tienePermiso('inventario.movimiento.crear')) {
+            require_permiso('inventario.movimiento.crear');
+        }
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        try {
+            $raw = (string) file_get_contents('php://input');
+            $payload = json_decode($raw, true);
+            if (!is_array($payload)) {
+                throw new InvalidArgumentException('Formato de payload inválido.');
+            }
+
+            $cabecera = is_array($payload['cabecera'] ?? null) ? $payload['cabecera'] : [];
+            $lineas = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+            $modo = strtolower(trim((string) ($payload['modo'] ?? 'atomico')));
+            $atomico = $modo !== 'parcial';
+
+            if (empty($lineas)) {
+                throw new InvalidArgumentException('Debe agregar al menos una línea para registrar movimientos.');
+            }
+
+            $resultado = $this->inventarioModel->registrarMovimientoLote([
+                'tipo_movimiento' => trim((string) ($cabecera['tipo_movimiento'] ?? '')),
+                'id_almacen' => (int) ($cabecera['id_almacen'] ?? 0),
+                'id_almacen_destino' => (int) ($cabecera['id_almacen_destino'] ?? 0),
+                'referencia' => trim((string) ($cabecera['referencia'] ?? '')),
+                'motivo' => trim((string) ($cabecera['motivo'] ?? '')),
+                'created_by' => (int) ($_SESSION['id'] ?? 0),
+            ], $lineas, $atomico);
+
+            json_response([
+                'ok' => true,
+                'mensaje' => 'Movimientos registrados correctamente.',
+                'operacion_uuid' => (string) ($resultado['operacion_uuid'] ?? ''),
+                'ids' => $resultado['ids'] ?? [],
+                'errores' => $resultado['errores'] ?? [],
+            ]);
+        } catch (Throwable $e) {
+            json_response([
+                'ok' => false,
+                'mensaje' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
     public function buscarItems(): void
     {
         AuthMiddleware::handle();

@@ -39,6 +39,10 @@
   const costoUnitarioInput = document.getElementById('costoUnitarioMovimiento');
   const costoPromedioActualLabel = document.getElementById('costoPromedioActual');
   const stockActualItemLabel = document.getElementById('stockActualItemSeleccionado');
+  const btnAgregarLinea = document.getElementById('btnAgregarLineaMovimiento');
+  const movimientosDetalleBody = document.getElementById('movimientosDetalleBody');
+
+  const lineasMovimiento = [];
 
   // --- FILTROS DE LA TABLA PRINCIPAL ---
   const searchInput = document.getElementById('inventarioSearch');
@@ -598,6 +602,133 @@
       });
     }
 
+    function limpiarEditorLinea() {
+      if (tomSelectItem) {
+        tomSelectItem.clear(true);
+      }
+      if (itemIdInput) itemIdInput.value = '0';
+      if (packIdInput) packIdInput.value = '0';
+      if (tipoRegistroInput) tipoRegistroInput.value = 'item';
+      if (cantidadInput) cantidadInput.value = '';
+      if (inputLoteNuevo) inputLoteNuevo.value = '';
+      if (selectLoteExistente) selectLoteExistente.value = '';
+      if (inputVencimiento) inputVencimiento.value = '';
+      if (costoUnitarioInput) costoUnitarioInput.value = '0';
+      if (stockHint) stockHint.textContent = '';
+      if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = 'S/ 0.00';
+      if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+      actualizarUIModal();
+      toggleAlmacenOrigenSegunItem();
+    }
+
+    function renderLineasMovimiento() {
+      if (!movimientosDetalleBody) return;
+
+      if (lineasMovimiento.length === 0) {
+        movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="6" class="text-center text-muted py-3">Aún no hay ítems agregados.</td></tr>';
+        return;
+      }
+
+      movimientosDetalleBody.innerHTML = '';
+      lineasMovimiento.forEach((linea, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${linea.etiqueta}</td>
+          <td class="text-end">${Number(linea.cantidad || 0).toFixed(4)}</td>
+          <td>${linea.lote || '-'}</td>
+          <td>${linea.fecha_vencimiento || '-'}</td>
+          <td class="text-end">${Number(linea.costo_unitario || 0).toFixed(4)}</td>
+          <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}"><i class="bi bi-trash"></i></button>
+          </td>
+        `;
+        movimientosDetalleBody.appendChild(tr);
+      });
+    }
+
+    function agregarLineaMovimiento() {
+      const idItemVal = Number((itemIdInput && itemIdInput.value) || '0');
+      const idPackVal = Number((packIdInput && packIdInput.value) || '0');
+      const tipoRegistroVal = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
+      const idRegistroVal = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
+      const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
+      const tipoVal = (tipo && tipo.value) || '';
+
+      if (!tipoVal) {
+        Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento antes de agregar líneas.' });
+        return;
+      }
+
+      if (idRegistroVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem válido.' });
+        return;
+      }
+
+      if (tipoVal === 'INI') {
+        if (cantidadVal < 0) {
+          Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Para INI la cantidad debe ser mayor o igual a 0.' });
+          return;
+        }
+      } else if (cantidadVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0.' });
+        return;
+      }
+
+      if (lineasMovimiento.length >= 100) {
+        Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Solo se permiten hasta 100 líneas por operación.' });
+        return;
+      }
+
+      if (!grupoLoteInput.classList.contains('d-none')) {
+        loteFinalEnviar.value = inputLoteNuevo.value;
+      } else if (!grupoLoteSelect.classList.contains('d-none')) {
+        loteFinalEnviar.value = selectLoteExistente.value;
+      } else {
+        loteFinalEnviar.value = '';
+      }
+
+      const itemData = obtenerDataDelItem();
+      if (itemData && itemData.requiereLote && loteFinalEnviar.value.trim() === '') {
+        Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
+        return;
+      }
+
+      const selectedValue = tomSelectItem ? tomSelectItem.getValue() : '';
+      const selectedData = (tomSelectItem && selectedValue) ? tomSelectItem.options[selectedValue] : {};
+      const etiqueta = `${selectedData.sku || ''} - ${selectedData.nombre_full || selectedData.nombre || 'Ítem'}`;
+
+      lineasMovimiento.push({
+        tipo_registro: tipoRegistroVal,
+        id_item: tipoRegistroVal === 'item' ? idItemVal : 0,
+        id_pack: tipoRegistroVal === 'pack' ? idPackVal : 0,
+        cantidad: cantidadVal,
+        lote: (loteFinalEnviar.value || '').trim(),
+        fecha_vencimiento: (inputVencimiento && inputVencimiento.value) ? inputVencimiento.value : '',
+        costo_unitario: Number((costoUnitarioInput && costoUnitarioInput.value) || 0),
+        etiqueta,
+      });
+
+      renderLineasMovimiento();
+      limpiarEditorLinea();
+    }
+
+    if (btnAgregarLinea) {
+      btnAgregarLinea.addEventListener('click', agregarLineaMovimiento);
+    }
+
+    if (movimientosDetalleBody) {
+      renderLineasMovimiento();
+      movimientosDetalleBody.addEventListener('click', (event) => {
+        const target = event.target.closest('[data-remove-index]');
+        if (!target) return;
+        const idx = Number(target.getAttribute('data-remove-index'));
+        if (Number.isNaN(idx) || idx < 0 || idx >= lineasMovimiento.length) return;
+        lineasMovimiento.splice(idx, 1);
+        renderLineasMovimiento();
+      });
+    }
+
+
     if (modalEl) {
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
@@ -628,27 +759,19 @@
               costoUnitarioInput.readOnly = false;
               costoUnitarioInput.classList.remove('bg-light', 'text-muted');
             }
+            lineasMovimiento.length = 0;
+            renderLineasMovimiento();
         });
     }
 
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
-      const idItemVal = Number((itemIdInput && itemIdInput.value) || '0');
-      const idPackVal = Number((packIdInput && packIdInput.value) || '0');
-      const tipoRegistroVal = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
-      const idRegistroVal = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
-
-      if (idRegistroVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem de la lista.' });
-        return;
-      }
-
       const tipoVal = (tipo && tipo.value) || '';
       const idAlmacenVal = Number((almacen && almacen.value) || '0');
-      const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
       const referenciaVal = ((document.getElementById('referenciaMovimiento') || {}).value || '').trim();
       const motivoVal = ((motivo || {}).value || '').trim();
+      const idAlmacenDestinoVal = Number((almacenDestino && almacenDestino.value) || '0');
 
       if (!tipoVal) {
         Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento.' });
@@ -656,7 +779,17 @@
       }
 
       if (idAlmacenVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Primero seleccione un ítem y luego el almacén origen.' });
+        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen/destino principal.' });
+        return;
+      }
+
+      if (tipoVal === 'TRF' && idAlmacenDestinoVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Destino requerido', text: 'Seleccione el almacén destino para transferencias.' });
+        return;
+      }
+
+      if (tipoVal === 'TRF' && almacen && almacenDestino && String(almacen.value) === String(almacenDestino.value)) {
+        Swal.fire({ icon: 'warning', title: 'Almacenes inválidos', text: 'El almacén origen y destino deben ser diferentes.' });
         return;
       }
 
@@ -670,51 +803,15 @@
         return;
       }
 
-      if (tipoVal === 'INI') {
-        if (cantidadVal < 0) {
-          Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Para INI la cantidad debe ser mayor o igual a 0.' });
-          return;
-        }
-      } else if (cantidadVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0.' });
+      if (lineasMovimiento.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Sin líneas', text: 'Agrega al menos un ítem a la operación antes de guardar.' });
         return;
-      }
-
-      if (tipoVal === 'TRF' && almacen && almacenDestino && String(almacen.value) === String(almacenDestino.value)) {
-        Swal.fire({ icon: 'warning', title: 'Almacenes inválidos', text: 'El almacén origen y destino deben ser diferentes.' });
-        return;
-      }
-
-      if (['AJ-', 'CON', 'TRF'].includes(tipoVal)) {
-        const stockDisponible = await obtenerStockActual(idRegistroVal, Number((almacen && almacen.value) || '0'), tipoRegistroVal);
-        if (stockDisponible <= 0) {
-          Swal.fire({ icon: 'warning', title: 'Sin stock', text: 'El almacén origen no tiene stock para el ítem seleccionado.' });
-          return;
-        }
-        if (cantidadVal > stockDisponible) {
-          Swal.fire({ icon: 'warning', title: 'Cantidad excedida', text: `La cantidad no puede superar el stock disponible (${stockDisponible.toFixed(4)}).` });
-          return;
-        }
-      }
-
-      if (!grupoLoteInput.classList.contains('d-none')) {
-          loteFinalEnviar.value = inputLoteNuevo.value; 
-      } else if (!grupoLoteSelect.classList.contains('d-none')) {
-          loteFinalEnviar.value = selectLoteExistente.value; 
-      } else {
-          loteFinalEnviar.value = ''; 
-      }
-
-      const itemData = obtenerDataDelItem();
-      if (itemData && itemData.requiereLote && loteFinalEnviar.value.trim() === '') {
-          Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
-          return;
       }
 
       const confirmacion = await Swal.fire({
         icon: 'question',
-        title: '¿Confirmar movimiento?',
-        text: 'Se actualizará el inventario.',
+        title: '¿Confirmar operación masiva?',
+        text: `Se registrarán ${lineasMovimiento.length} línea(s) de inventario en modo atómico.`,
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
         cancelButtonText: 'Cancelar'
@@ -722,16 +819,33 @@
 
       if (!confirmacion.isConfirmed) return;
 
-      const data = new FormData(form);
-      if (motivoVal) {
-        data.set('motivo', motivoVal);
-      }
-
       try {
-        const response = await fetch(`${window.BASE_URL}?ruta=inventario/guardarMovimiento`, {
+        const response = await fetch(`${window.BASE_URL}?ruta=inventario/guardarMovimientoLote`, {
           method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-          body: data
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            modo: 'atomico',
+            cabecera: {
+              tipo_movimiento: tipoVal,
+              id_almacen: idAlmacenVal,
+              id_almacen_destino: idAlmacenDestinoVal,
+              referencia: referenciaVal,
+              motivo: motivoVal
+            },
+            items: lineasMovimiento.map((linea) => ({
+              tipo_registro: linea.tipo_registro,
+              id_item: linea.id_item,
+              id_pack: linea.id_pack,
+              cantidad: linea.cantidad,
+              lote: linea.lote,
+              fecha_vencimiento: linea.fecha_vencimiento,
+              costo_unitario: linea.costo_unitario
+            }))
+          })
         });
 
         const result = await response.json();
@@ -740,10 +854,14 @@
           throw new Error((result && result.mensaje) || 'Error al guardar.');
         }
 
-        await Swal.fire({ icon: 'success', title: 'Guardado', text: result.mensaje });
-        
+        await Swal.fire({
+          icon: 'success',
+          title: 'Operación registrada',
+          text: `Se registraron ${Array.isArray(result.ids) ? result.ids.length : 0} movimientos.`,
+        });
+
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if(modalInstance) modalInstance.hide();
+        if (modalInstance) modalInstance.hide();
         window.location.reload();
 
       } catch (error) {
