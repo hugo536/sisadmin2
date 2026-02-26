@@ -118,8 +118,9 @@ if (!window.produccionJsInitialized) {
                 if (!precheckOk && typeof Swal !== 'undefined') {
                     const confirmacion = await Swal.fire({
                         icon: 'warning',
-                        title: 'Atención: pre-chequeo en rojo',
-                        text: `${precheckMsg}. ¿Desea continuar bajo su responsabilidad?`,
+                        title: 'Insumos insuficientes en Planta',
+                        text: 'Insumos insuficientes en Planta. La ejecución podría generar stock negativo en la ubicación actual. ¿Desea continuar?',
+                        footer: precheckMsg,
                         showCancelButton: true,
                         confirmButtonText: 'Sí, continuar',
                         cancelButtonText: 'Cancelar'

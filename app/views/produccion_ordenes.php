@@ -92,7 +92,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 
                                 <td class="text-center">
                                     <?php if ($estado === 0): ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Borrador</span>
+                                        <?php $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1; ?>
+                                        <?php $precheckResumen = (string) ($orden['precheck_resumen'] ?? 'Sin información de pre-chequeo'); ?>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill d-inline-flex align-items-center gap-2"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              title="<?php echo e($precheckResumen); ?>">
+                                            <span class="op-stock-dot <?php echo $precheckOk ? 'is-ok' : 'is-danger'; ?>" aria-hidden="true"></span>
+                                            Borrador
+                                        </span>
                                     <?php elseif ($estado === 1): ?>
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 rounded-pill">En proceso</span>
                                     <?php elseif ($estado === 2): ?>
@@ -104,25 +112,31 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 
                                 <td class="text-end pe-4">
                                     <?php if ($estado === 0): ?>
-                                        <?php $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1; ?>
-                                        <button type="button"
-                                                class="btn btn-sm <?php echo $precheckOk ? 'btn-outline-success' : 'btn-outline-danger'; ?>"
-                                                title="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
-                                                data-bs-toggle="tooltip"
-                                                data-bs-placement="top">
-                                            <i class="bi <?php echo $precheckOk ? 'bi-check-circle-fill' : 'bi-exclamation-octagon-fill'; ?>"></i>
-                                        </button>
+                                        <div class="d-inline-flex align-items-center gap-1 acciones-op-wrap">
+                                            <button class="btn btn-sm btn-success fw-semibold js-abrir-ejecucion"
+                                                    data-id="<?php echo (int) $orden['id']; ?>"
+                                                    data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                    data-receta="<?php echo (int) $orden['id_receta']; ?>"
+                                                    data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                    data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
+                                                    data-precheck-msg="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
+                                                    title="Ejecutar Producción">
+                                                <i class="bi bi-play-fill"></i>
+                                                <span class="d-none d-lg-inline ms-1">Ejecutar</span>
+                                            </button>
 
-                                        <a href="<?php echo e((string) route_url('inventario')); ?>"
-                                           class="btn btn-sm btn-outline-primary ms-1"
-                                           title="Ir a Transferencia de Inventario"
-                                           data-bs-toggle="tooltip"
-                                           data-bs-placement="top">
-                                            <i class="bi bi-arrow-left-right"></i>
-                                        </a>
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Acciones de soporte">
+                                                <a href="<?php echo e((string) route_url('inventario')); ?>"
+                                                   class="btn btn-info text-white <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
+                                                   title="Aprovisionar Planta"
+                                                   data-bs-toggle="tooltip"
+                                                   data-bs-placement="top">
+                                                    <i class="bi bi-arrow-left-right"></i>
+                                                    <span class="d-none d-xl-inline ms-1">Aprovisionar Planta</span>
+                                                </a>
 
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-secondary ms-1 js-editar-op"
+                                                <button type="button"
+                                                        class="btn btn-warning text-dark js-editar-op"
                                                 data-id="<?php echo (int) $orden['id']; ?>"
                                                 data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                 data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
@@ -130,27 +144,19 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                 data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
                                                 data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
                                                 title="Editar borrador">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
+                                                    <i class="bi bi-pencil"></i>
+                                                    <span class="d-none d-xl-inline ms-1">Editar</span>
+                                                </button>
+                                            </div>
 
-                                        <button class="btn btn-sm btn-outline-success ms-1 js-abrir-ejecucion"
-                                                data-id="<?php echo (int) $orden['id']; ?>"
-                                                data-codigo="<?php echo e((string) $orden['codigo']); ?>"
-                                                data-receta="<?php echo (int) $orden['id_receta']; ?>"
-                                                data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
-                                                data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
-                                                data-precheck-msg="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
-                                                title="Ejecutar Producción">
-                                            <i class="bi bi-play-fill"></i>
-                                        </button>
-
-                                        <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden mediante eliminado lógico (soft delete).">
-                                            <input type="hidden" name="accion" value="eliminar_borrador">
-                                            <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Eliminar borrador">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
+                                            <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden mediante eliminado lógico (soft delete).">
+                                                <input type="hidden" name="accion" value="eliminar_borrador">
+                                                <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Eliminar borrador">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
                                     <?php elseif (in_array($estado, [2, 9], true)): ?>
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-secondary js-ver-detalle"
@@ -468,4 +474,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.4"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.5"></script>
