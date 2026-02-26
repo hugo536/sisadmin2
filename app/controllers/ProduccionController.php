@@ -309,6 +309,8 @@ class ProduccionController extends Controlador
                         'codigo'             => (string) ($_POST['codigo'] ?? ''),
                         'id_receta'          => (int) ($_POST['id_receta'] ?? 0),
                         'cantidad_planificada'=> (float) ($_POST['cantidad_planificada'] ?? 0),
+                        'fecha_programada'   => (string) ($_POST['fecha_programada'] ?? ''),
+                        'turno_programado'   => (string) ($_POST['turno_programado'] ?? ''),
                         'observaciones'      => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
 

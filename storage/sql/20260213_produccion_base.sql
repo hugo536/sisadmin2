@@ -80,6 +80,8 @@ CREATE TABLE `produccion_ordenes` (
   `cantidad_planificada` decimal(14,4) NOT NULL,
   `cantidad_producida` decimal(14,4) DEFAULT 0.00,
   `estado` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0: Borrador, 1: En Proceso, 2: Ejecutada, 9: Anulada',
+  `fecha_programada` date DEFAULT NULL COMMENT 'Fecha planificada para ejecutar la producción',
+  `turno_programado` varchar(30) DEFAULT NULL COMMENT 'Turno que ejecutará la orden (Mañana/Tarde/Noche)',
   `fecha_inicio` datetime DEFAULT NULL,
   `fecha_fin` datetime DEFAULT NULL,
   `observaciones` text DEFAULT NULL,

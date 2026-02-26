@@ -349,22 +349,26 @@ if (!window.produccionJsInitialized) {
 
         modalPlanificar.addEventListener('show.bs.modal', function () {
             const inputCodigo = document.getElementById('newCodigoOP'); // Verifica este ID en tu HTML
-            
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const sec = String(now.getSeconds()).padStart(2, '0');
+
             if (inputCodigo) {
                 // Generar código único: OP-AAMMDD-HHMMSS
-                const now = new Date();
-                const yy = String(now.getFullYear()).slice(-2);
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
-                const hh = String(now.getHours()).padStart(2, '0');
-                const min = String(now.getMinutes()).padStart(2, '0');
-                const sec = String(now.getSeconds()).padStart(2, '0');
-                
                 inputCodigo.value = `OP-${yy}${mm}${dd}-${hh}${min}${sec}`;
                 
                 // Aseguramos que esté bloqueado (readonly) y tenga fondo gris (bg-light)
                 inputCodigo.setAttribute('readonly', 'true');
                 inputCodigo.classList.add('bg-light');
+            }
+
+            const inputFechaProgramada = document.getElementById('newFechaProgramada');
+            if (inputFechaProgramada) {
+                inputFechaProgramada.value = `${now.getFullYear()}-${mm}-${dd}`;
             }
         });
         
