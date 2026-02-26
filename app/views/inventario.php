@@ -202,7 +202,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <form id="formMovimientoInventario" autocomplete="off">
+                <form id="formMovimientoInventario" autocomplete="off" novalidate>
                     <input type="hidden" id="idItemMovimiento" name="id_item" value="0">
                     <input type="hidden" id="idPackMovimiento" name="id_pack" value="0">
                     <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
@@ -286,7 +286,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 
                                 <div class="col-12 mb-2">
                                     <label class="form-label small text-muted fw-bold mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger">*</span></label>
-                                    <select id="itemMovimiento" class="form-select shadow-none" placeholder="Escriba para buscar..." required>
+                                    <select id="itemMovimiento" class="form-select shadow-none" placeholder="Escriba para buscar...">
                                         <option value="">Escriba para buscar...</option>
                                     </select>
                                 </div>
@@ -305,7 +305,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
 
                                 <div class="col-md-6 form-floating mt-3">
-                                    <input type="number" step="0.0001" min="0.0001" class="form-control fw-bold fs-5 shadow-none border-secondary-subtle" id="cantidadMovimiento" name="cantidad" required>
+                                    <input type="number" step="0.0001" min="0.0001" class="form-control fw-bold fs-5 shadow-none border-secondary-subtle" id="cantidadMovimiento" name="cantidad">
                                     <label for="cantidadMovimiento">Cantidad a Mover <span class="text-danger fw-bold">*</span></label>
                                     <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
                                 </div>
@@ -370,7 +370,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
                     <div class="form-floating mb-2 shadow-sm rounded">
                         <textarea class="form-control border-0" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para INI, AJ+ y AJ-)</small></label>
+                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+ y AJ-)</small></label>
                     </div>
 
                     <div class="d-flex justify-content-end pt-3 border-top mt-4">

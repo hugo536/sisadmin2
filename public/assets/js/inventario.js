@@ -859,7 +859,7 @@
         return;
       }
 
-      if (['AJ+', 'AJ-', 'INI'].includes(tipoVal) && referenciaVal === '') {
+      if (['AJ+', 'AJ-'].includes(tipoVal) && referenciaVal === '') {
         Swal.fire({ icon: 'warning', title: 'Referencia requerida', text: 'Debe ingresar una referencia para este tipo de movimiento.' });
         return;
       }
