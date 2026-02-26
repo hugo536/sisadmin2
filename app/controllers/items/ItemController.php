@@ -3,14 +3,26 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/items/ItemModel.php';
+require_once BASE_PATH . '/app/models/items/RubroModel.php';
+require_once BASE_PATH . '/app/models/items/CategoriaModel.php';
+require_once BASE_PATH . '/app/models/items/AtributoModel.php';
+require_once BASE_PATH . '/app/models/items/UnidadConversionModel.php';
 
 class ItemController extends Controlador
 {
     private ItemModel $itemsModel;
+    private RubroModel $rubroModel;
+    private CategoriaModel $categoriaModel;
+    private AtributoModel $atributoModel;
+    private UnidadConversionModel $unidadConversionModel;
 
     public function __construct()
     {
-        $this->itemsModel = new ItemModel(); 
+        $this->itemsModel = new ItemModel();
+        $this->rubroModel = new RubroModel();
+        $this->categoriaModel = new CategoriaModel();
+        $this->atributoModel = new AtributoModel();
+        $this->unidadConversionModel = new UnidadConversionModel();
     }
 
     public function index(): void
@@ -68,10 +80,10 @@ class ItemController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'opciones_atributos_items') {
             json_response([
                 'ok' => true,
-                'rubros' => $this->itemsModel->listarRubrosActivos(),
-                'marcas' => $this->itemsModel->listarMarcas(true),
-                'sabores' => $this->itemsModel->listarSabores(true),
-                'presentaciones' => $this->itemsModel->listarPresentaciones(true),
+                'rubros' => $this->rubroModel->listarRubrosActivos(),
+                'marcas' => $this->atributoModel->listarMarcas(true),
+                'sabores' => $this->atributoModel->listarSabores(true),
+                'presentaciones' => $this->atributoModel->listarPresentaciones(true),
             ]);
             return;
         }
@@ -79,7 +91,7 @@ class ItemController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar_unidades_conversion') {
             json_response([
                 'ok' => true,
-                'items' => $this->itemsModel->listarUnidadesConversion(),
+                'items' => $this->unidadConversionModel->listarUnidadesConversion(),
             ]);
             return;
         }
@@ -89,7 +101,7 @@ class ItemController extends Controlador
             $idItem = (int) ($_GET['id_item'] ?? 0);
             json_response([
                 'ok' => true,
-                'items' => $this->itemsModel->listarDetalleUnidadesConversion($idItem),
+                'items' => $this->unidadConversionModel->listarDetalleUnidadesConversion($idItem),
             ]);
             return;
         }
@@ -163,7 +175,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_item_unidad_conversion') {
                     require_permiso('items.editar');
                     $data = $this->validarUnidadConversion($_POST);
-                    $id = $this->itemsModel->crearUnidadConversion($data, $userId);
+                    $id = $this->unidadConversionModel->crearUnidadConversion($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión creada correctamente.', 'id' => $id];
                 }
 
@@ -174,7 +186,7 @@ class ItemController extends Controlador
                         throw new RuntimeException('ID inválido.');
                     }
                     $data = $this->validarUnidadConversion($_POST);
-                    $this->itemsModel->actualizarUnidadConversion($id, $data, $userId);
+                    $this->unidadConversionModel->actualizarUnidadConversion($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión actualizada correctamente.'];
                 }
 
@@ -185,7 +197,7 @@ class ItemController extends Controlador
                     if ($id <= 0 || $idItem <= 0) {
                         throw new RuntimeException('Parámetros inválidos.');
                     }
-                    $this->itemsModel->eliminarUnidadConversion($id, $idItem, $userId);
+                    $this->unidadConversionModel->eliminarUnidadConversion($id, $idItem, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión eliminada correctamente.'];
                 }
 
@@ -226,7 +238,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_categoria') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarCategoria($_POST);
-                    $this->itemsModel->crearCategoria($data, $userId);
+                    $this->categoriaModel->crearCategoria($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría creada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría creada correctamente.'];
                 }
@@ -234,7 +246,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_rubro') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarRubro($_POST);
-                    $this->itemsModel->crearRubro($data, $userId);
+                    $this->rubroModel->crearRubro($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Rubro creado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Rubro creado correctamente.'];
                 }
@@ -245,7 +257,7 @@ class ItemController extends Controlador
                     if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
                     $data = $this->validarRubro($_POST);
-                    $this->itemsModel->actualizarRubro($id, $data, $userId);
+                    $this->rubroModel->actualizarRubro($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Rubro actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Rubro actualizado correctamente.'];
                 }
@@ -255,7 +267,7 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
-                    $this->itemsModel->eliminarRubro($id, $userId);
+                    $this->rubroModel->eliminarRubro($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Rubro eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Rubro eliminado correctamente.'];
                 }
@@ -266,7 +278,7 @@ class ItemController extends Controlador
                     if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
                     $data = $this->validarCategoria($_POST);
-                    $this->itemsModel->actualizarCategoria($id, $data, $userId);
+                    $this->categoriaModel->actualizarCategoria($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría actualizada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría actualizada correctamente.'];
                 }
@@ -276,7 +288,7 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
-                    $this->itemsModel->eliminarCategoria($id, $userId);
+                    $this->categoriaModel->eliminarCategoria($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría eliminada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Categoría eliminada correctamente.'];
                 }
@@ -284,7 +296,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_marca') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarAtributoItem($_POST);
-                    $id = $this->itemsModel->crearMarca($data, $userId);
+                    $id = $this->atributoModel->crearMarca($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca creada correctamente.', 'id' => $id];
                     $flash = ['tipo' => 'success', 'texto' => 'Marca creada correctamente.'];
                 }
@@ -295,7 +307,7 @@ class ItemController extends Controlador
                     if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
                     
                     $data = $this->validarAtributoItem($_POST);
-                    $this->itemsModel->actualizarMarca($id, $data, $userId);
+                    $this->atributoModel->actualizarMarca($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca actualizada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Marca actualizada correctamente.'];
                 }
@@ -305,7 +317,7 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
                     
-                    $this->itemsModel->eliminarMarca($id, $userId);
+                    $this->atributoModel->eliminarMarca($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca eliminada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Marca eliminada correctamente.'];
                 }
@@ -313,7 +325,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_sabor') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarAtributoItem($_POST);
-                    $id = $this->itemsModel->crearSabor($data, $userId);
+                    $id = $this->atributoModel->crearSabor($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor creado correctamente.', 'id' => $id];
                     $flash = ['tipo' => 'success', 'texto' => 'Sabor creado correctamente.'];
                 }
@@ -323,7 +335,7 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
-                    $todosLosSabores = $this->itemsModel->listarSabores();
+                    $todosLosSabores = $this->atributoModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
                             throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema y no se puede editar.');
@@ -331,7 +343,7 @@ class ItemController extends Controlador
                     }
 
                     $data = $this->validarAtributoItem($_POST);
-                    $this->itemsModel->actualizarSabor($id, $data, $userId);
+                    $this->atributoModel->actualizarSabor($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor actualizado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Sabor actualizado correctamente.'];
                 }
@@ -341,14 +353,14 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
-                    $todosLosSabores = $this->itemsModel->listarSabores();
+                    $todosLosSabores = $this->atributoModel->listarSabores();
                     foreach ($todosLosSabores as $saborExistente) {
                         if ((int)$saborExistente['id'] === $id && $saborExistente['nombre'] === 'Ninguno') {
                             throw new RuntimeException('Acción denegada: El sabor "Ninguno" es un registro del sistema protegido.');
                         }
                     }
 
-                    $this->itemsModel->eliminarSabor($id, $userId);
+                    $this->atributoModel->eliminarSabor($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor eliminado correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Sabor eliminado correctamente.'];
                 }
@@ -356,7 +368,7 @@ class ItemController extends Controlador
                 if ($accion === 'crear_presentacion') {
                     require_permiso('configuracion.editar');
                     $data = $this->validarAtributoItem($_POST);
-                    $id = $this->itemsModel->crearPresentacion($data, $userId);
+                    $id = $this->atributoModel->crearPresentacion($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación creada correctamente.', 'id' => $id];
                     $flash = ['tipo' => 'success', 'texto' => 'Presentación creada correctamente.'];
                 }
@@ -367,7 +379,7 @@ class ItemController extends Controlador
                     if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
                     
                     $data = $this->validarAtributoItem($_POST);
-                    $this->itemsModel->actualizarPresentacion($id, $data, $userId);
+                    $this->atributoModel->actualizarPresentacion($id, $data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación actualizada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Presentación actualizada correctamente.'];
                 }
@@ -377,7 +389,7 @@ class ItemController extends Controlador
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
                     
-                    $this->itemsModel->eliminarPresentacion($id, $userId);
+                    $this->atributoModel->eliminarPresentacion($id, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación eliminada correctamente.'];
                     $flash = ['tipo' => 'success', 'texto' => 'Presentación eliminada correctamente.'];
                 }
@@ -403,17 +415,17 @@ class ItemController extends Controlador
 
         $this->render('items/index', [
             // YA NO CARGAMOS LOS ITEMS AQUÍ: 'items' => $this->itemsModel->listar(),
-            'rubros' => $this->itemsModel->listarRubrosActivos(),
-            'rubros_gestion' => $this->itemsModel->listarRubros(),
-            'categorias' => $this->itemsModel->listarCategoriasActivas(),
-            'categorias_gestion' => $this->itemsModel->listarCategorias(),
-            'marcas' => $this->itemsModel->listarMarcas(true),
-            'marcas_gestion' => $this->itemsModel->listarMarcas(),
-            'sabores' => $this->itemsModel->listarSabores(true),
-            'sabores_gestion' => $this->itemsModel->listarSabores(),
-            'presentaciones' => $this->itemsModel->listarPresentaciones(true),
-            'presentaciones_gestion' => $this->itemsModel->listarPresentaciones(),
-            'unidades_conversion' => $this->itemsModel->listarUnidadesConversion(),
+            'rubros' => $this->rubroModel->listarRubrosActivos(),
+            'rubros_gestion' => $this->rubroModel->listarRubros(),
+            'categorias' => $this->categoriaModel->listarCategoriasActivas(),
+            'categorias_gestion' => $this->categoriaModel->listarCategorias(),
+            'marcas' => $this->atributoModel->listarMarcas(true),
+            'marcas_gestion' => $this->atributoModel->listarMarcas(),
+            'sabores' => $this->atributoModel->listarSabores(true),
+            'sabores_gestion' => $this->atributoModel->listarSabores(),
+            'presentaciones' => $this->atributoModel->listarPresentaciones(true),
+            'presentaciones_gestion' => $this->atributoModel->listarPresentaciones(),
+            'unidades_conversion' => $this->unidadConversionModel->listarUnidadesConversion(),
             'flash' => $flash,
             'ruta_actual' => 'items',
             'csrf_token' => $csrfToken,
@@ -444,10 +456,10 @@ class ItemController extends Controlador
         if ($idRubro <= 0) throw new RuntimeException('El rubro es obligatorio.');
         if ($idCategoria <= 0) throw new RuntimeException('La categoría es obligatoria.');
 
-        if (!$this->itemsModel->rubroExisteActivo($idRubro)) {
+        if (!$this->rubroModel->rubroExisteActivo($idRubro)) {
             throw new RuntimeException('El rubro seleccionado no existe o está inactivo.');
         }
-        if (!$this->itemsModel->categoriaExisteActiva($idCategoria)) {
+        if (!$this->categoriaModel->categoriaExisteActiva($idCategoria)) {
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
@@ -455,7 +467,7 @@ class ItemController extends Controlador
         $data['marca'] = null;
 
         if ($idMarca > 0) {
-            foreach ($this->itemsModel->listarMarcas() as $marca) {
+            foreach ($this->atributoModel->listarMarcas() as $marca) {
                 if ((int) ($marca['id'] ?? 0) === $idMarca) {
                     $data['marca'] = trim((string) ($marca['nombre'] ?? ''));
                     break;
