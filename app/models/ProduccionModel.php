@@ -56,7 +56,191 @@ class ProduccionModel extends Modelo
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
         $stmt = $this->db()->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($ordenes as &$orden) {
+            $precheck = $this->evaluarPrecheckOrden((int) ($orden['id'] ?? 0));
+            $orden['precheck_ok'] = $precheck['ok'] ? 1 : 0;
+            $orden['precheck_resumen'] = $precheck['resumen'];
+            $orden['precheck_detalle'] = $precheck['detalle'];
+        }
+
+        return $ordenes;
+    }
+
+    public function actualizarOrdenBorrador(int $idOrden, array $payload, int $userId): void
+    {
+        $orden = $this->obtenerOrdenPorId($idOrden);
+        if ($orden === []) {
+            throw new RuntimeException('La orden no existe.');
+        }
+        if ((int) ($orden['estado'] ?? -1) !== 0) {
+            throw new RuntimeException('Solo se pueden editar órdenes en estado Borrador.');
+        }
+
+        $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
+        $fechaProgramada = trim((string) ($payload['fecha_programada'] ?? ''));
+        $turnoProgramado = trim((string) ($payload['turno_programado'] ?? ''));
+        $idAlmacenPlanta = (int) ($payload['id_almacen_planta'] ?? 0);
+        $observaciones = trim((string) ($payload['observaciones'] ?? ''));
+
+        if ($cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '' || $idAlmacenPlanta <= 0) {
+            throw new RuntimeException('Datos incompletos para editar la orden de producción.');
+        }
+
+        if (DateTime::createFromFormat('Y-m-d', $fechaProgramada) === false) {
+            throw new RuntimeException('La fecha programada no tiene un formato válido.');
+        }
+
+        $turnosPermitidos = ['Mañana', 'Tarde', 'Noche'];
+        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
+            throw new RuntimeException('El turno programado no es válido.');
+        }
+
+        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
+                                                   FROM almacenes
+                                                   WHERE id = :id
+                                                     AND estado = 1
+                                                     AND deleted_at IS NULL
+                                                     AND tipo = :tipo');
+        $stmtAlmacenPlanta->execute([
+            'id' => $idAlmacenPlanta,
+            'tipo' => 'Planta',
+        ]);
+        if ((int) $stmtAlmacenPlanta->fetchColumn() <= 0) {
+            throw new RuntimeException('El almacén de planta seleccionado no es válido.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
+                                      SET cantidad_planificada = :cantidad_planificada,
+                                          fecha_programada = :fecha_programada,
+                                          turno_programado = :turno_programado,
+                                          id_almacen_planta = :id_almacen_planta,
+                                          observaciones = :observaciones,
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id
+                                        AND estado = 0
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
+            'fecha_programada' => $fechaProgramada,
+            'turno_programado' => $turnoProgramado,
+            'id_almacen_planta' => $idAlmacenPlanta,
+            'observaciones' => $observaciones !== '' ? $observaciones : null,
+            'updated_by' => $userId,
+            'id' => $idOrden,
+        ]);
+    }
+
+    public function eliminarOrdenBorrador(int $idOrden, int $userId): void
+    {
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
+                                      SET deleted_at = NOW(),
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id
+                                        AND estado = 0
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $idOrden,
+            'updated_by' => $userId,
+        ]);
+        if ($stmt->rowCount() < 1) {
+            throw new RuntimeException('Solo se pueden eliminar órdenes en Borrador.');
+        }
+    }
+
+    public function marcarOrdenEnProceso(int $idOrden, int $userId): void
+    {
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
+                                      SET estado = 1,
+                                          fecha_inicio = COALESCE(fecha_inicio, NOW()),
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id
+                                        AND estado = 0
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $idOrden,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    private function evaluarPrecheckOrden(int $idOrden): array
+    {
+        if ($idOrden <= 0) {
+            return ['ok' => false, 'resumen' => 'Sin datos para pre-chequeo', 'detalle' => []];
+        }
+
+        $sql = 'SELECT d.id_insumo,
+                       i.nombre AS insumo_nombre,
+                       i.requiere_lote,
+                       (d.cantidad_por_unidad * o.cantidad_planificada * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
+                       COALESCE((
+                           SELECT s.stock_actual
+                           FROM inventario_stock s
+                           WHERE s.id_item = d.id_insumo
+                             AND s.id_almacen = o.id_almacen_planta
+                           LIMIT 1
+                       ), 0) AS stock_planta,
+                       (
+                           SELECT COUNT(*)
+                           FROM inventario_lotes l
+                           WHERE l.id_item = d.id_insumo
+                             AND l.id_almacen = o.id_almacen_planta
+                             AND l.stock_lote > 0
+                       ) AS lotes_disponibles
+                FROM produccion_ordenes o
+                INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
+                INNER JOIN items i ON i.id = d.id_insumo
+                WHERE o.id = :id_orden
+                  AND o.deleted_at IS NULL';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_orden' => $idOrden]);
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($filas === []) {
+            return ['ok' => false, 'resumen' => 'Sin insumos para evaluar', 'detalle' => []];
+        }
+
+        $ok = true;
+        $faltantes = [];
+        $detalle = [];
+
+        foreach ($filas as $fila) {
+            $requerido = round((float) ($fila['qty_requerida'] ?? 0), 4);
+            $stock = round((float) ($fila['stock_planta'] ?? 0), 4);
+            $requiereLote = (int) ($fila['requiere_lote'] ?? 0) === 1;
+            $lotesDisponibles = (int) ($fila['lotes_disponibles'] ?? 0);
+            $faltante = round(max(0, $requerido - $stock), 4);
+
+            $estadoItem = 'OK';
+            if ($faltante > 0) {
+                $ok = false;
+                $estadoItem = 'FALTA';
+                $faltantes[] = sprintf('%s (faltan %.4f)', (string) ($fila['insumo_nombre'] ?? 'Insumo'), $faltante);
+            }
+            if ($requiereLote && $lotesDisponibles <= 0) {
+                $ok = false;
+                $estadoItem = 'SIN LOTE';
+                $faltantes[] = sprintf('%s (requiere lote sin disponibilidad)', (string) ($fila['insumo_nombre'] ?? 'Insumo'));
+            }
+
+            $detalle[] = [
+                'insumo' => (string) ($fila['insumo_nombre'] ?? ''),
+                'requerido' => $requerido,
+                'en_planta' => $stock,
+                'estado' => $estadoItem,
+            ];
+        }
+
+        $resumen = $ok
+            ? 'Stock de planta suficiente para todos los insumos'
+            : ('Faltantes: ' . implode('; ', $faltantes));
+
+        return ['ok' => $ok, 'resumen' => $resumen, 'detalle' => $detalle];
     }
 
     public function listarRecetasActivas(): array
