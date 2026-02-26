@@ -22,6 +22,8 @@ class AlmacenesController extends Controlador
         $filtros = [
             'q' => (string) ($_GET['q'] ?? ''),
             'estado_filtro' => (string) ($_GET['estado_filtro'] ?? 'activos'),
+            // NUEVO: Capturamos 'tipo_almacen' de la URL para filtrar
+            'tipo' => (string) ($_GET['tipo_almacen'] ?? ''), 
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? ''),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? ''),
             'orden' => (string) ($_GET['orden'] ?? 'fecha_desc'),
@@ -33,7 +35,7 @@ class AlmacenesController extends Controlador
             'filtros' => $filtros,
             'resumen' => $this->almacenModel->resumen(),
             'flash' => [
-                'tipo' => (string) ($_GET['tipo'] ?? ''),
+                'tipo' => (string) ($_GET['tipo'] ?? ''), // Este 'tipo' es exclusivo para success/error
                 'texto' => (string) ($_GET['msg'] ?? ''),
             ],
         ]);
@@ -52,6 +54,10 @@ class AlmacenesController extends Controlador
         $codigo = strtoupper(trim((string) ($_POST['codigo'] ?? '')));
         $nombre = trim((string) ($_POST['nombre'] ?? ''));
         $descripcion = trim((string) ($_POST['descripcion'] ?? ''));
+        
+        // NUEVO: Recibimos el tipo del formulario
+        $tipo = trim((string) ($_POST['tipo'] ?? 'General')); 
+        
         $estado = ((int) ($_POST['estado'] ?? 1)) === 1 ? 1 : 0;
         $userId = (int) ($_SESSION['id'] ?? 0);
 
@@ -63,14 +69,22 @@ class AlmacenesController extends Controlador
             redirect('almacenes/index?tipo=error&msg=El código debe tener 3 a 30 caracteres (A-Z, 0-9, - o _).');
         }
 
+        // NUEVO: Validación de seguridad para que solo sean las opciones permitidas
+        $tiposPermitidos = ['General', 'Soporte', 'Planta'];
+        if (!in_array($tipo, $tiposPermitidos, true)) {
+            redirect('almacenes/index?tipo=error&msg=El tipo de almacén seleccionado no es válido.');
+        }
+
         if ($this->almacenModel->existeCodigo($codigo, $id > 0 ? $id : null)) {
             redirect('almacenes/index?tipo=error&msg=El código ya está registrado en otro almacén.');
         }
 
+        // NUEVO: Agregamos 'tipo' al arreglo que se envía al Modelo
         $payload = [
             'codigo' => $codigo,
             'nombre' => $nombre,
             'descripcion' => $descripcion !== '' ? $descripcion : null,
+            'tipo' => $tipo, 
             'estado' => $estado,
             'user_id' => $userId,
         ];

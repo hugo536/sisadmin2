@@ -22,6 +22,13 @@ class AlmacenModel extends Modelo
             $params['q'] = '%' . $busqueda . '%';
         }
 
+        // --- NUEVO: Filtro por tipo de almacén ---
+        $tipo = trim((string) ($filtros['tipo'] ?? ''));
+        if ($tipo !== '') {
+            $where[] = 'tipo = :tipo';
+            $params['tipo'] = $tipo;
+        }
+
         $estadoFiltro = (string) ($filtros['estado_filtro'] ?? 'activos');
         if ($estadoFiltro === 'eliminados') {
             $where[] = 'deleted_at IS NOT NULL';
@@ -94,26 +101,30 @@ class AlmacenModel extends Modelo
 
     public function crear(array $data): bool
     {
-        $sql = 'INSERT INTO almacenes (codigo, nombre, descripcion, estado, created_by, updated_by)
-                VALUES (:codigo, :nombre, :descripcion, :estado, :created_by, :updated_by)';
+        // --- NUEVO: Se agregó el campo 'tipo' ---
+        $sql = 'INSERT INTO almacenes (codigo, nombre, descripcion, tipo, estado, created_by, updated_by)
+                VALUES (:codigo, :nombre, :descripcion, :tipo, :estado, :created_by, :updated_by)';
 
         $stmt = $this->db()->prepare($sql);
         return $stmt->execute([
-            'codigo' => $data['codigo'],
-            'nombre' => $data['nombre'],
+            'codigo'      => $data['codigo'],
+            'nombre'      => $data['nombre'],
             'descripcion' => $data['descripcion'],
-            'estado' => $data['estado'],
-            'created_by' => $data['user_id'],
-            'updated_by' => $data['user_id'],
+            'tipo'        => $data['tipo'] ?? 'General', // Asigna 'General' si no se envía nada
+            'estado'      => $data['estado'],
+            'created_by'  => $data['user_id'],
+            'updated_by'  => $data['user_id'],
         ]);
     }
 
     public function actualizar(int $id, array $data): bool
     {
+        // --- NUEVO: Se agregó el campo 'tipo' a la actualización ---
         $sql = 'UPDATE almacenes
                 SET codigo = :codigo,
                     nombre = :nombre,
                     descripcion = :descripcion,
+                    tipo = :tipo,
                     estado = :estado,
                     updated_by = :updated_by,
                     updated_at = NOW()
@@ -121,12 +132,13 @@ class AlmacenModel extends Modelo
 
         $stmt = $this->db()->prepare($sql);
         return $stmt->execute([
-            'id' => $id,
-            'codigo' => $data['codigo'],
-            'nombre' => $data['nombre'],
+            'id'          => $id,
+            'codigo'      => $data['codigo'],
+            'nombre'      => $data['nombre'],
             'descripcion' => $data['descripcion'],
-            'estado' => $data['estado'],
-            'updated_by' => $data['user_id'],
+            'tipo'        => $data['tipo'] ?? 'General',
+            'estado'      => $data['estado'],
+            'updated_by'  => $data['user_id'],
         ]);
     }
 
@@ -190,15 +202,15 @@ class AlmacenModel extends Modelo
         $totalActivos = (int) $this->db()->query('SELECT COUNT(*) FROM almacenes WHERE deleted_at IS NULL AND estado = 1')->fetchColumn();
         $totalInactivos = (int) $this->db()->query('SELECT COUNT(*) FROM almacenes WHERE deleted_at IS NULL AND estado = 0')->fetchColumn();
 
-        $ultimos = $this->db()->query('SELECT codigo, nombre, created_at FROM almacenes WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $ultimos = $this->db()->query('SELECT codigo, nombre, tipo, created_at FROM almacenes WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5')->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $sinActividad = $this->db()->query(
-            'SELECT a.id, a.codigo, a.nombre, MAX(m.created_at) AS ultima_actividad
+            'SELECT a.id, a.codigo, a.nombre, a.tipo, MAX(m.created_at) AS ultima_actividad
              FROM almacenes a
              LEFT JOIN inventario_movimientos m
                ON m.id_almacen_origen = a.id OR m.id_almacen_destino = a.id
              WHERE a.deleted_at IS NULL
-             GROUP BY a.id, a.codigo, a.nombre
+             GROUP BY a.id, a.codigo, a.nombre, a.tipo
              HAVING ultima_actividad IS NULL OR ultima_actividad < DATE_SUB(NOW(), INTERVAL 30 DAY)
              ORDER BY ultima_actividad ASC
              LIMIT 10'
