@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-class ItemsModel extends Modelo
+class ItemModel extends Modelo
 {
     private const TABLA_MARCAS = 'item_marcas';
     private const TABLA_SABORES = 'item_sabores';

@@ -96,7 +96,10 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'items')): ?>
-    <script src="<?php echo e(asset_url('js/items.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/items/categorias_rubros.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/items/atributos.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/items/unidades_conversion.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/items/main.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'items/perfil'): ?>
