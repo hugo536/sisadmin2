@@ -30,11 +30,21 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             <form method="get" class="row g-2 align-items-center" id="filtrosAlmacenesForm">
                 <input type="hidden" name="ruta" value="almacenes/index">
 
-                <div class="col-12 col-lg-8">
+                <div class="col-12 col-lg-5">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="q" class="form-control bg-light border-start-0 ps-0" id="filtroBusquedaAlmacen" placeholder="Buscar código o nombre" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>" autocomplete="off">
                     </div>
+                </div>
+
+                <div class="col-12 col-lg-3">
+                    <select name="tipo_almacen" class="form-select bg-light" id="filtroTipoAlmacen">
+                        <?php $tf = (string) ($filtros['tipo'] ?? ''); ?>
+                        <option value="" <?php echo $tf === '' ? 'selected' : ''; ?>>Todos los tipos</option>
+                        <option value="General" <?php echo $tf === 'General' ? 'selected' : ''; ?>>General</option>
+                        <option value="Soporte" <?php echo $tf === 'Soporte' ? 'selected' : ''; ?>>Soporte</option>
+                        <option value="Planta" <?php echo $tf === 'Planta' ? 'selected' : ''; ?>>Planta</option>
+                    </select>
                 </div>
 
                 <div class="col-12 col-lg-4">
@@ -58,7 +68,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         <tr>
                             <th class="ps-4">Código</th>
                             <th>Nombre</th>
-                            <th>Descripción</th>
+                            <th>Tipo</th> <th>Descripción</th>
                             <th class="text-center">Estado</th>
                             <th>Creación</th>
                             <th class="text-end pe-4">Acciones</th>
@@ -66,12 +76,17 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </thead>
                     <tbody>
                     <?php if (empty($almacenes)): ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">No hay almacenes para los filtros aplicados.</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4">No hay almacenes para los filtros aplicados.</td></tr>
                     <?php else: foreach ($almacenes as $a): ?>
                         <?php $eliminado = !empty($a['deleted_at']); ?>
                         <tr>
                             <td class="ps-4 fw-semibold text-secondary"><?php echo e((string) $a['codigo']); ?></td>
                             <td class="fw-semibold"><?php echo e((string) $a['nombre']); ?></td>
+                            
+                            <td>
+                                <span class="badge bg-light text-dark border"><?php echo e((string) ($a['tipo'] ?? 'General')); ?></span>
+                            </td>
+
                             <td class="text-muted"><?php echo e((string) ($a['descripcion'] ?? '')); ?></td>
                             <td class="text-center">
                                 <?php if ($eliminado): ?>
@@ -101,6 +116,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                             data-id="<?php echo (int) $a['id']; ?>"
                                             data-codigo="<?php echo e((string) $a['codigo']); ?>"
                                             data-nombre="<?php echo e((string) $a['nombre']); ?>"
+                                            data-tipo="<?php echo e((string) ($a['tipo'] ?? 'General')); ?>"
                                             data-descripcion="<?php echo e((string) ($a['descripcion'] ?? '')); ?>"
                                             data-estado="<?php echo (int) $a['estado']; ?>">
                                             <i class="bi bi-pencil-square fs-5"></i>
@@ -136,7 +152,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content border-0 shadow-lg" method="post" action="<?php echo e(route_url('almacenes/guardar')); ?>">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-building me-2"></i>Guardar almacén</h5>
+                <h5 class="modal-title fw-bold" id="modalTitulo"><i class="bi bi-building me-2"></i>Guardar almacén</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light">
@@ -149,6 +165,16 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <input type="text" class="form-control" name="nombre" id="almacenNombre" maxlength="120" placeholder="Nombre" required>
                     <label for="almacenNombre">Nombre</label>
                 </div>
+                
+                <div class="form-floating mb-2">
+                    <select class="form-select" name="tipo" id="almacenTipo" required>
+                        <option value="General">General</option>
+                        <option value="Soporte">Soporte</option>
+                        <option value="Planta">Planta</option>
+                    </select>
+                    <label for="almacenTipo">Tipo de Almacén</label>
+                </div>
+
                 <div class="form-floating mb-2">
                     <textarea class="form-control" name="descripcion" id="almacenDescripcion" maxlength="255" placeholder="Descripción" style="height: 90px"></textarea>
                     <label for="almacenDescripcion">Descripción</label>
@@ -171,24 +197,34 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // --- Lógica de Filtros ---
     const form = document.getElementById('filtrosAlmacenesForm');
     const buscador = document.getElementById('filtroBusquedaAlmacen');
     const estado = document.getElementById('filtroEstadoAlmacen');
-    if (!form || !buscador || !estado) return;
+    const tipoFiltro = document.getElementById('filtroTipoAlmacen'); // NUEVO
 
-    let debounceId = null;
-    buscador.addEventListener('input', function () {
-        clearTimeout(debounceId);
-        debounceId = setTimeout(function () {
+    if (form && buscador && estado) {
+        let debounceId = null;
+        buscador.addEventListener('input', function () {
+            clearTimeout(debounceId);
+            debounceId = setTimeout(function () {
+                form.submit();
+            }, 350);
+        });
+
+        estado.addEventListener('change', function () {
             form.submit();
-        }, 350);
-    });
+        });
 
-    estado.addEventListener('change', function () {
-        form.submit();
-    });
+        // NUEVO: Enviar formulario cuando cambia el tipo
+        if(tipoFiltro) {
+            tipoFiltro.addEventListener('change', function () {
+                form.submit();
+            });
+        }
+    }
 
-
+    // --- Lógica del Switch de Estado en Tabla ---
     document.querySelectorAll('.js-switch-estado-almacen').forEach(function (switchInput) {
         switchInput.addEventListener('change', function () {
             const formEstado = this.closest('form');
@@ -202,6 +238,47 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // --- NUEVO: Lógica del Modal (Cargar datos para Editar) ---
+    const modalAlmacen = document.getElementById('modalAlmacen');
+    if (modalAlmacen) {
+        modalAlmacen.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            
+            // Elementos del formulario
+            const inputId = document.getElementById('almacenId');
+            const inputCodigo = document.getElementById('almacenCodigo');
+            const inputNombre = document.getElementById('almacenNombre');
+            const inputTipo = document.getElementById('almacenTipo');
+            const inputDescripcion = document.getElementById('almacenDescripcion');
+            const inputEstado = document.getElementById('almacenEstado');
+            const modalTitulo = document.getElementById('modalTitulo');
 
+            // Si el botón tiene el atributo data-modo="nuevo", limpiamos
+            if (button.getAttribute('data-modo') === 'nuevo') {
+                modalTitulo.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nuevo almacén';
+                inputId.value = '0';
+                inputCodigo.value = '';
+                inputNombre.value = '';
+                inputTipo.value = 'General'; // Valor por defecto
+                inputDescripcion.value = '';
+                inputEstado.value = '1';
+                
+                // Opcional: Permitir editar código si es nuevo
+                inputCodigo.removeAttribute('readonly'); 
+            } else {
+                // Es modo edición, cargamos los datos
+                modalTitulo.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar almacén';
+                inputId.value = button.getAttribute('data-id');
+                inputCodigo.value = button.getAttribute('data-codigo');
+                inputNombre.value = button.getAttribute('data-nombre');
+                inputTipo.value = button.getAttribute('data-tipo'); // Cargamos el tipo
+                inputDescripcion.value = button.getAttribute('data-descripcion');
+                inputEstado.value = button.getAttribute('data-estado');
+                
+                // Opcional: Bloquear el código en edición para evitar romper relaciones
+                inputCodigo.setAttribute('readonly', true); 
+            }
+        });
+    }
 });
 </script>
