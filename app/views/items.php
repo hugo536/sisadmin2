@@ -522,7 +522,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </select>
                                     </div>
 
-                                    <div class="col-md-8">
+                                    <div class="col-md-12">
                                         <label for="editTipo" class="form-label small text-muted mb-1">Tipo de ítem <span class="text-danger">*</span></label>
                                         <select class="form-select" id="editTipo" name="tipo_item" required>
                                             <option value="producto_terminado">Producto terminado</option>
@@ -533,10 +533,11 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <option value="servicio">Servicio</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4" id="editAutoIdentidadWrap">
+                                    
+                                    <div class="col-md-4 d-none" id="editAutoIdentidadWrap">
                                         <label class="form-label fw-semibold mb-1">Automatización</label>
                                         <div class="form-check form-switch mt-2">
-                                            <input class="form-check-input" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="1" checked>
+                                            <input class="form-check-input" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="0">
                                             <label class="form-check-label small" for="editAutoIdentidad">Generar nombre y SKU automáticamente</label>
                                         </div>
                                     </div>
@@ -547,12 +548,12 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                     <div class="col-md-3">
                                         <label for="editSku" class="form-label small text-muted mb-1">SKU</label>
-                                        <input type="text" class="form-control sku-lockable" id="editSku" name="sku" readonly>
+                                        <input type="text" class="form-control sku-lockable bg-light" id="editSku" name="sku" readonly title="El SKU no puede modificarse una vez creado el ítem.">
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label for="editUnidad" class="form-label small text-muted mb-1">Unidad base <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="editUnidad" name="unidad_base" required>
+                                        <label for="editUnidadSelect" class="form-label small text-muted mb-1">Unidad base <span class="text-danger">*</span></label>
+                                        <select class="form-select bg-light" id="editUnidadSelect" disabled title="La unidad base no puede cambiarse para evitar descuadres de stock.">
                                             <option value="UND">UND</option>
                                             <option value="KG">KG</option>
                                             <option value="LT">LT</option>
@@ -560,6 +561,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <option value="CAJA">CAJA</option>
                                             <option value="PAQ">PAQ</option>
                                         </select>
+                                        <input type="hidden" id="editUnidad" name="unidad_base">
                                     </div>
 
                                     <div class="col-md-6" id="editSaborContainer">

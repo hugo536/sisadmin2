@@ -635,6 +635,7 @@
                 if (input) input.checked = false;
             });
 
+            // MODIFICADO: Se ajustó el manejo de editUnidad y editUnidadSelect
             const fields = {
                 editId: 'data-id',
                 editSku: 'data-sku',
@@ -642,7 +643,8 @@
                 editDescripcion: 'data-descripcion',
                 editTipo: 'data-tipo',
                 editMarca: 'data-marca',
-                editUnidad: 'data-unidad',
+                editUnidad: 'data-unidad',       // Actualiza el hidden
+                editUnidadSelect: 'data-unidad', // Actualiza el select visual
                 editMoneda: 'data-moneda',
                 editImpuesto: 'data-impuesto',
                 editPrecio: 'data-precio',

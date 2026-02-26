@@ -142,6 +142,9 @@ class ItemsController extends Controlador
 
                     // En edición, ignoramos el SKU que viene del formulario para no romper el Kardex
                     unset($data['sku']);
+                    
+                    // NUEVO: Ignoramos la unidad base que viene del formulario y forzamos la original de la BD
+                    $data['unidad_base'] = (string) ($actual['unidad_base'] ?? 'UND');
 
                     $this->itemsModel->actualizar($id, $data, $userId);
                     $this->itemsModel->sincronizarDependenciasConfiguracion($id, $data, $userId);
