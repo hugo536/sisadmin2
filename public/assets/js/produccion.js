@@ -9,6 +9,8 @@ if (!window.produccionJsInitialized) {
 
     document.addEventListener('DOMContentLoaded', function() {
         initFiltrosOrdenes();
+        initTooltips();
+        initAccionesTabla();
         initModalEjecucion();
         initModalPlanificacion();
     });
@@ -39,6 +41,48 @@ if (!window.produccionJsInitialized) {
         if (select) select.addEventListener('change', filterFn);
     }
 
+
+    function initTooltips() {
+        if (typeof bootstrap === 'undefined') return;
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            new bootstrap.Tooltip(el);
+        });
+    }
+
+    function initAccionesTabla() {
+        const modalEditarEl = document.getElementById('modalEditarOP');
+        const modalDetalleEl = document.getElementById('modalDetalleOP');
+        const modalEditar = (modalEditarEl && typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEditarEl) : null;
+        const modalDetalle = (modalDetalleEl && typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalDetalleEl) : null;
+
+        document.addEventListener('click', function(e) {
+            const btnEditar = e.target.closest('.js-editar-op');
+            if (btnEditar && modalEditar) {
+                document.getElementById('editIdOrden').value = btnEditar.getAttribute('data-id') || '';
+                document.getElementById('editCantPlan').value = btnEditar.getAttribute('data-cantidad') || '';
+                document.getElementById('editFechaProgramada').value = btnEditar.getAttribute('data-fecha') || '';
+                document.getElementById('editTurnoProgramado').value = btnEditar.getAttribute('data-turno') || '';
+                document.getElementById('editAlmacenPlanta').value = btnEditar.getAttribute('data-id-almacen') || '';
+                document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
+                modalEditar.show();
+                return;
+            }
+
+            const btnDetalle = e.target.closest('.js-ver-detalle');
+            if (btnDetalle && modalDetalle) {
+                const estado = btnDetalle.getAttribute('data-estado') || '-';
+                document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
+                document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
+                document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
+                document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
+                const badge = document.getElementById('detalleEstado');
+                badge.textContent = estado;
+                badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'}`;
+                modalDetalle.show();
+            }
+        });
+    }
+
     // =========================================================================
     // 2. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos)
     // =========================================================================
@@ -67,6 +111,35 @@ if (!window.produccionJsInitialized) {
                 
                 tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><i class="bi bi-arrow-repeat spin"></i> Buscando stock en almacenes...</td></tr>';
                 tbodyIngresos.innerHTML = '';
+
+                const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
+                const precheckMsg = btnAbrir.getAttribute('data-precheck-msg') || 'Falta stock en planta para ejecutar.';
+
+                if (!precheckOk && typeof Swal !== 'undefined') {
+                    const confirmacion = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención: pre-chequeo en rojo',
+                        text: `${precheckMsg}. ¿Desea continuar bajo su responsabilidad?`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, continuar',
+                        cancelButtonText: 'Cancelar'
+                    });
+                    if (!confirmacion.isConfirmed) return;
+                }
+
+                try {
+                    const formInicio = new FormData();
+                    formInicio.append('accion', 'iniciar_ejecucion_ajax');
+                    formInicio.append('id_orden', idOrden);
+                    const inicioResponse = await fetch(window.location.href, { method: 'POST', body: formInicio });
+                    const inicioJson = await inicioResponse.json();
+                    if (!inicioJson.success) throw new Error(inicioJson.message || 'No se pudo iniciar la ejecución');
+                } catch (errorInicio) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: errorInicio.message || 'No se pudo iniciar la ejecución.' });
+                    }
+                    return;
+                }
 
                 if (!modalEjecutar) modalEjecutar = new bootstrap.Modal(modalEl);
                 modalEjecutar.show();

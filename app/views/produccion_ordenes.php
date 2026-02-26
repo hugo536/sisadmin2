@@ -62,10 +62,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre'] . ' ' . (string) ($orden['almacen_planta_nombre'] ?? '')); ?>" 
                                 data-estado="<?php echo $estado; ?>">
                                 
-                                <td class="ps-4 fw-bold text-primary"><?php echo e((string) $orden['codigo']); ?></td>
+                                <td class="ps-4 fw-bold text-primary <?php echo $estado === 9 ? "text-decoration-line-through" : ""; ?>"><?php echo e((string) $orden['codigo']); ?></td>
                                 
                                 <td>
-                                    <div class="fw-bold text-dark"><?php echo e((string) $orden['producto_nombre']); ?></div>
+                                    <div class="fw-bold text-dark <?php echo $estado === 9 ? "text-decoration-line-through" : ""; ?>"><?php echo e((string) $orden['producto_nombre']); ?></div>
                                     <div class="small text-muted"><i class="bi bi-receipt me-1"></i><?php echo e((string) $orden['receta_codigo']); ?></div>
                                     <?php if (!empty($orden['justificacion_ajuste'])): ?>
                                         <div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Con ajuste de stock</div>
@@ -103,23 +103,68 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                                 
                                 <td class="text-end pe-4">
-                                    <?php if (in_array($estado, [0, 1], true)): ?>
-                                        <button class="btn btn-sm btn-outline-success js-abrir-ejecucion"
+                                    <?php if ($estado === 0): ?>
+                                        <?php $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1; ?>
+                                        <button type="button"
+                                                class="btn btn-sm <?php echo $precheckOk ? 'btn-outline-success' : 'btn-outline-danger'; ?>"
+                                                title="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top">
+                                            <i class="bi <?php echo $precheckOk ? 'bi-check-circle-fill' : 'bi-exclamation-octagon-fill'; ?>"></i>
+                                        </button>
+
+                                        <a href="<?php echo e((string) route_url('inventario')); ?>"
+                                           class="btn btn-sm btn-outline-primary ms-1"
+                                           title="Ir a Transferencia de Inventario"
+                                           data-bs-toggle="tooltip"
+                                           data-bs-placement="top">
+                                            <i class="bi bi-arrow-left-right"></i>
+                                        </a>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary ms-1 js-editar-op"
+                                                data-id="<?php echo (int) $orden['id']; ?>"
+                                                data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
+                                                data-turno="<?php echo e((string) ($orden['turno_programado'] ?? '')); ?>"
+                                                data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
+                                                data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
+                                                title="Editar borrador">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-success ms-1 js-abrir-ejecucion"
                                                 data-id="<?php echo (int) $orden['id']; ?>"
                                                 data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                 data-receta="<?php echo (int) $orden['id_receta']; ?>"
                                                 data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
+                                                data-precheck-msg="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
                                                 title="Ejecutar Producción">
-                                            <i class="bi bi-play-fill"></i> Ejecutar
+                                            <i class="bi bi-play-fill"></i>
                                         </button>
-                                        
-                                        <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Anular orden?" data-confirm-text="El estado cambiará a Anulado y no se podrá revertir.">
-                                            <input type="hidden" name="accion" value="anular_orden">
+
+                                        <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden mediante eliminado lógico (soft delete).">
+                                            <input type="hidden" name="accion" value="eliminar_borrador">
                                             <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Anular">
-                                                <i class="bi bi-x-circle"></i>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Eliminar borrador">
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                         </form>
+                                    <?php elseif (in_array($estado, [2, 9], true)): ?>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary js-ver-detalle"
+                                                data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                data-estado="<?php echo $estado === 2 ? 'Ejecutada' : 'Anulada'; ?>"
+                                                data-producto="<?php echo e((string) $orden['producto_nombre']); ?>"
+                                                data-plan="<?php echo number_format((float) $orden['cantidad_planificada'], 4); ?>"
+                                                data-real="<?php echo number_format((float) $orden['cantidad_producida'], 4); ?>"
+                                                title="Ver detalle">
+                                            <i class="bi bi-search"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-light text-secondary border-0 ms-1" disabled title="Bloqueada">
+                                            <i class="bi bi-lock"></i>
+                                        </button>
                                     <?php else: ?>
                                         <button class="btn btn-sm btn-light text-secondary border-0" disabled><i class="bi bi-lock"></i></button>
                                     <?php endif; ?>
@@ -225,6 +270,90 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Borrador</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalEditarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Borrador OP</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" class="modal-body p-4 bg-light" id="formEditarOP">
+                <input type="hidden" name="accion" value="editar_orden">
+                <input type="hidden" name="id_orden" id="editIdOrden">
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="editCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad Planificada <span class="text-danger fs-6">*</span></label>
+                        <input name="cantidad_planificada" id="editCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control border-primary">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="editFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger fs-6">*</span></label>
+                        <input type="date" name="fecha_programada" id="editFechaProgramada" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="editTurnoProgramado" class="form-label small text-muted fw-bold mb-1">Turno Programado <span class="text-danger fs-6">*</span></label>
+                        <select name="turno_programado" id="editTurnoProgramado" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Mañana">Mañana</option>
+                            <option value="Tarde">Tarde</option>
+                            <option value="Noche">Noche</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="editAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Almacén Planta <span class="text-danger fs-6">*</span></label>
+                        <select name="id_almacen_planta" id="editAlmacenPlanta" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach ($almacenesPlanta as $a): ?>
+                                <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label for="editObsOP" class="form-label small text-muted fw-bold mb-1">Observaciones / Lote Estimado</label>
+                        <input name="observaciones" id="editObsOP" class="form-control" placeholder="Opcional">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end pt-4">
+                    <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleOP" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-search me-2"></i>Detalle OP</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="small text-muted mb-2">Código</div>
+                <div id="detalleCodigo" class="fw-bold mb-3">-</div>
+                <div class="small text-muted mb-2">Producto</div>
+                <div id="detalleProducto" class="fw-bold mb-3">-</div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="small text-muted">Planificado</div>
+                        <div id="detallePlan" class="fw-bold">0.0000</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="small text-muted">Producido</div>
+                        <div id="detalleReal" class="fw-bold">0.0000</div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="detalleEstado" class="badge bg-secondary">-</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -339,4 +468,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.3"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.4"></script>

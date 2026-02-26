@@ -268,7 +268,7 @@ class ProduccionController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
-            $esAjaxReceta = ($accion === 'obtener_receta_ajax');
+            $esAjaxReceta = in_array($accion, ['obtener_receta_ajax', 'iniciar_ejecucion_ajax'], true);
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
@@ -304,6 +304,20 @@ class ProduccionController extends Controlador
                     exit;
                 }
 
+                if ($accion === 'iniciar_ejecucion_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    if ($idOrden <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
+                        exit;
+                    }
+
+                    $this->produccionModel->marcarOrdenEnProceso($idOrden, $userId);
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
+
                 if ($accion === 'crear_orden') {
                     $this->produccionModel->crearOrden([
                         'codigo'             => (string) ($_POST['codigo'] ?? ''),
@@ -316,6 +330,31 @@ class ProduccionController extends Controlador
                     ], $userId);
 
                     $this->setFlash('success', 'Orden de producción planificada correctamente.');
+                    header('Location: ' . route_url('produccion/ordenes'));
+                    exit;
+                }
+
+                if ($accion === 'editar_orden') {
+                    $this->produccionModel->actualizarOrdenBorrador(
+                        (int) ($_POST['id_orden'] ?? 0),
+                        [
+                            'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
+                            'fecha_programada' => (string) ($_POST['fecha_programada'] ?? ''),
+                            'turno_programado' => (string) ($_POST['turno_programado'] ?? ''),
+                            'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
+                            'observaciones' => (string) ($_POST['observaciones'] ?? ''),
+                        ],
+                        $userId
+                    );
+
+                    $this->setFlash('success', 'Orden borrador actualizada correctamente.');
+                    header('Location: ' . route_url('produccion/ordenes'));
+                    exit;
+                }
+
+                if ($accion === 'eliminar_borrador') {
+                    $this->produccionModel->eliminarOrdenBorrador((int) ($_POST['id_orden'] ?? 0), $userId);
+                    $this->setFlash('success', 'Orden borrador eliminada correctamente.');
                     header('Location: ' . route_url('produccion/ordenes'));
                     exit;
                 }
