@@ -41,6 +41,15 @@ class Router
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
 
+        // Rutas específicas que viven en un controlador dedicado dentro del módulo items
+        if ($modulo === 'items' && $accion === 'perfil') {
+            $controlador_clase = 'ItemPerfilController';
+            $accion = $partes[2] ?? 'index';
+            if ($accion === '') {
+                $accion = 'index';
+            }
+        }
+
         // Búsqueda del archivo
         $archivo = $this->resolver_controlador_archivo($controlador_clase);
         
