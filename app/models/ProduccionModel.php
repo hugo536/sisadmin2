@@ -43,7 +43,8 @@ class ProduccionModel extends Modelo
     public function listarOrdenes(): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
-                       o.estado, o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
+                       o.estado, o.fecha_programada, o.turno_programado,
+                       o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre
                 FROM produccion_ordenes o
@@ -488,22 +489,35 @@ class ProduccionModel extends Modelo
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $idReceta = (int) ($payload['id_receta'] ?? 0);
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
+        $fechaProgramada = trim((string) ($payload['fecha_programada'] ?? ''));
+        $turnoProgramado = trim((string) ($payload['turno_programado'] ?? ''));
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
-        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0) {
+        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '') {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
+        if (DateTime::createFromFormat('Y-m-d', $fechaProgramada) === false) {
+            throw new RuntimeException('La fecha programada no tiene un formato válido.');
+        }
+
+        $turnosPermitidos = ['Mañana', 'Tarde', 'Noche'];
+        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
+            throw new RuntimeException('El turno programado no es válido.');
+        }
+
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, cantidad_planificada, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, cantidad_planificada, fecha_programada, turno_programado, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :cantidad_planificada, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :cantidad_planificada, :fecha_programada, :turno_programado, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
+            'fecha_programada' => $fechaProgramada !== '' ? $fechaProgramada : null,
+            'turno_programado' => $turnoProgramado !== '' ? $turnoProgramado : null,
             'created_by' => $userId,
             'updated_by' => $userId,
             'observaciones' => $observaciones !== '' ? $observaciones : null,

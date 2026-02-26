@@ -74,6 +74,12 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <td>
                                     <div class="d-flex flex-column">
                                         <span class="badge bg-light text-dark border mb-1">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
+                                        <?php if (!empty($orden['fecha_programada'])): ?>
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle mb-1">Fecha: <?php echo e((string) $orden['fecha_programada']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($orden['turno_programado'])): ?>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">Turno: <?php echo e((string) $orden['turno_programado']); ?></span>
+                                        <?php endif; ?>
                                         <?php if ((float) $orden['cantidad_producida'] > 0): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle">Real: <?php echo number_format((float) $orden['cantidad_producida'], 4); ?></span>
                                         <?php endif; ?>
@@ -168,7 +174,26 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control border-primary" placeholder="Ej: 100">
                             </div>
                             
-                            <div class="col-md-8">
+                            <div class="col-md-4">
+                                <label for="newFechaProgramada" class="form-label small text-muted fw-bold mb-1">
+                                    Fecha Programada <span class="text-danger fs-6">*</span>
+                                </label>
+                                <input type="date" name="fecha_programada" id="newFechaProgramada" class="form-control" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="newTurnoProgramado" class="form-label small text-muted fw-bold mb-1">
+                                    Turno Programado <span class="text-danger fs-6">*</span>
+                                </label>
+                                <select name="turno_programado" id="newTurnoProgramado" class="form-select" required>
+                                    <option value="">Seleccione...</option>
+                                    <option value="Mañana">Mañana</option>
+                                    <option value="Tarde">Tarde</option>
+                                    <option value="Noche">Noche</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
                                 <label for="newObsOP" class="form-label small text-muted fw-bold mb-1">
                                     Observaciones / Lote Estimado
                                 </label>
