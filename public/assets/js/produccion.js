@@ -1,7 +1,7 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
- * Archivo actualizado para manejo multi-almacén, división de filas, semáforos
- * y auto-generación de Código OP.
+ * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
+ * auto-generación de Código OP y UX de Acordeones (Master-Detail).
  */
 
 if (!window.produccionJsInitialized) {
@@ -28,19 +28,36 @@ if (!window.produccionJsInitialized) {
         const filterFn = () => {
             const term = input.value.toLowerCase();
             const estado = select ? select.value : '';
-            const rows = table.querySelectorAll('tbody tr');
+            
+            // Solo seleccionamos las filas principales (las que tienen data-estado)
+            const mainRows = table.querySelectorAll('tbody tr[data-estado]');
 
-            rows.forEach(row => {
+            mainRows.forEach(row => {
                 const matchText = (row.getAttribute('data-search') || '').toLowerCase().includes(term);
                 const matchEstado = estado === '' || (row.getAttribute('data-estado') || '') === estado;
-                row.style.display = (matchText && matchEstado) ? '' : 'none';
+                const isVisible = matchText && matchEstado;
+
+                // Mostramos u ocultamos la fila principal
+                row.style.display = isVisible ? '' : 'none';
+
+                // Manejo de la fila hija (Acordeón de Faltantes)
+                const nextRow = row.nextElementSibling;
+                if (nextRow && nextRow.classList.contains('collapse-faltantes')) {
+                    if (!isVisible) {
+                        // Si se oculta el padre, ocultamos el hijo y lo colapsamos por seguridad
+                        nextRow.style.display = 'none';
+                        nextRow.classList.remove('show');
+                    } else {
+                        // Si se muestra el padre, le devolvemos el control a Bootstrap
+                        nextRow.style.display = '';
+                    }
+                }
             });
         };
 
-        input.addEventListener('keyup', filterFn);
+        input.addEventListener('input', filterFn); // Detecta escritura y borrado rápido
         if (select) select.addEventListener('change', filterFn);
     }
-
 
     function initTooltips() {
         if (typeof bootstrap === 'undefined') return;
@@ -49,6 +66,9 @@ if (!window.produccionJsInitialized) {
         });
     }
 
+    // =========================================================================
+    // 2. ACCIONES DE TABLA Y UX DE ACORDEONES
+    // =========================================================================
     function initAccionesTabla() {
         const modalEditarEl = document.getElementById('modalEditarOP');
         const modalDetalleEl = document.getElementById('modalDetalleOP');
@@ -81,10 +101,38 @@ if (!window.produccionJsInitialized) {
                 modalDetalle.show();
             }
         });
+
+        // --- LÓGICA DE UX PARA LOS ACORDEONES DE FALTANTES ---
+        const tablaOrdenes = document.getElementById('tablaOrdenes');
+        
+        if (tablaOrdenes) {
+            // 1. Que al abrir uno, se cierren los demás
+            tablaOrdenes.addEventListener('show.bs.collapse', function (e) {
+                const abiertos = tablaOrdenes.querySelectorAll('.collapse-faltantes.show');
+                abiertos.forEach(abierto => {
+                    if (abierto !== e.target && typeof bootstrap !== 'undefined') {
+                        const bsCollapse = bootstrap.Collapse.getInstance(abierto);
+                        if (bsCollapse) bsCollapse.hide();
+                    }
+                });
+            });
+        }
+
+        // 2. Que al hacer clic fuera de la tabla, se cierre el acordeón abierto
+        document.addEventListener('click', function(e) {
+            const isClickInsideTable = e.target.closest('#tablaOrdenes');
+            if (!isClickInsideTable) {
+                const acordeonAbierto = document.querySelector('.collapse-faltantes.show');
+                if (acordeonAbierto && typeof bootstrap !== 'undefined') {
+                    const bsCollapse = bootstrap.Collapse.getInstance(acordeonAbierto);
+                    if (bsCollapse) bsCollapse.hide();
+                }
+            }
+        });
     }
 
     // =========================================================================
-    // 2. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos)
+    // 3. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos)
     // =========================================================================
     function initModalEjecucion() {
         const modalEl = document.getElementById('modalEjecutarOP');
@@ -120,7 +168,7 @@ if (!window.produccionJsInitialized) {
                         icon: 'warning',
                         title: 'Insumos insuficientes en Planta',
                         text: 'Insumos insuficientes en Planta. La ejecución podría generar stock negativo en la ubicación actual. ¿Desea continuar?',
-                        footer: precheckMsg,
+                        footer: 'Revisa el detalle de faltantes en la tabla antes de continuar.',
                         showCancelButton: true,
                         confirmButtonText: 'Sí, continuar',
                         cancelButtonText: 'Cancelar'
@@ -235,7 +283,7 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 3. GENERADORES DE INTERFAZ
+    // 4. GENERADORES DE INTERFAZ
     // =========================================================================
 
     function addConsumoRow(item = null) {
@@ -343,7 +391,7 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 4. LÓGICA DE SEMÁFOROS (Tráfico Light)
+    // 5. LÓGICA DE SEMÁFOROS (Tráfico Light)
     // =========================================================================
     function recalcularSemaforos() {
         const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
@@ -415,14 +463,14 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 5. MODAL DE PLANIFICACIÓN (Generador de Código OP)
+    // 6. MODAL DE PLANIFICACIÓN (Generador de Código OP)
     // =========================================================================
     function initModalPlanificacion() {
-        const modalPlanificar = document.getElementById('modalPlanificarOP'); // Verifica este ID en tu HTML
+        const modalPlanificar = document.getElementById('modalPlanificarOP'); 
         if (!modalPlanificar) return;
 
         modalPlanificar.addEventListener('show.bs.modal', function () {
-            const inputCodigo = document.getElementById('newCodigoOP'); // Verifica este ID en tu HTML
+            const inputCodigo = document.getElementById('newCodigoOP'); 
             const now = new Date();
             const yy = String(now.getFullYear()).slice(-2);
             const mm = String(now.getMonth() + 1).padStart(2, '0');

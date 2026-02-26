@@ -5,6 +5,13 @@ $almacenes = $almacenes ?? [];
 $almacenesPlanta = $almacenes_planta ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
+<style>
+    /* Elimina el delay y la animación de deslizamiento en los detalles de la OP */
+    tr.collapse-faltantes.collapsing {
+        transition: none !important;
+        animation: none !important;
+    }
+</style>
 <div class="container-fluid p-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -52,13 +59,18 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             <th class="ps-4">Código OP</th>
                             <th>Producto / Receta</th>
                             <th>Planificado / Real</th>
-                            <th class="text-center">Estado</th>
+                            <th class="text-center">Stock</th> <th class="text-center">Estado</th>
                             <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($ordenes as $orden): ?>
-                            <?php $estado = (int) ($orden['estado'] ?? 0); ?>
+                            <?php 
+                                $estado = (int) ($orden['estado'] ?? 0); 
+                                $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1;
+                                $precheckResumen = (string) ($orden['precheck_resumen'] ?? 'Sin información de faltantes');
+                            ?>
+                            
                             <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre'] . ' ' . (string) ($orden['almacen_planta_nombre'] ?? '')); ?>" 
                                 data-estado="<?php echo $estado; ?>">
                                 
@@ -73,7 +85,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                                 
                                 <td>
-                                    <div class="d-flex flex-column">
+                                    <div class="d-flex flex-column align-items-start">
                                         <span class="badge bg-light text-dark border mb-1">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
                                         <?php if (!empty($orden['fecha_programada'])): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle mb-1">Fecha: <?php echo e((string) $orden['fecha_programada']); ?></span>
@@ -91,14 +103,29 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                                 
                                 <td class="text-center">
+                                    <?php if ($estado === 0): // Solo evaluamos stock si está en Borrador ?>
+                                        <?php if ($precheckOk): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Completo
+                                            </span>
+                                        <?php else: ?>
+                                            <div class="d-inline-flex align-items-center">
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Faltantes
+                                                </span>
+                                                <button class="btn btn-sm btn-light rounded-circle border ms-2 text-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#faltantes-<?php echo $orden['id']; ?>" aria-expanded="false" title="Ver detalles">
+                                                    <i class="bi bi-chevron-down"></i>
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="text-muted small">-</span>
+                                    <?php endif; ?>
+                                </td>
+
+                                <td class="text-center">
                                     <?php if ($estado === 0): ?>
-                                        <?php $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1; ?>
-                                        <?php $precheckResumen = (string) ($orden['precheck_resumen'] ?? 'Sin información de pre-chequeo'); ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill d-inline-flex align-items-center gap-2"
-                                              data-bs-toggle="tooltip"
-                                              data-bs-placement="top"
-                                              title="<?php echo e($precheckResumen); ?>">
-                                            <span class="op-stock-dot <?php echo $precheckOk ? 'is-ok' : 'is-danger'; ?>" aria-hidden="true"></span>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">
                                             Borrador
                                         </span>
                                     <?php elseif ($estado === 1): ?>
@@ -137,13 +164,13 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                                                 <button type="button"
                                                         class="btn btn-warning text-dark js-editar-op"
-                                                data-id="<?php echo (int) $orden['id']; ?>"
-                                                data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
-                                                data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
-                                                data-turno="<?php echo e((string) ($orden['turno_programado'] ?? '')); ?>"
-                                                data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
-                                                data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
-                                                title="Editar borrador">
+                                                        data-id="<?php echo (int) $orden['id']; ?>"
+                                                        data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                        data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
+                                                        data-turno="<?php echo e((string) ($orden['turno_programado'] ?? '')); ?>"
+                                                        data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
+                                                        data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
+                                                        title="Editar borrador">
                                                     <i class="bi bi-pencil"></i>
                                                     <span class="d-none d-xl-inline ms-1">Editar</span>
                                                 </button>
@@ -176,6 +203,42 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <?php endif; ?>
                                 </td>
                             </tr>
+
+                            <?php if ($estado === 0 && !$precheckOk): ?>
+                            <tr class="collapse collapse-faltantes bg-light" id="faltantes-<?php echo $orden['id']; ?>">
+                                <td colspan="6" class="p-0 border-bottom">
+                                    <div class="p-3 border-start border-4 border-warning m-2 bg-white shadow-sm rounded">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-3 mt-1"></i>
+                                            <div class="w-100">
+                                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 border-bottom pb-2">
+                                                    <strong class="text-dark fs-6">Insumos a aprovisionar</strong>
+                                                    <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6 fw-normal">
+                                                        <i class="bi bi-building me-1"></i> Destino: <strong><?php echo e((string) ($orden['almacen_planta_nombre'] ?? 'Planta no asignada')); ?></strong>
+                                                    </span>
+                                                </div>
+                                                <div class="small text-muted">
+                                                    <?php 
+                                                        $textoLimpio = str_replace('Faltantes: ', '', $precheckResumen);
+                                                        $listaFaltantes = explode(';', $textoLimpio);
+                                                    ?>
+                                                    <ul class="list-unstyled mb-0 ms-1 row">
+                                                        <?php foreach ($listaFaltantes as $itemFaltante): ?>
+                                                            <?php if (trim($itemFaltante) !== ''): ?>
+                                                                <li class="col-md-6 mb-1 py-1 border-bottom border-light">
+                                                                    <i class="bi bi-box-seam text-secondary me-2"></i>
+                                                                    <span class="text-dark fw-medium"><?php echo e(trim($itemFaltante)); ?></span>
+                                                                </li>
+                                                            <?php endif; ?>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
