@@ -45,11 +45,13 @@ class ProduccionModel extends Modelo
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
                        o.estado, o.fecha_programada, o.turno_programado,
                        o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
+                       o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
+                LEFT JOIN almacenes ap ON ap.id = o.id_almacen_planta
                 WHERE o.deleted_at IS NULL
                 ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
 
@@ -130,6 +132,24 @@ class ProduccionModel extends Modelo
                 ORDER BY nombre ASC';
 
         $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarAlmacenesActivosPorTipo(string $tipo): array
+    {
+        $tipo = trim($tipo);
+        if ($tipo === '') {
+            return [];
+        }
+
+        $stmt = $this->db()->prepare('SELECT id, nombre
+                                      FROM almacenes
+                                      WHERE estado = 1
+                                        AND deleted_at IS NULL
+                                        AND tipo = :tipo
+                                      ORDER BY nombre ASC');
+        $stmt->execute(['tipo' => $tipo]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -492,8 +512,9 @@ class ProduccionModel extends Modelo
         $fechaProgramada = trim((string) ($payload['fecha_programada'] ?? ''));
         $turnoProgramado = trim((string) ($payload['turno_programado'] ?? ''));
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
+        $idAlmacenPlanta = (int) ($payload['id_almacen_planta'] ?? 0);
 
-        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '') {
+        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '' || $idAlmacenPlanta <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
@@ -506,15 +527,30 @@ class ProduccionModel extends Modelo
             throw new RuntimeException('El turno programado no es válido.');
         }
 
+        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
+                                                   FROM almacenes
+                                                   WHERE id = :id
+                                                     AND estado = 1
+                                                     AND deleted_at IS NULL
+                                                     AND tipo = :tipo');
+        $stmtAlmacenPlanta->execute([
+            'id' => $idAlmacenPlanta,
+            'tipo' => 'Planta',
+        ]);
+        if ((int) $stmtAlmacenPlanta->fetchColumn() <= 0) {
+            throw new RuntimeException('El almacén de planta seleccionado no es válido.');
+        }
+
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, cantidad_planificada, fecha_programada, turno_programado, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, id_almacen_planta, cantidad_planificada, fecha_programada, turno_programado, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :cantidad_planificada, :fecha_programada, :turno_programado, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :id_almacen_planta, :cantidad_planificada, :fecha_programada, :turno_programado, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
+            'id_almacen_planta' => $idAlmacenPlanta,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada !== '' ? $fechaProgramada : null,
             'turno_programado' => $turnoProgramado !== '' ? $turnoProgramado : null,

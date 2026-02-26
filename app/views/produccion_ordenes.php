@@ -2,6 +2,7 @@
 $ordenes = $ordenes ?? [];
 $recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
+$almacenesPlanta = $almacenes_planta ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <div class="container-fluid p-4">
@@ -58,7 +59,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <tbody>
                         <?php foreach ($ordenes as $orden): ?>
                             <?php $estado = (int) ($orden['estado'] ?? 0); ?>
-                            <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre']); ?>" 
+                            <tr data-search="<?php echo mb_strtolower($orden['codigo'] . ' ' . $orden['producto_nombre'] . ' ' . (string) ($orden['almacen_planta_nombre'] ?? '')); ?>" 
                                 data-estado="<?php echo $estado; ?>">
                                 
                                 <td class="ps-4 fw-bold text-primary"><?php echo e((string) $orden['codigo']); ?></td>
@@ -79,6 +80,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php endif; ?>
                                         <?php if (!empty($orden['turno_programado'])): ?>
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">Turno: <?php echo e((string) $orden['turno_programado']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($orden['almacen_planta_nombre'])): ?>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mb-1">Planta: <?php echo e((string) $orden['almacen_planta_nombre']); ?></span>
                                         <?php endif; ?>
                                         <?php if ((float) $orden['cantidad_producida'] > 0): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle">Real: <?php echo number_format((float) $orden['cantidad_producida'], 4); ?></span>
@@ -194,6 +198,18 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             </div>
 
                             <div class="col-md-4">
+                                <label for="newAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">
+                                    Almacén Planta <span class="text-danger fs-6">*</span>
+                                </label>
+                                <select name="id_almacen_planta" id="newAlmacenPlanta" class="form-select" required>
+                                    <option value="">Seleccione...</option>
+                                    <?php foreach ($almacenesPlanta as $a): ?>
+                                        <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="col-md-8">
                                 <label for="newObsOP" class="form-label small text-muted fw-bold mb-1">
                                     Observaciones / Lote Estimado
                                 </label>
