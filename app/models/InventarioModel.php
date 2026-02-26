@@ -788,14 +788,15 @@ class InventarioModel extends Modelo
     private function consumirStockAtomico(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
     {
         $sql = 'UPDATE inventario_stock
-                SET stock_actual = stock_actual - :cantidad
+                SET stock_actual = stock_actual - :cantidad_resta
                 WHERE id_item = :id_item
                   AND id_almacen = :id_almacen
-                  AND stock_actual >= :cantidad';
+                  AND stock_actual >= :cantidad_minima';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
-            'cantidad' => $cantidad,
+            'cantidad_resta' => $cantidad,
+            'cantidad_minima' => $cantidad,
             'id_item' => $idItem,
             'id_almacen' => $idAlmacen,
         ]);
@@ -808,14 +809,15 @@ class InventarioModel extends Modelo
     private function consumirStockPackAtomico(PDO $db, int $idPack, int $idAlmacen, float $cantidad): void
     {
         $sql = 'UPDATE inventario_stock
-                SET stock_actual = stock_actual - :cantidad
+                SET stock_actual = stock_actual - :cantidad_resta
                 WHERE id_pack = :id_pack
                   AND id_almacen = :id_almacen
-                  AND stock_actual >= :cantidad';
+                  AND stock_actual >= :cantidad_minima';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
-            'cantidad' => $cantidad,
+            'cantidad_resta' => $cantidad,
+            'cantidad_minima' => $cantidad,
             'id_pack' => $idPack,
             'id_almacen' => $idAlmacen,
         ]);
@@ -1012,15 +1014,16 @@ class InventarioModel extends Modelo
         }
 
         $sql = 'UPDATE inventario_lotes
-                SET stock_lote = stock_lote - :cantidad
+                SET stock_lote = stock_lote - :cantidad_resta
                 WHERE id_item = :id_item
                   AND id_almacen = :id_almacen
                   AND lote = :lote
-                  AND stock_lote >= :cantidad';
+                  AND stock_lote >= :cantidad_minima';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
-            'cantidad' => $cantidad,
+            'cantidad_resta' => $cantidad,
+            'cantidad_minima' => $cantidad,
             'id_item' => $idItem,
             'id_almacen' => $idAlmacen,
             'lote' => $lote,
