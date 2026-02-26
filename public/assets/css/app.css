@@ -285,6 +285,36 @@ tr[data-estado="0"] .avatar-circle {
   color: var(--secondary-color) !important;
 }
 
+.op-stock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+}
+
+.op-stock-dot.is-ok {
+  background-color: #16a34a;
+}
+
+.op-stock-dot.is-danger {
+  background-color: #dc2626;
+}
+
+.btn-aprovisionar-alert {
+  animation: aprovisionarPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes aprovisionarPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(13, 202, 240, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.35);
+  }
+}
+
 /* ==========================================================================
    TABLAS RESPONSIVE – MODO CARD (ENTERPRISE)
    Breakpoint único alineado con Bootstrap: <= 991.98px
