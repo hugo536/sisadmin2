@@ -33,7 +33,10 @@ class Router
             'LoginController'         => 'AuthController', // alias -> real
             'ConfiguracionController' => 'EmpresaController',
             'ConfigController'        => 'EmpresaController',
-            'Cajas_bancosController'  => 'CajasBancosController'
+            'Cajas_bancosController'  => 'CajasBancosController',
+            'ItemsController'         => 'ItemController',
+            'CategoriasController'    => 'CategoriaController',
+            'AtributosController'     => 'AtributoController'
         ];
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
@@ -77,6 +80,7 @@ class Router
         // Rutas posibles (inglés/español por si acaso)
         $rutas_posibles = [
             BASE_PATH . '/app/controllers/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/items/' . $clase . '.php',
             BASE_PATH . '/app/controllers/configuracion/' . $clase . '.php',
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];

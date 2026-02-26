@@ -2,15 +2,15 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ItemsModel.php';
+require_once BASE_PATH . '/app/models/items/ItemModel.php';
 
-class ItemsController extends Controlador
+class ItemController extends Controlador
 {
-    private ItemsModel $itemsModel;
+    private ItemModel $itemsModel;
 
     public function __construct()
     {
-        $this->itemsModel = new ItemsModel(); 
+        $this->itemsModel = new ItemModel(); 
     }
 
     public function index(): void
@@ -401,7 +401,7 @@ class ItemsController extends Controlador
             }
         }
 
-        $this->render('items', [
+        $this->render('items/index', [
             // YA NO CARGAMOS LOS ITEMS AQUÍ: 'items' => $this->itemsModel->listar(),
             'rubros' => $this->itemsModel->listarRubrosActivos(),
             'rubros_gestion' => $this->itemsModel->listarRubros(),
@@ -415,7 +415,8 @@ class ItemsController extends Controlador
             'presentaciones_gestion' => $this->itemsModel->listarPresentaciones(),
             'unidades_conversion' => $this->itemsModel->listarUnidadesConversion(),
             'flash' => $flash,
-            'ruta_actual' => 'items', 
+            'ruta_actual' => 'items',
+            'csrf_token' => $csrfToken,
         ]);
     }
 

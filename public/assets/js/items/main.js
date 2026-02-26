@@ -1538,3 +1538,6 @@ const imgHtml = item.imagen_principal
         initEstadoSwitches();
     });
 })();
+if (window.ItemsCategoriasRubros?.init) window.ItemsCategoriasRubros.init();
+if (window.ItemsAtributos?.init) window.ItemsAtributos.init();
+if (window.ItemsUnidadesConversion?.init) window.ItemsUnidadesConversion.init();
