@@ -460,6 +460,13 @@ class InventarioModel extends Modelo
             $referenciaFinal = $referenciaFinal !== '' ? "$prefix | $referenciaFinal" : $prefix;
         }
 
+        $operacionUuid = trim((string) ($datos['operacion_uuid'] ?? ''));
+        if ($operacionUuid !== '') {
+            $referenciaFinal = $referenciaFinal !== ''
+                ? ('OP:' . $operacionUuid . ' | ' . $referenciaFinal)
+                : ('OP:' . $operacionUuid);
+        }
+
         // 4. TRANSACCIÓN PRINCIPAL
         $iniciaTransaccion = !$db->inTransaction();
         if ($iniciaTransaccion) $db->beginTransaction();
@@ -488,13 +495,11 @@ class InventarioModel extends Modelo
 
             // B. Actualizar Stocks según el sentido del movimiento
             if ($esSalida || $esTransferencia) {
-                // RESTAR DE ORIGEN
+                // RESTAR DE ORIGEN (atómico para evitar condiciones de carrera)
                 if ($esPack) {
-                    $this->validarStockDisponiblePack($db, $idRegistro, $idAlmacenOrigen, $cantidad);
-                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                    $this->consumirStockPackAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                 } else {
-                    $this->validarStockDisponible($db, $idRegistro, $idAlmacenOrigen, $cantidad);
-                    $this->ajustarStock($db, $idRegistro, $idAlmacenOrigen, -$cantidad);
+                    $this->consumirStockAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                     if ($requiereLote || $lote !== '') {
                         $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
                     }
@@ -530,6 +535,127 @@ class InventarioModel extends Modelo
             throw $e;
         }
     }
+
+    public function registrarMovimientoLote(array $cabecera, array $lineas, bool $atomico = true): array
+    {
+        $tipo = trim((string) ($cabecera['tipo_movimiento'] ?? ''));
+        $idAlmacen = (int) ($cabecera['id_almacen'] ?? 0);
+        $idAlmacenDestino = (int) ($cabecera['id_almacen_destino'] ?? 0);
+        $referencia = trim((string) ($cabecera['referencia'] ?? ''));
+        $motivo = trim((string) ($cabecera['motivo'] ?? ''));
+        $createdBy = (int) ($cabecera['created_by'] ?? 0);
+
+        if ($createdBy <= 0) {
+            throw new InvalidArgumentException('Usuario inválido para registrar movimientos masivos.');
+        }
+
+        if (empty($lineas)) {
+            throw new InvalidArgumentException('No se recibieron líneas para registrar.');
+        }
+
+        if (count($lineas) > 100) {
+            throw new InvalidArgumentException('Solo se permiten hasta 100 líneas por operación.');
+        }
+
+        if (in_array($tipo, ['AJ+', 'AJ-', 'CON'], true) && $motivo === '') {
+            throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
+        }
+
+        if (in_array($tipo, ['AJ+', 'AJ-', 'INI'], true) && $referencia === '') {
+            throw new InvalidArgumentException('La referencia es obligatoria para este tipo de movimiento.');
+        }
+
+        if ($motivo !== '') {
+            $referencia = $referencia !== '' ? ('Motivo: ' . $motivo . ' | ' . $referencia) : ('Motivo: ' . $motivo);
+        }
+
+        $operacionUuid = bin2hex(random_bytes(16));
+        $db = $this->db();
+        $ids = [];
+        $errores = [];
+
+        $iniciaTransaccion = !$db->inTransaction();
+        if ($iniciaTransaccion) {
+            $db->beginTransaction();
+        }
+
+        try {
+            foreach ($lineas as $idx => $linea) {
+                if (!is_array($linea)) {
+                    throw new InvalidArgumentException('La línea ' . ($idx + 1) . ' no tiene formato válido.');
+                }
+
+                $tipoRegistro = trim((string) ($linea['tipo_registro'] ?? 'item'));
+                if (!in_array($tipoRegistro, ['item', 'pack'], true)) {
+                    $tipoRegistro = 'item';
+                }
+
+                $idItem = (int) ($linea['id_item'] ?? 0);
+                $idPack = (int) ($linea['id_pack'] ?? 0);
+                $cantidad = (float) ($linea['cantidad'] ?? 0);
+                $costoUnitario = (float) ($linea['costo_unitario'] ?? 0);
+                $lote = trim((string) ($linea['lote'] ?? ''));
+                $fechaVencimiento = trim((string) ($linea['fecha_vencimiento'] ?? ''));
+
+                $datos = [
+                    'tipo_movimiento' => $tipo,
+                    'tipo_registro' => $tipoRegistro,
+                    'id_item' => $idItem,
+                    'id_pack' => $idPack,
+                    'cantidad' => $cantidad,
+                    'referencia' => $referencia,
+                    'lote' => $lote,
+                    'fecha_vencimiento' => $fechaVencimiento !== '' ? $fechaVencimiento : null,
+                    'costo_unitario' => $costoUnitario,
+                    'created_by' => $createdBy,
+                    'operacion_uuid' => $operacionUuid,
+                ];
+
+                if ($tipo === 'TRF') {
+                    $datos['id_almacen_origen'] = $idAlmacen;
+                    $datos['id_almacen_destino'] = $idAlmacenDestino;
+                } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN'], true)) {
+                    $datos['id_almacen_origen'] = $idAlmacen;
+                    $datos['id_almacen_destino'] = 0;
+                } else {
+                    $datos['id_almacen_origen'] = 0;
+                    $datos['id_almacen_destino'] = $idAlmacen;
+                }
+
+                try {
+                    $ids[] = $this->registrarMovimiento($datos);
+                } catch (Throwable $e) {
+                    if ($atomico) {
+                        throw $e;
+                    }
+                    $errores[] = [
+                        'linea' => $idx + 1,
+                        'mensaje' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            if ($atomico && !empty($errores)) {
+                throw new RuntimeException('No se pudo completar la operación masiva.');
+            }
+
+            if ($iniciaTransaccion) {
+                $db->commit();
+            }
+
+            return [
+                'operacion_uuid' => $operacionUuid,
+                'ids' => $ids,
+                'errores' => $errores,
+            ];
+        } catch (Throwable $e) {
+            if ($iniciaTransaccion && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
 
     // --- NUEVO: FUNCIÓN INTELIGENTE DE DESGLOSE ---
     public function obtenerDesglosePresentaciones(int $idItem, int $idAlmacen = 0): array
@@ -612,6 +738,47 @@ class InventarioModel extends Modelo
 
         return $resultado;
     }
+    private function consumirStockAtomico(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
+    {
+        $sql = 'UPDATE inventario_stock
+                SET stock_actual = stock_actual - :cantidad
+                WHERE id_item = :id_item
+                  AND id_almacen = :id_almacen
+                  AND stock_actual >= :cantidad';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'cantidad' => $cantidad,
+            'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
+        ]);
+
+        if ($stmt->rowCount() < 1) {
+            throw new RuntimeException('Stock insuficiente para realizar el movimiento.');
+        }
+    }
+
+    private function consumirStockPackAtomico(PDO $db, int $idPack, int $idAlmacen, float $cantidad): void
+    {
+        $sql = 'UPDATE inventario_stock
+                SET stock_actual = stock_actual - :cantidad
+                WHERE id_pack = :id_pack
+                  AND id_almacen = :id_almacen
+                  AND stock_actual >= :cantidad';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'cantidad' => $cantidad,
+            'id_pack' => $idPack,
+            'id_almacen' => $idAlmacen,
+        ]);
+
+        if ($stmt->rowCount() < 1) {
+            throw new RuntimeException('Stock insuficiente para realizar el movimiento del pack seleccionado.');
+        }
+    }
+
+
     private function validarStockDisponible(PDO $db, int $idItem, int $idAlmacen, float $cantidad): void
     {
         $sql = 'SELECT stock_actual
@@ -797,29 +964,12 @@ class InventarioModel extends Modelo
             throw new RuntimeException('Debe seleccionar un lote válido para la salida.');
         }
 
-        $sqlStock = 'SELECT stock_lote
-                     FROM inventario_lotes
-                     WHERE id_item = :id_item
-                       AND id_almacen = :id_almacen
-                       AND lote = :lote
-                     LIMIT 1';
-        $stmtStock = $db->prepare($sqlStock);
-        $stmtStock->execute([
-            'id_item' => $idItem,
-            'id_almacen' => $idAlmacen,
-            'lote' => $lote,
-        ]);
-        $stockLote = (float) ($stmtStock->fetchColumn() ?: 0);
-
-        if ($stockLote < $cantidad) {
-            throw new RuntimeException('Stock insuficiente en el lote seleccionado de este almacén.');
-        }
-
         $sql = 'UPDATE inventario_lotes
                 SET stock_lote = stock_lote - :cantidad
                 WHERE id_item = :id_item
                   AND id_almacen = :id_almacen
-                  AND lote = :lote';
+                  AND lote = :lote
+                  AND stock_lote >= :cantidad';
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
@@ -828,6 +978,10 @@ class InventarioModel extends Modelo
             'id_almacen' => $idAlmacen,
             'lote' => $lote,
         ]);
+
+        if ($stmt->rowCount() < 1) {
+            throw new RuntimeException('Stock insuficiente en el lote seleccionado de este almacén.');
+        }
     }
 
     private function esFechaValida(string $fecha): bool

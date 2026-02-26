@@ -335,6 +335,35 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                         <label>Fecha Vencimiento</label>
                                     </div>
                                 </div>
+
+                                <div class="col-12 mt-3">
+                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="btnAgregarLineaMovimiento">
+                                        <i class="bi bi-plus-circle me-1"></i>Agregar ítem a la operación
+                                    </button>
+                                </div>
+
+                                <div class="col-12 mt-3">
+                                    <div class="table-responsive border rounded-3 bg-white">
+                                        <table class="table table-sm align-middle mb-0" id="tablaLineasMovimiento">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Ítem</th>
+                                                    <th class="text-end">Cantidad</th>
+                                                    <th>Lote</th>
+                                                    <th>Vencimiento</th>
+                                                    <th class="text-end">Costo Unit.</th>
+                                                    <th class="text-center" style="width: 80px;">Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="movimientosDetalleBody">
+                                                <tr data-empty="1">
+                                                    <td colspan="6" class="text-center text-muted py-3">Aún no hay ítems agregados.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <small class="text-muted d-block mt-1">Máximo 100 líneas por operación.</small>
+                                </div>
                             </div>
                         </div>
                     </div>
