@@ -13,6 +13,27 @@ $estadoLabels = [
 ];
 ?>
 
+<style>
+    #tablaDetalleDespacho td {
+        vertical-align: middle;
+    }
+
+    #tablaDetalleDespacho .despacho-acciones-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .5rem;
+    }
+
+    #tablaDetalleDespacho .despacho-cantidad {
+        max-width: 92px;
+    }
+
+    #tablaDetalleDespacho .btn-split {
+        line-height: 1.1;
+    }
+</style>
+
 <div class="container-fluid p-4" id="ventasApp"
      data-url-index="<?php echo e(route_url('ventas/index')); ?>"
      data-url-guardar="<?php echo e(route_url('ventas/guardar')); ?>"
