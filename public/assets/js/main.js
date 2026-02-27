@@ -128,8 +128,8 @@
 
   patchTomSelectForModals();
   patchBootstrapFocusTrapForTomSelect();
-=======
   patchTomSelectForModals();
+
 
   // =========================================================
   // 1) LOGOUT CONFIRMATION

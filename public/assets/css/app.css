@@ -593,7 +593,8 @@ tr[data-estado="0"] .avatar-circle {
 }
 
 .ts-wrapper.single.full .ts-control > input {
-  display: none !important;
+  display: inline-block !important;
+  min-width: 0.75rem;
 }
 
 .ts-wrapper.form-select,
