@@ -95,11 +95,24 @@ class VentasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem al pedido.');
             }
 
-            // Recálculo de seguridad en Backend
+            // Recálculo de seguridad en Backend + validaciones de negocio.
             $total = 0.0;
+            $itemsUnicos = [];
+            $cantidadesPorItem = [];
+
             foreach ($detalle as $linea) {
+                $idItem = (int) ($linea['id_item'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
+
+                if ($idItem <= 0) {
+                    throw new RuntimeException('Hay líneas sin producto válido.');
+                }
+
+                if (isset($itemsUnicos[$idItem])) {
+                    throw new RuntimeException('No se permiten productos repetidos en el pedido.');
+                }
+                $itemsUnicos[$idItem] = true;
                 
                 if ($cantidad <= 0) {
                     throw new RuntimeException('La cantidad de los ítems debe ser mayor a 0.');
@@ -107,7 +120,16 @@ class VentasController extends Controlador
                 if ($precio < 0) {
                     throw new RuntimeException('El precio no puede ser negativo.');
                 }
+
+                $cantidadesPorItem[$idItem] = ($cantidadesPorItem[$idItem] ?? 0.0) + $cantidad;
                 $total += $cantidad * $precio;
+            }
+
+            foreach ($cantidadesPorItem as $idItem => $cantidadSolicitada) {
+                $stockActual = $this->documentoModel->obtenerStockDisponibleItem((int) $idItem);
+                if ($cantidadSolicitada > $stockActual) {
+                    throw new RuntimeException('No puede registrar cantidades mayores al stock disponible.');
+                }
             }
 
             $id = $this->documentoModel->crearOActualizar([
