@@ -392,6 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>
                 <div class="fw-bold text-dark">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
                 <div class="small text-muted">Pendiente Global: <span class="badge bg-warning text-dark badge-pendiente">${Number(linea.cantidad_pendiente)}</span></div>
+                <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split" title="Añadir otro almacén" ${disabledState}>
+                    <i class="bi bi-plus-circle me-1"></i>Agregar otro almacén
+                </button>
             </td>
             <td>
                 <select class="form-select form-select-sm fila-almacen" ${disabledState}>
@@ -399,17 +402,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </select>
             </td>
             <td class="text-center fw-bold despacho-stock text-muted">-</td>
-            <td class="d-flex align-items-center">
-                <input type="number" class="form-control form-control-sm text-end despacho-cantidad me-2" 
+            <td>
+                <div class="despacho-acciones-row">
+                <input type="number" class="form-control form-control-sm text-end despacho-cantidad" 
                        min="0" step="1" value="0" title="Solo números enteros (paquetes)" ${disabledState}>
-                
-                <button type="button" class="btn btn-sm btn-outline-primary btn-split me-1" title="Añadir otro almacén" ${disabledState}>
-                    <i class="bi bi-plus-lg"></i>
-                </button>
-                
+
                 <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-despacho d-none" title="Quitar fila">
                     <i class="bi bi-trash"></i>
                 </button>
+                </div>
             </td>
         `;
 
