@@ -41,6 +41,17 @@ class Router
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
 
+        if ($modulo === 'produccion') {
+            if ($accion === 'ordenes') {
+                $controlador_clase = 'ProduccionOrdenesController';
+            } else {
+                $controlador_clase = 'ProduccionRecetasController';
+                if ($accion === 'index') {
+                    $accion = 'recetas';
+                }
+            }
+        }
+
         // Rutas específicas que viven en un controlador dedicado dentro del módulo items
         if ($modulo === 'items' && $accion === 'perfil') {
             $controlador_clase = 'ItemPerfilController';
