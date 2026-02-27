@@ -338,9 +338,11 @@ class VentasDocumentoModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
-    public function buscarItems(string $q = '', int $idAlmacen = 0, int $limit = 30): array
+    public function buscarItems(string $q = '', int $idAlmacen = 0, int $idCliente = 0, float $cantidad = 1, int $limit = 30): array
     {
         $params = [];
+        $cantidad = $cantidad > 0 ? $cantidad : 1.0;
+        $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
         
         if ($idAlmacen > 0) {
             $stockSql = "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = ? LIMIT 1)";
@@ -349,16 +351,45 @@ class VentasDocumentoModel extends Modelo
             $stockSql = "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
         }
 
-        $sql = "SELECT i.id, 
-                    i.sku, 
-                    i.nombre, 
-                    i.precio_venta,
-                    i.tipo_item,
-                    COALESCE($stockSql, 0) AS stock_actual
-                FROM items i
-                WHERE i.estado = 1 
-                AND i.deleted_at IS NULL
-                AND i.tipo_item IN ('producto', 'producto_terminado')";
+        if ($acuerdo['tiene_acuerdo']) {
+            $sql = "SELECT i.id,
+                        i.sku,
+                        i.nombre,
+                        cap.precio_pactado AS precio_venta,
+                        i.tipo_item,
+                        COALESCE($stockSql, 0) AS stock_actual
+                    FROM comercial_acuerdos_precios cap
+                    INNER JOIN items i ON i.id = cap.id_presentacion
+                    WHERE cap.id_acuerdo = ?
+                      AND cap.estado = 1
+                      AND i.estado = 1
+                      AND i.deleted_at IS NULL
+                      AND i.tipo_item IN ('producto', 'producto_terminado')";
+            $params[] = $acuerdo['id_acuerdo'];
+        } else {
+            $sql = "SELECT i.id,
+                        i.sku,
+                        i.nombre,
+                        COALESCE(
+                            (
+                                SELECT ipv.precio_unitario
+                                FROM item_precios_volumen ipv
+                                WHERE ipv.id_item = i.id
+                                  AND ipv.cantidad_minima <= ?
+                                ORDER BY ipv.cantidad_minima DESC
+                                LIMIT 1
+                            ),
+                            i.precio_venta,
+                            0
+                        ) AS precio_venta,
+                        i.tipo_item,
+                        COALESCE($stockSql, 0) AS stock_actual
+                    FROM items i
+                    WHERE i.estado = 1
+                      AND i.deleted_at IS NULL
+                      AND i.tipo_item IN ('producto', 'producto_terminado')";
+            $params[] = $cantidad;
+        }
 
         if ($q !== '') {
             $sql .= ' AND (i.nombre LIKE ? OR i.sku LIKE ?)';
@@ -373,6 +404,110 @@ class VentasDocumentoModel extends Modelo
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerPrecioUnitario(int $idCliente, int $idItem, float $cantidad): array
+    {
+        if ($idItem <= 0) {
+            return ['precio' => 0.0, 'origen' => 'none'];
+        }
+
+        $cantidad = $cantidad > 0 ? $cantidad : 1.0;
+        $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
+
+        if ($acuerdo['tiene_acuerdo']) {
+            $sql = 'SELECT cap.precio_pactado
+                    FROM comercial_acuerdos_precios cap
+                    WHERE cap.id_acuerdo = :id_acuerdo
+                      AND cap.id_presentacion = :id_item
+                      AND cap.estado = 1
+                    LIMIT 1';
+            $stmt = $this->db()->prepare($sql);
+            $stmt->execute([
+                'id_acuerdo' => $acuerdo['id_acuerdo'],
+                'id_item' => $idItem,
+            ]);
+            $precio = $stmt->fetchColumn();
+
+            return [
+                'precio' => $precio !== false ? (float) $precio : 0.0,
+                'origen' => 'acuerdo',
+            ];
+        }
+
+        $sqlVolumen = 'SELECT ipv.precio_unitario
+                       FROM item_precios_volumen ipv
+                       WHERE ipv.id_item = :id_item
+                         AND ipv.cantidad_minima <= :cantidad
+                       ORDER BY ipv.cantidad_minima DESC
+                       LIMIT 1';
+        $stmtVolumen = $this->db()->prepare($sqlVolumen);
+        $stmtVolumen->execute([
+            'id_item' => $idItem,
+            'cantidad' => $cantidad,
+        ]);
+        $precioVolumen = $stmtVolumen->fetchColumn();
+        if ($precioVolumen !== false) {
+            return [
+                'precio' => (float) $precioVolumen,
+                'origen' => 'volumen',
+            ];
+        }
+
+        $stmtBase = $this->db()->prepare('SELECT COALESCE(precio_venta, 0) FROM items WHERE id = :id_item LIMIT 1');
+        $stmtBase->execute(['id_item' => $idItem]);
+
+        return [
+            'precio' => (float) $stmtBase->fetchColumn(),
+            'origen' => 'base',
+        ];
+    }
+
+    public function tieneAcuerdoConProductosVigentes(int $idCliente): array
+    {
+        $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
+        if (!$acuerdo['tiene_acuerdo']) {
+            return ['tiene_acuerdo' => false, 'lista_vacia' => false];
+        }
+
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM comercial_acuerdos_precios WHERE id_acuerdo = :id_acuerdo AND estado = 1');
+        $stmt->execute(['id_acuerdo' => $acuerdo['id_acuerdo']]);
+
+        return [
+            'tiene_acuerdo' => true,
+            'lista_vacia' => ((int) $stmt->fetchColumn()) === 0,
+        ];
+    }
+
+    private function obtenerAcuerdoActivoCliente(int $idCliente): array
+    {
+        if ($idCliente <= 0 || !$this->tablaExiste('comercial_acuerdos') || !$this->tablaExiste('comercial_acuerdos_precios')) {
+            return ['tiene_acuerdo' => false, 'id_acuerdo' => 0];
+        }
+
+        $stmt = $this->db()->prepare('SELECT id FROM comercial_acuerdos WHERE id_tercero = :id_cliente AND estado = 1 ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id_cliente' => $idCliente]);
+        $idAcuerdo = (int) $stmt->fetchColumn();
+
+        return [
+            'tiene_acuerdo' => $idAcuerdo > 0,
+            'id_acuerdo' => $idAcuerdo,
+        ];
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        static $cache = [];
+
+        if (isset($cache[$tabla])) {
+            return $cache[$tabla];
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :tabla LIMIT 1');
+        $stmt->execute(['tabla' => $tabla]);
+        $cache[$tabla] = (bool) $stmt->fetchColumn();
+
+        return $cache[$tabla];
     }
 
     public function listarAlmacenesActivos(): array

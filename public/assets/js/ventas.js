@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
 
+    const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
+
     // --- HELPERS DE RED ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -143,6 +145,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    async function obtenerPrecioItem(idItem, cantidad) {
+        const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
+        if (!idItem || !idClienteActual) return null;
+
+        const url = `${urls.index}&accion=precio_item&id_cliente=${idClienteActual}&id_item=${idItem}&cantidad=${encodeURIComponent(cantidad || 1)}`;
+        const json = await getJson(url);
+        return Number(json.data?.precio || 0);
+    }
+
+    async function refrescarPrecioFila(fila) {
+        const idItem = Number(fila.querySelector('.detalle-item').value || 0);
+        if (!idItem) return;
+        const cantidad = Number(fila.querySelector('.detalle-cantidad').value || 0);
+        const precio = await obtenerPrecioItem(idItem, cantidad > 0 ? cantidad : 1);
+        if (precio === null) return;
+        fila.querySelector('.detalle-precio').value = precio.toFixed(2);
+        recalcularTotalVenta();
+    }
+
     // --- 3. LÓGICA DE FILAS VENTA (PRODUCTOS) ---
     async function agregarFilaVenta(item = null) {
         const fragment = templateFilaVenta.content.cloneNode(true);
@@ -154,8 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputPrecio = filaReal.querySelector('.detalle-precio');
         const selectItem = filaReal.querySelector('.detalle-item');
 
-        inputCantidad.addEventListener('input', () => {
+        inputCantidad.addEventListener('input', async () => {
             validarCantidadVsStock(filaReal);
+            await refrescarPrecioFila(filaReal);
             recalcularTotalVenta();
         });
         inputPrecio.addEventListener('input', recalcularTotalVenta);
@@ -173,10 +195,15 @@ document.addEventListener('DOMContentLoaded', () => {
             placeholder: "Buscar producto...",
             dropdownParent: 'body',
             load: function(query, callback) {
-                const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}`;
+                const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
+                const cantidadActual = Number(inputCantidad.value || 1) || 1;
+                const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(response => response.json())
                     .then(json => {
+                        estadoBusquedaItems.tieneAcuerdo = !!json.meta?.tiene_acuerdo;
+                        estadoBusquedaItems.listaVacia = !!json.meta?.lista_vacia;
+
                         const items = (json.data || []).map(prod => ({
                             id: prod.id,
                             text: `${prod.sku || ''} - ${prod.nombre}`,
@@ -200,15 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
-                    if (Number(inputPrecio.value) === 0) {
-                        inputPrecio.value = selectedOption.precio.toFixed(2);
-                    }
+                    inputPrecio.value = selectedOption.precio.toFixed(2);
                 }
                 validarCantidadVsStock(filaReal);
                 recalcularTotalVenta();
             },
             render: {
-                no_results: (data, escape) => '<div class="no-results">No se encontraron productos disponibles</div>',
+                no_results: () => {
+                    if (estadoBusquedaItems.tieneAcuerdo && estadoBusquedaItems.listaVacia) {
+                        return '<div class="no-results">Lista de productos vacía para este cliente/distribuidor</div>';
+                    }
+                    return '<div class="no-results">No se encontraron productos disponibles</div>';
+                },
                 loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> buscando...',
                 option: function(data, escape) {
                     const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
@@ -257,6 +287,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
         await agregarFilaVenta();
     });
+
+    idCliente?.addEventListener('change', () => {
+        tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) {
+                select.tomselect.clear(true);
+                select.tomselect.clearOptions();
+            }
+        });
+    });
+
+    if (tomSelectCliente) {
+        tomSelectCliente.on('change', () => {
+            tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
+                if (select.tomselect) {
+                    select.tomselect.clear(true);
+                    select.tomselect.clearOptions();
+                }
+            });
+        });
+    }
 
     document.getElementById('btnGuardarVenta')?.addEventListener('click', async () => {
         try {
