@@ -178,7 +178,9 @@ class ListaPrecioModel extends Modelo {
                     ipv.id_item,
                     ipv.cantidad_minima,
                     ipv.precio_unitario,
+                    ipv.precio_unitario AS precio_pactado, -- <--- ALIAS PARA EL FRONTEND
                     i.sku AS codigo_presentacion,
+                    1 AS factor,                           -- <--- PARA LA FUNCIÓN DE NOMBRES
                     i.nombre AS item_nombre,
                     s.nombre AS sabor_nombre,
                     ip.nombre AS presentacion_nombre
@@ -200,6 +202,7 @@ class ListaPrecioModel extends Modelo {
         $sql = "SELECT
                     i.id,
                     i.sku AS codigo_presentacion,
+                    1 AS factor,
                     i.nombre AS item_nombre,
                     s.nombre AS sabor_nombre,
                     ip.nombre AS presentacion_nombre
@@ -208,6 +211,7 @@ class ListaPrecioModel extends Modelo {
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
                 WHERE i.estado = 1
                   AND i.deleted_at IS NULL
+                  AND i.tipo_item IN ('producto_terminado', 'servicio') -- <--- NUEVA LÍNEA AGREGADA
                 ORDER BY i.nombre ASC";
 
         $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
@@ -256,7 +260,6 @@ class ListaPrecioModel extends Modelo {
             return [];
         }
 
-        // Buscamos directamente en la tabla 'items'
         $sql = "SELECT
                     i.id,
                     i.sku AS codigo_presentacion,
@@ -269,6 +272,7 @@ class ListaPrecioModel extends Modelo {
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
                 WHERE i.estado = 1
                   AND i.deleted_at IS NULL
+                  AND i.tipo_item IN ('producto_terminado', 'servicio') -- <--- NUEVA LÍNEA AGREGADA
                   AND NOT EXISTS (
                       SELECT 1
                       FROM comercial_acuerdos_precios cap

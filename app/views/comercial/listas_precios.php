@@ -63,7 +63,7 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                 <div class="me-2">
                                     <div class="fw-semibold"><?php echo e($acuerdo['cliente_nombre']); ?></div>
                                     <?php if ((int)$acuerdo['id'] === 0): ?>
-                                        <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> escalas</small>
+                                        <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
                                     <?php elseif ($sinTarifas): ?>
                                         <small class="text-warning d-flex align-items-center gap-1 mt-1">
                                             <i class="bi bi-exclamation-triangle-fill"></i> Sin Tarifas
@@ -87,7 +87,15 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                         <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-1 fw-bold text-primary" id="acuerdoTituloCliente"><?php echo e($acuerdoSeleccionado['cliente_nombre']); ?></h5>
-                                <small class="text-muted" id="acuerdoResumenTarifas"><?php echo count($preciosMatriz); ?> <?php echo $modoVista === 'volumen' ? 'escalas configuradas' : 'tarifas configuradas'; ?></small>
+                                <small class="text-muted" id="acuerdoResumenTarifas">
+                                    <?php 
+                                    if ($modoVista === 'volumen') {
+                                        echo count(array_unique(array_column($preciosMatriz, 'id_item'))) . ' productos configurados';
+                                    } else {
+                                        echo count($preciosMatriz) . ' tarifas configuradas';
+                                    }
+                                    ?>
+                                </small>
                             </div>
                             <div class="d-flex gap-2">
                                 <?php if ($presentacionesHabilitadas): ?>
@@ -156,61 +164,87 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                 </tr>
                                 </thead>
                                 <tbody id="matrizBodyRows">
-                                <?php if (empty($preciosMatriz)): ?>
-                                    <tr id="emptyMatrizRow">
-                                        <td colspan="5" class="text-center text-muted py-5">
-                                            <i class="bi bi-exclamation-circle text-warning me-1"></i>
-                                            <?php echo $modoVista === "volumen" ? "Aún no hay escalas por volumen configuradas." : "Este acuerdo aún no tiene productos tarifados."; ?>
-                                        </td>
-                                    </tr>
-                                <?php else: ?>
-                                    <?php foreach ($preciosMatriz as $row): ?>
+                                    <?php if (empty($preciosMatriz)): ?>
+                                        <tr id="emptyMatrizRow">
+                                            <td colspan="5" class="text-center text-muted py-5">
+                                                <i class="bi bi-exclamation-circle text-warning fs-1 d-block mb-2"></i>
+                                                <?php echo $modoVista === "volumen" ? "Aún no hay escalas por volumen configuradas." : "Este acuerdo aún no tiene productos tarifados."; ?>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
                                         <?php if ($modoVista === 'volumen'): ?>
-                                        <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
-                                            <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
-                                            <td><?php echo e($row['producto_nombre']); ?></td>
-                                            <td>
-                                                <input type="number" min="0.0001" step="0.0001" class="form-control form-control-sm text-end js-cantidad-minima"
-                                                       value="<?php echo e((string)$row['cantidad_minima']); ?>">
-                                            </td>
-                                            <td>
-                                                <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">S/</span>
-                                                    <input type="number" min="0" step="0.0001" class="form-control text-end js-precio-volumen"
-                                                           value="<?php echo e((string)$row['precio_unitario']); ?>">
-                                                </div>
-                                            </td>
-                                            <td class="text-end pe-4">
-                                                <button class="btn btn-sm btn-outline-danger js-eliminar-volumen" type="button" title="Eliminar escala">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        <?php
+                                        // MAGIA: AGRUPAMOS LOS PRECIOS POR PRODUCTO
+                                        $agrupados = [];
+                                        foreach ($preciosMatriz as $row) {
+                                            $agrupados[$row['producto_nombre']][] = $row;
+                                        }
+                                        $grupoId = 0; // Iniciar contador para el acordeón
+                                        ?>
+                                        <?php foreach ($agrupados as $producto => $escalas): ?>
+                                            <?php $grupoId++; ?>
+                                            <tr class="table-light" style="cursor: pointer;" onclick="toggleAcordeonVolumen('grupo-<?php echo $grupoId; ?>', this)">
+                                                <td colspan="5" class="fw-bold text-dark border-bottom">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <i class="bi bi-box-seam text-primary me-2"></i><?php echo e($producto); ?>
+                                                            <span class="badge bg-white text-secondary border ms-2"><?php echo e($escalas[0]['codigo_presentacion'] ?: 'N/A'); ?></span>
+                                                        </div>
+                                                        <i class="bi bi-chevron-down text-muted js-chevron transition-transform"></i>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            
+                                            <?php foreach ($escalas as $row): ?>
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="escala-grupo-<?php echo $grupoId; ?>" style="display: none;">
+                                                <td class="ps-4 text-muted small border-0"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
+                                                <td class="border-0"></td> 
+                                                <td class="border-0">
+                                                    <div class="input-group input-group-sm" style="max-width: 120px;">
+                                                        <span class="input-group-text bg-light border-end-0">≥</span>
+                                                        <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="<?php echo (float)$row['cantidad_minima']; ?>" data-original="<?php echo (float)$row['cantidad_minima']; ?>">
+                                                    </div>
+                                                </td>
+                                                <td class="border-0">
+                                                    <div class="input-group input-group-sm" style="max-width: 130px;">
+                                                        <span class="input-group-text bg-light border-end-0">S/</span>
+                                                        <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>" data-original="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>">
+                                                    </div>
+                                                </td>
+                                                <td class="text-end pe-4 border-0">
+                                                    <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endforeach; ?>
+
                                         <?php else: ?>
-                                        <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
-                                            <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
-                                            <td><?php echo e($row['producto_nombre']); ?></td>
-                                            <td>
-                                                <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">S/</span>
-                                                    <input type="number" min="0" step="0.0001" class="form-control text-end js-precio-pactado"
-                                                           value="<?php echo e((string)$row['precio_pactado']); ?>">
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="form-check form-switch m-0">
-                                                    <input class="form-check-input js-estado-precio" type="checkbox" <?php echo (int)$row['estado'] === 1 ? 'checked' : ''; ?>>
-                                                </div>
-                                            </td>
-                                            <td class="text-end pe-4">
-                                                <button class="btn btn-sm btn-outline-danger js-eliminar-producto" type="button" title="Eliminar producto">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
+                                            <?php foreach ($preciosMatriz as $row): ?>
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
+                                                <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
+                                                <td class="fw-semibold text-dark"><?php echo e($row['producto_nombre']); ?></td>
+                                                <td>
+                                                    <div class="input-group input-group-sm" style="max-width: 130px;">
+                                                        <span class="input-group-text bg-light border-end-0">S/</span>
+                                                        <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-pactado" value="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>" data-original="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>">
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                                        <input class="form-check-input js-estado-precio" type="checkbox" <?php echo (int)$row['estado'] === 1 ? 'checked' : ''; ?>>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end pe-4">
+                                                    <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-producto" type="button" title="Eliminar producto">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
                                         <?php endif; ?>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>

@@ -24,10 +24,14 @@ class ComercialController extends Controlador {
         $idAcuerdo = (int)($_GET['id'] ?? 0);
         $acuerdos = $this->listaPrecioModel->listarAcuerdos();
 
+        $matrizVolumen = $this->listaPrecioModel->obtenerMatrizPreciosVolumen();
+        // Magia: extraemos solo los IDs de los ítems y contamos los únicos
+        $itemsUnicos = count(array_unique(array_column($matrizVolumen, 'id_item')));
+
         $tarifaGeneral = [
             'id' => 0,
             'cliente_nombre' => '🌟 Tarifa General (Por Volumen)',
-            'total_productos' => count($this->listaPrecioModel->obtenerMatrizPreciosVolumen()),
+            'total_productos' => $itemsUnicos, // Ahora cuenta productos, no escalas
             'estado' => 1,
             'sin_tarifas' => 0,
             'modo' => 'volumen',

@@ -1,6 +1,7 @@
 /**
  * GESTIÓN COMERCIAL
  * - Acuerdos comerciales (matriz de tarifas)
+ * - Tarifa General por Volumen
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -87,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = `
             <tr id="emptyMatrizRow">
                 <td colspan="5" class="text-center text-muted py-5">
-                    <i class="bi bi-exclamation-circle text-warning me-1"></i>
+                    <i class="bi bi-exclamation-circle text-warning fs-1 d-block mb-2"></i>
                     ${msg}
                 </td>
             </tr>
@@ -100,14 +101,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr data-id-detalle="${item.id}">
                     <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
                     <td>${item.producto_nombre}</td>
-                    <td><input type="number" min="0.0001" step="0.0001" class="form-control form-control-sm text-end js-cantidad-minima" value="${item.cantidad_minima}"></td>
                     <td>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">S/</span>
-                            <input type="number" min="0" step="0.0001" class="form-control text-end js-precio-volumen" value="${item.precio_unitario}">
+                        <div class="input-group input-group-sm" style="max-width: 120px;">
+                            <span class="input-group-text bg-light border-end-0">≥</span>
+                            <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="${parseFloat(item.cantidad_minima).toFixed(2)}" data-original="${parseFloat(item.cantidad_minima).toFixed(2)}">
                         </div>
                     </td>
-                    <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger js-eliminar-volumen" type="button"><i class="bi bi-trash"></i></button></td>
+                    <td>
+                        <div class="input-group input-group-sm" style="max-width: 130px;">
+                            <span class="input-group-text bg-light border-end-0">S/</span>
+                            <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}" data-original="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}">
+                        </div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
                 </tr>
             `;
         }
@@ -115,15 +125,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
             <tr data-id-detalle="${item.id}">
                 <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
-                <td>${item.producto_nombre}</td>
+                <td class="fw-semibold text-dark">${item.producto_nombre}</td>
                 <td>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" min="0" step="0.0001" class="form-control text-end js-precio-pactado" value="${item.precio_pactado}">
+                    <div class="input-group input-group-sm" style="max-width: 130px;">
+                        <span class="input-group-text bg-light border-end-0">S/</span>
+                        <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-pactado" value="${parseFloat(item.precio_pactado).toFixed(4)}" data-original="${parseFloat(item.precio_pactado).toFixed(4)}">
                     </div>
                 </td>
-                <td><div class="form-check form-switch m-0"><input class="form-check-input js-estado-precio" type="checkbox" ${parseInt(item.estado, 10) === 1 ? 'checked' : ''}></div></td>
-                <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger js-eliminar-producto" type="button"><i class="bi bi-trash"></i></button></td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input js-estado-precio" type="checkbox" ${parseInt(item.estado, 10) === 1 ? 'checked' : ''}>
+                    </div>
+                </td>
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-producto" type="button" title="Eliminar producto">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
             </tr>
         `;
     };
@@ -135,6 +153,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudo cargar la matriz.');
 
         const modo = json.modo || 'acuerdo';
+        
+        // CORRECCIÓN: Actualizar encabezados de tabla según modo
+        const thead = tabla.querySelector('thead tr');
+        if (thead) {
+            if (modo === 'volumen') {
+                thead.innerHTML = `
+                    <th class="ps-4" style="width: 120px;">Código</th>
+                    <th>Producto</th>
+                    <th style="width: 180px;">Cantidad Mínima</th>
+                    <th style="width: 220px;">Precio Unitario</th>
+                    <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                `;
+            } else {
+                thead.innerHTML = `
+                    <th class="ps-4" style="width: 120px;">Código</th>
+                    <th>Producto</th>
+                    <th style="width: 220px;">Precio Pactado</th>
+                    <th class="text-center" style="width: 130px;">Estado</th>
+                    <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                `;
+            }
+        }
+
         if (tabla) {
             tabla.dataset.idAcuerdo = String(idAcuerdo);
             tabla.dataset.modo = modo;
@@ -142,9 +183,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (tituloCliente) tituloCliente.textContent = json.acuerdo.cliente_nombre;
         if (resumenTarifas) {
-            resumenTarifas.textContent = `${json.matriz.length} ${modo === 'volumen' ? 'escalas configuradas' : 'tarifas configuradas'}`;
+            if (modo === 'volumen') {
+                const uniqueItems = new Set(json.matriz.map(item => item.id_item)).size;
+                resumenTarifas.textContent = `${uniqueItems} productos configurados`;
+            } else {
+                resumenTarifas.textContent = `${json.matriz.length} tarifas configuradas`;
+            }
         }
         if (btnAgregarProducto) btnAgregarProducto.innerHTML = `<i class="bi bi-plus-lg me-1"></i>${modo === 'volumen' ? 'Agregar Escala' : 'Agregar Producto'}`;
+
+        // Mostrar/Ocultar dropdown de opciones si es volumen o no
+        const dropdownOpciones = document.querySelector('.dropdown .btn-outline-secondary');
+        if (dropdownOpciones) dropdownOpciones.closest('.dropdown').style.display = modo === 'volumen' ? 'none' : 'block';
 
         if (!tbody) return;
         if (!Array.isArray(json.matriz) || json.matriz.length === 0) {
@@ -166,12 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudieron cargar clientes.');
 
-        const options = (json.data || []).map(c => ({ value: String(c.id), text: `${c.cliente_nombre}${c.numero_documento ? ` · ${c.numero_documento}` : ''}` }));
+        const options = (json.data || []).map(c => ({ value: String(c.id), text: `${c.numero_documento ? `${c.numero_documento} - ` : ''}${c.cliente_nombre}` }));
         if (tsCliente) tsCliente.destroy();
         if (selectCliente) {
             selectCliente.innerHTML = '';
             tsCliente = new TomSelect(selectCliente, {
                 options,
+                maxItems: 1, // <--- AGREGA ESTO
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
@@ -187,17 +238,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudieron cargar presentaciones.');
 
-        const options = (json.data || []).map(p => ({ value: String(p.id), text: `${p.codigo_presentacion || 'N/A'} · ${p.producto_nombre}` }));
+        const options = (json.data || []).map(p => ({ value: String(p.id), text: `${p.codigo_presentacion || 'N/A'} - ${p.producto_nombre}` }));
         if (tsPresentacion) tsPresentacion.destroy();
         if (selectPresentacion) {
             selectPresentacion.innerHTML = '';
             tsPresentacion = new TomSelect(selectPresentacion, {
                 options,
+                maxItems: 1, // <--- AGREGA ESTO
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
                 searchField: ['text'],
-                placeholder: options.length ? 'Seleccione una presentación...' : 'Sin presentaciones disponibles'
+                placeholder: options.length ? 'Seleccione un producto...' : 'Sin productos disponibles'
             });
         }
     };
@@ -207,12 +259,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudieron cargar productos.');
 
-        const options = (json.data || []).map(p => ({ value: String(p.id), text: `${p.codigo_presentacion || 'N/A'} · ${p.producto_nombre}` }));
+        const options = (json.data || []).map(p => ({ value: String(p.id), text: `${p.codigo_presentacion || 'N/A'} - ${p.producto_nombre}` }));
         if (tsItemVolumen) tsItemVolumen.destroy();
         if (selectItemVolumen) {
             selectItemVolumen.innerHTML = '';
             tsItemVolumen = new TomSelect(selectItemVolumen, {
                 options,
+                maxItems: 1, // <---- AGREGA ESTA LÍNEA AQUÍ
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
@@ -241,8 +294,21 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarList.addEventListener('click', async (e) => {
             const item = e.target.closest('.acuerdo-sidebar-item');
             if (!item) return;
-            sidebarList.querySelectorAll('.acuerdo-sidebar-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
+            sidebarList.querySelectorAll('.acuerdo-sidebar-item').forEach(i => {
+                i.classList.remove('active', 'shadow-sm');
+                const small = i.querySelector('small');
+                if (small && !small.classList.contains('text-warning')) {
+                    small.classList.remove('text-white-50');
+                    small.classList.add('text-muted');
+                }
+            });
+            item.classList.add('active', 'shadow-sm');
+            const smallActive = item.querySelector('small');
+            if (smallActive && !smallActive.classList.contains('text-warning')) {
+                smallActive.classList.remove('text-muted');
+                smallActive.classList.add('text-white-50');
+            }
+
             const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
             try {
                 await cargarMatriz(idAcuerdo);
@@ -304,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await postForm(urls.agregarProducto, { id_acuerdo: idAcuerdo, id_presentacion: idPresentacion, precio_pactado: precio });
                 if (modalAgregar) modalAgregar.hide();
-                await cargarMatriz(idAcuerdo);
+                window.location.reload(); // <--- ESTO ARREGLA EL CONTADOR DEL CLIENTE
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -319,12 +385,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await postForm(urls.agregarVolumen, { id_item: idItem, cantidad_minima: cantidad, precio_unitario: precio });
                 if (modalVolumen) modalVolumen.hide();
-                await cargarMatriz(0);
+                window.location.reload(); // <--- ESTO ARREGLA EL CONTADOR
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
 
     if (tbody) {
+        // Blur general para edición Inline (Ambos Modos)
         tbody.addEventListener('blur', async (e) => {
             const tr = e.target.closest('tr');
             if (!tr) return;
@@ -332,25 +399,44 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!idDetalle) return;
 
             try {
+                // ACUERDOS NORMALES
                 if (e.target.classList.contains('js-precio-pactado')) {
                     const precio = parseFloat(e.target.value || '0');
                     if (precio < 0) return;
                     await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_pactado: precio });
+                    e.target.value = precio.toFixed(4); // Formatear correcto visualmente
+                    e.target.setAttribute('data-original', e.target.value);
                 }
+                
+                // TARIFA GENERAL (VOLUMEN)
                 if (e.target.classList.contains('js-cantidad-minima') || e.target.classList.contains('js-precio-volumen')) {
-                    const cantidad = parseFloat((tr.querySelector('.js-cantidad-minima') || {}).value || '0');
-                    const precioVol = parseFloat((tr.querySelector('.js-precio-volumen') || {}).value || '0');
+                    const cantInput = tr.querySelector('.js-cantidad-minima');
+                    const precInput = tr.querySelector('.js-precio-volumen');
+                    
+                    const cantidad = parseFloat(cantInput.value || '0');
+                    const precioVol = parseFloat(precInput.value || '0');
+                    
                     if (cantidad <= 0 || precioVol < 0) return;
+                    
                     await postForm(urls.actualizarVolumen, { id_detalle: idDetalle, cantidad_minima: cantidad, precio_unitario: precioVol });
+                    
+                    cantInput.value = cantidad.toFixed(2);
+                    precInput.value = precioVol.toFixed(4);
+                    cantInput.setAttribute('data-original', cantInput.value);
+                    precInput.setAttribute('data-original', precInput.value);
                 }
+                
                 e.target.classList.add('is-valid');
                 setTimeout(() => e.target.classList.remove('is-valid'), 900);
             } catch (_err) {
+                // Si falla, restaurar el original
+                e.target.value = e.target.getAttribute('data-original');
                 e.target.classList.add('is-invalid');
                 setTimeout(() => e.target.classList.remove('is-invalid'), 1400);
             }
         }, true);
 
+        // Toggle Switch (Solo Acuerdos)
         tbody.addEventListener('change', async (e) => {
             if (!e.target.classList.contains('js-estado-precio')) return;
             const tr = e.target.closest('tr');
@@ -359,10 +445,12 @@ document.addEventListener('DOMContentLoaded', () => {
             catch (err) { e.target.checked = !e.target.checked; Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
 
+        // Eliminar fila (Ambos Modos)
         tbody.addEventListener('click', async (e) => {
             const btnDeleteAcuerdo = e.target.closest('.js-eliminar-producto');
             const btnDeleteVolumen = e.target.closest('.js-eliminar-volumen');
             if (!btnDeleteAcuerdo && !btnDeleteVolumen) return;
+            
             const tr = e.target.closest('tr');
             const idDetalle = parseInt((tr?.dataset.idDetalle) || '0', 10);
             const idAcuerdo = getAcuerdoId();
@@ -370,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const confirm = await Swal.fire({
                 icon: 'warning',
                 title: 'Eliminar registro',
-                text: '¿Deseas retirar este registro de la matriz?',
+                text: '¿Deseas retirar esta tarifa de la matriz?',
                 showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar',
@@ -381,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (btnDeleteVolumen) await postForm(urls.eliminarVolumen, { id_detalle: idDetalle });
                 else await postForm(urls.eliminarProducto, { id_detalle: idDetalle });
-                await cargarMatriz(idAcuerdo);
+                window.location.reload(); // <--- ESTO ACTUALIZA TODO AL ELIMINAR
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -416,4 +504,49 @@ document.addEventListener('DOMContentLoaded', () => {
             catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
+
+    // =========================================================================
+    // ACORDEÓN PARA PRECIOS POR VOLUMEN (Modo Estricto)
+    // =========================================================================
+    window.toggleAcordeonVolumen = function(grupoId, headerRow) {
+        
+        // 1. CERRAR TODOS LOS DEMÁS GRUPOS
+        // Buscamos todas las filas que sean escalas, pero que NO sean del grupo que acabamos de clickear
+        document.querySelectorAll('tr[class*="escala-grupo-"]').forEach(fila => {
+            if (!fila.classList.contains('escala-' + grupoId)) {
+                fila.style.display = 'none'; // Las ocultamos
+            }
+        });
+
+        // 2. RESTAURAR TODAS LAS FLECHAS A "ABAJO" (Excepto la del grupo actual)
+        document.querySelectorAll('.js-chevron').forEach(icono => {
+            if (icono !== headerRow.querySelector('.js-chevron')) {
+                icono.classList.remove('bi-chevron-up');
+                icono.classList.add('bi-chevron-down');
+            }
+        });
+
+        // 3. ABRIR / CERRAR EL GRUPO SELECCIONADO
+        const filas = document.querySelectorAll('.escala-' + grupoId);
+        const chevron = headerRow.querySelector('.js-chevron');
+
+        if (filas.length === 0) return;
+
+        // Comprobamos si el grupo actual está oculto o visible
+        const estanOcultas = filas[0].style.display === 'none';
+
+        // Lo alternamos
+        filas.forEach(fila => {
+            fila.style.display = estanOcultas ? 'table-row' : 'none';
+        });
+
+        // Giramos la flecha del grupo actual
+        if (estanOcultas) {
+            chevron.classList.remove('bi-chevron-down');
+            chevron.classList.add('bi-chevron-up'); // Flecha arriba (abierto)
+        } else {
+            chevron.classList.remove('bi-chevron-up');
+            chevron.classList.add('bi-chevron-down'); // Flecha abajo (cerrado)
+        }
+    };
 });
