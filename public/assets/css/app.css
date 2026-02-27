@@ -584,6 +584,23 @@ tr[data-estado="0"] .avatar-circle {
 .ts-control input::placeholder {
     line-height: normal !important;
 }
+
+.ts-wrapper .ts-control {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: nowrap !important;
+  overflow: hidden;
+}
+
+.ts-wrapper.single.full .ts-control > input {
+  display: none !important;
+}
+
+.ts-wrapper.form-select,
+.ts-wrapper.form-control {
+  padding: 0 !important;
+  border: none !important;
+}
 /* =======================
    INVENTARIO STICKY + TABLA
    ======================= */
