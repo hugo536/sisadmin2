@@ -291,34 +291,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (sidebarList) {
-        sidebarList.addEventListener('click', async (e) => {
+        sidebarList.addEventListener('click', (e) => {
             const item = e.target.closest('.acuerdo-sidebar-item');
             if (!item) return;
-            sidebarList.querySelectorAll('.acuerdo-sidebar-item').forEach(i => {
-                i.classList.remove('active', 'shadow-sm');
-                const small = i.querySelector('small');
-                if (small && !small.classList.contains('text-warning')) {
-                    small.classList.remove('text-white-50');
-                    small.classList.add('text-muted');
-                }
-            });
-            item.classList.add('active', 'shadow-sm');
-            const smallActive = item.querySelector('small');
-            if (smallActive && !smallActive.classList.contains('text-warning')) {
-                smallActive.classList.remove('text-muted');
-                smallActive.classList.add('text-white-50');
-            }
-
+            
             const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
-            try {
-                await cargarMatriz(idAcuerdo);
-                const u = new URL(window.location.href);
-                u.searchParams.set('ruta', 'comercial/listas');
-                u.searchParams.set('id', String(idAcuerdo));
-                window.history.replaceState({}, '', u.toString());
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
-            }
+            
+            // Reemplazamos la carga por AJAX (que rompía el acordeón) 
+            // por una navegación limpia. PHP se encargará de dibujar todo perfecto.
+            window.location.href = '?ruta=comercial/listas&id=' + idAcuerdo;
         });
     }
 
