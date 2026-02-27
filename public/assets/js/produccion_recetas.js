@@ -5,26 +5,12 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    inyectarFijacionCSS();
     initFiltrosTablas();
     initFormularioRecetas();
     initAccionesRecetaPendiente();
     initGestionParametrosCatalogo();
     initGuardadoReceta(); // Se inicializa el guardado correctamente
 });
-
-// --- PARCHE CSS ---
-function inyectarFijacionCSS() {
-    if (document.getElementById('tomSelectFix')) return;
-    const style = document.createElement('style');
-    style.id = 'tomSelectFix';
-    style.innerHTML = `
-        .ts-wrapper .ts-control { display: flex !important; align-items: center; flex-wrap: nowrap !important; overflow: hidden; }
-        .ts-wrapper.single.full .ts-control > input { display: none !important; }
-        .ts-wrapper.form-select, .ts-wrapper.form-control { padding: 0 !important; border: none !important; }
-    `;
-    document.head.appendChild(style);
-}
 
 function initFiltrosTablas() {
     const input = document.getElementById('recetaSearch');
