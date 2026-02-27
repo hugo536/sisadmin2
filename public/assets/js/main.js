@@ -12,6 +12,59 @@
   'use strict';
 
   // =========================================================
+  // 0) TOMSELECT + BOOTSTRAP MODAL (focus trap)
+  // =========================================================
+  const patchTomSelectForModals = function () {
+    if (typeof window.TomSelect !== 'function' || window.__TOMSELECT_MODAL_PATCHED__) return;
+
+    const TomSelectOriginal = window.TomSelect;
+
+    const ensureEmptyOption = function (inputEl) {
+      if (!inputEl || inputEl.tagName !== 'SELECT' || inputEl.multiple) return;
+      if (inputEl.querySelector('option[value=""]')) return;
+
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = '';
+      inputEl.insertBefore(emptyOption, inputEl.firstChild);
+    };
+
+    const resolveInputElement = function (inputArg) {
+      if (!inputArg) return null;
+      if (inputArg instanceof Element) return inputArg;
+      if (typeof inputArg === 'string') return document.querySelector(inputArg);
+      return null;
+    };
+
+    window.TomSelect = new Proxy(TomSelectOriginal, {
+      construct(target, args, newTarget) {
+        const inputArg = args[0];
+        const userSettings = args[1] && typeof args[1] === 'object' ? args[1] : {};
+        const settings = { ...userSettings };
+        const inputEl = resolveInputElement(inputArg);
+
+        if (inputEl) {
+          const modalParent = inputEl.closest('.modal');
+          if (modalParent && (!settings.dropdownParent || settings.dropdownParent === 'body')) {
+            settings.dropdownParent = modalParent;
+          }
+
+          ensureEmptyOption(inputEl);
+          if (settings.allowEmptyOption === undefined) {
+            settings.allowEmptyOption = true;
+          }
+        }
+
+        return Reflect.construct(target, [inputArg, settings], newTarget);
+      }
+    });
+
+    window.__TOMSELECT_MODAL_PATCHED__ = true;
+  };
+
+  patchTomSelectForModals();
+
+  // =========================================================
   // 1) LOGOUT CONFIRMATION
   // =========================================================
   const logoutLink = document.getElementById('logoutLink');
