@@ -903,6 +903,13 @@
                 }
 
                 const fd = new FormData(form);
+
+                const recordarCumpleanosInput = form.querySelector('[name="recordar_cumpleanos"]');
+                const fechaNacimientoInput = form.querySelector('[name="fecha_nacimiento"]');
+                if (recordarCumpleanosInput?.checked && fechaNacimientoInput) {
+                    fd.set('fecha_nacimiento', (fechaNacimientoInput.value || '').trim());
+                }
+
                 const btn = form.querySelector('button[type="submit"]');
                 const originalText = btn.innerHTML;
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
