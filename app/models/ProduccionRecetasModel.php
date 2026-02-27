@@ -6,21 +6,24 @@ class ProduccionRecetasModel extends Modelo
     public function listarRecetas(): array
     {
         $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
-                       r.rendimiento_base, r.unidad_rendimiento,
-                       r.costo_teorico_unitario AS costo_teorico,
-                       i.id AS id_producto, i.sku AS producto_sku, i.nombre AS producto_nombre,
-                       (
-                           SELECT COUNT(*)
-                           FROM produccion_recetas_detalle d
-                           WHERE d.id_receta = r.id
-                             AND d.deleted_at IS NULL
-                       ) AS total_insumos
+                    r.rendimiento_base, r.unidad_rendimiento,
+                    r.costo_teorico_unitario AS costo_teorico,
+                    i.id AS id_producto, 
+                    i.sku AS producto_sku, 
+                    i.nombre AS producto_nombre,
+                    i.unidad_base, -- AHORA SÍ, ESTA ES LA COLUMNA REAL
+                    (
+                        SELECT COUNT(*)
+                        FROM produccion_recetas_detalle d
+                        WHERE d.id_receta = r.id
+                            AND d.deleted_at IS NULL
+                    ) AS total_insumos
                 FROM items i
                 INNER JOIN produccion_recetas r ON r.id = (
                     SELECT pr.id 
                     FROM produccion_recetas pr
                     WHERE pr.id_producto = i.id 
-                      AND pr.deleted_at IS NULL
+                    AND pr.deleted_at IS NULL
                     ORDER BY pr.estado DESC, pr.version DESC 
                     LIMIT 1
                 )
@@ -735,4 +738,37 @@ class ProduccionRecetasModel extends Modelo
         $stmt->execute(['id' => $idItem]);
         return (string)$stmt->fetchColumn();
     }
+
+    public function obtenerSiguienteCodigoReceta(): string
+    {
+        // Buscamos el último código base (ignorando las versiones con -V)
+        // Asumimos un prefijo "REC-"
+        $sql = "SELECT codigo 
+                FROM produccion_recetas 
+                WHERE codigo LIKE 'REC-%' 
+                  AND deleted_at IS NULL 
+                ORDER BY id DESC 
+                LIMIT 1";
+                
+        $stmt = $this->db()->query($sql);
+        $ultimoCodigo = $stmt->fetchColumn();
+
+        // Si no hay ninguna receta registrada, devolvemos el código inicial
+        if (!$ultimoCodigo) {
+            return 'REC-0001';
+        }
+
+        // Limpiamos el código por si trajo una versión (ej. REC-0005-V2 -> REC-0005)
+        $codigoBase = $this->limpiarCodigoVersion((string)$ultimoCodigo);
+
+        // Extraemos el número después del guion
+        $partes = explode('-', $codigoBase);
+        $numero = isset($partes[1]) ? (int) $partes[1] : 0;
+        
+        $siguienteNumero = $numero + 1;
+
+        // Formateamos con ceros a la izquierda (ej. REC-0006)
+        return sprintf('REC-%04d', $siguienteNumero);
+    }
+
 }

@@ -648,4 +648,21 @@ class ProduccionOrdenesModel extends Modelo
         $stmtMov->execute(['id' => $idItem]);
         return (float)($stmtMov->fetchColumn() ?: 0);
     }
+
+    /**
+     * Obtiene el ID de la última unidad de medida utilizada para un ítem
+     * Útil para registrar los movimientos de inventario con la unidad correcta.
+     */
+    private function obtenerUnidadPorDefecto(int $idItem): ?int
+    {
+        $stmt = $this->db()->prepare('SELECT id_item_unidad
+                                      FROM inventario_movimientos
+                                      WHERE id_item = :id_item
+                                        AND id_item_unidad IS NOT NULL
+                                      ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id_item' => $idItem]);
+        $val = $stmt->fetchColumn();
+        
+        return $val ? (int) $val : null;
+    }
 }

@@ -100,7 +100,7 @@ function initFormularioRecetas() {
                 </div>`,
                 item: (item, escape) => `<span class="text-truncate d-inline-block align-middle" style="max-width: 95%;" data-costo="${item.costo_calculado || 0}">${escape(item.nombre)}</span>`
             },
-            onChange: (value) => { if (onChangeCallback) onChangeCallback(value, this); }
+           onChange: function(value) { if (onChangeCallback) onChangeCallback(value, this); }
         });
     }
 
@@ -121,15 +121,18 @@ function initFormularioRecetas() {
         listaInsumos.innerHTML = '';
         contenedorParametros.innerHTML = '';
         if (emptyParametros) emptyParametros.style.display = 'block';
-
         if (resumenItems) resumenItems.textContent = '0 insumos agregados.';
         if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
 
+        // DESBLOQUEAR TODO (Para cuando hacen clic en "Nueva receta" principal)
         const inputCodigo = document.getElementById('newCodigo');
         if (inputCodigo) { inputCodigo.removeAttribute('readonly'); inputCodigo.classList.remove('bg-light'); }
 
         const inputVersion = document.getElementById('newVersion');
         if (inputVersion) { inputVersion.removeAttribute('readonly'); inputVersion.classList.remove('bg-light'); }
+
+        const inputUnidad = document.getElementById('newUnidadRendimiento');
+        if (inputUnidad) { inputUnidad.removeAttribute('readonly'); inputUnidad.classList.remove('bg-light'); inputUnidad.value = 'UND'; }
 
         const hiddenIdBase = document.getElementById('newIdRecetaBase');
         if (hiddenIdBase) hiddenIdBase.value = '0';
@@ -143,9 +146,14 @@ function initFormularioRecetas() {
         const displayCont = document.getElementById('productoDisplayContainer');
         const displayNombre = document.getElementById('newProductoNombreDisplay');
 
+        // MOSTRAR SELECTOR, OCULTAR TEXTO
         if (selectCont) selectCont.style.display = '';
         if (displayCont) displayCont.style.display = 'none';
         if (displayNombre) displayNombre.textContent = '';
+
+        // ---> NUEVA LÍNEA: Habilitar el select para que vuelva a validar
+        const selectProducto = document.getElementById('newProducto');
+        if (selectProducto) selectProducto.disabled = false;
     };
 
     const calcularResumenYCostos = () => {
@@ -340,15 +348,43 @@ function initFormularioRecetas() {
             const inputCodigo = document.getElementById('newCodigo');
             const inputVersion = document.getElementById('newVersion');
             const hiddenIdProd = document.getElementById('newIdProductoHidden');
+            const inputUnidad = document.getElementById('newUnidadRendimiento');
             
-            if(inputCodigo) inputCodigo.value = data.codigo || '';
-            if(inputVersion) inputVersion.value = data.version || '1';
+            // 1. BLOQUEAR CÓDIGO
+            if(inputCodigo) {
+                inputCodigo.value = data.codigo || '';
+                inputCodigo.setAttribute('readonly', 'true');
+                inputCodigo.classList.add('bg-light');
+            }
+            
+            // 2. BLOQUEAR VERSIÓN
+            if(inputVersion) {
+                inputVersion.value = data.version || '1';
+                inputVersion.setAttribute('readonly', 'true');
+                inputVersion.classList.add('bg-light');
+            }
+
+            // 3. BLOQUEAR UNIDAD Y SETEARLA
+            if(inputUnidad) {
+                inputUnidad.value = data.unidad || 'UND';
+                inputUnidad.setAttribute('readonly', 'true');
+                inputUnidad.classList.add('bg-light');
+            }
+
             if(hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
-            if (tomProductoDestino && data.id_producto) {
-                tomProductoDestino.addOption({ id: data.id_producto, nombre: data.producto_nombre || 'Producto Seleccionado' });
-                tomProductoDestino.setValue(data.id_producto, true);
-            }
+            // 4. BLOQUEAR PRODUCTO (Oculta select, muestra texto)
+            const containerSelect = document.getElementById('productoSelectContainer');
+            const containerDisplay = document.getElementById('productoDisplayContainer');
+            const displayNombre = document.getElementById('newProductoNombreDisplay');
+
+            if (containerSelect) containerSelect.style.display = 'none';
+            if (containerDisplay) containerDisplay.style.display = 'block';
+            if (displayNombre) displayNombre.textContent = data.producto_nombre || 'Producto';
+            
+            // ---> NUEVA LÍNEA: Deshabilitar el select oculto para que no exija "required"
+            const selectProducto = document.getElementById('newProducto');
+            if (selectProducto) selectProducto.disabled = true;
         },
         setCabeceraNuevaVersion(data) {
             if (!data) return;
@@ -461,11 +497,64 @@ function initAccionesRecetaPendiente() {
                 codigo: btn.getAttribute('data-codigo') || '',
                 version: btn.getAttribute('data-version') || '1',
                 id_producto: btn.getAttribute('data-id-producto') || '',
-                producto_nombre: btn.getAttribute('data-producto') || ''
+                producto_nombre: btn.getAttribute('data-producto') || '',
+                unidad: btn.getAttribute('data-unidad') || 'UND' // <-- AGREGAR ESTA LÍNEA
             });
         }
         modal.show();
     });
+
+    // --- NUEVO: Autogenerar código al hacer clic en el botón principal "Nueva receta" ---
+    const btnPrincipalNuevaReceta = document.getElementById('btnNuevaReceta');
+    if (btnPrincipalNuevaReceta) {
+        btnPrincipalNuevaReceta.addEventListener('click', async function () {
+            // Mostramos un indicador de carga temporal en el input de código
+            const inputCodigo = document.getElementById('newCodigo');
+            if (inputCodigo) {
+                inputCodigo.value = 'Generando...';
+                inputCodigo.setAttribute('readonly', 'true');
+                inputCodigo.classList.add('bg-light'); // Lo ponemos en modo lectura temporalmente
+            }
+            
+            try {
+                // Hacemos la petición a la nueva ruta AJAX del controlador
+                const url = new URL(window.location.href);
+                url.searchParams.set('accion', 'obtener_siguiente_codigo_ajax');
+                
+                const resp = await fetch(url.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                
+                const data = await resp.json();
+                
+                if (data.success && data.codigo && inputCodigo) {
+                    inputCodigo.value = data.codigo;
+                } else {
+                    if (inputCodigo) inputCodigo.value = 'REC-XXXX'; // Fallback en caso de error lógico
+                }
+            } catch (error) {
+                console.error("Error al obtener el código autogenerado:", error);
+                if (inputCodigo) inputCodigo.value = 'REC-XXXX'; // Fallback de red
+            } finally {
+                // Opcional: Si quieres que el usuario NO pueda editar el código autogenerado, 
+                // comenta las siguientes dos líneas. Si quieres que pueda editarlo, déjalas.
+                // inputCodigo.removeAttribute('readonly'); 
+                // inputCodigo.classList.remove('bg-light');
+            }
+            
+            // Si quieres asegurarte de limpiar otros campos, puedes llamar al API
+            const api = window.produccionRecetaFormAPI;
+            if (api) {
+                // Solo limpiamos los detalles y parámetros, ya que el código lo acabamos de poner
+                api.cargarDetalles([]);
+                api.cargarParametros([]);
+                api.setIdRecetaBase(0);
+                
+                // Aseguramos que el producto destino esté vacío
+                if (window.tomProductoDestino) window.tomProductoDestino.clear(true);
+            }
+        });
+    }
 
     document.addEventListener('click', async function (e) {
         const btn = e.target.closest('.js-nueva-version');
@@ -590,6 +679,8 @@ function initGuardadoReceta() {
 
             const formData = new FormData(form);
             formData.append('accion', 'guardar_receta_ajax');
+
+            formData.set('id_producto', idProductoDestino);
 
             const response = await fetch(window.location.href, {
                 method: 'POST',

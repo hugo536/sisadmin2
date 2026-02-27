@@ -517,8 +517,14 @@ class InventarioModel extends Modelo
                     $this->consumirStockPackAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                 } else {
                     $this->consumirStockAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
-                    if ($requiereLote || $lote !== '') {
-                        $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad);
+                    
+                    // Verificamos si hay stock "fantasma" atrapado en lotes antiguos
+                    $stockEnLotes = $this->obtenerTotalStockLotes($db, $idRegistro, $idAlmacenOrigen);
+                    
+                    // Entramos si requiere lote, si enviaron un lote manual, O si hay fantasmas por limpiar
+                    if ($requiereLote || $lote !== '' || $stockEnLotes > 0) {
+                        // Pasamos $requiereLote para indicarle si debe ser "Estricto" o "Auto-limpiante"
+                        $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad, $requiereLote);
                     }
                 }
             }
@@ -965,7 +971,8 @@ class InventarioModel extends Modelo
         ]);
     }
 
-    private function decrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad): void
+    // Agregamos el parámetro $esEstricto al final
+    private function decrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad, bool $esEstricto = true): void
     {
         if ($lote !== '') {
             $this->decrementarStockLoteEspecifico($db, $idItem, $idAlmacen, $lote, $cantidad);
@@ -1002,7 +1009,10 @@ class InventarioModel extends Modelo
             $pendiente -= $consumo;
         }
 
-        if ($pendiente > 0) {
+        // --- LÓGICA AUTO-LIMPIANTE ---
+        // Si es estricto (aún exige lote), no perdonamos que falte stock.
+        // Si NO es estricto (ya apagaste el lote), no lanzamos error y dejamos que limpie lo que pueda.
+        if ($esEstricto && $pendiente > 0) {
             throw new RuntimeException('Stock de lotes insuficiente en este almacén para realizar la salida.');
         }
     }
@@ -1207,6 +1217,16 @@ class InventarioModel extends Modelo
         }
 
         return $resultadoAgrupado;
+    }
+
+    private function obtenerTotalStockLotes(PDO $db, int $idItem, int $idAlmacen): float
+    {
+        $sql = 'SELECT COALESCE(SUM(stock_lote), 0) 
+                FROM inventario_lotes 
+                WHERE id_item = :id_item AND id_almacen = :id_almacen';
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id_item' => $idItem, 'id_almacen' => $idAlmacen]);
+        return (float) $stmt->fetchColumn();
     }
 
 }

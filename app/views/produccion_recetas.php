@@ -86,6 +86,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                                                 data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
                                                 data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
                                                 data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
+                                                data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
                                                 title="Agregar receta inicial">
                                             <i class="bi bi-journal-plus me-1"></i>Agregar receta
                                         </button>

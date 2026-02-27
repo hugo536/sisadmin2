@@ -5,7 +5,8 @@ class ListaPrecioModel extends Modelo {
     private array $columnCache = [];
 
     public function soportaPresentacionesComerciales(): bool {
-        return $this->tablaExiste('precios_presentaciones');
+        // Como ahora usaremos la tabla 'items' directamente, forzamos que siempre sea true
+        return true;
     }
 
     public function listarAcuerdos(): array {
@@ -137,24 +138,24 @@ class ListaPrecioModel extends Modelo {
             return [];
         }
 
+        // Hacemos el JOIN directamente con la tabla 'items' en lugar de la tabla vieja
         $sql = "SELECT
                     cap.id,
                     cap.id_acuerdo,
-                    cap.id_presentacion,
+                    cap.id_presentacion AS id_item,
                     cap.precio_pactado,
                     cap.estado,
-                    p.codigo_presentacion,
-                    p.factor,
+                    i.sku AS codigo_presentacion,
+                    1 AS factor,
                     i.nombre AS item_nombre,
                     s.nombre AS sabor_nombre,
                     ip.nombre AS presentacion_nombre
                 FROM comercial_acuerdos_precios cap
-                INNER JOIN precios_presentaciones p ON p.id = cap.id_presentacion
-                INNER JOIN items i ON i.id = p.id_item
+                INNER JOIN items i ON i.id = cap.id_presentacion
                 LEFT JOIN item_sabores s ON s.id = i.id_sabor
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
                 WHERE cap.id_acuerdo = :id_acuerdo
-                ORDER BY i.nombre ASC, p.factor ASC";
+                ORDER BY i.nombre ASC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id_acuerdo' => $idAcuerdo]);
@@ -172,28 +173,26 @@ class ListaPrecioModel extends Modelo {
             return [];
         }
 
+        // Buscamos directamente en la tabla 'items'
         $sql = "SELECT
-                    p.id,
-                    p.codigo_presentacion,
-                    p.factor,
+                    i.id,
+                    i.sku AS codigo_presentacion,
+                    1 AS factor,
                     i.nombre AS item_nombre,
                     s.nombre AS sabor_nombre,
                     ip.nombre AS presentacion_nombre
-                FROM precios_presentaciones p
-                INNER JOIN items i ON i.id = p.id_item
+                FROM items i
                 LEFT JOIN item_sabores s ON s.id = i.id_sabor
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
-                WHERE p.estado = 1
-                  AND p.deleted_at IS NULL
+                WHERE i.estado = 1
                   AND i.deleted_at IS NULL
-                  AND i.estado = 1
                   AND NOT EXISTS (
                       SELECT 1
                       FROM comercial_acuerdos_precios cap
                       WHERE cap.id_acuerdo = :id_acuerdo
-                        AND cap.id_presentacion = p.id
+                        AND cap.id_presentacion = i.id
                   )
-                ORDER BY i.nombre ASC, p.factor ASC";
+                ORDER BY i.nombre ASC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id_acuerdo' => $idAcuerdo]);
@@ -301,5 +300,28 @@ class ListaPrecioModel extends Modelo {
 
         $this->columnCache[$columna] = (bool)$stmt->fetchColumn();
         return $this->columnCache[$columna];
+    }
+
+    /**
+     * Verifica si una tabla existe en la base de datos actual.
+     */
+    private function tablaExiste(string $tabla): bool {
+        static $cache = [];
+
+        $tabla = trim($tabla);
+        if ($tabla === '') {
+            return false;
+        }
+
+        if (array_key_exists($tabla, $cache)) {
+            return $cache[$tabla];
+        }
+
+        // Consultamos al esquema de la base de datos si la tabla existe
+        $stmt = $this->db->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :tabla LIMIT 1');
+        $stmt->execute([':tabla' => $tabla]);
+        
+        $cache[$tabla] = (bool)$stmt->fetchColumn();
+        return $cache[$tabla];
     }
 }

@@ -39,6 +39,19 @@ class ProduccionRecetasController extends Controlador
             exit;
         }
 
+        // NUEVA ACCIÓN: Obtener el siguiente código autogenerado para una nueva receta
+        if (es_ajax() && ($_GET['accion'] ?? '') === 'obtener_siguiente_codigo_ajax') {
+            ob_clean();
+            header('Content-Type: application/json; charset=utf-8');
+            try {
+                $nuevoCodigo = $this->produccionRecetasModel->obtenerSiguienteCodigoReceta();
+                echo json_encode(['success' => true, 'codigo' => $nuevoCodigo]);
+            } catch (Throwable $e) {
+                echo json_encode(['success' => false, 'message' => 'Error al generar código: ' . $e->getMessage()]);
+            }
+            exit;
+        }
+
         $flash = $this->obtenerFlash();
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -96,11 +109,11 @@ class ProduccionRecetasController extends Controlador
 
                 if ($accion === 'crear_receta' || $accion === 'guardar_receta_ajax') {
                     $detalles = [];
-                    $insumos = $_POST['detalle_id_insumo'] ?? [];
-                    $cantidades = $_POST['detalle_cantidad_por_unidad'] ?? [];
-                    $mermas = $_POST['detalle_merma_porcentaje'] ?? [];
-                    $costos = $_POST['detalle_costo_unitario'] ?? [];
-                    $etapas = $_POST['detalle_etapa'] ?? [];
+                    $insumos = $_POST['insumo_id'] ?? [];
+                    $cantidades = $_POST['insumo_cantidad'] ?? [];
+                    $mermas = $_POST['insumo_merma'] ?? [];
+                    $costos = $_POST['insumo_costo'] ?? [];
+                    $etapas = $_POST['insumo_etapa'] ?? [];
 
                     foreach ((array) $insumos as $idx => $idInsumo) {
                         if (empty($idInsumo)) {
@@ -116,8 +129,8 @@ class ProduccionRecetasController extends Controlador
                     }
 
                     $parametros = [];
-                    $paramIds = $_POST['param_id'] ?? [];
-                    $paramValores = $_POST['param_valor_objetivo'] ?? [];
+                    $paramIds = $_POST['parametro_id'] ?? [];
+                    $paramValores = $_POST['parametro_valor'] ?? [];
                     foreach ((array) $paramIds as $idx => $idParam) {
                         if (empty($idParam)) {
                             continue;

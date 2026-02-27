@@ -140,8 +140,13 @@
                 const tipoVal = (tipo && tipo.value) || '';
                 const soloConStock = esTipoSalida(tipoVal) ? '1' : '0';
 
-                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                const tstamp = new Date().getTime();
+                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}&_t=${tstamp}`, {
+                    headers: { 
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
                 })
                 .then(async (response) => {
                     if (!response.ok) {
@@ -328,11 +333,16 @@
     if (!val) return null;
     
     const itemData = tomSelectItem.options[val];
+    
+    // Parseo robusto (Asegura que "0", 0 o false no activen el lote)
+    const reqLote = String(itemData.requiere_lote) === '1' || String(itemData.requiere_lote).toLowerCase() === 'true';
+    const reqVenc = String(itemData.requiere_vencimiento) === '1' || String(itemData.requiere_vencimiento).toLowerCase() === 'true';
+
     return {
         id: Number(itemData.id || 0),
         tipoRegistro: itemData.tipo_registro === 'pack' ? 'pack' : 'item',
-        requiereLote: itemData.requiere_lote == '1',
-        requiereVencimiento: itemData.requiere_vencimiento == '1'
+        requiereLote: reqLote,
+        requiereVencimiento: reqVenc
     };
   }
 
