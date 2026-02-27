@@ -16,15 +16,6 @@ class TercerosModel extends Modelo
     /** @var array<string,bool> */
     private array $columnCache = [];
 
-    /** @var array<string,int>|null */
-    private ?array $departamentosMap = null;
-
-    /** @var array<string,int>|null */
-    private ?array $provinciasMap = null;
-
-    /** @var array<string,int>|null */
-    private ?array $distritosMap = null;
-
     public function __construct()
     {
         parent::__construct();
@@ -85,7 +76,6 @@ class TercerosModel extends Modelo
             $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
             $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
             $row['motivo_no_eliminar'] = $bloqueo['motivo'];
-            $this->resolverUbigeoIds($row);
             
             // Helpers de ubicación (compatibilidad visual)
             $row['departamento_nombre'] = $row['departamento'];
@@ -123,8 +113,6 @@ class TercerosModel extends Modelo
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
-
-
 
     public function listarHijosEmpleado(int $idTercero): array
     {
@@ -191,16 +179,13 @@ class TercerosModel extends Modelo
         $row['cuentas_bancarias'] = $this->obtenerCuentasPorTerceros([$id])[$id]   ?? [];
         $row['zonas_exclusivas'] = $this->distribuidoresModel->obtenerZonasPorTerceros([$id])[$id] ?? [];
         $row['zonas_exclusivas_resumen'] = implode(', ', array_filter(array_column($row['zonas_exclusivas'], 'label')));
-        $this->resolverUbigeoIds($row);
 
         return $row;
     }
 
     private function obtenerClientesPorTerceros(array $ids): array
     {
-        if (empty($ids)) {
-            return [];
-        }
+        if (empty($ids)) return [];
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT id_tercero, dias_credito AS cliente_dias_credito, limite_credito AS cliente_limite_credito,
@@ -218,15 +203,12 @@ class TercerosModel extends Modelo
                 'cliente_condicion_pago' => (string) ($row['cliente_condicion_pago'] ?? ''),
             ];
         }
-
         return $result;
     }
 
     private function obtenerProveedoresPorTerceros(array $ids): array
     {
-        if (empty($ids)) {
-            return [];
-        }
+        if (empty($ids)) return [];
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT id_tercero, dias_credito AS proveedor_dias_credito,
@@ -245,15 +227,12 @@ class TercerosModel extends Modelo
                 'proveedor_forma_pago' => (string) ($row['proveedor_forma_pago'] ?? ''),
             ];
         }
-
         return $result;
     }
 
     private function obtenerEmpleadosPorTerceros(array $ids): array
     {
-        if (empty($ids)) {
-            return [];
-        }
+        if (empty($ids)) return [];
 
         $selectCumple = ($this->hasColumn('terceros_empleados', 'recordar_cumpleanos') && $this->hasColumn('terceros_empleados', 'fecha_nacimiento'))
             ? 'recordar_cumpleanos, fecha_nacimiento,'
@@ -283,15 +262,12 @@ class TercerosModel extends Modelo
             unset($row['_id_ref']);
             $result[$id] = $row;
         }
-
         return $result;
     }
 
     private function obtenerDistribuidoresPorTerceros(array $ids): array
     {
-        if (empty($ids)) {
-            return [];
-        }
+        if (empty($ids)) return [];
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT id_tercero FROM distribuidores WHERE deleted_at IS NULL AND id_tercero IN ($in)";
@@ -302,76 +278,7 @@ class TercerosModel extends Modelo
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $result[(int) $row['id_tercero']] = true;
         }
-
         return $result;
-    }
-
-    private function resolverUbigeoIds(array &$row): void
-    {
-        $this->inicializarUbigeoMaps();
-
-        $departamentoNombre = trim((string) ($row['departamento'] ?? ''));
-        $provinciaNombre = trim((string) ($row['provincia'] ?? ''));
-        $distritoNombre = trim((string) ($row['distrito'] ?? ''));
-
-        $departamentoKey = mb_strtolower($departamentoNombre);
-        $departamentoId = $this->departamentosMap[$departamentoKey] ?? null;
-
-        $provinciaId = null;
-        if ($departamentoId !== null && $provinciaNombre !== '') {
-            $provinciaKey = $departamentoId . '|' . mb_strtolower($provinciaNombre);
-            $provinciaId = $this->provinciasMap[$provinciaKey] ?? null;
-        }
-
-        $distritoId = null;
-        if ($provinciaId !== null && $distritoNombre !== '') {
-            $distritoKey = $provinciaId . '|' . mb_strtolower($distritoNombre);
-            $distritoId = $this->distritosMap[$distritoKey] ?? null;
-        }
-
-        $row['departamento_id'] = $departamentoId;
-        $row['provincia_id'] = $provinciaId;
-        $row['distrito_id'] = $distritoId;
-    }
-
-    private function inicializarUbigeoMaps(): void
-    {
-        if ($this->departamentosMap !== null && $this->provinciasMap !== null && $this->distritosMap !== null) {
-            return;
-        }
-
-        $this->departamentosMap = [];
-        $this->provinciasMap = [];
-        $this->distritosMap = [];
-
-        $departamentos = $this->db()->query("SELECT id, nombre FROM departamentos")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($departamentos as $dep) {
-            $nombre = mb_strtolower(trim((string) ($dep['nombre'] ?? '')));
-            if ($nombre === '') {
-                continue;
-            }
-            $this->departamentosMap[$nombre] = (int) $dep['id'];
-        }
-
-        $provincias = $this->db()->query("SELECT id, departamento_id, nombre FROM provincias")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($provincias as $prov) {
-            $nombre = mb_strtolower(trim((string) ($prov['nombre'] ?? '')));
-            $departamentoId = (int) ($prov['departamento_id'] ?? 0);
-            if ($nombre === '' || $departamentoId <= 0) {
-                continue;
-            }
-            $this->provinciasMap[$departamentoId . '|' . $nombre] = (int) $prov['id'];
-        }
-
-        $distritos = $this->db()->query("SELECT id, provincia_id, nombre FROM distritos")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($distritos as $dist) {
-            $nombre = mb_strtolower(trim((string) ($dist['nombre'] ?? '')));
-            $provinciaId = (int) ($dist['provincia_id'] ?? 0);
-            if ($nombre === '' || $provinciaId <= 0) {
-                continue;
-            }
-            $this->distritosMap[$provinciaId . '|' . $nombre] = (int) $dist['id'];
-        }
     }
 
     // ==========================================
@@ -391,7 +298,6 @@ class TercerosModel extends Modelo
             if (!empty($existente)) {
                 $idTercero = (int) $existente['id'];
                 
-                // UPDATE con todos los campos fijos según tu esquema
                 $sql = "UPDATE terceros SET 
                             tipo_persona = :tipo_persona, 
                             nombre_completo = :nombre_completo, 
@@ -408,13 +314,10 @@ class TercerosModel extends Modelo
                 $params = $this->filtrarParamsTercero($payload);
                 $params['id'] = $idTercero;
                 $params['updated_by'] = $userId;
-                
-                // Quitamos campos inmutables para update
                 unset($params['tipo_documento'], $params['numero_documento'], $params['created_by']);
 
                 $this->db()->prepare($sql)->execute($params);
             } else {
-                // INSERT directo
                 $sql = "INSERT INTO terceros (
                             tipo_persona, tipo_documento, numero_documento, nombre_completo,
                             direccion, representante_legal, telefono, email, departamento, provincia, distrito,
@@ -435,7 +338,6 @@ class TercerosModel extends Modelo
                 $idTercero = (int) $this->db()->lastInsertId();
             }
 
-            // Guardar datos específicos según roles
             if (!empty($payload['es_empleado'])) {
                 $this->empleadosModel->guardar($idTercero, $payload, $userId);
             }
@@ -492,7 +394,6 @@ class TercerosModel extends Modelo
 
             $this->db()->prepare($sql)->execute($params);
 
-            // Actualizar hijas según roles
             if (!empty($payload['es_empleado'])) {
                 $this->empleadosModel->guardar($id, $payload, $userId);
             }
@@ -719,23 +620,26 @@ class TercerosModel extends Modelo
     {
         $numeroDocumento = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($data['numero_documento'] ?? '')));
         
-        // Lógica para extraer el primer teléfono y guardarlo en la tabla principal
         $telefonoPrincipal = null;
         $listaTelefonos = $data['telefonos'] ?? $data['telefonos_list'] ?? [];
         if (!empty($listaTelefonos) && is_array($listaTelefonos)) {
             foreach ($listaTelefonos as $tel) {
                 if (!empty($tel['telefono'])) {
                     $telefonoPrincipal = trim($tel['telefono']);
-                    break; // Nos quedamos con el primero que encontremos
+                    break;
                 }
             }
         }
 
-        $esDistribuidor = !empty($data['es_distribuidor']) ? 1 : 0;
-        $esCliente = !empty($data['es_cliente']) ? 1 : 0;
+        // --- SOLUCIÓN DEL ERROR AQUÍ ---
+        // Usamos filter_var para convertir textos como "false" enviados por JS a un booleano real false.
+        $esDistribuidor = filter_var($data['es_distribuidor'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+        $esCliente = filter_var($data['es_cliente'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         if ($esDistribuidor) {
             $esCliente = 1;
         }
+
+        $recordarCumpleanos = filter_var($data['recordar_cumpleanos'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         return [
             'tipo_persona'     => strtoupper(trim((string)($data['tipo_persona'] ?? 'NATURAL'))),
@@ -754,10 +658,10 @@ class TercerosModel extends Modelo
             'rubro_sector'     => trim((string)($data['rubro_sector'] ?? '')),
             'observaciones'    => trim((string)($data['observaciones'] ?? '')),
             'es_cliente'       => $esCliente,
-            'es_proveedor'     => !empty($data['es_proveedor']) ? 1 : 0,
-            'es_empleado'      => !empty($data['es_empleado'])  ? 1 : 0,
+            'es_proveedor'     => filter_var($data['es_proveedor'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+            'es_empleado'      => filter_var($data['es_empleado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             'es_distribuidor'  => $esDistribuidor,
-            'estado'           => ((int)($data['estado'] ?? 1) === 1) ? 1 : 0,
+            'estado'           => filter_var($data['estado'] ?? true, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             
             // Campos cliente
             'cliente_dias_credito'     => (int)($data['cliente_dias_credito'] ?? 0),
@@ -778,21 +682,23 @@ class TercerosModel extends Modelo
             'tipo_contrato'   => $data['tipo_contrato'] ?? null,
             'sueldo_basico'   => (float)($data['sueldo_basico'] ?? 0),
             'moneda'          => $data['moneda'] ?? 'PEN',
-            'asignacion_familiar' => !empty($data['asignacion_familiar']) ? 1 : 0,
+            'asignacion_familiar' => filter_var($data['asignacion_familiar'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             'tipo_pago'       => $data['tipo_pago'] ?? null,
             'pago_diario'     => (float)($data['pago_diario'] ?? 0),
             'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
             'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
             'cuspp'           => $data['cuspp'] ?? null,
-            'essalud'         => !empty($data['essalud']) ? 1 : 0,
+            'essalud'         => filter_var($data['essalud'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             'genero'          => !empty($data['genero']) ? trim((string) $data['genero']) : null,
             'estado_civil'    => !empty($data['estado_civil']) ? trim((string) $data['estado_civil']) : null,
             'nivel_educativo' => !empty($data['nivel_educativo']) ? trim((string) $data['nivel_educativo']) : null,
             'contacto_emergencia_nombre' => !empty($data['contacto_emergencia_nombre']) ? trim((string) $data['contacto_emergencia_nombre']) : null,
             'contacto_emergencia_telf'   => !empty($data['contacto_emergencia_telf']) ? trim((string) $data['contacto_emergencia_telf']) : null,
             'tipo_sangre'     => !empty($data['tipo_sangre']) ? trim((string) $data['tipo_sangre']) : null,
-            'recordar_cumpleanos' => !empty($data['recordar_cumpleanos']) ? 1 : 0,
-            'fecha_nacimiento' => !empty($data['recordar_cumpleanos']) && !empty($data['fecha_nacimiento']) ? $data['fecha_nacimiento'] : null,
+            
+            // --- CORRECCIÓN FINAL DE CUMPLEAÑOS ---
+            'recordar_cumpleanos' => $recordarCumpleanos ? 1 : 0,
+            'fecha_nacimiento' => ($recordarCumpleanos && !empty($data['fecha_nacimiento'])) ? $data['fecha_nacimiento'] : null,
 
             // Distribuidores
             'zonas_exclusivas' => $this->normalizarZonasExclusivas($data['zonas_exclusivas'] ?? []),
@@ -802,42 +708,23 @@ class TercerosModel extends Modelo
         ];
     }
 
-    /**
-     * @param mixed $zonasRaw
-     * @return array<int,string>
-     */
     private function normalizarZonasExclusivas($zonasRaw): array
     {
-        if (!is_array($zonasRaw)) {
-            return [];
-        }
-
+        if (!is_array($zonasRaw)) return [];
         $normalizadas = [];
-
         foreach ($zonasRaw as $zona) {
             if (is_string($zona)) {
                 $valor = trim($zona);
-                if ($valor !== '') {
-                    $normalizadas[] = $valor;
-                }
+                if ($valor !== '') $normalizadas[] = $valor;
                 continue;
             }
-
-            if (!is_array($zona)) {
-                continue;
-            }
-
+            if (!is_array($zona)) continue;
             $dep = trim((string)($zona['dep'] ?? $zona['departamento_id'] ?? ''));
             $prov = trim((string)($zona['prov'] ?? $zona['provincia_id'] ?? ''));
             $dist = trim((string)($zona['dist'] ?? $zona['distrito_id'] ?? ''));
-
-            if ($dep === '') {
-                continue;
-            }
-
+            if ($dep === '') continue;
             $normalizadas[] = $dep . '|' . $prov . '|' . $dist;
         }
-
         return array_values(array_unique($normalizadas));
     }
 
@@ -872,16 +759,8 @@ class TercerosModel extends Modelo
         }
         
         $columnas = array_merge($columnas, [
-            'tipo_entidad',
-            'entidad',
-            'tipo_cuenta',
-            'numero_cuenta',
-            'cci',
-            'titular',
-            'moneda',
-            'principal',
-            'billetera_digital',
-            'observaciones'
+            'tipo_entidad', 'entidad', 'tipo_cuenta', 'numero_cuenta', 'cci',
+            'titular', 'moneda', 'principal', 'billetera_digital', 'observaciones'
         ]);
 
         $sql = 'SELECT ' . implode(', ', $columnas) . " 
@@ -937,12 +816,8 @@ class TercerosModel extends Modelo
         foreach ($telefonos as $tel) {
             if (!empty($tel['telefono'])) {
                 $params = [$terceroId, trim($tel['telefono']), $tel['tipo'] ?? 'Móvil'];
-                if ($this->hasColumn('terceros_telefonos', 'created_by')) {
-                    $params[] = $userId;
-                }
-                if ($this->hasColumn('terceros_telefonos', 'updated_by')) {
-                    $params[] = $userId;
-                }
+                if ($this->hasColumn('terceros_telefonos', 'created_by')) $params[] = $userId;
+                if ($this->hasColumn('terceros_telefonos', 'updated_by')) $params[] = $userId;
                 $stmt->execute($params);
             }
         }
@@ -950,7 +825,6 @@ class TercerosModel extends Modelo
 
     private function sincronizarCuentasBancarias(int $terceroId, array $cuentas, int $userId): void
     {
-        // Primero limpiamos las cuentas anteriores
         if ($this->hasColumn('terceros_cuentas_bancarias', 'deleted_at')) {
             $set = ['deleted_at = NOW()'];
             $params = ['tercero_id' => $terceroId];
@@ -980,12 +854,8 @@ class TercerosModel extends Modelo
             'moneda', 'estado', 'principal', 'billetera_digital', 'observaciones'
         ]);
         
-        if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
-            $columnas[] = 'created_by';
-        }
-        if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) {
-            $columnas[] = 'updated_by';
-        }
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) $columnas[] = 'created_by';
+        if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) $columnas[] = 'updated_by';
 
         $placeholders = implode(', ', array_fill(0, count($columnas), '?'));
         $sql = 'INSERT INTO terceros_cuentas_bancarias (' . implode(', ', $columnas) . ') VALUES (' . $placeholders . ')';
@@ -993,39 +863,30 @@ class TercerosModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         
         foreach ($cuentas as $cta) {
-            // Validación básica
             if (empty($cta['config_banco_id']) && empty($cta['entidad']) && empty($cta['cci']) && empty($cta['numero_cuenta'])) continue;
 
-            $tipoEntidad = $cta['tipo_entidad'] ?? null; 
-            $tipoCuenta  = $cta['tipo_cuenta'] ?? null;
-
             $params = [$terceroId];
-            
             if ($this->hasColumn('terceros_cuentas_bancarias', 'config_banco_id')) {
                 $configBancoId = isset($cta['config_banco_id']) ? (int)$cta['config_banco_id'] : 0;
                 $params[] = $configBancoId > 0 ? $configBancoId : null;
             }
             
             $params = array_merge($params, [
-                $tipoEntidad,
+                $cta['tipo_entidad'] ?? null,
                 $cta['entidad'] ?? '',
-                $tipoCuenta,
+                $cta['tipo_cuenta'] ?? null,
                 trim((string)($cta['numero_cuenta'] ?? '')),
                 trim((string)($cta['cci'] ?? '')),
                 trim((string)($cta['titular'] ?? '')),
                 $cta['moneda'] ?? 'PEN',
-                1, // estado (por defecto activo)
+                1,
                 !empty($cta['principal']) ? 1 : 0,
                 !empty($cta['billetera_digital']) ? 1 : 0,
                 $cta['observaciones'] ?? null,
             ]);
             
-            if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) {
-                $params[] = $userId;
-            }
-            if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) {
-                $params[] = $userId;
-            }
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'created_by')) $params[] = $userId;
+            if ($this->hasColumn('terceros_cuentas_bancarias', 'updated_by')) $params[] = $userId;
             
             $stmt->execute($params);
         }

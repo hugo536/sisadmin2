@@ -5,18 +5,16 @@
 // Usamos rutas relativas para evitar problemas con BASE_PATH
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/TercerosModel.php';
-require_once __DIR__ . '/../models/configuracion/CajasBancosModel.php'; // <-- Ruta corregida
+require_once __DIR__ . '/../models/configuracion/CajasBancosModel.php';
 
 class TercerosController extends Controlador
 {
     private $tercerosModel;
-    private $cajasBancosModel; // <-- AÑADIDO
+    private $cajasBancosModel;
 
     public function __construct()
     {
-        // Validación de seguridad para la clase padre
         if (!class_exists('Controlador')) {
-            // Intenta cargar la clase Controlador si no existe (ajusta la ruta si es necesario)
             if (file_exists(__DIR__ . '/../core/Controlador.php')) {
                 require_once __DIR__ . '/../core/Controlador.php';
             } elseif (file_exists(__DIR__ . '/../libs/Controlador.php')) {
@@ -25,7 +23,7 @@ class TercerosController extends Controlador
         }
         
         $this->tercerosModel = new TercerosModel();
-        $this->cajasBancosModel = new CajasBancosModel(); // <-- AÑADIDO
+        $this->cajasBancosModel = new CajasBancosModel();
     }
 
     public function index()
@@ -44,11 +42,9 @@ class TercerosController extends Controlador
                 // VALIDACIONES AJAX Y CARGAS DINÁMICAS
                 // ==========================================
 
-                // ---> NUEVA ACCIÓN: CARGAR CATÁLOGOS FINANCIEROS <---
                 if (es_ajax() && $accion === 'cargar_catalogos_financieros') {
                     $bancosActivos = $this->cajasBancosModel->listarActivos();
                     
-                    // Agrupamos por tipo para facilitar el trabajo del JS
                     $agrupados = [
                         'BANCO' => [],
                         'CAJA' => [],
@@ -264,7 +260,6 @@ class TercerosController extends Controlador
                     
                     if (!in_array($ext, $allowed)) throw new Exception('Formato de archivo no permitido');
 
-                    // Crear directorio si no existe
                     $baseUploads = defined('BASE_PATH') ? BASE_PATH . '/public/uploads/terceros/' : __DIR__ . '/../../public/uploads/terceros/';
                     $uploadDir = $baseUploads . $idTercero . '/';
                     
@@ -388,7 +383,6 @@ class TercerosController extends Controlador
                     if (strlen($ruc) !== 11) {
                         throw new Exception('RUC inválido.');
                     }
-                    // Simulación (puedes reemplazar con API real más adelante)
                     $simulados = [
                         '20123456789' => ['razon_social' => 'Embotelladora Andina S.A.', 'direccion' => 'Av. Principal 123, Lima'],
                     ];
@@ -404,7 +398,6 @@ class TercerosController extends Controlador
                 }
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
                 
-                // Redirigir si falla documento
                 if (in_array($accion, ['subir_documento', 'editar_documento', 'eliminar_documento'])) {
                     $idTercero = $this->postInt(['tercero_id', 'id_tercero']);
                     if ($idTercero > 0) {
@@ -421,7 +414,6 @@ class TercerosController extends Controlador
             }
         }
 
-        // Cargar datos para la vista principal
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
         $cargos = $this->tercerosModel->listarCargos();
         $areas = $this->tercerosModel->listarAreas();
@@ -436,9 +428,6 @@ class TercerosController extends Controlador
         ]);
     }
 
-    /**
-     * Nueva Vista: Perfil del Tercero
-     */
     public function perfil()
     {
         AuthMiddleware::handle();
@@ -476,7 +465,6 @@ class TercerosController extends Controlador
                 return (int) $_POST[$key];
             }
         }
-
         return $default;
     }
 
@@ -491,7 +479,7 @@ class TercerosController extends Controlador
         $numeroDocumentoDigits = preg_replace('/\D/', '', $numeroRaw);
         $numero       = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $numeroRaw));
 
-        // --- UBIGEO: Resolver Nombres ---
+        // --- UBIGEO ---
         $departamentoId = $data['departamento_id'] ?? $data['departamento'] ?? '';
         $provinciaId    = $data['provincia_id']    ?? $data['provincia']    ?? '';
         $distritoId     = $data['distrito_id']     ?? $data['distrito']     ?? '';
@@ -549,7 +537,6 @@ class TercerosController extends Controlador
         $telefonoPrincipal = $telefonosNormalizados[0]['telefono'] ?? '';
 
         // --- CUENTAS BANCARIAS ---
-        // AÑADIDO: Capturamos el ID del banco que enviará el select del frontend
         $cuentasConfigBancoId = $data['cuenta_config_banco_id'] ?? [];
         $cuentasTipoEntidad = $data['cuenta_tipo']             ?? [];
         $cuentasConfigId   = $data['cuenta_config_banco_id']  ?? [];
@@ -563,10 +550,9 @@ class TercerosController extends Controlador
         $cuentasBilletera   = $data['cuenta_billetera']        ?? [];
         $cuentasObs         = $data['cuenta_observaciones']    ?? [];
 
-        // Helper para asegurar arrays
         $toArray = static function ($value) { return is_array($value) ? $value : [$value]; };
 
-        $cuentasConfigBancoId = $toArray($cuentasConfigBancoId); // AÑADIDO
+        $cuentasConfigBancoId = $toArray($cuentasConfigBancoId);
         $cuentasTipoEntidad = $toArray($cuentasTipoEntidad);
         $cuentasConfigId   = $toArray($cuentasConfigId);
         $cuentasEntidad     = $toArray($cuentasEntidad);
@@ -593,11 +579,11 @@ class TercerosController extends Controlador
             $configBancoId = (int)($cuentasConfigBancoId[$i] ?? 0);
             $entidad = trim((string)($cuentasEntidad[$i] ?? ''));
             
-            // Si la fila está vacía visualmente, la saltamos
             if ($configBancoId <= 0 && $entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipoEntidad[$i] ?? 'Banco');
-            $esBilletera = ($tipoEntidad === 'Billetera Digital' || !empty($cuentasBilletera[$i]));
+            // AQUÍ SOLUCIONAMOS LOS BOOLEANOS DE CUENTAS BANCARIAS
+            $esBilletera = ($tipoEntidad === 'Billetera Digital' || filter_var($cuentasBilletera[$i] ?? false, FILTER_VALIDATE_BOOLEAN));
             
             $numeroVal = trim((string)($cuentasNumero[$i] ?? ''));
             $cciVal    = trim((string)($cuentasCci[$i] ?? ''));
@@ -630,27 +616,29 @@ class TercerosController extends Controlador
                 'cci'               => $cciVal,
                 'titular'           => $titularVal,
                 'moneda'            => $cuentasMoneda[$i] ?? 'PEN',
-                'principal'         => !empty($cuentasPrincipal[$i]) ? 1 : 0,
+                'principal'         => filter_var($cuentasPrincipal[$i] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
                 'billetera_digital' => $esBilletera ? 1 : 0,
                 'observaciones'     => trim((string)($cuentasObs[$i] ?? ''))
             ];
         }
 
-        $esEmpleado = !empty($data['es_empleado']);
+        // --- REVISIÓN PRINCIPAL DE BOOLEANOS DE ROLES ---
+        $esCliente = filter_var($data['es_cliente'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $esProveedor = filter_var($data['es_proveedor'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $esEmpleado = filter_var($data['es_empleado'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $esDistribuidor = filter_var($data['es_distribuidor'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         // ==========================================
         // LÓGICA PARA HIJOS (ASIGNACIÓN FAMILIAR)
         // ==========================================
-        $asignacionFamiliar = $esEmpleado && !empty($data['asignacion_familiar']);
+        $asignacionFamiliar = $esEmpleado && filter_var($data['asignacion_familiar'] ?? false, FILTER_VALIDATE_BOOLEAN);
         
         $hijosIds          = $data['hijo_id'] ?? [];
         $hijosNombres      = $data['hijo_nombre'] ?? [];
         $hijosNacimientos  = $data['hijo_fecha_nacimiento'] ?? [];
-        // Se espera que los inputs "estudia" y "discapacidad" envíen 1 o 0 explícitamente (ej: vía Select)
         $hijosEstudios     = $data['hijo_esta_estudiando'] ?? []; 
         $hijosDiscapacidad = $data['hijo_discapacidad'] ?? [];
 
-        // Asegurar arrays
         $hijosIds          = $toArray($hijosIds);
         $hijosNombres      = $toArray($hijosNombres);
         $hijosNacimientos  = $toArray($hijosNacimientos);
@@ -659,42 +647,31 @@ class TercerosController extends Controlador
 
         $hijosNormalizados = [];
 
-        // Solo procesamos hijos si la asignación familiar está activa
         if ($asignacionFamiliar) {
             foreach ($hijosNombres as $i => $nombreHijo) {
                 $nombreHijo = trim((string)$nombreHijo);
-                
-                // Si no hay nombre, ignoramos la fila (fila vacía)
                 if ($nombreHijo === '') continue;
 
                 $fechaNac = trim((string)($hijosNacimientos[$i] ?? ''));
-                
-                // Validación básica de fecha
                 if ($fechaNac === '') {
                      throw new Exception("El hijo #".($i+1)." (" . htmlspecialchars($nombreHijo) . ") debe tener fecha de nacimiento.");
                 }
 
                 $hijosNormalizados[] = [
-                    'id'               => (int)($hijosIds[$i] ?? 0), // ID para editar si ya existe
+                    'id'               => (int)($hijosIds[$i] ?? 0),
                     'nombre_completo'  => $nombreHijo,
                     'fecha_nacimiento' => $fechaNac,
-                    'esta_estudiando'  => !empty($hijosEstudios[$i]) ? 1 : 0,
-                    'discapacidad'     => !empty($hijosDiscapacidad[$i]) ? 1 : 0,
+                    'esta_estudiando'  => filter_var($hijosEstudios[$i] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
+                    'discapacidad'     => filter_var($hijosDiscapacidad[$i] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
                 ];
             }
         }
 
-        if (!empty($data['es_distribuidor'])) {
-            $data['es_cliente'] = 1;
+        if ($esDistribuidor) {
+            $esCliente = true; // Actualizamos a booleano
         }
 
-        // --- VALIDACIONES BÁSICAS ---
-        $roles = [
-            !empty($data['es_cliente']),
-            !empty($data['es_proveedor']),
-            $esEmpleado,
-            !empty($data['es_distribuidor']),
-        ];
+        $roles = [$esCliente, $esProveedor, $esEmpleado, $esDistribuidor];
 
         if ($tipoPersona === '' || $tipoDoc === '' || $numero === '' || $nombre === '') {
             throw new Exception('Tipo de persona, documento y nombre son obligatorios.');
@@ -740,7 +717,8 @@ class TercerosController extends Controlador
             }
         }
 
-        $recordarCumpleanos = $esEmpleado && !empty($data['recordar_cumpleanos']);
+        // --- CORRECCIÓN DE VALIDACIÓN DEL CUMPLEAÑOS AQUÍ ---
+        $recordarCumpleanos = $esEmpleado && filter_var($data['recordar_cumpleanos'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $fechaNacimientoRaw = trim((string) ($data['fecha_nacimiento'] ?? ''));
         $fechaNacimientoNormalizada = null;
 
@@ -772,19 +750,13 @@ class TercerosController extends Controlador
                 $prov = trim((string)($zona['prov'] ?? $zona['provincia_id'] ?? ''));
                 $dist = trim((string)($zona['dist'] ?? $zona['distrito_id'] ?? ''));
 
-                if ($dep === '') {
-                    continue;
-                }
-
+                if ($dep === '') continue;
                 $zona = $dep . '|' . $prov . '|' . $dist;
             } else {
                 $zona = trim((string)$zona);
             }
 
-            if ($zona === '' || !preg_match('/^[^|]+\|[^|]*\|[^|]*$/', $zona)) {
-                continue;
-            }
-
+            if ($zona === '' || !preg_match('/^[^|]+\|[^|]*\|[^|]*$/', $zona)) continue;
             $zonasLimpias[] = $zona;
         }
 
@@ -806,9 +778,7 @@ class TercerosController extends Controlador
 
         $normalizeRegimen = static function ($value) use ($normalizeCatalog) {
             $v = $normalizeCatalog($value);
-            if ($v === 'SNP') {
-                return 'ONP';
-            }
+            if ($v === 'SNP') return 'ONP';
 
             $map = [
                 'ONP' => 'ONP',
@@ -827,12 +797,8 @@ class TercerosController extends Controlador
 
         $normalizeTipoComision = static function ($value) use ($normalizeCatalog) {
             $v = $normalizeCatalog($value);
-            if (strpos($v, 'FLUJO') !== false) {
-                return 'FLUJO';
-            }
-            if (strpos($v, 'MIXTA') !== false) {
-                return 'MIXTA';
-            }
+            if (strpos($v, 'FLUJO') !== false) return 'FLUJO';
+            if (strpos($v, 'MIXTA') !== false) return 'MIXTA';
             return '';
         };
 
@@ -862,9 +828,7 @@ class TercerosController extends Controlador
 
         $normalizeMoneda = static function ($value) use ($normalizeCatalog) {
             $v = $normalizeCatalog($value);
-            if ($v === 'USD' || strpos($v, 'DOLAR') !== false) {
-                return 'USD';
-            }
+            if ($v === 'USD' || strpos($v, 'DOLAR') !== false) return 'USD';
             return 'PEN';
         };
 
@@ -899,7 +863,12 @@ class TercerosController extends Controlador
         $prepared['contacto_emergencia_telf']   = $esEmpleado ? trim((string) ($data['contacto_emergencia_telf'] ?? '')) : '';
         $prepared['tipo_sangre']                = $esEmpleado ? strtoupper(trim((string) ($data['tipo_sangre'] ?? ''))) : '';
 
-        // Agregamos la información de Asignación Familiar e Hijos al Payload
+        // Pasar los booleanos limpios al payload
+        $prepared['es_cliente'] = $esCliente ? 1 : 0;
+        $prepared['es_proveedor'] = $esProveedor ? 1 : 0;
+        $prepared['es_empleado'] = $esEmpleado ? 1 : 0;
+        $prepared['es_distribuidor'] = $esDistribuidor ? 1 : 0;
+
         $prepared['asignacion_familiar'] = $asignacionFamiliar ? 1 : 0;
         $prepared['hijos_lista']         = $hijosNormalizados;
 

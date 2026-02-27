@@ -3,7 +3,6 @@
 
     // Configuraciones y Constantes
     const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
-    // --- NUEVO: Variable global para almacenar catálogos desde la BD ---
     let catalogosFinancieros = { BANCO: [], CAJA: [], BILLETERA: [], OTROS: [] };
 
     let ENTIDADES_FINANCIERAS = {
@@ -25,7 +24,6 @@
     // 1. UTILIDADES Y FETCH INICIAL
     // =========================================================================
 
-    // --- NUEVO: Función para cargar los bancos al inicio ---
     async function fetchCatalogos() {
         const fd = new FormData();
         fd.append('accion', 'cargar_catalogos_financieros');
@@ -60,13 +58,10 @@
     function normalizeDateForInput(value) {
         const raw = (value || '').toString().trim();
         if (!raw) return '';
-
         const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
         if (iso) return iso[1];
-
         const latin = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (latin) return `${latin[3]}-${latin[2]}-${latin[1]}`;
-
         return '';
     }
 
@@ -92,7 +87,6 @@
         return normalizeTipoEntidad(tipo) === 'Billetera Digital';
     }
 
-
     function normalizeTipoCatalogo(value) {
         const v = (value || '').toString().trim().toUpperCase();
         if (v === 'BANCO') return 'Banco';
@@ -113,33 +107,18 @@
         };
     }
 
-    function getCatalogItemsByTipo(tipo) {
-        const key = normalizeTipoEntidad(tipo);
-        return Array.isArray(CATALOGO_CAJAS_BANCOS[key]) ? CATALOGO_CAJAS_BANCOS[key] : [];
-    }
-
     async function cargarCatalogoCajasBancos() {
         const fd = new FormData();
         fd.append('accion', 'cargar_catalogo_cajas_bancos');
-
         const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: fd,
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
+            method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}
         });
-
         const { data } = await parseJsonResponse(response);
         if (!data.ok || !Array.isArray(data.data)) {
             throw new Error(data.mensaje || 'No se pudo cargar la configuración de Cajas y Bancos.');
         }
 
-        const grouped = {
-            Banco: [],
-            Caja: [],
-            'Billetera Digital': [],
-            Otros: []
-        };
-
+        const grouped = { Banco: [], Caja: [], 'Billetera Digital': [], Otros: [] };
         data.data.forEach((raw) => {
             const item = normalizeCatalogItem(raw);
             if (!item.entidad) return;
@@ -156,30 +135,22 @@
     }
 
     function normalizeCatalogValue(value) {
-        return (value || '')
-            .toString()
-            .trim()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toUpperCase();
+        return (value || '').toString().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     }
 
     function normalizeTipoPersona(value) {
         const v = normalizeCatalogValue(value);
-        if (v === 'NATURAL' || v === 'JURIDICA') return v;
-        return '';
+        return (v === 'NATURAL' || v === 'JURIDICA') ? v : '';
     }
 
     function normalizeGenero(value) {
         const v = normalizeCatalogValue(value);
-        if (v === 'MASCULINO' || v === 'FEMENINO' || v === 'OTRO') return v;
-        return '';
+        return (v === 'MASCULINO' || v === 'FEMENINO' || v === 'OTRO') ? v : '';
     }
 
     function normalizeEstadoCivil(value) {
         const v = normalizeCatalogValue(value);
-        if (['SOLTERO', 'CASADO', 'DIVORCIADO', 'VIUDO', 'CONVIVIENTE'].includes(v)) return v;
-        return '';
+        return ['SOLTERO', 'CASADO', 'DIVORCIADO', 'VIUDO', 'CONVIVIENTE'].includes(v) ? v : '';
     }
 
     function normalizeEstadoLaboral(value) {
@@ -200,47 +171,30 @@
     function normalizeTipoContrato(value) {
         const v = normalizeCatalogValue(value).replace(/\s+/g, '_');
         const map = {
-            INDETERMINADO: 'INDETERMINADO',
-            PLAZO_FIJO: 'PLAZO_FIJO',
-            PART_TIME: 'PART_TIME',
-            LOCACION: 'LOCACION',
-            LOCACION_DE_SERVICIOS: 'LOCACION',
-            PRACTICANTE: 'PRACTICANTE'
+            INDETERMINADO: 'INDETERMINADO', PLAZO_FIJO: 'PLAZO_FIJO', PART_TIME: 'PART_TIME',
+            LOCACION: 'LOCACION', LOCACION_DE_SERVICIOS: 'LOCACION', PRACTICANTE: 'PRACTICANTE'
         };
         return map[v] || '';
     }
 
     function normalizeTipoPago(value) {
         const v = normalizeCatalogValue(value);
-        if (['MENSUAL', 'QUINCENAL', 'DIARIO'].includes(v)) return v;
-        return 'MENSUAL';
+        return ['MENSUAL', 'QUINCENAL', 'DIARIO'].includes(v) ? v : 'MENSUAL';
     }
 
     function normalizeMoneda(value) {
         const v = normalizeCatalogValue(value);
-        if (v === 'PEN' || v.includes('SOL')) return 'PEN';
         if (v === 'USD' || v.includes('DOLAR')) return 'USD';
         return 'PEN';
     }
 
     function normalizeRegimenPensionario(value) {
-        const v = normalizeCatalogValue(value)
-            .replace(/\s+/g, '_')
-            .replace(/^SNP$/, 'ONP')
-            .replace(/^AFP$/, '');
-
+        const v = normalizeCatalogValue(value).replace(/\s+/g, '_').replace(/^SNP$/, 'ONP').replace(/^AFP$/, '');
         const map = {
-            ONP: 'ONP',
-            AFP_INTEGRA: 'AFP_INTEGRA',
-            INTEGRA: 'AFP_INTEGRA',
-            AFP_PRIMA: 'AFP_PRIMA',
-            PRIMA: 'AFP_PRIMA',
-            AFP_PROFUTURO: 'AFP_PROFUTURO',
-            PROFUTURO: 'AFP_PROFUTURO',
-            AFP_HABITAT: 'AFP_HABITAT',
-            HABITAT: 'AFP_HABITAT'
+            ONP: 'ONP', AFP_INTEGRA: 'AFP_INTEGRA', INTEGRA: 'AFP_INTEGRA', AFP_PRIMA: 'AFP_PRIMA',
+            PRIMA: 'AFP_PRIMA', AFP_PROFUTURO: 'AFP_PROFUTURO', PROFUTURO: 'AFP_PROFUTURO',
+            AFP_HABITAT: 'AFP_HABITAT', HABITAT: 'AFP_HABITAT'
         };
-
         return map[v] || '';
     }
 
@@ -275,16 +229,13 @@
         map.forEach(item => {
             const checkbox = document.getElementById(item.check);
             const tabItem = document.getElementById(item.tab);
-            
             if (checkbox && tabItem) {
                 const show = checkbox.checked;
-                
                 if (show) {
                     tabItem.classList.remove('d-none');
                 } else {
                     tabItem.classList.add('d-none');
                 }
-
                 const link = tabItem.querySelector('.nav-link');
                 if (!show && link && link.classList.contains('active')) {
                     activeTabHidden = true;
@@ -299,7 +250,6 @@
                 tabInstance.show();
             }
         }
-
         syncEmpleadoRequiredFields(prefix);
     }
 
@@ -311,9 +261,7 @@
         const requireEmpleado = empleadoCheckbox.checked;
         form.querySelectorAll('[data-required-empleado="1"]').forEach((field) => {
             field.required = requireEmpleado;
-            if (!requireEmpleado) {
-                field.setCustomValidity('');
-            }
+            if (!requireEmpleado) field.setCustomValidity('');
         });
     }
 
@@ -359,16 +307,11 @@
     function buildCuentaRow(data = {}, onRemove) {
         const card = document.createElement('div');
         card.className = 'card mb-2 border shadow-sm';
-        
         const tipoEntidadVal = normalizeTipoEntidad(data.tipo_entidad || (data.billetera_digital == 1 ? 'Billetera Digital' : 'Banco'));
         
-        const body = document.createElement('div');
-        body.className = 'card-body p-2';
-        
-        const row = document.createElement('div');
-        row.className = 'row g-2 align-items-center';
+        const body = document.createElement('div'); body.className = 'card-body p-2';
+        const row = document.createElement('div'); row.className = 'row g-2 align-items-center';
 
-        // 1. Tipo Entidad
         const colType = document.createElement('div'); colType.className = 'col-md-2';
         const selType = document.createElement('select'); 
         selType.className = 'form-select form-select-sm fw-bold bg-light';
@@ -376,62 +319,45 @@
         TIPOS_ENTIDAD_CUENTA.forEach(t => selType.add(new Option(t, t, false, t === tipoEntidadVal)));
         colType.appendChild(selType);
 
-        // 2. Entidad (AHORA DINÁMICO)
         const colEnt = document.createElement('div'); colEnt.className = 'col-md-3';
-        
-        // Select para el ID de configuración
         const selEnt = document.createElement('select');
         selEnt.className = 'form-select form-select-sm';
         selEnt.name = 'cuenta_config_banco_id[]'; 
         
-        // Input oculto para guardar el texto (fallback / legacy)
         const hidEntidadTexto = document.createElement('input');
-        hidEntidadTexto.type = 'hidden';
-        hidEntidadTexto.name = 'cuenta_entidad[]';
+        hidEntidadTexto.type = 'hidden'; hidEntidadTexto.name = 'cuenta_entidad[]';
         
         colEnt.append(selEnt, hidEntidadTexto);
 
         const inpConfigBanco = document.createElement('input');
-        inpConfigBanco.type = 'hidden';
-        inpConfigBanco.name = 'cuenta_config_banco_id[]';
+        inpConfigBanco.type = 'hidden'; inpConfigBanco.name = 'cuenta_config_banco_id[]';
         inpConfigBanco.value = String(data.config_banco_id || '0');
         colEnt.appendChild(inpConfigBanco);
 
-        // 3. Tipo Cuenta
         const colTipoCta = document.createElement('div'); colTipoCta.className = 'col-md-2';
         const selTipoCta = document.createElement('select');
-        selTipoCta.className = 'form-select form-select-sm';
-        selTipoCta.name = 'cuenta_tipo_cta[]';
+        selTipoCta.className = 'form-select form-select-sm'; selTipoCta.name = 'cuenta_tipo_cta[]';
         colTipoCta.appendChild(selTipoCta);
 
         const hidBill = document.createElement('input');
-        hidBill.type = 'hidden';
-        hidBill.name = 'cuenta_billetera[]';
-        hidBill.value = '0';
+        hidBill.type = 'hidden'; hidBill.name = 'cuenta_billetera[]'; hidBill.value = '0';
         colTipoCta.appendChild(hidBill);
 
-        // 4. Número / CCI
         const colNum = document.createElement('div'); colNum.className = 'col-md-4';
         const grpNum = document.createElement('div'); grpNum.className = 'input-group input-group-sm';
         const icon = document.createElement('span'); icon.className = 'input-group-text bg-white text-muted border-end-0';
         const inpNum = document.createElement('input'); 
-        inpNum.className = 'form-control border-start-0'; 
-        inpNum.name = 'cuenta_cci[]';
+        inpNum.className = 'form-control border-start-0'; inpNum.name = 'cuenta_cci[]';
         inpNum.value = data.cci || data.numero_cuenta || '';
         
         const inpSec = document.createElement('input');
-        inpSec.type = 'hidden';
-        inpSec.name = 'cuenta_numero[]';
-        inpSec.value = data.numero_cuenta || '';
+        inpSec.type = 'hidden'; inpSec.name = 'cuenta_numero[]'; inpSec.value = data.numero_cuenta || '';
 
-        grpNum.append(icon, inpNum, inpSec);
-        colNum.appendChild(grpNum);
+        grpNum.append(icon, inpNum, inpSec); colNum.appendChild(grpNum);
 
-        // 5. Moneda y Acciones
         const colAct = document.createElement('div'); colAct.className = 'col-md-1 d-flex gap-1';
         const selMon = document.createElement('select');
-        selMon.className = 'form-select form-select-sm px-1 text-center';
-        selMon.name = 'cuenta_moneda[]';
+        selMon.className = 'form-select form-select-sm px-1 text-center'; selMon.name = 'cuenta_moneda[]';
         selMon.add(new Option('S/', 'PEN', false, data.moneda === 'PEN'));
         selMon.add(new Option('$', 'USD', false, data.moneda === 'USD'));
         
@@ -439,31 +365,24 @@
         colAct.append(selMon, btnDel);
 
         const rowDet = document.createElement('div'); rowDet.className = 'row g-2 mt-1';
-        
         const colTit = document.createElement('div'); colTit.className = 'col-md-5';
         const inpTit = document.createElement('input');
-        inpTit.className = 'form-control form-control-sm';
-        inpTit.placeholder = 'Titular (si es diferente)';
-        inpTit.name = 'cuenta_titular[]';
-        inpTit.value = data.titular || '';
+        inpTit.className = 'form-control form-control-sm'; inpTit.placeholder = 'Titular (si es diferente)';
+        inpTit.name = 'cuenta_titular[]'; inpTit.value = data.titular || '';
         colTit.appendChild(inpTit);
 
         const colObs = document.createElement('div'); colObs.className = 'col-md-7';
         const inpObs = document.createElement('input');
-        inpObs.className = 'form-control form-control-sm';
-        inpObs.placeholder = 'Observaciones';
-        inpObs.name = 'cuenta_observaciones[]';
-        inpObs.value = data.observaciones || '';
+        inpObs.className = 'form-control form-control-sm'; inpObs.placeholder = 'Observaciones';
+        inpObs.name = 'cuenta_observaciones[]'; inpObs.value = data.observaciones || '';
         colObs.appendChild(inpObs);
 
         rowDet.append(colTit, colObs);
         
-        // --- LÓGICA DE ACTUALIZACIÓN DE FILA ---
         const updateRow = () => {
             const tipoUI = normalizeTipoEntidad(selType.value);
             const isBill = isBilleteraTipo(tipoUI);
             
-            // Mapeamos UI -> Categoría de BD
             let dbType = 'OTROS';
             if (tipoUI === 'Banco') dbType = 'BANCO';
             else if (tipoUI === 'Caja') dbType = 'CAJA';
@@ -472,18 +391,15 @@
             selEnt.innerHTML = '<option value="">Seleccione...</option>';
             const opciones = catalogosFinancieros[dbType] || [];
             
-            // Llenamos usando datos de la base de datos
             opciones.forEach(item => {
                 const opt = new Option(item.nombre, item.id);
-                opt.dataset.nombre = item.nombre; // Guardar el texto para el fallback
+                opt.dataset.nombre = item.nombre;
                 selEnt.add(opt);
             });
 
-            // Lógica para preseleccionar al Editar
             if (data.config_banco_id) {
                 selEnt.value = data.config_banco_id;
             } else if (data.entidad) {
-                // Compatibilidad con registros viejos que solo tienen texto
                 const matchedOpt = Array.from(selEnt.options).find(o => o.dataset.nombre === data.entidad);
                 if (matchedOpt) {
                     selEnt.value = matchedOpt.value;
@@ -495,9 +411,7 @@
                 }
             }
 
-            // Sincronizar el input oculto
             hidEntidadTexto.value = selEnt.options[selEnt.selectedIndex]?.dataset.nombre || data.entidad || '';
-
             const selectedOpt = selEnt.options[selEnt.selectedIndex] || null;
             inpConfigBanco.value = selectedOpt?.value || '0';
 
@@ -512,34 +426,25 @@
             if(data.tipo_cuenta && Array.from(selTipoCta.options).some(o => o.value === data.tipo_cuenta)) selTipoCta.value = data.tipo_cuenta;
 
             const monedaCatalogo = selectedOpt?.dataset?.moneda || '';
-            if (monedaCatalogo === 'PEN' || monedaCatalogo === 'USD') {
-                selMon.value = monedaCatalogo;
-            }
-            if (data.moneda === 'PEN' || data.moneda === 'USD') {
-                selMon.value = data.moneda;
-            }
+            if (monedaCatalogo === 'PEN' || monedaCatalogo === 'USD') selMon.value = monedaCatalogo;
+            if (data.moneda === 'PEN' || data.moneda === 'USD') selMon.value = data.moneda;
 
-            // Ajustes visuales (íconos y anchos)
             if (isBill) {
                 colTipoCta.classList.add('d-none');
                 colNum.classList.remove('col-md-4'); colNum.classList.add('col-md-6');
                 icon.innerHTML = '<i class="bi bi-phone"></i>';
-                inpNum.placeholder = 'Celular (9 dígitos)';
-                inpNum.maxLength = 9;
+                inpNum.placeholder = 'Celular (9 dígitos)'; inpNum.maxLength = 9;
                 hidBill.value = '1';
             } else {
                 colTipoCta.classList.remove('d-none');
                 colNum.classList.remove('col-md-6'); colNum.classList.add('col-md-4');
                 icon.innerHTML = '<i class="bi bi-bank"></i>';
-                inpNum.placeholder = 'CCI o Cuenta';
-                inpNum.maxLength = 20;
+                inpNum.placeholder = 'CCI o Cuenta'; inpNum.maxLength = 20;
                 hidBill.value = '0';
             }
         };
 
-        // Eventos de la fila
         selType.addEventListener('change', () => {
-            // Limpiamos los datos previos para que no forcen la selección si el usuario cambia el tipo
             data.config_banco_id = '';
             data.entidad = '';
             updateRow();
@@ -594,11 +499,8 @@
                     const inpRep = document.getElementById(`${prefix}RepresentanteLegal`);
 
                     if (repSection) {
-                        if (isJuridica) {
-                            repSection.classList.remove('d-none');
-                        } else {
-                            repSection.classList.add('d-none');
-                        }
+                        if (isJuridica) repSection.classList.remove('d-none');
+                        else repSection.classList.add('d-none');
                     }
                     if (lblNombre) lblNombre.innerHTML = isJuridica ? 'Razón Social <span class="text-danger">*</span>' : 'Nombre Completo <span class="text-danger">*</span>';
                     if (inpRep) inpRep.required = isJuridica;
@@ -647,6 +549,24 @@
                     else { dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true; }
                 });
             }
+
+            // --- LÓGICA DEL SWITCH DE RECORDAR CUMPLEAÑOS ---
+            const recordarCumpleanosSwitch = document.getElementById(`${prefix}RecordarCumpleanos`);
+            const fechaNacimientoInput = document.getElementById(`${prefix}FechaNacimiento`);
+            
+            if (recordarCumpleanosSwitch && fechaNacimientoInput) {
+                recordarCumpleanosSwitch.addEventListener('change', function() {
+                    if (this.checked) {
+                        fechaNacimientoInput.disabled = false;
+                        fechaNacimientoInput.required = true;
+                    } else {
+                        fechaNacimientoInput.disabled = true;
+                        fechaNacimientoInput.required = false;
+                        fechaNacimientoInput.value = ''; // Limpiamos el valor si se apaga
+                        clearInvalid(fechaNacimientoInput); // Removemos estilos de error por si los había
+                    }
+                });
+            }
         };
 
         setupListeners('crear');
@@ -673,11 +593,16 @@
                 }
 
                 syncRoleTabs('crear');
-                
                 document.getElementById('crearTipoPersona')?.dispatchEvent(new Event('change'));
-                
                 document.getElementById('crearProvincia').innerHTML = '';
                 document.getElementById('crearDistrito').innerHTML = '';
+
+                // Forzar el estado inicial del switch cumpleaños
+                const recordarChkCrear = document.getElementById('crearRecordarCumpleanos');
+                if(recordarChkCrear){
+                    recordarChkCrear.checked = false;
+                    recordarChkCrear.dispatchEvent(new Event('change'));
+                }
 
                 if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
                     window.TercerosEmpleados.refreshState('crear');
@@ -732,7 +657,15 @@
                 document.getElementById('editCuspp').value = btn.dataset.cuspp || '';
                 document.getElementById('editAsignacionFamiliar').checked = btn.dataset.asignacionFamiliar == 1;
                 document.getElementById('editEssalud').checked = btn.dataset.essalud == 1;
-                document.getElementById('editRecordarCumpleanos').checked = btn.dataset.recordarCumpleanos == 1;
+                
+                // --- Inicialización del Cumpleaños ---
+                document.getElementById('editFechaNacimiento').value = normalizeDateForInput(btn.dataset.fechaNacimiento);
+                const recordarChk = document.getElementById('editRecordarCumpleanos');
+                if (recordarChk) {
+                    recordarChk.checked = btn.dataset.recordarCumpleanos == 1;
+                    recordarChk.dispatchEvent(new Event('change')); // Disparamos el evento para habilitar/deshabilitar la fecha
+                }
+
                 document.getElementById('editGenero').value = normalizeGenero(btn.dataset.genero);
                 document.getElementById('editEstadoCivil').value = normalizeEstadoCivil(btn.dataset.estadoCivil);
                 document.getElementById('editNivelEducativo').value = btn.dataset.nivelEducativo || '';
@@ -750,8 +683,6 @@
                 if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
                     window.TercerosEmpleados.refreshState('edit');
                 }
-
-                document.getElementById('editFechaNacimiento').value = normalizeDateForInput(btn.dataset.fechaNacimiento);
 
                 const tipoP = document.getElementById('editTipoPersona');
                 tipoP.value = normalizeTipoPersona(btn.dataset.tipoPersona);
@@ -778,7 +709,6 @@
                 ctaList.innerHTML = '';
                 ctas.forEach(c => ctaList.appendChild(buildCuentaRow(c)));
 
-                // Cargar zonas distribuidor
                 if (window.TercerosClientes && window.TercerosClientes.loadSavedZones && window.TercerosClientes.setDistribuidorZones) {
                     if (btn.dataset.esDistribuidor == 1) {
                         window.TercerosClientes.loadSavedZones('edit', id);
@@ -827,11 +757,10 @@
                 return 'El correo electrónico no tiene un formato válido.';
             }
 
-            if (recordarCumpleanos) {
+            if (esEmpleado && recordarCumpleanos) {
                 if (!fechaNacimiento) {
                     return 'Si activa recordar cumpleaños, debe registrar la fecha de nacimiento.';
                 }
-
                 const hoy = new Date();
                 hoy.setHours(0, 0, 0, 0);
                 const fecha = new Date(`${fechaNacimiento}T00:00:00`);
@@ -842,7 +771,6 @@
                     return 'La fecha de nacimiento no puede ser mayor a la fecha actual.';
                 }
             }
-
 
             if (esEmpleado) {
                 if (sueldoBasicoRaw === '') {
@@ -862,13 +790,10 @@
 
         const showTabForInvalidField = (field) => {
             if (!field) return;
-
             const tabPane = field.closest('.tab-pane');
             if (!tabPane || tabPane.classList.contains('active')) return;
-
             const tabButton = document.querySelector(`[data-bs-target="#${tabPane.id}"]`);
             if (!tabButton) return;
-
             bootstrap.Tab.getOrCreateInstance(tabButton).show();
         };
 
@@ -904,10 +829,15 @@
 
                 const fd = new FormData(form);
 
+                // Limpieza absoluta de la fecha si el check no está activo
                 const recordarCumpleanosInput = form.querySelector('[name="recordar_cumpleanos"]');
-                const fechaNacimientoInput = form.querySelector('[name="fecha_nacimiento"]');
-                if (recordarCumpleanosInput?.checked && fechaNacimientoInput) {
-                    fd.set('fecha_nacimiento', (fechaNacimientoInput.value || '').trim());
+                if (!recordarCumpleanosInput?.checked) {
+                    fd.delete('fecha_nacimiento');
+                } else {
+                    const fechaNacimientoInput = form.querySelector('[name="fecha_nacimiento"]');
+                    if (fechaNacimientoInput) {
+                        fd.set('fecha_nacimiento', (fechaNacimientoInput.value || '').trim());
+                    }
                 }
 
                 const btn = form.querySelector('button[type="submit"]');
@@ -1090,7 +1020,6 @@
         };
 
         modal.addEventListener('shown.bs.modal', loadList);
-
         cancelBtn.addEventListener('click', resetForm);
 
         form.addEventListener('submit', async function (event) {
@@ -1171,44 +1100,21 @@
 
     function initMasterCatalogs() {
         initMasterCatalog({
-            type: 'cargo',
-            label: 'cargo',
-            labelPlural: 'cargos',
-            labelCapitalized: 'Cargo',
-            modalId: 'modalGestionCargos',
-            formId: 'formCrearCargo',
-            listId: 'listaCargosConfig',
-            inputId: 'cargoNombre',
-            actionId: 'cargoAccion',
-            idFieldId: 'cargoId',
-            cancelBtnId: 'btnCancelCargo',
-            listAction: 'listar_cargos',
-            saveAction: 'guardar_cargo',
-            editAction: 'editar_cargo',
-            deleteAction: 'eliminar_cargo',
-            toggleAction: 'toggle_estado_cargo'
+            type: 'cargo', label: 'cargo', labelPlural: 'cargos', labelCapitalized: 'Cargo',
+            modalId: 'modalGestionCargos', formId: 'formCrearCargo', listId: 'listaCargosConfig',
+            inputId: 'cargoNombre', actionId: 'cargoAccion', idFieldId: 'cargoId',
+            cancelBtnId: 'btnCancelCargo', listAction: 'listar_cargos', saveAction: 'guardar_cargo',
+            editAction: 'editar_cargo', deleteAction: 'eliminar_cargo', toggleAction: 'toggle_estado_cargo'
         });
 
         initMasterCatalog({
-            type: 'area',
-            label: 'área',
-            labelPlural: 'áreas',
-            labelCapitalized: 'Área',
-            modalId: 'modalGestionAreas',
-            formId: 'formCrearArea',
-            listId: 'listaAreasConfig',
-            inputId: 'areaNombre',
-            actionId: 'areaAccion',
-            idFieldId: 'areaId',
-            cancelBtnId: 'btnCancelArea',
-            listAction: 'listar_areas',
-            saveAction: 'guardar_area',
-            editAction: 'editar_area',
-            deleteAction: 'eliminar_area',
-            toggleAction: 'toggle_estado_area'
+            type: 'area', label: 'área', labelPlural: 'áreas', labelCapitalized: 'Área',
+            modalId: 'modalGestionAreas', formId: 'formCrearArea', listId: 'listaAreasConfig',
+            inputId: 'areaNombre', actionId: 'areaAccion', idFieldId: 'areaId',
+            cancelBtnId: 'btnCancelArea', listAction: 'listar_areas', saveAction: 'guardar_area',
+            editAction: 'editar_area', deleteAction: 'eliminar_area', toggleAction: 'toggle_estado_area'
         });
     }
-
 
     function initTercerosTableManager() {
         const table = document.getElementById('tercerosTable');
@@ -1232,10 +1138,9 @@
     }
 
     // =========================================================================
-    // BOOTSTRAP (AHORA ESPERA LA CARGA DE BANCOS)
+    // BOOTSTRAP
     // =========================================================================
     document.addEventListener('DOMContentLoaded', async function () {
-        // --- NUEVO: Traemos la lista de bancos vivos de BD antes de nada ---
         await fetchCatalogos(); 
 
         initDynamicFields();
