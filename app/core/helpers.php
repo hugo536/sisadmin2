@@ -130,7 +130,7 @@ if (!function_exists('redirect')) {
     function redirect(string $ruta): void
     {
         // Lógica inteligente para manejar parámetros GET
-        // Si pasas 'comercial/presentaciones?error=1', esto lo convierte correctamente
+        // Si pasas 'controlador/metodo?error=1', esto lo convierte correctamente
         // para que funcione con tu sistema de ?ruta=...
         
         if (!str_starts_with($ruta, 'http')) {
@@ -138,7 +138,7 @@ if (!function_exists('redirect')) {
             $cleanPath = $parts[0];
             $queryParams = $parts[1] ?? '';
 
-            $url = route_url($cleanPath); // .../?ruta=comercial/presentaciones
+            $url = route_url($cleanPath); // .../?ruta=controlador/metodo
             
             if ($queryParams !== '') {
                 // Cambiamos el ? del parámetro por & porque ?ruta ya usó el primero
