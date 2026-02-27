@@ -47,7 +47,8 @@ class ProduccionModel extends Modelo
                        o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
                        r.codigo AS receta_codigo,
-                       p.nombre AS producto_nombre
+                       p.nombre AS producto_nombre,
+                       p.requiere_lote, p.requiere_vencimiento, p.unidad_base 
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
@@ -746,7 +747,7 @@ class ProduccionModel extends Modelo
         return (int) $this->db()->lastInsertId();
     }
 
-    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = ''): void
+    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = '', ?string $fechaInicio = null, ?string $fechaFin = null): void
     {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
@@ -890,11 +891,12 @@ class ProduccionModel extends Modelo
                 }
             }
 
+            // Se actualizó para recibir las fechas exactas del formulario
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             estado = 2,
-                                            fecha_inicio = COALESCE(fecha_inicio, NOW()),
-                                            fecha_fin = NOW(),
+                                            fecha_inicio = COALESCE(:fecha_inicio, fecha_inicio, NOW()),
+                                            fecha_fin = COALESCE(:fecha_fin, NOW()),
                                             justificacion_ajuste = :justificacion,
                                             updated_at = NOW(),
                                             updated_by = :updated_by
@@ -902,6 +904,8 @@ class ProduccionModel extends Modelo
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
+                'fecha_inicio' => $fechaInicio, // Pasa la fecha recibida
+                'fecha_fin' => $fechaFin,       // Pasa la fecha recibida
                 'justificacion' => $justificacion !== '' ? $justificacion : null,
                 'updated_by' => $userId,
                 'id' => $idOrden,

@@ -416,7 +416,9 @@ class ProduccionController extends Controlador
                         $consumos,
                         $ingresos,
                         $userId,
-                        $justificacion
+                        $justificacion,     
+                        $fechaInicio,
+                        $fechaFin
                     );
 
                     $this->setFlash('success', 'Orden ejecutada y existencias actualizadas correctamente.');

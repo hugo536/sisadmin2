@@ -103,7 +103,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                                 
                                 <td class="text-center">
-                                    <?php if ($estado === 0): // Solo evaluamos stock si está en Borrador ?>
+                                    <?php if ($estado === 0): // Solo evaluamos stock visualmente en Borrador ?>
                                         <?php if ($precheckOk): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
                                                 <i class="bi bi-check-circle-fill me-1"></i> Completo
@@ -125,9 +125,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                                 <td class="text-center">
                                     <?php if ($estado === 0): ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">
-                                            Borrador
-                                        </span>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Borrador</span>
                                     <?php elseif ($estado === 1): ?>
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 rounded-pill">En proceso</span>
                                     <?php elseif ($estado === 2): ?>
@@ -138,30 +136,35 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                                 
                                 <td class="text-end pe-4">
-                                    <?php if ($estado === 0): ?>
+                                    <?php if (in_array($estado, [0, 1], true)): // AHORA SÍ HABILITAMOS BOTONES PARA EN PROCESO ?>
                                         <div class="d-inline-flex align-items-center gap-1 acciones-op-wrap">
-                                            <button class="btn btn-sm btn-success fw-semibold js-abrir-ejecucion"
+                                            <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-semibold js-abrir-ejecucion"
                                                     data-id="<?php echo (int) $orden['id']; ?>"
                                                     data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                     data-receta="<?php echo (int) $orden['id_receta']; ?>"
                                                     data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                     data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
                                                     data-precheck-msg="<?php echo e((string) ($orden['precheck_resumen'] ?? '')); ?>"
-                                                    title="Ejecutar Producción">
+                                                    
+                                                    data-req-lote="<?php echo (int) ($orden['requiere_lote'] ?? 0); ?>"
+                                                    data-req-venc="<?php echo (int) ($orden['requiere_vencimiento'] ?? 0); ?>"
+                                                    data-unidad="<?php echo e((string) ($orden['unidad_base'] ?? 'UND')); ?>"
+                                                    
+                                                    title="<?php echo $estado === 1 ? 'Continuar Producción' : 'Ejecutar Producción'; ?>">
                                                 <i class="bi bi-play-fill"></i>
-                                                <span class="d-none d-lg-inline ms-1">Ejecutar</span>
+                                                <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
                                             </button>
 
-                                            <div class="btn-group btn-group-sm" role="group" aria-label="Acciones de soporte">
+                                            <div class="btn-group btn-group-sm" role="group">
                                                 <a href="<?php echo e((string) route_url('inventario')); ?>"
-                                                   class="btn btn-info text-white <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
+                                                   class="btn btn-dark text-white <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
                                                    title="Aprovisionar Planta"
                                                    data-bs-toggle="tooltip"
                                                    data-bs-placement="top">
                                                     <i class="bi bi-arrow-left-right"></i>
-                                                    <span class="d-none d-xl-inline ms-1">Aprovisionar Planta</span>
                                                 </a>
 
+                                                <?php if ($estado === 0): // Solo dejar editar si es borrador ?>
                                                 <button type="button"
                                                         class="btn btn-warning text-dark js-editar-op"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
@@ -172,17 +175,19 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
                                                         title="Editar borrador">
                                                     <i class="bi bi-pencil"></i>
-                                                    <span class="d-none d-xl-inline ms-1">Editar</span>
                                                 </button>
+                                                <?php endif; ?>
                                             </div>
 
-                                            <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden mediante eliminado lógico (soft delete).">
+                                            <?php if ($estado === 0): // Solo dejar eliminar si es borrador ?>
+                                            <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden.">
                                                 <input type="hidden" name="accion" value="eliminar_borrador">
                                                 <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
                                                 <button type="submit" class="btn btn-sm btn-danger" title="Eliminar borrador">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
+                                            <?php endif; ?>
                                         </div>
                                     <?php elseif (in_array($estado, [2, 9], true)): ?>
                                         <button type="button"
@@ -193,13 +198,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                 data-plan="<?php echo number_format((float) $orden['cantidad_planificada'], 4); ?>"
                                                 data-real="<?php echo number_format((float) $orden['cantidad_producida'], 4); ?>"
                                                 title="Ver detalle">
-                                            <i class="bi bi-search"></i>
+                                            <i class="bi bi-search"></i> Ver
                                         </button>
-                                        <button class="btn btn-sm btn-light text-secondary border-0 ms-1" disabled title="Bloqueada">
-                                            <i class="bi bi-lock"></i>
-                                        </button>
-                                    <?php else: ?>
-                                        <button class="btn btn-sm btn-light text-secondary border-0" disabled><i class="bi bi-lock"></i></button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -239,6 +239,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </td>
                             </tr>
                             <?php endif; ?>
+
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -441,7 +442,25 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <input type="hidden" name="accion" value="ejecutar_orden">
                 <input type="hidden" name="id_orden" id="execIdOrden">
                 
+                <input type="hidden" id="execReqLote" value="0">
+                <input type="hidden" id="execReqVenc" value="0">
+                <input type="hidden" id="execUnidad" value="UND">
+                
                 <div class="modal-body p-0">
+                    
+                    <div class="px-4 pt-3 pb-2 bg-white border-bottom">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control form-control-sm border-primary" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-check2-all me-1"></i>Fin del Trabajo <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control form-control-sm border-primary" required>
+                            </div>
+                        </div>
+                    </div>
+
                     <ul class="nav nav-tabs nav-fill bg-light pt-2 px-2 border-bottom-0" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active fw-bold border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
@@ -505,9 +524,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <thead class="table-light">
                                         <tr>
                                             <th>Almacén Destino (A dónde entra)</th>
-                                            <th style="width: 150px;">Cant. Ingresada</th>
-                                            <th>Lote (Opcional)</th>
-                                            <th style="width: 140px;">Fecha Venc.</th> <th style="width: 50px;"></th>
+                                            <th style="width: 170px;">Cant. Ingresada</th>
+                                            <th>Lote</th>
+                                            <th style="width: 140px;">Fecha Venc.</th> 
+                                            <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -537,4 +557,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.5"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.6"></script>

@@ -1,7 +1,8 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
  * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
- * auto-generación de Código OP y UX de Acordeones (Master-Detail).
+ * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
+ * Modo: Consumo Teórico Estricto (Strict Backflushing)
  */
 
 if (!window.produccionJsInitialized) {
@@ -44,11 +45,9 @@ if (!window.produccionJsInitialized) {
                 const nextRow = row.nextElementSibling;
                 if (nextRow && nextRow.classList.contains('collapse-faltantes')) {
                     if (!isVisible) {
-                        // Si se oculta el padre, ocultamos el hijo y lo colapsamos por seguridad
                         nextRow.style.display = 'none';
                         nextRow.classList.remove('show');
                     } else {
-                        // Si se muestra el padre, le devolvemos el control a Bootstrap
                         nextRow.style.display = '';
                     }
                 }
@@ -154,23 +153,43 @@ if (!window.produccionJsInitialized) {
                 document.getElementById('execIdOrden').value = idOrden;
                 document.getElementById('lblExecCodigo').textContent = codigo;
 
+                // --- NUEVO: Extraer atributos del Item ---
+                const reqLote = btnAbrir.getAttribute('data-req-lote') || '0';
+                const reqVenc = btnAbrir.getAttribute('data-req-venc') || '0';
+                const unidad = btnAbrir.getAttribute('data-unidad') || 'UND';
+
+                // Guardar en inputs ocultos
+                document.getElementById('execReqLote').value = reqLote;
+                document.getElementById('execReqVenc').value = reqVenc;
+                document.getElementById('execUnidad').value = unidad;
+
+                // Establecer la fecha y hora actual por defecto
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                const localDatetime = now.toISOString().slice(0, 16);
+                
+                document.getElementById('execFechaInicio').value = localDatetime;
+                document.getElementById('execFechaFin').value = localDatetime;
+                // -------------------------------------------
+
                 const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
                 const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
                 
-                tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><i class="bi bi-arrow-repeat spin"></i> Buscando stock en almacenes...</td></tr>';
+                tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><div class="spinner-border spinner-border-sm me-2"></div>Buscando stock...</td></tr>';
                 tbodyIngresos.innerHTML = '';
 
                 const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
                 const precheckMsg = btnAbrir.getAttribute('data-precheck-msg') || 'Falta stock en planta para ejecutar.';
 
+                // Validamos si hay faltantes antes de abrir
                 if (!precheckOk && typeof Swal !== 'undefined') {
                     const confirmacion = await Swal.fire({
                         icon: 'warning',
                         title: 'Insumos insuficientes en Planta',
-                        text: 'Insumos insuficientes en Planta. La ejecución podría generar stock negativo en la ubicación actual. ¿Desea continuar?',
+                        text: 'Insumos insuficientes en Planta. Asegúrate de transferir o regularizar el stock en el sistema para poder guardar esta ejecución. ¿Desea abrir el formulario de todos modos?',
                         footer: 'Revisa el detalle de faltantes en la tabla antes de continuar.',
                         showCancelButton: true,
-                        confirmButtonText: 'Sí, continuar',
+                        confirmButtonText: 'Sí, abrir formulario',
                         cancelButtonText: 'Cancelar'
                     });
                     if (!confirmacion.isConfirmed) return;
@@ -209,7 +228,7 @@ if (!window.produccionJsInitialized) {
 
                     if (result.success && result.data.length > 0) {
                         result.data.forEach(item => {
-                            addConsumoRow(item);
+                            addConsumoRow(item, planificada);
                         });
                         recalcularSemaforos(); // Primera evaluación al cargar
                     } else {
@@ -217,7 +236,7 @@ if (!window.produccionJsInitialized) {
                     }
                 } catch (error) {
                     console.error("Error AJAX:", error);
-                    tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión. Añada insumos manualmente.</td></tr>';
+                    tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión al obtener receta.</td></tr>';
                 }
 
                 addIngresoRow(planificada);
@@ -234,7 +253,8 @@ if (!window.produccionJsInitialized) {
                 const tr = btnRemove.closest('tr');
                 if (tr) {
                     tr.remove();
-                    recalcularSemaforos(); // Recalcular si se borra una fila dividida
+                    // Si eliminan un ingreso, hay que recalcular el total
+                    dispararRecalculoTotal();
                 }
                 return;
             }
@@ -263,9 +283,35 @@ if (!window.produccionJsInitialized) {
             }
         });
 
-        // --- CÁLCULO EN TIEMPO REAL AL ESCRIBIR ---
+        // --- MAGIA DEL CONSUMO TEÓRICO: RECALCULAR RECETA SI CAMBIA LO PRODUCIDO ---
+        function dispararRecalculoTotal() {
+            let totalProducido = 0;
+            document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach(inp => {
+                totalProducido += parseFloat(inp.value) || 0;
+            });
+
+            // Actualizar todas las filas de la Pestaña 1 (Consumos)
+            document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => {
+                const reqUnitario = parseFloat(tr.getAttribute('data-req-unitario')) || 0;
+                const inputConsumo = tr.querySelector('input[name="consumo_cantidad[]"]');
+                if (inputConsumo) {
+                    inputConsumo.value = (reqUnitario * totalProducido).toFixed(4);
+                }
+            });
+
+            recalcularSemaforos();
+        }
+
         document.addEventListener('input', function(e) {
-            if (e.target.matches('input[name="consumo_cantidad[]"]')) {
+            // Solo escuchamos cambios en la Pestaña 2 (Ingresos)
+            if (e.target.matches('input[name="ingreso_cantidad[]"]')) {
+                dispararRecalculoTotal();
+            }
+        });
+
+        // Si cambia el almacén origen en la Pestaña 1, verificar stock
+        document.addEventListener('change', function(e) {
+            if (e.target.matches('select[name="consumo_id_almacen[]"]')) {
                 recalcularSemaforos();
             }
         });
@@ -276,7 +322,6 @@ if (!window.produccionJsInitialized) {
             const firstTab = modalEl.querySelector('.nav-tabs .nav-link');
             if (firstTab && typeof bootstrap !== 'undefined') new bootstrap.Tab(firstTab).show();
             
-            // Ocultar caja de justificación si quedó abierta
             const boxJustificacion = document.getElementById('boxJustificacionFaltante');
             if (boxJustificacion) boxJustificacion.style.display = 'none';
         });
@@ -286,27 +331,25 @@ if (!window.produccionJsInitialized) {
     // 4. GENERADORES DE INTERFAZ
     // =========================================================================
 
-    function addConsumoRow(item = null) {
+    function addConsumoRow(item = null, planificada = 1) {
         const tbody = document.querySelector('#tablaConsumosDynamic tbody');
         const templateAlmacenes = document.getElementById('tplSelectAlmacenes').innerHTML;
         const tr = document.createElement('tr');
 
         if (item) {
-            // Fila proveniente de la Base de Datos (AJAX)
+            const requerimientoUnitario = (parseFloat(item.cantidad_calculada) / planificada) || 0;
+
             tr.setAttribute('data-id-insumo', item.id_insumo);
-            tr.setAttribute('data-req', item.cantidad_calculada);
+            tr.setAttribute('data-req-unitario', requerimientoUnitario); // Guardamos la receta unitaria
             tr.classList.add('fila-calculada');
 
-            // Lógica inteligente de Almacenes
             let optionsHtml = '<option value="">Seleccione almacén...</option>';
-            
             if (item.almacenes && item.almacenes.length > 0) {
                 optionsHtml += `<optgroup label="Recomendados (Con Stock)">`;
                 item.almacenes.forEach(a => {
-                    optionsHtml += `<option value="${a.id}">${a.nombre} (Stock: ${a.stock_actual})</option>`;
+                    optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`;
                 });
-                optionsHtml += `</optgroup>`;
-                optionsHtml += `<optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
+                optionsHtml += `</optgroup><optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
             } else {
                 optionsHtml += `<optgroup label="⚠ Sin Stock Registrado">${templateAlmacenes}</optgroup>`;
             }
@@ -315,10 +358,7 @@ if (!window.produccionJsInitialized) {
                 <td class="align-middle bg-light">
                     <input type="hidden" name="consumo_id_insumo[]" value="${item.id_insumo}">
                     <div class="fw-bold text-dark mb-1">${item.insumo_nombre}</div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge-req badge bg-secondary" title="Requerido por Receta">Req: ${item.cantidad_calculada}</span>
-                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 js-split-row" title="Extraer de otro almacén adicional"><i class="bi bi-diagram-2"></i> Dividir</button>
-                    </div>
+                    <div class="small text-muted"><i class="bi bi-lock-fill"></i> Teórico (Bloqueado)</div>
                 </td>
                 <td class="align-middle">
                     <select name="consumo_id_almacen[]" class="form-select form-select-sm" required>
@@ -326,25 +366,22 @@ if (!window.produccionJsInitialized) {
                     </select>
                 </td>
                 <td class="align-middle">
-                    <input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold" placeholder="Ej. 100.5" required value="${item.cantidad_calculada}">
+                    <input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1">
                 </td>
                 <td class="align-middle">
                     <input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)">
                 </td>
                 <td class="text-center align-middle">
-                    <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar"><i class="bi bi-trash fs-5"></i></button>
-                </td>
+                    </td>
             `;
         } else {
-            // Fila Libre (Agregada manualmente)
+            // Fila Libre (Por si necesitan meter algo adicional)
             tr.innerHTML = `
                 <td class="align-middle">
-                    <input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="Escriba ID de insumo" required>
+                    <input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required>
                 </td>
                 <td class="align-middle">
-                    <select name="consumo_id_almacen[]" class="form-select form-select-sm" required>
-                        ${templateAlmacenes}
-                    </select>
+                    <select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select>
                 </td>
                 <td class="align-middle">
                     <input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold" required>
@@ -357,31 +394,47 @@ if (!window.produccionJsInitialized) {
                 </td>
             `;
         }
-
         tbody.appendChild(tr);
     }
 
     function addIngresoRow(cantidadDefecto = '') {
         const tbody = document.querySelector('#tablaIngresosDynamic tbody');
-        // Generamos un número de lote aleatorio amigable por defecto
-        const autoLote = 'L' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 90 + 10);
         const templateAlmacenes = document.getElementById('tplSelectAlmacenes').innerHTML;
-
         const tr = document.createElement('tr');
+
+        // Leer reglas del producto de los inputs ocultos
+        const reqLote = document.getElementById('execReqLote').value === '1';
+        const reqVenc = document.getElementById('execReqVenc').value === '1';
+        const unidad = document.getElementById('execUnidad').value || 'UND';
+
+        // Lógica de Lote
+        const autoLote = reqLote ? ('L' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 90 + 10)) : '';
+        const inputLote = reqLote 
+            ? `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}" required>`
+            : `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm bg-light text-muted" placeholder="N/A" readonly tabindex="-1">`;
+
+        // Lógica de Vencimiento
+        const inputVenc = reqVenc
+            ? `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm border-warning" required>`
+            : `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm bg-light text-muted" readonly tabindex="-1">`;
+
         tr.innerHTML = `
             <td class="align-middle">
                 <select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>
                     ${templateAlmacenes}
                 </select>
             </td>
-            <td class="align-middle">
-                <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control form-control-sm fw-bold border-success" required value="${cantidadDefecto}">
+            <td class="align-middle" style="width: 160px;">
+                <div class="input-group input-group-sm">
+                    <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control fw-bold border-success text-end" required value="${cantidadDefecto}">
+                    <span class="input-group-text bg-light text-muted fw-bold">${unidad}</span>
+                </div>
             </td>
             <td class="align-middle">
-                <input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}">
+                ${inputLote}
             </td>
             <td class="align-middle">
-                <input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm text-muted">
+                ${inputVenc}
             </td>
             <td class="text-center align-middle">
                 <button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>
@@ -391,74 +444,57 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 5. LÓGICA DE SEMÁFOROS (Tráfico Light)
+    // 5. LÓGICA DE SEMÁFOROS (Tráfico Light - Bloqueo Estricto)
     // =========================================================================
     function recalcularSemaforos() {
         const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
-        let agrupado = {};
-        let faltaMaterialEnProduccion = false;
+        let faltaStockFisico = false;
 
-        // Tolerancia para evitar errores por decimales ínfimos
-        const toleranciaError = 0.001;
-
-        // Agrupar cantidades por ID de insumo (por si dividieron la fila)
         filas.forEach(tr => {
-            const idInsumo = tr.getAttribute('data-id-insumo');
-            const req = parseFloat(tr.getAttribute('data-req')) || 0;
-            const cantInput = parseFloat(tr.querySelector('input[name="consumo_cantidad[]"]').value) || 0;
+            const inputElement = tr.querySelector('input[name="consumo_cantidad[]"]');
+            const cantRequerida = parseFloat(inputElement.value) || 0;
+            
+            const selectEl = tr.querySelector('select[name="consumo_id_almacen[]"]');
+            const optionSel = selectEl.options[selectEl.selectedIndex];
+            const stockDisp = (optionSel && optionSel.hasAttribute('data-stock')) ? parseFloat(optionSel.getAttribute('data-stock')) : null;
 
-            if (!agrupado[idInsumo]) {
-                agrupado[idInsumo] = { requerida: req, ingresada: 0, elementosTr: [] };
+            // Limpiamos estilos previos
+            inputElement.classList.remove('border-danger', 'bg-danger-subtle', 'border-success', 'text-danger', 'text-success');
+            inputElement.classList.add('bg-light');
+
+            // BLOQUEO ROJO: Si intenta sacar más de lo que físicamente hay en ese almacén
+            if (stockDisp !== null && cantRequerida > stockDisp) {
+                faltaStockFisico = true;
+                inputElement.classList.add('border-danger', 'bg-danger-subtle', 'text-danger');
+                inputElement.classList.remove('bg-light');
+            } else if (stockDisp !== null) {
+                inputElement.classList.add('border-success', 'text-success');
             }
-            agrupado[idInsumo].ingresada += cantInput;
-            agrupado[idInsumo].elementosTr.push(tr);
         });
 
-        // Evaluar cada insumo
-        for (const id in agrupado) {
-            const data = agrupado[id];
-            const diferencia = data.requerida - data.ingresada;
-            
-            // Tomamos la primera fila del grupo para actualizar su "Insignia"
-            const badge = data.elementosTr[0].querySelector('.badge-req');
-
-            if (diferencia > toleranciaError) {
-                // FALTAN INSUMOS (Naranja)
-                data.elementosTr.forEach(tr => {
-                    tr.querySelector('input[name="consumo_cantidad[]"]').classList.replace('border-success', 'border-warning');
-                    tr.querySelector('input[name="consumo_cantidad[]"]').classList.add('bg-warning-subtle');
-                });
-                if (badge) {
-                    badge.className = 'badge-req badge bg-warning text-dark border border-warning';
-                    badge.innerHTML = `⚠ Falta declarar: ${diferencia.toFixed(2)}`;
-                }
-                faltaMaterialEnProduccion = true;
-            } else {
-                // COMPLETO O EXCEDIDO (Verde)
-                data.elementosTr.forEach(tr => {
-                    tr.querySelector('input[name="consumo_cantidad[]"]').classList.replace('border-warning', 'border-success');
-                    tr.querySelector('input[name="consumo_cantidad[]"]').classList.remove('bg-warning-subtle');
-                });
-                if (badge) {
-                    badge.className = 'badge-req badge bg-success';
-                    badge.innerHTML = `✔ Ok (${data.ingresada.toFixed(2)})`;
-                }
-            }
-        }
-
-        // Mostrar / Ocultar caja de justificación en la vista
         const boxJustificacion = document.getElementById('boxJustificacionFaltante');
-        const inputJustificacion = document.getElementById('inputJustificacionFaltante');
+        const btnGuardar = document.querySelector('#formEjecutarOrden button[type="submit"]');
         
-        if (boxJustificacion && inputJustificacion) {
-            if (faltaMaterialEnProduccion) {
-                boxJustificacion.style.display = 'block';
-                inputJustificacion.required = true; // Volverlo obligatorio
-            } else {
-                boxJustificacion.style.display = 'none';
-                inputJustificacion.required = false;
-                inputJustificacion.value = '';
-            }
+        if (!boxJustificacion || !btnGuardar) return;
+
+        if (faltaStockFisico) {
+            // BLOQUEO ESTRICTO
+            btnGuardar.disabled = true;
+            boxJustificacion.className = 'alert alert-danger mt-3 mb-0';
+            boxJustificacion.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-x-circle-fill fs-4 me-3 mt-1"></i>
+                    <div class="w-100">
+                        <h6 class="fw-bold mb-1">Producción Bloqueada: Stock Insuficiente</h6>
+                        <p class="small mb-0">La cantidad que deseas producir exige más insumos de los que existen actualmente en el almacén de planta seleccionado. <strong>Transfiere stock a la planta</strong> o ajusta lo producido para poder guardar.</p>
+                    </div>
+                </div>
+            `;
+            boxJustificacion.style.display = 'block';
+        } else {
+            // TODO OK
+            btnGuardar.disabled = false;
+            boxJustificacion.style.display = 'none';
         }
     }
 
