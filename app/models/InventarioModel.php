@@ -1229,4 +1229,20 @@ class InventarioModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
+    // Añadir esta función al final de InventarioModel.php
+    public function obtenerAlmacenesConStockPorItem(int $idItem): array
+    {
+        $sql = "SELECT a.id, a.nombre, s.stock_actual
+                FROM inventario_stock s
+                INNER JOIN almacenes a ON s.id_almacen = a.id
+                WHERE s.id_item = :id_item 
+                  AND s.stock_actual > 0 
+                  AND a.estado = 1 
+                  AND a.deleted_at IS NULL
+                ORDER BY a.nombre ASC";
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

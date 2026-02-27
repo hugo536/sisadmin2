@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
-require_once BASE_PATH . '/app/models/VentasDespachoModel.php'; // Corregido el nombre del archivo (Plural)
+require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
+require_once BASE_PATH . '/app/models/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 
 class VentasController extends Controlador
 {
     private VentasDocumentoModel $documentoModel;
     private VentasDespachoModel $despachoModel;
+    private InventarioModel $inventarioModel; // <-- 2. DECLARAMOS LA PROPIEDAD
 
     public function __construct()
     {
         $this->documentoModel = new VentasDocumentoModel();
         $this->despachoModel = new VentasDespachoModel();
+        $this->inventarioModel = new InventarioModel(); // <-- 3. INICIALIZAMOS EL MODELO
     }
 
     public function index(): void
@@ -36,10 +39,22 @@ class VentasController extends Controlador
             return;
         }
 
-        // 2. Ver Detalle Venta (AJAX)
+        // 2. Ver Detalle Venta (AJAX) - ¡MODIFICADO PARA STOCK INTELIGENTE!
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
             $id = (int) ($_GET['id'] ?? 0);
-            json_response(['ok' => true, 'data' => $this->documentoModel->obtener($id)]);
+            $venta = $this->documentoModel->obtener($id);
+
+            // --- NUEVO: Anexar almacenes con stock a cada línea del detalle ---
+            if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
+                foreach ($venta['detalle'] as &$linea) {
+                    $idItem = (int) ($linea['id_item'] ?? 0);
+                    // Consultamos qué almacenes tienen stock de este ítem específico
+                    $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItem);
+                }
+            }
+            // ------------------------------------------------------------------
+
+            json_response(['ok' => true, 'data' => $venta]);
             return;
         }
 

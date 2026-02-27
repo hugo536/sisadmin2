@@ -21,15 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
         despachar: app.dataset.urlDespachar,
     };
 
-    // --- 1. CLIENTES (Tom Select con AJAX - CORREGIDO) ---
+    // --- 1. CLIENTES (Tom Select con AJAX - CORREGIDO PARA EL MODAL) ---
     let tomSelectCliente = null;
     if (document.getElementById('idCliente')) {
         tomSelectCliente = new TomSelect("#idCliente", {
             valueField: 'id',
             labelField: 'text',
             searchField: 'text',
+            allowEmptyOption: true,
+            plugins: ['clear_button'],
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: 'body',
+            dropdownParent: document.getElementById('modalVenta'), // <--- CORRECCIÓN DEL MODAL AQUÍ
             load: function(query, callback) {
                 if (!query.length) return callback();
                 const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
@@ -68,8 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tbodyDespacho = document.querySelector('#tablaDetalleDespacho tbody');
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
-    // Nota: despachoAlmacen ya no se usa como global, pero lo usamos para sacar las opciones
-    const despachoAlmacenGlobal = document.getElementById('despachoAlmacen'); 
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
 
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             labelField: 'text',
             searchField: 'text',
             placeholder: "Buscar producto...",
-            dropdownParent: 'body',
+            dropdownParent: document.getElementById('modalVenta'),
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;
@@ -342,15 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. LÓGICA DESPACHO MULTI-ALMACÉN ---
     // ==========================================
     
-    // Obtener las opciones de almacenes del select oculto para reusarlas en las filas
-    function obtenerOpcionesAlmacenHTML() {
-        return despachoAlmacenGlobal ? despachoAlmacenGlobal.innerHTML : '<option value="">Sin almacenes</option>';
-    }
-
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
-        const opcionesAlmacen = obtenerOpcionesAlmacenHTML();
 
         despachoDocumentoId.value = venta.id;
         despachoObservaciones.value = '';
@@ -361,19 +355,38 @@ document.addEventListener('DOMContentLoaded', () => {
         (venta.detalle || []).forEach((linea) => {
             // Solo mostrar lo que tiene pendiente
             if (Number(linea.cantidad_pendiente) > 0.0001) {
-                agregarFilaDespacho(linea, opcionesAlmacen);
+                agregarFilaDespacho(linea, null);
             }
         });
         modalDespacho.show();
     }
 
     // Función para agregar filas al despacho (Soporta inserción adyacente)
-    function agregarFilaDespacho(linea, opcionesAlmacen, filaReferencia = null) {
+    function agregarFilaDespacho(linea, filaReferencia = null) {
+        // --- NUEVO: CONSTRUIR SELECT DINÁMICO SOLO CON STOCK ---
+        let opcionesHTML = '<option value="">Seleccione...</option>';
+        let disabledState = '';
+        const almacenesDisp = linea.almacenes_disponibles || [];
+
+        if (almacenesDisp.length === 0) {
+            opcionesHTML = '<option value="">Sin stock en ningún almacén</option>';
+            disabledState = 'disabled';
+        } else {
+            almacenesDisp.forEach(alm => {
+                opcionesHTML += `<option value="${alm.id}">${alm.nombre} (Dispo: ${parseFloat(alm.stock_actual)})</option>`;
+            });
+        }
+
         const tr = document.createElement('tr');
         tr.dataset.idDetalle = linea.id;
         tr.dataset.idItem = linea.id_item;
         tr.dataset.sku = linea.sku || ''; 
         tr.dataset.pendienteTotal = linea.cantidad_pendiente; 
+
+        // Si no hay stock en ningún almacén, pintamos la fila de un color diferente
+        if (almacenesDisp.length === 0) {
+            tr.classList.add('table-danger', 'opacity-75');
+        }
 
         tr.innerHTML = `
             <td>
@@ -381,16 +394,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="small text-muted">Pendiente Global: <span class="badge bg-warning text-dark badge-pendiente">${Number(linea.cantidad_pendiente)}</span></div>
             </td>
             <td>
-                <select class="form-select form-select-sm fila-almacen">
-                    ${opcionesAlmacen}
+                <select class="form-select form-select-sm fila-almacen" ${disabledState}>
+                    ${opcionesHTML}
                 </select>
             </td>
             <td class="text-center fw-bold despacho-stock text-muted">-</td>
             <td class="d-flex align-items-center">
                 <input type="number" class="form-control form-control-sm text-end despacho-cantidad me-2" 
-                       min="0" step="1" value="0" title="Solo números enteros (paquetes)">
+                       min="0" step="1" value="0" title="Solo números enteros (paquetes)" ${disabledState}>
                 
-                <button type="button" class="btn btn-sm btn-outline-primary btn-split me-1" title="Añadir otro almacén">
+                <button type="button" class="btn btn-sm btn-outline-primary btn-split me-1" title="Añadir otro almacén" ${disabledState}>
                     <i class="bi bi-plus-lg"></i>
                 </button>
                 
@@ -416,7 +429,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 1. LÓGICA DE ALMACÉN Y STOCK ---
         selectAlmacen.addEventListener('change', async () => {
             const idAlmacen = selectAlmacen.value;
-            if (!idAlmacen) return;
+            if (!idAlmacen) {
+                spanStock.textContent = '-';
+                inputCant.value = 0;
+                validarGrupoItem(linea.id);
+                return;
+            }
 
             // Evitar duplicados de Almacén para el mismo ítem
             const yaExiste = [...tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${linea.id}"]`)]
@@ -425,9 +443,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (yaExiste) {
                 Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: 'Almacén ya seleccionado', showConfirmButton: false, timer: 2000 });
                 selectAlmacen.value = '';
+                spanStock.textContent = '-';
                 return;
             }
 
+            // Refrescamos en tiempo real con el servidor (por seguridad en caso de movimientos concurrentes)
             spanStock.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary"></div>';
             
             try {
@@ -464,7 +484,8 @@ document.addEventListener('DOMContentLoaded', () => {
             validarGrupoItem(linea.id);
         });
 
-        btnSplit.addEventListener('click', () => agregarFilaDespacho(linea, opcionesAlmacen, tr));
+        btnSplit.addEventListener('click', () => agregarFilaDespacho(linea, tr));
+        
         btnQuitar.addEventListener('click', () => {
             const idDetalle = tr.dataset.idDetalle;
             tr.remove();
@@ -483,12 +504,13 @@ document.addEventListener('DOMContentLoaded', () => {
         filas.forEach(f => {
             const input = f.querySelector('.despacho-cantidad');
             const cant = parseInt(input.value || 0);
-            const stock = parseInt(f.querySelector('.despacho-stock').textContent || 0);
+            const stockStr = f.querySelector('.despacho-stock').textContent;
+            const stock = isNaN(parseInt(stockStr)) ? 0 : parseInt(stockStr);
             
             sumaTotalCargada += cant;
 
             // Validación individual de fila: ¿Excede el stock de SU almacén?
-            if (cant > stock) {
+            if (cant > stock && stockStr !== '-') {
                 input.classList.add('is-invalid');
                 input.title = `Solo hay ${stock} en este almacén`;
             } else {
@@ -536,8 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
             // Chequeo de Cierre Forzado
-            // Calculamos cuánto se está despachando en total por ítem vs lo pendiente
-            const resumenPorItem = {}; // Mapa id_detalle -> cantidad_total_despachando
+            const resumenPorItem = {}; 
             filas.forEach(f => {
                 const id = f.dataset.idDetalle;
                 const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
@@ -562,12 +583,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!resp.isConfirmed) return;
             }
 
-            // Enviar (Nota: El backend debe estar listo para recibir un array que puede tener varias veces el mismo id_documento_detalle pero con diferente almacén)
             const payload = await postJson(urls.despachar, {
                 id_documento: Number(despachoDocumentoId.value || 0),
                 observaciones: despachoObservaciones.value,
                 cerrar_forzado: cerrarForzado.checked,
-                detalle: detalle // Enviamos el detalle multi-almacén
+                detalle: detalle
             });
 
             await Swal.fire('Despachado', payload.mensaje, 'success');
@@ -579,8 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- EVENTOS GENERALES ---
-    
-    // Función para recargar tabla principal
     function recargarTabla() {
         const params = new URLSearchParams({ accion: 'listar' });
         if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim());
