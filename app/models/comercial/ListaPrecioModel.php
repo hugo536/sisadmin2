@@ -168,6 +168,89 @@ class ListaPrecioModel extends Modelo {
         return $rows;
     }
 
+    public function obtenerMatrizPreciosVolumen(): array {
+        if (!$this->tablaExiste('item_precios_volumen')) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    ipv.id,
+                    ipv.id_item,
+                    ipv.cantidad_minima,
+                    ipv.precio_unitario,
+                    i.sku AS codigo_presentacion,
+                    i.nombre AS item_nombre,
+                    s.nombre AS sabor_nombre,
+                    ip.nombre AS presentacion_nombre
+                FROM item_precios_volumen ipv
+                INNER JOIN items i ON i.id = ipv.id_item
+                LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                ORDER BY i.nombre ASC, ipv.cantidad_minima ASC";
+
+        $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['producto_nombre'] = $this->construirNombrePresentacion($row);
+        }
+
+        return $rows;
+    }
+
+    public function listarItemsParaVolumen(): array {
+        $sql = "SELECT
+                    i.id,
+                    i.sku AS codigo_presentacion,
+                    i.nombre AS item_nombre,
+                    s.nombre AS sabor_nombre,
+                    ip.nombre AS presentacion_nombre
+                FROM items i
+                LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL
+                ORDER BY i.nombre ASC";
+
+        $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['producto_nombre'] = $this->construirNombrePresentacion($row);
+        }
+
+        return $rows;
+    }
+
+    public function agregarPrecioVolumen(int $idItem, float $cantidadMinima, float $precioUnitario, int $idUsuario): bool {
+        $sql = "INSERT INTO item_precios_volumen (id_item, cantidad_minima, precio_unitario, created_by)
+                VALUES (:id_item, :cantidad_minima, :precio_unitario, :created_by)";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':id_item' => $idItem,
+            ':cantidad_minima' => $cantidadMinima,
+            ':precio_unitario' => $precioUnitario,
+            ':created_by' => $idUsuario,
+        ]);
+    }
+
+    public function actualizarPrecioVolumen(int $idDetalle, float $cantidadMinima, float $precioUnitario, int $idUsuario): bool {
+        $sql = "UPDATE item_precios_volumen
+                SET cantidad_minima = :cantidad_minima,
+                    precio_unitario = :precio_unitario,
+                    updated_by = :updated_by
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':cantidad_minima' => $cantidadMinima,
+            ':precio_unitario' => $precioUnitario,
+            ':updated_by' => $idUsuario,
+            ':id' => $idDetalle,
+        ]);
+    }
+
+    public function eliminarPrecioVolumen(int $idDetalle): bool {
+        $sql = "DELETE FROM item_precios_volumen WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([':id' => $idDetalle]);
+    }
+
     public function listarPresentacionesDisponibles(int $idAcuerdo): array {
         if (!$this->soportaPresentacionesComerciales()) {
             return [];

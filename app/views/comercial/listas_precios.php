@@ -3,6 +3,7 @@ $acuerdos = $acuerdos ?? [];
 $acuerdoSeleccionado = $acuerdo_seleccionado ?? null;
 $preciosMatriz = $precios_matriz ?? [];
 $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
+$modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) === 0)) ? 'volumen' : 'acuerdo';
 ?>
 <div class="container-fluid p-4" id="acuerdosComercialesApp"
      data-url-clientes-disponibles="<?php echo e(route_url('comercial/clientesDisponiblesAjax')); ?>"
@@ -15,7 +16,11 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
      data-url-eliminar-producto="<?php echo e(route_url('comercial/eliminarProductoAcuerdoAjax')); ?>"
      data-url-suspender-acuerdo="<?php echo e(route_url('comercial/suspenderAcuerdoAjax')); ?>"
      data-url-activar-acuerdo="<?php echo e(route_url('comercial/activarAcuerdoAjax')); ?>"
-     data-url-eliminar-acuerdo="<?php echo e(route_url('comercial/eliminarAcuerdoAjax')); ?>">
+     data-url-eliminar-acuerdo="<?php echo e(route_url('comercial/eliminarAcuerdoAjax')); ?>"
+     data-url-items-volumen="<?php echo e(route_url('comercial/itemsVolumenDisponiblesAjax')); ?>"
+     data-url-agregar-volumen="<?php echo e(route_url('comercial/agregarPrecioVolumenAjax')); ?>"
+     data-url-actualizar-volumen="<?php echo e(route_url('comercial/actualizarPrecioVolumenAjax')); ?>"
+     data-url-eliminar-volumen="<?php echo e(route_url('comercial/eliminarPrecioVolumenAjax')); ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -57,7 +62,9 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                                     data-search="<?php echo e(mb_strtolower($acuerdo['cliente_nombre'])); ?>">
                                 <div class="me-2">
                                     <div class="fw-semibold"><?php echo e($acuerdo['cliente_nombre']); ?></div>
-                                    <?php if ($sinTarifas): ?>
+                                    <?php if ((int)$acuerdo['id'] === 0): ?>
+                                        <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> escalas</small>
+                                    <?php elseif ($sinTarifas): ?>
                                         <small class="text-warning d-flex align-items-center gap-1 mt-1">
                                             <i class="bi bi-exclamation-triangle-fill"></i> Sin Tarifas
                                         </small>
@@ -80,14 +87,15 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                         <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-1 fw-bold text-primary" id="acuerdoTituloCliente"><?php echo e($acuerdoSeleccionado['cliente_nombre']); ?></h5>
-                                <small class="text-muted" id="acuerdoResumenTarifas"><?php echo count($preciosMatriz); ?> tarifas configuradas</small>
+                                <small class="text-muted" id="acuerdoResumenTarifas"><?php echo count($preciosMatriz); ?> <?php echo $modoVista === 'volumen' ? 'escalas configuradas' : 'tarifas configuradas'; ?></small>
                             </div>
                             <div class="d-flex gap-2">
                                 <?php if ($presentacionesHabilitadas): ?>
                                 <button class="btn btn-primary btn-sm" id="btnAgregarProducto" type="button">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar Producto
+                                    <i class="bi bi-plus-lg me-1"></i><?php echo $modoVista === "volumen" ? "Agregar Escala" : "Agregar Producto"; ?>
                                 </button>
                                 <?php endif; ?>
+                                <?php if ($modoVista !== "volumen"): ?>
                                 <div class="dropdown">
                                     <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="bi bi-three-dots"></i> Opciones
@@ -111,6 +119,7 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                                         </li>
                                     </ul>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php else: ?>
@@ -128,14 +137,22 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                             </div>
                         <?php endif; ?>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>">
+                            <table class="table table-hover align-middle mb-0" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
                                 <thead class="table-light">
                                 <tr>
+                                    <?php if ($modoVista === "volumen"): ?>
+                                    <th class="ps-4" style="width: 120px;">Código</th>
+                                    <th>Producto</th>
+                                    <th style="width: 180px;">Cantidad Mínima</th>
+                                    <th style="width: 220px;">Precio Unitario</th>
+                                    <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                                    <?php else: ?>
                                     <th class="ps-4" style="width: 120px;">Código</th>
                                     <th>Producto</th>
                                     <th style="width: 220px;">Precio Pactado</th>
                                     <th style="width: 130px;">Estado</th>
                                     <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                                    <?php endif; ?>
                                 </tr>
                                 </thead>
                                 <tbody id="matrizBodyRows">
@@ -143,11 +160,33 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                                     <tr id="emptyMatrizRow">
                                         <td colspan="5" class="text-center text-muted py-5">
                                             <i class="bi bi-exclamation-circle text-warning me-1"></i>
-                                            Este acuerdo aún no tiene productos tarifados.
+                                            <?php echo $modoVista === "volumen" ? "Aún no hay escalas por volumen configuradas." : "Este acuerdo aún no tiene productos tarifados."; ?>
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($preciosMatriz as $row): ?>
+                                        <?php if ($modoVista === 'volumen'): ?>
+                                        <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
+                                            <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
+                                            <td><?php echo e($row['producto_nombre']); ?></td>
+                                            <td>
+                                                <input type="number" min="0.0001" step="0.0001" class="form-control form-control-sm text-end js-cantidad-minima"
+                                                       value="<?php echo e((string)$row['cantidad_minima']); ?>">
+                                            </td>
+                                            <td>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">S/</span>
+                                                    <input type="number" min="0" step="0.0001" class="form-control text-end js-precio-volumen"
+                                                           value="<?php echo e((string)$row['precio_unitario']); ?>">
+                                                </div>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <button class="btn btn-sm btn-outline-danger js-eliminar-volumen" type="button" title="Eliminar escala">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <?php else: ?>
                                         <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
                                             <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
                                             <td><?php echo e($row['producto_nombre']); ?></td>
@@ -169,6 +208,7 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                                                 </button>
                                             </td>
                                         </tr>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                                 </tbody>
@@ -207,6 +247,38 @@ $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-primary" type="submit">Guardar Acuerdo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-bar-chart-steps me-2"></i>Agregar Escala por Volumen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formAgregarEscalaVolumen">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Producto</label>
+                        <select class="form-select" id="selectItemVolumen" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad Mínima</label>
+                        <input type="number" min="0.0001" step="0.0001" class="form-control" id="inputCantidadMinimaVolumen" required>
+                    </div>
+                    <label class="form-label">Precio Unitario</label>
+                    <div class="input-group">
+                        <span class="input-group-text">S/</span>
+                        <input type="number" min="0" step="0.0001" class="form-control" id="inputPrecioUnitarioVolumen" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary" type="submit">Agregar Escala</button>
                 </div>
             </form>
         </div>
