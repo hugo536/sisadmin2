@@ -24,10 +24,23 @@ class ComercialController extends Controlador {
         $idAcuerdo = (int)($_GET['id'] ?? 0);
         $acuerdos = $this->listaPrecioModel->listarAcuerdos();
 
+        $tarifaGeneral = [
+            'id' => 0,
+            'cliente_nombre' => '🌟 Tarifa General (Por Volumen)',
+            'total_productos' => count($this->listaPrecioModel->obtenerMatrizPreciosVolumen()),
+            'estado' => 1,
+            'sin_tarifas' => 0,
+            'modo' => 'volumen',
+        ];
+        array_unshift($acuerdos, $tarifaGeneral);
+
         $acuerdoSeleccionado = null;
         $matriz = [];
 
-        if ($idAcuerdo > 0) {
+        if ($idAcuerdo === 0) {
+            $acuerdoSeleccionado = $tarifaGeneral;
+            $matriz = $this->listaPrecioModel->obtenerMatrizPreciosVolumen();
+        } elseif ($idAcuerdo > 0) {
             $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdo($idAcuerdo);
             if ($acuerdoSeleccionado) {
                 $matriz = $this->listaPrecioModel->obtenerMatrizPrecios($idAcuerdo);
@@ -36,8 +49,13 @@ class ComercialController extends Controlador {
 
         if (!$acuerdoSeleccionado && !empty($acuerdos)) {
             $idAcuerdo = (int)$acuerdos[0]['id'];
-            $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdo($idAcuerdo);
-            $matriz = $this->listaPrecioModel->obtenerMatrizPrecios($idAcuerdo);
+            if ($idAcuerdo === 0) {
+                $acuerdoSeleccionado = $tarifaGeneral;
+                $matriz = $this->listaPrecioModel->obtenerMatrizPreciosVolumen();
+            } else {
+                $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdo($idAcuerdo);
+                $matriz = $this->listaPrecioModel->obtenerMatrizPrecios($idAcuerdo);
+            }
         }
 
         $datos = [
@@ -92,6 +110,19 @@ class ComercialController extends Controlador {
         }
 
         $idAcuerdo = (int)($_GET['id_acuerdo'] ?? 0);
+        if ($idAcuerdo === 0) {
+            json_response([
+                'success' => true,
+                'modo' => 'volumen',
+                'acuerdo' => [
+                    'id' => 0,
+                    'cliente_nombre' => '🌟 Tarifa General (Por Volumen)',
+                ],
+                'matriz' => $this->listaPrecioModel->obtenerMatrizPreciosVolumen(),
+            ]);
+            return;
+        }
+
         if ($idAcuerdo <= 0) {
             json_response(['success' => false, 'message' => 'Acuerdo inválido'], 422);
             return;
@@ -105,9 +136,76 @@ class ComercialController extends Controlador {
 
         json_response([
             'success' => true,
+            'modo' => 'acuerdo',
             'acuerdo' => $acuerdo,
             'matriz' => $this->listaPrecioModel->obtenerMatrizPrecios($idAcuerdo),
         ]);
+    }
+
+    public function itemsVolumenDisponiblesAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        json_response([
+            'success' => true,
+            'data' => $this->listaPrecioModel->listarItemsParaVolumen(),
+        ]);
+    }
+
+    public function agregarPrecioVolumenAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idItem = (int)($_POST['id_item'] ?? 0);
+        $cantidadMinima = (float)($_POST['cantidad_minima'] ?? 0);
+        $precioUnitario = (float)($_POST['precio_unitario'] ?? 0);
+
+        if ($idItem <= 0 || $cantidadMinima <= 0 || $precioUnitario <= 0) {
+            json_response(['success' => false, 'message' => 'Datos inválidos para la tarifa por volumen.'], 422);
+            return;
+        }
+
+        $ok = $this->listaPrecioModel->agregarPrecioVolumen($idItem, $cantidadMinima, $precioUnitario, (int)($_SESSION['id'] ?? 0));
+        json_response(['success' => $ok]);
+    }
+
+    public function actualizarPrecioVolumenAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        $cantidadMinima = (float)($_POST['cantidad_minima'] ?? 0);
+        $precioUnitario = (float)($_POST['precio_unitario'] ?? 0);
+
+        if ($idDetalle <= 0 || $cantidadMinima <= 0 || $precioUnitario < 0) {
+            json_response(['success' => false, 'message' => 'Datos inválidos.'], 422);
+            return;
+        }
+
+        $ok = $this->listaPrecioModel->actualizarPrecioVolumen($idDetalle, $cantidadMinima, $precioUnitario, (int)($_SESSION['id'] ?? 0));
+        json_response(['success' => $ok]);
+    }
+
+    public function eliminarPrecioVolumenAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            json_response(['success' => false, 'message' => 'Registro inválido.'], 422);
+            return;
+        }
+
+        $ok = $this->listaPrecioModel->eliminarPrecioVolumen($idDetalle);
+        json_response(['success' => $ok]);
     }
 
     public function presentacionesDisponiblesAjax() {
