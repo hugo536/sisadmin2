@@ -314,4 +314,3 @@ $estadoLabels = [
     </tr>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/ventas.js?v=1.0"></script>
