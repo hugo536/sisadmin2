@@ -289,11 +289,14 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20): array
     {
-        $sql = 'SELECT id, nombre_completo, numero_documento AS num_doc
-                FROM terceros
-                WHERE es_cliente = 1
-                  AND estado = 1
-                  AND deleted_at IS NULL';
+        $sql = 'SELECT DISTINCT t.id, t.nombre_completo, t.numero_documento AS num_doc
+                FROM terceros t
+                LEFT JOIN distribuidores d
+                    ON d.id_tercero = t.id
+                   AND d.deleted_at IS NULL
+                WHERE (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL';
 
         $params = [];
 
@@ -319,11 +322,14 @@ class VentasDocumentoModel extends Modelo
         }
 
         $sql = 'SELECT 1
-                FROM terceros
-                WHERE id = :id
-                  AND es_cliente = 1
-                  AND estado = 1
-                  AND deleted_at IS NULL
+                FROM terceros t
+                LEFT JOIN distribuidores d
+                    ON d.id_tercero = t.id
+                   AND d.deleted_at IS NULL
+                WHERE t.id = :id
+                  AND (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
                 LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
@@ -352,7 +358,7 @@ class VentasDocumentoModel extends Modelo
                 FROM items i
                 WHERE i.estado = 1 
                 AND i.deleted_at IS NULL
-                AND i.tipo_item = 'producto'"; 
+                AND i.tipo_item IN ('producto', 'producto_terminado')";
 
         if ($q !== '') {
             $sql .= ' AND (i.nombre LIKE ? OR i.sku LIKE ?)';
@@ -378,6 +384,26 @@ class VentasDocumentoModel extends Modelo
                 ORDER BY nombre ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerStockDisponibleItem(int $idItem): float
+    {
+        if ($idItem <= 0) {
+            return 0.0;
+        }
+
+        $sql = "SELECT COALESCE(SUM(s.stock_actual), 0)
+                FROM inventario_stock s
+                INNER JOIN items i ON i.id = s.id_item
+                WHERE s.id_item = :id_item
+                  AND i.deleted_at IS NULL
+                  AND i.estado = 1
+                  AND i.tipo_item IN ('producto', 'producto_terminado')";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+
+        return (float) $stmt->fetchColumn();
     }
 
     private function generarCodigo(PDO $db): string

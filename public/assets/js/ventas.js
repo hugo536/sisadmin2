@@ -117,6 +117,32 @@ document.addEventListener('DOMContentLoaded', () => {
         ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
 
+    function obtenerItemsSeleccionados(excluirFila = null) {
+        const seleccionados = new Set();
+        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+            if (fila === excluirFila) return;
+            const idItem = Number(fila.querySelector('.detalle-item')?.value || 0);
+            if (idItem > 0) seleccionados.add(idItem);
+        });
+        return seleccionados;
+    }
+
+    function validarCantidadVsStock(fila) {
+        const inputCantidad = fila.querySelector('.detalle-cantidad');
+        const stock = Number(fila.querySelector('.detalle-stock').textContent || 0);
+        const cantidad = Number(inputCantidad.value || 0);
+
+        if (cantidad > stock) {
+            inputCantidad.classList.add('is-invalid');
+            inputCantidad.title = `Stock disponible: ${stock.toFixed(2)}`;
+            return false;
+        }
+
+        inputCantidad.classList.remove('is-invalid');
+        inputCantidad.title = '';
+        return true;
+    }
+
     // --- 3. LÓGICA DE FILAS VENTA (PRODUCTOS) ---
     async function agregarFilaVenta(item = null) {
         const fragment = templateFilaVenta.content.cloneNode(true);
@@ -128,7 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputPrecio = filaReal.querySelector('.detalle-precio');
         const selectItem = filaReal.querySelector('.detalle-item');
 
-        inputCantidad.addEventListener('input', recalcularTotalVenta);
+        inputCantidad.addEventListener('input', () => {
+            validarCantidadVsStock(filaReal);
+            recalcularTotalVenta();
+        });
         inputPrecio.addEventListener('input', recalcularTotalVenta);
         
         filaReal.querySelector('.btn-quitar-fila').addEventListener('click', () => {
@@ -160,11 +189,22 @@ document.addEventListener('DOMContentLoaded', () => {
             onChange: function(value) {
                 const selectedOption = this.options[value];
                 if (selectedOption) {
+                    const idSeleccionado = Number(value || 0);
+                    const repetido = idSeleccionado > 0 && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
+                    if (repetido) {
+                        this.clear(true);
+                        filaReal.querySelector('.detalle-stock').textContent = '0.00';
+                        Swal.fire('Producto repetido', 'No se permiten productos repetidos en el pedido.', 'warning');
+                        recalcularTotalVenta();
+                        return;
+                    }
+
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
                     if (Number(inputPrecio.value) === 0) {
                         inputPrecio.value = selectedOption.precio.toFixed(2);
                     }
                 }
+                validarCantidadVsStock(filaReal);
                 recalcularTotalVenta();
             },
             render: {
@@ -212,6 +252,41 @@ document.addEventListener('DOMContentLoaded', () => {
         tbodyVenta.innerHTML = '';
         ventaTotal.textContent = 'S/ 0.00';
     }
+
+
+    document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
+        await agregarFilaVenta();
+    });
+
+    document.getElementById('btnGuardarVenta')?.addEventListener('click', async () => {
+        try {
+            const detalle = [...tbodyVenta.querySelectorAll('tr')].map((fila) => filaVentaPayload(fila));
+            if (!detalle.length) throw new Error('Debe agregar al menos un producto.');
+
+            const ids = new Set();
+            for (const fila of tbodyVenta.querySelectorAll('tr')) {
+                const data = filaVentaPayload(fila);
+                if (data.id_item <= 0) throw new Error('Seleccione un producto en todas las filas.');
+                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos en el pedido.');
+                ids.add(data.id_item);
+                if (!validarCantidadVsStock(fila)) throw new Error('No puede ingresar una cantidad mayor al stock.');
+            }
+
+            const payload = await postJson(urls.guardar, {
+                id: Number(ventaId.value || 0),
+                id_cliente: Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0),
+                fecha_emision: fechaEmision.value,
+                observaciones: ventaObservaciones.value,
+                detalle,
+            });
+
+            await Swal.fire('Guardado', payload.mensaje, 'success');
+            modalVenta.hide();
+            recargarTabla();
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+    });
 
     // ==========================================
     // --- 4. LÓGICA DESPACHO MULTI-ALMACÉN ---
