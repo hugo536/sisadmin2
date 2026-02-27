@@ -580,8 +580,8 @@ class VentasDocumentoModel extends Modelo
 
             // Registrar movimiento en Kardex
             $sqlKardex = "INSERT INTO inventario_movimientos 
-                          (id_almacen, id_item, tipo_movimiento, cantidad, referencia, created_at, created_by) 
-                          SELECT ?, id_item, 'SALIDA', ?, CONCAT('Despacho Pedido #', ?), NOW(), ? 
+                          (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_at, created_by) 
+                          SELECT id_item, ?, NULL, 'VEN', ?, CONCAT('Despacho Pedido #', ?), NOW(), ? 
                           FROM ventas_documentos_detalle WHERE id = ?";
 
             $stmtUpdDet = $db->prepare($sqlUpdateDetalle);
