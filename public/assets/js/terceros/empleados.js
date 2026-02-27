@@ -285,6 +285,10 @@
         },
 
         refreshState: function(prefix) {
+            const recordarCumpleanos = document.getElementById(`${prefix}RecordarCumpleanos`);
+            if (recordarCumpleanos) {
+                toggleFechaNacimiento(recordarCumpleanos);
+            }
             updateFechaCeseRules(prefix);
         }
     };

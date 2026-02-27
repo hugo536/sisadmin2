@@ -57,6 +57,19 @@
         return (value || '').replace(/\D/g, '');
     }
 
+    function normalizeDateForInput(value) {
+        const raw = (value || '').toString().trim();
+        if (!raw) return '';
+
+        const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (iso) return iso[1];
+
+        const latin = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (latin) return `${latin[3]}-${latin[2]}-${latin[1]}`;
+
+        return '';
+    }
+
     function safeJsonParse(raw, fallback = []) {
         if (!raw) return fallback;
         try {
@@ -720,7 +733,6 @@
                 document.getElementById('editAsignacionFamiliar').checked = btn.dataset.asignacionFamiliar == 1;
                 document.getElementById('editEssalud').checked = btn.dataset.essalud == 1;
                 document.getElementById('editRecordarCumpleanos').checked = btn.dataset.recordarCumpleanos == 1;
-                document.getElementById('editFechaNacimiento').value = btn.dataset.fechaNacimiento || '';
                 document.getElementById('editGenero').value = normalizeGenero(btn.dataset.genero);
                 document.getElementById('editEstadoCivil').value = normalizeEstadoCivil(btn.dataset.estadoCivil);
                 document.getElementById('editNivelEducativo').value = btn.dataset.nivelEducativo || '';
@@ -738,6 +750,8 @@
                 if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
                     window.TercerosEmpleados.refreshState('edit');
                 }
+
+                document.getElementById('editFechaNacimiento').value = normalizeDateForInput(btn.dataset.fechaNacimiento);
 
                 const tipoP = document.getElementById('editTipoPersona');
                 tipoP.value = normalizeTipoPersona(btn.dataset.tipoPersona);
