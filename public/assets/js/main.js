@@ -81,6 +81,28 @@
     PatchedTomSelect.prototype = TomSelectOriginal.prototype;
     Object.setPrototypeOf(PatchedTomSelect, TomSelectOriginal);
     window.TomSelect = PatchedTomSelect;
+    window.TomSelect = new Proxy(TomSelectOriginal, {
+      construct(target, args, newTarget) {
+        const inputArg = args[0];
+        const userSettings = args[1] && typeof args[1] === 'object' ? args[1] : {};
+        const settings = { ...userSettings };
+        const inputEl = resolveInputElement(inputArg);
+
+        if (inputEl) {
+          const modalParent = inputEl.closest('.modal');
+          if (modalParent && (!settings.dropdownParent || settings.dropdownParent === 'body')) {
+            settings.dropdownParent = modalParent;
+          }
+
+          ensureEmptyOption(inputEl);
+          if (settings.allowEmptyOption === undefined) {
+            settings.allowEmptyOption = true;
+          }
+        }
+
+        return Reflect.construct(target, [inputArg, settings], newTarget);
+      }
+    });
 
     window.__TOMSELECT_MODAL_PATCHED__ = true;
   };
@@ -106,6 +128,8 @@
 
   patchTomSelectForModals();
   patchBootstrapFocusTrapForTomSelect();
+  patchTomSelectForModals();
+
 
   // =========================================================
   // 1) LOGOUT CONFIRMATION
