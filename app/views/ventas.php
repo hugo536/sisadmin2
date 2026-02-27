@@ -27,8 +27,8 @@ $estadoLabels = [
             </h1>
             <p class="text-muted small mb-0 ms-1">Gestión de pedidos, facturación y salidas de almacén.</p>
         </div>
-        <button type="button" class="btn btn-primary shadow-sm" id="btnNuevaVenta">
-            <i class="bi bi-plus-circle me-2"></i>Nuevo Pedido
+        <button type="button" class="btn btn-primary shadow-sm fw-semibold" id="btnNuevaVenta">
+            <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Pedido
         </button>
     </div>
 
@@ -64,15 +64,15 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaVentas">
-                    <thead>
+                <table class="table align-middle mb-0 table-hover table-borderless table-pro" id="tablaVentas">
+                    <thead class="table-light border-bottom">
                         <tr>
-                            <th class="ps-4">Código</th>
-                            <th>Cliente</th>
-                            <th>Fecha Emisión</th>
-                            <th class="text-end">Total</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="ps-4 text-secondary fw-semibold">Código</th>
+                            <th class="text-secondary fw-semibold">Cliente</th>
+                            <th class="text-secondary fw-semibold">Fecha Emisión</th>
+                            <th class="text-end text-secondary fw-semibold">Total</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -82,40 +82,40 @@ $estadoLabels = [
                                     $estado = (int) ($venta['estado'] ?? 0); 
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
-                                <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>">
+                                <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
                                     <td><?php echo e((string) ($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?></td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
-                                        <span class="badge px-3 rounded-pill <?php echo e($badge['clase']); ?>">
+                                        <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
                                             <?php echo e($badge['texto']); ?>
                                         </span>
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                            <?php if ($estado === 0): ?>
-                                                <button class="btn btn-sm btn-light text-primary border-0 btn-editar" title="Editar"><i class="bi bi-pencil-square fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-success border-0 btn-aprobar" title="Aprobar"><i class="bi bi-check2-circle fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-danger border-0 btn-anular" title="Anular"><i class="bi bi-trash fs-5"></i></button>
-                                            <?php elseif ($estado === 2): ?>
-                                                <button class="btn btn-sm btn-light text-info border-0 btn-despachar" title="Despachar"><i class="bi bi-truck fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
-                                            <?php else: ?>
-                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                            <?php if ($estado === 0): ?> 
+                                                <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Editar Pedido"><i class="bi bi-pencil-square fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-bs-toggle="tooltip" title="Aprobar Pedido"><i class="bi bi-check2-circle fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
+                                            <?php elseif ($estado === 2): ?> 
+                                                <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                            <?php else: ?> 
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>No hay pedidos registrados.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pedidos registrados.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
             <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted">Mostrando <?php echo count($ventas); ?> registros</small>
+                <small class="text-muted fw-semibold">Mostrando <?php echo count($ventas); ?> registros</small>
             </div>
         </div>
     </div>
@@ -124,60 +124,64 @@ $estadoLabels = [
 <div class="modal fade" id="modalVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2"></i>Pedido de Venta</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-4">
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <form id="formVenta" autocomplete="off">
                     <input type="hidden" id="ventaId" value="0">
                     
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Información General</h6>
-                            <div class="row g-2">
-                                <div class="col-md-5 form-floating">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
+                            <div class="row g-3 align-items-end">
+                                
+                                <div class="col-md-5">
+                                    <label for="idCliente" class="form-label text-muted small fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
                                     <select id="idCliente" class="form-select" required></select>
-                                    <label for="idCliente">Cliente <span class="text-danger">*</span></label>
                                 </div>
-                                <div class="col-md-3 form-floating">
+                                
+                                <div class="col-md-3">
+                                    <label for="fechaEmision" class="form-label text-muted small fw-bold mb-1">Fecha Emisión</label>
                                     <input type="date" class="form-control" id="fechaEmision" value="<?php echo date('Y-m-d'); ?>">
-                                    <label for="fechaEmision">Fecha Emisión</label>
                                 </div>
-                                <div class="col-md-4 form-floating">
+                                
+                                <div class="col-md-4">
+                                    <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
                                     <input type="text" class="form-control" id="ventaObservaciones" maxlength="180" placeholder="Opcional">
-                                    <label for="ventaObservaciones">Observaciones</label>
                                 </div>
+                                
                             </div>
                         </div>
                     </div>
 
                     <div class="card border-0 shadow-sm">
                         <div class="card-body p-0">
-                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                                <h6 class="mb-0 fw-bold text-muted">Detalle de Productos</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarFilaVenta">
+                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-white rounded-top">
+                                <h6 class="mb-0 fw-bold text-dark">Detalle de Productos</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
                                     <i class="bi bi-plus-lg me-1"></i>Agregar Producto
                                 </button>
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table table-sm align-middle mb-0" id="tablaDetalleVenta">
-                                    <thead class="bg-light">
+                                <table class="table align-middle mb-0" id="tablaDetalleVenta">
+                                    <thead class="table-light border-bottom">
                                         <tr>
-                                            <th style="min-width:300px;" class="ps-3">Producto</th>
-                                            <th style="width: 100px;" class="text-end">Stock</th>
-                                            <th style="width: 120px;">Cantidad</th>
-                                            <th style="width: 140px;">Precio</th>
-                                            <th style="width: 140px;" class="text-end">Subtotal</th>
-                                            <th style="width: 50px;"></th>
+                                            <th style="min-width:300px;" class="ps-3 text-secondary">Producto</th>
+                                            <th style="width: 100px;" class="text-end text-secondary">Stock</th>
+                                            <th style="width: 120px;" class="text-center text-secondary">Cantidad</th>
+                                            <th style="width: 140px;" class="text-center text-secondary">Precio Unit.</th>
+                                            <th style="width: 140px;" class="text-end text-secondary">Subtotal</th>
+                                            <th style="width: 60px;" class="text-center"></th>
                                         </tr>
                                     </thead>
-                                    <tbody></tbody>
-                                    <tfoot class="bg-light">
+                                    <tbody class="bg-white"></tbody>
+                                    <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="4" class="text-end fw-bold py-3 text-secondary">TOTAL PEDIDO:</td>
-                                            <td class="text-end fw-bold py-3 fs-5 text-primary" id="ventaTotal">S/ 0.00</td>
+                                            <td colspan="4" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL PEDIDO:</td>
+                                            <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ventaTotal">S/ 0.00</td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -187,9 +191,9 @@ $estadoLabels = [
                     </div>
                 </form>
             </div>
-            <div class="modal-footer bg-white">
-                <button class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary px-4" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
+            <div class="modal-footer bg-white border-top-0">
+                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
             </div>
         </div>
     </div>
@@ -198,11 +202,11 @@ $estadoLabels = [
 <div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header bg-info text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-truck me-2"></i>Despachar Pedido</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-4">
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <input type="hidden" id="despachoDocumentoId" value="0">
                 
                 <select id="despachoAlmacen" class="d-none">
@@ -212,18 +216,18 @@ $estadoLabels = [
                     <?php endforeach; ?>
                 </select>
 
-                <div class="alert alert-info d-flex align-items-center mb-3 shadow-sm border-0">
+                <div class="alert alert-info d-flex align-items-center mb-4 shadow-sm border-0 rounded-3">
                     <i class="bi bi-info-circle-fill me-3 fs-4"></i>
                     <div>
                         <strong>Modo Multi-Almacén:</strong> Puede fraccionar el despacho desde diferentes almacenes.
                     </div>
                 </div>
                 
-                <div class="card border-0 shadow-sm mb-3">
+                <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
-                        <div class="form-floating">
-                            <input type="text" class="form-control" id="despachoObservaciones" maxlength="180" placeholder="Guía">
-                            <label>Observaciones / Guía de Remisión</label>
+                        <div>
+                            <label for="despachoObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
+                            <input type="text" class="form-control" id="despachoObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
                         </div>
                     </div>
                 </div>
@@ -231,23 +235,23 @@ $estadoLabels = [
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" id="tablaDetalleDespacho">
-                                <thead class="bg-light">
+                            <table class="table align-middle mb-0" id="tablaDetalleDespacho">
+                                <thead class="table-light border-bottom">
                                     <tr>
-                                        <th class="ps-3" style="min-width: 250px;">Producto / Pendiente</th>
-                                        <th class="text-center" style="width: 200px;">Almacén Origen</th>
-                                        <th class="text-center" style="width: 100px;">Stock</th>
-                                        <th style="width: 160px;" class="text-end pe-3">A Despachar</th>
+                                        <th class="ps-3 text-secondary" style="min-width: 250px;">Producto / Pendiente</th>
+                                        <th class="text-center text-secondary" style="width: 200px;">Almacén Origen</th>
+                                        <th class="text-center text-secondary" style="width: 100px;">Stock</th>
+                                        <th style="width: 160px;" class="text-end pe-3 text-secondary">A Despachar</th>
                                     </tr>
                                 </thead>
-                                <tbody></tbody>
+                                <tbody class="bg-white"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="modal-footer bg-white d-flex justify-content-between align-items-center">
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
                 <div class="form-check form-switch m-0 ps-5">
                     <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
                     <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
@@ -255,9 +259,9 @@ $estadoLabels = [
                     </label>
                 </div>
                 <div>
-                    <button class="btn btn-light text-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-info text-white fw-bold px-4" id="btnGuardarDespacho">
-                        <i class="bi bi-check2-circle me-2"></i>Confirmar Despacho
+                        <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
                     </button>
                 </div>
             </div>
@@ -266,24 +270,24 @@ $estadoLabels = [
 </div>
 
 <template id="templateFilaVenta">
-    <tr>
-        <td class="ps-3">
-            <select class="form-select form-select-sm detalle-item" required></select>
+    <tr class="border-bottom">
+        <td class="ps-3 py-3 align-top">
+            <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required></select>
         </td>
-        <td class="text-end text-muted small detalle-stock">0.00</td>
-        <td>
-            <input type="number" class="form-control form-control-sm text-center detalle-cantidad" min="0.01" step="0.01" value="1" required>
+        <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock">0.00</td>
+        <td class="align-top py-3 px-2">
+            <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-primary shadow-none border-secondary-subtle" min="0.01" step="0.01" value="1" required>
         </td>
-        <td>
+        <td class="align-top py-3 px-2">
             <div class="input-group input-group-sm">
-                <span class="input-group-text border-end-0 text-muted bg-white">S/</span>
-                <input type="number" class="form-control border-start-0 text-end detalle-precio" min="0" step="0.01" value="0" required>
+                <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle">S/</span>
+                <input type="number" class="form-control border-start-0 text-end detalle-precio shadow-none border-secondary-subtle" min="0" step="0.01" value="0.00" required>
             </div>
         </td>
-        <td class="text-end fw-semibold detalle-subtotal">S/ 0.00</td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm text-danger border-0 bg-transparent btn-quitar-fila" title="Quitar">
-                <i class="bi bi-x-circle-fill fs-5"></i>
+        <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6">S/ 0.00</td>
+        <td class="text-center align-top py-3">
+            <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" data-bs-toggle="tooltip" title="Quitar fila" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-trash-fill"></i>
             </button>
         </td>
     </tr>
