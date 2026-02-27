@@ -130,11 +130,15 @@
                                             <input type="number" step="0.0001" class="form-control" id="newCosto" name="costo_referencial" value="0.0000">
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-3">
                                         <label class="form-label small text-muted mb-0">Impuesto (%)</label>
                                         <input type="number" step="0.0001" class="form-control" id="newImpuesto" name="impuesto" value="18.00">
                                     </div>
-                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted mb-0">Peso (kg)</label>
+                                        <input type="number" step="0.001" min="0" class="form-control" id="newPesoKg" name="peso_kg" value="0.000" placeholder="Opcional">
+                                    </div>
+
                                     <div class="col-12">
                                         <input type="text" class="form-control form-control-sm" id="newDescripcion" name="descripcion" placeholder="Descripción adicional (opcional)">
                                     </div>

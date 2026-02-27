@@ -527,6 +527,17 @@ class ItemController extends Controlador
              $data['sku'] = '';
         }
 
+        $pesoKgRaw = trim((string) ($data['peso_kg'] ?? ''));
+        if ($pesoKgRaw === '') {
+            $data['peso_kg'] = 0;
+        } else {
+            $pesoKg = (float) $pesoKgRaw;
+            if ($pesoKg < 0) {
+                throw new RuntimeException('El peso del ítem no puede ser negativo.');
+            }
+            $data['peso_kg'] = round($pesoKg, 3);
+        }
+
         return $data;
     }
 

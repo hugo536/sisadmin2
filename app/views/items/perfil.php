@@ -63,6 +63,7 @@ function showItemVal($val, string $fallback = '--'): string {
                                 <div class="col-md-4"><small class="text-muted d-block">Unidad base</small><div><?php echo showItemVal($i['unidad_base'] ?? ''); ?></div></div>
                                 <div class="col-md-4"><small class="text-muted d-block">Moneda</small><div><?php echo showItemVal($i['moneda'] ?? ''); ?></div></div>
                                 <div class="col-md-4"><small class="text-muted d-block">Impuesto</small><div><?php echo htmlspecialchars(number_format((float) ($i['impuesto'] ?? 0), 2)); ?>%</div></div>
+                                <div class="col-md-4"><small class="text-muted d-block">Peso</small><div><?php echo htmlspecialchars(number_format((float) ($i['peso_kg'] ?? 0), 3)); ?> kg</div></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Precio venta</small><div>S/ <?php echo htmlspecialchars(number_format((float) ($i['precio_venta'] ?? 0), 4)); ?></div></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Stock mínimo</small><div><?php echo htmlspecialchars(number_format((float) ($i['stock_minimo'] ?? 0), 4)); ?></div></div>
                                 <div class="col-12"><small class="text-muted d-block">Descripción</small><div><?php echo showItemVal($i['descripcion'] ?? '', 'Sin descripción'); ?></div></div>

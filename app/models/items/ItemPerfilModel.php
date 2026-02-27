@@ -9,7 +9,7 @@ class ItemPerfilModel extends Modelo
                        r.nombre AS rubro_nombre,
                        c.nombre AS categoria_nombre,
                        i.id_marca, i.id_sabor, i.id_presentacion,
-                       i.marca, i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                       i.marca, i.unidad_base, i.peso_kg, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
                        i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
                        i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,

@@ -1,0 +1,2 @@
+ALTER TABLE `items`
+    ADD COLUMN `peso_kg` DECIMAL(10,3) NOT NULL DEFAULT 0.000 AFTER `unidad_base`;

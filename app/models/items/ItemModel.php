@@ -98,7 +98,7 @@ class ItemModel extends Modelo
 
     $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
                    i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
-                   i.unidad_base, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                   i.unidad_base, i.peso_kg, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
                    i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
                    i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
                    i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
@@ -155,6 +155,7 @@ class ItemModel extends Modelo
                 'id_presentacion' => $item['id_presentacion'] !== null ? (int) $item['id_presentacion'] : null,
                 'marca' => (string) ($item['marca'] ?? ''),
                 'unidad_base' => (string) ($item['unidad_base'] ?? ''),
+                'peso_kg' => (float) ($item['peso_kg'] ?? 0),
                 'permite_decimales' => (int) ($item['permite_decimales'] ?? 0),
                 'requiere_lote' => (int) ($item['requiere_lote'] ?? 0),
                 'requiere_vencimiento' => (int) ($item['requiere_vencimiento'] ?? 0),
@@ -187,7 +188,7 @@ class ItemModel extends Modelo
     public function obtener(int $id): array
     {
         $sql = 'SELECT id, sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
-                       unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                       unidad_base, peso_kg, permite_decimales, requiere_lote, requiere_vencimiento,
                        dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
                        es_envase_retornable, stock_minimo, precio_venta, costo_referencial,
                        moneda, impuesto_porcentaje AS impuesto, estado
@@ -517,12 +518,12 @@ class ItemModel extends Modelo
         $payload['updated_by'] = $userId;
 
         $sql = 'INSERT INTO items (sku, nombre, descripcion, tipo_item, id_rubro, id_categoria, id_marca, id_sabor, id_presentacion, marca,
-                                   unidad_base, permite_decimales, requiere_lote, requiere_vencimiento,
+                                   unidad_base, peso_kg, permite_decimales, requiere_lote, requiere_vencimiento,
                                    dias_alerta_vencimiento, controla_stock, requiere_formula_bom, requiere_factor_conversion,
                                    es_envase_retornable, stock_minimo, precio_venta, costo_referencial,
                                    moneda, impuesto_porcentaje, estado, created_by, updated_by, created_at, updated_at)
                 VALUES (:sku, :nombre, :descripcion, :tipo_item, :id_rubro, :id_categoria, :id_marca, :id_sabor, :id_presentacion, :marca,
-                        :unidad_base, :permite_decimales, :requiere_lote, :requiere_vencimiento,
+                        :unidad_base, :peso_kg, :permite_decimales, :requiere_lote, :requiere_vencimiento,
                         :dias_alerta_vencimiento, :controla_stock, :requiere_formula_bom, :requiere_factor_conversion,
                         :es_envase_retornable, :stock_minimo, :precio_venta, :costo_referencial,
                         :moneda, :impuesto_porcentaje, :estado, :created_by, :updated_by, NOW(), NOW())';
@@ -545,6 +546,7 @@ class ItemModel extends Modelo
                     id_presentacion = :id_presentacion,
                     marca = :marca,
                     /* unidad_base eliminada por seguridad */
+                    peso_kg = :peso_kg,
                     permite_decimales = :permite_decimales,
                     requiere_lote = :requiere_lote,
                     requiere_vencimiento = :requiere_vencimiento,
@@ -914,6 +916,7 @@ class ItemModel extends Modelo
             'id_presentacion' => (isset($data['id_presentacion']) && $data['id_presentacion'] !== '') ? (int) $data['id_presentacion'] : null,
             'marca' => trim((string) ($data['marca'] ?? '')),
             'unidad_base' => trim((string) ($data['unidad_base'] ?? 'UND')),
+            'peso_kg' => round((float) ($data['peso_kg'] ?? 0), 3),
             'permite_decimales' => $parseBool($data['permite_decimales'] ?? 0),
             'requiere_lote' => $parseBool($data['requiere_lote'] ?? 0),
             'requiere_vencimiento' => $parseBool($data['requiere_vencimiento'] ?? 0),

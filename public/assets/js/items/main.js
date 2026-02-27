@@ -658,6 +658,7 @@
                 editPrecio: 'data-precio',
                 editStockMinimo: 'data-stock-minimo',
                 editCosto: 'data-costo',
+                editPesoKg: 'data-peso-kg',
                 editRubro: 'data-rubro',
                 editCategoria: 'data-categoria',
                 editEstado: 'data-estado',
@@ -843,6 +844,7 @@ const imgHtml = item.imagen_principal
                                     data-precio="${item.precio_venta}"
                                     data-stock-minimo="${item.stock_minimo}"
                                     data-costo="${item.costo_referencial}"
+                                    data-peso-kg="${item.peso_kg}"
                                     data-controla-stock="${item.controla_stock}"
                                     data-permite-decimales="${item.permite_decimales}"
                                     data-requiere-lote="${item.requiere_lote}"
