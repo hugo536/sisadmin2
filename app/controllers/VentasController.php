@@ -54,7 +54,27 @@ class VentasController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_items') {
             $q = trim((string) ($_GET['q'] ?? ''));
             $idAlmacen = (int) ($_GET['id_almacen'] ?? 0);
-            json_response(['ok' => true, 'data' => $this->documentoModel->buscarItems($q, $idAlmacen)]);
+            $idCliente = (int) ($_GET['id_cliente'] ?? 0);
+            $cantidad = (float) ($_GET['cantidad'] ?? 1);
+            $metaAcuerdo = $this->documentoModel->tieneAcuerdoConProductosVigentes($idCliente);
+
+            json_response([
+                'ok' => true,
+                'data' => $this->documentoModel->buscarItems($q, $idAlmacen, $idCliente, $cantidad),
+                'meta' => $metaAcuerdo,
+            ]);
+            return;
+        }
+
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {
+            $idCliente = (int) ($_GET['id_cliente'] ?? 0);
+            $idItem = (int) ($_GET['id_item'] ?? 0);
+            $cantidad = (float) ($_GET['cantidad'] ?? 1);
+
+            json_response([
+                'ok' => true,
+                'data' => $this->documentoModel->obtenerPrecioUnitario($idCliente, $idItem, $cantidad),
+            ]);
             return;
         }
 
