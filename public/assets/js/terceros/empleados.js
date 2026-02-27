@@ -32,10 +32,12 @@
         const diarioGroup = document.getElementById(`${prefix}PagoDiarioGroup`);
         const sueldoInput = document.getElementById(`${prefix}SueldoBasico`);
         const diarioInput = document.getElementById(`${prefix}PagoDiario`);
+        const empleadoCheckbox = document.getElementById(`${prefix}EsEmpleado`);
 
         if (!sueldoGroup || !diarioGroup) return;
 
         const isDiario = tipoPagoSelect.value === 'DIARIO';
+        const isEmpleado = !!empleadoCheckbox?.checked;
 
         if (isDiario) {
             sueldoGroup.classList.add('d-none');
@@ -46,6 +48,9 @@
             diarioGroup.classList.add('d-none');
             if (diarioInput) diarioInput.value = '';
         }
+
+        if (sueldoInput) sueldoInput.required = isEmpleado && !isDiario;
+        if (diarioInput) diarioInput.required = isEmpleado && isDiario;
     }
 
     function toggleFechaNacimiento(recordarSwitch) {
