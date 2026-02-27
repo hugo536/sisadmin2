@@ -260,7 +260,8 @@
 
         const requireEmpleado = empleadoCheckbox.checked;
         form.querySelectorAll('[data-required-empleado="1"]').forEach((field) => {
-            field.required = requireEmpleado;
+            const isHidden = !!field.closest('.d-none');
+            field.required = requireEmpleado && !isHidden;
             if (!requireEmpleado) field.setCustomValidity('');
         });
     }
@@ -735,8 +736,11 @@
             const fechaNacimiento = (form.querySelector('[name="fecha_nacimiento"]')?.value || '').trim();
             const tipoSangre = (form.querySelector('[name="tipo_sangre"]')?.value || '').trim().toUpperCase();
             const esEmpleado = !!form.querySelector('[name="es_empleado"]')?.checked;
+            const tipoPago = (form.querySelector('[name="tipo_pago"]')?.value || '').trim().toUpperCase();
             const sueldoBasicoRaw = (form.querySelector('[name="sueldo_basico"]')?.value || '').trim();
             const sueldoBasico = Number.parseFloat(sueldoBasicoRaw);
+            const pagoDiarioRaw = (form.querySelector('[name="pago_diario"]')?.value || '').trim();
+            const pagoDiario = Number.parseFloat(pagoDiarioRaw);
 
             if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
                 return 'Tipo de persona, documento, número y nombre son obligatorios.';
@@ -774,11 +778,20 @@
             }
 
             if (esEmpleado) {
-                if (sueldoBasicoRaw === '') {
-                    return 'Para el rol Empleado, el sueldo básico es obligatorio.';
-                }
-                if (Number.isNaN(sueldoBasico) || sueldoBasico < 0) {
-                    return 'El sueldo básico del empleado debe ser un número válido mayor o igual a 0.';
+                if (tipoPago === 'DIARIO') {
+                    if (pagoDiarioRaw === '') {
+                        return 'Para el rol Empleado con pago diario, el campo pago diario es obligatorio.';
+                    }
+                    if (Number.isNaN(pagoDiario) || pagoDiario < 0) {
+                        return 'El pago diario del empleado debe ser un número válido mayor o igual a 0.';
+                    }
+                } else {
+                    if (sueldoBasicoRaw === '') {
+                        return 'Para el rol Empleado, el sueldo básico es obligatorio.';
+                    }
+                    if (Number.isNaN(sueldoBasico) || sueldoBasico < 0) {
+                        return 'El sueldo básico del empleado debe ser un número válido mayor o igual a 0.';
+                    }
                 }
             }
 
