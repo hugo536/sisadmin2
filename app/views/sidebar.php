@@ -138,6 +138,22 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
 
+            <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
+                <i class="bi bi-clock-history"></i> <span>Asistencia y Horarios</span>
+            </a>
+
+            <a class="sidebar-link<?php echo $activo('asistencia/importar'); ?>" href="<?php echo e(route_url('asistencia/importar')); ?>">
+                <i class="bi bi-file-earmark-arrow-up"></i> <span>Importar Biométrico</span>
+            </a>
+
+            <a class="sidebar-link<?php echo $activo('asistencia/dashboard'); ?>" href="<?php echo e(route_url('asistencia/dashboard')); ?>">
+                <i class="bi bi-bar-chart-line"></i> <span>Dashboard RRHH</span>
+            </a>
+
+            <a class="sidebar-link<?php echo $activo('asistencia/incidencias'); ?>" href="<?php echo e(route_url('asistencia/incidencias')); ?>">
+                <i class="bi bi-clipboard2-pulse"></i> <span>Incidencias</span>
+            </a>
+
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
             </a>

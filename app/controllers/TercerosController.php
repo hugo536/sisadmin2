@@ -857,6 +857,7 @@ class TercerosController extends Controlador
         $prepared['genero']                  = $esEmpleado ? $normalizeGenero($data['genero'] ?? '') : '';
         $prepared['estado_civil']            = $esEmpleado ? $normalizeEstadoCivil($data['estado_civil'] ?? '') : '';
         $prepared['nivel_educativo']         = $esEmpleado ? $normalizeCatalog($data['nivel_educativo'] ?? '') : '';
+        $prepared['codigo_biometrico']       = $esEmpleado ? trim((string) ($data['codigo_biometrico'] ?? '')) : '';
         $prepared['regimen_pensionario']     = $esEmpleado ? $normalizeRegimen($data['regimen_pensionario'] ?? '') : '';
         $prepared['tipo_comision_afp']       = $esEmpleado ? $normalizeTipoComision($data['tipo_comision_afp'] ?? '') : '';
         $prepared['contacto_emergencia_nombre'] = $esEmpleado ? trim((string) ($data['contacto_emergencia_nombre'] ?? '')) : '';

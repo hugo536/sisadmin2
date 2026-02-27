@@ -127,6 +127,9 @@ class TercerosModel extends Modelo
         $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
             ? 'te.genero, te.estado_civil, te.nivel_educativo, te.contacto_emergencia_nombre, te.contacto_emergencia_telf, te.tipo_sangre,'
             : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
+        $selectCodigoBiometrico = $this->hasColumn('terceros_empleados', 'codigo_biometrico')
+            ? 'te.codigo_biometrico,'
+            : 'NULL AS codigo_biometrico,';
 
         $sql = "SELECT t.*, 
                        dep.id AS departamento_id, prov.id AS provincia_id, dist.id AS distrito_id,
@@ -147,6 +150,7 @@ class TercerosModel extends Modelo
                        te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
                        {$selectCumple}
                        {$selectPerfilEmpleado}
+                       {$selectCodigoBiometrico}
 
                        -- Distribuidor
                        CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
@@ -240,6 +244,9 @@ class TercerosModel extends Modelo
         $selectPerfilEmpleado = $this->hasColumn('terceros_empleados', 'genero')
             ? 'genero, estado_civil, nivel_educativo, contacto_emergencia_nombre, contacto_emergencia_telf, tipo_sangre,'
             : 'NULL AS genero, NULL AS estado_civil, NULL AS nivel_educativo, NULL AS contacto_emergencia_nombre, NULL AS contacto_emergencia_telf, NULL AS tipo_sangre,';
+        $selectCodigoBiometrico = $this->hasColumn('terceros_empleados', 'codigo_biometrico')
+            ? 'codigo_biometrico,'
+            : 'NULL AS codigo_biometrico,';
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT id_tercero,
@@ -249,6 +256,7 @@ class TercerosModel extends Modelo
                        regimen_pensionario, tipo_comision_afp, cuspp, essalud,
                        {$selectCumple}
                        {$selectPerfilEmpleado}
+                       {$selectCodigoBiometrico}
                        id_tercero AS _id_ref
                 FROM terceros_empleados
                 WHERE id_tercero IN ($in)";
@@ -679,6 +687,7 @@ class TercerosModel extends Modelo
             'fecha_ingreso'   => !empty($data['fecha_ingreso']) ? $data['fecha_ingreso'] : null,
             'fecha_cese'      => !empty($data['fecha_cese']) ? $data['fecha_cese'] : null,
             'estado_laboral'  => $data['estado_laboral'] ?? 'activo',
+            'codigo_biometrico' => !empty($data['codigo_biometrico']) ? trim((string) $data['codigo_biometrico']) : null,
             'tipo_contrato'   => $data['tipo_contrato'] ?? null,
             'sueldo_basico'   => (float)($data['sueldo_basico'] ?? 0),
             'moneda'          => $data['moneda'] ?? 'PEN',
