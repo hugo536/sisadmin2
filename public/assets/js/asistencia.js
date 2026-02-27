@@ -25,7 +25,14 @@
             pageLength: 25,
             order: [[2, 'desc']],
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
+                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json',
+                // AGREGAMOS EL DISEÑO VACÍO AQUÍ:
+                emptyTable: `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
+                        Aún no se han importado logs biométricos.
+                    </div>
+                `
             }
         });
     }
