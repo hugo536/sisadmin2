@@ -5,36 +5,9 @@ declare(strict_types=1);
 // index.php - Punto de Entrada Principal
 // =====================================================
 
-// 1. CONFIGURACIÓN DE SESIÓN
-if (session_status() === PHP_SESSION_NONE) {
-    // Detectar HTTPS
-    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
-    
-    // Limpiar host para cookie domain
-    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
-    $host = preg_replace('/:\d+$/', '', $host);
-    
-    $cookieParams = [
-        'lifetime' => 28800, // 8 horas
-        'path'     => '/',
-        'secure'   => $isSecure,
-        'httponly' => true,
-        'samesite' => 'Strict',
-    ];
-
-    // Solo asignar dominio si no es localhost/IP para evitar problemas locales
-    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false && $host !== 'localhost') {
-        $cookieParams['domain'] = $host;
-    }
-
-    session_set_cookie_params($cookieParams);
-    session_start();
-}
-
-// 2. CONSTANTES Y ENTORNO
+// 1. CONSTANTES Y ENTORNO BASE
 // Define la raíz del proyecto (subiendo un nivel desde 'public')
-define('BASE_PATH', dirname(__DIR__)); 
+define('BASE_PATH', dirname(__DIR__));
 
 // Carga de Composer (Librerías externas)
 $autoload = BASE_PATH . '/vendor/autoload.php';
@@ -50,8 +23,41 @@ if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
     $dotenv->safeLoad();
 }
 
+$sessionCookieLifetime = filter_var($_ENV['SESSION_COOKIE_LIFETIME'] ?? getenv('SESSION_COOKIE_LIFETIME'), FILTER_VALIDATE_INT);
+if ($sessionCookieLifetime === false || $sessionCookieLifetime <= 0) {
+    $sessionCookieLifetime = 28800; // 8 horas
+}
+
+// 2. CONFIGURACIÓN DE SESIÓN
+if (session_status() === PHP_SESSION_NONE) {
+    // Detectar HTTPS
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+
+    // Limpiar host para cookie domain
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $host = preg_replace('/:\d+$/', '', $host);
+
+    $cookieParams = [
+        'lifetime' => $sessionCookieLifetime,
+        'path'     => '/',
+        'secure'   => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ];
+
+    // Solo asignar dominio si no es localhost/IP para evitar problemas locales
+    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false && $host !== 'localhost') {
+        $cookieParams['domain'] = $host;
+    }
+
+    ini_set('session.gc_maxlifetime', (string) $sessionCookieLifetime);
+    session_set_cookie_params($cookieParams);
+    session_start();
+}
+
 // Configuración de Errores (Hardcoded a development para que puedas ver errores)
-$env = 'development'; 
+$env = 'development';
 
 if ($env === 'development') {
     ini_set('display_errors', '1');
@@ -102,7 +108,7 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(500);
-    
+
     if ($env === 'development') {
         echo "<div style='font-family: monospace; background:#fff3cd; color:#856404; padding:20px; border:1px solid #ffeeba; margin: 20px;'>";
         echo "<h3 style='margin-top:0;'>⚠️ Error del Sistema</h3>";

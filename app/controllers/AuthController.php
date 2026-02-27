@@ -101,7 +101,8 @@ class AuthController extends Controlador
         $_SESSION['id'] = $id_usuario;
         $_SESSION['usuario'] = (string) $usuario['usuario'];
         $_SESSION['id_rol'] = (int) $usuario['id_rol'];
-        $_SESSION['ultimo_acceso'] = time();
+        $_SESSION['inicio_sesion'] = time();
+        $_SESSION['ultimo_acceso'] = $_SESSION['inicio_sesion'];
         unset($_SESSION['permisos']);
 
         $this->usuario_model->actualizar_ultimo_login($id_usuario);
