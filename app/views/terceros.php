@@ -168,6 +168,7 @@
                                             data-es-distribuidor="<?php echo (int)$tercero['es_distribuidor']; ?>"
                                             data-cargo="<?php echo htmlspecialchars((string) ($tercero['cargo'] ?? '')); ?>"
                                             data-area="<?php echo htmlspecialchars((string) ($tercero['area'] ?? '')); ?>"
+                                            data-codigo-biometrico="<?php echo htmlspecialchars((string) ($tercero['codigo_biometrico'] ?? '')); ?>"
                                             data-fecha-ingreso="<?php echo htmlspecialchars((string) ($tercero['fecha_ingreso'] ?? '')); ?>"
                                             data-fecha-cese="<?php echo htmlspecialchars((string) ($tercero['fecha_cese'] ?? '')); ?>"
                                             data-estado-laboral="<?php echo htmlspecialchars((string) ($tercero['estado_laboral'] ?? 'activo')); ?>"

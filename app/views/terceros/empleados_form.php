@@ -105,6 +105,12 @@ $today = date('Y-m-d');
                     <label for="<?php echo $prefix; ?>EstadoLaboral">Estado Laboral</label>
                 </div>
             </div>
+            <div class="col-md-4">
+                <div class="form-floating">
+                    <input type="text" class="form-control" name="codigo_biometrico" id="<?php echo $prefix; ?>CodigoBiometrico" placeholder="Código Biométrico" maxlength="50">
+                    <label for="<?php echo $prefix; ?>CodigoBiometrico">Código Biométrico (EnNo)</label>
+                </div>
+            </div>
 
             <div class="col-md-4">
                 <div class="form-floating">

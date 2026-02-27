@@ -644,6 +644,7 @@
                 // Datos Empleado
                 document.getElementById('editCargo').value = btn.dataset.cargo || '';
                 document.getElementById('editArea').value = btn.dataset.area || '';
+                document.getElementById('editCodigoBiometrico').value = btn.dataset.codigoBiometrico || '';
                 document.getElementById('editFechaIngreso').value = btn.dataset.fechaIngreso || '';
                 document.getElementById('editFechaCese').value = btn.dataset.fechaCese || '';
                 document.getElementById('editEstadoLaboral').value = normalizeEstadoLaboral(btn.dataset.estadoLaboral);

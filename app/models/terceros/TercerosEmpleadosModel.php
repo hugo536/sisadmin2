@@ -31,6 +31,11 @@ class TercerosEmpleadosModel extends Modelo
                 'contacto_emergencia_nombre', 'contacto_emergencia_telf', 'tipo_sangre',
             ];
 
+            $tieneCodigoBiometrico = $this->hasColumn('terceros_empleados', 'codigo_biometrico');
+            if ($tieneCodigoBiometrico) {
+                $columnas[] = 'codigo_biometrico';
+            }
+
             if ($this->hasColumn('terceros_empleados', 'created_by')) {
                 $columnas[] = 'created_by';
             }
@@ -83,6 +88,10 @@ class TercerosEmpleadosModel extends Modelo
                 'tipo_sangre' => $data['tipo_sangre'] ?? null,
                 'updated_by' => $userId,
             ];
+
+            if ($tieneCodigoBiometrico) {
+                $params['codigo_biometrico'] = !empty($data['codigo_biometrico']) ? trim((string) $data['codigo_biometrico']) : null;
+            }
 
             if ($this->hasColumn('terceros_empleados', 'created_by')) {
                 $params['created_by'] = $userId;
