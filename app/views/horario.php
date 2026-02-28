@@ -159,9 +159,8 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                 <input type="hidden" name="accion" value="guardar_asignacion">
                 
                 <div class="col-md-4">
-                    <label class="form-label small text-muted fw-bold">Empleado <span class="text-danger">*</span></label>
-                    <select name="id_tercero" class="form-select border-secondary-subtle" required>
-                        <option value="">Seleccione empleado...</option>
+                    <label class="form-label small text-muted fw-bold">Empleados <span class="text-danger">*</span></label>
+                    <select name="id_terceros[]" class="form-select border-secondary-subtle" multiple size="5" required>
                         <?php foreach ($empleados as $empleado): ?>
                             <option value="<?php echo (int) $empleado['id']; ?>">
                                 <?php echo e($empleado['nombre_completo']); ?>
@@ -169,12 +168,14 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <small class="text-muted d-block mt-1">Puedes seleccionar varios con Ctrl/Cmd + clic. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
                 </div>
                 
                 <div class="col-md-3">
                     <label class="form-label small text-muted fw-bold">Día de la Semana <span class="text-danger">*</span></label>
                     <select name="dia_semana" class="form-select border-secondary-subtle" required>
                         <option value="">Seleccione día...</option>
+                        <option value="0">Toda la semana (Lun-Dom)</option>
                         <?php foreach ($dias as $num => $dia): ?>
                             <option value="<?php echo $num; ?>"><?php echo e($dia); ?></option>
                         <?php endforeach; ?>
@@ -194,7 +195,7 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                 
                 <div class="col-md-2">
                     <button class="btn btn-primary shadow-sm w-100 fw-semibold" type="submit">
-                        <i class="bi bi-plus-circle me-1"></i> Asignar
+                        <i class="bi bi-plus-circle me-1"></i> Asignar selección
                     </button>
                 </div>
             </form>

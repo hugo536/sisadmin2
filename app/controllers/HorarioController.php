@@ -161,19 +161,50 @@ class HorarioController extends Controlador
 
     private function guardarAsignacion(int $userId): void
     {
-        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
         $idHorario = (int) ($_POST['id_horario'] ?? 0);
         $diaSemana = (int) ($_POST['dia_semana'] ?? 0);
+        $idsTerceros = $_POST['id_terceros'] ?? [];
 
-        if ($idTercero <= 0 || $idHorario <= 0 || $diaSemana < 1 || $diaSemana > 7) {
+        if (!is_array($idsTerceros)) {
+            $idsTerceros = [];
+        }
+
+        // Retrocompatibilidad por si llega el campo antiguo.
+        $idTerceroLegacy = (int) ($_POST['id_tercero'] ?? 0);
+        if ($idTerceroLegacy > 0) {
+            $idsTerceros[] = $idTerceroLegacy;
+        }
+
+        $idsTerceros = array_values(array_unique(array_filter(array_map(
+            static fn($id): int => (int) $id,
+            $idsTerceros
+        ), static fn(int $id): bool => $id > 0)));
+
+        if (empty($idsTerceros) || $idHorario <= 0 || $diaSemana < 0 || $diaSemana > 7) {
             throw new RuntimeException('Datos inválidos para la asignación.');
         }
 
-        if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $diaSemana, $userId)) {
-            throw new RuntimeException('No se pudo guardar la asignación (puede estar duplicada).');
+        $diasObjetivo = $diaSemana === 0 ? [1, 2, 3, 4, 5, 6, 7] : [$diaSemana];
+
+        foreach ($idsTerceros as $idTercero) {
+            foreach ($diasObjetivo as $dia) {
+                if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $dia, $userId)) {
+                    throw new RuntimeException('No se pudo guardar una o más asignaciones.');
+                }
+            }
         }
 
-        redirect('horario/index?tipo=success&msg=Asignación guardada correctamente.');
+        $cantidad = count($idsTerceros);
+        $esSemanaCompleta = $diaSemana === 0;
+        $mensaje = $esSemanaCompleta
+            ? ($cantidad > 1
+                ? "Se asignó la semana completa a {$cantidad} empleados correctamente."
+                : 'Se asignó la semana completa correctamente.')
+            : ($cantidad > 1
+                ? "Se asignó el turno a {$cantidad} empleados correctamente."
+                : 'Asignación guardada correctamente.');
+
+        redirect('horario/index?tipo=success&msg=' . urlencode($mensaje));
     }
 
     private function eliminarAsignacion(): void
