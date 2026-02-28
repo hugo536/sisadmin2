@@ -217,7 +217,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive horario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="horariosTable">
+                <table class="table align-middle mb-0 table-pro" id="horariosTable" data-erp-table="true" data-search-input="#searchEmpleadoHorario" data-pagination-info="#horariosPaginationInfo" data-pagination-controls="#horariosPaginationControls" data-rows-per-page="25" data-search-normalize="accent" data-info-text="results">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold border-end" style="width: 25%;">Empleado</th>
@@ -367,121 +367,5 @@ document.addEventListener('DOMContentLoaded', function () {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
 
-    // ==========================================
-    // LÓGICA DE PAGINACIÓN Y BÚSQUEDA (NUEVO)
-    // ==========================================
-    const searchInput = document.getElementById('searchEmpleadoHorario');
-    const tableBody = document.getElementById('horariosTableBody');
-    const paginationInfo = document.getElementById('horariosPaginationInfo');
-    const paginationControls = document.getElementById('horariosPaginationControls');
-    
-    // 👇 ¡SOLO CAMBIA ESTE NÚMERO A 25! 👇
-    const ITEMS_PER_PAGE = 25; 
-    let currentPage = 1;
-    
-    function normalizarTexto(valor) {
-        return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-    
-    function filtrarHorarios() {
-        if (!tableBody) return;
-        const termino = normalizarTexto(searchInput ? searchInput.value : '');
-        
-        // Obtenemos solo las filas que tienen data-search (ignoramos la fila de estado vacío)
-        const filas = Array.from(tableBody.querySelectorAll('tr')).filter(fila => !!fila.dataset.search);
-        
-        if (filas.length === 0) return;
-
-        const visibles = filas.filter(fila => {
-            return termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
-        });
-        
-        const totalItems = visibles.length;
-        const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-        if (currentPage > totalPages) currentPage = totalPages;
-        
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        const end = start + ITEMS_PER_PAGE;
-        
-        // Ocultar todas primero
-        filas.forEach(fila => fila.classList.add('d-none'));
-        
-        // Mostrar solo la porción de la página actual
-        visibles.slice(start, end).forEach(fila => fila.classList.remove('d-none'));
-        
-        if (paginationInfo) {
-            if (totalItems === 0) {
-                paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
-            } else {
-                paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
-            }
-        }
-        
-        construirControlesPaginacion(totalPages);
-    }
-    
-    function construirControlesPaginacion(totalPages) {
-        if (!paginationControls) return;
-        paginationControls.innerHTML = '';
-        
-        const crearItem = (label, page, active = false, disabled = false) => {
-            const li = document.createElement('li');
-            li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
-            const a = document.createElement('a');
-            a.className = 'page-link'; // Dejamos que Bootstrap maneje los colores originales
-            if(active) a.classList.add('fw-bold');
-            a.href = '#';
-            a.textContent = label;
-            a.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                if (disabled || active || page == null) return;
-                currentPage = page;
-                filtrarHorarios();
-            });
-            li.appendChild(a);
-            paginationControls.appendChild(li);
-        };
-        
-        const crearPuntos = () => {
-            const li = document.createElement('li');
-            li.className = 'page-item disabled';
-            const span = document.createElement('span');
-            span.className = 'page-link';
-            span.textContent = '...';
-            li.appendChild(span);
-            paginationControls.appendChild(li);
-        };
-        
-        const construirTokensPaginas = () => {
-            const pages = new Set([1, totalPages]);
-            for (let i = currentPage - 1; i <= currentPage + 1; i += 1) {
-                if (i > 1 && i < totalPages) pages.add(i);
-            }
-            const ordenadas = Array.from(pages).sort((a, b) => a - b);
-            const tokens = [];
-            ordenadas.forEach((page, idx) => {
-                if (idx > 0 && page - ordenadas[idx - 1] > 1) tokens.push('dots');
-                tokens.push(page);
-            });
-            return tokens;
-        };
-        
-        crearItem('Anterior', currentPage - 1, false, currentPage === 1);
-        construirTokensPaginas().forEach((token) => {
-            if (token === 'dots') crearPuntos();
-            else crearItem(String(token), token, token === currentPage, false);
-        });
-        crearItem('Siguiente', currentPage + 1, false, currentPage === totalPages || totalPages === 0);
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            currentPage = 1; // Volver a la página 1 al buscar
-            filtrarHorarios();
-        });
-    }
-
-    // Inicializar paginación al cargar la página
-    filtrarHorarios();
 });
 </script>

@@ -45,16 +45,12 @@
   const lineasMovimiento = [];
 
   // --- FILTROS DE LA TABLA PRINCIPAL ---
-  const searchInput = document.getElementById('inventarioSearch');
   const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
   const tablaStock = document.getElementById('tablaInventarioStock');
-  const paginationInfo = document.getElementById('inventarioPaginationInfo');
-  const paginationControls = document.getElementById('inventarioPaginationControls');
 
-  const ITEMS_PER_PAGE = 20;
-  let currentStockPage = 1;
+  let stockTableManager = null;
 
   // Instancias TomSelect
   let tomSelectTipo = null;
@@ -224,97 +220,27 @@
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
   function normalizarTexto(valor) {
-    return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   }
 
-  function construirControlesPaginacion(totalPages) {
-    if (!paginationControls) return;
-    paginationControls.innerHTML = '';
+  function initTablaStock() {
+    if (!tablaStock || typeof ERPTable === 'undefined' || !ERPTable.createTableManager) return;
 
-    const crearItem = (label, page, active = false, disabled = false) => {
-      const li = document.createElement('li');
-      li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.href = '#';
-      a.textContent = label;
-      a.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        if (disabled || active || page == null) return;
-        currentStockPage = page;
-        filtrarStock();
-      });
-      li.appendChild(a);
-      paginationControls.appendChild(li);
-    };
-
-    const crearPuntos = () => {
-      const li = document.createElement('li');
-      li.className = 'page-item disabled';
-      const span = document.createElement('span');
-      span.className = 'page-link';
-      span.textContent = '...';
-      li.appendChild(span);
-      paginationControls.appendChild(li);
-    };
-
-    const construirTokensPaginas = () => {
-      const pages = new Set([1, totalPages]);
-      for (let i = currentStockPage - 1; i <= currentStockPage + 1; i += 1) {
-        if (i > 1 && i < totalPages) pages.add(i);
-      }
-      const ordenadas = Array.from(pages).sort((a, b) => a - b);
-      const tokens = [];
-      ordenadas.forEach((page, idx) => {
-        if (idx > 0 && page - ordenadas[idx - 1] > 1) tokens.push('dots');
-        tokens.push(page);
-      });
-      return tokens;
-    };
-
-    crearItem('Anterior', currentStockPage - 1, false, currentStockPage === 1);
-
-    construirTokensPaginas().forEach((token) => {
-      if (token === 'dots') crearPuntos();
-      else crearItem(String(token), token, token === currentStockPage, false);
-    });
-
-    crearItem('Siguiente', currentStockPage + 1, false, currentStockPage === totalPages || totalPages === 0);
-  }
-
-  function filtrarStock() {
-    if (!tablaStock) return;
-    const termino = normalizarTexto(searchInput ? searchInput.value : '');
-    const tipoFiltro = (filtroTipoRegistro ? filtroTipoRegistro.value : '').trim();
-    const estado = (filtroEstado ? filtroEstado.value : '').trim();
-
-    const filas = Array.from(tablaStock.querySelectorAll('tbody tr')).filter((fila) => !!fila.dataset.search);
-    const visibles = filas.filter((fila) => {
-      const okTexto = termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
-      const okTipo = tipoFiltro === '' || (fila.dataset.tipoRegistro || '') === tipoFiltro;
-      const okEstado = estado === '' || (fila.dataset.estado || '') === estado;
-      return okTexto && okTipo && okEstado;
-    });
-
-    const totalItems = visibles.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-    if (currentStockPage > totalPages) currentStockPage = totalPages;
-
-    const start = (currentStockPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-
-    filas.forEach((fila) => fila.classList.add('d-none'));
-    visibles.slice(start, end).forEach((fila) => fila.classList.remove('d-none'));
-
-    if (paginationInfo) {
-      if (totalItems === 0) {
-        paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
-      } else {
-        paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
-      }
-    }
-
-    construirControlesPaginacion(totalPages);
+    stockTableManager = ERPTable.createTableManager({
+      tableSelector: tablaStock,
+      rowsSelector: 'tbody tr[data-search]',
+      searchInput: '#inventarioSearch',
+      filters: [
+        { el: '#inventarioFiltroTipoRegistro', attr: 'data-tipo-registro', match: 'equals' },
+        { el: '#inventarioFiltroEstado', attr: 'data-estado', match: 'equals' }
+      ],
+      rowsPerPage: 25,
+      paginationControls: '#inventarioPaginationControls',
+      paginationInfo: '#inventarioPaginationInfo',
+      normalizeSearchText: normalizarTexto,
+      infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`,
+      emptyText: 'Mostrando 0-0 de 0 resultados'
+    }).init();
   }
 
   function aplicarFiltroAlmacenServidor() {
@@ -575,12 +501,9 @@
   }
 
   // --- LISTENERS ---
-  if (searchInput) searchInput.addEventListener('input', () => { currentStockPage = 1; filtrarStock(); });
-  if (filtroTipoRegistro) filtroTipoRegistro.addEventListener('change', () => { currentStockPage = 1; filtrarStock(); });
-  if (filtroEstado) filtroEstado.addEventListener('change', () => { currentStockPage = 1; filtrarStock(); });
   if (filtroAlmacen) filtroAlmacen.addEventListener('change', aplicarFiltroAlmacenServidor);
-  
-  filtrarStock();
+
+  initTablaStock();
 
   if (form) {
     if (tipo) {

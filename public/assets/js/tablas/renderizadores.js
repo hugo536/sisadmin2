@@ -49,6 +49,7 @@
         filters: [],                  // [{ el:'#filtroRol', attr:'data-rol', match:'equals|includes' }, { el:'#filtroEstado', attr:'data-estado' }]
 
         searchAttr: 'data-search',    // atributo donde buscar texto
+        normalizeSearchText: (value) => (value || '').toString().toLowerCase().trim(),
         rowsPerPage: 25,
 
         paginationControls: null,     // '#paginationControls'
@@ -101,7 +102,11 @@
     }
 
     function applyFilters() {
-      const texto = (searchEl ? searchEl.value : '').toLowerCase().trim();
+      const normalizar = typeof cfg.normalizeSearchText === 'function'
+        ? cfg.normalizeSearchText
+        : (value) => (value || '').toString().toLowerCase().trim();
+
+      const texto = normalizar(searchEl ? searchEl.value : '');
 
       const actives = filterEls.map((f) => ({
         attr: f.attr,
@@ -109,7 +114,7 @@
       }));
 
       return allRows.filter((row) => {
-        const haystack = ((row.getAttribute(cfg.searchAttr) || '') + '').toLowerCase();
+        const haystack = normalizar((row.getAttribute(cfg.searchAttr) || '') + '');
         const coincideTexto = texto === '' || haystack.includes(texto);
         if (!coincideTexto) return false;
 
@@ -296,6 +301,49 @@
     };
 
     return api;
+  };
+
+  // ---------------------------------------------------------
+  // Auto-init por data attributes
+  // ---------------------------------------------------------
+  ERPTable.autoInitFromDataset = function autoInitFromDataset(root = document) {
+    const tables = Array.from(root.querySelectorAll('[data-erp-table="true"]'));
+    const managers = [];
+
+    tables.forEach((tableEl) => {
+      const cfg = {
+        tableSelector: tableEl,
+        searchInput: tableEl.dataset.searchInput || null,
+        paginationControls: tableEl.dataset.paginationControls || null,
+        paginationInfo: tableEl.dataset.paginationInfo || null,
+        searchAttr: tableEl.dataset.searchAttr || 'data-search'
+      };
+
+      if (tableEl.dataset.rowsPerPage) {
+        const parsed = parseInt(tableEl.dataset.rowsPerPage, 10);
+        if (!Number.isNaN(parsed) && parsed > 0) cfg.rowsPerPage = parsed;
+      }
+
+      if (tableEl.dataset.searchNormalize === 'accent') {
+        cfg.normalizeSearchText = (value) =>
+          (value || '')
+            .toString()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+      }
+
+      if (tableEl.dataset.infoText === 'results') {
+        cfg.infoText = ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`;
+        cfg.emptyText = 'Mostrando 0-0 de 0 resultados';
+      }
+
+      const manager = ERPTable.createTableManager(cfg).init();
+      managers.push(manager);
+    });
+
+    return managers;
   };
 
   w.ERPTable = ERPTable;
