@@ -164,7 +164,7 @@ class AsistenciaModel extends Modelo
         $diaSemana = (int) date('N', strtotime($fecha));
 
         $sql = 'SELECT t.id,
-                       :fecha AS fecha,
+                       :fecha_dashboard AS fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
                        ah.hora_entrada,
@@ -177,13 +177,14 @@ class AsistenciaModel extends Modelo
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 LEFT JOIN asistencia_empleado_horario aeh ON aeh.id_tercero = t.id AND aeh.dia_semana = :dia_semana
                 LEFT JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
-                LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha = :fecha
+                LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha = :fecha_registro
                 WHERE t.es_empleado = 1
                   AND t.deleted_at IS NULL';
 
         $params = [
             'dia_semana' => $diaSemana,
-            'fecha' => $fecha,
+            'fecha_dashboard' => $fecha,
+            'fecha_registro' => $fecha,
         ];
 
         if ($idTercero !== null && $idTercero > 0) {
