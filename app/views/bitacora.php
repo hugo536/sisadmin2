@@ -32,13 +32,13 @@ $getEventoBadge = function(string $evento): string {
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
-            <form method="get" class="row g-2 align-items-center">
+            <form method="get" class="row g-2 align-items-center" id="filtrosBitacoraForm">
                 <input type="hidden" name="ruta" value="bitacora/index">
                 
                 <div class="col-12 col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
-                        <select name="usuario" class="form-select bg-light border-start-0 ps-0">
+                        <select name="usuario" class="form-select bg-light border-start-0 ps-0" data-auto-submit="change">
                             <option value="">Todos los usuarios</option>
                             <?php foreach ($usuariosFiltro as $usuario): ?>
                                 <option value="<?php echo (int) $usuario['id']; ?>" <?php echo ((string) ($filtros['usuario'] ?? '') === (string) $usuario['id']) ? 'selected' : ''; ?>>
@@ -52,20 +52,16 @@ $getEventoBadge = function(string $evento): string {
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input name="evento" value="<?php echo e((string) ($filtros['evento'] ?? '')); ?>" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar evento o descripción...">
+                        <input name="evento" value="<?php echo e((string) ($filtros['evento'] ?? '')); ?>" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar evento o descripción..." data-auto-submit="input">
                     </div>
                 </div>
 
                 <div class="col-6 col-md-2">
-                    <input type="date" name="fecha_inicio" value="<?php echo e((string) ($filtros['fecha_inicio'] ?? '')); ?>" class="form-control bg-light text-muted" title="Fecha inicio">
+                    <input type="date" name="fecha_inicio" value="<?php echo e((string) ($filtros['fecha_inicio'] ?? '')); ?>" class="form-control bg-light text-muted" title="Fecha inicio" data-auto-submit="change">
                 </div>
 
                 <div class="col-6 col-md-2">
-                    <input type="date" name="fecha_fin" value="<?php echo e((string) ($filtros['fecha_fin'] ?? '')); ?>" class="form-control bg-light text-muted" title="Fecha fin">
-                </div>
-
-                <div class="col-12 col-md-1 d-grid">
-                    <button class="btn btn-primary shadow-sm"><i class="bi bi-funnel-fill"></i></button>
+                    <input type="date" name="fecha_fin" value="<?php echo e((string) ($filtros['fecha_fin'] ?? '')); ?>" class="form-control bg-light text-muted" title="Fecha fin" data-auto-submit="change">
                 </div>
             </form>
         </div>
@@ -127,3 +123,24 @@ $getEventoBadge = function(string $evento): string {
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('filtrosBitacoraForm');
+    if (!form) return;
+
+    let timer = null;
+    const debounceSubmit = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => form.submit(), 350);
+    };
+
+    form.querySelectorAll('[data-auto-submit="change"]').forEach((field) => {
+        field.addEventListener('change', () => form.submit());
+    });
+
+    form.querySelectorAll('[data-auto-submit="input"]').forEach((field) => {
+        field.addEventListener('input', debounceSubmit);
+    });
+});
+</script>
