@@ -15,7 +15,7 @@ $empleados = $empleados ?? [];
 
 <div class="container-fluid p-4">
     
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in asistencia-sticky-header">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-clock-history me-2 text-primary"></i> Dashboard Diario de RRHH
@@ -23,26 +23,27 @@ $empleados = $empleados ?? [];
             <p class="text-muted small mb-0 ms-1">Control de puntualidad, tardanzas y faltas del personal por día, semana, mes o rango.</p>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
             <a href="<?php echo e(route_url('asistencia/incidencias')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clipboard2-pulse me-2 text-info"></i>Incidencias
             </a>
             
-            <?php if (tiene_permiso('asistencia.importar')): // Opcional: validación de permisos ?>
-                <a href="<?php echo e(route_url('asistencia/importar')); ?>" class="btn btn-primary shadow-sm">
+            <?php if (tiene_permiso('asistencia.importar')): ?>
+                <a href="<?php echo e(route_url('asistencia/importar')); ?>" class="btn btn-primary shadow-sm fw-semibold">
                     <i class="bi bi-file-earmark-arrow-up me-2"></i>Importar Biométrico
                 </a>
             <?php endif; ?>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-3">
-            <form method="get" class="row g-2 align-items-center">
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form method="get" class="row g-3 align-items-center">
                 <input type="hidden" name="ruta" value="asistencia/dashboard">
 
                 <div class="col-12 col-md-2">
-                    <select class="form-select bg-light text-secondary fw-medium" name="periodo">
+                    <label class="form-label small text-muted fw-bold mb-1">Periodo</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="periodo">
                         <option value="dia" <?php echo $periodo === 'dia' ? 'selected' : ''; ?>>Día</option>
                         <option value="semana" <?php echo $periodo === 'semana' ? 'selected' : ''; ?>>Semana</option>
                         <option value="mes" <?php echo $periodo === 'mes' ? 'selected' : ''; ?>>Mes</option>
@@ -51,36 +52,42 @@ $empleados = $empleados ?? [];
                 </div>
 
                 <div class="col-12 col-md-3 <?php echo $periodo === 'dia' ? '' : 'd-none'; ?>" data-period-field="dia">
-                    <div class="input-group shadow-sm-sm">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar3 text-muted"></i></span>
-                        <input type="date" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="fecha" value="<?php echo e($fecha); ?>" required>
+                    <label class="form-label small text-muted fw-bold mb-1">Fecha Específica</label>
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-calendar3 text-muted"></i></span>
+                        <input type="date" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 text-secondary fw-medium" name="fecha" value="<?php echo e($fecha); ?>" required>
                     </div>
                 </div>
 
                 <div class="col-12 col-md-3 <?php echo $periodo === 'semana' ? '' : 'd-none'; ?>" data-period-field="semana">
-                    <div class="input-group shadow-sm-sm">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-week text-muted"></i></span>
-                        <input type="week" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="semana" value="<?php echo e($semana); ?>">
+                    <label class="form-label small text-muted fw-bold mb-1">Semana</label>
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-calendar-week text-muted"></i></span>
+                        <input type="week" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 text-secondary fw-medium" name="semana" value="<?php echo e($semana); ?>">
                     </div>
                 </div>
 
                 <div class="col-12 col-md-3 <?php echo $periodo === 'mes' ? '' : 'd-none'; ?>" data-period-field="mes">
-                    <div class="input-group shadow-sm-sm">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar2-month text-muted"></i></span>
-                        <input type="month" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="mes" value="<?php echo e($mes); ?>">
+                    <label class="form-label small text-muted fw-bold mb-1">Mes</label>
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-calendar2-month text-muted"></i></span>
+                        <input type="month" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 text-secondary fw-medium" name="mes" value="<?php echo e($mes); ?>">
                     </div>
                 </div>
 
                 <div class="col-12 col-md-2 <?php echo $periodo === 'rango' ? '' : 'd-none'; ?>" data-period-field="rango">
-                    <input type="date" class="form-control bg-light text-secondary fw-medium" name="fecha_inicio" value="<?php echo e($fechaInicio); ?>">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_inicio" value="<?php echo e($fechaInicio); ?>">
                 </div>
 
                 <div class="col-12 col-md-2 <?php echo $periodo === 'rango' ? '' : 'd-none'; ?>" data-period-field="rango">
-                    <input type="date" class="form-control bg-light text-secondary fw-medium" name="fecha_fin" value="<?php echo e($fechaFin); ?>">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_fin" value="<?php echo e($fechaFin); ?>">
                 </div>
 
                 <div class="col-12 col-md-3">
-                    <select class="form-select bg-light text-secondary fw-medium" name="id_tercero">
+                    <label class="form-label small text-muted fw-bold mb-1">Empleado</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero">
                         <option value="">Todo el personal</option>
                         <?php foreach ($empleados as $empleado): ?>
                             <?php $empleadoId = (int) ($empleado['id'] ?? 0); ?>
@@ -92,7 +99,8 @@ $empleados = $empleados ?? [];
                 </div>
 
                 <div class="col-12 col-md-2">
-                    <select class="form-select bg-light text-secondary fw-medium" name="estado">
+                    <label class="form-label small text-muted fw-bold mb-1">Estado</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
                         <option value="" <?php echo $estado === '' ? 'selected' : ''; ?>>Todos los estados</option>
                         <option value="PUNTUAL" <?php echo $estado === 'PUNTUAL' ? 'selected' : ''; ?>>Puntual</option>
                         <option value="TARDANZA" <?php echo $estado === 'TARDANZA' ? 'selected' : ''; ?>>Tardanza</option>
@@ -101,36 +109,46 @@ $empleados = $empleados ?? [];
                     </select>
                 </div>
 
-                <div class="col-6 col-md-2">
-                    <button class="btn btn-white border shadow-sm text-secondary fw-semibold w-100" type="submit">
+                <div class="col-6 col-md-2 d-flex align-items-end" style="height: 60px;">
+                    <button class="btn btn-primary shadow-sm fw-bold w-100 h-100" type="submit">
                         <i class="bi bi-search me-2"></i>Consultar
                     </button>
                 </div>
             </form>
-            <div class="small text-muted mt-2">
-                Mostrando periodo del <strong><?php echo e($desde); ?></strong> al <strong><?php echo e($hasta); ?></strong>.
+            <div class="small text-primary-emphasis mt-3 bg-primary-subtle d-inline-block px-3 py-1 rounded-pill fw-medium">
+                <i class="bi bi-info-circle me-1"></i> Mostrando periodo del <strong><?php echo e($desde); ?></strong> al <strong><?php echo e($hasta); ?></strong>.
             </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <h2 class="h6 fw-bold text-dark mb-0">Registros de Asistencia</h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3"><?php echo count($registros); ?> Registros</span>
+            </div>
+            <div class="input-group shadow-sm" style="max-width: 300px;">
+                <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchAsistencia" placeholder="Buscar empleado o estado...">
+            </div>
+        </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover">
-                    <thead class="table-light border-bottom">
+            <div class="table-responsive asistencia-table-wrapper">
+                <table class="table align-middle mb-0 table-pro" id="asistenciaTable">
+                    <thead class="asistencia-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
-                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
-                            <th class="text-secondary fw-semibold">Hora Esperada</th>
-                            <th class="text-secondary fw-semibold">Hora Real</th>
-                            <th class="text-center text-secondary fw-semibold">Estado</th>
+                            <th class="ps-4 text-secondary fw-semibold border-end">Fecha</th>
+                            <th class="ps-4 text-secondary fw-semibold border-end">Empleado</th>
+                            <th class="text-secondary fw-semibold border-end">Hora Esperada</th>
+                            <th class="text-secondary fw-semibold border-end">Hora Real</th>
+                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Min. Tardanza</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="asistenciaTableBody">
                         <?php if (empty($registros)): ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-5">
+                                <td colspan="6" class="text-center text-muted py-5 border-bottom-0">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     No hay datos de asistencia para los filtros seleccionados.
                                 </td>
@@ -150,33 +168,37 @@ $empleados = $empleados ?? [];
 
                                 $estado = (string) ($row['estado_asistencia'] ?? 'FALTA');
                                 
-                                // Colores de los badges adaptados a tu estilo UI
-                                $badgeColor = 'bg-secondary';
-                                if ($estado === 'PUNTUAL') $badgeColor = 'bg-success';
-                                if ($estado === 'TARDANZA') $badgeColor = 'bg-warning text-dark';
-                                if ($estado === 'FALTA') $badgeColor = 'bg-danger';
+                                $badgeColor = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+                                if ($estado === 'PUNTUAL') $badgeColor = 'bg-success-subtle text-success border border-success-subtle';
+                                if ($estado === 'TARDANZA') $badgeColor = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                                if ($estado === 'FALTA') $badgeColor = 'bg-danger-subtle text-danger border border-danger-subtle';
+                                if ($estado === 'INCOMPLETO') $badgeColor = 'bg-info-subtle text-info-emphasis border border-info-subtle';
+                                
+                                $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . $estado . ' ' . ($row['fecha'] ?? ''));
                                 ?>
-                                <tr class="border-bottom">
-                                    <td class="ps-4 text-muted align-top pt-3"><?php echo e((string) ($row['fecha'] ?? '')); ?></td>
-                                    <td class="ps-4 fw-semibold text-dark align-top pt-3">
+                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <td class="ps-4 text-muted align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                        <?php echo e((string) ($row['fecha'] ?? '')); ?>
+                                    </td>
+                                    <td class="ps-4 fw-bold text-dark align-top pt-3 border-end">
                                         <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
                                     </td>
-                                    <td class="text-muted align-top pt-3">
-                                        <?php echo e($esperada !== '' ? $esperada : '-'); ?>
+                                    <td class="text-muted align-top pt-3 border-end">
+                                        <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($esperada !== '' ? $esperada : '-'); ?>
                                     </td>
-                                    <td class="fw-medium align-top pt-3">
-                                        <?php echo e($real !== '' ? $real : '-'); ?>
+                                    <td class="fw-medium align-top pt-3 border-end text-primary">
+                                        <i class="bi bi-clock-history small me-1 opacity-50"></i><?php echo e($real !== '' ? $real : '-'); ?>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3 border-end">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                             <?php echo e($estado); ?>
                                         </span>
                                     </td>
                                     <td class="text-end pe-4 align-top pt-3">
                                         <?php if((int)($row['minutos_tardanza'] ?? 0) > 0): ?>
-                                            <span class="fw-bold text-danger"><?php echo (int) ($row['minutos_tardanza']); ?> min</span>
+                                            <span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="bi bi-exclamation-triangle me-1"></i><?php echo (int) ($row['minutos_tardanza']); ?> min</span>
                                         <?php else: ?>
-                                            <span class="text-muted">0</span>
+                                            <span class="text-muted opacity-50">0</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -185,25 +207,152 @@ $empleados = $empleados ?? [];
                     </tbody>
                 </table>
             </div>
+            
+            <?php if (!empty($registros)): ?>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+                <div class="small text-muted fw-medium" id="asistenciaPaginationInfo">Mostrando 0-0 de 0 resultados</div>
+                <nav aria-label="Paginación de asistencia">
+                    <ul class="pagination mb-0 shadow-sm" id="asistenciaPaginationControls"></ul>
+                </nav>
+            </div>
+            <?php endif; ?>
+            
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // 1. Lógica para alternar campos de periodo
     const periodoSelect = document.querySelector('select[name="periodo"]');
-    if (!periodoSelect) return;
+    if (periodoSelect) {
+        const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
+        const alternarCampos = function () {
+            const seleccionado = periodoSelect.value;
+            camposPeriodo.forEach(function (campo) {
+                const visible = campo.getAttribute('data-period-field') === seleccionado;
+                campo.classList.toggle('d-none', !visible);
+                // Si contiene inputs, le quitamos/ponemos el required según visibilidad para que no bloquee el form
+                const inputs = campo.querySelectorAll('input');
+                inputs.forEach(inp => {
+                    if(!visible) inp.removeAttribute('required');
+                    else if (campo.getAttribute('data-period-field') === 'dia') inp.setAttribute('required', 'required'); // Ejemplo para el día
+                });
+            });
+        };
+        periodoSelect.addEventListener('change', alternarCampos);
+        alternarCampos();
+    }
 
-    const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
-    const alternarCampos = function () {
-        const seleccionado = periodoSelect.value;
-        camposPeriodo.forEach(function (campo) {
-            const visible = campo.getAttribute('data-period-field') === seleccionado;
-            campo.classList.toggle('d-none', !visible);
+    // ==========================================
+    // LÓGICA DE PAGINACIÓN Y BÚSQUEDA (25 en 25)
+    // ==========================================
+    const searchInput = document.getElementById('searchAsistencia');
+    const tableBody = document.getElementById('asistenciaTableBody');
+    const paginationInfo = document.getElementById('asistenciaPaginationInfo');
+    const paginationControls = document.getElementById('asistenciaPaginationControls');
+    
+    // Aquí definimos el salto de la paginación (Idéntico a DataTables)
+    const ITEMS_PER_PAGE = 25; 
+    let currentPage = 1;
+    
+    function normalizarTexto(valor) {
+        return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    
+    function filtrarTabla() {
+        if (!tableBody) return;
+        const termino = normalizarTexto(searchInput ? searchInput.value : '');
+        
+        const filas = Array.from(tableBody.querySelectorAll('tr')).filter(fila => !!fila.dataset.search);
+        if (filas.length === 0) return;
+
+        const visibles = filas.filter(fila => {
+            return termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
         });
-    };
+        
+        const totalItems = visibles.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        const end = start + ITEMS_PER_PAGE;
+        
+        filas.forEach(fila => fila.classList.add('d-none'));
+        visibles.slice(start, end).forEach(fila => fila.classList.remove('d-none'));
+        
+        if (paginationInfo) {
+            if (totalItems === 0) {
+                paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
+            } else {
+                paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
+            }
+        }
+        
+        construirControlesPaginacion(totalPages);
+    }
+    
+    function construirControlesPaginacion(totalPages) {
+        if (!paginationControls) return;
+        paginationControls.innerHTML = '';
+        
+        const crearItem = (label, page, active = false, disabled = false) => {
+            const li = document.createElement('li');
+            li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+            const a = document.createElement('a');
+            a.className = 'page-link'; // Estilo nativo Bootstrap (azul grande)
+            a.href = '#';
+            a.textContent = label;
+            a.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                if (disabled || active || page == null) return;
+                currentPage = page;
+                filtrarTabla();
+            });
+            li.appendChild(a);
+            paginationControls.appendChild(li);
+        };
+        
+        const crearPuntos = () => {
+            const li = document.createElement('li');
+            li.className = 'page-item disabled';
+            const span = document.createElement('span');
+            span.className = 'page-link';
+            span.textContent = '...';
+            li.appendChild(span);
+            paginationControls.appendChild(li);
+        };
+        
+        const construirTokensPaginas = () => {
+            const pages = new Set([1, totalPages]);
+            for (let i = currentPage - 1; i <= currentPage + 1; i += 1) {
+                if (i > 1 && i < totalPages) pages.add(i);
+            }
+            const ordenadas = Array.from(pages).sort((a, b) => a - b);
+            const tokens = [];
+            ordenadas.forEach((page, idx) => {
+                if (idx > 0 && page - ordenadas[idx - 1] > 1) tokens.push('dots');
+                tokens.push(page);
+            });
+            return tokens;
+        };
+        
+        crearItem('Anterior', currentPage - 1, false, currentPage === 1);
+        construirTokensPaginas().forEach((token) => {
+            if (token === 'dots') crearPuntos();
+            else crearItem(String(token), token, token === currentPage, false);
+        });
+        crearItem('Siguiente', currentPage + 1, false, currentPage === totalPages || totalPages === 0);
+    }
 
-    periodoSelect.addEventListener('change', alternarCampos);
-    alternarCampos();
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentPage = 1; 
+            filtrarTabla();
+        });
+    }
+
+    // Inicializar paginación al cargar
+    filtrarTabla();
 });
 </script>

@@ -123,4 +123,11 @@ class HorarioModel extends Modelo
     {
         return $this->db()->prepare('DELETE FROM asistencia_empleado_horario WHERE id = :id')->execute(['id' => $id]);
     }
+
+    // --- NUEVA FUNCIÓN AGREGADA ---
+    public function limpiarSemanaEmpleado(int $idTercero): bool
+    {
+        $sql = 'DELETE FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero';
+        return $this->db()->prepare($sql)->execute(['id_tercero' => $idTercero]);
+    }
 }

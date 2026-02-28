@@ -65,7 +65,7 @@ class HorarioController extends Controlador
             'horarios' => $this->horarioModel->listarHorarios(),
             'empleados' => $this->horarioModel->listarEmpleados(),
             'asignaciones' => $asignacionesRaw, 
-            'empleadosAgrupados' => $empleadosAgrupados, // Enviamos nuestra lista agrupada a la vista
+            'empleadosAgrupados' => $empleadosAgrupados,
             'flash' => [
                 'tipo' => (string) ($_GET['tipo'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),
@@ -98,6 +98,12 @@ class HorarioController extends Controlador
 
             if ($accion === 'eliminar_asignacion') {
                 $this->eliminarAsignacion();
+                return;
+            }
+
+            // NUEVA ACCIÓN: Para el botón de limpiar toda la semana
+            if ($accion === 'limpiar_semana_empleado') {
+                $this->limpiarSemanaEmpleado();
                 return;
             }
 
@@ -159,54 +165,48 @@ class HorarioController extends Controlador
         redirect('horario/index?tipo=success&msg=Estado de horario actualizado.');
     }
 
+    // ACTUALIZADO: Maneja múltiples empleados y múltiples días
     private function guardarAsignacion(int $userId): void
     {
         $idHorario = (int) ($_POST['id_horario'] ?? 0);
-        $diaSemana = (int) ($_POST['dia_semana'] ?? 0);
         
-        // ¡IMPORTANTE! Aquí capturamos el arreglo de múltiples trabajadores
+        // Obtenemos los arreglos de la vista
         $idsTerceros = $_POST['id_terceros'] ?? [];
+        $diasSeleccionados = $_POST['dias'] ?? [];
 
-        if (!is_array($idsTerceros)) {
-            $idsTerceros = [];
-        }
+        if (!is_array($idsTerceros)) $idsTerceros = [];
+        if (!is_array($diasSeleccionados)) $diasSeleccionados = [];
 
-        // Retrocompatibilidad por si llega el campo antiguo.
-        $idTerceroLegacy = (int) ($_POST['id_tercero'] ?? 0);
-        if ($idTerceroLegacy > 0) {
-            $idsTerceros[] = $idTerceroLegacy;
-        }
-
+        // Limpiamos los arreglos para asegurarnos de que solo haya números válidos
         $idsTerceros = array_values(array_unique(array_filter(array_map(
             static fn($id): int => (int) $id,
             $idsTerceros
         ), static fn(int $id): bool => $id > 0)));
 
-        if (empty($idsTerceros) || $idHorario <= 0 || $diaSemana < 0 || $diaSemana > 7) {
-            throw new RuntimeException('Datos inválidos para la asignación.');
+        $diasSeleccionados = array_values(array_unique(array_filter(array_map(
+            static fn($dia): int => (int) $dia,
+            $diasSeleccionados
+        ), static fn(int $dia): bool => $dia >= 1 && $dia <= 7)));
+
+        // Validamos que exista al menos 1 empleado, 1 día y 1 horario
+        if (empty($idsTerceros) || empty($diasSeleccionados) || $idHorario <= 0) {
+            throw new RuntimeException('Datos inválidos. Asegúrese de seleccionar empleado(s), día(s) y un turno.');
         }
 
-        // Si mandan 0, asignamos de lunes a domingo
-        $diasObjetivo = $diaSemana === 0 ? [1, 2, 3, 4, 5, 6, 7] : [$diaSemana];
-
+        // Guardamos iterando sobre cada empleado y luego sobre cada día
         foreach ($idsTerceros as $idTercero) {
-            foreach ($diasObjetivo as $dia) {
-                // Aquí el modelo debe hacer un INSERT o UPDATE (ON DUPLICATE KEY)
+            foreach ($diasSeleccionados as $dia) {
+                // Aquí el MODELO se encargará de sobreescribir si ya existe
                 if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $dia, $userId)) {
                     throw new RuntimeException('No se pudo guardar una o más asignaciones.');
                 }
             }
         }
 
-        $cantidad = count($idsTerceros);
-        $esSemanaCompleta = $diaSemana === 0;
-        $mensaje = $esSemanaCompleta
-            ? ($cantidad > 1
-                ? "Se asignó la semana completa a {$cantidad} empleados correctamente."
-                : 'Se asignó la semana completa correctamente.')
-            : ($cantidad > 1
-                ? "Se asignó el turno a {$cantidad} empleados correctamente."
-                : 'Asignación guardada correctamente.');
+        $cantidadEmpleados = count($idsTerceros);
+        $mensaje = $cantidadEmpleados > 1 
+            ? "Asignaciones guardadas correctamente para {$cantidadEmpleados} empleados." 
+            : "Asignación guardada correctamente.";
 
         redirect('horario/index?tipo=success&msg=' . urlencode($mensaje));
     }
@@ -222,6 +222,21 @@ class HorarioController extends Controlador
             throw new RuntimeException('No se pudo eliminar la asignación.');
         }
 
-        redirect('horario/index?tipo=success&msg=Asignación eliminada correctamente.');
+        redirect('horario/index?tipo=success&msg=Turno eliminado correctamente.');
+    }
+
+    // NUEVO MÉTODO: Limpia toda la semana de un empleado específico
+    private function limpiarSemanaEmpleado(): void
+    {
+        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+        if ($idTercero <= 0) {
+            throw new RuntimeException('Empleado inválido.');
+        }
+
+        if (!$this->horarioModel->limpiarSemanaEmpleado($idTercero)) {
+            throw new RuntimeException('No se pudo limpiar la semana del empleado.');
+        }
+
+        redirect('horario/index?tipo=success&msg=Se eliminaron todos los turnos de la semana para este empleado.');
     }
 }

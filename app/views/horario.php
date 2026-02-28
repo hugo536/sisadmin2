@@ -2,21 +2,25 @@
 $horarios = $horarios ?? [];
 $empleados = $empleados ?? [];
 $asignaciones = $asignaciones ?? [];
-$empleadosAgrupados = $empleadosAgrupados ?? []; // Nuestra nueva variable agrupada del controlador
+$empleadosAgrupados = $empleadosAgrupados ?? [];
 $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+$diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 => 'Sáb', 7 => 'Dom'];
 ?>
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
 <div class="container-fluid p-4">
     
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in horario-sticky-header">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-calendar-week me-2 text-primary"></i> Horarios y Asignaciones
+                <i class="bi bi-calendar-week-fill me-2 text-primary"></i> Horarios y Asignaciones
             </h1>
             <p class="text-muted small mb-0 ms-1">Catálogo de turnos y asignación de horarios por empleado/día.</p>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
             <a href="<?php echo e(route_url('asistencia/dashboard')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-info"></i>Dashboard
             </a>
@@ -27,44 +31,44 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
     </div>
 
     <div class="row g-4 mb-4">
-        
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+                    <h6 class="fw-bold text-dark mb-4 border-bottom pb-2">
                         <i class="bi bi-clock-history me-2 text-primary"></i>Crear / Editar Turno
                     </h6>
-                    <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3" id="horarioForm">
+                    <form method="post" action="<?php echo e(route_url('horario/index')); ?>" id="horarioForm">
                         <input type="hidden" name="accion" value="guardar_horario">
                         <input type="hidden" name="id" id="horarioId" value="0">
 
-                        <div class="col-12">
+                        <div class="mb-3">
                             <label for="horarioNombre" class="form-label small text-muted fw-bold">Nombre del turno <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-light border-secondary-subtle" name="nombre" id="horarioNombre" placeholder="Ej. Turno Mañana" maxlength="100" required>
                         </div>
                         
-                        <div class="col-md-6">
-                            <label for="horarioEntrada" class="form-label small text-muted fw-bold">Hora Entrada <span class="text-danger">*</span></label>
-                            <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_entrada" id="horarioEntrada" required>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label for="horarioEntrada" class="form-label small text-muted fw-bold">Entrada <span class="text-danger">*</span></label>
+                                <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_entrada" id="horarioEntrada" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="horarioSalida" class="form-label small text-muted fw-bold">Salida <span class="text-danger">*</span></label>
+                                <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_salida" id="horarioSalida" required>
+                            </div>
                         </div>
                         
-                        <div class="col-md-6">
-                            <label for="horarioSalida" class="form-label small text-muted fw-bold">Hora Salida <span class="text-danger">*</span></label>
-                            <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_salida" id="horarioSalida" required>
-                        </div>
-                        
-                        <div class="col-12">
-                            <label for="horarioTolerancia" class="form-label small text-muted fw-bold">Tolerancia (minutos) <span class="text-danger">*</span></label>
-                            <div class="input-group shadow-sm-sm">
+                        <div class="mb-4">
+                            <label for="horarioTolerancia" class="form-label small text-muted fw-bold">Tolerancia <span class="text-danger">*</span></label>
+                            <div class="input-group shadow-sm">
                                 <input type="number" class="form-control bg-light border-secondary-subtle border-end-0" name="tolerancia_minutos" id="horarioTolerancia" min="0" step="1" value="0" required>
                                 <span class="input-group-text bg-light border-secondary-subtle text-muted">min</span>
                             </div>
                         </div>
                         
-                        <div class="col-12 d-flex justify-content-end gap-2 mt-4">
-                            <button type="button" class="btn btn-white border shadow-sm fw-semibold" id="btnLimpiarHorario">Limpiar</button>
+                        <div class="d-flex justify-content-end gap-2 mt-2">
+                            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" id="btnLimpiarHorario">Limpiar</button>
                             <button class="btn btn-primary shadow-sm fw-semibold" type="submit">
-                                <i class="bi bi-save me-1"></i> Guardar Turno
+                                <i class="bi bi-save me-1"></i> Guardar
                             </button>
                         </div>
                     </form>
@@ -74,25 +78,25 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
 
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 ps-4">
-                    <h2 class="h6 fw-bold text-dark mb-0">Catálogo de Turnos</h2>
+                <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4">
+                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-check me-2 text-primary"></i>Catálogo de Turnos Registrados</h6>
                 </div>
-                <div class="card-body p-0 mt-3">
+                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0 table-pro table-hover">
-                            <thead class="table-light border-bottom border-top">
+                        <table class="table align-middle mb-0 table-pro">
+                            <thead class="bg-light">
                                 <tr>
-                                    <th class="ps-4 text-secondary fw-semibold">Nombre</th>
-                                    <th class="text-secondary fw-semibold">Rango Horario</th>
-                                    <th class="text-secondary fw-semibold text-center">Tolerancia</th>
-                                    <th class="text-secondary fw-semibold text-center">Estado</th>
-                                    <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
+                                    <th class="ps-4 text-secondary fw-semibold border-end">Nombre del Turno</th>
+                                    <th class="text-center text-secondary fw-semibold border-end">Horario</th>
+                                    <th class="text-center text-secondary fw-semibold border-end">Tolerancia</th>
+                                    <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                                    <th class="text-center text-secondary fw-semibold pe-4" style="width: 100px;">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($horarios)): ?>
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-5">
+                                        <td colspan="5" class="text-center text-muted py-5 border-bottom-0">
                                             <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                             No hay turnos registrados.
                                         </td>
@@ -101,25 +105,25 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                                     <?php foreach ($horarios as $horario): ?>
                                         <?php $activo = ((int) $horario['estado'] === 1); ?>
                                         <tr class="border-bottom">
-                                            <td class="ps-4 fw-semibold text-dark align-top pt-3">
+                                            <td class="ps-4 fw-semibold text-dark">
                                                 <?php echo e($horario['nombre']); ?>
                                             </td>
-                                            <td class="align-top pt-3 fw-medium text-secondary">
+                                            <td class="text-center text-secondary fw-medium border-end" style="background-color: #fcfcfc;">
                                                 <i class="bi bi-clock small text-muted me-1"></i>
                                                 <?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>
                                             </td>
-                                            <td class="text-center align-top pt-3 text-muted">
+                                            <td class="text-center text-muted border-end">
                                                 <?php echo (int) $horario['tolerancia_minutos']; ?> min
                                             </td>
-                                            <td class="text-center align-top pt-3">
+                                            <td class="text-center border-end">
                                                 <?php if($activo): ?>
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Activo</span>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Activo</span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">Inactivo</span>
+                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill">Inactivo</span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td class="text-end pe-4 align-top pt-3">
-                                                <button type="button" class="btn btn-sm btn-light text-primary border-0 rounded-circle js-editar-horario me-1" 
+                                            <td class="text-center pe-4">
+                                                <button type="button" class="btn btn-sm btn-light text-primary border-0 rounded-circle js-editar-horario" 
                                                     data-bs-toggle="tooltip" title="Editar Turno"
                                                     data-id="<?php echo (int) $horario['id']; ?>"
                                                     data-nombre="<?php echo e($horario['nombre']); ?>"
@@ -149,128 +153,118 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 d-flex align-items-center">
-            <h2 class="h6 fw-bold text-dark mb-0"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Asignación Masiva de Horarios</h2>
-        </div>
-        
-        <div class="card-body p-4 bg-light border-bottom">
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3 p-md-4">
+            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+                <i class="bi bi-person-lines-fill me-2 text-primary"></i>Asignación Masiva de Horarios
+            </h6>
             <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-start" id="asignacionMasivaForm">
                 <input type="hidden" name="accion" value="guardar_asignacion">
-                
-                <div class="col-md-5">
+                <div class="col-md-12">
                     <div class="d-flex justify-content-between align-items-end mb-1">
-                        <label class="form-label small text-muted fw-bold mb-0">Selecciona Empleado(s) <span class="text-danger">*</span></label>
-                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold js-select-all" style="font-size: 0.75rem;">Seleccionar Todos</button>
+                        <label class="form-label small text-muted fw-bold mb-0">1. Selecciona Empleado(s) <span class="text-danger">*</span></label>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold text-primary" id="btnSeleccionarTodosEmpleados" style="font-size: 0.75rem;"><i class="bi bi-check-all"></i> Seleccionar a todos</button>
                     </div>
-                    
-                    <div class="input-group mb-2">
-                        <select id="empleadoSelectorMasivo" class="form-select border-secondary-subtle">
-                            <option value="">Buscar o seleccionar empleado...</option>
-                            <?php foreach ($empleados as $empleado): ?>
-                                <option value="<?php echo (int) $empleado['id']; ?>" data-nombre="<?php echo e($empleado['nombre_completo']); ?>" data-codigo="<?php echo e((string) ($empleado['codigo_biometrico'] ?? '')); ?>">
-                                    <?php echo e($empleado['nombre_completo']); ?>
-                                    <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button class="btn btn-outline-primary" type="button" id="btnAgregarEmpleadoMasivo" title="Agregar a la selección">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    </div>
-                    
-                    <div id="empleadosMasivoSeleccionados" class="d-flex flex-wrap gap-2"></div>
-                    <div id="empleadosMasivoInputs"></div>
-                </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Día de la Semana <span class="text-danger">*</span></label>
-                    <select name="dia_semana" class="form-select border-secondary-subtle" required>
-                        <option value="">Seleccione día...</option>
-                        <option value="0" class="fw-bold text-primary">Toda la semana (Lun - Dom)</option>
-                        <option disabled>-----------------------</option>
-                        <?php foreach ($dias as $num => $dia): ?>
-                            <option value="<?php echo $num; ?>"><?php echo e($dia); ?></option>
+                    <select id="empleadoSelect2" name="id_terceros[]" class="form-select bg-light border-secondary-subtle" multiple="multiple" required>
+                        <?php foreach ($empleados as $empleado): ?>
+                            <option value="<?php echo (int) $empleado['id']; ?>">
+                                <?php echo e($empleado['nombre_completo']); ?> <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Turno a Asignar <span class="text-danger">*</span></label>
-                    <select name="id_horario" class="form-select border-secondary-subtle" required>
+                <div class="col-md-6 mt-3">
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <label class="form-label small text-muted fw-bold mb-0">2. Días de la Semana <span class="text-danger">*</span></label>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold" id="btnSeleccionarTodosDias" style="font-size: 0.75rem;">Marcar Lun-Dom</button>
+                    </div>
+                    <div class="btn-group w-100 shadow-sm" role="group">
+                        <?php foreach ($diasCortos as $num => $dia): ?>
+                            <input type="checkbox" class="btn-check dia-checkbox" name="dias[]" id="dia_<?php echo $num; ?>" value="<?php echo $num; ?>" autocomplete="off">
+                            <label class="btn btn-outline-primary fw-semibold" for="dia_<?php echo $num; ?>"><?php echo e($dia); ?></label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="col-md-4 mt-3">
+                    <label class="form-label small text-muted fw-bold mb-1">3. Turno a Asignar <span class="text-danger">*</span></label>
+                    <select name="id_horario" class="form-select bg-light border-secondary-subtle shadow-sm" required>
                         <option value="">Seleccione turno...</option>
                         <?php foreach ($horarios as $horario): ?>
                             <?php if ((int) $horario['estado'] !== 1) continue; ?>
-                            <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?>)</option>
+                            <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
-                <div class="col-md-1 d-flex align-items-end" style="height: 60px;">
-                    <button class="btn btn-primary shadow-sm w-100 fw-semibold h-100" type="submit" data-bs-toggle="tooltip" title="Guardar Asignaciones">
-                        <i class="bi bi-floppy fs-5"></i>
+                <div class="col-md-2 mt-3 d-flex align-items-end" style="height: 58px;">
+                    <button class="btn btn-primary shadow-sm w-100 fw-semibold h-100" type="submit">
+                        <i class="bi bi-calendar-check fs-5 me-1"></i> Aplicar
                     </button>
                 </div>
             </form>
         </div>
+    </div>
 
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <h2 class="h6 fw-bold text-dark mb-0">Resumen Semanal de Empleados</h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3"><?php echo count($empleadosAgrupados); ?> Empleados con turno</span>
+            </div>
+            <div class="input-group" style="max-width: 300px;">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="search" class="form-control bg-light border-start-0 ps-0" id="searchEmpleadoHorario" placeholder="Buscar empleado o código...">
+            </div>
+        </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover">
-                    <thead class="table-light border-bottom">
+            <div class="table-responsive horario-table-wrapper">
+                <table class="table align-middle mb-0 table-pro" id="horariosTable">
+                    <thead class="horario-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold" style="width: 30%;">Empleado</th>
-                            <th class="text-secondary fw-semibold">Semana Asignada (Turnos)</th>
+                            <th class="ps-4 text-secondary fw-semibold border-end" style="width: 25%;">Empleado</th>
+                            <?php foreach ($diasCortos as $num => $dia): ?>
+                                <th class="text-center text-secondary fw-semibold border-end" style="width: 9%;"><?php echo e($dia); ?></th>
+                            <?php endforeach; ?>
+                            <th class="text-center text-secondary fw-semibold pe-4" style="width: 12%;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="horariosTableBody">
                         <?php if (empty($empleadosAgrupados)): ?>
                             <tr>
-                                <td colspan="2" class="text-center text-muted py-5">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
-                                    Aún no hay asignaciones configuradas.
+                                <td colspan="9" class="text-center text-muted py-5 border-bottom-0">
+                                    <i class="bi bi-calendar-x fs-1 d-block mb-2 text-light"></i>
+                                    No hay horarios asignados a los empleados.
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($empleadosAgrupados as $idEmp => $emp): ?>
-                                <tr class="border-bottom">
-                                    <td class="ps-4 fw-semibold text-dark align-top pt-4">
-                                        <?php echo e($emp['nombre_completo']); ?>
+                                <?php $searchStr = strtolower($emp['nombre_completo'] . ' ' . ($emp['codigo_biometrico'] ?? '')); ?>
+                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <td class="ps-4 py-3 border-end">
+                                        <div class="fw-bold text-dark"><?php echo e($emp['nombre_completo']); ?></div>
                                         <?php if(!empty($emp['codigo_biometrico'])): ?>
-                                            <span class="d-block badge bg-light text-secondary border mt-2 w-auto" style="font-size: 0.7rem; width: fit-content;">
-                                                <i class="bi bi-upc-scan me-1"></i> Cód: <?php echo e($emp['codigo_biometrico']); ?>
-                                            </span>
+                                            <small class="text-muted fw-medium"><i class="bi bi-upc-scan me-1"></i>Cód: <?php echo e($emp['codigo_biometrico']); ?></small>
                                         <?php endif; ?>
                                     </td>
-                                    
-                                    <td class="align-top pt-3 pb-3">
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <?php 
-                                            // Ordenamos para que los días salgan de Lunes a Domingo
-                                            ksort($emp['dias_asignados']); 
-                                            foreach ($emp['dias_asignados'] as $diaNumero => $info): 
-                                            ?>
-                                                <div class="border border-secondary-subtle rounded px-3 py-2 bg-white shadow-sm d-flex align-items-center" style="font-size: 0.85rem;">
-                                                    <div>
-                                                        <span class="fw-bold text-dark d-block mb-1"><?php echo $info['nombre_dia']; ?></span>
-                                                        <span class="text-primary fw-semibold" style="font-size: 0.75rem;">
-                                                            <?php echo e($info['nombre_horario']); ?> 
-                                                            <small class="text-muted fw-normal ms-1">(<?php echo $info['hora_entrada']; ?> - <?php echo $info['hora_salida']; ?>)</small>
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    <div class="ms-3 border-start ps-2">
-                                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" onsubmit="return confirm('¿Quitar el turno del <?php echo $info['nombre_dia']; ?> a este empleado?')" class="d-inline mb-0">
-                                                            <input type="hidden" name="accion" value="eliminar_asignacion">
-                                                            <input type="hidden" name="id" value="<?php echo (int) $info['id_asignacion']; ?>">
-                                                            <button type="submit" class="btn btn-sm text-danger p-0 border-0 bg-transparent" data-bs-toggle="tooltip" title="Eliminar este turno">
-                                                                <i class="bi bi-x-circle-fill fs-5"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
+                                    <?php for($i = 1; $i <= 7; $i++): ?>
+                                        <td class="text-center border-end" style="background-color: #fcfcfc;">
+                                            <?php if(isset($emp['dias_asignados'][$i])): ?>
+                                                <?php $info = $emp['dias_asignados'][$i]; ?>
+                                                <div class="badge bg-primary-subtle text-primary border border-primary-subtle text-wrap p-2 lh-sm shadow-sm" data-bs-toggle="tooltip" title="<?php echo $info['hora_entrada']; ?> a <?php echo $info['hora_salida']; ?>" style="font-size: 0.75rem; width: 100%;">
+                                                    <?php echo e($info['nombre_horario']); ?>
                                                 </div>
-                                            <?php endforeach; ?>
-                                        </div>
+                                            <?php else: ?>
+                                                <span class="text-muted" style="opacity: 0.3; font-size: 0.8rem;">- Libre -</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    <?php endfor; ?>
+                                    <td class="text-center pe-4">
+                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" onsubmit="return confirm('¿Estás seguro de eliminar TODOS los turnos de la semana para <?php echo e($emp['nombre_completo']); ?>?')" class="d-inline">
+                                            <input type="hidden" name="accion" value="limpiar_semana_empleado">
+                                            <input type="hidden" name="id_tercero" value="<?php echo (int) $idEmp; ?>">
+                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent rounded-circle" data-bs-toggle="tooltip" title="Limpiar toda la semana">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -278,13 +272,67 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                     </tbody>
                 </table>
             </div>
+            
+            <?php if (!empty($empleadosAgrupados)): ?>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+                <div class="small text-muted fw-medium" id="horariosPaginationInfo">Mostrando 0-0 de 0 resultados</div>
+                <nav aria-label="Paginación de horarios">
+                    <ul class="pagination mb-0 shadow-sm" id="horariosPaginationControls"></ul>
+                </nav>
+            </div>
+            <?php endif; ?>
+            
         </div>
     </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // --- LÓGICA DE CREAR/EDITAR TURNO ---
+    // 1. Iniciar Select2
+    $('#empleadoSelect2').select2({
+        theme: "bootstrap-5",
+        width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+        placeholder: "Buscar y seleccionar empleados...",
+        closeOnSelect: false,
+        allowClear: true,
+    });
+
+    $('#btnSeleccionarTodosEmpleados').on('click', function() {
+        var options = $('#empleadoSelect2 > option').map(function() { return $(this).val(); }).get();
+        $('#empleadoSelect2').val(options).trigger('change');
+    });
+
+    const btnTodosDias = document.getElementById('btnSeleccionarTodosDias');
+    let diasMarcados = false;
+    btnTodosDias.addEventListener('click', function() {
+        diasMarcados = !diasMarcados;
+        document.querySelectorAll('.dia-checkbox').forEach(chk => {
+            chk.checked = diasMarcados;
+        });
+        this.innerText = diasMarcados ? 'Desmarcar Días' : 'Marcar Lun-Dom';
+    });
+
+    const asignacionForm = document.getElementById('asignacionMasivaForm');
+    asignacionForm.addEventListener('submit', function (event) {
+        const empleados = $('#empleadoSelect2').val();
+        const diasCheck = document.querySelectorAll('.dia-checkbox:checked');
+
+        if (!empleados || empleados.length === 0) {
+            event.preventDefault();
+            alert('Por favor, selecciona al menos un empleado.');
+            return;
+        }
+
+        if (diasCheck.length === 0) {
+            event.preventDefault();
+            alert('Por favor, selecciona al menos un día de la semana.');
+            return;
+        }
+    });
+
     const idInput = document.getElementById('horarioId');
     const nombreInput = document.getElementById('horarioNombre');
     const entradaInput = document.getElementById('horarioEntrada');
@@ -298,7 +346,6 @@ document.addEventListener('DOMContentLoaded', function () {
             entradaInput.value = this.dataset.entrada || '';
             salidaInput.value = this.dataset.salida || '';
             toleranciaInput.value = this.dataset.tolerancia || '0';
-            
             nombreInput.focus();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
@@ -315,116 +362,126 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- LÓGICA DE ASIGNACIÓN MASIVA (CHIPS) ---
-    const asignacionForm = document.getElementById('asignacionMasivaForm');
-    const empleadoSelectorMasivo = document.getElementById('empleadoSelectorMasivo');
-    const btnAgregarEmpleadoMasivo = document.getElementById('btnAgregarEmpleadoMasivo');
-    const empleadosMasivoSeleccionados = document.getElementById('empleadosMasivoSeleccionados');
-    const empleadosMasivoInputs = document.getElementById('empleadosMasivoInputs');
-    const btnSeleccionarTodos = document.querySelector('.js-select-all');
-    
-    const empleadosElegidos = new Map();
-
-    const renderEmpleadosMasivos = () => {
-        if (!empleadosMasivoSeleccionados || !empleadosMasivoInputs) return;
-
-        empleadosMasivoSeleccionados.innerHTML = '';
-        empleadosMasivoInputs.innerHTML = '';
-
-        empleadosElegidos.forEach((empleado, id) => {
-            const chip = document.createElement('span');
-            chip.className = 'badge bg-white text-dark border d-inline-flex align-items-center gap-2 px-2 py-2 mt-1 shadow-sm';
-            chip.innerHTML = `
-                <span>${empleado.nombre}${empleado.codigo ? ` <small class="text-muted fw-normal ms-1">(Cód: ${empleado.codigo})</small>` : ''}</span>
-                <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-danger ms-1" data-remove-id="${id}" title="Quitar">
-                    <i class="bi bi-x-circle-fill fs-6"></i>
-                </button>
-            `;
-            empleadosMasivoSeleccionados.appendChild(chip);
-
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'id_terceros[]';
-            hidden.value = id;
-            empleadosMasivoInputs.appendChild(hidden);
-        });
-    };
-
-    if (btnAgregarEmpleadoMasivo && empleadoSelectorMasivo) {
-        btnAgregarEmpleadoMasivo.addEventListener('click', function () {
-            const option = empleadoSelectorMasivo.options[empleadoSelectorMasivo.selectedIndex];
-            const id = option?.value || '';
-            if (!id) return;
-
-            if (!empleadosElegidos.has(id)) {
-                empleadosElegidos.set(id, {
-                    nombre: option.dataset.nombre || option.textContent.trim(),
-                    codigo: option.dataset.codigo || ''
-                });
-                renderEmpleadosMasivos();
-            }
-            empleadoSelectorMasivo.value = '';
-        });
-
-        empleadoSelectorMasivo.addEventListener('change', function (event) {
-            if (event.target.value) {
-                btnAgregarEmpleadoMasivo.click();
-            }
-        });
-    }
-
-    if (btnSeleccionarTodos && empleadoSelectorMasivo) {
-        let todosSeleccionados = false;
-        btnSeleccionarTodos.addEventListener('click', function() {
-            todosSeleccionados = !todosSeleccionados;
-            if(todosSeleccionados) {
-                for (let i = 1; i < empleadoSelectorMasivo.options.length; i++) {
-                    const opt = empleadoSelectorMasivo.options[i];
-                    empleadosElegidos.set(opt.value, {
-                        nombre: opt.dataset.nombre || opt.textContent.trim(),
-                        codigo: opt.dataset.codigo || ''
-                    });
-                }
-                this.innerText = 'Deseleccionar Todos';
-                this.classList.replace('text-primary', 'text-danger');
-            } else {
-                empleadosElegidos.clear();
-                this.innerText = 'Seleccionar Todos';
-                this.classList.replace('text-danger', 'text-primary');
-            }
-            renderEmpleadosMasivos();
-        });
-    }
-
-    if (empleadosMasivoSeleccionados) {
-        empleadosMasivoSeleccionados.addEventListener('click', function (event) {
-            const btn = event.target.closest('[data-remove-id]');
-            if (!btn) return;
-            const id = btn.dataset.removeId || '';
-            if (!id) return;
-            empleadosElegidos.delete(id);
-            renderEmpleadosMasivos();
-            
-            if(btnSeleccionarTodos && empleadosElegidos.size === 0) {
-                btnSeleccionarTodos.innerText = 'Seleccionar Todos';
-                btnSeleccionarTodos.classList.replace('text-danger', 'text-primary');
-            }
-        });
-    }
-
-    if (asignacionForm) {
-        asignacionForm.addEventListener('submit', function (event) {
-            if (empleadosElegidos.size === 0) {
-                event.preventDefault();
-                alert('Debes seleccionar al menos un empleado para asignar el horario.');
-            }
-        });
-    }
-
-    // Inicializar Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    // ==========================================
+    // LÓGICA DE PAGINACIÓN Y BÚSQUEDA (NUEVO)
+    // ==========================================
+    const searchInput = document.getElementById('searchEmpleadoHorario');
+    const tableBody = document.getElementById('horariosTableBody');
+    const paginationInfo = document.getElementById('horariosPaginationInfo');
+    const paginationControls = document.getElementById('horariosPaginationControls');
+    
+    // 👇 ¡SOLO CAMBIA ESTE NÚMERO A 25! 👇
+    const ITEMS_PER_PAGE = 25; 
+    let currentPage = 1;
+    
+    function normalizarTexto(valor) {
+        return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    
+    function filtrarHorarios() {
+        if (!tableBody) return;
+        const termino = normalizarTexto(searchInput ? searchInput.value : '');
+        
+        // Obtenemos solo las filas que tienen data-search (ignoramos la fila de estado vacío)
+        const filas = Array.from(tableBody.querySelectorAll('tr')).filter(fila => !!fila.dataset.search);
+        
+        if (filas.length === 0) return;
+
+        const visibles = filas.filter(fila => {
+            return termino === '' || normalizarTexto(fila.dataset.search).includes(termino);
+        });
+        
+        const totalItems = visibles.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        const end = start + ITEMS_PER_PAGE;
+        
+        // Ocultar todas primero
+        filas.forEach(fila => fila.classList.add('d-none'));
+        
+        // Mostrar solo la porción de la página actual
+        visibles.slice(start, end).forEach(fila => fila.classList.remove('d-none'));
+        
+        if (paginationInfo) {
+            if (totalItems === 0) {
+                paginationInfo.textContent = 'Mostrando 0-0 de 0 resultados';
+            } else {
+                paginationInfo.textContent = `Mostrando ${start + 1}-${Math.min(end, totalItems)} de ${totalItems} resultados`;
+            }
+        }
+        
+        construirControlesPaginacion(totalPages);
+    }
+    
+    function construirControlesPaginacion(totalPages) {
+        if (!paginationControls) return;
+        paginationControls.innerHTML = '';
+        
+        const crearItem = (label, page, active = false, disabled = false) => {
+            const li = document.createElement('li');
+            li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+            const a = document.createElement('a');
+            a.className = 'page-link'; // Dejamos que Bootstrap maneje los colores originales
+            if(active) a.classList.add('fw-bold');
+            a.href = '#';
+            a.textContent = label;
+            a.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                if (disabled || active || page == null) return;
+                currentPage = page;
+                filtrarHorarios();
+            });
+            li.appendChild(a);
+            paginationControls.appendChild(li);
+        };
+        
+        const crearPuntos = () => {
+            const li = document.createElement('li');
+            li.className = 'page-item disabled';
+            const span = document.createElement('span');
+            span.className = 'page-link';
+            span.textContent = '...';
+            li.appendChild(span);
+            paginationControls.appendChild(li);
+        };
+        
+        const construirTokensPaginas = () => {
+            const pages = new Set([1, totalPages]);
+            for (let i = currentPage - 1; i <= currentPage + 1; i += 1) {
+                if (i > 1 && i < totalPages) pages.add(i);
+            }
+            const ordenadas = Array.from(pages).sort((a, b) => a - b);
+            const tokens = [];
+            ordenadas.forEach((page, idx) => {
+                if (idx > 0 && page - ordenadas[idx - 1] > 1) tokens.push('dots');
+                tokens.push(page);
+            });
+            return tokens;
+        };
+        
+        crearItem('Anterior', currentPage - 1, false, currentPage === 1);
+        construirTokensPaginas().forEach((token) => {
+            if (token === 'dots') crearPuntos();
+            else crearItem(String(token), token, token === currentPage, false);
+        });
+        crearItem('Siguiente', currentPage + 1, false, currentPage === totalPages || totalPages === 0);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentPage = 1; // Volver a la página 1 al buscar
+            filtrarHorarios();
+        });
+    }
+
+    // Inicializar paginación al cargar la página
+    filtrarHorarios();
 });
 </script>
