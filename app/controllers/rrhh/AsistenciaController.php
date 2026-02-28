@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/AsistenciaModel.php';
+require_once BASE_PATH . '/app/models/rrhh/AsistenciaModel.php';
 
 class AsistenciaController extends Controlador
 {
@@ -35,7 +35,7 @@ class AsistenciaController extends Controlador
             return;
         }
 
-        $this->render('asistencia_importar', [
+        $this->render('rrhh/asistencia_importar', [
             'ruta_actual' => 'asistencia/importar',
             'logs' => $this->asistenciaModel->listarLogsBiometricos(),
             'flash' => [
@@ -129,7 +129,7 @@ class AsistenciaController extends Controlador
             ? $this->asistenciaModel->obtenerDashboardDiario($fecha, $idTercero, $estado)
             : $this->asistenciaModel->obtenerDashboardRango($desde, $hasta, $idTercero, $estado);
 
-        $this->render('asistencia_dashboard', [
+        $this->render('rrhh/asistencia_dashboard', [
             'ruta_actual' => 'asistencia/dashboard',
             'periodo' => $periodo,
             'fecha' => $fecha,
@@ -206,7 +206,7 @@ class AsistenciaController extends Controlador
             return;
         }
 
-        $this->render('asistencia_incidencias', [
+        $this->render('rrhh/asistencia_incidencias', [
             'ruta_actual' => 'asistencia/incidencias',
             'empleados' => $this->asistenciaModel->listarEmpleadosParaIncidencias(),
             'incidencias' => $this->asistenciaModel->listarIncidencias(),

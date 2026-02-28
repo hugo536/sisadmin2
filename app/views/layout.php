@@ -149,11 +149,11 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'asistencia')): ?>
-    <script src="<?php echo e(asset_url('js/asistencia.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/rrhh/asistencia.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'horario')): ?>
-    <script src="<?php echo e(asset_url('js/horario.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/rrhh/horario.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>

@@ -138,25 +138,45 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
 
-            <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
-                <i class="bi bi-clock-history"></i> <span>Asistencia y Horarios</span>
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas']); ?>"
+               data-bs-toggle="collapse"
+               href="#menuRRHH"
+               role="button"
+               aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas']) ? 'true' : 'false'; ?>"
+               aria-controls="menuRRHH">
+                <i class="bi bi-people-fill"></i> <span>RRHH</span>
+                <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </a>
 
-            <a class="sidebar-link<?php echo $activo('asistencia/importar'); ?>" href="<?php echo e(route_url('asistencia/importar')); ?>">
-                <i class="bi bi-file-earmark-arrow-up"></i> <span>Importar Biométrico</span>
-            </a>
-
-            <a class="sidebar-link<?php echo $activo('asistencia/dashboard'); ?>" href="<?php echo e(route_url('asistencia/dashboard')); ?>">
-                <i class="bi bi-bar-chart-line"></i> <span>Dashboard RRHH</span>
-            </a>
-
-            <a class="sidebar-link<?php echo $activo('asistencia/incidencias'); ?>" href="<?php echo e(route_url('asistencia/incidencias')); ?>">
-                <i class="bi bi-clipboard2-pulse"></i> <span>Incidencias</span>
-            </a>
-
-            <a class="sidebar-link<?php echo $activo('planillas'); ?>" href="<?php echo e(route_url('planillas')); ?>">
-                <i class="bi bi-cash-coin"></i> <span>Planillas y Pagos</span>
-            </a>
+            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas']); ?>" id="menuRRHH">
+                <ul class="nav flex-column ps-3">
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
+                            <i class="bi bi-clock-history"></i> <span>Asistencia y Horarios</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('asistencia/importar'); ?>" href="<?php echo e(route_url('asistencia/importar')); ?>">
+                            <i class="bi bi-file-earmark-arrow-up"></i> <span>Importar Biométrico</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('asistencia/dashboard'); ?>" href="<?php echo e(route_url('asistencia/dashboard')); ?>">
+                            <i class="bi bi-bar-chart-line"></i> <span>Dashboard RRHH</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('asistencia/incidencias'); ?>" href="<?php echo e(route_url('asistencia/incidencias')); ?>">
+                            <i class="bi bi-clipboard2-pulse"></i> <span>Incidencias</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('planillas'); ?>" href="<?php echo e(route_url('planillas')); ?>">
+                            <i class="bi bi-cash-coin"></i> <span>Planillas y Pagos</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>

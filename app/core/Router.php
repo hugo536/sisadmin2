@@ -102,6 +102,7 @@ class Router
             BASE_PATH . '/app/controllers/' . $clase . '.php',
             BASE_PATH . '/app/controllers/items/' . $clase . '.php',
             BASE_PATH . '/app/controllers/configuracion/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/rrhh/' . $clase . '.php',
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 
