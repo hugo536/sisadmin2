@@ -84,12 +84,12 @@
     vertical-align: middle;
 }
 
-<<<<<<< HEAD
+
 /* 6. Efecto al pasar el mouse (Hover) en las filas */
 .table-pro tbody tr:hover td {
     background-color: rgba(13, 110, 253, 0.04); /* Un fondo azul muy suave al pasar el ratón */
 }
-=======
+
 /* 6. Efecto al pasar el mouse (Hover) */
 .table-pro tbody tr:hover {
     background-color: rgba(13, 110, 253, 0.03); /* Un azul muy sutil */
@@ -119,4 +119,4 @@
 .table-pro .col-w-25p { width: 25%; }
 
 .table-pro .row-clickable { cursor: pointer; }
->>>>>>> c301568863ab0e6eb7cb8303a1f364f7f80335d0
+
