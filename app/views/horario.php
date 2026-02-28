@@ -155,10 +155,28 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
         </div>
         
         <div class="card-body p-4 bg-light border-bottom">
-            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-end">
+            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-end" id="asignacionMasivaForm">
                 <input type="hidden" name="accion" value="guardar_asignacion">
                 
                 <div class="col-md-4">
+                    <label class="form-label small text-muted fw-bold">Empleado <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <select id="empleadoSelectorMasivo" class="form-select border-secondary-subtle">
+                            <option value="">Seleccione empleado...</option>
+                            <?php foreach ($empleados as $empleado): ?>
+                                <option value="<?php echo (int) $empleado['id']; ?>" data-nombre="<?php echo e($empleado['nombre_completo']); ?>" data-codigo="<?php echo e((string) ($empleado['codigo_biometrico'] ?? '')); ?>">
+                                    <?php echo e($empleado['nombre_completo']); ?>
+                                    <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-outline-primary" type="button" id="btnAgregarEmpleadoMasivo" title="Agregar empleado a la selección">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                    <div id="empleadosMasivoSeleccionados" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    <div id="empleadosMasivoInputs"></div>
+                    <small class="text-muted d-block mt-1">Agrega empleados con el botón +. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
                     <label class="form-label small text-muted fw-bold">Empleados <span class="text-danger">*</span></label>
                     <select name="id_terceros[]" class="form-select border-secondary-subtle" multiple size="5" required>
                         <?php foreach ($empleados as $empleado): ?>
@@ -301,6 +319,85 @@ document.addEventListener('DOMContentLoaded', function () {
             entradaInput.value = '';
             salidaInput.value = '';
             toleranciaInput.value = '0';
+        });
+    }
+
+
+    const asignacionForm = document.getElementById('asignacionMasivaForm');
+    const empleadoSelectorMasivo = document.getElementById('empleadoSelectorMasivo');
+    const btnAgregarEmpleadoMasivo = document.getElementById('btnAgregarEmpleadoMasivo');
+    const empleadosMasivoSeleccionados = document.getElementById('empleadosMasivoSeleccionados');
+    const empleadosMasivoInputs = document.getElementById('empleadosMasivoInputs');
+    const empleadosElegidos = new Map();
+
+    const renderEmpleadosMasivos = () => {
+        if (!empleadosMasivoSeleccionados || !empleadosMasivoInputs) return;
+
+        empleadosMasivoSeleccionados.innerHTML = '';
+        empleadosMasivoInputs.innerHTML = '';
+
+        empleadosElegidos.forEach((empleado, id) => {
+            const chip = document.createElement('span');
+            chip.className = 'badge bg-white text-dark border d-inline-flex align-items-center gap-2 px-2 py-2';
+            chip.innerHTML = `
+                <span>${empleado.nombre}${empleado.codigo ? ` <small class="text-muted">(Cód: ${empleado.codigo})</small>` : ''}</span>
+                <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-danger" data-remove-id="${id}" title="Quitar empleado">
+                    <i class="bi bi-x-circle-fill"></i>
+                </button>
+            `;
+            empleadosMasivoSeleccionados.appendChild(chip);
+
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'id_terceros[]';
+            hidden.value = id;
+            empleadosMasivoInputs.appendChild(hidden);
+        });
+    };
+
+    if (btnAgregarEmpleadoMasivo && empleadoSelectorMasivo) {
+        btnAgregarEmpleadoMasivo.addEventListener('click', function () {
+            const option = empleadoSelectorMasivo.options[empleadoSelectorMasivo.selectedIndex];
+            const id = option?.value || '';
+            if (!id) {
+                return;
+            }
+
+            if (!empleadosElegidos.has(id)) {
+                empleadosElegidos.set(id, {
+                    nombre: option.dataset.nombre || option.textContent.trim(),
+                    codigo: option.dataset.codigo || ''
+                });
+                renderEmpleadosMasivos();
+            }
+
+            empleadoSelectorMasivo.value = '';
+        });
+
+        empleadoSelectorMasivo.addEventListener('change', function (event) {
+            if (event.target.value) {
+                btnAgregarEmpleadoMasivo.click();
+            }
+        });
+    }
+
+    if (empleadosMasivoSeleccionados) {
+        empleadosMasivoSeleccionados.addEventListener('click', function (event) {
+            const btn = event.target.closest('[data-remove-id]');
+            if (!btn) return;
+            const id = btn.dataset.removeId || '';
+            if (!id) return;
+            empleadosElegidos.delete(id);
+            renderEmpleadosMasivos();
+        });
+    }
+
+    if (asignacionForm) {
+        asignacionForm.addEventListener('submit', function (event) {
+            if (empleadosElegidos.size === 0) {
+                event.preventDefault();
+                alert('Debes agregar al menos un empleado con el botón +.');
+            }
         });
     }
 
