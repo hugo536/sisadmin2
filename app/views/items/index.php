@@ -118,7 +118,17 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="itemsTable">
+                <table class="table align-middle mb-0 table-pro" id="itemsTable"
+                       data-erp-table="true"
+                       data-rows-selector="#itemsTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#itemSearch"
+                       data-empty-text="No se encontraron ítems"
+                       data-info-text-template="Mostrando {start} a {end} de {total} ítems"
+                       data-erp-filters='[{"el":"#itemFiltroCategoria","attr":"data-categoria","match":"equals"},{"el":"#itemFiltroTipo","attr":"data-tipo","match":"equals"},{"el":"#itemFiltroEstado","attr":"data-estado","match":"equals"}]'
+                       data-refresh-on-update="true"
+                       data-manager-global="itemsTableManager"
+                       data-pagination-controls="#itemsPaginationControls"
+                       data-pagination-info="#itemsPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
                             <th class="ps-4 text-center" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> 
@@ -157,38 +167,3 @@ $tipoItemLabel = static function (string $tipo): string {
 <?php require BASE_PATH . '/app/views/items/partials/_modal_unidades.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_categorias.php'; ?>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        ERPTable.initTooltips();
-        
-        // Guardamos la instancia en una variable global (window.itemsTableManager)
-        // Por si tu archivo JS externo (items.js) necesita llamar a window.itemsTableManager.refresh() 
-        // después de dibujar las filas traídas por AJAX.
-        window.itemsTableManager = ERPTable.createTableManager({
-            tableSelector: '#itemsTable',
-            rowsSelector: '#itemsTableBody tr:not(.empty-msg-row)', // Ignora la fila de "Cargando..."
-            searchInput: '#itemSearch',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#itemsPaginationControls',
-            paginationInfo: '#itemsPaginationInfo',
-            emptyText: 'No se encontraron ítems',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} ítems`,
-            
-            // CONFIGURACIÓN DE LOS 3 FILTROS
-            filters: [
-                { el: '#itemFiltroCategoria', attr: 'data-categoria', match: 'equals' },
-                { el: '#itemFiltroTipo', attr: 'data-tipo', match: 'equals' },
-                { el: '#itemFiltroEstado', attr: 'data-estado', match: 'equals' }
-            ],
-            
-            // Si la tabla se llena por AJAX dinámicamente, esto ayuda a que la tabla 
-            // recalcule las páginas cada vez que el usuario teclee algo, asegurándose de leer el DOM actual
-            refreshOnUpdate: true 
-        }).init();
-        
-    }
-});
-</script>

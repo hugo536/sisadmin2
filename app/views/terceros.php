@@ -60,7 +60,11 @@
                 
                 <table class="table align-middle mb-0 table-pro" id="tercerosTable"
                        data-erp-table="true"
+                       data-rows-selector="#tercerosTableBody tr:not(.empty-msg-row)"
                        data-search-input="#terceroSearch"
+                       data-empty-text="No se encontraron terceros"
+                       data-info-text-template="Mostrando {start} a {end} de {total} terceros"
+                       data-erp-filters='[{"el":"#terceroFiltroRol","attr":"data-roles","match":"includes"},{"el":"#terceroFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#tercerosPaginationControls"
                        data-pagination-info="#tercerosPaginationInfo">
                     <thead class="terceros-sticky-thead bg-light border-bottom">
@@ -287,32 +291,3 @@
 <script src="<?php echo asset_url('js/terceros/distribuidores.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros.js'); ?>"></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        // Inicializamos los Tooltips nativos
-        ERPTable.initTooltips();
-        
-        // Inicializamos la tabla especificándole dónde están los "Filtros"
-        ERPTable.createTableManager({
-            tableSelector: '#tercerosTable',
-            rowsSelector: '#tercerosTableBody tr:not(.empty-msg-row)', // Excluir la fila vacía
-            searchInput: '#terceroSearch',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#tercerosPaginationControls',
-            paginationInfo: '#tercerosPaginationInfo',
-            emptyText: 'No se encontraron terceros',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} terceros`,
-            
-            // LA CLAVE: Aquí le decimos a ERPTable que escuche los <select> de filtro
-            filters: [
-                { el: '#terceroFiltroRol', attr: 'data-roles', match: 'includes' },
-                { el: '#terceroFiltroEstado', attr: 'data-estado', match: 'equals' }
-            ]
-        }).init();
-        
-    }
-});
-</script>

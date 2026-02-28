@@ -86,7 +86,11 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
             <div class="table-responsive inventario-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="tablaInventarioStock"
                        data-erp-table="true"
+                       data-rows-selector="#inventarioTableBody tr:not(.empty-msg-row)"
                        data-search-input="#inventarioSearch"
+                       data-empty-text="No hay stock coincidente"
+                       data-info-text-template="Mostrando {start} a {end} de {total} registros"
+                       data-erp-filters='[{"el":"#inventarioFiltroTipoRegistro","attr":"data-tipo-registro","match":"equals"},{"el":"#inventarioFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#inventarioPaginationControls"
                        data-pagination-info="#inventarioPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
@@ -206,44 +210,4 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 <div class="modal fade" id="modalMovimientoInventario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     </div>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function(){
-        // Inicializar tooltips de Bootstrap
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-
-        // =========================================================
-        // INICIALIZACIÓN MANUAL DE ERPTable (Para usar múltiples Filtros)
-        // =========================================================
-        if (typeof window.ERPTable !== 'undefined') {
-            
-            // OJO: Si inventarioFiltroAlmacen necesita recargar la página vía PHP, 
-            // no lo pongas aquí en los filtros locales JS.
-            // Según tu código anterior, el filtro de Almacén cambiaba la URL, 
-            // así que lo dejo fuera de ERPTable y mantenemos su listener en tu inventario.js.
-            // Solo metemos en ERPTable los que filtran sin recargar: Tipo y Estado.
-
-            ERPTable.createTableManager({
-                tableSelector: '#tablaInventarioStock',
-                rowsSelector: '#inventarioTableBody tr:not(.empty-msg-row)', // Excluye mensaje vacío
-                searchInput: '#inventarioSearch',
-                searchAttr: 'data-search',
-                rowsPerPage: 25, 
-                paginationControls: '#inventarioPaginationControls',
-                paginationInfo: '#inventarioPaginationInfo',
-                emptyText: 'No hay stock coincidente',
-                infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} registros`,
-                
-                // Filtros avanzados JS
-                filters: [
-                    { el: '#inventarioFiltroTipoRegistro', attr: 'data-tipo-registro', match: 'equals' },
-                    { el: '#inventarioFiltroEstado', attr: 'data-estado', match: 'equals' }
-                ]
-            }).init();
-            
-        }
-    });
-</script>
 <script src="<?php echo e(asset_url('js/inventario.js')); ?>"></script>

@@ -64,12 +64,5 @@
     });
   }
 
-  // =========================================================
-  // 3) TABLAS REUTILIZABLES (AUTO-INIT)
-  // =========================================================
-  if (window.ERPTable) {
-    window.ERPTable.initTooltips();
-    window.ERPTable.autoInitFromDataset();
-  }
 
 })();
