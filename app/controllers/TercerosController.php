@@ -701,19 +701,35 @@ class TercerosController extends Controlador
             $cargo = trim((string) ($data['cargo'] ?? ''));
             $area = trim((string) ($data['area'] ?? ''));
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
+            $tipoPagoRaw = strtoupper(trim((string) ($data['tipo_pago'] ?? 'MENSUAL')));
             $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? ''));
+            $pagoDiarioRaw = trim((string) ($data['pago_diario'] ?? ''));
             $codigoBiometricoRaw = trim((string) ($data['codigo_biometrico'] ?? ''));
 
-            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '' || $sueldoBasicoRaw === '') {
-                throw new Exception('Para el rol Empleado, cargo, área, fecha de ingreso y sueldo básico son obligatorios.');
+            $esPagoDiario = $tipoPagoRaw === 'DIARIO';
+
+            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
+                throw new Exception('Para el rol Empleado, cargo, área y fecha de ingreso son obligatorios.');
+            }
+
+            if ($esPagoDiario && $pagoDiarioRaw === '') {
+                throw new Exception('Para el rol Empleado con pago diario, el campo pago diario es obligatorio.');
+            }
+
+            if (!$esPagoDiario && $sueldoBasicoRaw === '') {
+                throw new Exception('Para el rol Empleado, el sueldo básico es obligatorio.');
             }
 
             if (mb_strlen($codigoBiometricoRaw) > 50) {
                 throw new Exception('El código biométrico no puede exceder 50 caracteres.');
             }
 
-            if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {
+            if (!$esPagoDiario && (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0)) {
                 throw new Exception('El sueldo básico del empleado debe ser un número válido mayor o igual a 0.');
+            }
+
+            if ($esPagoDiario && (!is_numeric($pagoDiarioRaw) || (float) $pagoDiarioRaw < 0)) {
+                throw new Exception('El pago diario del empleado debe ser un número válido mayor o igual a 0.');
             }
 
             $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
