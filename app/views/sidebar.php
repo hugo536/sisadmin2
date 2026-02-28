@@ -154,6 +154,10 @@ function renderSidebarInner(
                 <i class="bi bi-clipboard2-pulse"></i> <span>Incidencias</span>
             </a>
 
+            <a class="sidebar-link<?php echo $activo('planillas'); ?>" href="<?php echo e(route_url('planillas')); ?>">
+                <i class="bi bi-cash-coin"></i> <span>Planillas y Pagos</span>
+            </a>
+
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
             </a>
