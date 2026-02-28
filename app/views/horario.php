@@ -2,6 +2,7 @@
 $horarios = $horarios ?? [];
 $empleados = $empleados ?? [];
 $asignaciones = $asignaciones ?? [];
+$empleadosAgrupados = $empleadosAgrupados ?? []; // Nuestra nueva variable agrupada
 $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 ?>
 
@@ -204,46 +205,58 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                 <table class="table align-middle mb-0 table-pro table-hover">
                     <thead class="table-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
-                            <th class="text-secondary fw-semibold">Día Asignado</th>
-                            <th class="text-secondary fw-semibold">Turno / Rango</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Acción</th>
+                            <th class="ps-4 text-secondary fw-semibold" style="width: 30%;">Empleado</th>
+                            <th class="text-secondary fw-semibold">Semana Asignada (Turnos)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($asignaciones)): ?>
+                        <?php if (empty($empleadosAgrupados)): ?>
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-5">
+                                <td colspan="2" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     Aún no hay asignaciones configuradas.
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($asignaciones as $asignacion): ?>
+                            <?php foreach ($empleadosAgrupados as $idEmp => $emp): ?>
                                 <tr class="border-bottom">
-                                    <td class="ps-4 fw-semibold text-dark align-top pt-3">
-                                        <?php echo e($asignacion['empleado']); ?>
-                                        <?php if(!empty($asignacion['codigo_biometrico'])): ?>
-                                            <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.65rem;">Cód: <?php echo e($asignacion['codigo_biometrico']); ?></span>
+                                    <td class="ps-4 fw-semibold text-dark align-top pt-4">
+                                        <?php echo e($emp['nombre_completo']); ?>
+                                        <?php if(!empty($emp['codigo_biometrico'])): ?>
+                                            <span class="d-block badge bg-light text-secondary border mt-2 w-auto" style="font-size: 0.7rem; width: fit-content;">
+                                                <i class="bi bi-upc-scan me-1"></i> Cód: <?php echo e($emp['codigo_biometrico']); ?>
+                                            </span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="align-top pt-3">
-                                        <span class="badge bg-secondary-subtle text-dark border border-secondary-subtle px-2 py-1">
-                                            <?php echo e($dias[(int) $asignacion['dia_semana']] ?? 'N/A'); ?>
-                                        </span>
-                                    </td>
-                                    <td class="align-top pt-3 fw-medium text-secondary">
-                                        <span class="text-dark d-block"><?php echo e($asignacion['horario']); ?></span>
-                                        <small class="text-muted"><i class="bi bi-clock me-1"></i><?php echo e(substr((string) $asignacion['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $asignacion['hora_salida'], 0, 5)); ?></small>
-                                    </td>
-                                    <td class="text-end pe-4 align-top pt-3">
-                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" onsubmit="return confirm('¿Eliminar esta asignación?')" class="d-inline">
-                                            <input type="hidden" name="accion" value="eliminar_asignacion">
-                                            <input type="hidden" name="id" value="<?php echo (int) $asignacion['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 rounded-circle" data-bs-toggle="tooltip" title="Eliminar Asignación">
-                                                <i class="bi bi-trash fs-5"></i>
-                                            </button>
-                                        </form>
+                                    
+                                    <td class="align-top pt-3 pb-3">
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <?php 
+                                            // Ordenamos para que los días salgan de Lunes a Domingo
+                                            ksort($emp['dias_asignados']); 
+                                            foreach ($emp['dias_asignados'] as $diaNumero => $info): 
+                                            ?>
+                                                <div class="border border-secondary-subtle rounded px-3 py-2 bg-white shadow-sm d-flex align-items-center" style="font-size: 0.85rem;">
+                                                    <div>
+                                                        <span class="fw-bold text-dark d-block mb-1"><?php echo $info['nombre_dia']; ?></span>
+                                                        <span class="text-primary fw-semibold" style="font-size: 0.75rem;">
+                                                            <?php echo e($info['nombre_horario']); ?> 
+                                                            <small class="text-muted fw-normal ms-1">(<?php echo $info['hora_entrada']; ?> - <?php echo $info['hora_salida']; ?>)</small>
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div class="ms-3 border-start ps-2">
+                                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" onsubmit="return confirm('¿Quitar el turno del <?php echo $info['nombre_dia']; ?> a este empleado?')" class="d-inline mb-0">
+                                                            <input type="hidden" name="accion" value="eliminar_asignacion">
+                                                            <input type="hidden" name="id" value="<?php echo (int) $info['id_asignacion']; ?>">
+                                                            <button type="submit" class="btn btn-sm text-danger p-0 border-0 bg-transparent" data-bs-toggle="tooltip" title="Eliminar este turno">
+                                                                <i class="bi bi-x-circle-fill fs-5"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

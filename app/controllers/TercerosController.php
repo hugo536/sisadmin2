@@ -701,25 +701,40 @@ class TercerosController extends Controlador
             $cargo = trim((string) ($data['cargo'] ?? ''));
             $area = trim((string) ($data['area'] ?? ''));
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
-            $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? ''));
             $codigoBiometricoRaw = trim((string) ($data['codigo_biometrico'] ?? ''));
+            
+            // Le damos valor '0' por defecto si estos campos no vienen o están vacíos en el formulario
+            $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? '0'));
+            if ($sueldoBasicoRaw === '') $sueldoBasicoRaw = '0';
+            
+            $pagoDiarioRaw = trim((string) ($data['pago_diario'] ?? '0'));
+            if ($pagoDiarioRaw === '') $pagoDiarioRaw = '0';
 
-            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '' || $sueldoBasicoRaw === '') {
-                throw new Exception('Para el rol Empleado, cargo, área, fecha de ingreso y sueldo básico son obligatorios.');
+            // Actualizamos la validación: ya NO exigimos el sueldo básico
+            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
+                throw new Exception('Para el rol Empleado, el cargo, área y la fecha de ingreso son obligatorios.');
             }
 
             if (mb_strlen($codigoBiometricoRaw) > 50) {
                 throw new Exception('El código biométrico no puede exceder 50 caracteres.');
             }
 
+            // Validamos que sean números válidos
             if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {
-                throw new Exception('El sueldo básico del empleado debe ser un número válido mayor o igual a 0.');
+                throw new Exception('El sueldo básico debe ser un número válido mayor o igual a 0.');
+            }
+            if (!is_numeric($pagoDiarioRaw) || (float) $pagoDiarioRaw < 0) {
+                throw new Exception('El pago diario debe ser un número válido mayor o igual a 0.');
             }
 
             $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
             if (!$fechaIngreso || $fechaIngreso->format('Y-m-d') !== $fechaIngresoRaw) {
                 throw new Exception('La fecha de ingreso del empleado no tiene un formato válido.');
             }
+            
+            // Reasignamos los valores limpios al array principal
+            $data['sueldo_basico'] = $sueldoBasicoRaw;
+            $data['pago_diario'] = $pagoDiarioRaw;
         }
 
         // --- CORRECCIÓN DE VALIDACIÓN DEL CUMPLEAÑOS AQUÍ ---

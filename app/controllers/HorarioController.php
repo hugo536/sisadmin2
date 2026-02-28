@@ -24,11 +24,48 @@ class HorarioController extends Controlador
             return;
         }
 
+        // 1. Obtenemos las asignaciones crudas de la BD (1 fila = 1 día)
+        $asignacionesRaw = $this->horarioModel->listarAsignaciones();
+
+        // 2. Lógica para agrupar por Empleado
+        $empleadosAgrupados = [];
+        $nombresDias = [
+            1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 
+            4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'
+        ];
+
+        foreach ($asignacionesRaw as $row) {
+            $idEmp = (int)($row['id_tercero'] ?? 0);
+            
+            // Si el empleado aún no está en nuestra lista agrupada, lo creamos
+            if (!isset($empleadosAgrupados[$idEmp])) {
+                $empleadosAgrupados[$idEmp] = [
+                    'nombre_completo'   => $row['empleado'] ?? $row['nombre_completo'] ?? 'Sin Nombre',
+                    'codigo_biometrico' => $row['codigo_biometrico'] ?? '',
+                    'dias_asignados'    => []
+                ];
+            }
+            
+            // Añadimos el día a la lista de este empleado
+            $diaNumero = (int)($row['dia_semana'] ?? 0);
+            if ($diaNumero > 0) {
+                $empleadosAgrupados[$idEmp]['dias_asignados'][$diaNumero] = [
+                    'id_asignacion' => $row['id'], 
+                    'nombre_dia'    => $nombresDias[$diaNumero] ?? 'Día',
+                    'nombre_horario'=> $row['horario'] ?? $row['horario_nombre'] ?? 'Turno', 
+                    'hora_entrada'  => substr((string)($row['hora_entrada'] ?? ''), 0, 5),
+                    'hora_salida'   => substr((string)($row['hora_salida'] ?? ''), 0, 5)
+                ];
+            }
+        }
+
+        // 3. Renderizamos la vista mandando la nueva variable agrupada
         $this->render('horario', [
             'ruta_actual' => 'horario/index',
             'horarios' => $this->horarioModel->listarHorarios(),
             'empleados' => $this->horarioModel->listarEmpleados(),
-            'asignaciones' => $this->horarioModel->listarAsignaciones(),
+            'asignaciones' => $asignacionesRaw, // Mantenemos la original por retrocompatibilidad
+            'empleadosAgrupados' => $empleadosAgrupados, // Enviamos nuestra lista agrupada a la vista
             'flash' => [
                 'tipo' => (string) ($_GET['tipo'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),
