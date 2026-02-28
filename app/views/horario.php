@@ -96,13 +96,13 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                data-info-text-template="{start}-{end} de {total}"
                                data-pagination-controls="#turnosPaginationControls"
                                data-pagination-info="#turnosPaginationInfo">
-                            <thead class="bg-light">
+                            <thead>
                                 <tr>
                                     <th class="ps-4 text-secondary fw-semibold">Nombre del Turno</th>
                                     <th class="text-center text-secondary fw-semibold">Horario</th>
                                     <th class="text-center text-secondary fw-semibold">Tolerancia</th>
                                     <th class="text-center text-secondary fw-semibold">Estado</th>
-                                    <th class="text-center text-secondary fw-semibold pe-4" style="width: 100px;">Acciones</th>
+                                    <th class="text-center text-secondary fw-semibold pe-4 col-w-100">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="turnosTableBody">
@@ -250,11 +250,11 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                        data-pagination-controls="#horariosPaginationControls">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold" style="width: 25%;">Empleado</th>
+                            <th class="ps-4 text-secondary fw-semibold col-w-25p">Empleado</th>
                             <?php foreach ($diasCortos as $num => $dia): ?>
-                                <th class="text-center text-secondary fw-semibold" style="width: 9%;"><?php echo e($dia); ?></th>
+                                <th class="text-center text-secondary fw-semibold col-w-9p"><?php echo e($dia); ?></th>
                             <?php endforeach; ?>
-                            <th class="text-center text-secondary fw-semibold pe-4" style="width: 12%;">Acciones</th>
+                            <th class="text-center text-secondary fw-semibold pe-4 col-w-12p">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="horariosTableBody">

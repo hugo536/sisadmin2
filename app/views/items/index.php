@@ -131,7 +131,7 @@ $tipoItemLabel = static function (string $tipo): string {
                        data-pagination-info="#itemsPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-center" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> 
+                            <th class="ps-4 text-center col-w-50"><i class="bi bi-image text-muted"></i></th> 
                             <th class="text-secondary fw-semibold">SKU</th>
                             <th class="text-secondary fw-semibold">Nombre</th>
                             <th class="text-secondary fw-semibold">Tipo</th>

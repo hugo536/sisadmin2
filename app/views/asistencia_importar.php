@@ -79,7 +79,7 @@ $logs = $logs ?? [];
                    data-search-input="#searchLogs"
                    data-pagination-controls="#logsPaginationControls"
                    data-pagination-info="#logsPaginationInfo">
-                <thead class="bg-light border-bottom">
+                <thead>
                     <tr>
                         <th class="ps-4 text-secondary fw-semibold">ID</th>
                         <th class="text-secondary fw-semibold">Cód. Biométrico</th>

@@ -85,8 +85,8 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover table-borderless table-pro" id="tablaVentas">
-                    <thead class="table-light border-bottom">
+                <table class="table align-middle mb-0 table-pro" id="tablaVentas">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Cliente</th>
@@ -188,14 +188,14 @@ $estadoLabels = [
                             
                             <div class="table-responsive">
                                 <table class="table align-middle mb-0 table-pro" id="tablaDetalleVenta">
-                                    <thead class="table-light border-bottom">
+                                    <thead>
                                         <tr>
-                                            <th style="min-width:300px;" class="ps-3 text-secondary">Producto</th>
-                                            <th style="width: 100px;" class="text-end text-secondary">Stock</th>
-                                            <th style="width: 120px;" class="text-center text-secondary">Cantidad</th>
-                                            <th style="width: 140px;" class="text-center text-secondary">Precio Unit.</th>
-                                            <th style="width: 140px;" class="text-end text-secondary">Subtotal</th>
-                                            <th style="width: 60px;" class="text-center"></th>
+                                            <th class="ps-3 text-secondary col-min-w-300">Producto</th>
+                                            <th class="text-end text-secondary col-w-100">Stock</th>
+                                            <th class="text-center text-secondary col-w-120">Cantidad</th>
+                                            <th class="text-center text-secondary col-w-140">Precio Unit.</th>
+                                            <th class="text-end text-secondary col-w-140">Subtotal</th>
+                                            <th class="text-center col-w-60"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white"></tbody>
@@ -257,12 +257,12 @@ $estadoLabels = [
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table align-middle mb-0 table-pro" id="tablaDetalleDespacho">
-                                <thead class="table-light border-bottom">
+                                <thead>
                                     <tr>
-                                        <th class="ps-3 text-secondary" style="min-width: 250px;">Producto / Pendiente</th>
-                                        <th class="text-center text-secondary" style="width: 200px;">Almacén Origen</th>
-                                        <th class="text-center text-secondary" style="width: 100px;">Stock</th>
-                                        <th style="width: 160px;" class="text-end pe-3 text-secondary">A Despachar</th>
+                                        <th class="ps-3 text-secondary col-min-w-250">Producto / Pendiente</th>
+                                        <th class="text-center text-secondary col-w-200">Almacén Origen</th>
+                                        <th class="text-center text-secondary col-w-100">Stock</th>
+                                        <th class="text-end pe-3 text-secondary col-w-160">A Despachar</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>

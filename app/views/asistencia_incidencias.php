@@ -101,7 +101,7 @@ $incidencias = $incidencias ?? [];
                        data-search-input="#searchIncidencias"
                        data-pagination-controls="#incidenciasPaginationControls"
                        data-pagination-info="#incidenciasPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Empleado</th>
                             <th class="text-secondary fw-semibold">Tipo</th>

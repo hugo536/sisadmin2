@@ -64,7 +64,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro">
-                    <thead class="bg-light">
+                    <thead>
                         <tr>
                             <th class="ps-4">Código</th>
                             <th>Nombre</th>
