@@ -67,7 +67,12 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaCompras">
+                <table class="table align-middle mb-0 table-pro" id="tablaCompras"
+                       data-erp-table="true"
+                       data-search-input="#filtroBusqueda"
+                       data-pagination-controls="#comprasPaginationControls"
+                       data-pagination-info="#comprasPaginationInfo"
+                       data-erp-filters='[{"el":"#filtroEstado","attr":"data-estado","match":"equals"}]'>
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
@@ -85,7 +90,7 @@ $estadoLabels = [
                                     $estado = (int) ($orden['estado'] ?? 0); 
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
-                                <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom">
+                                <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
                                     <td><?php echo e((string) ($orden['fecha_orden'] ?? '')); ?></td>
@@ -109,13 +114,16 @@ $estadoLabels = [
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted fw-semibold">Mostrando <?php echo count($ordenes); ?> registros</small>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted fw-semibold" id="comprasPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación de compras">
+                    <ul class="pagination mb-0 justify-content-end" id="comprasPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>

@@ -63,7 +63,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro">
+                <table class="table align-middle mb-0 table-pro" id="almacenesTable"
+                   data-erp-table="true"
+                   data-search-input="#filtroBusquedaAlmacen"
+                   data-pagination-controls="#almacenesPaginationControls"
+                   data-pagination-info="#almacenesPaginationInfo">
                     <thead>
                         <tr>
                             <th class="ps-4">Código</th>
@@ -76,7 +80,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </thead>
                     <tbody>
                     <?php if (empty($almacenes)): ?>
-                        <tr><td colspan="7" class="text-center text-muted py-4">No hay almacenes para los filtros aplicados.</td></tr>
+                        <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-4">No hay almacenes para los filtros aplicados.</td></tr>
                     <?php else: foreach ($almacenes as $a): ?>
                         <?php $eliminado = !empty($a['deleted_at']); ?>
                         <tr>

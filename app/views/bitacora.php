@@ -52,7 +52,7 @@ $getEventoBadge = function(string $evento): string {
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input name="evento" value="<?php echo e((string) ($filtros['evento'] ?? '')); ?>" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar evento o descripción..." data-auto-submit="input">
+                        <input id="bitacoraSearch" name="evento" value="<?php echo e((string) ($filtros['evento'] ?? '')); ?>" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar evento o descripción..." data-auto-submit="input">
                     </div>
                 </div>
 
@@ -70,9 +70,13 @@ $getEventoBadge = function(string $evento): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="bitacoraTable">
+                <table class="table align-middle mb-0 table-pro" id="bitacoraTable"
+                       data-erp-table="true"
+                       data-search-input="#bitacoraSearch"
+                       data-pagination-controls="#bitacoraPaginationControls"
+                       data-pagination-info="#bitacoraPaginationInfo">
                     <thead>
-                        <tr>
+                        <tr class="empty-msg-row">
                             <th class="ps-4 col-w-180">Fecha / Hora</th>
                             <th class="col-w-150">Evento</th>
                             <th class="col-w-200">Usuario</th>
@@ -85,7 +89,7 @@ $getEventoBadge = function(string $evento): string {
                             <tr><td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No hay eventos registrados con estos filtros.</td></tr>
                         <?php else: ?>
                             <?php foreach ($logs as $log): ?>
-                                <tr>
+                                <tr data-search="<?php echo e(mb_strtolower((string) $log['evento'] . ' ' . (string) $log['descripcion'] . ' ' . (string) $log['usuario'] . ' ' . (string) $log['ip_address'])); ?>">
                                     <td class="ps-4">
                                         <div class="small text-muted">
                                             <i class="bi bi-calendar3 me-1"></i><?php echo e((string) $log['created_at']); ?>
@@ -118,7 +122,10 @@ $getEventoBadge = function(string $evento): string {
             </div>
             
             <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted">Mostrando los últimos <?php echo count($logs); ?> eventos</small>
+                <small class="text-muted" id="bitacoraPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación bitácora">
+                    <ul class="pagination mb-0 justify-content-end" id="bitacoraPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>
