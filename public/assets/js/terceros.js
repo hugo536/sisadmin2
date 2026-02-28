@@ -810,10 +810,11 @@
         const showTabForInvalidField = (field) => {
             if (!field) return;
             const tabPane = field.closest('.tab-pane');
-            if (!tabPane || tabPane.classList.contains('active')) return;
+            if (!tabPane || tabPane.classList.contains('active')) return false;
             const tabButton = document.querySelector(`[data-bs-target="#${tabPane.id}"]`);
-            if (!tabButton) return;
+            if (!tabButton) return false;
             bootstrap.Tab.getOrCreateInstance(tabButton).show();
+            return true;
         };
 
         ['formCrearTercero', 'formEditarTercero'].forEach(fid => {
@@ -825,8 +826,12 @@
 
                 if (!form.checkValidity()) {
                     const firstInvalid = form.querySelector(':invalid');
-                    showTabForInvalidField(firstInvalid);
-                    form.reportValidity();
+                    const switchedTab = showTabForInvalidField(firstInvalid);
+                    if (switchedTab) {
+                        setTimeout(() => form.reportValidity(), 120);
+                    } else {
+                        form.reportValidity();
+                    }
                     return;
                 }
                 
