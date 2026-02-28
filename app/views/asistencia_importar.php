@@ -64,34 +64,54 @@ $logs = $logs ?? [];
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom-0 pt-4 pb-0 ps-4">
-            <h2 class="h6 fw-bold text-dark mb-0">Registro Histórico de Marcas (Crudo)</h2>
+    <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h2 class="h6 fw-bold text-dark mb-0">Registro Histórico de Marcas (Crudo)</h2>
+        <div class="input-group shadow-sm" style="max-width: 300px;">
+            <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchLogs" placeholder="Buscar empleado o código...">
         </div>
-        <div class="card-body p-0 mt-3">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaAsistenciaLogs">
-                    <thead class="table-light border-bottom border-top">
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">ID</th>
-                            <th class="text-secondary fw-semibold">Cód. Biométrico</th>
-                            <th class="text-secondary fw-semibold">Fecha y Hora (Marca)</th>
-                            <th class="text-secondary fw-semibold">Modo/Tipo</th>
-                            <th class="text-secondary fw-semibold text-center">Estado</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Registro Sistema</th>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 table-pro" id="tablaAsistenciaLogs"
+                   data-erp-table="true"
+                   data-search-input="#searchLogs"
+                   data-pagination-controls="#logsPaginationControls"
+                   data-pagination-info="#logsPaginationInfo">
+                <thead class="bg-light border-bottom">
+                    <tr>
+                        <th class="ps-4 text-secondary fw-semibold border-end">ID</th>
+                        <th class="text-secondary fw-semibold border-end">Cód. Biométrico</th>
+                        <th class="text-secondary fw-semibold border-end">Fecha y Hora (Marca)</th>
+                        <th class="text-secondary fw-semibold border-end">Modo/Tipo</th>
+                        <th class="text-secondary fw-semibold text-center border-end">Estado</th>
+                        <th class="text-end pe-4 text-secondary fw-semibold">Registro Sistema</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody">
+                    <?php if (empty($logs)): ?>
+                        <tr class="empty-msg-row border-bottom-0">
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
+                                Aún no se han importado logs biométricos.
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
+                    <?php else: ?>
                         <?php foreach ($logs as $log): ?>
                             <?php
                                 $procesado = (int) ($log['procesado'] ?? 0) === 1;
-                                $badgeColor = $procesado ? 'bg-success' : 'bg-warning text-dark';
+                                $badgeColor = $procesado ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
                                 $badgeTexto = $procesado ? 'Procesado' : 'Pendiente';
+                                
+                                // Construimos el texto para el buscador
+                                $searchStr = strtolower(($log['id'] ?? '') . ' ' . ($log['nombre_completo'] ?? '') . ' ' . ($log['codigo_biometrico'] ?? '') . ' ' . ($log['tipo_marca'] ?? ''));
                             ?>
-                            <tr class="border-bottom">
-                                <td class="ps-4 text-muted small align-top pt-3">
+                            <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                <td class="ps-4 text-muted small align-top pt-3 border-end" style="background-color: #fcfcfc;">
                                     #<?php echo str_pad((string)(int)($log['id'] ?? 0), 5, '0', STR_PAD_LEFT); ?>
                                 </td>
-                                <td class="align-top pt-3">
+                                <td class="align-top pt-3 border-end">
                                     <?php if (!empty($log['nombre_completo'])): ?>
                                         <div class="fw-bold text-dark" style="font-size: 0.95rem;">
                                             <?php echo e((string)$log['nombre_completo']); ?>
@@ -108,15 +128,15 @@ $logs = $logs ?? [];
                                         </span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="fw-medium text-dark align-top pt-3">
-                                    <i class="bi bi-clock small text-muted me-1"></i>
+                                <td class="fw-medium text-dark align-top pt-3 border-end">
+                                    <i class="bi bi-clock small text-muted me-1 opacity-50"></i>
                                     <?php echo e((string) ($log['fecha_hora_marca'] ?? '')); ?>
                                 </td>
-                                <td class="align-top pt-3">
+                                <td class="align-top pt-3 border-end">
                                     <span class="d-block text-dark"><?php echo e((string) ($log['tipo_marca'] ?? 'Desconocido')); ?></span>
                                     <small class="text-muted" style="font-size: 0.7rem;">Disp: <?php echo e((string) ($log['nombre_dispositivo'] ?? '')); ?></small>
                                 </td>
-                                <td class="text-center align-top pt-3">
+                                <td class="text-center align-top pt-3 border-end">
                                     <span class="badge px-3 py-1 rounded-pill <?php echo $badgeColor; ?>" style="font-size: 0.75rem;">
                                         <?php echo $badgeTexto; ?>
                                     </span>
@@ -127,9 +147,20 @@ $logs = $logs ?? [];
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
+        
+        <?php if (!empty($logs)): ?>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+            <div class="small text-muted fw-medium" id="logsPaginationInfo">Procesando...</div>
+            <nav aria-label="Paginación">
+                <ul class="pagination mb-0 shadow-sm" id="logsPaginationControls"></ul>
+            </nav>
+        </div>
+        <?php endif; ?>
+        
     </div>
+</div>
 </div>

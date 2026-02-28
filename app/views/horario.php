@@ -78,12 +78,20 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
 
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4">
+                <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-check me-2 text-primary"></i>Catálogo de Turnos Registrados</h6>
+                    <div class="input-group shadow-sm" style="max-width: 250px;">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 form-control-sm" id="searchTurnos" placeholder="Buscar turno...">
+                    </div>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body p-0 d-flex flex-column justify-content-between">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0 table-pro">
+                        <table class="table align-middle mb-0 table-pro" id="tablaTurnos"
+                               data-erp-table="true"
+                               data-search-input="#searchTurnos"
+                               data-pagination-controls="#turnosPaginationControls"
+                               data-pagination-info="#turnosPaginationInfo">
                             <thead class="bg-light">
                                 <tr>
                                     <th class="ps-4 text-secondary fw-semibold border-end">Nombre del Turno</th>
@@ -93,9 +101,9 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                     <th class="text-center text-secondary fw-semibold pe-4" style="width: 100px;">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="turnosTableBody">
                                 <?php if (empty($horarios)): ?>
-                                    <tr>
+                                    <tr class="empty-msg-row">
                                         <td colspan="5" class="text-center text-muted py-5 border-bottom-0">
                                             <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                             No hay turnos registrados.
@@ -103,8 +111,11 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($horarios as $horario): ?>
-                                        <?php $activo = ((int) $horario['estado'] === 1); ?>
-                                        <tr class="border-bottom">
+                                        <?php 
+                                            $activo = ((int) $horario['estado'] === 1); 
+                                            $searchStrTurno = strtolower($horario['nombre'] . ' ' . ($activo ? 'activo' : 'inactivo'));
+                                        ?>
+                                        <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStrTurno, ENT_QUOTES, 'UTF-8'); ?>">
                                             <td class="ps-4 fw-semibold text-dark">
                                                 <?php echo e($horario['nombre']); ?>
                                             </td>
@@ -148,6 +159,14 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                             </tbody>
                         </table>
                     </div>
+                    <?php if (!empty($horarios)): ?>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white mt-auto">
+                        <div class="small text-muted fw-medium" id="turnosPaginationInfo">Procesando...</div>
+                        <nav aria-label="Paginación de turnos">
+                            <ul class="pagination mb-0 shadow-sm" id="turnosPaginationControls"></ul>
+                        </nav>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -210,14 +229,18 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                 <h2 class="h6 fw-bold text-dark mb-0">Resumen Semanal de Empleados</h2>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3"><?php echo count($empleadosAgrupados); ?> Empleados con turno</span>
             </div>
-            <div class="input-group" style="max-width: 300px;">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-start-0 ps-0" id="searchEmpleadoHorario" placeholder="Buscar empleado o código...">
+            <div class="input-group shadow-sm" style="max-width: 300px;">
+                <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchEmpleadoHorario" placeholder="Buscar empleado o código...">
             </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive horario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="horariosTable" data-erp-table="true" data-search-input="#searchEmpleadoHorario" data-pagination-info="#horariosPaginationInfo" data-pagination-controls="#horariosPaginationControls" data-rows-per-page="25" data-search-normalize="accent" data-info-text="results">
+                <table class="table align-middle mb-0 table-pro" id="horariosTable" 
+                       data-erp-table="true" 
+                       data-search-input="#searchEmpleadoHorario" 
+                       data-pagination-info="#horariosPaginationInfo" 
+                       data-pagination-controls="#horariosPaginationControls">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold border-end" style="width: 25%;">Empleado</th>
@@ -229,7 +252,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                     </thead>
                     <tbody id="horariosTableBody">
                         <?php if (empty($empleadosAgrupados)): ?>
-                            <tr>
+                            <tr class="empty-msg-row">
                                 <td colspan="9" class="text-center text-muted py-5 border-bottom-0">
                                     <i class="bi bi-calendar-x fs-1 d-block mb-2 text-light"></i>
                                     No hay horarios asignados a los empleados.
@@ -275,7 +298,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
             
             <?php if (!empty($empleadosAgrupados)): ?>
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
-                <div class="small text-muted fw-medium" id="horariosPaginationInfo">Mostrando 0-0 de 0 resultados</div>
+                <div class="small text-muted fw-medium" id="horariosPaginationInfo">Procesando...</div>
                 <nav aria-label="Paginación de horarios">
                     <ul class="pagination mb-0 shadow-sm" id="horariosPaginationControls"></ul>
                 </nav>
@@ -362,10 +385,42 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
+    // ==========================================
+    // INICIALIZACIÓN DE TABLAS CON ERPTable
+    // ==========================================
+    if (typeof window.ERPTable !== 'undefined') {
+        
+        // Tooltips Globales
+        ERPTable.initTooltips();
+        
+        // Inicializar Tabla 1: Catálogo de Turnos (10 filas por página para que encaje bien a un lado del form)
+        ERPTable.createTableManager({
+            tableSelector: '#tablaTurnos',
+            rowsSelector: '#turnosTableBody tr:not(.empty-msg-row)',
+            searchInput: '#searchTurnos',
+            searchAttr: 'data-search',
+            rowsPerPage: 10, 
+            paginationControls: '#turnosPaginationControls',
+            paginationInfo: '#turnosPaginationInfo',
+            emptyText: 'No se encontraron turnos',
+            infoText: ({ start, end, total }) => `${start}-${end} de ${total}`
+        }).init();
 
+        // Inicializar Tabla 2: Resumen Semanal de Empleados (25 filas)
+        ERPTable.createTableManager({
+            tableSelector: '#horariosTable',
+            rowsSelector: '#horariosTableBody tr:not(.empty-msg-row)',
+            searchInput: '#searchEmpleadoHorario',
+            searchAttr: 'data-search',
+            rowsPerPage: 25,
+            paginationControls: '#horariosPaginationControls',
+            paginationInfo: '#horariosPaginationInfo',
+            emptyText: 'No hay horarios asignados',
+            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} empleados`
+        }).init();
+
+    } else {
+        console.error("ERPTable no encontrado.");
+    }
 });
 </script>

@@ -68,7 +68,7 @@ $tipoItemLabel = static function (string $tipo): string {
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores">
                 <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
             </button>
-            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
+            <button class="btn btn-primary shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
                 <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
             </button>
         </div>
@@ -78,13 +78,13 @@ $tipoItemLabel = static function (string $tipo): string {
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="itemSearch" placeholder="Buscar ítem...">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="itemSearch" placeholder="Buscar por código, nombre o SKU...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light" id="itemFiltroCategoria">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroCategoria">
                         <option value="">Todas las categorías</option>
                         <?php foreach ($categoriasGestion as $categoria): ?>
                             <option value="<?php echo (int) ($categoria['id'] ?? 0); ?>">
@@ -94,7 +94,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="itemFiltroTipo">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado">Producto terminado</option>
                         <option value="materia_prima">Materia prima</option>
@@ -105,7 +105,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="itemFiltroEstado">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activo</option>
                         <option value="0">Inactivo</option>
@@ -118,23 +118,21 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive inventario-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="itemsTable">
-                    <thead class="inventario-sticky-thead bg-light">
+                    <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-center" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> <th>SKU</th>
-                            <th>Nombre</th>
-                            <th>Tipo</th>
-                            <th>Categoría</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="ps-4 text-center border-end" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> 
+                            <th class="text-secondary fw-semibold border-end">SKU</th>
+                            <th class="text-secondary fw-semibold border-end">Nombre</th>
+                            <th class="text-secondary fw-semibold border-end">Tipo</th>
+                            <th class="text-secondary fw-semibold border-end">Categoría</th>
+                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="itemsTableBody">
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-5">
+                        <tr class="empty-msg-row">
+                            <td colspan="7" class="text-center text-muted py-5">
                                 <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
                                 Cargando ítems...
                             </td>
@@ -142,25 +140,15 @@ $tipoItemLabel = static function (string $tipo): string {
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
-
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
-        <div class="small text-muted" id="itemsPaginationInfo">Cargando información...</div>
-        <nav aria-label="Paginación de ítems">
-            <ul class="pagination pagination-sm mb-0" id="itemsPaginationControls">
-                </ul>
-        </nav>
-    </div>
+            
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+                <div class="small text-muted fw-medium" id="itemsPaginationInfo">Cargando información...</div>
+                <nav aria-label="Paginación de ítems">
+                    <ul class="pagination mb-0 shadow-sm" id="itemsPaginationControls"></ul>
+                </nav>
             </div>
-        </div>
-    </div>
 
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
-        <div class="small text-muted" id="itemsPaginationInfo">Cargando...</div>
-        <nav aria-label="Paginación de ítems">
-            <ul class="pagination pagination-sm mb-0" id="itemsPaginationControls"></ul>
-        </nav>
+        </div>
     </div>
 </div>
 
@@ -168,3 +156,39 @@ $tipoItemLabel = static function (string $tipo): string {
 <?php require BASE_PATH . '/app/views/items/partials/_modal_editar.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_unidades.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_categorias.php'; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.ERPTable !== 'undefined') {
+        
+        ERPTable.initTooltips();
+        
+        // Guardamos la instancia en una variable global (window.itemsTableManager)
+        // Por si tu archivo JS externo (items.js) necesita llamar a window.itemsTableManager.refresh() 
+        // después de dibujar las filas traídas por AJAX.
+        window.itemsTableManager = ERPTable.createTableManager({
+            tableSelector: '#itemsTable',
+            rowsSelector: '#itemsTableBody tr:not(.empty-msg-row)', // Ignora la fila de "Cargando..."
+            searchInput: '#itemSearch',
+            searchAttr: 'data-search',
+            rowsPerPage: 25, 
+            paginationControls: '#itemsPaginationControls',
+            paginationInfo: '#itemsPaginationInfo',
+            emptyText: 'No se encontraron ítems',
+            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} ítems`,
+            
+            // CONFIGURACIÓN DE LOS 3 FILTROS
+            filters: [
+                { el: '#itemFiltroCategoria', attr: 'data-categoria', match: 'equals' },
+                { el: '#itemFiltroTipo', attr: 'data-tipo', match: 'equals' },
+                { el: '#itemFiltroEstado', attr: 'data-estado', match: 'equals' }
+            ],
+            
+            // Si la tabla se llena por AJAX dinámicamente, esto ayuda a que la tabla 
+            // recalcule las páginas cada vez que el usuario teclee algo, asegurándose de leer el DOM actual
+            refreshOnUpdate: true 
+        }).init();
+        
+    }
+});
+</script>

@@ -156,22 +156,21 @@
     function renderPaginationControls(totalPages) {
       paginationControlsEl.innerHTML = '';
       
-      // Si quieres asegurarte de que los botones sean grandes, 
-      // quitamos cualquier clase "pagination-sm" del contenedor padre por si acaso.
+      // Aseguramos que no tenga tamaño pequeño (DataTables usa el tamaño normal)
       if (paginationControlsEl.classList.contains('pagination-sm')) {
         paginationControlsEl.classList.remove('pagination-sm');
       }
 
-      if (totalPages <= 1) return;
+      // ELIMINAMOS EL "if (totalPages <= 1) return;" 
+      // Ahora siempre dibujaremos la botonera, incluso si hay solo 1 página.
+      const safeTotalPages = totalPages < 1 ? 1 : totalPages;
 
       const createItem = (text, page, isActive = false, isDisabled = false) => {
         const li = document.createElement('li');
         li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
 
         const a = document.createElement('a');
-        // SE ELIMINÓ: a.className = 'page-link text-primary';
-        // AHORA ES: 
-        a.className = 'page-link'; 
+        a.className = 'page-link'; // Esto da el color nativo azul de Bootstrap
         a.href = '#';
         a.textContent = String(text);
 
@@ -198,8 +197,6 @@
         const li = document.createElement('li');
         li.className = 'page-item disabled';
         const span = document.createElement('span');
-        // SE ELIMINÓ: span.className = 'page-link text-muted';
-        // AHORA ES:
         span.className = 'page-link';
         span.textContent = '...';
         li.appendChild(span);
@@ -207,10 +204,10 @@
       };
 
       const buildPages = () => {
-        const pages = new Set([1, totalPages]);
+        const pages = new Set([1, safeTotalPages]);
         const siblingCount = 1;
         for (let i = currentPage - siblingCount; i <= currentPage + siblingCount; i += 1) {
-          if (i > 1 && i < totalPages) pages.add(i);
+          if (i > 1 && i < safeTotalPages) pages.add(i);
         }
         const ordered = Array.from(pages).sort((a, b) => a - b);
         const tokens = [];
@@ -221,14 +218,17 @@
         return tokens;
       };
 
+      // 1. Dibujamos botón Anterior
       paginationControlsEl.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
 
+      // 2. Dibujamos los números (1, 2, 3...)
       buildPages().forEach((token) => {
         if (token === 'dots') paginationControlsEl.appendChild(createDots());
         else paginationControlsEl.appendChild(createItem(token, token, token === currentPage));
       });
 
-      paginationControlsEl.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === totalPages));
+      // 3. Dibujamos botón Siguiente
+      paginationControlsEl.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === safeTotalPages));
     }
 
     function showRows(visibleRows) {

@@ -134,12 +134,7 @@ $empleados = $empleados ?? [];
         </div>
         <div class="card-body p-0">
             <div class="table-responsive asistencia-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="asistenciaTable"
-                                data-erp-table="true"
-                                data-search-input="#searchAsistencia"
-                                data-pagination-controls="#asistenciaPaginationControls"
-                                data-pagination-info="#asistenciaPaginationInfo"
-                                data-info-text="results">
+                <table class="table align-middle mb-0 table-pro" id="asistenciaTable">
                     <thead class="asistencia-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold border-end">Fecha</th>
@@ -152,8 +147,8 @@ $empleados = $empleados ?? [];
                     </thead>
                     <tbody id="asistenciaTableBody">
                         <?php if (empty($registros)): ?>
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-5 border-bottom-0">
+                            <tr class="empty-msg-row border-bottom-0">
+                                <td colspan="6" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     No hay datos de asistencia para los filtros seleccionados.
                                 </td>
@@ -213,22 +208,24 @@ $empleados = $empleados ?? [];
                 </table>
             </div>
             
-            <?php if (!empty($registros)): ?>
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
-                <div class="small text-muted fw-medium" id="asistenciaPaginationInfo">Mostrando 0-0 de 0 resultados</div>
-                <nav aria-label="Paginación de asistencia">
+                <div class="small text-muted fw-medium" id="asistenciaPaginationInfo">Procesando...</div>
+                <nav aria-label="Paginación">
                     <ul class="pagination mb-0 shadow-sm" id="asistenciaPaginationControls"></ul>
                 </nav>
             </div>
-            <?php endif; ?>
             
         </div>
     </div>
 </div>
 
 <script>
+// =========================================================
+// AHORA ESPERAMOS A QUE EL DOM CARGUE POR COMPLETO
+// =========================================================
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Lógica para alternar campos de periodo (Día, Semana, Mes, Rango)
+    
+    // 1. Lógica para alternar campos de periodo (Mantenida intacta)
     const periodoSelect = document.querySelector('select[name="periodo"]');
     if (periodoSelect) {
         const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
@@ -237,7 +234,6 @@ document.addEventListener('DOMContentLoaded', function () {
             camposPeriodo.forEach(function (campo) {
                 const visible = campo.getAttribute('data-period-field') === seleccionado;
                 campo.classList.toggle('d-none', !visible);
-                // Evitamos que inputs ocultos bloqueen el formulario
                 const inputs = campo.querySelectorAll('input');
                 inputs.forEach(inp => {
                     if(!visible) inp.removeAttribute('required');
@@ -248,7 +244,28 @@ document.addEventListener('DOMContentLoaded', function () {
         periodoSelect.addEventListener('change', alternarCampos);
         alternarCampos();
     }
-    
-    // ¡Listo! No necesitamos JS para la tabla porque main.js la auto-inicializa
+
+    // ==========================================
+    // 2. INICIALIZACIÓN EXPLÍCITA A PRUEBA DE FALLOS
+    // ==========================================
+    if (typeof window.ERPTable !== 'undefined') {
+        ERPTable.initTooltips();
+        
+        ERPTable.createTableManager({
+            tableSelector: '#asistenciaTable',
+            // IGNORAMOS LA FILA VACÍA PARA QUE NO ROMPA EL CÁLCULO
+            rowsSelector: '#asistenciaTableBody tr:not(.empty-msg-row)', 
+            searchInput: '#searchAsistencia',
+            searchAttr: 'data-search',
+            rowsPerPage: 25, 
+            paginationControls: '#asistenciaPaginationControls',
+            paginationInfo: '#asistenciaPaginationInfo',
+            emptyText: 'No hay registros para mostrar',
+            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} registros`
+        }).init();
+        
+    } else {
+        console.error("No se encontró ERPTable. Verifica que public/assets/js/tablas/renderizadores.js se esté cargando correctamente en tu Layout.");
+    }
 });
 </script>

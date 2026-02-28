@@ -10,28 +10,27 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
             </h1>
             <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas y semielaborados.</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
             <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionParametrosCatalogo">
                 <i class="bi bi-sliders me-2 text-info"></i>Parámetros
             </button>
-            <button class="btn btn-primary shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta" id="btnNuevaReceta">
+            <button class="btn btn-primary shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta" id="btnNuevaReceta">
                 <i class="bi bi-plus-circle me-2"></i>Nueva receta
             </button>
         </div>
     </div>
 
-    <!-- Tabla y filtros (sin cambios) -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="recetaSearch" placeholder="Buscar por código, producto...">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="recetaSearch" placeholder="Buscar por código, producto...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light" id="recetaFiltroEstado">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="recetaFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activas</option>
                         <option value="0">Inactivas</option>
@@ -45,75 +44,106 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table id="tablaRecetas" class="table align-middle mb-0 table-pro">
-                    <thead>
+                <table id="tablaRecetas" class="table align-middle mb-0 table-pro"
+                       data-erp-table="true"
+                       data-search-input="#recetaSearch"
+                       data-pagination-controls="#recetasPaginationControls"
+                       data-pagination-info="#recetasPaginationInfo">
+                    <thead class="bg-light border-bottom">
                         <tr>
-                            <th class="ps-4">Código</th>
-                            <th>Producto Terminado</th>
-                            <th>Versión</th>
-                            <th>N° Insumos</th>
-                            <th>Costo Teórico</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="ps-4 text-secondary fw-semibold border-end">Código</th>
+                            <th class="text-secondary fw-semibold border-end">Producto Terminado</th>
+                            <th class="text-secondary fw-semibold border-end">Versión</th>
+                            <th class="text-secondary fw-semibold border-end">N° Insumos</th>
+                            <th class="text-secondary fw-semibold border-end">Costo Teórico</th>
+                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach ($recetas as $receta): ?>
-                            <tr data-search="<?php echo mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']); ?>"
-                                data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
-                                <td class="ps-4 fw-semibold text-primary"><?php echo e((string) $receta['codigo']); ?></td>
-                                <td>
-                                    <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
-                                    <div class="small text-muted"><?php echo e((string) ($receta['descripcion'] ?? '')); ?></div>
-                                </td>
-                                <td><span class="badge bg-light text-dark border">v.<?php echo (int) $receta['version']; ?></span></td>
-                                <td><?php echo (int) $receta['total_insumos']; ?> ítems</td>
-                                <td>S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?></td>
-                                <td class="text-center">
-                                    <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Sin receta</span>
-                                    <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 rounded-pill">Activa</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 rounded-pill">Inactiva</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-warning js-agregar-receta"
-                                                data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
-                                                data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
-                                                data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
-                                                data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
-                                                data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
-                                                title="Agregar receta inicial">
-                                            <i class="bi bi-journal-plus me-1"></i>Agregar receta
-                                        </button>
-                                    <?php else: ?>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary js-nueva-version"
-                                                data-id-receta="<?php echo (int) $receta['id']; ?>"
-                                                data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
-                                                data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
-                                                title="Editar y crear nueva versión">
-                                            <i class="bi bi-files me-1"></i>Nueva Versión
-                                        </button>
-                                    <?php endif; ?>
+                    <tbody id="recetasTableBody">
+                        <?php if (empty($recetas)): ?>
+                            <tr class="empty-msg-row border-bottom-0">
+                                <td colspan="7" class="text-center text-muted py-5">
+                                    <i class="bi bi-journal-x fs-1 d-block mb-2 text-light"></i>
+                                    No hay recetas registradas en el catálogo.
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php foreach ($recetas as $receta): ?>
+                                <tr class="border-bottom" 
+                                    data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
+                                    
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                        <?php echo e((string) $receta['codigo']); ?>
+                                    </td>
+                                    <td class="align-top pt-3 border-end">
+                                        <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
+                                        <div class="small text-muted"><?php echo e((string) ($receta['descripcion'] ?? '')); ?></div>
+                                    </td>
+                                    <td class="align-top pt-3 border-end">
+                                        <span class="badge bg-light text-dark border shadow-sm">v.<?php echo (int) $receta['version']; ?></span>
+                                    </td>
+                                    <td class="align-top pt-3 border-end">
+                                        <span class="fw-medium text-secondary"><?php echo (int) $receta['total_insumos']; ?> ítems</span>
+                                    </td>
+                                    <td class="align-top pt-3 border-end text-success fw-medium">
+                                        S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?>
+                                    </td>
+                                    <td class="text-center align-top pt-3 border-end">
+                                        <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill">Sin receta</span>
+                                        <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">Activa</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">Inactiva</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end pe-4 align-top pt-3">
+                                        <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-warning fw-semibold js-agregar-receta"
+                                                    data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                    data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
+                                                    data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                    data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
+                                                    data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
+                                                    data-bs-toggle="tooltip"
+                                                    title="Agregar receta inicial">
+                                                <i class="bi bi-journal-plus me-1"></i>Agregar receta
+                                            </button>
+                                        <?php else: ?>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary fw-semibold js-nueva-version"
+                                                    data-id-receta="<?php echo (int) $receta['id']; ?>"
+                                                    data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                    data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                    data-bs-toggle="tooltip"
+                                                    title="Editar y crear nueva versión">
+                                                <i class="bi bi-files me-1"></i>Nueva Versión
+                                            </button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted">Mostrando <?php echo count($recetas); ?> recetas</small>
+            
+            <?php if (!empty($recetas)): ?>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+                <div class="small text-muted fw-medium" id="recetasPaginationInfo">Procesando...</div>
+                <nav aria-label="Paginación de Recetas">
+                    <ul class="pagination mb-0 shadow-sm" id="recetasPaginationControls"></ul>
+                </nav>
             </div>
+            <?php endif; ?>
+            
         </div>
     </div>
 </div>
 
-<!-- ====================== MODAL NUEVA RECETA / NUEVA VERSIÓN ====================== -->
 <div class="modal fade" id="modalCrearReceta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
@@ -176,7 +206,6 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                         </div>
                     </div>
 
-                    <!-- El resto del modal (BOM, Parámetros, Resumen) permanece igual -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -215,59 +244,59 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                     </div>
 
                     <template id="parametroTemplate">
-                    <div class="row g-2 align-items-center mb-2 parametro-row">
-                        <div class="col-md-5">
-                            <select class="form-select form-select-sm" name="parametro_id[]" required>
-                                <option value="">Seleccione parámetro...</option>
+                        <div class="row g-2 align-items-center mb-2 parametro-row">
+                            <div class="col-md-5">
+                                <select class="form-select form-select-sm" name="parametro_id[]" required>
+                                    <option value="">Seleccione parámetro...</option>
                                 </select>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="number" class="form-control form-control-sm" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo" required>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-param" title="Eliminar parámetro">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-md-5">
-                            <input type="number" class="form-control form-control-sm" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo" required>
-                        </div>
-                        <div class="col-md-2 text-end">
-                            <button type="button" class="btn btn-sm btn-outline-danger js-remove-param" title="Eliminar parámetro">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </template>
+                    </template>
 
-                <template id="detalleRecetaTemplate">
-                    <div class="row g-2 align-items-center mb-2 detalle-row pb-2 border-bottom">
-                        <div class="col-md-4">
-                            <select class="form-select form-select-sm select-insumo" name="insumo_id[]" required></select>
-                            <input type="hidden" class="input-etapa-hidden" name="insumo_etapa[]" value="General">
-                        </div>
-                        <div class="col-md-2">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-light text-muted" title="Cantidad">Cant.</span>
-                                <input type="number" class="form-control input-cantidad" name="insumo_cantidad[]" step="0.0001" value="1" required>
+                    <template id="detalleRecetaTemplate">
+                        <div class="row g-2 align-items-center mb-2 detalle-row pb-2 border-bottom">
+                            <div class="col-md-4">
+                                <select class="form-select form-select-sm select-insumo" name="insumo_id[]" required></select>
+                                <input type="hidden" class="input-etapa-hidden" name="insumo_etapa[]" value="General">
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted" title="Cantidad">Cant.</span>
+                                    <input type="number" class="form-control input-cantidad" name="insumo_cantidad[]" step="0.0001" value="1" required>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted" title="% de Merma">% M.</span>
+                                    <input type="number" class="form-control input-merma" name="insumo_merma[]" step="0.01" value="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted" title="Costo Unitario">C.U. S/</span>
+                                    <input type="number" class="form-control bg-light input-costo-unitario" name="insumo_costo[]" step="0.0001" value="0" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control bg-light input-costo-item text-primary fw-bold px-1 text-center" value="0.0000" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Eliminar insumo">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="col-md-2">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-light text-muted" title="% de Merma">% M.</span>
-                                <input type="number" class="form-control input-merma" name="insumo_merma[]" step="0.01" value="0">
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-light text-muted" title="Costo Unitario">C.U. S/</span>
-                                <input type="number" class="form-control bg-light input-costo-unitario" name="insumo_costo[]" step="0.0001" value="0" readonly>
-                            </div>
-                        </div>
-                        <div class="col-md-1">
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control bg-light input-costo-item text-primary fw-bold px-1 text-center" value="0.0000" readonly>
-                            </div>
-                        </div>
-                        <div class="col-md-1 text-end">
-                            <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Eliminar insumo">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </template>
+                    </template>
 
                     <div class="d-flex justify-content-end pt-3 pb-2">
                         <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
@@ -310,7 +339,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 
                 <div class="table-responsive">
                     <table class="table align-middle table-sm mb-0">
-                        <thead>
+                        <thead class="bg-light">
                             <tr>
                                 <th>Nombre</th>
                                 <th>Unidad</th>
@@ -322,12 +351,13 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                             <?php if (!empty($parametrosCatalogo)): ?>
                                 <?php foreach ($parametrosCatalogo as $param): ?>
                                     <tr>
-                                        <td class="fw-semibold"><?php echo e((string) ($param['nombre'] ?? '')); ?></td>
-                                        <td><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></td>
-                                        <td><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
+                                        <td class="fw-semibold text-dark"><?php echo e((string) ($param['nombre'] ?? '')); ?></td>
+                                        <td><span class="badge bg-secondary-subtle text-secondary border"><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></span></td>
+                                        <td class="text-muted small"><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
                                         <td class="text-end">
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-primary js-editar-param-catalogo"
+                                                    class="btn btn-sm btn-light text-primary rounded-circle border-0 js-editar-param-catalogo"
+                                                    data-bs-toggle="tooltip" title="Editar"
                                                     data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
                                                     data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
                                                     data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
@@ -337,7 +367,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                                             <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este parámetro?');">
                                                 <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
                                                 <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0" data-bs-toggle="tooltip" title="Eliminar">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
@@ -358,3 +388,30 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 </div>
 
 <script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.3"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.ERPTable !== 'undefined') {
+        
+        ERPTable.initTooltips();
+        
+        ERPTable.createTableManager({
+            tableSelector: '#tablaRecetas',
+            rowsSelector: '#recetasTableBody tr:not(.empty-msg-row)', // Excluye la fila de mensaje vacío
+            searchInput: '#recetaSearch',
+            searchAttr: 'data-search',
+            rowsPerPage: 25, 
+            paginationControls: '#recetasPaginationControls',
+            paginationInfo: '#recetasPaginationInfo',
+            emptyText: 'No se encontraron recetas',
+            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} recetas`,
+            
+            // Filtro personalizado de estado
+            filters: [
+                { el: '#recetaFiltroEstado', attr: 'data-estado', match: 'equals' }
+            ]
+        }).init();
+        
+    }
+});
+</script>
