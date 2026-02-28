@@ -61,11 +61,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                        data-pagination-info="#opPaginationInfo">
                     <thead class="bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Código OP</th>
-                            <th class="text-secondary fw-semibold border-end">Producto / Receta</th>
-                            <th class="text-secondary fw-semibold border-end">Planificado / Real</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Stock</th> 
-                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="ps-4 text-secondary fw-semibold">Código OP</th>
+                            <th class="text-secondary fw-semibold">Producto / Receta</th>
+                            <th class="text-secondary fw-semibold">Planificado / Real</th>
+                            <th class="text-center text-secondary fw-semibold">Stock</th> 
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -92,11 +92,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>" 
                                     data-estado="<?php echo $estado; ?>">
                                     
-                                    <td class="ps-4 fw-bold text-primary align-top pt-3 border-end <?php echo $estado === 9 ? "text-decoration-line-through text-muted" : ""; ?>" style="background-color: #fcfcfc;">
+                                    <td class="ps-4 fw-bold text-primary align-top pt-3 <?php echo $estado === 9 ?"text-decoration-line-through text-muted" : ""; ?>">
                                         <?php echo e((string) $orden['codigo']); ?>
                                     </td>
                                     
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <div class="fw-bold text-dark <?php echo $estado === 9 ? "text-decoration-line-through text-muted" : ""; ?>"><?php echo e((string) $orden['producto_nombre']); ?></div>
                                         <div class="small text-muted"><i class="bi bi-receipt me-1"></i><?php echo e((string) $orden['receta_codigo']); ?></div>
                                         <?php if (!empty($orden['justificacion_ajuste'])): ?>
@@ -104,7 +104,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php endif; ?>
                                     </td>
                                     
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <div class="d-flex flex-column align-items-start">
                                             <span class="badge bg-light text-dark border mb-1">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
                                             <?php if (!empty($orden['fecha_programada'])): ?>
@@ -122,7 +122,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </div>
                                     </td>
                                     
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if ($estado === 0): // Solo evaluamos stock visualmente en Borrador ?>
                                             <?php if ($precheckOk): ?>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
@@ -143,7 +143,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php endif; ?>
                                     </td>
 
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if ($estado === 0): ?>
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">Borrador</span>
                                         <?php elseif ($estado === 1): ?>

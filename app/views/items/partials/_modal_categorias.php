@@ -20,7 +20,7 @@
                             <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0" id="tablaSaboresGestion">
+                            <table class="table table-sm align-middle mb-0 table-pro" id="tablaSaboresGestion">
                                 <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($saboresGestion as $sabor): ?>
@@ -48,7 +48,7 @@
                             <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0" id="tablaPresentacionesGestion">
+                            <table class="table table-sm align-middle mb-0 table-pro" id="tablaPresentacionesGestion">
                                 <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($presentacionesGestion as $presentacion): ?>
@@ -73,7 +73,7 @@
                             <div class="col-md-2 d-grid"><button type="submit" class="btn btn-primary">Agregar</button></div>
                         </form>
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0" id="tablaMarcasGestion">
+                            <table class="table table-sm align-middle mb-0 table-pro" id="tablaMarcasGestion">
                                 <thead><tr><th>Nombre</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($marcasGestion as $marca): ?>
@@ -113,7 +113,7 @@
                     <div class="col-12 d-flex justify-content-end gap-2"><button type="button" class="btn btn-light" id="btnResetRubro">Limpiar</button><button type="submit" class="btn btn-primary" id="btnGuardarRubro">Guardar</button></div>
                 </form>
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 table-pro">
                         <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                         <tbody>
                             <?php foreach ($rubrosGestion as $rubro): ?>
@@ -152,7 +152,7 @@
                     <div class="col-12 d-flex justify-content-end gap-2"><button type="button" class="btn btn-light" id="btnResetCategoria">Limpiar</button><button type="submit" class="btn btn-primary" id="btnGuardarCategoria">Guardar</button></div>
                 </form>
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 table-pro">
                         <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                         <tbody>
                             <?php foreach ($categoriasGestion as $categoria): ?>

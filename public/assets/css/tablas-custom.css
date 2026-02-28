@@ -1,0 +1,60 @@
+/* =========================================================
+   ESTILOS GLOBALES PARA TODAS LAS TABLAS DEL ERP
+   ========================================================= */
+
+:root {
+    --erp-table-header-bg: #f8f9fa;      /* Color fondo encabezado */
+    --erp-table-header-text: #6c757d;    /* Color texto encabezado */
+    --erp-table-border-color: #dee2e6;  /* Color de las rayas/bordes */
+    --erp-primary: #0d6efd;             /* Color principal (Azul) */
+    --erp-font-size: 0.9rem;            /* Tamaño de letra general */
+}
+
+/* 1. Estilo general de la tabla */
+.table-pro {
+    font-size: var(--erp-font-size);
+}
+
+/* 2. Rayas entre columnas (Bordes verticales) */
+/* En lugar de poner 'border-end' en cada PHP, esto lo hace automático */
+.table-pro thead th, 
+.table-pro tbody td {
+    border-right: 1px solid var(--erp-table-border-color) !important;
+}
+
+/* 3. El encabezado (Header) */
+.table-pro thead {
+    background-color: var(--erp-table-header-bg);
+    text-transform: none; /* Puedes poner 'uppercase' si quieres todo en mayúsculas */
+}
+
+.table-pro thead th {
+    color: var(--erp-table-header-text);
+    font-weight: 600;
+    padding: 12px 15px;
+}
+
+/* 4. Estilo de la Paginación (Botones) */
+.pagination .page-link {
+    color: var(--erp-primary);
+    border-radius: 5px; /* Bordes de los botones */
+    margin: 0 2px;
+    transition: all 0.2s;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--erp-primary);
+    border-color: var(--erp-primary);
+    color: #ffffff;
+    font-weight: bold;
+}
+
+/* 5. Iconos dentro de las tablas */
+.table-pro i {
+    vertical-align: middle;
+}
+
+/* 6. Efecto al pasar el mouse (Hover) */
+.table-pro tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.03); /* Un azul muy sutil */
+}

@@ -103,11 +103,11 @@ $incidencias = $incidencias ?? [];
                        data-pagination-info="#incidenciasPaginationInfo">
                     <thead class="bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Empleado</th>
-                            <th class="text-secondary fw-semibold border-end">Tipo</th>
-                            <th class="text-secondary fw-semibold border-end">Periodo</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Goce de Sueldo</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Respaldo</th>
+                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
+                            <th class="text-secondary fw-semibold">Tipo</th>
+                            <th class="text-secondary fw-semibold">Periodo</th>
+                            <th class="text-center text-secondary fw-semibold">Goce de Sueldo</th>
+                            <th class="text-center text-secondary fw-semibold">Respaldo</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -136,27 +136,27 @@ $incidencias = $incidencias ?? [];
                                     $searchStr = strtolower(($row['empleado'] ?? '') . ' ' . $tipo);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 fw-semibold text-dark align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                    <td class="ps-4 fw-semibold text-dark align-top pt-3">
                                         <?php echo e((string) ($row['empleado'] ?? '')); ?>
                                     </td>
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <span class="badge rounded-pill <?php echo $badgeTipo; ?> px-2 py-1" style="font-size: 0.75rem;">
                                             <?php echo e(str_replace('_', ' ', $tipo)); ?>
                                         </span>
                                     </td>
-                                    <td class="align-top pt-3 fw-medium text-secondary border-end" style="font-size: 0.85rem;">
+                                    <td class="align-top pt-3 fw-medium text-secondary">
                                         <i class="bi bi-calendar3 small text-muted me-1"></i>
                                         <?php echo e((string) ($row['fecha_inicio'] ?? '')); ?> <br>
                                         <span class="text-muted ms-3">al <?php echo e((string) ($row['fecha_fin'] ?? '')); ?></span>
                                     </td>
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if($tieneGoce): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Sí</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">No</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if (!empty($row['documento_respaldo'])): ?>
                                             <a href="<?php echo e(base_url() . '/' . ltrim((string) $row['documento_respaldo'], '/')); ?>" target="_blank" class="btn btn-sm btn-light text-primary border-0 rounded-circle" data-bs-toggle="tooltip" title="Ver Documento">
                                                 <i class="bi bi-file-earmark-text fs-5"></i>

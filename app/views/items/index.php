@@ -121,12 +121,12 @@ $tipoItemLabel = static function (string $tipo): string {
                 <table class="table align-middle mb-0 table-pro" id="itemsTable">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-center border-end" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> 
-                            <th class="text-secondary fw-semibold border-end">SKU</th>
-                            <th class="text-secondary fw-semibold border-end">Nombre</th>
-                            <th class="text-secondary fw-semibold border-end">Tipo</th>
-                            <th class="text-secondary fw-semibold border-end">Categoría</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="ps-4 text-center" style="width: 50px;"><i class="bi bi-image text-muted"></i></th> 
+                            <th class="text-secondary fw-semibold">SKU</th>
+                            <th class="text-secondary fw-semibold">Nombre</th>
+                            <th class="text-secondary fw-semibold">Tipo</th>
+                            <th class="text-secondary fw-semibold">Categoría</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>

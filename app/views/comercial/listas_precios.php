@@ -145,7 +145,7 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                             </div>
                         <?php endif; ?>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
+                            <table class="table table-hover align-middle mb-0 table-pro" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
                                 <thead class="table-light">
                                 <tr>
                                     <?php if ($modoVista === "volumen"): ?>

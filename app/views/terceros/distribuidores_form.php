@@ -46,7 +46,7 @@
     <div class="card border-0 shadow-sm mt-3">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 table-pro">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-3">Zona Geográfica</th>

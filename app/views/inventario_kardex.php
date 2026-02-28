@@ -74,13 +74,13 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                        data-pagination-info="#kardexPaginationInfo">
                     <thead class="bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Fecha</th>
-                            <th class="text-secondary fw-semibold border-end">Tipo</th>
-                            <th class="text-secondary fw-semibold border-end">Ítem</th>
-                            <th class="text-secondary fw-semibold border-end">Origen</th>
-                            <th class="text-secondary fw-semibold border-end">Destino</th>
-                            <th class="text-end text-secondary fw-semibold border-end">Cantidad</th>
-                            <th class="text-secondary fw-semibold border-end ps-3">Usuario</th>
+                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
+                            <th class="text-secondary fw-semibold">Tipo</th>
+                            <th class="text-secondary fw-semibold">Ítem</th>
+                            <th class="text-secondary fw-semibold">Origen</th>
+                            <th class="text-secondary fw-semibold">Destino</th>
+                            <th class="text-end text-secondary fw-semibold">Cantidad</th>
+                            <th class="text-secondary fw-semibold ps-3">Usuario</th>
                             <th class="pe-4 text-secondary fw-semibold">Referencia</th>
                         </tr>
                     </thead>
@@ -100,10 +100,10 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                             $searchStr = strtolower(($mov['created_at'] ?? '') . ' ' . $tipoMov . ' ' . ($mov['sku'] ?? '') . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . ($mov['referencia'] ?? ''));
                         ?>
                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                            <td class="ps-4 text-muted align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                            <td class="ps-4 text-muted align-top pt-3">
                                 <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e((string) ($mov['created_at'] ?? '')); ?>
                             </td>
-                            <td class="align-top pt-3 border-end text-center">
+                            <td class="align-top pt-3 text-center">
                                 <?php if (in_array($tipoMov, $tiposEntrada, true)): ?>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">ENT - <?php echo e($tipoMov); ?></span>
                                 <?php elseif (in_array($tipoMov, $tiposSalida, true)): ?>
@@ -112,17 +112,17 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                     <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill"><?php echo e($tipoMov); ?></span>
                                 <?php endif; ?>
                             </td>
-                            <td class="fw-bold text-dark align-top pt-3 border-end">
+                            <td class="fw-bold text-dark align-top pt-3">
                                 <?php echo e((string) ($mov['sku'] ?? '') . ' - ' . (string) ($mov['item_nombre'] ?? '')); ?>
                             </td>
-                            <td class="align-top pt-3 border-end">
+                            <td class="align-top pt-3">
                                 <?php if(!empty($mov['almacen_origen'])): ?>
                                     <i class="bi bi-building small text-muted me-1"></i><?php echo e((string) ($mov['almacen_origen'] ?? '-')); ?>
                                 <?php else: ?>
                                     <span class="text-muted opacity-50">-</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="align-top pt-3 border-end">
+                            <td class="align-top pt-3">
                                 <?php if(!empty($mov['almacen_destino'])): ?>
                                     <i class="bi bi-building small text-muted me-1"></i><?php echo e((string) ($mov['almacen_destino'] ?? '-')); ?>
                                 <?php else: ?>
@@ -138,7 +138,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                     $detalleConversion = trim((string) ($matchConv[1] ?? ''));
                                 }
                             ?>
-                            <td class="text-end fw-semibold text-primary align-top pt-3 border-end">
+                            <td class="text-end fw-semibold text-primary align-top pt-3">
                                 <?php if ($detalleConversion !== ''): ?>
                                     <div class="text-dark"><?php echo e($detalleConversion); ?></div>
                                     <div class="small text-muted fw-normal"><?php echo e($cantidadPrincipal); ?></div>
@@ -146,7 +146,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                     <?php echo e($cantidadPrincipal); ?>
                                 <?php endif; ?>
                             </td>
-                            <td class="align-top pt-3 border-end ps-3 text-secondary small">
+                            <td class="align-top pt-3 ps-3 text-secondary small">
                                 <i class="bi bi-person-circle me-1 opacity-50"></i><?php echo e((string) ($mov['usuario'] ?? '-')); ?>
                             </td>
                             <td class="pe-4 align-top pt-3 small text-muted">

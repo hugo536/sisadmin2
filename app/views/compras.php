@@ -173,7 +173,7 @@ $estadoLabels = [
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0" id="tablaDetalleCompra">
+                                <table class="table align-middle mb-0 table-pro" id="tablaDetalleCompra">
                                     <thead class="table-light border-bottom">
                                         <tr>
                                             <th style="min-width:320px;" class="ps-3 text-secondary">Ítem / Producto</th>

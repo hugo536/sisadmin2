@@ -91,12 +91,12 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                        data-pagination-info="#inventarioPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">SKU</th>
-                            <th class="text-secondary fw-semibold border-end">Producto (Nombre Completo)</th>
-                            <th class="text-secondary fw-semibold border-end">Almacén</th>
-                            <th class="text-secondary fw-semibold border-end">Lote</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold border-end">Stock Actual</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Situación / Alertas</th>
+                            <th class="ps-4 text-secondary fw-semibold">SKU</th>
+                            <th class="text-secondary fw-semibold">Producto (Nombre Completo)</th>
+                            <th class="text-secondary fw-semibold">Almacén</th>
+                            <th class="text-secondary fw-semibold">Lote</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Stock Actual</th>
+                            <th class="text-center text-secondary fw-semibold">Situación / Alertas</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -129,17 +129,17 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     data-estado="<?php echo htmlspecialchars($estadoLimpio, ENT_QUOTES, 'UTF-8'); ?>"
                                     data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
                                     
-                                    <td class="ps-4 fw-semibold text-primary align-top pt-3 border-end" style="background-color: #fcfcfc;"><?php echo e($sku); ?></td>
-                                    <td class="fw-semibold text-dark align-top pt-3 border-end">
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3"><?php echo e($sku); ?></td>
+                                    <td class="fw-semibold text-dark align-top pt-3">
                                         <?php echo e($itemNombreCompleto); ?>
                                         <?php if($tipoRegistro === 'pack'): ?>
                                             <span class="badge bg-info-subtle text-info-emphasis ms-1 border border-info-subtle" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-muted small align-top pt-3 border-end fw-medium"><i class="bi bi-building me-1 opacity-50"></i><?php echo e($almacenNombre); ?></td>
-                                    <td class="align-top pt-3 border-end fw-medium"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
+                                    <td class="text-muted small align-top pt-3 fw-medium"><i class="bi bi-building me-1 opacity-50"></i><?php echo e($almacenNombre); ?></td>
+                                    <td class="align-top pt-3 fw-medium"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
-                                    <td class="text-end pe-4 align-top pt-3 border-end">
+                                    <td class="text-end pe-4 align-top pt-3">
                                         <div class="fw-bold fs-6 text-primary"><?php echo $stockFormateado; ?></div>
                                         <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
                                             <div class="d-flex flex-column align-items-end mt-1 pb-1" style="gap: 3px;">
@@ -151,7 +151,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo str_replace('bg-', 'bg-opacity-10 text-', str_replace('text-dark', '', $badgeColor)); ?>" style="border: 1px solid currentColor;">
                                             <?php echo e($badgeTexto); ?>
                                         </span>
