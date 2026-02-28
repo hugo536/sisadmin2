@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/PlanillasModel.php';
+require_once BASE_PATH . '/app/models/rrhh/PlanillasModel.php';
 require_once BASE_PATH . '/app/models/TercerosModel.php'; // Para listar los empleados en el filtro
 
 class PlanillasController extends Controlador
@@ -49,7 +49,7 @@ class PlanillasController extends Controlador
         $totalExtras = array_sum(array_column($planillasCalculadas, 'monto_horas_extras'));
 
         // 5. Renderizar la Vista
-        $this->render('planillas', [
+        $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
             'desde' => $desde,
             'hasta' => $hasta,

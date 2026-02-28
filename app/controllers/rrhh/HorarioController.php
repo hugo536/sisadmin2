@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/HorarioModel.php';
+require_once BASE_PATH . '/app/models/rrhh/HorarioModel.php';
 
 class HorarioController extends Controlador
 {
@@ -60,7 +60,7 @@ class HorarioController extends Controlador
         }
 
         // 3. Renderizamos la vista mandando la nueva variable agrupada
-        $this->render('horario', [
+        $this->render('rrhh/horario', [
             'ruta_actual' => 'horario/index',
             'horarios' => $this->horarioModel->listarHorarios(),
             'empleados' => $this->horarioModel->listarEmpleados(),
