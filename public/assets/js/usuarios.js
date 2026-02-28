@@ -172,25 +172,6 @@
       }
     }
 
-    // Tabla: filtros + paginación (reutilizable)
-    if (window.ERPTable) {
-      window.UsuariosTableManager = window.ERPTable.createTableManager({
-        tableSelector: '#usuariosTable',
-        rowsSelector: 'tbody tr',
-        searchInput: '#usuarioSearch',
-        filters: [
-          { el: '#filtroRol', attr: 'data-rol' },
-          { el: '#filtroEstado', attr: 'data-estado' }
-        ],
-        searchAttr: 'data-search',
-        rowsPerPage: 20,
-        paginationControls: '#paginationControls',
-        paginationInfo: '#paginationInfo',
-        emptyText: 'Sin resultados',
-        infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} usuarios`
-      }).init();
-    }
-
     initStatusSwitch();
     bindDeleteForms();
   });

@@ -61,7 +61,11 @@ $badgeTipo = static function (string $tipo): string {
             </form>
 
             <div class="table-responsive">
-                <table class="table table-pro align-middle mb-0">
+                <table class="table table-pro align-middle mb-0" id="cajasBancosTable"
+                   data-erp-table="true"
+                   data-search-input="#cbFiltroBusqueda"
+                   data-pagination-controls="#cajasBancosPaginationControls"
+                   data-pagination-info="#cajasBancosPaginationInfo">
                     <thead>
                         <tr>
                             <th>Código</th>

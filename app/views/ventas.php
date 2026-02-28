@@ -13,26 +13,6 @@ $estadoLabels = [
 ];
 ?>
 
-<style>
-    #tablaDetalleDespacho td {
-        vertical-align: middle;
-    }
-
-    #tablaDetalleDespacho .despacho-acciones-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: .5rem;
-    }
-
-    #tablaDetalleDespacho .despacho-cantidad {
-        max-width: 92px;
-    }
-
-    #tablaDetalleDespacho .btn-split {
-        line-height: 1.1;
-    }
-</style>
 
 <div class="container-fluid p-4" id="ventasApp"
      data-url-index="<?php echo e(route_url('ventas/index')); ?>"
@@ -85,7 +65,12 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaVentas">
+                <table class="table align-middle mb-0 table-pro" id="tablaVentas"
+                       data-erp-table="true"
+                       data-search-input="#filtroBusqueda"
+                       data-pagination-controls="#ventasPaginationControls"
+                       data-pagination-info="#ventasPaginationInfo"
+                       data-erp-filters='[{"el":"#filtroEstado","attr":"data-estado","match":"equals"}]'>
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
@@ -103,7 +88,7 @@ $estadoLabels = [
                                     $estado = (int) ($venta['estado'] ?? 0); 
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
-                                <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom">
+                                <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($venta['codigo'] ?? '') . ' ' . (string) ($venta['cliente'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
                                     <td><?php echo e((string) ($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?></td>
@@ -130,13 +115,16 @@ $estadoLabels = [
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pedidos registrados.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pedidos registrados.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted fw-semibold">Mostrando <?php echo count($ventas); ?> registros</small>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted fw-semibold" id="ventasPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación de ventas">
+                    <ul class="pagination mb-0 justify-content-end" id="ventasPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>

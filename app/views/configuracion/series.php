@@ -50,7 +50,10 @@ $resumen = $resumen ?? ['activos' => 0, 'inactivos' => 0, 'predeterminadas' => 0
 
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
-            <table class="table align-middle mb-0 table-pro">
+            <table class="table align-middle mb-0 table-pro" id="seriesTable"
+                   data-erp-table="true"
+                   data-pagination-controls="#seriesPaginationControls"
+                   data-pagination-info="#seriesPaginationInfo">
                 <thead><tr><th>Módulo</th><th>Documento</th><th>Serie</th><th>Prefijo</th><th class="text-end">Correlativo</th><th>Estado</th><th>Pred.</th><th class="text-end">Acciones</th></tr></thead>
                 <tbody>
                 <?php if (!$registros): ?>

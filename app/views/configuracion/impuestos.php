@@ -50,7 +50,10 @@ $resumen = $resumen ?? ['activos' => 0, 'inactivos' => 0, 'default' => 0];
 
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
-            <table class="table align-middle mb-0 table-pro">
+            <table class="table align-middle mb-0 table-pro" id="impuestosTable"
+                   data-erp-table="true"
+                   data-pagination-controls="#impuestosPaginationControls"
+                   data-pagination-info="#impuestosPaginationInfo">
                 <thead><tr><th>Código</th><th>Nombre</th><th class="text-end">%</th><th>Tipo</th><th>Estado</th><th>Default</th><th class="text-end">Acciones</th></tr></thead>
                 <tbody>
                 <?php if (!$registros): ?>

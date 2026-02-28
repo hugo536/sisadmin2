@@ -268,7 +268,7 @@ foreach ($permisos as $permiso) {
                     <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
                         <small class="text-muted" id="rolesPaginationInfo"></small>
                         <nav aria-label="Page navigation">
-                            <ul class="pagination pagination-sm mb-0 justify-content-end" id="rolesPaginationControls"></ul>
+                            <ul class="pagination mb-0 justify-content-end" id="rolesPaginationControls"></ul>
                         </nav>
                     </div>
                 </div>
@@ -295,7 +295,12 @@ foreach ($permisos as $permiso) {
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0 table-pro" id="permisosTable">
+                        <table class="table align-middle mb-0 table-pro" id="permisosTable"
+                               data-erp-table="true"
+                               data-rows-selector="tbody tr[data-search]"
+                               data-search-input="#permisosSearch"
+                               data-pagination-controls="#permisosPaginationControls"
+                               data-pagination-info="#permisosPaginationInfo">
                             <thead>
                             <tr>
                                 <th class="ps-4">Módulo</th>

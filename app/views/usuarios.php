@@ -43,13 +43,19 @@ $currentUserId = $current_user_id ?? 0;
                     </select>
                 </div>
             </div>
+
         </div>
     </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="usuariosTable">
+                <table class="table align-middle mb-0 table-pro" id="usuariosTable"
+                       data-erp-table="true"
+                       data-search-input="#usuarioSearch"
+                       data-pagination-controls="#usuariosPaginationControls"
+                       data-pagination-info="#usuariosPaginationInfo"
+                       data-erp-filters='[{"el":"#filtroRol","attr":"data-rol","match":"equals"},{"el":"#filtroEstado","attr":"data-estado","match":"equals"}]'>
                     <thead>
                         <tr>
                             <th class="ps-4">Usuario</th>
@@ -148,8 +154,11 @@ $currentUserId = $current_user_id ?? 0;
                 </table>
             </div>
             
-            <div class="card-footer bg-white border-top-0 py-3">
-                <small class="text-muted">Mostrando <?php echo count($usuarios); ?> usuarios</small>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="usuariosPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación de usuarios">
+                    <ul class="pagination mb-0 justify-content-end" id="usuariosPaginationControls"></ul>
+                </nav>
             </div>
         </div>
     </div>
