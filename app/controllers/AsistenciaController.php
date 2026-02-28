@@ -50,15 +50,89 @@ class AsistenciaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('terceros.ver');
 
+        $periodo = (string) ($_GET['periodo'] ?? 'dia');
+        $periodosPermitidos = ['dia', 'semana', 'mes', 'rango'];
+        if (!in_array($periodo, $periodosPermitidos, true)) {
+            $periodo = 'dia';
+        }
+
         $fecha = (string) ($_GET['fecha'] ?? date('Y-m-d'));
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
             $fecha = date('Y-m-d');
         }
 
+        $semana = (string) ($_GET['semana'] ?? date('o-\WW'));
+        if (!preg_match('/^\d{4}-W\d{2}$/', $semana)) {
+            $semana = date('o-\WW');
+        }
+
+        $mes = (string) ($_GET['mes'] ?? date('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', $mes)) {
+            $mes = date('Y-m');
+        }
+
+        $fechaInicio = (string) ($_GET['fecha_inicio'] ?? $fecha);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio)) {
+            $fechaInicio = $fecha;
+        }
+
+        $fechaFin = (string) ($_GET['fecha_fin'] ?? $fecha);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            $fechaFin = $fecha;
+        }
+
+        if ($fechaInicio > $fechaFin) {
+            [$fechaInicio, $fechaFin] = [$fechaFin, $fechaInicio];
+        }
+
+        $idTercero = (int) ($_GET['id_tercero'] ?? 0);
+        if ($idTercero <= 0) {
+            $idTercero = null;
+        }
+
+        $estado = strtoupper(trim((string) ($_GET['estado'] ?? '')));
+        $estadosPermitidos = ['', 'PUNTUAL', 'TARDANZA', 'FALTA', 'INCOMPLETO'];
+        if (!in_array($estado, $estadosPermitidos, true)) {
+            $estado = '';
+        }
+
+        $desde = $fecha;
+        $hasta = $fecha;
+
+        if ($periodo === 'semana' && preg_match('/^(\d{4})-W(\d{2})$/', $semana, $m)) {
+            $fechaSemana = new DateTimeImmutable();
+            $fechaSemana = $fechaSemana->setISODate((int) $m[1], (int) $m[2], 1);
+            $desde = $fechaSemana->format('Y-m-d');
+            $hasta = $fechaSemana->modify('+6 days')->format('Y-m-d');
+        } elseif ($periodo === 'mes' && preg_match('/^(\d{4})-(\d{2})$/', $mes, $m)) {
+            $inicioMes = DateTimeImmutable::createFromFormat('Y-m-d', sprintf('%s-%s-01', $m[1], $m[2]));
+            if ($inicioMes instanceof DateTimeImmutable) {
+                $desde = $inicioMes->format('Y-m-d');
+                $hasta = $inicioMes->modify('last day of this month')->format('Y-m-d');
+            }
+        } elseif ($periodo === 'rango') {
+            $desde = $fechaInicio;
+            $hasta = $fechaFin;
+        }
+
+        $registros = $periodo === 'dia'
+            ? $this->asistenciaModel->obtenerDashboardDiario($fecha, $idTercero, $estado)
+            : $this->asistenciaModel->obtenerDashboardRango($desde, $hasta, $idTercero, $estado);
+
         $this->render('asistencia_dashboard', [
             'ruta_actual' => 'asistencia/dashboard',
+            'periodo' => $periodo,
             'fecha' => $fecha,
-            'registros' => $this->asistenciaModel->obtenerDashboardDiario($fecha),
+            'semana' => $semana,
+            'mes' => $mes,
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+            'id_tercero' => $idTercero,
+            'estado' => $estado,
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'registros' => $registros,
+            'empleados' => $this->asistenciaModel->listarEmpleadosParaIncidencias(),
             'flash' => [
                 'tipo' => (string) ($_GET['tipo'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),

@@ -1,6 +1,16 @@
 <?php
 $fecha = $fecha ?? date('Y-m-d');
+$periodo = $periodo ?? 'dia';
+$semana = $semana ?? date('o-\WW');
+$mes = $mes ?? date('Y-m');
+$fechaInicio = $fecha_inicio ?? $fecha;
+$fechaFin = $fecha_fin ?? $fecha;
+$idTercero = (int) ($id_tercero ?? 0);
+$estado = $estado ?? '';
+$desde = $desde ?? $fecha;
+$hasta = $hasta ?? $fecha;
 $registros = $registros ?? [];
+$empleados = $empleados ?? [];
 ?>
 
 <div class="container-fluid p-4">
@@ -10,7 +20,7 @@ $registros = $registros ?? [];
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-clock-history me-2 text-primary"></i> Dashboard Diario de RRHH
             </h1>
-            <p class="text-muted small mb-0 ms-1">Control diario de puntualidad, tardanzas y faltas del personal.</p>
+            <p class="text-muted small mb-0 ms-1">Control de puntualidad, tardanzas y faltas del personal por día, semana, mes o rango.</p>
         </div>
 
         <div class="d-flex gap-2">
@@ -30,20 +40,76 @@ $registros = $registros ?? [];
         <div class="card-body p-3">
             <form method="get" class="row g-2 align-items-center">
                 <input type="hidden" name="ruta" value="asistencia/dashboard">
-                
-                <div class="col-12 col-md-3">
+
+                <div class="col-12 col-md-2">
+                    <select class="form-select bg-light text-secondary fw-medium" name="periodo">
+                        <option value="dia" <?php echo $periodo === 'dia' ? 'selected' : ''; ?>>Día</option>
+                        <option value="semana" <?php echo $periodo === 'semana' ? 'selected' : ''; ?>>Semana</option>
+                        <option value="mes" <?php echo $periodo === 'mes' ? 'selected' : ''; ?>>Mes</option>
+                        <option value="rango" <?php echo $periodo === 'rango' ? 'selected' : ''; ?>>Rango</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-3 <?php echo $periodo === 'dia' ? '' : 'd-none'; ?>" data-period-field="dia">
                     <div class="input-group shadow-sm-sm">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar3 text-muted"></i></span>
                         <input type="date" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="fecha" value="<?php echo e($fecha); ?>" required>
                     </div>
                 </div>
-                
+
+                <div class="col-12 col-md-3 <?php echo $periodo === 'semana' ? '' : 'd-none'; ?>" data-period-field="semana">
+                    <div class="input-group shadow-sm-sm">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-week text-muted"></i></span>
+                        <input type="week" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="semana" value="<?php echo e($semana); ?>">
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3 <?php echo $periodo === 'mes' ? '' : 'd-none'; ?>" data-period-field="mes">
+                    <div class="input-group shadow-sm-sm">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar2-month text-muted"></i></span>
+                        <input type="month" class="form-control bg-light border-start-0 ps-0 text-secondary fw-medium" name="mes" value="<?php echo e($mes); ?>">
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-2 <?php echo $periodo === 'rango' ? '' : 'd-none'; ?>" data-period-field="rango">
+                    <input type="date" class="form-control bg-light text-secondary fw-medium" name="fecha_inicio" value="<?php echo e($fechaInicio); ?>">
+                </div>
+
+                <div class="col-12 col-md-2 <?php echo $periodo === 'rango' ? '' : 'd-none'; ?>" data-period-field="rango">
+                    <input type="date" class="form-control bg-light text-secondary fw-medium" name="fecha_fin" value="<?php echo e($fechaFin); ?>">
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <select class="form-select bg-light text-secondary fw-medium" name="id_tercero">
+                        <option value="">Todo el personal</option>
+                        <?php foreach ($empleados as $empleado): ?>
+                            <?php $empleadoId = (int) ($empleado['id'] ?? 0); ?>
+                            <option value="<?php echo $empleadoId; ?>" <?php echo $idTercero === $empleadoId ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($empleado['nombre_completo'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <select class="form-select bg-light text-secondary fw-medium" name="estado">
+                        <option value="" <?php echo $estado === '' ? 'selected' : ''; ?>>Todos los estados</option>
+                        <option value="PUNTUAL" <?php echo $estado === 'PUNTUAL' ? 'selected' : ''; ?>>Puntual</option>
+                        <option value="TARDANZA" <?php echo $estado === 'TARDANZA' ? 'selected' : ''; ?>>Tardanza</option>
+                        <option value="FALTA" <?php echo $estado === 'FALTA' ? 'selected' : ''; ?>>Falta</option>
+                        <option value="INCOMPLETO" <?php echo $estado === 'INCOMPLETO' ? 'selected' : ''; ?>>Incompleto</option>
+                    </select>
+                </div>
+
                 <div class="col-6 col-md-2">
                     <button class="btn btn-white border shadow-sm text-secondary fw-semibold w-100" type="submit">
                         <i class="bi bi-search me-2"></i>Consultar
                     </button>
                 </div>
             </form>
+            <div class="small text-muted mt-2">
+                Mostrando periodo del <strong><?php echo e($desde); ?></strong> al <strong><?php echo e($hasta); ?></strong>.
+            </div>
         </div>
     </div>
 
@@ -53,6 +119,7 @@ $registros = $registros ?? [];
                 <table class="table align-middle mb-0 table-pro table-hover">
                     <thead class="table-light border-bottom">
                         <tr>
+                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
                             <th class="ps-4 text-secondary fw-semibold">Empleado</th>
                             <th class="text-secondary fw-semibold">Hora Esperada</th>
                             <th class="text-secondary fw-semibold">Hora Real</th>
@@ -63,9 +130,9 @@ $registros = $registros ?? [];
                     <tbody>
                         <?php if (empty($registros)): ?>
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-5">
+                                <td colspan="6" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
-                                    No hay datos de asistencia para la fecha seleccionada.
+                                    No hay datos de asistencia para los filtros seleccionados.
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -90,6 +157,7 @@ $registros = $registros ?? [];
                                 if ($estado === 'FALTA') $badgeColor = 'bg-danger';
                                 ?>
                                 <tr class="border-bottom">
+                                    <td class="ps-4 text-muted align-top pt-3"><?php echo e((string) ($row['fecha'] ?? '')); ?></td>
                                     <td class="ps-4 fw-semibold text-dark align-top pt-3">
                                         <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
                                     </td>
@@ -120,3 +188,22 @@ $registros = $registros ?? [];
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const periodoSelect = document.querySelector('select[name="periodo"]');
+    if (!periodoSelect) return;
+
+    const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
+    const alternarCampos = function () {
+        const seleccionado = periodoSelect.value;
+        camposPeriodo.forEach(function (campo) {
+            const visible = campo.getAttribute('data-period-field') === seleccionado;
+            campo.classList.toggle('d-none', !visible);
+        });
+    };
+
+    periodoSelect.addEventListener('change', alternarCampos);
+    alternarCampos();
+});
+</script>
