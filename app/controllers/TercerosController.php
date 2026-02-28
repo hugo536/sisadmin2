@@ -701,7 +701,8 @@ class TercerosController extends Controlador
             $cargo = trim((string) ($data['cargo'] ?? ''));
             $area = trim((string) ($data['area'] ?? ''));
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
-            $tipoPagoRaw = strtoupper(trim((string) ($data['tipo_pago'] ?? 'MENSUAL')));
+            $tipoPagoInput = isset($data['tipo_pago']) ? (string) $data['tipo_pago'] : 'MENSUAL';
+            $tipoPagoRaw = strtoupper(trim($tipoPagoInput));
             $codigoBiometricoRaw = trim((string) ($data['codigo_biometrico'] ?? ''));
             
             // Le damos valor '0' por defecto si estos campos no vienen o están vacíos en el formulario
@@ -726,6 +727,10 @@ class TercerosController extends Controlador
             }
             if (!is_numeric($pagoDiarioRaw) || (float) $pagoDiarioRaw < 0) {
                 throw new Exception('El pago diario debe ser un número válido mayor o igual a 0.');
+            }
+
+            if (!in_array($tipoPagoRaw, ['MENSUAL', 'DIARIO'], true)) {
+                throw new Exception('El tipo de pago del empleado debe ser MENSUAL o DIARIO.');
             }
 
             $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
