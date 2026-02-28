@@ -32,9 +32,21 @@ class AsistenciaModel extends Modelo
 
     public function listarLogsBiometricos(): array
     {
-        $sql = 'SELECT id, codigo_biometrico, fecha_hora_marca, tipo_marca, nombre_dispositivo, procesado, created_at, created_by
-                FROM asistencia_logs_biometrico
-                ORDER BY fecha_hora_marca DESC, id DESC';
+        // Modificamos la consulta para traer el nombre_completo usando LEFT JOIN
+        $sql = 'SELECT 
+                    alb.id, 
+                    alb.codigo_biometrico, 
+                    alb.fecha_hora_marca, 
+                    alb.tipo_marca, 
+                    alb.nombre_dispositivo, 
+                    alb.procesado, 
+                    alb.created_at, 
+                    alb.created_by,
+                    t.nombre_completo
+                FROM asistencia_logs_biometrico alb
+                LEFT JOIN terceros_empleados te ON alb.codigo_biometrico = te.codigo_biometrico
+                LEFT JOIN terceros t ON te.id_tercero = t.id AND t.deleted_at IS NULL
+                ORDER BY alb.fecha_hora_marca DESC, alb.id DESC';
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

@@ -91,8 +91,22 @@ $logs = $logs ?? [];
                                 <td class="ps-4 text-muted small align-top pt-3">
                                     #<?php echo str_pad((string)(int)($log['id'] ?? 0), 5, '0', STR_PAD_LEFT); ?>
                                 </td>
-                                <td class="fw-semibold text-primary align-top pt-3">
-                                    <?php echo e((string) ($log['codigo_biometrico'] ?? '')); ?>
+                                <td class="align-top pt-3">
+                                    <?php if (!empty($log['nombre_completo'])): ?>
+                                        <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                            <?php echo e((string)$log['nombre_completo']); ?>
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.8rem;">
+                                            <i class="bi bi-upc-scan me-1"></i>Cód: <span class="fw-semibold text-primary"><?php echo e((string) ($log['codigo_biometrico'] ?? '')); ?></span>
+                                        </div>
+                                    <?php else: ?>
+                                        <span class="fw-semibold text-primary d-block">
+                                            <?php echo e((string) ($log['codigo_biometrico'] ?? '')); ?>
+                                        </span>
+                                        <span class="badge bg-danger rounded-pill" style="font-size: 0.7rem;">
+                                            Sin Empleado
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="fw-medium text-dark align-top pt-3">
                                     <i class="bi bi-clock small text-muted me-1"></i>
