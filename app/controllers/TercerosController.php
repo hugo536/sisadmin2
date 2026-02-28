@@ -702,9 +702,14 @@ class TercerosController extends Controlador
             $area = trim((string) ($data['area'] ?? ''));
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
             $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? ''));
+            $codigoBiometricoRaw = trim((string) ($data['codigo_biometrico'] ?? ''));
 
             if ($cargo === '' || $area === '' || $fechaIngresoRaw === '' || $sueldoBasicoRaw === '') {
                 throw new Exception('Para el rol Empleado, cargo, área, fecha de ingreso y sueldo básico son obligatorios.');
+            }
+
+            if (mb_strlen($codigoBiometricoRaw) > 50) {
+                throw new Exception('El código biométrico no puede exceder 50 caracteres.');
             }
 
             if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {

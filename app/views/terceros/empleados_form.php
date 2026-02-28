@@ -107,9 +107,10 @@ $today = date('Y-m-d');
             </div>
             <div class="col-md-4">
                 <div class="form-floating">
-                    <input type="text" class="form-control" name="codigo_biometrico" id="<?php echo $prefix; ?>CodigoBiometrico" placeholder="Código Biométrico" maxlength="50">
+                    <input type="text" class="form-control" name="codigo_biometrico" id="<?php echo $prefix; ?>CodigoBiometrico" placeholder="Código Biométrico" maxlength="50" autocomplete="off">
                     <label for="<?php echo $prefix; ?>CodigoBiometrico">Código Biométrico (EnNo)</label>
                 </div>
+                <small class="text-muted d-block mt-1">Opcional. Máximo 50 caracteres.</small>
             </div>
 
             <div class="col-md-4">
