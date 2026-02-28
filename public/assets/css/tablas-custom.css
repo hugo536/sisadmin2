@@ -3,41 +3,71 @@
    ========================================================= */
 
 :root {
-    --erp-table-header-bg: #f8f9fa;      /* Color fondo encabezado */
-    --erp-table-header-text: #6c757d;    /* Color texto encabezado */
-    --erp-table-border-color: #dee2e6;  /* Color de las rayas/bordes */
-    --erp-primary: #0d6efd;             /* Color principal (Azul) */
+    /* --- AQUÍ ESTÁ EL CAMBIO DE COLOR --- */
+    /* Un azul marino oscuro inspirado en tu menú lateral */
+    --erp-table-header-bg: #1c2434;      
+    --erp-table-header-text: #ffffff;    /* Texto blanco para contrastar */
+    
+    --erp-table-border-color: #dee2e6;  /* Color de las rayas en el cuerpo de la tabla (gris claro) */
+    --erp-primary: #0d6efd;             /* Color azul principal (se mantiene para botones e interruptores) */
     --erp-font-size: 0.9rem;            /* Tamaño de letra general */
+    --erp-border-radius: 12px;          /* Redondeo de las esquinas del encabezado */
 }
 
 /* 1. Estilo general de la tabla */
 .table-pro {
     font-size: var(--erp-font-size);
+    border-collapse: separate; /* Necesario para el borde redondeado */
+    border-spacing: 0;
+    width: 100%;
 }
 
-/* 2. Rayas entre columnas (Bordes verticales) */
-/* En lugar de poner 'border-end' en cada PHP, esto lo hace automático */
-.table-pro thead th, 
+/* 2. Rayas entre columnas (Cuerpo de la tabla) */
 .table-pro tbody td {
     border-right: 1px solid var(--erp-table-border-color) !important;
+    border-bottom: 1px solid var(--erp-table-border-color); 
+}
+
+/* Quitamos la raya derecha de la última columna para un borde limpio */
+.table-pro tbody td:last-child {
+    border-right: none !important;
 }
 
 /* 3. El encabezado (Header) */
 .table-pro thead {
     background-color: var(--erp-table-header-bg);
-    text-transform: none; /* Puedes poner 'uppercase' si quieres todo en mayúsculas */
+    text-transform: none; 
 }
 
 .table-pro thead th {
     color: var(--erp-table-header-text);
     font-weight: 600;
-    padding: 12px 15px;
+    padding: 14px 15px; 
+    background-color: var(--erp-table-header-bg); 
+    border-top: none;
+    border-bottom: none;
+    /* Borde vertical sutil (blanco semitransparente) para que luzca bien en fondo oscuro */
+    border-right: 1px solid rgba(255, 255, 255, 0.15) !important; 
+}
+
+/* Quitamos la raya derecha de la última columna del encabezado */
+.table-pro thead th:last-child {
+    border-right: none !important;
+}
+
+/* --- MAGIA PARA REDONDEAR EL ENCABEZADO --- */
+.table-pro thead tr:first-child th:first-child {
+    border-top-left-radius: var(--erp-border-radius);
+}
+
+.table-pro thead tr:first-child th:last-child {
+    border-top-right-radius: var(--erp-border-radius);
 }
 
 /* 4. Estilo de la Paginación (Botones) */
 .pagination .page-link {
     color: var(--erp-primary);
-    border-radius: 5px; /* Bordes de los botones */
+    border-radius: 5px;
     margin: 0 2px;
     transition: all 0.2s;
 }
@@ -54,7 +84,7 @@
     vertical-align: middle;
 }
 
-/* 6. Efecto al pasar el mouse (Hover) */
-.table-pro tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.03); /* Un azul muy sutil */
+/* 6. Efecto al pasar el mouse (Hover) en las filas */
+.table-pro tbody tr:hover td {
+    background-color: rgba(13, 110, 253, 0.04); /* Un fondo azul muy suave al pasar el ratón */
 }
