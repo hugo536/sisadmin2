@@ -13,7 +13,7 @@
                 <div class="row g-3">
                     <div class="col-lg-5">
                         <div class="table-responsive border rounded-3">
-                            <table class="table table-sm align-middle mb-0" id="tablaUnidadesConversion">
+                            <table class="table table-sm align-middle mb-0 table-pro" id="tablaUnidadesConversion">
                                 <thead>
                                     <tr>
                                         <th>Ítem</th>
@@ -72,7 +72,7 @@
                             </form>
 
                             <div class="table-responsive mt-3 border rounded-3 bg-white">
-                                <table class="table table-sm align-middle mb-0" id="tablaDetalleUnidadesConversion">
+                                <table class="table table-sm align-middle mb-0 table-pro" id="tablaDetalleUnidadesConversion">
                                     <thead>
                                         <tr>
                                             <th>Nombre</th>

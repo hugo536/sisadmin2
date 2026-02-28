@@ -137,11 +137,11 @@ $empleados = $empleados ?? [];
                 <table class="table align-middle mb-0 table-pro" id="asistenciaTable">
                     <thead class="asistencia-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Fecha</th>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Empleado</th>
-                            <th class="text-secondary fw-semibold border-end">Hora Esperada</th>
-                            <th class="text-secondary fw-semibold border-end">Hora Real</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
+                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
+                            <th class="text-secondary fw-semibold">Hora Esperada</th>
+                            <th class="text-secondary fw-semibold">Hora Real</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Min. Tardanza</th>
                         </tr>
                     </thead>
@@ -177,19 +177,19 @@ $empleados = $empleados ?? [];
                                 $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . $estado . ' ' . ($row['fecha'] ?? ''));
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 text-muted align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                    <td class="ps-4 text-muted align-top pt-3">
                                         <?php echo e((string) ($row['fecha'] ?? '')); ?>
                                     </td>
-                                    <td class="ps-4 fw-bold text-dark align-top pt-3 border-end">
+                                    <td class="ps-4 fw-bold text-dark align-top pt-3">
                                         <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
                                     </td>
-                                    <td class="text-muted align-top pt-3 border-end">
+                                    <td class="text-muted align-top pt-3">
                                         <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($esperada !== '' ? $esperada : '-'); ?>
                                     </td>
-                                    <td class="fw-medium align-top pt-3 border-end text-primary">
+                                    <td class="fw-medium align-top pt-3 text-primary">
                                         <i class="bi bi-clock-history small me-1 opacity-50"></i><?php echo e($real !== '' ? $real : '-'); ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                             <?php echo e($estado); ?>
                                         </span>

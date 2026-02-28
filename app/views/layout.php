@@ -11,6 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
+    <link rel="stylesheet" href="<?php echo e(asset_url('css/tablas-custom.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
     
     <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>

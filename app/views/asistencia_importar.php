@@ -81,11 +81,11 @@ $logs = $logs ?? [];
                    data-pagination-info="#logsPaginationInfo">
                 <thead class="bg-light border-bottom">
                     <tr>
-                        <th class="ps-4 text-secondary fw-semibold border-end">ID</th>
-                        <th class="text-secondary fw-semibold border-end">Cód. Biométrico</th>
-                        <th class="text-secondary fw-semibold border-end">Fecha y Hora (Marca)</th>
-                        <th class="text-secondary fw-semibold border-end">Modo/Tipo</th>
-                        <th class="text-secondary fw-semibold text-center border-end">Estado</th>
+                        <th class="ps-4 text-secondary fw-semibold">ID</th>
+                        <th class="text-secondary fw-semibold">Cód. Biométrico</th>
+                        <th class="text-secondary fw-semibold">Fecha y Hora (Marca)</th>
+                        <th class="text-secondary fw-semibold">Modo/Tipo</th>
+                        <th class="text-secondary fw-semibold text-center">Estado</th>
                         <th class="text-end pe-4 text-secondary fw-semibold">Registro Sistema</th>
                     </tr>
                 </thead>
@@ -108,10 +108,10 @@ $logs = $logs ?? [];
                                 $searchStr = strtolower(($log['id'] ?? '') . ' ' . ($log['nombre_completo'] ?? '') . ' ' . ($log['codigo_biometrico'] ?? '') . ' ' . ($log['tipo_marca'] ?? ''));
                             ?>
                             <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                <td class="ps-4 text-muted small align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                <td class="ps-4 text-muted small align-top pt-3">
                                     #<?php echo str_pad((string)(int)($log['id'] ?? 0), 5, '0', STR_PAD_LEFT); ?>
                                 </td>
-                                <td class="align-top pt-3 border-end">
+                                <td class="align-top pt-3">
                                     <?php if (!empty($log['nombre_completo'])): ?>
                                         <div class="fw-bold text-dark" style="font-size: 0.95rem;">
                                             <?php echo e((string)$log['nombre_completo']); ?>
@@ -128,15 +128,15 @@ $logs = $logs ?? [];
                                         </span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="fw-medium text-dark align-top pt-3 border-end">
+                                <td class="fw-medium text-dark align-top pt-3">
                                     <i class="bi bi-clock small text-muted me-1 opacity-50"></i>
                                     <?php echo e((string) ($log['fecha_hora_marca'] ?? '')); ?>
                                 </td>
-                                <td class="align-top pt-3 border-end">
+                                <td class="align-top pt-3">
                                     <span class="d-block text-dark"><?php echo e((string) ($log['tipo_marca'] ?? 'Desconocido')); ?></span>
                                     <small class="text-muted" style="font-size: 0.7rem;">Disp: <?php echo e((string) ($log['nombre_dispositivo'] ?? '')); ?></small>
                                 </td>
-                                <td class="text-center align-top pt-3 border-end">
+                                <td class="text-center align-top pt-3">
                                     <span class="badge px-3 py-1 rounded-pill <?php echo $badgeColor; ?>" style="font-size: 0.75rem;">
                                         <?php echo $badgeTexto; ?>
                                     </span>

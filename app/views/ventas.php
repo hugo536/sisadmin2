@@ -187,7 +187,7 @@ $estadoLabels = [
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0" id="tablaDetalleVenta">
+                                <table class="table align-middle mb-0 table-pro" id="tablaDetalleVenta">
                                     <thead class="table-light border-bottom">
                                         <tr>
                                             <th style="min-width:300px;" class="ps-3 text-secondary">Producto</th>
@@ -256,7 +256,7 @@ $estadoLabels = [
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0" id="tablaDetalleDespacho">
+                            <table class="table align-middle mb-0 table-pro" id="tablaDetalleDespacho">
                                 <thead class="table-light border-bottom">
                                     <tr>
                                         <th class="ps-3 text-secondary" style="min-width: 250px;">Producto / Pendiente</th>

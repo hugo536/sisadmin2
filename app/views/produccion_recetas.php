@@ -51,12 +51,12 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                        data-pagination-info="#recetasPaginationInfo">
                     <thead class="bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Código</th>
-                            <th class="text-secondary fw-semibold border-end">Producto Terminado</th>
-                            <th class="text-secondary fw-semibold border-end">Versión</th>
-                            <th class="text-secondary fw-semibold border-end">N° Insumos</th>
-                            <th class="text-secondary fw-semibold border-end">Costo Teórico</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="ps-4 text-secondary fw-semibold">Código</th>
+                            <th class="text-secondary fw-semibold">Producto Terminado</th>
+                            <th class="text-secondary fw-semibold">Versión</th>
+                            <th class="text-secondary fw-semibold">N° Insumos</th>
+                            <th class="text-secondary fw-semibold">Costo Teórico</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -74,23 +74,23 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
                                     data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
                                     
-                                    <td class="ps-4 fw-semibold text-primary align-top pt-3 border-end" style="background-color: #fcfcfc;">
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3">
                                         <?php echo e((string) $receta['codigo']); ?>
                                     </td>
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
                                         <div class="small text-muted"><?php echo e((string) ($receta['descripcion'] ?? '')); ?></div>
                                     </td>
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <span class="badge bg-light text-dark border shadow-sm">v.<?php echo (int) $receta['version']; ?></span>
                                     </td>
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <span class="fw-medium text-secondary"><?php echo (int) $receta['total_insumos']; ?> ítems</span>
                                     </td>
-                                    <td class="align-top pt-3 border-end text-success fw-medium">
+                                    <td class="align-top pt-3 text-success fw-medium">
                                         S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill">Sin receta</span>
                                         <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
@@ -338,7 +338,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table align-middle table-sm mb-0">
+                    <table class="table align-middle table-sm mb-0 table-pro">
                         <thead class="bg-light">
                             <tr>
                                 <th>Nombre</th>

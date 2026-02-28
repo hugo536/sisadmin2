@@ -94,10 +94,10 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                data-pagination-info="#turnosPaginationInfo">
                             <thead class="bg-light">
                                 <tr>
-                                    <th class="ps-4 text-secondary fw-semibold border-end">Nombre del Turno</th>
-                                    <th class="text-center text-secondary fw-semibold border-end">Horario</th>
-                                    <th class="text-center text-secondary fw-semibold border-end">Tolerancia</th>
-                                    <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                                    <th class="ps-4 text-secondary fw-semibold">Nombre del Turno</th>
+                                    <th class="text-center text-secondary fw-semibold">Horario</th>
+                                    <th class="text-center text-secondary fw-semibold">Tolerancia</th>
+                                    <th class="text-center text-secondary fw-semibold">Estado</th>
                                     <th class="text-center text-secondary fw-semibold pe-4" style="width: 100px;">Acciones</th>
                                 </tr>
                             </thead>
@@ -119,14 +119,14 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                             <td class="ps-4 fw-semibold text-dark">
                                                 <?php echo e($horario['nombre']); ?>
                                             </td>
-                                            <td class="text-center text-secondary fw-medium border-end" style="background-color: #fcfcfc;">
+                                            <td class="text-center text-secondary fw-medium">
                                                 <i class="bi bi-clock small text-muted me-1"></i>
                                                 <?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>
                                             </td>
-                                            <td class="text-center text-muted border-end">
+                                            <td class="text-center text-muted">
                                                 <?php echo (int) $horario['tolerancia_minutos']; ?> min
                                             </td>
-                                            <td class="text-center border-end">
+                                            <td class="text-center">
                                                 <?php if($activo): ?>
                                                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Activo</span>
                                                 <?php else: ?>
@@ -243,9 +243,9 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                        data-pagination-controls="#horariosPaginationControls">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end" style="width: 25%;">Empleado</th>
+                            <th class="ps-4 text-secondary fw-semibold" style="width: 25%;">Empleado</th>
                             <?php foreach ($diasCortos as $num => $dia): ?>
-                                <th class="text-center text-secondary fw-semibold border-end" style="width: 9%;"><?php echo e($dia); ?></th>
+                                <th class="text-center text-secondary fw-semibold" style="width: 9%;"><?php echo e($dia); ?></th>
                             <?php endforeach; ?>
                             <th class="text-center text-secondary fw-semibold pe-4" style="width: 12%;">Acciones</th>
                         </tr>
@@ -262,14 +262,14 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                             <?php foreach ($empleadosAgrupados as $idEmp => $emp): ?>
                                 <?php $searchStr = strtolower($emp['nombre_completo'] . ' ' . ($emp['codigo_biometrico'] ?? '')); ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 py-3 border-end">
+                                    <td class="ps-4 py-3">
                                         <div class="fw-bold text-dark"><?php echo e($emp['nombre_completo']); ?></div>
                                         <?php if(!empty($emp['codigo_biometrico'])): ?>
                                             <small class="text-muted fw-medium"><i class="bi bi-upc-scan me-1"></i>Cód: <?php echo e($emp['codigo_biometrico']); ?></small>
                                         <?php endif; ?>
                                     </td>
                                     <?php for($i = 1; $i <= 7; $i++): ?>
-                                        <td class="text-center border-end" style="background-color: #fcfcfc;">
+                                        <td class="text-center">
                                             <?php if(isset($emp['dias_asignados'][$i])): ?>
                                                 <?php $info = $emp['dias_asignados'][$i]; ?>
                                                 <div class="badge bg-primary-subtle text-primary border border-primary-subtle text-wrap p-2 lh-sm shadow-sm" data-bs-toggle="tooltip" title="<?php echo $info['hora_entrada']; ?> a <?php echo $info['hora_salida']; ?>" style="font-size: 0.75rem; width: 100%;">

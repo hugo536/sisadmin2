@@ -65,11 +65,11 @@
                        data-pagination-info="#tercerosPaginationInfo">
                     <thead class="terceros-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold border-end">Documento</th>
-                            <th class="text-secondary fw-semibold border-end">Tercero</th>
-                            <th class="text-secondary fw-semibold border-end">Roles</th>
-                            <th class="text-secondary fw-semibold border-end">Contacto</th>
-                            <th class="text-center text-secondary fw-semibold border-end">Estado</th>
+                            <th class="ps-4 text-secondary fw-semibold">Documento</th>
+                            <th class="text-secondary fw-semibold">Tercero</th>
+                            <th class="text-secondary fw-semibold">Roles</th>
+                            <th class="text-secondary fw-semibold">Contacto</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -114,28 +114,28 @@
                                     data-roles="<?php echo htmlspecialchars($rolesFiltro); ?>"
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($tercero['nombre_completo'].' '.$tercero['numero_documento'])); ?>">
                                     
-                                    <td class="ps-4 fw-semibold text-primary align-top pt-3 border-end">
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3">
                                         <?php echo htmlspecialchars($tercero['tipo_documento']); ?> <br>
                                         <span class="text-dark small"><?php echo htmlspecialchars($tercero['numero_documento']); ?></span>
                                     </td>
                                     
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <div class="fw-bold text-dark"><?php echo htmlspecialchars($tercero['nombre_completo']); ?></div>
                                         <div class="small text-muted"><?php echo htmlspecialchars($tercero['direccion'] ?? ''); ?></div>
                                     </td>
                                     
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <?php foreach ($roles as $rol): ?>
                                             <span class="badge bg-light text-dark border me-1 mb-1 shadow-sm" style="font-size: 0.7rem;"><?php echo htmlspecialchars($rol); ?></span>
                                         <?php endforeach; ?>
                                     </td>
                                     
-                                    <td class="align-top pt-3 border-end">
+                                    <td class="align-top pt-3">
                                         <div class="fw-medium text-dark"><i class="bi bi-telephone small text-muted me-1"></i><?php echo htmlspecialchars($tercero['telefono'] ?? ''); ?></div>
                                         <div class="small text-muted mt-1"><i class="bi bi-envelope small text-muted me-1"></i><?php echo htmlspecialchars($tercero['email'] ?? ''); ?></div>
                                     </td>
                                     
-                                    <td class="text-center align-top pt-3 border-end">
+                                    <td class="text-center align-top pt-3">
                                         <?php if ($estadoBinario === 1): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Activo</span>
                                         <?php else: ?>
