@@ -18,8 +18,8 @@ class BitacoraModel extends Modelo
         }
 
         if (!empty($filtros['evento'])) {
-            $sql .= ' AND b.evento LIKE :evento';
-            $params['evento'] = '%' . $filtros['evento'] . '%';
+            $sql .= ' AND (b.evento LIKE :evento OR b.descripcion LIKE :evento)';
+            $params['evento'] = '%' . trim((string) $filtros['evento']) . '%';
         }
 
         if (!empty($filtros['fecha_inicio'])) {
