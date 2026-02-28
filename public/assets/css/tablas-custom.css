@@ -84,7 +84,39 @@
     vertical-align: middle;
 }
 
+<<<<<<< HEAD
 /* 6. Efecto al pasar el mouse (Hover) en las filas */
 .table-pro tbody tr:hover td {
     background-color: rgba(13, 110, 253, 0.04); /* Un fondo azul muy suave al pasar el ratón */
 }
+=======
+/* 6. Efecto al pasar el mouse (Hover) */
+.table-pro tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.03); /* Un azul muy sutil */
+}
+
+/* 7. Utilidades de columnas para evitar estilos inline en vistas */
+.table-pro .col-w-50 { width: 50px; }
+.table-pro .col-w-60 { width: 60px; }
+.table-pro .col-w-80 { width: 80px; }
+.table-pro .col-w-90 { width: 90px; }
+.table-pro .col-w-100 { width: 100px; }
+.table-pro .col-w-120 { width: 120px; }
+.table-pro .col-w-130 { width: 130px; }
+.table-pro .col-w-140 { width: 140px; }
+.table-pro .col-w-150 { width: 150px; }
+.table-pro .col-w-160 { width: 160px; }
+.table-pro .col-w-180 { width: 180px; }
+.table-pro .col-w-200 { width: 200px; }
+.table-pro .col-w-220 { width: 220px; }
+
+.table-pro .col-min-w-250 { min-width: 250px; }
+.table-pro .col-min-w-300 { min-width: 300px; }
+.table-pro .col-min-w-320 { min-width: 320px; }
+
+.table-pro .col-w-9p { width: 9%; }
+.table-pro .col-w-12p { width: 12%; }
+.table-pro .col-w-25p { width: 25%; }
+
+.table-pro .row-clickable { cursor: pointer; }
+>>>>>>> c301568863ab0e6eb7cb8303a1f364f7f80335d0

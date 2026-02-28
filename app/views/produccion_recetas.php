@@ -53,7 +53,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                        data-erp-filters='[{"el":"#recetaFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#recetasPaginationControls"
                        data-pagination-info="#recetasPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Producto Terminado</th>
@@ -343,7 +343,7 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 
                 <div class="table-responsive">
                     <table class="table align-middle table-sm mb-0 table-pro">
-                        <thead class="bg-light">
+                        <thead>
                             <tr>
                                 <th>Nombre</th>
                                 <th>Unidad</th>

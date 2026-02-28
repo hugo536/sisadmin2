@@ -145,21 +145,21 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                             </div>
                         <?php endif; ?>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 table-pro" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
-                                <thead class="table-light">
+                            <table class="table align-middle mb-0 table-pro" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
+                                <thead>
                                 <tr>
                                     <?php if ($modoVista === "volumen"): ?>
-                                    <th class="ps-4" style="width: 120px;">Código</th>
+                                    <th class="ps-4 col-w-120">Código</th>
                                     <th>Producto</th>
-                                    <th style="width: 180px;">Cantidad Mínima</th>
-                                    <th style="width: 220px;">Precio Unitario</th>
-                                    <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                                    <th class="col-w-180">Cantidad Mínima</th>
+                                    <th class="col-w-220">Precio Unitario</th>
+                                    <th class="text-end pe-4 col-w-90">Acciones</th>
                                     <?php else: ?>
-                                    <th class="ps-4" style="width: 120px;">Código</th>
+                                    <th class="ps-4 col-w-120">Código</th>
                                     <th>Producto</th>
-                                    <th style="width: 220px;">Precio Pactado</th>
-                                    <th style="width: 130px;">Estado</th>
-                                    <th class="text-end pe-4" style="width: 90px;">Acciones</th>
+                                    <th class="col-w-220">Precio Pactado</th>
+                                    <th class="col-w-130">Estado</th>
+                                    <th class="text-end pe-4 col-w-90">Acciones</th>
                                     <?php endif; ?>
                                 </tr>
                                 </thead>
@@ -183,7 +183,7 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                         ?>
                                         <?php foreach ($agrupados as $producto => $escalas): ?>
                                             <?php $grupoId++; ?>
-                                            <tr class="table-light" style="cursor: pointer;" onclick="toggleAcordeonVolumen('grupo-<?php echo $grupoId; ?>', this)">
+                                            <tr class="table-light row-clickable" onclick="toggleAcordeonVolumen('grupo-<?php echo $grupoId; ?>', this)">
                                                 <td colspan="5" class="fw-bold text-dark border-bottom">
                                                     <div class="d-flex justify-content-between align-items-center">
                                                         <div>

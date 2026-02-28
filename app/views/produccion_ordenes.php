@@ -64,7 +64,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                        data-erp-nested-rows="true"
                        data-pagination-controls="#opPaginationControls"
                        data-pagination-info="#opPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código OP</th>
                             <th class="text-secondary fw-semibold">Producto / Receta</th>

@@ -67,8 +67,8 @@ $estadoLabels = [
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover table-borderless table-pro" id="tablaCompras">
-                    <thead class="table-light border-bottom">
+                <table class="table align-middle mb-0 table-pro" id="tablaCompras">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Proveedor</th>
@@ -174,13 +174,13 @@ $estadoLabels = [
                             
                             <div class="table-responsive">
                                 <table class="table align-middle mb-0 table-pro" id="tablaDetalleCompra">
-                                    <thead class="table-light border-bottom">
+                                    <thead>
                                         <tr>
-                                            <th style="min-width:320px;" class="ps-3 text-secondary">Ítem / Producto</th>
-                                            <th style="width: 140px;" class="text-secondary text-center">Cantidad</th>
-                                            <th style="width: 160px;" class="text-secondary text-center">Costo Unit.</th>
-                                            <th style="width: 150px;" class="text-end text-secondary">Subtotal</th>
-                                            <th style="width: 60px;" class="text-center"></th>
+                                            <th class="ps-3 text-secondary col-min-w-320">Ítem / Producto</th>
+                                            <th class="text-secondary text-center col-w-140">Cantidad</th>
+                                            <th class="text-secondary text-center col-w-160">Costo Unit.</th>
+                                            <th class="text-end text-secondary col-w-150">Subtotal</th>
+                                            <th class="text-center col-w-60"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white"></tbody>
