@@ -6,8 +6,8 @@
  * - Filtros + paginación (client-side)
  *
  * Uso:
- *   ERPTable.initTooltips();
- *   ERPTable.createTableManager({...}).init();
+ * ERPTable.initTooltips();
+ * ERPTable.createTableManager({...}).init();
  *
  * Requisitos:
  * - Bootstrap 5 JS cargado (window.bootstrap)
@@ -50,7 +50,7 @@
 
         searchAttr: 'data-search',    // atributo donde buscar texto
         normalizeSearchText: (value) => (value || '').toString().toLowerCase().trim(),
-        rowsPerPage: 25,
+        rowsPerPage: 25,              // REGLA GENERAL: 25 filas por defecto
 
         paginationControls: null,     // '#paginationControls'
         paginationInfo: null,         // '#paginationInfo'
@@ -150,8 +150,18 @@
       if (paginationControlsEl) renderPaginationControls(totalPages);
     }
 
+    // ================================================================
+    // AQUÍ ESTÁ LA MAGIA DEL DISEÑO DE PAGINACIÓN
+    // ================================================================
     function renderPaginationControls(totalPages) {
       paginationControlsEl.innerHTML = '';
+      
+      // Si quieres asegurarte de que los botones sean grandes, 
+      // quitamos cualquier clase "pagination-sm" del contenedor padre por si acaso.
+      if (paginationControlsEl.classList.contains('pagination-sm')) {
+        paginationControlsEl.classList.remove('pagination-sm');
+      }
+
       if (totalPages <= 1) return;
 
       const createItem = (text, page, isActive = false, isDisabled = false) => {
@@ -159,7 +169,9 @@
         li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
 
         const a = document.createElement('a');
-        a.className = 'page-link';
+        // SE ELIMINÓ: a.className = 'page-link text-primary';
+        // AHORA ES: 
+        a.className = 'page-link'; 
         a.href = '#';
         a.textContent = String(text);
 
@@ -186,6 +198,8 @@
         const li = document.createElement('li');
         li.className = 'page-item disabled';
         const span = document.createElement('span');
+        // SE ELIMINÓ: span.className = 'page-link text-muted';
+        // AHORA ES:
         span.className = 'page-link';
         span.textContent = '...';
         li.appendChild(span);
