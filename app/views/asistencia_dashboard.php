@@ -134,7 +134,12 @@ $empleados = $empleados ?? [];
         </div>
         <div class="card-body p-0">
             <div class="table-responsive asistencia-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="asistenciaTable" data-erp-table="true" data-search-input="#searchAsistencia" data-pagination-info="#asistenciaPaginationInfo" data-pagination-controls="#asistenciaPaginationControls" data-rows-per-page="25" data-search-normalize="accent" data-info-text="results">
+                <table class="table align-middle mb-0 table-pro" id="asistenciaTable"
+                                data-erp-table="true"
+                                data-search-input="#searchAsistencia"
+                                data-pagination-controls="#asistenciaPaginationControls"
+                                data-pagination-info="#asistenciaPaginationInfo"
+                                data-info-text="results">
                     <thead class="asistencia-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold border-end">Fecha</th>
@@ -223,7 +228,7 @@ $empleados = $empleados ?? [];
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Lógica para alternar campos de periodo
+    // 1. Lógica para alternar campos de periodo (Día, Semana, Mes, Rango)
     const periodoSelect = document.querySelector('select[name="periodo"]');
     if (periodoSelect) {
         const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
@@ -232,17 +237,18 @@ document.addEventListener('DOMContentLoaded', function () {
             camposPeriodo.forEach(function (campo) {
                 const visible = campo.getAttribute('data-period-field') === seleccionado;
                 campo.classList.toggle('d-none', !visible);
-                // Si contiene inputs, le quitamos/ponemos el required según visibilidad para que no bloquee el form
+                // Evitamos que inputs ocultos bloqueen el formulario
                 const inputs = campo.querySelectorAll('input');
                 inputs.forEach(inp => {
                     if(!visible) inp.removeAttribute('required');
-                    else if (campo.getAttribute('data-period-field') === 'dia') inp.setAttribute('required', 'required'); // Ejemplo para el día
+                    else if (campo.getAttribute('data-period-field') === 'dia') inp.setAttribute('required', 'required');
                 });
             });
         };
         periodoSelect.addEventListener('change', alternarCampos);
         alternarCampos();
     }
-
+    
+    // ¡Listo! No necesitamos JS para la tabla porque main.js la auto-inicializa
 });
 </script>
