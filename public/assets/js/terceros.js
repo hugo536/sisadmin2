@@ -741,6 +741,7 @@
             const sueldoBasico = Number.parseFloat(sueldoBasicoRaw);
             const pagoDiarioRaw = (form.querySelector('[name="pago_diario"]')?.value || '').trim();
             const pagoDiario = Number.parseFloat(pagoDiarioRaw);
+            const codigoBiometrico = (form.querySelector('[name="codigo_biometrico"]')?.value || '').trim();
 
             if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
                 return 'Tipo de persona, documento, número y nombre son obligatorios.';
@@ -778,6 +779,10 @@
             }
 
             if (esEmpleado) {
+                if (codigoBiometrico.length > 50) {
+                    return 'El código biométrico no puede exceder 50 caracteres.';
+                }
+
                 if (tipoPago === 'DIARIO') {
                     if (pagoDiarioRaw === '') {
                         return 'Para el rol Empleado con pago diario, el campo pago diario es obligatorio.';
@@ -852,6 +857,11 @@
                     if (fechaNacimientoInput) {
                         fd.set('fecha_nacimiento', (fechaNacimientoInput.value || '').trim());
                     }
+                }
+
+                const codigoBiometricoInput = form.querySelector('[name="codigo_biometrico"]');
+                if (codigoBiometricoInput) {
+                    fd.set('codigo_biometrico', (codigoBiometricoInput.value || '').trim());
                 }
 
                 const btn = form.querySelector('button[type="submit"]');
