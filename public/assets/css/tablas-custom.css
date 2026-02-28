@@ -3,8 +3,7 @@
    ========================================================= */
 
 :root {
-    /* --- AQUÍ ESTÁ EL CAMBIO DE COLOR --- */
-    /* Un azul marino oscuro inspirado en tu menú lateral */
+    /* Un azul marino oscuro inspirado en el menú lateral */
     --erp-table-header-bg: #1c2434;      
     --erp-table-header-text: #ffffff;    /* Texto blanco para contrastar */
     
@@ -22,15 +21,11 @@
     width: 100%;
 }
 
-/* 2. Rayas entre columnas (Cuerpo de la tabla) */
+/* 2. Rayas del cuerpo de la tabla (Quitamos las verticales) */
 .table-pro tbody td {
-    border-right: 1px solid var(--erp-table-border-color) !important;
+    border-right: none !important; /* Elimina la raya vertical entre columnas */
     border-bottom: 1px solid var(--erp-table-border-color); 
-}
-
-/* Quitamos la raya derecha de la última columna para un borde limpio */
-.table-pro tbody td:last-child {
-    border-right: none !important;
+    vertical-align: middle; /* Mantiene el contenido centrado verticalmente */
 }
 
 /* 3. El encabezado (Header) */
@@ -40,14 +35,11 @@
 }
 
 .table-pro thead th {
-    color: var(--erp-table-header-text);
-    font-weight: 600;
+    color: #ffffff !important;       /* Forzamos el color blanco puro */
+    font-weight: bold !important;    /* Letra en negrita (bold) */
     padding: 14px 15px; 
     background-color: var(--erp-table-header-bg); 
-    border-top: none;
-    border-bottom: none;
-    /* Borde vertical sutil (blanco semitransparente) para que luzca bien en fondo oscuro */
-    border-right: 1px solid rgba(255, 255, 255, 0.15) !important; 
+    border: none !important;         /* Quitamos cualquier raya o borde en el encabezado */
 }
 
 /* Quitamos la raya derecha de la última columna del encabezado */
@@ -84,15 +76,9 @@
     vertical-align: middle;
 }
 
-
 /* 6. Efecto al pasar el mouse (Hover) en las filas */
 .table-pro tbody tr:hover td {
     background-color: rgba(13, 110, 253, 0.04); /* Un fondo azul muy suave al pasar el ratón */
-}
-
-/* 6. Efecto al pasar el mouse (Hover) */
-.table-pro tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.03); /* Un azul muy sutil */
 }
 
 /* 7. Utilidades de columnas para evitar estilos inline en vistas */
@@ -120,3 +106,59 @@
 
 .table-pro .row-clickable { cursor: pointer; }
 
+/* =========================================================
+   8. ESTILOS DE BOTONES Y SWITCHES EN TABLAS
+   ========================================================= */
+
+/* --- Switches (Interruptores de Estado) --- */
+.table-pro .form-switch {
+    display: flex;
+    justify-content: center; /* Centra el switch en la celda */
+    margin: 0;
+}
+
+.table-pro .form-switch .form-check-input {
+    cursor: pointer;
+    width: 2.5em; /* Un poquito más grandes para mejor UX */
+}
+
+/* Color cuando está encendido (Activo) */
+.table-pro .form-switch .form-check-input:checked {
+    background-color: var(--erp-primary);
+    border-color: var(--erp-primary);
+}
+
+/* Sombra suave al hacer clic (Focus) */
+.table-pro .form-switch .form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); 
+    border-color: var(--erp-primary);
+}
+
+/* --- Botones de Acción (Iconos en la última columna) --- */
+.table-pro .btn-action {
+    color: #858c93;          /* Un gris sutil para no saturar la vista */
+    background: transparent;
+    border: none;
+    padding: 6px 10px;       /* Área de clic más amplia */
+    border-radius: 6px;      /* Bordes ligeramente redondeados */
+    margin: 0 2px;
+    transition: all 0.2s ease-in-out; /* Animación suave */
+}
+
+/* Efecto general al pasar el mouse (fondito gris claro) */
+.table-pro .btn-action:hover {
+    background-color: #f1f3f5; 
+}
+
+/* Colores específicos según el tipo de botón (Hover) */
+.table-pro .btn-action.btn-edit:hover {
+    color: var(--erp-primary); /* Azul al pasar el mouse */
+}
+
+.table-pro .btn-action.btn-delete:hover {
+    color: #dc3545;            /* Rojo al pasar el mouse */
+}
+
+.table-pro .btn-action.btn-view:hover {
+    color: #198754;            /* Verde al pasar el mouse */
+}
