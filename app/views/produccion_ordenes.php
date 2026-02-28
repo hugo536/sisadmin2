@@ -56,7 +56,12 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 
                 <table id="tablaOrdenes" class="table align-middle mb-0 table-pro"
                        data-erp-table="true"
+                       data-rows-selector="#opTableBody tr.op-main-row"
                        data-search-input="#opSearch"
+                       data-empty-text="No se encontraron órdenes de producción"
+                       data-info-text-template="Mostrando {start} a {end} de {total} órdenes"
+                       data-erp-filters='[{"el":"#opFiltroEstado","attr":"data-estado","match":"equals"}]'
+                       data-erp-nested-rows="true"
                        data-pagination-controls="#opPaginationControls"
                        data-pagination-info="#opPaginationInfo">
                     <thead class="bg-light border-bottom">
@@ -297,58 +302,3 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 <script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.6"></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        ERPTable.initTooltips();
-        
-        ERPTable.createTableManager({
-            tableSelector: '#tablaOrdenes',
-            // Le decimos que solo cuente las filas principales (las que tienen op-main-row)
-            rowsSelector: '#opTableBody tr.op-main-row', 
-            searchInput: '#opSearch',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#opPaginationControls',
-            paginationInfo: '#opPaginationInfo',
-            emptyText: 'No se encontraron órdenes de producción',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} órdenes`,
-            
-            // FILTRO DE ESTADO
-            filters: [
-                { el: '#opFiltroEstado', attr: 'data-estado', match: 'equals' }
-            ],
-            
-            // LA CLAVE: Cuando el ERPTable actualice la paginación, le decimos 
-            // que muestre u oculte la fila del acordeón (faltantes) que le corresponde a esa OP
-            onUpdate: function(state) {
-                const term = document.getElementById('opSearch').value.toLowerCase().trim();
-                const estado = document.getElementById('opFiltroEstado').value;
-                
-                // Recorremos todas las filas de faltantes (acordeones)
-                document.querySelectorAll('.collapse-faltantes').forEach(function(rowFaltante) {
-                    const searchAttr = rowFaltante.getAttribute('data-search') || '';
-                    
-                    // Si cumple con la búsqueda (y el estado, si lo pudiéramos leer, aunque la principal ya lo filtró)
-                    if (searchAttr.includes(term)) {
-                        // En la paginación simple, la ocultamos si su padre no está visible
-                        const idOrden = rowFaltante.id.split('-')[1];
-                        const filaPadre = document.querySelector(`.op-main-row[data-search="${searchAttr}"]`);
-                        
-                        if(filaPadre && filaPadre.style.display !== 'none'){
-                            // El acordeón no se despliega automáticamente, pero su <tr> debe existir en pantalla
-                            rowFaltante.style.display = ''; 
-                        } else {
-                            rowFaltante.style.display = 'none';
-                        }
-                    } else {
-                        rowFaltante.style.display = 'none';
-                    }
-                });
-            }
-        }).init();
-        
-    }
-});
-</script>

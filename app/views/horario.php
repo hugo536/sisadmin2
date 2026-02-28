@@ -89,7 +89,11 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                     <div class="table-responsive">
                         <table class="table align-middle mb-0 table-pro" id="tablaTurnos"
                                data-erp-table="true"
+                               data-rows-selector="#turnosTableBody tr:not(.empty-msg-row)"
                                data-search-input="#searchTurnos"
+                               data-rows-per-page="10"
+                               data-empty-text="No se encontraron turnos"
+                               data-info-text-template="{start}-{end} de {total}"
                                data-pagination-controls="#turnosPaginationControls"
                                data-pagination-info="#turnosPaginationInfo">
                             <thead class="bg-light">
@@ -237,9 +241,12 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
         <div class="card-body p-0">
             <div class="table-responsive horario-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="horariosTable" 
-                       data-erp-table="true" 
-                       data-search-input="#searchEmpleadoHorario" 
-                       data-pagination-info="#horariosPaginationInfo" 
+                       data-erp-table="true"
+                       data-rows-selector="#horariosTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#searchEmpleadoHorario"
+                       data-empty-text="No hay horarios asignados"
+                       data-info-text-template="Mostrando {start} a {end} de {total} empleados"
+                       data-pagination-info="#horariosPaginationInfo"
                        data-pagination-controls="#horariosPaginationControls">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
@@ -309,118 +316,3 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
     </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // 1. Iniciar Select2
-    $('#empleadoSelect2').select2({
-        theme: "bootstrap-5",
-        width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
-        placeholder: "Buscar y seleccionar empleados...",
-        closeOnSelect: false,
-        allowClear: true,
-    });
-
-    $('#btnSeleccionarTodosEmpleados').on('click', function() {
-        var options = $('#empleadoSelect2 > option').map(function() { return $(this).val(); }).get();
-        $('#empleadoSelect2').val(options).trigger('change');
-    });
-
-    const btnTodosDias = document.getElementById('btnSeleccionarTodosDias');
-    let diasMarcados = false;
-    btnTodosDias.addEventListener('click', function() {
-        diasMarcados = !diasMarcados;
-        document.querySelectorAll('.dia-checkbox').forEach(chk => {
-            chk.checked = diasMarcados;
-        });
-        this.innerText = diasMarcados ? 'Desmarcar Días' : 'Marcar Lun-Dom';
-    });
-
-    const asignacionForm = document.getElementById('asignacionMasivaForm');
-    asignacionForm.addEventListener('submit', function (event) {
-        const empleados = $('#empleadoSelect2').val();
-        const diasCheck = document.querySelectorAll('.dia-checkbox:checked');
-
-        if (!empleados || empleados.length === 0) {
-            event.preventDefault();
-            alert('Por favor, selecciona al menos un empleado.');
-            return;
-        }
-
-        if (diasCheck.length === 0) {
-            event.preventDefault();
-            alert('Por favor, selecciona al menos un día de la semana.');
-            return;
-        }
-    });
-
-    const idInput = document.getElementById('horarioId');
-    const nombreInput = document.getElementById('horarioNombre');
-    const entradaInput = document.getElementById('horarioEntrada');
-    const salidaInput = document.getElementById('horarioSalida');
-    const toleranciaInput = document.getElementById('horarioTolerancia');
-
-    document.querySelectorAll('.js-editar-horario').forEach((btn) => {
-        btn.addEventListener('click', function () {
-            idInput.value = this.dataset.id || '0';
-            nombreInput.value = this.dataset.nombre || '';
-            entradaInput.value = this.dataset.entrada || '';
-            salidaInput.value = this.dataset.salida || '';
-            toleranciaInput.value = this.dataset.tolerancia || '0';
-            nombreInput.focus();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    });
-
-    const limpiar = document.getElementById('btnLimpiarHorario');
-    if (limpiar) {
-        limpiar.addEventListener('click', function () {
-            idInput.value = '0';
-            nombreInput.value = '';
-            entradaInput.value = '';
-            salidaInput.value = '';
-            toleranciaInput.value = '0';
-        });
-    }
-
-    // ==========================================
-    // INICIALIZACIÓN DE TABLAS CON ERPTable
-    // ==========================================
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        // Tooltips Globales
-        ERPTable.initTooltips();
-        
-        // Inicializar Tabla 1: Catálogo de Turnos (10 filas por página para que encaje bien a un lado del form)
-        ERPTable.createTableManager({
-            tableSelector: '#tablaTurnos',
-            rowsSelector: '#turnosTableBody tr:not(.empty-msg-row)',
-            searchInput: '#searchTurnos',
-            searchAttr: 'data-search',
-            rowsPerPage: 10, 
-            paginationControls: '#turnosPaginationControls',
-            paginationInfo: '#turnosPaginationInfo',
-            emptyText: 'No se encontraron turnos',
-            infoText: ({ start, end, total }) => `${start}-${end} de ${total}`
-        }).init();
-
-        // Inicializar Tabla 2: Resumen Semanal de Empleados (25 filas)
-        ERPTable.createTableManager({
-            tableSelector: '#horariosTable',
-            rowsSelector: '#horariosTableBody tr:not(.empty-msg-row)',
-            searchInput: '#searchEmpleadoHorario',
-            searchAttr: 'data-search',
-            rowsPerPage: 25,
-            paginationControls: '#horariosPaginationControls',
-            paginationInfo: '#horariosPaginationInfo',
-            emptyText: 'No hay horarios asignados',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} empleados`
-        }).init();
-
-    } else {
-        console.error("ERPTable no encontrado.");
-    }
-});
-</script>

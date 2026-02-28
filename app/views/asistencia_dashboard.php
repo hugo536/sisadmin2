@@ -134,7 +134,14 @@ $empleados = $empleados ?? [];
         </div>
         <div class="card-body p-0">
             <div class="table-responsive asistencia-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="asistenciaTable">
+                <table class="table align-middle mb-0 table-pro" id="asistenciaTable"
+                       data-erp-table="true"
+                       data-rows-selector="#asistenciaTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#searchAsistencia"
+                       data-empty-text="No hay registros para mostrar"
+                       data-info-text-template="Mostrando {start} a {end} de {total} registros"
+                       data-pagination-controls="#asistenciaPaginationControls"
+                       data-pagination-info="#asistenciaPaginationInfo">
                     <thead class="asistencia-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
@@ -219,53 +226,3 @@ $empleados = $empleados ?? [];
     </div>
 </div>
 
-<script>
-// =========================================================
-// AHORA ESPERAMOS A QUE EL DOM CARGUE POR COMPLETO
-// =========================================================
-document.addEventListener('DOMContentLoaded', function () {
-    
-    // 1. Lógica para alternar campos de periodo (Mantenida intacta)
-    const periodoSelect = document.querySelector('select[name="periodo"]');
-    if (periodoSelect) {
-        const camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
-        const alternarCampos = function () {
-            const seleccionado = periodoSelect.value;
-            camposPeriodo.forEach(function (campo) {
-                const visible = campo.getAttribute('data-period-field') === seleccionado;
-                campo.classList.toggle('d-none', !visible);
-                const inputs = campo.querySelectorAll('input');
-                inputs.forEach(inp => {
-                    if(!visible) inp.removeAttribute('required');
-                    else if (campo.getAttribute('data-period-field') === 'dia') inp.setAttribute('required', 'required');
-                });
-            });
-        };
-        periodoSelect.addEventListener('change', alternarCampos);
-        alternarCampos();
-    }
-
-    // ==========================================
-    // 2. INICIALIZACIÓN EXPLÍCITA A PRUEBA DE FALLOS
-    // ==========================================
-    if (typeof window.ERPTable !== 'undefined') {
-        ERPTable.initTooltips();
-        
-        ERPTable.createTableManager({
-            tableSelector: '#asistenciaTable',
-            // IGNORAMOS LA FILA VACÍA PARA QUE NO ROMPA EL CÁLCULO
-            rowsSelector: '#asistenciaTableBody tr:not(.empty-msg-row)', 
-            searchInput: '#searchAsistencia',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#asistenciaPaginationControls',
-            paginationInfo: '#asistenciaPaginationInfo',
-            emptyText: 'No hay registros para mostrar',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} registros`
-        }).init();
-        
-    } else {
-        console.error("No se encontró ERPTable. Verifica que public/assets/js/tablas/renderizadores.js se esté cargando correctamente en tu Layout.");
-    }
-});
-</script>

@@ -37,7 +37,32 @@
         });
     }
 
+
+    function initDashboardPeriodoToggle() {
+        var periodoSelect = document.querySelector('select[name="periodo"]');
+        if (!periodoSelect) return;
+
+        var camposPeriodo = Array.from(document.querySelectorAll('[data-period-field]'));
+        var alternarCampos = function () {
+            var seleccionado = periodoSelect.value;
+            camposPeriodo.forEach(function (campo) {
+                var visible = campo.getAttribute('data-period-field') === seleccionado;
+                campo.classList.toggle('d-none', !visible);
+                var inputs = campo.querySelectorAll('input');
+                inputs.forEach(function (inp) {
+                    if (!visible) inp.removeAttribute('required');
+                    else if (campo.getAttribute('data-period-field') === 'dia') inp.setAttribute('required', 'required');
+                });
+            });
+        };
+
+        periodoSelect.addEventListener('change', alternarCampos);
+        alternarCampos();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        initDashboardPeriodoToggle();
+
         if (!document.getElementById('tablaAsistenciaLogs')) return;
 
         loadCss('https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css');

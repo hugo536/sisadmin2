@@ -46,7 +46,11 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
             <div class="table-responsive">
                 <table id="tablaRecetas" class="table align-middle mb-0 table-pro"
                        data-erp-table="true"
+                       data-rows-selector="#recetasTableBody tr:not(.empty-msg-row)"
                        data-search-input="#recetaSearch"
+                       data-empty-text="No se encontraron recetas"
+                       data-info-text-template="Mostrando {start} a {end} de {total} recetas"
+                       data-erp-filters='[{"el":"#recetaFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#recetasPaginationControls"
                        data-pagination-info="#recetasPaginationInfo">
                     <thead class="bg-light border-bottom">
@@ -389,29 +393,3 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 
 <script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.3"></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        ERPTable.initTooltips();
-        
-        ERPTable.createTableManager({
-            tableSelector: '#tablaRecetas',
-            rowsSelector: '#recetasTableBody tr:not(.empty-msg-row)', // Excluye la fila de mensaje vacío
-            searchInput: '#recetaSearch',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#recetasPaginationControls',
-            paginationInfo: '#recetasPaginationInfo',
-            emptyText: 'No se encontraron recetas',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} recetas`,
-            
-            // Filtro personalizado de estado
-            filters: [
-                { el: '#recetaFiltroEstado', attr: 'data-estado', match: 'equals' }
-            ]
-        }).init();
-        
-    }
-});
-</script>

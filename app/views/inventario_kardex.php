@@ -69,7 +69,10 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
             <div class="table-responsive">
                 <table class="table table-pro align-middle mb-0" id="tablaKardex"
                        data-erp-table="true"
+                       data-rows-selector="#kardexTableBody tr:not(.empty-msg-row)"
                        data-search-input="#searchKardex"
+                       data-empty-text="No se encontraron movimientos"
+                       data-info-text-template="Mostrando {start} a {end} de {total} movimientos"
                        data-pagination-controls="#kardexPaginationControls"
                        data-pagination-info="#kardexPaginationInfo">
                     <thead class="bg-light border-bottom">
@@ -171,24 +174,3 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof window.ERPTable !== 'undefined') {
-        
-        ERPTable.initTooltips();
-        
-        ERPTable.createTableManager({
-            tableSelector: '#tablaKardex',
-            rowsSelector: '#kardexTableBody tr:not(.empty-msg-row)', // Importante para excluir la fila vacía
-            searchInput: '#searchKardex',
-            searchAttr: 'data-search',
-            rowsPerPage: 25, 
-            paginationControls: '#kardexPaginationControls',
-            paginationInfo: '#kardexPaginationInfo',
-            emptyText: 'No se encontraron movimientos',
-            infoText: ({ start, end, total }) => `Mostrando ${start} a ${end} de ${total} movimientos`
-        }).init();
-        
-    }
-});
-</script>

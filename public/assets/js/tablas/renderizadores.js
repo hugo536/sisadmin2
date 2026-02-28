@@ -42,7 +42,7 @@
     const cfg = Object.assign(
       {
         tableSelector: null,          // ej: '#usuariosTable'
-        rowsSelector: 'tbody tr',
+        rowsSelector: 'tbody tr:not(.empty-msg-row)',
 
         // Inputs
         searchInput: null,            // '#usuarioSearch'
@@ -327,10 +327,12 @@
     tables.forEach((tableEl) => {
       const cfg = {
         tableSelector: tableEl,
+        rowsSelector: tableEl.dataset.rowsSelector || 'tbody tr:not(.empty-msg-row)',
         searchInput: tableEl.dataset.searchInput || null,
         paginationControls: tableEl.dataset.paginationControls || null,
         paginationInfo: tableEl.dataset.paginationInfo || null,
-        searchAttr: tableEl.dataset.searchAttr || 'data-search'
+        searchAttr: tableEl.dataset.searchAttr || 'data-search',
+        emptyText: tableEl.dataset.emptyText || 'Sin resultados'
       };
 
       if (tableEl.dataset.rowsPerPage) {
@@ -353,7 +355,45 @@
         cfg.emptyText = 'Mostrando 0-0 de 0 resultados';
       }
 
+      if (tableEl.dataset.refreshOnUpdate === 'true') {
+        cfg.refreshOnUpdate = true;
+      }
+
+      if (tableEl.dataset.infoTextTemplate) {
+        cfg.infoText = ({ start, end, total }) =>
+          tableEl.dataset.infoTextTemplate
+            .replace('{start}', String(start))
+            .replace('{end}', String(end))
+            .replace('{total}', String(total));
+      }
+
+      if (tableEl.dataset.erpFilters) {
+        try {
+          const parsedFilters = JSON.parse(tableEl.dataset.erpFilters);
+          if (Array.isArray(parsedFilters)) cfg.filters = parsedFilters;
+        } catch (error) {
+          console.error(`Error parseando data-erp-filters en tabla ${tableEl.id || '(sin id)'}`, error);
+        }
+      }
+
+      if (tableEl.dataset.erpNestedRows === 'true') {
+        cfg.onUpdate = function onUpdateNestedRows() {
+          tableEl.querySelectorAll('.collapse-faltantes').forEach((childRow) => {
+            const searchAttr = childRow.getAttribute('data-search') || '';
+            const parentRow = tableEl.querySelector(`tr.op-main-row[data-search="${searchAttr}"]`) ||
+              tableEl.querySelector(`tr:not(.collapse-faltantes)[data-search="${searchAttr}"]`);
+
+            childRow.style.display = parentRow && parentRow.style.display !== 'none' ? '' : 'none';
+          });
+        };
+      }
+
       const manager = ERPTable.createTableManager(cfg).init();
+
+      if (tableEl.dataset.managerGlobal) {
+        w[tableEl.dataset.managerGlobal] = manager;
+      }
+
       managers.push(manager);
     });
 
@@ -361,5 +401,10 @@
   };
 
   w.ERPTable = ERPTable;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    ERPTable.initTooltips();
+    ERPTable.autoInitFromDataset();
+  });
 
 })(window);
