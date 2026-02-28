@@ -159,11 +159,12 @@ class AsistenciaModel extends Modelo
         $this->db()->prepare($sql)->execute(array_values($ids));
     }
 
-    public function obtenerDashboardDiario(string $fecha): array
+    public function obtenerDashboardDiario(string $fecha, ?int $idTercero = null, string $estado = ''): array
     {
         $diaSemana = (int) date('N', strtotime($fecha));
 
         $sql = 'SELECT t.id,
+                       :fecha AS fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
                        ah.hora_entrada,
@@ -178,14 +179,77 @@ class AsistenciaModel extends Modelo
                 LEFT JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
                 LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha = :fecha
                 WHERE t.es_empleado = 1
-                  AND t.deleted_at IS NULL
+                  AND t.deleted_at IS NULL';
+
+        $params = [
+            'dia_semana' => $diaSemana,
+            'fecha' => $fecha,
+        ];
+
+        if ($idTercero !== null && $idTercero > 0) {
+            $sql .= ' AND t.id = :id_tercero';
+            $params['id_tercero'] = $idTercero;
+        }
+
+        if ($estado !== '') {
+            if ($estado === 'FALTA') {
+                $sql .= ' AND COALESCE(ar.estado_asistencia, "FALTA") = :estado';
+            } else {
+                $sql .= ' AND ar.estado_asistencia = :estado';
+            }
+            $params['estado'] = $estado;
+        }
+
+        $sql .= '
                 ORDER BY t.nombre_completo ASC';
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
-            'dia_semana' => $diaSemana,
-            'fecha' => $fecha,
-        ]);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerDashboardRango(string $desde, string $hasta, ?int $idTercero = null, string $estado = ''): array
+    {
+        $sql = 'SELECT t.id,
+                       ar.fecha,
+                       t.nombre_completo,
+                       ah.nombre AS horario_nombre,
+                       ah.hora_entrada,
+                       ah.hora_salida,
+                       ar.hora_ingreso,
+                       ar.hora_salida AS hora_salida_real,
+                       ar.estado_asistencia,
+                       ar.minutos_tardanza
+                FROM asistencia_registros ar
+                INNER JOIN terceros t ON t.id = ar.id_tercero
+                LEFT JOIN asistencia_empleado_horario aeh
+                    ON aeh.id_tercero = t.id
+                   AND aeh.dia_semana = (WEEKDAY(ar.fecha) + 1)
+                LEFT JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
+                WHERE ar.fecha BETWEEN :desde AND :hasta
+                  AND t.es_empleado = 1
+                  AND t.deleted_at IS NULL';
+
+        $params = [
+            'desde' => $desde,
+            'hasta' => $hasta,
+        ];
+
+        if ($idTercero !== null && $idTercero > 0) {
+            $sql .= ' AND t.id = :id_tercero';
+            $params['id_tercero'] = $idTercero;
+        }
+
+        if ($estado !== '') {
+            $sql .= ' AND ar.estado_asistencia = :estado';
+            $params['estado'] = $estado;
+        }
+
+        $sql .= ' ORDER BY ar.fecha DESC, t.nombre_completo ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
