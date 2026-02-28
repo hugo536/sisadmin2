@@ -616,10 +616,20 @@
         if (modalEdit) {
             modalEdit.addEventListener('show.bs.modal', (e) => {
                 const btn = e.relatedTarget;
+                if (!btn) {
+                    return;
+                }
+
+                const editIdInput = document.getElementById('editId');
+                if (!editIdInput) {
+                    console.warn('[terceros] No se encontró #editId en el modal de edición. Se omite la carga de datos.');
+                    return;
+                }
+
                 modalEdit.__currentTriggerButton = btn;
                 const id = btn.dataset.id;
                 
-                document.getElementById('editId').value = id;
+                editIdInput.value = id;
                 document.getElementById('editNombre').value = btn.dataset.nombre;
                 document.getElementById('editNumeroDoc').value = btn.dataset.numeroDoc;
                 document.getElementById('editTipoDoc').value = btn.dataset.tipoDoc;
