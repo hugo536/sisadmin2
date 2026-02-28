@@ -27,7 +27,7 @@ class HorarioController extends Controlador
         // 1. Obtenemos las asignaciones crudas de la BD (1 fila = 1 día)
         $asignacionesRaw = $this->horarioModel->listarAsignaciones();
 
-        // 2. Lógica para agrupar por Empleado
+        // 2. Lógica para agrupar por Empleado (Para la tabla visual)
         $empleadosAgrupados = [];
         $nombresDias = [
             1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 
@@ -64,7 +64,7 @@ class HorarioController extends Controlador
             'ruta_actual' => 'horario/index',
             'horarios' => $this->horarioModel->listarHorarios(),
             'empleados' => $this->horarioModel->listarEmpleados(),
-            'asignaciones' => $asignacionesRaw, // Mantenemos la original por retrocompatibilidad
+            'asignaciones' => $asignacionesRaw, 
             'empleadosAgrupados' => $empleadosAgrupados, // Enviamos nuestra lista agrupada a la vista
             'flash' => [
                 'tipo' => (string) ($_GET['tipo'] ?? ''),
@@ -163,6 +163,8 @@ class HorarioController extends Controlador
     {
         $idHorario = (int) ($_POST['id_horario'] ?? 0);
         $diaSemana = (int) ($_POST['dia_semana'] ?? 0);
+        
+        // ¡IMPORTANTE! Aquí capturamos el arreglo de múltiples trabajadores
         $idsTerceros = $_POST['id_terceros'] ?? [];
 
         if (!is_array($idsTerceros)) {
@@ -184,10 +186,12 @@ class HorarioController extends Controlador
             throw new RuntimeException('Datos inválidos para la asignación.');
         }
 
+        // Si mandan 0, asignamos de lunes a domingo
         $diasObjetivo = $diaSemana === 0 ? [1, 2, 3, 4, 5, 6, 7] : [$diaSemana];
 
         foreach ($idsTerceros as $idTercero) {
             foreach ($diasObjetivo as $dia) {
+                // Aquí el modelo debe hacer un INSERT o UPDATE (ON DUPLICATE KEY)
                 if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $dia, $userId)) {
                     throw new RuntimeException('No se pudo guardar una o más asignaciones.');
                 }

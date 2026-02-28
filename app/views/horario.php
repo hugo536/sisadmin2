@@ -2,7 +2,7 @@
 $horarios = $horarios ?? [];
 $empleados = $empleados ?? [];
 $asignaciones = $asignaciones ?? [];
-$empleadosAgrupados = $empleadosAgrupados ?? []; // Nuestra nueva variable agrupada
+$empleadosAgrupados = $empleadosAgrupados ?? []; // Nuestra nueva variable agrupada del controlador
 $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 ?>
 
@@ -151,18 +151,22 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 d-flex align-items-center">
-            <h2 class="h6 fw-bold text-dark mb-0"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Asignación de Horarios por Empleado</h2>
+            <h2 class="h6 fw-bold text-dark mb-0"><i class="bi bi-person-lines-fill me-2 text-primary"></i>Asignación Masiva de Horarios</h2>
         </div>
         
         <div class="card-body p-4 bg-light border-bottom">
-            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-end" id="asignacionMasivaForm">
+            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-start" id="asignacionMasivaForm">
                 <input type="hidden" name="accion" value="guardar_asignacion">
                 
-                <div class="col-md-4">
-                    <label class="form-label small text-muted fw-bold">Empleado <span class="text-danger">*</span></label>
-                    <div class="input-group">
+                <div class="col-md-5">
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <label class="form-label small text-muted fw-bold mb-0">Selecciona Empleado(s) <span class="text-danger">*</span></label>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold js-select-all" style="font-size: 0.75rem;">Seleccionar Todos</button>
+                    </div>
+                    
+                    <div class="input-group mb-2">
                         <select id="empleadoSelectorMasivo" class="form-select border-secondary-subtle">
-                            <option value="">Seleccione empleado...</option>
+                            <option value="">Buscar o seleccionar empleado...</option>
                             <?php foreach ($empleados as $empleado): ?>
                                 <option value="<?php echo (int) $empleado['id']; ?>" data-nombre="<?php echo e($empleado['nombre_completo']); ?>" data-codigo="<?php echo e((string) ($empleado['codigo_biometrico'] ?? '')); ?>">
                                     <?php echo e($empleado['nombre_completo']); ?>
@@ -170,30 +174,21 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <button class="btn btn-outline-primary" type="button" id="btnAgregarEmpleadoMasivo" title="Agregar empleado a la selección">
+                        <button class="btn btn-outline-primary" type="button" id="btnAgregarEmpleadoMasivo" title="Agregar a la selección">
                             <i class="bi bi-plus-lg"></i>
                         </button>
                     </div>
-                    <div id="empleadosMasivoSeleccionados" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    
+                    <div id="empleadosMasivoSeleccionados" class="d-flex flex-wrap gap-2"></div>
                     <div id="empleadosMasivoInputs"></div>
-                    <small class="text-muted d-block mt-1">Agrega empleados con el botón +. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
-                    <label class="form-label small text-muted fw-bold">Empleados <span class="text-danger">*</span></label>
-                    <select name="id_terceros[]" class="form-select border-secondary-subtle" multiple size="5" required>
-                        <?php foreach ($empleados as $empleado): ?>
-                            <option value="<?php echo (int) $empleado['id']; ?>">
-                                <?php echo e($empleado['nombre_completo']); ?>
-                                <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <small class="text-muted d-block mt-1">Puedes seleccionar varios con Ctrl/Cmd + clic. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
                 </div>
                 
                 <div class="col-md-3">
-                    <label class="form-label small text-muted fw-bold">Día de la Semana <span class="text-danger">*</span></label>
+                    <label class="form-label small text-muted fw-bold mb-1">Día de la Semana <span class="text-danger">*</span></label>
                     <select name="dia_semana" class="form-select border-secondary-subtle" required>
                         <option value="">Seleccione día...</option>
-                        <option value="0">Toda la semana (Lun-Dom)</option>
+                        <option value="0" class="fw-bold text-primary">Toda la semana (Lun - Dom)</option>
+                        <option disabled>-----------------------</option>
                         <?php foreach ($dias as $num => $dia): ?>
                             <option value="<?php echo $num; ?>"><?php echo e($dia); ?></option>
                         <?php endforeach; ?>
@@ -201,7 +196,7 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                 </div>
                 
                 <div class="col-md-3">
-                    <label class="form-label small text-muted fw-bold">Turno a Asignar <span class="text-danger">*</span></label>
+                    <label class="form-label small text-muted fw-bold mb-1">Turno a Asignar <span class="text-danger">*</span></label>
                     <select name="id_horario" class="form-select border-secondary-subtle" required>
                         <option value="">Seleccione turno...</option>
                         <?php foreach ($horarios as $horario): ?>
@@ -211,9 +206,9 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                     </select>
                 </div>
                 
-                <div class="col-md-2">
-                    <button class="btn btn-primary shadow-sm w-100 fw-semibold" type="submit">
-                        <i class="bi bi-plus-circle me-1"></i> Asignar selección
+                <div class="col-md-1 d-flex align-items-end" style="height: 60px;">
+                    <button class="btn btn-primary shadow-sm w-100 fw-semibold h-100" type="submit" data-bs-toggle="tooltip" title="Guardar Asignaciones">
+                        <i class="bi bi-floppy fs-5"></i>
                     </button>
                 </div>
             </form>
@@ -289,13 +284,13 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // --- LÓGICA DE CREAR/EDITAR TURNO ---
     const idInput = document.getElementById('horarioId');
     const nombreInput = document.getElementById('horarioNombre');
     const entradaInput = document.getElementById('horarioEntrada');
     const salidaInput = document.getElementById('horarioSalida');
     const toleranciaInput = document.getElementById('horarioTolerancia');
 
-    // Cargar datos al formulario al dar clic en Editar
     document.querySelectorAll('.js-editar-horario').forEach((btn) => {
         btn.addEventListener('click', function () {
             idInput.value = this.dataset.id || '0';
@@ -304,13 +299,11 @@ document.addEventListener('DOMContentLoaded', function () {
             salidaInput.value = this.dataset.salida || '';
             toleranciaInput.value = this.dataset.tolerancia || '0';
             
-            // Auto-focus y scroll hacia el formulario
             nombreInput.focus();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     });
 
-    // Botón Limpiar
     const limpiar = document.getElementById('btnLimpiarHorario');
     if (limpiar) {
         limpiar.addEventListener('click', function () {
@@ -322,12 +315,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-
+    // --- LÓGICA DE ASIGNACIÓN MASIVA (CHIPS) ---
     const asignacionForm = document.getElementById('asignacionMasivaForm');
     const empleadoSelectorMasivo = document.getElementById('empleadoSelectorMasivo');
     const btnAgregarEmpleadoMasivo = document.getElementById('btnAgregarEmpleadoMasivo');
     const empleadosMasivoSeleccionados = document.getElementById('empleadosMasivoSeleccionados');
     const empleadosMasivoInputs = document.getElementById('empleadosMasivoInputs');
+    const btnSeleccionarTodos = document.querySelector('.js-select-all');
+    
     const empleadosElegidos = new Map();
 
     const renderEmpleadosMasivos = () => {
@@ -338,11 +333,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         empleadosElegidos.forEach((empleado, id) => {
             const chip = document.createElement('span');
-            chip.className = 'badge bg-white text-dark border d-inline-flex align-items-center gap-2 px-2 py-2';
+            chip.className = 'badge bg-white text-dark border d-inline-flex align-items-center gap-2 px-2 py-2 mt-1 shadow-sm';
             chip.innerHTML = `
-                <span>${empleado.nombre}${empleado.codigo ? ` <small class="text-muted">(Cód: ${empleado.codigo})</small>` : ''}</span>
-                <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-danger" data-remove-id="${id}" title="Quitar empleado">
-                    <i class="bi bi-x-circle-fill"></i>
+                <span>${empleado.nombre}${empleado.codigo ? ` <small class="text-muted fw-normal ms-1">(Cód: ${empleado.codigo})</small>` : ''}</span>
+                <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-danger ms-1" data-remove-id="${id}" title="Quitar">
+                    <i class="bi bi-x-circle-fill fs-6"></i>
                 </button>
             `;
             empleadosMasivoSeleccionados.appendChild(chip);
@@ -359,9 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btnAgregarEmpleadoMasivo.addEventListener('click', function () {
             const option = empleadoSelectorMasivo.options[empleadoSelectorMasivo.selectedIndex];
             const id = option?.value || '';
-            if (!id) {
-                return;
-            }
+            if (!id) return;
 
             if (!empleadosElegidos.has(id)) {
                 empleadosElegidos.set(id, {
@@ -370,7 +363,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 renderEmpleadosMasivos();
             }
-
             empleadoSelectorMasivo.value = '';
         });
 
@@ -378,6 +370,29 @@ document.addEventListener('DOMContentLoaded', function () {
             if (event.target.value) {
                 btnAgregarEmpleadoMasivo.click();
             }
+        });
+    }
+
+    if (btnSeleccionarTodos && empleadoSelectorMasivo) {
+        let todosSeleccionados = false;
+        btnSeleccionarTodos.addEventListener('click', function() {
+            todosSeleccionados = !todosSeleccionados;
+            if(todosSeleccionados) {
+                for (let i = 1; i < empleadoSelectorMasivo.options.length; i++) {
+                    const opt = empleadoSelectorMasivo.options[i];
+                    empleadosElegidos.set(opt.value, {
+                        nombre: opt.dataset.nombre || opt.textContent.trim(),
+                        codigo: opt.dataset.codigo || ''
+                    });
+                }
+                this.innerText = 'Deseleccionar Todos';
+                this.classList.replace('text-primary', 'text-danger');
+            } else {
+                empleadosElegidos.clear();
+                this.innerText = 'Seleccionar Todos';
+                this.classList.replace('text-danger', 'text-primary');
+            }
+            renderEmpleadosMasivos();
         });
     }
 
@@ -389,6 +404,11 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!id) return;
             empleadosElegidos.delete(id);
             renderEmpleadosMasivos();
+            
+            if(btnSeleccionarTodos && empleadosElegidos.size === 0) {
+                btnSeleccionarTodos.innerText = 'Seleccionar Todos';
+                btnSeleccionarTodos.classList.replace('text-danger', 'text-primary');
+            }
         });
     }
 
@@ -396,12 +416,12 @@ document.addEventListener('DOMContentLoaded', function () {
         asignacionForm.addEventListener('submit', function (event) {
             if (empleadosElegidos.size === 0) {
                 event.preventDefault();
-                alert('Debes agregar al menos un empleado con el botón +.');
+                alert('Debes seleccionar al menos un empleado para asignar el horario.');
             }
         });
     }
 
-    // Inicializar Tooltips (si estás usando Bootstrap Bundle)
+    // Inicializar Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
