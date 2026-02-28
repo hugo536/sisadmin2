@@ -50,6 +50,16 @@ class AsistenciaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('terceros.ver');
 
+        // --- NUEVO BLOQUE: PROCESAR GESTIÓN DE EXCEPCIONES Y JUSTIFICACIONES ---
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $accion = (string) ($_POST['accion'] ?? '');
+            if ($accion === 'gestionar_excepcion') {
+                $this->gestionarExcepcion();
+                return;
+            }
+        }
+        // ----------------------------------------------------------------------
+
         $periodo = (string) ($_GET['periodo'] ?? 'dia');
         $periodosPermitidos = ['dia', 'semana', 'mes', 'rango'];
         if (!in_array($periodo, $periodosPermitidos, true)) {
@@ -91,7 +101,7 @@ class AsistenciaController extends Controlador
         }
 
         $estado = strtoupper(trim((string) ($_GET['estado'] ?? '')));
-        $estadosPermitidos = ['', 'PUNTUAL', 'TARDANZA', 'FALTA', 'INCOMPLETO'];
+        $estadosPermitidos = ['', 'PUNTUAL', 'TARDANZA', 'FALTA', 'INCOMPLETO', 'JUSTIFICADA'];
         if (!in_array($estado, $estadosPermitidos, true)) {
             $estado = '';
         }
@@ -139,6 +149,46 @@ class AsistenciaController extends Controlador
             ],
         ]);
     }
+
+    // --- NUEVA FUNCIÓN PRIVADA PARA GESTIONAR LA EXCEPCIÓN ---
+    private function gestionarExcepcion(): void
+    {
+        require_permiso('terceros.editar'); // O el permiso equivalente que uses para RRHH
+
+        $userId = (int) ($_SESSION['id'] ?? 0);
+        $fecha = (string) ($_POST['fecha'] ?? '');
+
+        if ($userId <= 0) {
+            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=No se pudo identificar al usuario actual.");
+        }
+
+        $data = [
+            'id_tercero' => (int) ($_POST['id_tercero'] ?? 0),
+            'fecha' => $fecha,
+            'hora_entrada_esperada' => trim((string) ($_POST['hora_entrada_esperada'] ?? '')),
+            'hora_salida_esperada' => trim((string) ($_POST['hora_salida_esperada'] ?? '')),
+            'aplicar_justificacion' => (int) ($_POST['aplicar_justificacion'] ?? 0),
+            'nuevo_estado' => trim((string) ($_POST['nuevo_estado'] ?? '')),
+            'observacion' => trim((string) ($_POST['observacion'] ?? ''))
+        ];
+
+        if ($data['id_tercero'] <= 0 || $data['fecha'] === '' || $data['hora_entrada_esperada'] === '' || $data['hora_salida_esperada'] === '') {
+            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=Datos incompletos. Verifica las horas ingresadas.");
+        }
+
+        if ($data['aplicar_justificacion'] === 1 && $data['observacion'] === '') {
+            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=Debes ingresar un motivo para la justificación.");
+        }
+
+        $ok = $this->asistenciaModel->gestionarExcepcionDiaria($data, $userId);
+
+        if (!$ok) {
+            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=No fue posible guardar la excepción.");
+        }
+
+        redirect("asistencia/dashboard?fecha={$fecha}&tipo=success&msg=Excepción gestionada correctamente.");
+    }
+    // ---------------------------------------------------------
 
     public function incidencias(): void
     {

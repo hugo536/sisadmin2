@@ -352,4 +352,69 @@ class AsistenciaModel extends Modelo
             'updated_by' => $userId,
         ]);
     }
+
+    public function gestionarExcepcionDiaria(array $data, int $userId): bool
+    {
+        // 1. Verificamos si ya existe un registro en asistencia_registros para este empleado y fecha
+        $sqlCheck = "SELECT id, hora_ingreso, hora_salida FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
+        $stmtCheck = $this->db()->prepare($sqlCheck);
+        $stmtCheck->execute([
+            'id_tercero' => $data['id_tercero'],
+            'fecha' => $data['fecha']
+        ]);
+        $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        // 2. Calculamos los minutos de tardanza en base al nuevo horario esperado
+        $minutosTardanza = 0;
+        $horaRealLlegada = null;
+
+        // Si ya hay un registro con hora real de ingreso (del biométrico o manual previo), la usamos para recalcular
+        if ($registroExistente && !empty($registroExistente['hora_ingreso'])) {
+            $horaRealLlegada = substr($registroExistente['hora_ingreso'], 11, 5); // Ej: "07:30"
+        }
+
+        // Si hay una hora real y no estamos justificando, recalculamos la tardanza
+        if ($horaRealLlegada && empty($data['aplicar_justificacion'])) {
+            $tsEsperada = strtotime($data['fecha'] . ' ' . $data['hora_entrada_esperada'] . ':00');
+            $tsReal = strtotime($registroExistente['hora_ingreso']);
+            
+            if ($tsReal > $tsEsperada) {
+                $minutosTardanza = (int) floor(($tsReal - $tsEsperada) / 60);
+            }
+        }
+
+        // 3. Preparamos el estado final
+        $estadoFinal = 'FALTA';
+        
+        if (!empty($data['aplicar_justificacion'])) {
+            $estadoFinal = $data['nuevo_estado']; // Ej: "TARDANZA JUSTIFICADA"
+            $minutosTardanza = 0; // Si se justifica, perdonamos los minutos para planillas
+        } elseif ($horaRealLlegada) {
+            $estadoFinal = ($minutosTardanza > 0) ? 'TARDANZA' : 'PUNTUAL';
+        }
+
+        // 4. Preparamos los datos para el UPSERT
+        // OJO: Guardamos el horario editado en el campo "observaciones" de forma estructurada para el registro histórico,
+        // ya que la tabla "asistencia_empleado_horario" guarda la regla general, no la del día específico.
+        
+        $observacionEstructurada = "Horario Excepción: {$data['hora_entrada_esperada']} a {$data['hora_salida_esperada']}.";
+        if (!empty($data['aplicar_justificacion'])) {
+            $observacionEstructurada .= " Justificación: " . $data['observacion'];
+        }
+
+        $upsertData = [
+            'id_tercero' => $data['id_tercero'],
+            'fecha' => $data['fecha'],
+            'hora_ingreso' => $registroExistente['hora_ingreso'] ?? null,
+            'hora_salida' => $registroExistente['hora_salida'] ?? null,
+            'estado_asistencia' => $estadoFinal,
+            'minutos_tardanza' => $minutosTardanza,
+            'horas_trabajadas' => 0, // Se calcula al final del día normalmente
+            'horas_extras' => 0,
+            'observaciones' => $observacionEstructurada,
+        ];
+
+        return $this->upsertRegistroAsistencia($upsertData, $userId);
+    }
 }
+

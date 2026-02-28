@@ -615,118 +615,161 @@
         const modalEdit = document.getElementById('modalEditarTercero');
         if (modalEdit) {
             modalEdit.addEventListener('show.bs.modal', (e) => {
-                const btn = e.relatedTarget;
-                if (!btn) {
-                    return;
-                }
+                try {
+                    const btn = e.relatedTarget;
+                    if (!btn) return;
 
-                const editIdInput = document.getElementById('editId');
-                if (!editIdInput) {
-                    console.warn('[terceros] No se encontró #editId en el modal de edición. Se omite la carga de datos.');
-                    return;
-                }
-
-                modalEdit.__currentTriggerButton = btn;
-                const id = btn.dataset.id;
-                
-                editIdInput.value = id;
-                document.getElementById('editNombre').value = btn.dataset.nombre;
-                document.getElementById('editNumeroDoc').value = btn.dataset.numeroDoc;
-                document.getElementById('editTipoDoc').value = btn.dataset.tipoDoc;
-                document.getElementById('editEstado').value = btn.dataset.estado || '1';
-                document.getElementById('editDireccion').value = btn.dataset.direccion;
-                document.getElementById('editEmail').value = btn.dataset.email;
-                document.getElementById('editRepresentanteLegal').value = btn.dataset.representanteLegal || '';
-
-                // Datos Cliente / Proveedor
-                document.getElementById('editClienteDiasCredito').value = btn.dataset.clienteDiasCredito || '';
-                document.getElementById('editClienteLimiteCredito').value = btn.dataset.clienteLimiteCredito || '';
-                document.getElementById('editClienteCondicionPago').value = btn.dataset.clienteCondicionPago || '';
-                document.getElementById('editProvCondicion').value = btn.dataset.proveedorCondicionPago || '';
-                document.getElementById('editProvDiasCredito').value = btn.dataset.proveedorDiasCredito || '';
-                document.getElementById('editProvFormaPago').value = btn.dataset.proveedorFormaPago || '';
-                document.getElementById('editProvCondicion').dispatchEvent(new Event('change'));
-                
-                document.getElementById('editEsCliente').checked = btn.dataset.esCliente == 1;
-                document.getElementById('editEsProveedor').checked = btn.dataset.esProveedor == 1;
-                document.getElementById('editEsEmpleado').checked = btn.dataset.esEmpleado == 1;
-                document.getElementById('editEsDistribuidor').checked = btn.dataset.esDistribuidor == 1;
-
-                // Datos Empleado
-                document.getElementById('editCargo').value = btn.dataset.cargo || '';
-                document.getElementById('editArea').value = btn.dataset.area || '';
-                document.getElementById('editCodigoBiometrico').value = btn.dataset.codigoBiometrico || '';
-                document.getElementById('editFechaIngreso').value = btn.dataset.fechaIngreso || '';
-                document.getElementById('editFechaCese').value = btn.dataset.fechaCese || '';
-                document.getElementById('editEstadoLaboral').value = normalizeEstadoLaboral(btn.dataset.estadoLaboral);
-                document.getElementById('editTipoContrato').value = normalizeTipoContrato(btn.dataset.tipoContrato);
-                document.getElementById('editTipoPago').value = normalizeTipoPago(btn.dataset.tipoPago);
-                document.getElementById('editMoneda').value = normalizeMoneda(btn.dataset.moneda);
-                document.getElementById('editSueldoBasico').value = btn.dataset.sueldoBasico || '';
-                document.getElementById('editPagoDiario').value = btn.dataset.pagoDiario || '';
-                document.getElementById('editRegimen').value = normalizeRegimenPensionario(btn.dataset.regimenPensionario);
-                document.getElementById('editTipoComision').value = normalizeTipoComisionAfp(btn.dataset.tipoComisionAfp);
-                document.getElementById('editCuspp').value = btn.dataset.cuspp || '';
-                document.getElementById('editAsignacionFamiliar').checked = btn.dataset.asignacionFamiliar == 1;
-                document.getElementById('editEssalud').checked = btn.dataset.essalud == 1;
-                
-                // --- Inicialización del Cumpleaños ---
-                document.getElementById('editFechaNacimiento').value = normalizeDateForInput(btn.dataset.fechaNacimiento);
-                const recordarChk = document.getElementById('editRecordarCumpleanos');
-                if (recordarChk) {
-                    recordarChk.checked = btn.dataset.recordarCumpleanos == 1;
-                    recordarChk.dispatchEvent(new Event('change')); // Disparamos el evento para habilitar/deshabilitar la fecha
-                }
-
-                document.getElementById('editGenero').value = normalizeGenero(btn.dataset.genero);
-                document.getElementById('editEstadoCivil').value = normalizeEstadoCivil(btn.dataset.estadoCivil);
-                document.getElementById('editNivelEducativo').value = btn.dataset.nivelEducativo || '';
-                document.getElementById('editContactoEmergenciaNombre').value = btn.dataset.contactoEmergenciaNombre || '';
-                document.getElementById('editContactoEmergenciaTelf').value = btn.dataset.contactoEmergenciaTelf || '';
-                document.getElementById('editTipoSangre').value = btn.dataset.tipoSangre || '';
-                
-                syncRoleTabs('edit');
-
-                if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
-                    const hijos = safeJsonParse(btn.dataset.hijosLista, []);
-                    window.TercerosEmpleados.setHijos('edit', hijos);
-                }
-
-                if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
-                    window.TercerosEmpleados.refreshState('edit');
-                }
-
-                const tipoP = document.getElementById('editTipoPersona');
-                tipoP.value = normalizeTipoPersona(btn.dataset.tipoPersona);
-                tipoP.dispatchEvent(new Event('change'));
-
-                const dep = document.getElementById('editDepartamento');
-                const prov = document.getElementById('editProvincia');
-                const dist = document.getElementById('editDistrito');
-                
-                prov.dataset.preselect = btn.dataset.provincia;
-                dist.dataset.preselect = btn.dataset.distrito;
-                
-                dep.value = btn.dataset.departamento;
-                dep.dispatchEvent(new Event('change'));
-
-                const tels = safeJsonParse(btn.dataset.telefonos, []);
-                const ctas = safeJsonParse(btn.dataset.cuentasBancarias, []);
-                
-                const telList = document.getElementById('editTelefonosList');
-                telList.innerHTML = '';
-                tels.forEach(t => telList.appendChild(buildTelefonoRow(t)));
-
-                const ctaList = document.getElementById('editCuentasBancariasList');
-                ctaList.innerHTML = '';
-                ctas.forEach(c => ctaList.appendChild(buildCuentaRow(c)));
-
-                if (window.TercerosClientes && window.TercerosClientes.loadSavedZones && window.TercerosClientes.setDistribuidorZones) {
-                    if (btn.dataset.esDistribuidor == 1) {
-                        window.TercerosClientes.loadSavedZones('edit', id);
-                    } else {
-                        window.TercerosClientes.setDistribuidorZones('edit', []);
+                    const editIdInput = document.getElementById('editId');
+                    // Si falta el campo ID (que es vital), lanzamos alerta y detenemos la ejecución
+                    if (!editIdInput) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error de estructura',
+                            text: 'No se encontró el campo "editId" en el HTML del modal. El formulario no puede funcionar.'
+                        });
+                        return;
                     }
+
+                    modalEdit.__currentTriggerButton = btn;
+                    const id = btn.dataset.id;
+                    editIdInput.value = id;
+
+                    // Funciones seguras para llenar datos
+                    const safeSetVal = (inputId, val) => {
+                        const el = document.getElementById(inputId);
+                        if (el) {
+                            el.value = (val !== undefined && val !== null) ? val : '';
+                        } else {
+                            console.warn(`[Aviso] El campo '${inputId}' no existe en la vista.`);
+                        }
+                    };
+                    
+                    const safeSetCheck = (inputId, checked) => {
+                        const el = document.getElementById(inputId);
+                        if (el) el.checked = checked;
+                    };
+
+                    // Datos Generales
+                    safeSetVal('editNombre', btn.dataset.nombre);
+                    safeSetVal('editNumeroDoc', btn.dataset.numeroDoc);
+                    safeSetVal('editTipoDoc', btn.dataset.tipoDoc);
+                    safeSetVal('editEstado', btn.dataset.estado || '1');
+                    safeSetVal('editDireccion', btn.dataset.direccion);
+                    safeSetVal('editEmail', btn.dataset.email);
+                    safeSetVal('editRepresentanteLegal', btn.dataset.representanteLegal);
+
+                    // Datos Cliente / Proveedor
+                    safeSetVal('editClienteDiasCredito', btn.dataset.clienteDiasCredito);
+                    safeSetVal('editClienteLimiteCredito', btn.dataset.clienteLimiteCredito);
+                    safeSetVal('editClienteCondicionPago', btn.dataset.clienteCondicionPago);
+                    
+                    const provCond = document.getElementById('editProvCondicion');
+                    if (provCond) {
+                        provCond.value = btn.dataset.proveedorCondicionPago || '';
+                        provCond.dispatchEvent(new Event('change'));
+                    }
+                    
+                    safeSetVal('editProvDiasCredito', btn.dataset.proveedorDiasCredito);
+                    safeSetVal('editProvFormaPago', btn.dataset.proveedorFormaPago);
+                    
+                    safeSetCheck('editEsCliente', btn.dataset.esCliente == 1);
+                    safeSetCheck('editEsProveedor', btn.dataset.esProveedor == 1);
+                    safeSetCheck('editEsEmpleado', btn.dataset.esEmpleado == 1);
+                    safeSetCheck('editEsDistribuidor', btn.dataset.esDistribuidor == 1);
+
+                    // Datos Empleado
+                    safeSetVal('editCargo', btn.dataset.cargo);
+                    safeSetVal('editArea', btn.dataset.area);
+                    safeSetVal('editCodigoBiometrico', btn.dataset.codigoBiometrico);
+                    safeSetVal('editFechaIngreso', btn.dataset.fechaIngreso);
+                    safeSetVal('editFechaCese', btn.dataset.fechaCese);
+                    safeSetVal('editEstadoLaboral', normalizeEstadoLaboral(btn.dataset.estadoLaboral));
+                    safeSetVal('editTipoContrato', normalizeTipoContrato(btn.dataset.tipoContrato));
+                    safeSetVal('editTipoPago', normalizeTipoPago(btn.dataset.tipoPago));
+                    safeSetVal('editMoneda', normalizeMoneda(btn.dataset.moneda));
+                    safeSetVal('editSueldoBasico', btn.dataset.sueldoBasico);
+                    safeSetVal('editPagoDiario', btn.dataset.pagoDiario);
+                    safeSetVal('editRegimen', normalizeRegimenPensionario(btn.dataset.regimenPensionario));
+                    safeSetVal('editTipoComision', normalizeTipoComisionAfp(btn.dataset.tipoComisionAfp));
+                    safeSetVal('editCuspp', btn.dataset.cuspp);
+                    safeSetCheck('editAsignacionFamiliar', btn.dataset.asignacionFamiliar == 1);
+                    safeSetCheck('editEssalud', btn.dataset.essalud == 1);
+                    
+                    safeSetVal('editFechaNacimiento', normalizeDateForInput(btn.dataset.fechaNacimiento));
+                    const recordarChk = document.getElementById('editRecordarCumpleanos');
+                    if (recordarChk) {
+                        recordarChk.checked = btn.dataset.recordarCumpleanos == 1;
+                        recordarChk.dispatchEvent(new Event('change')); 
+                    }
+
+                    safeSetVal('editGenero', normalizeGenero(btn.dataset.genero));
+                    safeSetVal('editEstadoCivil', normalizeEstadoCivil(btn.dataset.estadoCivil));
+                    safeSetVal('editNivelEducativo', btn.dataset.nivelEducativo);
+                    safeSetVal('editContactoEmergenciaNombre', btn.dataset.contactoEmergenciaNombre);
+                    safeSetVal('editContactoEmergenciaTelf', btn.dataset.contactoEmergenciaTelf);
+                    safeSetVal('editTipoSangre', btn.dataset.tipoSangre);
+                    
+                    syncRoleTabs('edit');
+
+                    if (window.TercerosEmpleados && window.TercerosEmpleados.setHijos) {
+                        const hijos = safeJsonParse(btn.dataset.hijosLista, []);
+                        window.TercerosEmpleados.setHijos('edit', hijos);
+                    }
+
+                    if (window.TercerosEmpleados && window.TercerosEmpleados.refreshState) {
+                        window.TercerosEmpleados.refreshState('edit');
+                    }
+
+                    const tipoP = document.getElementById('editTipoPersona');
+                    if (tipoP) {
+                        tipoP.value = normalizeTipoPersona(btn.dataset.tipoPersona);
+                        tipoP.dispatchEvent(new Event('change'));
+                    }
+
+                    const dep = document.getElementById('editDepartamento');
+                    const prov = document.getElementById('editProvincia');
+                    const dist = document.getElementById('editDistrito');
+                    
+                    if (prov) prov.dataset.preselect = btn.dataset.provincia;
+                    if (dist) dist.dataset.preselect = btn.dataset.distrito;
+                    
+                    if (dep) {
+                        dep.value = btn.dataset.departamento || '';
+                        dep.dispatchEvent(new Event('change'));
+                    }
+
+                    const tels = safeJsonParse(btn.dataset.telefonos, []);
+                    const ctas = safeJsonParse(btn.dataset.cuentasBancarias, []);
+                    
+                    const telList = document.getElementById('editTelefonosList');
+                    if (telList) {
+                        telList.innerHTML = '';
+                        tels.forEach(t => telList.appendChild(buildTelefonoRow(t)));
+                    }
+
+                    const ctaList = document.getElementById('editCuentasBancariasList');
+                    if (ctaList) {
+                        ctaList.innerHTML = '';
+                        ctas.forEach(c => ctaList.appendChild(buildCuentaRow(c)));
+                    }
+
+                    if (window.TercerosClientes && window.TercerosClientes.loadSavedZones && window.TercerosClientes.setDistribuidorZones) {
+                        if (btn.dataset.esDistribuidor == 1) {
+                            window.TercerosClientes.loadSavedZones('edit', id);
+                        } else {
+                            window.TercerosClientes.setDistribuidorZones('edit', []);
+                        }
+                    }
+
+                } catch (error) {
+                    // AQUÍ ATRAPAMOS CUALQUIER OTRO ERROR Y LO MOSTRAMOS EN PANTALLA
+                    console.error("Error al cargar modal de edición:", error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al cargar datos',
+                        text: 'Ocurrió un problema inesperado: ' + error.message,
+                        confirmButtonText: 'Entendido'
+                    });
                 }
             });
         }

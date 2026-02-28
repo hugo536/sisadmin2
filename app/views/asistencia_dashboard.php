@@ -106,6 +106,7 @@ $empleados = $empleados ?? [];
                         <option value="TARDANZA" <?php echo $estado === 'TARDANZA' ? 'selected' : ''; ?>>Tardanza</option>
                         <option value="FALTA" <?php echo $estado === 'FALTA' ? 'selected' : ''; ?>>Falta</option>
                         <option value="INCOMPLETO" <?php echo $estado === 'INCOMPLETO' ? 'selected' : ''; ?>>Incompleto</option>
+                        <option value="JUSTIFICADA" <?php echo $estado === 'JUSTIFICADA' ? 'selected' : ''; ?>>Justificadas</option>
                     </select>
                 </div>
 
@@ -142,20 +143,20 @@ $empleados = $empleados ?? [];
                        data-info-text-template="Mostrando {start} a {end} de {total} registros"
                        data-pagination-controls="#asistenciaPaginationControls"
                        data-pagination-info="#asistenciaPaginationInfo">
-                    <thead class="asistencia-sticky-thead bg-light">
+                    <thead class="asistencia-sticky-thead bg-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
-                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
-                            <th class="text-secondary fw-semibold">Hora Esperada</th>
-                            <th class="text-secondary fw-semibold">Hora Real</th>
+                            <th class="text-secondary fw-semibold">Empleado</th>
+                            <th class="text-secondary fw-semibold text-center">Hora Esperada</th>
+                            <th class="text-secondary fw-semibold text-center">Hora Real</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Min. Tardanza</th>
-                        </tr>
+                            <th class="text-center text-secondary fw-semibold">Min. Tardanza</th>
+                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th> </tr>
                     </thead>
                     <tbody id="asistenciaTableBody">
                         <?php if (empty($registros)): ?>
                             <tr class="empty-msg-row border-bottom-0">
-                                <td colspan="6" class="text-center text-muted py-5">
+                                <td colspan="7" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     No hay datos de asistencia para los filtros seleccionados.
                                 </td>
@@ -179,7 +180,12 @@ $empleados = $empleados ?? [];
                                 if ($estado === 'PUNTUAL') $badgeColor = 'bg-success-subtle text-success border border-success-subtle';
                                 if ($estado === 'TARDANZA') $badgeColor = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
                                 if ($estado === 'FALTA') $badgeColor = 'bg-danger-subtle text-danger border border-danger-subtle';
-                                if ($estado === 'INCOMPLETO') $badgeColor = 'bg-info-subtle text-info-emphasis border border-info-subtle';
+                                if ($estado === 'INCOMPLETO') $badgeColor = 'bg-secondary border border-secondary text-white';
+                                
+                                // Color especial para justificados
+                                if (strpos($estado, 'JUSTIFICADA') !== false || strpos($estado, 'PERMISO') !== false || strpos($estado, 'OLVIDO') !== false) {
+                                    $badgeColor = 'bg-info-subtle text-info-emphasis border border-info-subtle';
+                                }
                                 
                                 $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . $estado . ' ' . ($row['fecha'] ?? ''));
                                 ?>
@@ -187,26 +193,40 @@ $empleados = $empleados ?? [];
                                     <td class="ps-4 text-muted align-top pt-3">
                                         <?php echo e((string) ($row['fecha'] ?? '')); ?>
                                     </td>
-                                    <td class="ps-4 fw-bold text-dark align-top pt-3">
+                                    <td class="fw-bold text-dark align-top pt-3">
                                         <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
                                     </td>
-                                    <td class="text-muted align-top pt-3">
+                                    <td class="text-muted align-top pt-3 text-center">
                                         <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($esperada !== '' ? $esperada : '-'); ?>
                                     </td>
-                                    <td class="fw-medium align-top pt-3 text-primary">
+                                    <td class="fw-medium align-top pt-3 text-primary text-center">
                                         <i class="bi bi-clock-history small me-1 opacity-50"></i><?php echo e($real !== '' ? $real : '-'); ?>
                                     </td>
                                     <td class="text-center align-top pt-3">
-                                        <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
+                                        <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo $badgeColor; ?>">
                                             <?php echo e($estado); ?>
                                         </span>
                                     </td>
-                                    <td class="text-end pe-4 align-top pt-3">
+                                    <td class="text-center align-top pt-3">
                                         <?php if((int)($row['minutos_tardanza'] ?? 0) > 0): ?>
                                             <span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="bi bi-exclamation-triangle me-1"></i><?php echo (int) ($row['minutos_tardanza']); ?> min</span>
                                         <?php else: ?>
                                             <span class="text-muted opacity-50">0</span>
                                         <?php endif; ?>
+                                    </td>
+                                    
+                                    <td class="text-center pe-4 align-top pt-3">
+                                        <button type="button" class="btn btn-sm btn-light text-primary border-0 rounded-circle js-gestionar-asistencia"
+                                            data-bs-toggle="modal" data-bs-target="#modalGestionAsistencia"
+                                            data-id="<?php echo (int)($row['id'] ?? 0); ?>"
+                                            data-tercero="<?php echo (int)($row['id_tercero'] ?? 0); ?>"
+                                            data-nombre="<?php echo htmlspecialchars($row['nombre_completo'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-fecha="<?php echo htmlspecialchars($row['fecha'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-entrada="<?php echo substr((string)($row['hora_entrada'] ?? ''), 0, 5); ?>"
+                                            data-salida="<?php echo substr((string)($row['hora_salida'] ?? ''), 0, 5); ?>"
+                                            data-bs-toggle="tooltip" title="Gestionar Excepciones">
+                                            <i class="bi bi-gear fs-5"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -226,3 +246,118 @@ $empleados = $empleados ?? [];
     </div>
 </div>
 
+<div class="modal fade" id="modalGestionAsistencia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2"></i>Gestionar Asistencia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="formGestionAsistencia" action="<?php echo e(route_url('asistencia/dashboard')); ?>">
+                <input type="hidden" name="accion" value="gestionar_excepcion">
+                <input type="hidden" name="id_asistencia" id="gestIdAsistencia">
+                <input type="hidden" name="id_tercero" id="gestIdTercero">
+                <input type="hidden" name="fecha" id="gestFecha">
+
+                <div class="modal-body p-4 bg-light">
+                    <div class="alert alert-info py-2 d-flex align-items-center mb-4 shadow-sm border-0">
+                        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                        <div>
+                            <strong class="d-block" id="gestNombreEmpleado">Cargando...</strong>
+                            <span class="small" id="gestFechaDisplay">----/--/--</span>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">1. Ajustar Turno del Día (Excepción)</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Entrada Esperada</label>
+                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_entrada_esperada" id="gestHoraEntrada" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida Esperada</label>
+                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_salida_esperada" id="gestHoraSalida" required>
+                        </div>
+                        <div class="col-12 mt-1">
+                            <small class="text-muted"><i class="bi bi-exclamation-triangle me-1"></i>Modificar esto recalculará la tardanza automáticamente en base a la hora real de llegada.</small>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">2. Resolución de Anomalía</h6>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="gestCheckJustificar" name="aplicar_justificacion" value="1" style="cursor: pointer; width: 2.5em; height: 1.25em;">
+                        <label class="form-check-label fw-semibold text-dark ms-2 pt-1" for="gestCheckJustificar" style="cursor: pointer;">Aplicar Justificación o Permiso</label>
+                    </div>
+
+                    <div id="boxJustificacion" class="d-none bg-white p-3 border border-secondary-subtle rounded shadow-sm">
+                        <div class="mb-3">
+                            <label class="form-label small text-muted fw-bold mb-1">Nuevo Estado <span class="text-danger">*</span></label>
+                            <select class="form-select border-secondary-subtle" name="nuevo_estado" id="gestNuevoEstado">
+                                <option value="TARDANZA JUSTIFICADA">Tardanza Justificada</option>
+                                <option value="FALTA JUSTIFICADA">Falta Justificada</option>
+                                <option value="PERMISO">Permiso / Salida Temprano</option>
+                                <option value="OLVIDO MARCACION">Olvido de Marcación</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small text-muted fw-bold mb-1">Motivo / Observación <span class="text-danger">*</span></label>
+                            <textarea class="form-control border-secondary-subtle" name="observacion" id="gestObservacion" rows="2" placeholder="Ej: Autorizado por gerencia, falla transporte..."></textarea>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lógica para llenar los datos del Modal cuando se hace clic en la tuerca
+    const botonesGestion = document.querySelectorAll('.js-gestionar-asistencia');
+    
+    botonesGestion.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Llenar campos ocultos
+            document.getElementById('gestIdAsistencia').value = this.dataset.id;
+            document.getElementById('gestIdTercero').value = this.dataset.tercero;
+            document.getElementById('gestFecha').value = this.dataset.fecha;
+            
+            // Llenar textos visuales
+            document.getElementById('gestNombreEmpleado').innerText = this.dataset.nombre;
+            document.getElementById('gestFechaDisplay').innerText = 'Día: ' + this.dataset.fecha;
+            
+            // Llenar inputs de hora
+            document.getElementById('gestHoraEntrada').value = this.dataset.entrada !== '-' ? this.dataset.entrada : '';
+            document.getElementById('gestHoraSalida').value = this.dataset.salida !== '-' ? this.dataset.salida : '';
+            
+            // Resetear justificación al abrir
+            document.getElementById('gestCheckJustificar').checked = false;
+            document.getElementById('boxJustificacion').classList.add('d-none');
+            document.getElementById('gestObservacion').value = '';
+        });
+    });
+
+    // Lógica para mostrar/ocultar la caja de justificación
+    const checkJustificar = document.getElementById('gestCheckJustificar');
+    const boxJustificacion = document.getElementById('boxJustificacion');
+    const obsInput = document.getElementById('gestObservacion');
+    
+    if(checkJustificar) {
+        checkJustificar.addEventListener('change', function() {
+            if (this.checked) {
+                boxJustificacion.classList.remove('d-none');
+                obsInput.setAttribute('required', 'required');
+            } else {
+                boxJustificacion.classList.add('d-none');
+                obsInput.removeAttribute('required');
+            }
+        });
+    }
+});
+</script>
