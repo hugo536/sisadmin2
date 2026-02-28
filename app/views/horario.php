@@ -177,6 +177,16 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
                     <div id="empleadosMasivoSeleccionados" class="d-flex flex-wrap gap-2 mt-2"></div>
                     <div id="empleadosMasivoInputs"></div>
                     <small class="text-muted d-block mt-1">Agrega empleados con el botón +. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
+                    <label class="form-label small text-muted fw-bold">Empleados <span class="text-danger">*</span></label>
+                    <select name="id_terceros[]" class="form-select border-secondary-subtle" multiple size="5" required>
+                        <?php foreach ($empleados as $empleado): ?>
+                            <option value="<?php echo (int) $empleado['id']; ?>">
+                                <?php echo e($empleado['nombre_completo']); ?>
+                                <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small class="text-muted d-block mt-1">Puedes seleccionar varios con Ctrl/Cmd + clic. Si eliges "Toda la semana", se actualizarán los 7 días.</small>
                 </div>
                 
                 <div class="col-md-3">
