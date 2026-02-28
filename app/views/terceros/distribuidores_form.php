@@ -46,12 +46,12 @@
     <div class="card border-0 shadow-sm mt-3">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 table-pro">
-                    <thead class="table-light">
+                <table class="table align-middle mb-0 table-pro">
+                    <thead>
                         <tr>
                             <th class="ps-3">Zona Geográfica</th>
-                            <th style="width: 120px;">Estado</th>
-                            <th class="text-end pe-3" style="width: 80px;">Acción</th>
+                            <th class="col-w-120">Estado</th>
+                            <th class="text-end pe-3 col-w-80">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="<?php echo $p; ?>ZonasList">

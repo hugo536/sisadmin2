@@ -73,11 +73,11 @@ $getEventoBadge = function(string $evento): string {
                 <table class="table align-middle mb-0 table-pro" id="bitacoraTable">
                     <thead>
                         <tr>
-                            <th class="ps-4" style="width: 180px;">Fecha / Hora</th>
-                            <th style="width: 150px;">Evento</th>
-                            <th style="width: 200px;">Usuario</th>
+                            <th class="ps-4 col-w-180">Fecha / Hora</th>
+                            <th class="col-w-150">Evento</th>
+                            <th class="col-w-200">Usuario</th>
                             <th>Descripción</th>
-                            <th class="text-end pe-4" style="width: 150px;">IP Origen</th>
+                            <th class="text-end pe-4 col-w-150">IP Origen</th>
                         </tr>
                     </thead>
                     <tbody>

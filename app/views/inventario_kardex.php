@@ -75,7 +75,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                        data-info-text-template="Mostrando {start} a {end} de {total} movimientos"
                        data-pagination-controls="#kardexPaginationControls"
                        data-pagination-info="#kardexPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
                             <th class="text-secondary fw-semibold">Tipo</th>
