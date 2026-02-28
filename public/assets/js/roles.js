@@ -8,8 +8,6 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     const TABLE_ID = 'rolesTable';
-    const ROWS_PER_PAGE = 25;
-    let currentPage = 1;
     const MY_ROLE_ID = (typeof window.MY_ROLE_ID !== 'undefined') ? parseInt(window.MY_ROLE_ID) : 0;
 
     // =========================================================
@@ -76,21 +74,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    let cascadeListenersBound = false;
+
     // Inicializar listeners de Cascada
     function initCascadeListeners() {
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('permiso-check')) {
-                const slug = e.target.dataset.slug || '';
-                if (slug.endsWith('.ver')) {
-                    updateModuleCascade(e.target);
+        if (!cascadeListenersBound) {
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('permiso-check')) {
+                    const slug = e.target.dataset.slug || '';
+                    if (slug.endsWith('.ver')) {
+                        updateModuleCascade(e.target);
+                    }
                 }
-            }
-            if (e.target.classList.contains('switch-estado-rol')) {
-                updateRoleMatrixState(e.target);
-            }
-        });
+                if (e.target.classList.contains('switch-estado-rol')) {
+                    updateRoleMatrixState(e.target);
+                }
+            });
+            cascadeListenersBound = true;
+        }
 
-        // Ejecución inicial
+        // Ejecución inicial / resincronización
         document.querySelectorAll('input[data-slug$=".ver"]').forEach(chk => {
             updateModuleCascade(chk);
         });
@@ -105,88 +108,36 @@ document.addEventListener('DOMContentLoaded', function () {
     // 2. GESTIÓN DE TABLA (Renderizado y Filtros)
     // =========================================================
     const table = document.getElementById(TABLE_ID);
-    const searchInput = document.getElementById('rolesSearch');
-    const statusFilter = document.getElementById('filtroEstadoRol');
-    const paginationInfo = document.getElementById('rolesPaginationInfo');
-    const paginationControls = document.getElementById('rolesPaginationControls');
 
     function initTable() {
-        if (!table) return;
+        if (!table || typeof ERPTable === 'undefined' || !ERPTable.createTableManager) return;
+
         const mainRows = Array.from(table.querySelectorAll('.role-row-main'));
 
-        function renderTable() {
-            const searchText = (searchInput?.value || '').toLowerCase().trim();
-            const statusValue = (statusFilter?.value || '').toString();
-
-            const filteredRows = mainRows.filter(row => {
-                const searchData = (row.dataset.search || '').toLowerCase();
-                const statusData = (row.dataset.estado || '').toString();
-                return (!searchText || searchData.includes(searchText)) &&
-                       (!statusValue || statusData === statusValue);
-            });
-
-            const totalItems = filteredRows.length;
-            const totalPages = Math.ceil(totalItems / ROWS_PER_PAGE) || 1;
-            if (currentPage > totalPages) currentPage = 1;
-            
-            const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-            const endIndex = startIndex + ROWS_PER_PAGE;
-            const visibleRows = filteredRows.slice(startIndex, endIndex);
-
-            mainRows.forEach(row => {
-                row.style.display = 'none';
-                const detailRow = row.nextElementSibling;
-                if (detailRow?.classList.contains('role-row-detail')) {
-                    detailRow.style.display = 'none';
-                }
-            });
-
-            visibleRows.forEach(row => {
-                row.style.display = '';
-                const detailRow = row.nextElementSibling;
-                if (detailRow?.classList.contains('role-row-detail')) {
-                    detailRow.style.display = '';
-                }
-            });
-
-            if (paginationInfo) {
-                paginationInfo.textContent = totalItems > 0 
-                    ? `Mostrando ${startIndex + 1}-${Math.min(endIndex, totalItems)} de ${totalItems} roles`
-                    : 'No se encontraron roles';
+        ERPTable.createTableManager({
+            tableSelector: table,
+            rowsSelector: '.role-row-main',
+            searchInput: '#rolesSearch',
+            filters: [
+                { el: '#filtroEstadoRol', attr: 'data-estado', match: 'equals' }
+            ],
+            rowsPerPage: 25,
+            paginationControls: '#rolesPaginationControls',
+            paginationInfo: '#rolesPaginationInfo',
+            infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} roles`,
+            emptyText: 'No se encontraron roles',
+            normalizeSearchText: (value) =>
+                (value || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(),
+            onUpdate: () => {
+                mainRows.forEach((row) => {
+                    const detailRow = row.nextElementSibling;
+                    if (detailRow && detailRow.classList.contains('role-row-detail')) {
+                        detailRow.style.display = row.style.display === 'none' ? 'none' : '';
+                    }
+                });
+                initCascadeListeners();
             }
-            renderPaginationControls(totalPages);
-            
-            setTimeout(() => {
-                initCascadeListeners(); 
-            }, 50);
-        }
-
-        function renderPaginationControls(totalPages) {
-            if (!paginationControls) return;
-            paginationControls.innerHTML = '';
-            if (totalPages <= 1) return;
-
-            const createLi = (text, page, isActive, isDisabled) => {
-                const li = document.createElement('li');
-                li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#">${text}</a>`;
-                li.onclick = (e) => { 
-                    e.preventDefault(); 
-                    if (!isDisabled && !isActive) { currentPage = page; renderTable(); }
-                };
-                return li;
-            };
-
-            paginationControls.appendChild(createLi('Anterior', currentPage - 1, false, currentPage === 1));
-            for (let i = 1; i <= totalPages; i++) {
-                paginationControls.appendChild(createLi(i, i, i === currentPage, false));
-            }
-            paginationControls.appendChild(createLi('Siguiente', currentPage + 1, false, currentPage === totalPages));
-        }
-
-        searchInput?.addEventListener('input', () => { currentPage = 1; renderTable(); });
-        statusFilter?.addEventListener('change', () => { currentPage = 1; renderTable(); });
-        renderTable();
+        }).init();
     }
 
     // =========================================================
