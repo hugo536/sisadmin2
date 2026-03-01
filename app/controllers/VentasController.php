@@ -7,18 +7,21 @@ require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
 require_once BASE_PATH . '/app/models/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
+require_once BASE_PATH . '/app/models/TesoreriaCxcModel.php';
 
 class VentasController extends Controlador
 {
     private VentasDocumentoModel $documentoModel;
     private VentasDespachoModel $despachoModel;
     private InventarioModel $inventarioModel; // <-- 2. DECLARAMOS LA PROPIEDAD
+    private TesoreriaCxcModel $tesoreriaCxcModel;
 
     public function __construct()
     {
         $this->documentoModel = new VentasDocumentoModel();
         $this->despachoModel = new VentasDespachoModel();
         $this->inventarioModel = new InventarioModel(); // <-- 3. INICIALIZAMOS EL MODELO
+        $this->tesoreriaCxcModel = new TesoreriaCxcModel();
     }
 
     public function index(): void
@@ -206,6 +209,8 @@ class VentasController extends Controlador
             if (!$ok) {
                 throw new RuntimeException('No se pudo aprobar. Verifique que el pedido esté en borrador.');
             }
+
+            $this->tesoreriaCxcModel->crearDesdeVenta($idDocumento, $userId);
 
             json_response(['ok' => true, 'mensaje' => 'Pedido aprobado correctamente.']);
         } catch (Throwable $e) {

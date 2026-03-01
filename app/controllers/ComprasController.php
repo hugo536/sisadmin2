@@ -6,16 +6,19 @@ require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/ComprasOrdenModel.php';
 require_once BASE_PATH . '/app/models/ComprasRecepcionModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
+require_once BASE_PATH . '/app/models/TesoreriaCxpModel.php';
 
 class ComprasController extends Controlador
 {
     private ComprasOrdenModel $ordenModel;
     private ComprasRecepcionModel $recepcionModel;
+    private TesoreriaCxpModel $tesoreriaCxpModel;
 
     public function __construct()
     {
         $this->ordenModel = new ComprasOrdenModel();
         $this->recepcionModel = new ComprasRecepcionModel();
+        $this->tesoreriaCxpModel = new TesoreriaCxpModel();
     }
 
     public function index(): void
@@ -239,6 +242,8 @@ class ComprasController extends Controlador
                 $idAlmacen,
                 $userId
             );
+
+            $this->tesoreriaCxpModel->crearDesdeRecepcion($idRecepcion, $userId);
 
             json_response([
                 'ok' => true,
