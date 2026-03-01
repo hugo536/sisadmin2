@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/TesoreriaCxcModel.php';
-require_once BASE_PATH . '/app/models/TesoreriaCxpModel.php';
-require_once BASE_PATH . '/app/models/TesoreriaMovimientoModel.php';
-require_once BASE_PATH . '/app/models/TesoreriaCuentaModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 
 class TesoreriaController extends Controlador
 {
@@ -42,7 +42,7 @@ class TesoreriaController extends Controlador
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
-        $this->render('tesoreria_cxc', [
+        $this->render('tesoreria/tesoreria_cxc', [
             'ruta_actual' => 'tesoreria/cxc',
             'registros' => $this->cxcModel->listar($filtros),
             'filtros' => $filtros,
@@ -62,7 +62,7 @@ class TesoreriaController extends Controlador
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
-        $this->render('tesoreria_cxp', [
+        $this->render('tesoreria/tesoreria_cxp', [
             'ruta_actual' => 'tesoreria/cxp',
             'registros' => $this->cxpModel->listar($filtros),
             'filtros' => $filtros,
@@ -82,7 +82,7 @@ class TesoreriaController extends Controlador
             'id_tercero' => (int) ($_GET['id_tercero'] ?? 0),
         ];
 
-        $this->render('tesoreria_movimientos', [
+        $this->render('tesoreria/tesoreria_movimientos', [
             'ruta_actual' => 'tesoreria/movimientos',
             'movimientos' => $this->movModel->listarRecientes($filtros, 100),
             'resumenCuentas' => $this->movModel->resumenPorCuenta(),

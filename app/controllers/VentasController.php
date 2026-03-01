@@ -7,7 +7,7 @@ require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
 require_once BASE_PATH . '/app/models/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
-require_once BASE_PATH . '/app/models/TesoreriaCxcModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 
 class VentasController extends Controlador
 {

@@ -6,7 +6,7 @@ require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/ComprasOrdenModel.php';
 require_once BASE_PATH . '/app/models/ComprasRecepcionModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
-require_once BASE_PATH . '/app/models/TesoreriaCxpModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 
 class ComprasController extends Controlador
 {
