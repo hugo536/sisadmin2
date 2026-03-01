@@ -28,6 +28,10 @@ $empleados = $empleados ?? [];
                 <i class="bi bi-clipboard2-pulse me-2 text-info"></i>Incidencias
             </a>
             
+            <button type="button" class="btn btn-success shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalRegistroManual">
+                <i class="bi bi-pencil-square me-2"></i>Registro Manual
+            </button>
+            
             <?php if (tiene_permiso('asistencia.importar')): ?>
                 <a href="<?php echo e(route_url('asistencia/importar')); ?>" class="btn btn-primary shadow-sm fw-semibold">
                     <i class="bi bi-file-earmark-arrow-up me-2"></i>Importar Biométrico
@@ -38,7 +42,7 @@ $empleados = $empleados ?? [];
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4">
-            <form method="get" class="row g-3 align-items-center">
+            <form method="get" class="row g-3 align-items-center" id="formFiltrosAsistencia">
                 <input type="hidden" name="ruta" value="asistencia/dashboard">
 
                 <div class="col-12 col-md-2">
@@ -109,14 +113,9 @@ $empleados = $empleados ?? [];
                         <option value="JUSTIFICADA" <?php echo $estado === 'JUSTIFICADA' ? 'selected' : ''; ?>>Justificadas</option>
                     </select>
                 </div>
-
-                <div class="col-6 col-md-2 d-flex align-items-end" style="height: 60px;">
-                    <button class="btn btn-primary shadow-sm fw-bold w-100 h-100" type="submit">
-                        <i class="bi bi-search me-2"></i>Consultar
-                    </button>
-                </div>
             </form>
-            <div class="small text-primary-emphasis mt-3 bg-primary-subtle d-inline-block px-3 py-1 rounded-pill fw-medium">
+            
+            <div class="small text-primary-emphasis mt-3 bg-primary-subtle d-inline-block px-3 py-1 rounded-pill fw-medium" id="infoPeriodoTexto">
                 <i class="bi bi-info-circle me-1"></i> Mostrando periodo del <strong><?php echo e($desde); ?></strong> al <strong><?php echo e($hasta); ?></strong>.
             </div>
         </div>
@@ -126,7 +125,7 @@ $empleados = $empleados ?? [];
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">Registros de Asistencia</h2>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3"><?php echo count($registros); ?> Registros</span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registros); ?> Registros</span>
             </div>
             <div class="input-group shadow-sm" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -137,6 +136,7 @@ $empleados = $empleados ?? [];
             <div class="table-responsive asistencia-table-wrapper">
                 <table class="table align-middle mb-0 table-pro" id="asistenciaTable"
                        data-erp-table="true"
+                       data-manager-global="asistenciaManager"
                        data-rows-selector="#asistenciaTableBody tr:not(.empty-msg-row)"
                        data-search-input="#searchAsistencia"
                        data-empty-text="No hay registros para mostrar"
@@ -151,7 +151,8 @@ $empleados = $empleados ?? [];
                             <th class="text-secondary fw-semibold text-center">Hora Real</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-center text-secondary fw-semibold">Min. Tardanza</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th> </tr>
+                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th> 
+                        </tr>
                     </thead>
                     <tbody id="asistenciaTableBody">
                         <?php if (empty($registros)): ?>
@@ -182,7 +183,6 @@ $empleados = $empleados ?? [];
                                 if ($estado === 'FALTA') $badgeColor = 'bg-danger-subtle text-danger border border-danger-subtle';
                                 if ($estado === 'INCOMPLETO') $badgeColor = 'bg-secondary border border-secondary text-white';
                                 
-                                // Color especial para justificados
                                 if (strpos($estado, 'JUSTIFICADA') !== false || strpos($estado, 'PERMISO') !== false || strpos($estado, 'OLVIDO') !== false) {
                                     $badgeColor = 'bg-info-subtle text-info-emphasis border border-info-subtle';
                                 }
@@ -316,48 +316,66 @@ $empleados = $empleados ?? [];
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Lógica para llenar los datos del Modal cuando se hace clic en la tuerca
-    const botonesGestion = document.querySelectorAll('.js-gestionar-asistencia');
-    
-    botonesGestion.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Llenar campos ocultos
-            document.getElementById('gestIdAsistencia').value = this.dataset.id;
-            document.getElementById('gestIdTercero').value = this.dataset.tercero;
-            document.getElementById('gestFecha').value = this.dataset.fecha;
-            
-            // Llenar textos visuales
-            document.getElementById('gestNombreEmpleado').innerText = this.dataset.nombre;
-            document.getElementById('gestFechaDisplay').innerText = 'Día: ' + this.dataset.fecha;
-            
-            // Llenar inputs de hora
-            document.getElementById('gestHoraEntrada').value = this.dataset.entrada !== '-' ? this.dataset.entrada : '';
-            document.getElementById('gestHoraSalida').value = this.dataset.salida !== '-' ? this.dataset.salida : '';
-            
-            // Resetear justificación al abrir
-            document.getElementById('gestCheckJustificar').checked = false;
-            document.getElementById('boxJustificacion').classList.add('d-none');
-            document.getElementById('gestObservacion').value = '';
-        });
-    });
+<div class="modal fade" id="modalRegistroManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i>Asistencia Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formRegistroManual" action="<?php echo e(route_url('asistencia/guardar_manual')); ?>" method="POST">
+                <div class="modal-body p-4 bg-light">
+                    
+                    <div class="alert alert-info small border-0 shadow-sm mb-4">
+                        <i class="bi bi-info-circle-fill me-2"></i> Use este formulario para registrar asistencias que no fueron capturadas por el biométrico.
+                    </div>
 
-    // Lógica para mostrar/ocultar la caja de justificación
-    const checkJustificar = document.getElementById('gestCheckJustificar');
-    const boxJustificacion = document.getElementById('boxJustificacion');
-    const obsInput = document.getElementById('gestObservacion');
-    
-    if(checkJustificar) {
-        checkJustificar.addEventListener('change', function() {
-            if (this.checked) {
-                boxJustificacion.classList.remove('d-none');
-                obsInput.setAttribute('required', 'required');
-            } else {
-                boxJustificacion.classList.add('d-none');
-                obsInput.removeAttribute('required');
-            }
-        });
-    }
-});
-</script>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Empleado <span class="text-danger">*</span></label>
+                        <select name="id_tercero" id="selectEmpleadoManual" class="form-select border-secondary-subtle shadow-sm" required>
+                            <option value="">Seleccione el personal...</option>
+                            <?php foreach ($empleados as $emp): ?>
+                                <option value="<?= (int)$emp['id'] ?>"><?= e($emp['nombre_completo']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Fecha de Registro <span class="text-danger">*</span></label>
+                        <input type="date" name="fecha" class="form-control border-secondary-subtle shadow-sm" value="<?= date('Y-m-d') ?>" required>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Ingreso</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-box-arrow-in-right text-success"></i></span>
+                                <input type="time" name="hora_ingreso" class="form-control border-start-0 shadow-sm">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-box-arrow-left text-danger"></i></span>
+                                <input type="time" name="hora_salida" class="form-control border-start-0 shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small text-muted fw-bold mb-1">Motivo / Observación <span class="text-danger">*</span></label>
+                        <textarea name="observaciones" class="form-control border-secondary-subtle shadow-sm" rows="2" placeholder="Describa el motivo del registro manual..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0">
+                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnGuardarManual" class="btn btn-primary px-4 fw-bold shadow-sm">
+                        <i class="bi bi-save me-2"></i>Guardar Asistencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="assets/js/rrhh/asistencia.js"></script>

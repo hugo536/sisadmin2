@@ -416,5 +416,62 @@ class AsistenciaModel extends Modelo
 
         return $this->upsertRegistroAsistencia($upsertData, $userId);
     }
+    public function guardarAsistenciaManual(array $data, int $userId): bool
+    {
+        // 1. Verificamos si ya existe un registro para no sobrescribir datos valiosos
+        $sqlCheck = 'SELECT id, hora_ingreso, hora_salida, observaciones 
+                     FROM asistencia_registros 
+                     WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1';
+        $stmtCheck = $this->db()->prepare($sqlCheck);
+        $stmtCheck->execute([
+            'id_tercero' => $data['id_tercero'],
+            'fecha' => $data['fecha']
+        ]);
+        $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        // 2. Formateamos la observación (evitamos borrar observaciones anteriores)
+        $obsActual = $registroExistente && !empty($registroExistente['observaciones']) 
+                     ? (string)$registroExistente['observaciones'] . ' | ' 
+                     : '';
+        $nuevaObs = $obsActual . '[Manual]: ' . $data['observaciones'];
+
+        if ($registroExistente) {
+            // UPDATE: Actualizamos el registro existente
+            $sql = 'UPDATE asistencia_registros
+                    SET hora_ingreso = COALESCE(:hora_ingreso, hora_ingreso),
+                        hora_salida = COALESCE(:hora_salida, hora_salida),
+                        observaciones = :observaciones,
+                        updated_at = NOW(),
+                        updated_by = :updated_by
+                    WHERE id = :id';
+                    
+            return $this->db()->prepare($sql)->execute([
+                'hora_ingreso'  => !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : null,
+                'hora_salida'   => !empty($data['hora_salida']) ? $data['hora_salida'] : null,
+                'observaciones' => $nuevaObs,
+                'updated_by'    => $userId,
+                'id'            => $registroExistente['id']
+            ]);
+        } else {
+            // INSERT: Creamos un registro nuevo
+            $sql = 'INSERT INTO asistencia_registros
+                    (id_tercero, fecha, hora_ingreso, hora_salida, estado_asistencia, observaciones, created_at, created_by, updated_by)
+                    VALUES (:id_tercero, :fecha, :hora_ingreso, :hora_salida, :estado_asistencia, :observaciones, NOW(), :created_by, :updated_by)';
+            
+            // Si tiene ambos registros (entrada y salida) asumimos PUNTUAL temporalmente, sino INCOMPLETO
+            $estado_asistencia = (!empty($data['hora_ingreso']) && !empty($data['hora_salida'])) ? 'PUNTUAL' : 'INCOMPLETO';
+
+            return $this->db()->prepare($sql)->execute([
+                'id_tercero'        => $data['id_tercero'],
+                'fecha'             => $data['fecha'],
+                'hora_ingreso'      => !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : null,
+                'hora_salida'       => !empty($data['hora_salida']) ? $data['hora_salida'] : null,
+                'estado_asistencia' => $estado_asistencia,
+                'observaciones'     => $nuevaObs,
+                'created_by'        => $userId,
+                'updated_by'        => $userId
+            ]);
+        }
+    }
 }
 

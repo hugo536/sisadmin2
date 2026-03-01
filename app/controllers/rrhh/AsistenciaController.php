@@ -37,9 +37,10 @@ class AsistenciaController extends Controlador
 
         $this->render('rrhh/asistencia_importar', [
             'ruta_actual' => 'asistencia/importar',
-            'logs' => $this->asistenciaModel->listarLogsBiometricos(),
-            'flash' => [
-                'tipo' => (string) ($_GET['tipo'] ?? ''),
+            'logs'        => $this->asistenciaModel->listarLogsBiometricos(),
+            // Se eliminó la variable 'empleados' de aquí porque el modal se movió al dashboard
+            'flash'       => [
+                'tipo'  => (string) ($_GET['tipo'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),
             ],
         ]);
@@ -478,6 +479,71 @@ class AsistenciaController extends Controlador
         }
 
         redirect('asistencia/incidencias?tipo=success&msg=Incidencia guardada correctamente.');
+    }
+
+    public function guardar_manual(): void
+    {
+        // 1. Validar autenticación y permisos
+        AuthMiddleware::handle();
+        require_permiso('terceros.editar');
+
+        // 2. Solo aceptar peticiones POST
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('asistencia/dashboard');
+            return;
+        }
+
+        // 3. Obtener el ID del usuario en sesión
+        $userId = (int) ($_SESSION['id'] ?? 0);
+        if ($userId <= 0) {
+            redirect('asistencia/dashboard?tipo=error&msg=No se pudo identificar al usuario actual.');
+            return;
+        }
+
+        // 4. Recibir y limpiar datos del formulario
+        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+        $fecha = trim((string) ($_POST['fecha'] ?? ''));
+        $horaIngresoRaw = trim((string) ($_POST['hora_ingreso'] ?? ''));
+        $horaSalidaRaw = trim((string) ($_POST['hora_salida'] ?? ''));
+        $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+
+        // 5. Validaciones de negocio
+        if ($idTercero <= 0 || $fecha === '' || $observaciones === '') {
+            redirect('asistencia/dashboard?tipo=error&msg=Faltan datos obligatorios (Empleado, fecha u observación).');
+            return;
+        }
+
+        if ($horaIngresoRaw === '' && $horaSalidaRaw === '') {
+            redirect('asistencia/dashboard?tipo=error&msg=Debe registrar al menos una hora (ingreso o salida).');
+            return;
+        }
+
+        // 6. Formatear las horas para la Base de Datos (DATETIME: YYYY-MM-DD HH:MM:SS)
+        // El input type="time" envía "HH:MM", así que le agregamos los segundos ":00"
+        $horaIngreso = $horaIngresoRaw !== '' ? $fecha . ' ' . $horaIngresoRaw . ':00' : null;
+        $horaSalida = $horaSalidaRaw !== '' ? $fecha . ' ' . $horaSalidaRaw . ':00' : null;
+
+        $data = [
+            'id_tercero'    => $idTercero,
+            'fecha'         => $fecha,
+            'hora_ingreso'  => $horaIngreso,
+            'hora_salida'   => $horaSalida,
+            'observaciones' => $observaciones
+        ];
+
+        // 7. Enviar al Modelo y redirigir
+        try {
+            $ok = $this->asistenciaModel->guardarAsistenciaManual($data, $userId);
+            
+            if ($ok) {
+                redirect('asistencia/dashboard?tipo=success&msg=Registro manual guardado correctamente.');
+            } else {
+                redirect('asistencia/dashboard?tipo=error&msg=No se pudo guardar el registro manual.');
+            }
+        } catch (Throwable $e) {
+            // Por si ocurre algún error de base de datos no capturado
+            redirect('asistencia/dashboard?tipo=error&msg=Error al procesar: ' . urlencode($e->getMessage()));
+        }
     }
 
     private function eliminarIncidencia(): void

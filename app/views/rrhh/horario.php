@@ -7,9 +7,6 @@ $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Vi
 $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 => 'Sáb', 7 => 'Dom'];
 ?>
 
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
-
 <div class="container-fluid p-4">
     
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in horario-sticky-header">
@@ -176,52 +173,84 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body p-3 p-md-4">
-            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+    <div class="card border-0 shadow-sm mb-4" id="seccionAsignacionMasiva">
+        <div class="card-body p-4">
+            <h6 class="fw-bold text-dark mb-4 border-bottom pb-2">
                 <i class="bi bi-person-lines-fill me-2 text-primary"></i>Asignación Masiva de Horarios
             </h6>
-            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="row g-3 align-items-start" id="asignacionMasivaForm">
+            
+            <form method="post" action="<?php echo e(route_url('horario/index')); ?>" id="asignacionMasivaForm">
                 <input type="hidden" name="accion" value="guardar_asignacion">
-                <div class="col-md-12">
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <label class="form-label small text-muted fw-bold mb-0">1. Selecciona Empleado(s) <span class="text-danger">*</span></label>
-                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold text-primary" id="btnSeleccionarTodosEmpleados" style="font-size: 0.75rem;"><i class="bi bi-check-all"></i> Seleccionar a todos</button>
+                
+                <div class="row g-4">
+                    <div class="col-lg-7 border-end pe-lg-4">
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">1. Buscar y Añadir Empleado <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-sm text-primary p-0 fw-semibold" id="btnSeleccionarTodosEmp" style="font-size: 0.8rem; text-decoration: none;">
+                                    <i class="bi bi-plus-circle me-1"></i>Añadir a todo el personal
+                                </button>
+                            </div>
+                            <select id="empleadoTomSelect" class="form-select shadow-sm" placeholder="Escribe nombre o código...">
+                                <option value="">Escribe nombre o código...</option>
+                                <?php foreach ($empleados as $empleado): ?>
+                                    <option value="<?php echo (int) $empleado['id']; ?>">
+                                        <?php echo e($empleado['nombre_completo']); ?> <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">2. Días de la Semana <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-sm text-primary p-0 fw-semibold" id="btnMarcarTodosDias" style="font-size: 0.8rem; text-decoration: none;">
+                                    Marcar Lunes a Domingo
+                                </button>
+                            </div>
+                            <div class="btn-group w-100 shadow-sm" role="group">
+                                <?php foreach ($diasCortos as $num => $dia): ?>
+                                    <input type="checkbox" class="btn-check dia-checkbox" name="dias[]" id="mas_dia_<?php echo $num; ?>" value="<?php echo $num; ?>" autocomplete="off">
+                                    <label class="btn btn-outline-primary fw-semibold" for="mas_dia_<?php echo $num; ?>"><?php echo e($dia); ?></label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label small text-muted fw-bold mb-1">3. Turno a Asignar <span class="text-danger">*</span></label>
+                                <select name="id_horario" class="form-select border-secondary-subtle shadow-sm" required>
+                                    <option value="">Seleccione turno...</option>
+                                    <?php foreach ($horarios as $horario): ?>
+                                        <?php if ((int) $horario['estado'] !== 1) continue; ?>
+                                        <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>)</option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button class="btn btn-primary shadow-sm w-100 fw-bold py-2" type="submit">
+                                    <i class="bi bi-calendar-check me-1"></i> Aplicar
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <select id="empleadoSelect2" name="id_terceros[]" class="form-select bg-light border-secondary-subtle" multiple="multiple" required>
-                        <?php foreach ($empleados as $empleado): ?>
-                            <option value="<?php echo (int) $empleado['id']; ?>">
-                                <?php echo e($empleado['nombre_completo']); ?> <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-6 mt-3">
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <label class="form-label small text-muted fw-bold mb-0">2. Días de la Semana <span class="text-danger">*</span></label>
-                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-semibold" id="btnSeleccionarTodosDias" style="font-size: 0.75rem;">Marcar Lun-Dom</button>
+
+                    <div class="col-lg-5 ps-lg-4 bg-light bg-opacity-50 rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="small fw-bold text-dark text-uppercase mb-0">Seleccionados (<span id="contadorSeleccionados">0</span>)</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger border-0 py-0" id="btnLimpiarLista" style="font-size: 0.75rem;">Limpiar lista</button>
+                        </div>
+                        
+                        <div id="panelSeleccionados" class="overflow-auto pe-2" style="max-height: 280px; min-height: 200px;">
+                            <div id="listaVaciaHint" class="text-center text-muted mt-5 opacity-50">
+                                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                <small>Busca empleados a la izquierda para añadirlos a esta lista.</small>
+                            </div>
+                        </div>
+
+                        <div id="inputIdsContenedor"></div>
                     </div>
-                    <div class="btn-group w-100 shadow-sm" role="group">
-                        <?php foreach ($diasCortos as $num => $dia): ?>
-                            <input type="checkbox" class="btn-check dia-checkbox" name="dias[]" id="dia_<?php echo $num; ?>" value="<?php echo $num; ?>" autocomplete="off">
-                            <label class="btn btn-outline-primary fw-semibold" for="dia_<?php echo $num; ?>"><?php echo e($dia); ?></label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <div class="col-md-4 mt-3">
-                    <label class="form-label small text-muted fw-bold mb-1">3. Turno a Asignar <span class="text-danger">*</span></label>
-                    <select name="id_horario" class="form-select bg-light border-secondary-subtle shadow-sm" required>
-                        <option value="">Seleccione turno...</option>
-                        <?php foreach ($horarios as $horario): ?>
-                            <?php if ((int) $horario['estado'] !== 1) continue; ?>
-                            <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2 mt-3 d-flex align-items-end" style="height: 58px;">
-                    <button class="btn btn-primary shadow-sm w-100 fw-semibold h-100" type="submit">
-                        <i class="bi bi-calendar-check fs-5 me-1"></i> Aplicar
-                    </button>
                 </div>
             </form>
         </div>
@@ -316,3 +345,4 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
     </div>
 </div>
 
+<script src="assets/js/rrhh/horario.js"></script>

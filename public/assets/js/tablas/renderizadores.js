@@ -311,7 +311,43 @@
 
       getState() {
         return { currentPage, rowsPerPage: cfg.rowsPerPage, totalRows: allRows.length };
+      },
+
+      // --- NUEVOS PODERES GLOBALES: Spinner de carga ---
+      showLoading() {
+        // Buscamos el contenedor .table-responsive para ponerle la "cortina" encima
+        const container = tableEl.closest('.table-responsive') || tableEl.parentElement;
+        if (!container) return;
+        
+        // Evitamos crear dos spinners al mismo tiempo
+        if (container.querySelector('.erp-table-loader')) return;
+
+        container.style.position = 'relative'; // Necesario para que el absolute funcione
+        
+        const overlay = document.createElement('div');
+        overlay.className = 'erp-table-loader d-flex justify-content-center align-items-center position-absolute w-100 h-100 start-0 top-0 rounded';
+        overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+        overlay.style.zIndex = '10';
+        
+        overlay.innerHTML = `
+            <div class="spinner-border text-primary shadow-sm" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Procesando...</span>
+            </div>
+        `;
+        
+        container.appendChild(overlay);
+      },
+
+      hideLoading() {
+        const container = tableEl.closest('.table-responsive') || tableEl.parentElement;
+        if (!container) return;
+        
+        const overlay = container.querySelector('.erp-table-loader');
+        if (overlay) {
+            overlay.remove(); // Destruimos el spinner
+        }
       }
+      // -------------------------------------------------
     };
 
     return api;
@@ -325,12 +361,33 @@
     const managers = [];
 
     tables.forEach((tableEl) => {
+      // --- MEJORA GLOBAL: Autodescubrimiento de Paginación ---
+      let autoPagControls = null;
+      let autoPagInfo = null;
+
+      if (tableEl.id) {
+          // Si el ID es "planillasTable", el prefijo será "planillas"
+          const prefix = tableEl.id.replace('Table', ''); 
+          
+          // Verificamos si existen en el HTML antes de asignarlos
+          if (document.getElementById(`${prefix}PaginationControls`)) {
+              autoPagControls = `#${prefix}PaginationControls`;
+          }
+          if (document.getElementById(`${prefix}PaginationInfo`)) {
+              autoPagInfo = `#${prefix}PaginationInfo`;
+          }
+      }
+      // -------------------------------------------------------
+
       const cfg = {
         tableSelector: tableEl,
         rowsSelector: tableEl.dataset.rowsSelector || 'tbody tr:not(.empty-msg-row)',
         searchInput: tableEl.dataset.searchInput || null,
-        paginationControls: tableEl.dataset.paginationControls || null,
-        paginationInfo: tableEl.dataset.paginationInfo || null,
+        
+        // Ahora intenta usar el atributo data-, y si no existe, usa el autodescubierto
+        paginationControls: tableEl.dataset.paginationControls || autoPagControls,
+        paginationInfo: tableEl.dataset.paginationInfo || autoPagInfo,
+        
         searchAttr: tableEl.dataset.searchAttr || 'data-search',
         emptyText: tableEl.dataset.emptyText || 'Sin resultados'
       };
