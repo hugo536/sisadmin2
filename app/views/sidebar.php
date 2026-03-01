@@ -217,6 +217,32 @@ function renderSidebarInner(
                     <i class="bi bi-cart-check"></i> <span>Compras</span>
                 </a>
             <?php endif; ?>
+
+
+            <?php if (tiene_permiso('tesoreria.ver') || tiene_permiso('tesoreria.cxc.ver') || tiene_permiso('tesoreria.cxp.ver')): ?>
+                <a class="sidebar-link<?php echo $linkGrupoActivo(['tesoreria']); ?>"
+                   data-bs-toggle="collapse"
+                   href="#menuTesoreria"
+                   role="button"
+                   aria-expanded="<?php echo $grupoActivo(['tesoreria']) ? 'true' : 'false'; ?>"
+                   aria-controls="menuTesoreria">
+                    <i class="bi bi-cash-coin"></i> <span>Tesorería</span>
+                    <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
+                </a>
+                <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="menuTesoreria">
+                    <ul class="nav flex-column ps-3">
+                        <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><span>Cuentas por Cobrar</span></a></li>
+                        <?php endif; ?>
+                        <?php if (tiene_permiso('tesoreria.cxp.ver')): ?>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><span>Cuentas por Pagar</span></a></li>
+                        <?php endif; ?>
+                        <?php if (tiene_permiso('tesoreria.ver')): ?>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><span>Movimientos</span></a></li>
+                        <?php endif; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
         <div class="nav-label mt-3">Sistema</div>
 
