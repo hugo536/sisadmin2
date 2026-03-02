@@ -5,6 +5,44 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class ProduccionOrdenesModel extends Modelo
 {
+    public function listarTurnosProgramadosDisponibles(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM asistencia_horarios
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function obtenerNombresTurnosProgramados(): array
+    {
+        $turnos = $this->listarTurnosProgramadosDisponibles();
+        $nombres = [];
+
+        foreach ($turnos as $turno) {
+            $nombre = trim((string) ($turno['nombre'] ?? ''));
+            if ($nombre !== '') {
+                $nombres[$nombre] = true;
+            }
+        }
+
+        return array_keys($nombres);
+    }
+
+    private function validarTurnoProgramado(string $turnoProgramado): void
+    {
+        $turnosPermitidos = $this->obtenerNombresTurnosProgramados();
+        if ($turnosPermitidos === []) {
+            throw new RuntimeException('No hay turnos activos en el catálogo de horarios.');
+        }
+
+        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
+            throw new RuntimeException('El turno programado no es válido para el catálogo de horarios activo.');
+        }
+    }
+
     public function listarOrdenes(): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
@@ -58,10 +96,7 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
 
-        $turnosPermitidos = ['Mañana', 'Tarde', 'Noche'];
-        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
-            throw new RuntimeException('El turno programado no es válido.');
-        }
+        $this->validarTurnoProgramado($turnoProgramado);
 
         $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
                                                    FROM almacenes
@@ -322,10 +357,7 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
 
-        $turnosPermitidos = ['Mañana', 'Tarde', 'Noche'];
-        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
-            throw new RuntimeException('El turno programado no es válido.');
-        }
+        $this->validarTurnoProgramado($turnoProgramado);
 
         $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
                                                    FROM almacenes
