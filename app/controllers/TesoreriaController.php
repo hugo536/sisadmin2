@@ -28,65 +28,33 @@ class TesoreriaController extends Controlador
     {
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
+        
         redirect('tesoreria/cxc');
     }
 
+    // ========================================================================
+    // MÓDULO: CUENTAS POR COBRAR (CXC)
+    // ========================================================================
     public function cxc(): void
     {
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxc.ver');
 
+        // Saneamiento de filtros para el modelo y la vista
         $filtros = [
-            'estado' => trim((string) ($_GET['estado'] ?? '')),
-            'moneda' => trim((string) ($_GET['moneda'] ?? '')),
+            'estado'      => trim((string) ($_GET['estado'] ?? '')),
+            'moneda'      => trim((string) ($_GET['moneda'] ?? '')),
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
+        // Nota: Si esta petición viene de AJAX (JS), la vista renderizará todo
+        // y nuestro JS extraerá solo la tabla y el badge de forma silenciosa.
         $this->render('tesoreria/tesoreria_cxc', [
             'ruta_actual' => 'tesoreria/cxc',
-            'registros' => $this->cxcModel->listar($filtros),
-            'filtros' => $filtros,
-            'cuentas' => $this->cuentaModel->listarActivas(),
-            'metodos' => $this->listarMetodosPago(),
-        ]);
-    }
-
-    public function cxp(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.cxp.ver');
-
-        $filtros = [
-            'estado' => trim((string) ($_GET['estado'] ?? '')),
-            'moneda' => trim((string) ($_GET['moneda'] ?? '')),
-            'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
-        ];
-
-        $this->render('tesoreria/tesoreria_cxp', [
-            'ruta_actual' => 'tesoreria/cxp',
-            'registros' => $this->cxpModel->listar($filtros),
-            'filtros' => $filtros,
-            'cuentas' => $this->cuentaModel->listarActivas(),
-            'metodos' => $this->listarMetodosPago(),
-        ]);
-    }
-
-    public function movimientos(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.ver');
-
-        $filtros = [
-            'origen' => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
-            'id_origen' => (int) ($_GET['id_origen'] ?? 0),
-            'id_tercero' => (int) ($_GET['id_tercero'] ?? 0),
-        ];
-
-        $this->render('tesoreria/tesoreria_movimientos', [
-            'ruta_actual' => 'tesoreria/movimientos',
-            'movimientos' => $this->movModel->listarRecientes($filtros, 100),
-            'resumenCuentas' => $this->movModel->resumenPorCuenta(),
-            'filtros' => $filtros,
+            'registros'   => $this->cxcModel->listar($filtros),
+            'filtros'     => $filtros,
+            'cuentas'     => $this->cuentaModel->listarActivas(),
+            'metodos'     => $this->listarMetodosPago(),
         ]);
     }
 
@@ -94,14 +62,61 @@ class TesoreriaController extends Controlador
     {
         AuthMiddleware::handle();
         require_permiso('tesoreria.cobros.registrar');
+        
         $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+    }
+
+    // ========================================================================
+    // MÓDULO: CUENTAS POR PAGAR (CXP)
+    // ========================================================================
+    public function cxp(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        $filtros = [
+            'estado'      => trim((string) ($_GET['estado'] ?? '')),
+            'moneda'      => trim((string) ($_GET['moneda'] ?? '')),
+            'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
+        ];
+
+        $this->render('tesoreria/tesoreria_cxp', [
+            'ruta_actual' => 'tesoreria/cxp',
+            'registros'   => $this->cxpModel->listar($filtros),
+            'filtros'     => $filtros,
+            'cuentas'     => $this->cuentaModel->listarActivas(),
+            'metodos'     => $this->listarMetodosPago(),
+        ]);
     }
 
     public function registrar_pago(): void
     {
         AuthMiddleware::handle();
         require_permiso('tesoreria.pagos.registrar');
+        
         $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+    }
+
+    // ========================================================================
+    // MÓDULO: HISTORIAL DE MOVIMIENTOS
+    // ========================================================================
+    public function movimientos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        $filtros = [
+            'origen'     => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
+            'id_origen'  => (int) ($_GET['id_origen'] ?? 0),
+            'id_tercero' => (int) ($_GET['id_tercero'] ?? 0),
+        ];
+
+        $this->render('tesoreria/tesoreria_movimientos', [
+            'ruta_actual'    => 'tesoreria/movimientos',
+            'movimientos'    => $this->movModel->listarRecientes($filtros, 100),
+            'resumenCuentas' => $this->movModel->resumenPorCuenta(),
+            'filtros'        => $filtros,
+        ]);
     }
 
     public function anular_movimiento(): void
@@ -115,15 +130,18 @@ class TesoreriaController extends Controlador
 
         try {
             $idMovimiento = (int) ($_POST['id_movimiento'] ?? 0);
-            $idOrigen = (int) ($_POST['id_origen'] ?? 0);
-            $origen = strtoupper(trim((string) ($_POST['origen'] ?? '')));
-            $userId = $this->obtenerUsuarioId();
+            $idOrigen     = (int) ($_POST['id_origen'] ?? 0);
+            $origen       = strtoupper(trim((string) ($_POST['origen'] ?? '')));
+            $userId       = $this->obtenerUsuarioId();
 
             if ($idMovimiento <= 0 || !in_array($origen, ['CXC', 'CXP'], true)) {
-                throw new RuntimeException('Datos inválidos para anular movimiento.');
+                throw new RuntimeException('Datos inválidos para anular el movimiento.');
             }
 
+            // 1. Anular el movimiento en la base de datos
             $this->movModel->anular($idMovimiento, $userId);
+            
+            // 2. Recalcular el saldo y estado del documento origen
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } else {
@@ -136,6 +154,9 @@ class TesoreriaController extends Controlador
         }
     }
 
+    // ========================================================================
+    // MÉTODOS INTEGRADORES (Llamados desde otros módulos como Ventas/Compras)
+    // ========================================================================
     public function generar_cxc_desde_venta(int $idDocumentoVenta, int $userId): ?int
     {
         return $this->cxcModel->crearDesdeVenta($idDocumentoVenta, $userId);
@@ -146,6 +167,9 @@ class TesoreriaController extends Controlador
         return $this->cxpModel->crearDesdeRecepcion($idRecepcion, $userId);
     }
 
+    // ========================================================================
+    // FUNCIONES PRIVADAS DE APOYO
+    // ========================================================================
     private function registrarMovimientoDesdePost(string $origen, string $tipo, string $redirectRuta): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -154,26 +178,31 @@ class TesoreriaController extends Controlador
 
         try {
             $idOrigen = (int) ($_POST['id_origen'] ?? 0);
-            $monto = (float) ($_POST['monto'] ?? 0);
-            $payload = [
-                'tipo' => $tipo,
-                'origen' => $origen,
-                'id_origen' => $idOrigen,
-                'id_cuenta' => (int) ($_POST['id_cuenta'] ?? 0),
-                'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
-                'fecha' => (string) ($_POST['fecha'] ?? date('Y-m-d')),
-                'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
-                'monto' => round($monto, 4),
-                'referencia' => trim((string) ($_POST['referencia'] ?? '')),
-                'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
-            ];
-
+            $monto    = (float) ($_POST['monto'] ?? 0);
+            
             if ($idOrigen <= 0) {
-                throw new RuntimeException('Origen inválido.');
+                throw new RuntimeException('Origen de documento inválido.');
             }
 
+            $payload = [
+                'tipo'           => $tipo, // 'COBRO' o 'PAGO'
+                'origen'         => $origen, // 'CXC' o 'CXP'
+                'id_origen'      => $idOrigen,
+                'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
+                'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
+                'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
+                'moneda'         => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'monto'          => round($monto, 4),
+                'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
+            ];
+
             $userId = $this->obtenerUsuarioId();
+            
+            // 1. Registrar el ingreso/salida de dinero
             $this->movModel->registrar($payload, $userId);
+            
+            // 2. Recalcular el saldo del documento origen (Factura/Boleta/Guía)
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } else {
@@ -182,13 +211,18 @@ class TesoreriaController extends Controlador
 
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
+            // Pasamos el error por URL de forma segura para que la vista lo atrape
             redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
         }
     }
 
     private function listarMetodosPago(): array
     {
-        $sql = 'SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
+        $sql = 'SELECT id, nombre 
+                FROM tesoreria_metodos_pago 
+                WHERE estado = 1 AND deleted_at IS NULL 
+                ORDER BY nombre ASC';
+                
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -196,7 +230,7 @@ class TesoreriaController extends Controlador
     {
         $id = (int) ($_SESSION['id'] ?? 0);
         if ($id <= 0) {
-            throw new RuntimeException('Sesión inválida.');
+            throw new RuntimeException('Sesión inválida o expirada. Por favor, inicie sesión nuevamente.');
         }
         return $id;
     }

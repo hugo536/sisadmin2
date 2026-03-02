@@ -6,9 +6,10 @@ class TesoreriaCxpModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        $sql = 'SELECT p.*, t.nombre_completo AS proveedor
+        // MEJORA: Usamos LEFT JOIN para evitar perder el registro si el proveedor fue eliminado (soft-delete)
+        $sql = 'SELECT p.*, COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor
                 FROM tesoreria_cxp p
-                INNER JOIN terceros t ON t.id = p.id_proveedor
+                LEFT JOIN terceros t ON t.id = p.id_proveedor
                 WHERE p.deleted_at IS NULL';
 
         $params = [];
@@ -24,7 +25,8 @@ class TesoreriaCxpModel extends Modelo
         }
 
         if (!empty($filtros['vencimiento']) && $filtros['vencimiento'] === 'vencidas') {
-            $sql .= ' AND p.saldo > 0 AND p.fecha_vencimiento < CURDATE()';
+            // MEJORA: DATE() asegura que la comparación sea estricta por día
+            $sql .= ' AND p.saldo > 0 AND DATE(p.fecha_vencimiento) < CURDATE()';
         }
 
         $sql .= ' ORDER BY p.fecha_vencimiento ASC, p.id DESC';
@@ -95,17 +97,17 @@ class TesoreriaCxpModel extends Modelo
             (:id_proveedor, :id_orden_compra, :id_recepcion, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
 
         $stmtInsert->execute([
-            'id_proveedor' => $idProveedor,
-            'id_orden_compra' => (int) ($rec['id_orden_compra'] ?? 0),
-            'id_recepcion' => $idRecepcion,
-            'fecha_emision' => $fechaEmision,
+            'id_proveedor'      => $idProveedor,
+            'id_orden_compra'   => (int) ($rec['id_orden_compra'] ?? 0),
+            'id_recepcion'      => $idRecepcion,
+            'fecha_emision'     => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda' => 'PEN',
-            'monto_total' => $total,
-            'saldo' => $total,
-            'estado' => $total > 0 ? 'ABIERTA' : 'PAGADA',
-            'created_by' => $userId,
-            'updated_by' => $userId,
+            'moneda'            => 'PEN', // Igual que en CXC, podrías heredar la moneda de la orden de compra en el futuro
+            'monto_total'       => $total,
+            'saldo'             => $total,
+            'estado'            => $total > 0 ? 'ABIERTA' : 'PAGADA',
+            'created_by'        => $userId,
+            'updated_by'        => $userId,
         ]);
 
         return (int) $db->lastInsertId();
@@ -118,7 +120,7 @@ class TesoreriaCxpModel extends Modelo
                 estado = CASE
                     WHEN estado = "ANULADA" THEN "ANULADA"
                     WHEN ROUND(monto_total - monto_pagado, 4) <= 0 THEN "PAGADA"
-                    WHEN fecha_vencimiento < CURDATE() THEN "VENCIDA"
+                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
                     WHEN monto_pagado > 0 THEN "PARCIAL"
                     ELSE "ABIERTA"
                 END,

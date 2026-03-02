@@ -6,9 +6,10 @@ class TesoreriaCxcModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        $sql = 'SELECT c.*, t.nombre_completo AS cliente
+        // MEJORA: Usamos LEFT JOIN para no perder la deuda si el cliente fue "soft-deleted"
+        $sql = 'SELECT c.*, COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente
                 FROM tesoreria_cxc c
-                INNER JOIN terceros t ON t.id = c.id_cliente
+                LEFT JOIN terceros t ON t.id = c.id_cliente
                 WHERE c.deleted_at IS NULL';
 
         $params = [];
@@ -24,7 +25,8 @@ class TesoreriaCxcModel extends Modelo
         }
 
         if (!empty($filtros['vencimiento']) && $filtros['vencimiento'] === 'vencidas') {
-            $sql .= ' AND c.saldo > 0 AND c.fecha_vencimiento < CURDATE()';
+            // MEJORA: DATE() asegura que la comparación sea estrictamente por día, ignorando horas si existieran
+            $sql .= ' AND c.saldo > 0 AND DATE(c.fecha_vencimiento) < CURDATE()';
         }
 
         $sql .= ' ORDER BY c.fecha_vencimiento ASC, c.id DESC';
@@ -103,7 +105,7 @@ class TesoreriaCxcModel extends Modelo
             'id_documento_venta' => $idDocumentoVenta,
             'fecha_emision' => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda' => 'PEN',
+            'moneda' => 'PEN', // Nota: Si tu venta soporta USD, deberías heredar la moneda de $venta['moneda'] aquí
             'monto_total' => $total,
             'saldo' => $total,
             'estado' => $total > 0 ? 'ABIERTA' : 'PAGADA',
@@ -121,7 +123,7 @@ class TesoreriaCxcModel extends Modelo
                 estado = CASE
                     WHEN estado = "ANULADA" THEN "ANULADA"
                     WHEN ROUND(monto_total - monto_pagado, 4) <= 0 THEN "PAGADA"
-                    WHEN fecha_vencimiento < CURDATE() THEN "VENCIDA"
+                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
                     WHEN monto_pagado > 0 THEN "PARCIAL"
                     ELSE "ABIERTA"
                 END,
