@@ -133,9 +133,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return items;
     }
 
+    function obtenerOptionSeleccionada(inputItem) {
+        const valorActual = String(inputItem?.value ?? '');
+        if (!valorActual) return null;
+
+        return Array.from(inputItem.options).find((option) => option.value === valorActual) || null;
+    }
+
     function getUnidadBaseDesdeSelect(inputItem) {
-        const selected = inputItem.options[inputItem.selectedIndex];
+        const selected = obtenerOptionSeleccionada(inputItem);
         return selected?.dataset?.unidadBase || 'UND';
+    }
+
+    function obtenerCostoReferencialDesdeOption(selected) {
+        if (!selected) return 0;
+
+        const costoRaw = selected.dataset?.costoReferencial
+            ?? selected.getAttribute('data-costo-referencial')
+            ?? selected.getAttribute('data-costo')
+            ?? '0';
+
+        const costo = Number.parseFloat(String(costoRaw).replace(',', '.'));
+        return Number.isFinite(costo) ? costo : 0;
     }
 
     function filaToPayload(fila) {
@@ -205,15 +224,15 @@ document.addEventListener('DOMContentLoaded', () => {
         inputUnidad.classList.add('d-none');
         inputUnidad.disabled = true;
 
-        const selected = inputItem.options[inputItem.selectedIndex];
+        const selected = obtenerOptionSeleccionada(inputItem);
         if (!selected) return;
 
         const requiereFactor = Number(selected.dataset.requiereFactorConversion || 0) === 1;
         const unidadBase = selected.dataset.unidadBase || 'UND';
         
         // --- MEJORA: Autocompletar costo referencial si es un ítem nuevo ---
-        if (!itemGuardado && selected.dataset.costoReferencial) {
-             const costoRef = parseFloat(selected.dataset.costoReferencial);
+        if (!itemGuardado) {
+             const costoRef = obtenerCostoReferencialDesdeOption(selected);
              if (costoRef > 0) inputCosto.value = costoRef.toFixed(4);
         }
 
