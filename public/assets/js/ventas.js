@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // --- EVENTO NUEVA VENTA ---
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
@@ -21,9 +21,24 @@ document.addEventListener('DOMContentLoaded', () => {
         despachar: app.dataset.urlDespachar,
     };
 
-    // --- 1. CLIENTES (Tom Select con AJAX - CORREGIDO PARA EL MODAL) ---
+    async function esperarTomSelect(maxIntentos = 20, esperaMs = 150) {
+        for (let i = 0; i < maxIntentos; i++) {
+            if (typeof TomSelect !== 'undefined') return true;
+            await new Promise((resolve) => setTimeout(resolve, esperaMs));
+        }
+        return false;
+    }
+
+    // --- 1. CLIENTES (Tom Select con AJAX - robusto ante carga tardía CDN/fallback) ---
     let tomSelectCliente = null;
-    if (document.getElementById('idCliente')) {
+    const idClienteEl = document.getElementById('idCliente');
+    const tomSelectListo = await esperarTomSelect();
+
+    if (!tomSelectListo) {
+        console.warn('TomSelect no se pudo cargar en Ventas. Revise conectividad o CDN.');
+    }
+
+    if (idClienteEl && tomSelectListo) {
         tomSelectCliente = new TomSelect("#idCliente", {
             valueField: 'id',
             labelField: 'text',
@@ -187,6 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
             filaReal.remove();
             recalcularTotalVenta();
         });
+
+        if (!tomSelectListo) {
+            selectItem.innerHTML = '<option value="">Tom Select no disponible</option>';
+            selectItem.disabled = true;
+            return;
+        }
 
         const tom = new TomSelect(selectItem, {
             valueField: 'id',

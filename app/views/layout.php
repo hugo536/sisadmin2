@@ -56,7 +56,8 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"
+        onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/tom-select@2.2.2/dist/js/tom-select.complete.min.js';document.head.appendChild(s);}())"></script>
 
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
