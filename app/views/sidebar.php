@@ -244,6 +244,27 @@ function renderSidebarInner(
                     </ul>
                 </div>
             <?php endif; ?>
+
+            <?php if (tiene_permiso('conta.ver')): ?>
+                <a class="sidebar-link<?php echo $linkGrupoActivo(['contabilidad']); ?>"
+                   data-bs-toggle="collapse"
+                   href="#menuContabilidad"
+                   role="button"
+                   aria-expanded="<?php echo $grupoActivo(['contabilidad']) ? 'true' : 'false'; ?>"
+                   aria-controls="menuContabilidad">
+                    <i class="bi bi-journal-bookmark"></i> <span>Contabilidad</span>
+                    <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
+                </a>
+                <div class="collapse<?php echo $grupoActivo(['contabilidad']); ?>" id="menuContabilidad">
+                    <ul class="nav flex-column ps-3">
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><span>Plan Contable</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/asientos'); ?>" href="<?php echo e(route_url('contabilidad/asientos')); ?>"><span>Asientos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/reportes'); ?>" href="<?php echo e(route_url('contabilidad/reportes')); ?>"><span>Reportes</span></a></li>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
         <?php endif; ?>
         <div class="nav-label mt-3">Sistema</div>
 

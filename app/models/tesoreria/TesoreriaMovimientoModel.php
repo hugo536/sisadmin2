@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once BASE_PATH . '/app/models/ContaAsientoModel.php';
+
 class TesoreriaMovimientoModel extends Modelo
 {
     public function listarPorOrigen(string $origen, int $idOrigen): array
@@ -142,6 +144,7 @@ class TesoreriaMovimientoModel extends Modelo
                 'created_by'     => $userId,
                 'updated_by'     => $userId,
             ]);
+            $idMovimiento = (int) $db->lastInsertId();
 
             if ($origen === 'CXC') {
                 $stmtUpd = $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = ROUND(monto_pagado + :monto, 4), updated_by = :user, updated_at = NOW() WHERE id = :id');
@@ -150,8 +153,16 @@ class TesoreriaMovimientoModel extends Modelo
             }
             $stmtUpd->execute(['monto' => $monto, 'user' => $userId, 'id' => $idOrigen]);
 
+            $contaModel = new ContaAsientoModel();
+            $contaModel->registrarAutomaticoTesoreria($db, [
+                'id_movimiento' => $idMovimiento,
+                'tipo' => strtoupper(trim((string)$data['tipo'])),
+                'fecha' => (string)$data['fecha'],
+                'monto' => $monto,
+            ], $userId);
+
             $db->commit();
-            return (int) $db->lastInsertId();
+            return $idMovimiento;
             
         } catch (Throwable $e) {
             if ($db->inTransaction()) {
@@ -206,6 +217,14 @@ class TesoreriaMovimientoModel extends Modelo
                                         SET estado = "ANULADO", updated_by = :user, updated_at = NOW()
                                         WHERE id = :id');
             $stmtAnular->execute(['id' => $idMovimiento, 'user' => $userId]);
+
+            $stmtAs = $db->prepare('SELECT id FROM conta_asientos WHERE origen_modulo = "TESORERIA" AND id_origen = :id_mov AND estado = "REGISTRADO" AND deleted_at IS NULL LIMIT 1');
+            $stmtAs->execute(['id_mov' => $idMovimiento]);
+            $idAsiento = (int)$stmtAs->fetchColumn();
+            if ($idAsiento > 0) {
+                $contaModel = new ContaAsientoModel();
+                $contaModel->anularConReversion($idAsiento, $userId);
+            }
 
             $db->commit();
             return true;
