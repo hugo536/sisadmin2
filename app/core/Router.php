@@ -36,7 +36,8 @@ class Router
             'Cajas_bancosController'  => 'CajasBancosController',
             'ItemsController'         => 'ItemController',
             'CategoriasController'    => 'CategoriaController',
-            'AtributosController'     => 'AtributoController'
+            'AtributosController'     => 'AtributoController',
+            'Cierre_contableController' => 'CierreContableController'
         ];
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
@@ -110,6 +111,7 @@ class Router
             BASE_PATH . '/app/controllers/items/' . $clase . '.php',
             BASE_PATH . '/app/controllers/configuracion/' . $clase . '.php',
             BASE_PATH . '/app/controllers/rrhh/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/contabilidad/' . $clase . '.php',
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 

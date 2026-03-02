@@ -70,9 +70,10 @@ class ContaAsientoModel extends Modelo
 
     public function obtenerDetalle(int $idAsiento): array
     {
-        $stmt = $this->db()->prepare('SELECT d.*, c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre
+        $stmt = $this->db()->prepare('SELECT d.*, c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre, cc.codigo AS centro_costo_codigo
                                       FROM conta_asientos_detalle d
                                       INNER JOIN conta_cuentas c ON c.id = d.id_cuenta
+                                      LEFT JOIN conta_centros_costo cc ON cc.id = d.id_centro_costo
                                       WHERE d.id_asiento = :id AND d.deleted_at IS NULL
                                       ORDER BY d.id ASC');
         $stmt->execute(['id' => $idAsiento]);
@@ -224,12 +225,13 @@ class ContaAsientoModel extends Modelo
             ]);
             $idAsiento = (int)$db->lastInsertId();
 
-            $stmtDet = $db->prepare('INSERT INTO conta_asientos_detalle (id_asiento, id_cuenta, debe, haber, id_tercero, referencia, created_by, updated_by, created_at, updated_at)
-                                     VALUES (:id_asiento, :id_cuenta, :debe, :haber, :id_tercero, :referencia, :user, :user, NOW(), NOW())');
+            $stmtDet = $db->prepare('INSERT INTO conta_asientos_detalle (id_asiento, id_cuenta, id_centro_costo, debe, haber, id_tercero, referencia, created_by, updated_by, created_at, updated_at)
+                                     VALUES (:id_asiento, :id_cuenta, :id_centro_costo, :debe, :haber, :id_tercero, :referencia, :user, :user, NOW(), NOW())');
             foreach ($lineas as $l) {
                 $stmtDet->execute([
                     'id_asiento' => $idAsiento,
                     'id_cuenta' => (int)$l['id_cuenta'],
+                    'id_centro_costo' => !empty($l['id_centro_costo']) ? (int)$l['id_centro_costo'] : null,
                     'debe' => round((float)$l['debe'], 4),
                     'haber' => round((float)$l['haber'], 4),
                     'id_tercero' => !empty($l['id_tercero']) ? (int)$l['id_tercero'] : null,
