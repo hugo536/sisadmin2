@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             allowEmptyOption: true,
             plugins: ['clear_button'],
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: document.getElementById('modalVenta'), // <--- CORRECCIÓN DEL MODAL AQUÍ
+            dropdownParent: 'body',
             load: function(query, callback) {
                 if (!query.length) return callback();
                 const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             labelField: 'text',
             searchField: 'text',
             placeholder: "Buscar producto...",
-            dropdownParent: document.getElementById('modalVenta'),
+            dropdownParent: 'body',
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;

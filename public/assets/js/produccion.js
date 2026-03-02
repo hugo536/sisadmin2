@@ -69,35 +69,63 @@ if (!window.produccionJsInitialized) {
     // 2. ACCIONES DE TABLA Y UX DE ACORDEONES
     // =========================================================================
     function initAccionesTabla() {
-        const modalEditarEl = document.getElementById('modalEditarOP');
-        const modalDetalleEl = document.getElementById('modalDetalleOP');
-        const modalEditar = (modalEditarEl && typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEditarEl) : null;
-        const modalDetalle = (modalDetalleEl && typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalDetalleEl) : null;
+        // Variables para almacenar las instancias de los modales (solo si existen)
+        let modalEditar = null;
+        let modalDetalle = null;
 
         document.addEventListener('click', function(e) {
+            // --- LÓGICA DE EDICIÓN ---
             const btnEditar = e.target.closest('.js-editar-op');
-            if (btnEditar && modalEditar) {
-                document.getElementById('editIdOrden').value = btnEditar.getAttribute('data-id') || '';
-                document.getElementById('editCantPlan').value = btnEditar.getAttribute('data-cantidad') || '';
-                document.getElementById('editFechaProgramada').value = btnEditar.getAttribute('data-fecha') || '';
-                document.getElementById('editTurnoProgramado').value = btnEditar.getAttribute('data-turno') || '';
-                document.getElementById('editAlmacenPlanta').value = btnEditar.getAttribute('data-id-almacen') || '';
-                document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
-                modalEditar.show();
+            if (btnEditar) {
+                const modalEditarEl = document.getElementById('modalEditarOP');
+                
+                if (modalEditarEl && typeof bootstrap !== 'undefined') {
+                    // Inicializamos solo la primera vez que se hace clic
+                    if (!modalEditar) {
+                        modalEditar = new bootstrap.Modal(modalEditarEl);
+                    }
+
+                    document.getElementById('editIdOrden').value = btnEditar.getAttribute('data-id') || '';
+                    document.getElementById('editCantPlan').value = btnEditar.getAttribute('data-cantidad') || '';
+                    document.getElementById('editFechaProgramada').value = btnEditar.getAttribute('data-fecha') || '';
+                    document.getElementById('editTurnoProgramado').value = btnEditar.getAttribute('data-turno') || '';
+                    document.getElementById('editAlmacenPlanta').value = btnEditar.getAttribute('data-id-almacen') || '';
+                    document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
+                    
+                    modalEditar.show();
+                } else {
+                    console.error("El modal de edición ('modalEditarOP') no se encontró en el DOM.");
+                }
                 return;
             }
 
+            // --- LÓGICA DE DETALLE ---
             const btnDetalle = e.target.closest('.js-ver-detalle');
-            if (btnDetalle && modalDetalle) {
-                const estado = btnDetalle.getAttribute('data-estado') || '-';
-                document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
-                document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
-                document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
-                document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
-                const badge = document.getElementById('detalleEstado');
-                badge.textContent = estado;
-                badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'}`;
-                modalDetalle.show();
+            if (btnDetalle) {
+                const modalDetalleEl = document.getElementById('modalDetalleOP');
+
+                if (modalDetalleEl && typeof bootstrap !== 'undefined') {
+                     // Inicializamos solo la primera vez que se hace clic
+                    if (!modalDetalle) {
+                        modalDetalle = new bootstrap.Modal(modalDetalleEl);
+                    }
+
+                    const estado = btnDetalle.getAttribute('data-estado') || '-';
+                    document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
+                    document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
+                    document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
+                    document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
+                    
+                    const badge = document.getElementById('detalleEstado');
+                    if (badge) {
+                        badge.textContent = estado;
+                        badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'}`;
+                    }
+
+                    modalDetalle.show();
+                } else {
+                    console.error("El modal de detalle ('modalDetalleOP') no se encontró en el DOM.");
+                }
             }
         });
 

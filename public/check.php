@@ -1,58 +1,65 @@
 <?php
-// check.php - Depurador 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-echo "<h2 style='font-family: sans-serif;'>Depurador de Búsqueda de Ítems</h2>";
-
-// 1. Configuración de BD 
-$host = '127.0.0.1';
-$db   = 'sisadmin2';
-$user = 'root';
-$pass = ''; // Pon tu contraseña si no está vacía en tu entorno local
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    echo "<p style='color:green; font-family: sans-serif;'>✅ Conexión a BD exitosa.</p>";
-} catch (PDOException $e) {
-    die("<p style='color:red; font-family: sans-serif;'>❌ Error de conexión: " . $e->getMessage() . "</p>");
-}
-
-// 2. Búsqueda de prueba
-$termino = 'Belén'; // Usamos un término real de tu base de datos
-echo "<h3 style='font-family: sans-serif;'>Prueba 1: Buscando en la BD '$termino'</h3>";
-
-$sql = 'SELECT id, sku, nombre, tipo_item AS tipo, requiere_lote, requiere_vencimiento
-        FROM items
-        WHERE estado = 1
-          AND deleted_at IS NULL
-          AND (sku LIKE :termino OR nombre LIKE :termino)';
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute(['termino' => "%$termino%"]);
-$resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-echo "<p style='font-family: sans-serif;'><strong>Resultados crudos de la BD:</strong> " . count($resultados) . " encontrados.</p>";
-echo "<pre style='background:#f4f4f4; padding:10px; border-radius:5px;'>" . print_r($resultados, true) . "</pre>";
-
-// 3. Simulando el filtro de JavaScript
-echo "<hr><h3 style='font-family: sans-serif;'>Prueba 2: Simulación del Filtro de JS</h3>";
-$tiposNoPermitidos = ['semielaborado', 'producto_terminado', 'producto'];
-
-$filtrados = array_filter($resultados, function($item) use ($tiposNoPermitidos) {
-    $tipoItem = strtolower(trim($item['tipo']));
-    return !in_array($tipoItem, $tiposNoPermitidos);
-});
-
-echo "<p style='font-family: sans-serif;'><strong>Resultados DESPUÉS del filtro de JS:</strong> " . count($filtrados) . " que realmente se mostrarían en la lista.</p>";
-
-if (count($filtrados) === 0 && count($resultados) > 0) {
-    echo "<div style='background: #ffebee; color: #c62828; padding: 15px; border-radius: 5px; font-family: sans-serif;'>
-            <strong>⚠️ ALERTA:</strong> La base de datos sí está devolviendo los productos, pero tu código JavaScript los está borrando todos porque su 'tipo_item' está en la lista de tipos no permitidos.
-          </div>";
-} else {
-    echo "<pre style='background:#f4f4f4; padding:10px; border-radius:5px;'>" . print_r($filtrados, true) . "</pre>";
-}
+/**
+ * =========================================================
+ * check.php - ESCÁNER DE DEPURACIÓN PARA BOOTSTRAP 5
+ * =========================================================
+ * Este script escanea el DOM en busca de errores estructurales
+ * que causan "Illegal invocation" o fallos en "index.js".
+ */
 ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('%c🕵️‍♂️ SISADMIN Debugger Iniciado: Escaneando DOM...', 'background: #0d6efd; color: white; padding: 5px; font-weight: bold; border-radius: 5px;');
+
+    let erroresEncontrados = 0;
+
+    // 1. Buscar Tooltips mal formados (Causa principal de fallos silenciosos)
+    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltips.forEach(el => {
+        if (!el.getAttribute('title') && !el.getAttribute('data-bs-original-title')) {
+            console.error('❌ ERROR CRÍTICO: Tooltip sin atributo "title" encontrado. Esto rompe Bootstrap.', el);
+            erroresEncontrados++;
+        }
+    });
+
+    // 2. Buscar Modales incompletos (Falta de .modal-dialog rompe index.js)
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const dialog = modal.querySelector('.modal-dialog');
+        if (!dialog) {
+            console.error('❌ ERROR CRÍTICO: Modal sin contenedor ".modal-dialog" en su interior.', modal);
+            erroresEncontrados++;
+        }
+    });
+
+    // 3. Buscar Botones con selectores inválidos (Causa "Illegal invocation" en selector-engine.js)
+    const toggles = document.querySelectorAll('[data-bs-toggle="modal"], [data-bs-toggle="collapse"]');
+    toggles.forEach(btn => {
+        let targetSelector = btn.getAttribute('data-bs-target') || btn.getAttribute('href');
+        
+        // Target vacío o es solo un "#"
+        if (!targetSelector || targetSelector === '#' || targetSelector.trim() === '') {
+            console.error('❌ ERROR CRÍTICO: Botón con target vacío o inválido ("#").', btn);
+            erroresEncontrados++;
+            return;
+        }
+
+        // Target con espacios o caracteres ilegales
+        try {
+            const targetEl = document.querySelector(targetSelector);
+            if (!targetEl && targetSelector !== '#') {
+                console.warn(`⚠️ ADVERTENCIA: El botón apunta al ID "${targetSelector}", pero ese elemento NO existe en el HTML actual.`, btn);
+            }
+        } catch (e) {
+            console.error(`❌ ERROR CRÍTICO: El botón tiene un selector mal escrito ("${targetSelector}").`, btn);
+            erroresEncontrados++;
+        }
+    });
+
+    if (erroresEncontrados === 0) {
+        console.log('%c✅ Escaneo completado: No se encontraron errores de estructura en Bootstrap.', 'color: #198754; font-weight: bold;');
+    } else {
+        console.log(`%c🛑 Escaneo completado: Se encontraron ${erroresEncontrados} error(es). Revisa los mensajes de arriba.`, 'color: #dc3545; font-weight: bold;');
+    }
+});
+</script>
