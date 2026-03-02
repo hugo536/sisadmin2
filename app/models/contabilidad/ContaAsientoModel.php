@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/models/ContaPeriodoModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
 require_once BASE_PATH . '/app/models/ContaParametrosModel.php';
 
 class ContaAsientoModel extends Modelo

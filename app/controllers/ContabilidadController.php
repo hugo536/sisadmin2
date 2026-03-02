@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ContaCuentaModel.php';
-require_once BASE_PATH . '/app/models/ContaPeriodoModel.php';
-require_once BASE_PATH . '/app/models/ContaAsientoModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 require_once BASE_PATH . '/app/models/ContaParametrosModel.php';
 
 class ContabilidadController extends Controlador
@@ -36,7 +36,7 @@ class ContabilidadController extends Controlador
         AuthMiddleware::handle();
         require_permiso('conta.ver');
 
-        $this->render('conta_plan', [
+        $this->render('contabilidad/conta_plan', [
             'ruta_actual' => 'contabilidad/plan',
             'cuentas' => $this->cuentaModel->listar(),
             'parametros' => $this->paramModel->listar(),
@@ -93,7 +93,7 @@ class ContabilidadController extends Controlador
         require_permiso('conta.periodos.ver');
 
         $anio = (int)($_GET['anio'] ?? date('Y'));
-        $this->render('conta_periodos', [
+        $this->render('contabilidad/conta_periodos', [
             'ruta_actual' => 'contabilidad/periodos',
             'anio' => $anio,
             'periodos' => $this->periodoModel->listarPorAnio($anio),
@@ -157,7 +157,7 @@ class ContabilidadController extends Controlador
             $filtros['pagina'] = $totalPaginas;
         }
 
-        $this->render('conta_asientos', [
+        $this->render('contabilidad/conta_asientos', [
             'ruta_actual' => 'contabilidad/asientos',
             'asientos' => $this->asientoModel->listar($filtros),
             'cuentas' => $this->cuentaModel->listarMovimientoActivas(),
@@ -254,7 +254,7 @@ class ContabilidadController extends Controlador
         $stmt->execute($params);
         $balance = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        $this->render('conta_reportes', [
+        $this->render('contabilidad/conta_reportes', [
             'ruta_actual' => 'contabilidad/reportes',
             'libroDiario' => $rows,
             'detalleFn' => fn(int $id) => $this->asientoModel->obtenerDetalle($id),
