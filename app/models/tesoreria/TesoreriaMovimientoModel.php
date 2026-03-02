@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/models/ContaAsientoModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 
 class TesoreriaMovimientoModel extends Modelo
 {
