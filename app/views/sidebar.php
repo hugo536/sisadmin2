@@ -8,7 +8,7 @@
 // -----------------------------
 // Lógica de rutas y estado activo
 // -----------------------------
-$rutaActual = (string) ($ruta_actual ?? (string) ($_GET['ruta'] ?? 'dashboard'));
+$rutaActual = (string) ($ruta_actual ?? (string) ($_GET['ruta'] ?? 'reportes/dashboard'));
 
 $activo = static fn(string $ruta): string =>
     (str_starts_with($rutaActual, $ruta) || $rutaActual === $ruta . '/index') ? ' active' : '';
@@ -104,11 +104,6 @@ function renderSidebarInner(
     <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
 
         <div class="nav-label">Principal</div>
-
-        <a class="sidebar-link<?php echo $activo('dashboard'); ?>" href="<?php echo e(route_url('dashboard')); ?>">
-            <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
-        </a>
-
         <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
             <a class="sidebar-link<?php echo $activo('reportes'); ?>" href="<?php echo e(route_url('reportes/dashboard')); ?>">
                 <i class="bi bi-graph-up-arrow"></i> <span>Reportes y Control</span>

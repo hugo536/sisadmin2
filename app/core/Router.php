@@ -41,6 +41,13 @@ class Router
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
 
+
+        if ($modulo === 'dashboard') {
+            $modulo = 'reportes';
+            $controlador_clase = 'ReportesController';
+            $accion = $accion === 'index' ? 'dashboard' : $accion;
+        }
+
         if ($modulo === 'produccion') {
             if ($accion === 'ordenes') {
                 $controlador_clase = 'ProduccionOrdenesController';
