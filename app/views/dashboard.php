@@ -50,7 +50,26 @@ $cumpleanosSemana = is_array($cumpleanosSemana ?? null) ? $cumpleanosSemana : []
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
+    
+<?php $reportesWidgets = is_array($reportes_widgets ?? null) ? $reportes_widgets : []; ?>
+<?php if ($reportesWidgets !== []): ?>
+<div class="row g-3 mb-4">
+    <div class="col-12"><h2 class="h5">Control operativo</h2></div>
+    <?php $links = ['stock_critico'=>'reportes/inventario','compras_pendientes'=>'reportes/compras','ventas_por_despachar'=>'reportes/ventas','produccion_proceso'=>'reportes/produccion','cxc_vencida'=>'reportes/tesoreria','cxp_vencida'=>'reportes/tesoreria']; ?>
+    <?php foreach ($reportesWidgets as $k => $v): ?>
+      <div class="col-12 col-md-4">
+        <a class="card border-0 shadow-sm h-100 text-decoration-none" href="<?php echo e(route_url((string) ($links[$k] ?? 'reportes/dashboard'))); ?>">
+          <div class="card-body">
+            <div class="text-muted small text-uppercase"><?php echo e(str_replace('_', ' ', (string) $k)); ?></div>
+            <div class="h3 mb-0"><?php echo (int) $v; ?></div>
+          </div>
+        </a>
+      </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="card border-0 shadow-sm mb-4">
         <div class="card-header d-flex justify-content-between align-items-center py-3">
             <span class="d-flex align-items-center gap-2"><i class="bi bi-cake2-fill text-danger"></i>Cumpleaños de la semana</span>
             <span class="badge rounded-pill text-bg-primary px-3 py-2"><?php echo count($cumpleanosSemana); ?></span>

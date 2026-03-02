@@ -109,6 +109,12 @@ function renderSidebarInner(
             <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
         </a>
 
+        <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
+            <a class="sidebar-link<?php echo $activo('reportes'); ?>" href="<?php echo e(route_url('reportes/dashboard')); ?>">
+                <i class="bi bi-graph-up-arrow"></i> <span>Reportes y Control</span>
+            </a>
+        <?php endif; ?>
+
         <?php if (tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('items'); ?>" href="<?php echo e(route_url('items')); ?>">
                 <i class="bi bi-box-seam"></i> <span>Ítems / Productos</span>
