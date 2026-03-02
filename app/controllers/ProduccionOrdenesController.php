@@ -217,6 +217,7 @@ class ProduccionOrdenesController extends Controlador
             'flash' => $flash,
             'ordenes' => $this->produccionOrdenesModel->listarOrdenes(),
             'recetas_activas' => $this->produccionOrdenesModel->listarRecetasActivas(),
+            'turnos_programables' => $this->produccionOrdenesModel->listarTurnosProgramadosDisponibles(),
             'almacenes' => $this->produccionOrdenesModel->listarAlmacenesActivos(),
             'almacenes_planta' => $this->produccionOrdenesModel->listarAlmacenesActivosPorTipo('Planta'),
             'ruta_actual' => 'produccion/ordenes',

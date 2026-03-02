@@ -3,6 +3,7 @@ $ordenes = $ordenes ?? [];
 $recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
 $almacenesPlanta = $almacenes_planta ?? [];
+$turnosProgramables = $turnos_programables ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <style>
@@ -322,9 +323,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <label for="newTurnoProgramado" class="form-label small text-muted fw-bold mb-1">Turno Programado <span class="text-danger fs-6">*</span></label>
                                 <select name="turno_programado" id="newTurnoProgramado" class="form-select" required>
                                     <option value="">Seleccione...</option>
-                                    <option value="Mañana">Mañana</option>
-                                    <option value="Tarde">Tarde</option>
-                                    <option value="Noche">Noche</option>
+                                    <?php foreach ($turnosProgramables as $turno): ?>
+                                        <option value="<?php echo e((string) ($turno['nombre'] ?? '')); ?>"><?php echo e((string) ($turno['nombre'] ?? '')); ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -377,9 +378,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         <label for="editTurnoProgramado" class="form-label small text-muted fw-bold mb-1">Turno Programado <span class="text-danger fs-6">*</span></label>
                         <select name="turno_programado" id="editTurnoProgramado" class="form-select" required>
                             <option value="">Seleccione...</option>
-                            <option value="Mañana">Mañana</option>
-                            <option value="Tarde">Tarde</option>
-                            <option value="Noche">Noche</option>
+                            <?php foreach ($turnosProgramables as $turno): ?>
+                                <option value="<?php echo e((string) ($turno['nombre'] ?? '')); ?>"><?php echo e((string) ($turno['nombre'] ?? '')); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-4">
