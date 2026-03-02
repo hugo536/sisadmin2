@@ -2,11 +2,11 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ReporteInventarioModel.php';
-require_once BASE_PATH . '/app/models/ReporteComprasModel.php';
-require_once BASE_PATH . '/app/models/ReporteVentasModel.php';
-require_once BASE_PATH . '/app/models/ReporteProduccionModel.php';
-require_once BASE_PATH . '/app/models/ReporteTesoreriaModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteInventarioModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteComprasModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteVentasModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteProduccionModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
 
 class ReportesController extends Controlador
@@ -34,7 +34,7 @@ class ReportesController extends Controlador
         require_permiso('reportes.dashboard.ver');
         $this->registrarAuditoria('dashboard');
 
-        $this->render('dashboard', [
+        $this->render('reportes/dashboard', [
             'ruta_actual' => 'reportes/dashboard',
             'reportes_widgets' => [
                 'stock_critico' => $this->inventario->contarStockCritico(),
@@ -67,7 +67,7 @@ class ReportesController extends Controlador
             'dias' => (int) ($_GET['dias'] ?? 30),
         ];
 
-        $this->render('reportes_inventario', [
+        $this->render('reportes/inventario', [
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
             'stock' => $this->inventario->stockActual($f, $pagina, $tamano),
@@ -88,7 +88,7 @@ class ReportesController extends Controlador
         $f['id_proveedor'] = (int) ($_GET['id_proveedor'] ?? 0);
         $f['id_almacen'] = (int) ($_GET['id_almacen'] ?? 0);
 
-        $this->render('reportes_compras', [
+        $this->render('reportes/compras', [
             'ruta_actual' => 'reportes/compras',
             'filtros' => $f,
             'porProveedor' => $this->compras->comprasPorProveedor($f, $pagina, $tamano),
@@ -108,7 +108,7 @@ class ReportesController extends Controlador
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
 
-        $this->render('reportes_ventas', [
+        $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
             'porCliente' => $this->ventas->ventasPorCliente($f, $pagina, $tamano),
@@ -128,7 +128,7 @@ class ReportesController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
 
-        $this->render('reportes_produccion', [
+        $this->render('reportes/produccion', [
             'ruta_actual' => 'reportes/produccion',
             'filtros' => $f,
             'porProducto' => $this->produccion->produccionPorProducto($f, $pagina, $tamano),
@@ -147,7 +147,7 @@ class ReportesController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['id_cuenta'] = (int) ($_GET['id_cuenta'] ?? 0);
 
-        $this->render('reportes_tesoreria', [
+        $this->render('reportes/tesoreria', [
             'ruta_actual' => 'reportes/tesoreria',
             'filtros' => $f,
             'agingCxc' => $this->tesoreria->agingCxc($f, $pagina, $tamano),

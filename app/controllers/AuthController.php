@@ -114,7 +114,7 @@ class AuthController extends Controlador
             $this->obtener_user_agent()
         );
 
-        header('Location: ?ruta=dashboard/index');
+        header('Location: ?ruta=reportes/dashboard');
         exit;
     }
 
