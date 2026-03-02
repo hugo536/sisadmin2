@@ -2,6 +2,7 @@
   const tbody = document.querySelector('#lineas tbody');
   if(!tbody) return;
   const cuentas = window.CONTA_CUENTAS || [];
+  const centros = window.CONTA_CENTROS || [];
   const btn = document.getElementById('agregar-linea');
   const sumDebe = document.getElementById('sumDebe');
   const sumHaber = document.getElementById('sumHaber');
@@ -11,6 +12,11 @@
 
   function renderCuentaOptions(){
     return cuentas.map(c => `<option value="${c.id}">${c.codigo} - ${c.nombre}</option>`).join('');
+  }
+
+  function renderCentroOptions(){
+    return '<option value="">-</option>' + centros.filter(c => Number(c.estado || 0) === 1)
+      .map(c => `<option value="${c.id}">${c.codigo} - ${c.nombre}</option>`).join('');
   }
 
   function recalc(){
@@ -44,6 +50,7 @@
   function addRow(){
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><select class="form-select form-select-sm" name="id_cuenta[]">${renderCuentaOptions()}</select></td>
+      <td><select class="form-select form-select-sm" name="id_centro_costo[]">${renderCentroOptions()}</select></td>
       <td><input class="form-control form-control-sm" type="number" step="0.0001" name="debe[]" value="0"></td>
       <td><input class="form-control form-control-sm" type="number" step="0.0001" name="haber[]" value="0"></td>
       <td><input class="form-control form-control-sm" name="referencia[]"></td>

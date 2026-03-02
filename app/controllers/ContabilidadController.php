@@ -7,6 +7,7 @@ require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 require_once BASE_PATH . '/app/models/ContaParametrosModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 
 class ContabilidadController extends Controlador
 {
@@ -14,6 +15,7 @@ class ContabilidadController extends Controlador
     private ContaPeriodoModel $periodoModel;
     private ContaAsientoModel $asientoModel;
     private ContaParametrosModel $paramModel;
+    private CentroCostoModel $centroCostoModel;
 
     public function __construct()
     {
@@ -22,6 +24,7 @@ class ContabilidadController extends Controlador
         $this->periodoModel = new ContaPeriodoModel();
         $this->asientoModel = new ContaAsientoModel();
         $this->paramModel = new ContaParametrosModel();
+        $this->centroCostoModel = new CentroCostoModel();
     }
 
     public function index(): void
@@ -162,6 +165,7 @@ class ContabilidadController extends Controlador
             'asientos' => $this->asientoModel->listar($filtros),
             'cuentas' => $this->cuentaModel->listarMovimientoActivas(),
             'periodos' => $this->periodoModel->listarPorAnio((int)date('Y')),
+            'centrosCosto' => $this->centroCostoModel->listar(),
             'detalleFn' => fn(int $id) => $this->asientoModel->obtenerDetalle($id),
             'filtros' => $filtros,
             'totalAsientos' => $total,
@@ -193,6 +197,7 @@ class ContabilidadController extends Controlador
                     'debe' => (float)($debe[$i] ?? 0),
                     'haber' => (float)($haber[$i] ?? 0),
                     'referencia' => trim((string)($_POST['referencia'][$i] ?? '')),
+                    'id_centro_costo' => (int)($_POST['id_centro_costo'][$i] ?? 0),
                 ];
             }
             $this->asientoModel->crearManual($cabecera, $lineas, $this->uid());
@@ -211,6 +216,29 @@ class ContabilidadController extends Controlador
             redirect('contabilidad/asientos?ok=1');
         } catch (Throwable $e) {
             redirect('contabilidad/asientos?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function centros_costo(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.centros_costo.gestionar');
+
+        $this->render('contabilidad/centros_costo', [
+            'ruta_actual' => 'contabilidad/centros_costo',
+            'centros' => $this->centroCostoModel->listar(),
+        ]);
+    }
+
+    public function guardar_centro_costo(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.centros_costo.gestionar');
+        try {
+            $this->centroCostoModel->guardar($_POST, $this->uid());
+            redirect('contabilidad/centros_costo?ok=1');
+        } catch (Throwable $e) {
+            redirect('contabilidad/centros_costo?error=' . urlencode($e->getMessage()));
         }
     }
 
@@ -261,6 +289,7 @@ class ContabilidadController extends Controlador
             'balance' => $balance,
             'filtros' => $filtros,
             'periodos' => $this->periodoModel->listarPorAnio((int)date('Y')),
+            'centrosCosto' => $this->centroCostoModel->listar(),
         ]);
     }
 

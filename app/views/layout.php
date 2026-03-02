@@ -162,6 +162,22 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
     <script src="<?php echo e(asset_url('js/rrhh/horario.js')); ?>"></script>
 <?php endif; ?>
 
+<?php if (str_starts_with($currentRoute, 'activos')): ?>
+    <script src="<?php echo e(asset_url('js/contabilidad/activos.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with($currentRoute, 'conciliacion')): ?>
+    <script src="<?php echo e(asset_url('js/contabilidad/conciliaciones.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with($currentRoute, 'cierre_contable')): ?>
+    <script src="<?php echo e(asset_url('js/contabilidad/cierres.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with($currentRoute, 'contabilidad/centros_costo')): ?>
+    <script src="<?php echo e(asset_url('js/contabilidad/centros_costo.js')); ?>"></script>
+<?php endif; ?>
+
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>
 <script>
 Swal.fire({

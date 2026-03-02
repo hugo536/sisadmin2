@@ -14,7 +14,7 @@
       <div class="col-md-5"><input name="glosa" class="form-control" placeholder="Glosa" required></div>
       <div class="col-md-2"><button class="btn btn-primary w-100">Registrar</button></div>
     </div>
-    <table class="table table-sm mt-2" id="lineas"><thead><tr><th>Cuenta</th><th>Debe</th><th>Haber</th><th>Ref</th><th></th></tr></thead><tbody></tbody></table>
+    <table class="table table-sm mt-2" id="lineas"><thead><tr><th>Cuenta</th><th>Centro costo</th><th>Debe</th><th>Haber</th><th>Ref</th><th></th></tr></thead><tbody></tbody></table>
     <button type="button" class="btn btn-outline-secondary btn-sm" id="agregar-linea">+ Línea</button>
     <span class="ms-3">Debe: <b id="sumDebe">0.0000</b> | Haber: <b id="sumHaber">0.0000</b> <span id="balanceEstado" class="badge bg-secondary ms-2">Pendiente</span></span>
   </form>
@@ -24,11 +24,11 @@
     <div class="card mb-2"><div class="card-body">
       <div class="d-flex justify-content-between"><div><b><?php echo e($a['codigo']); ?></b> - <?php echo e($a['fecha']); ?> - <?php echo e($a['glosa']); ?> (<?php echo e($a['estado']); ?>)</div>
       <?php if ($a['estado'] === 'REGISTRADO'): ?><form method="post" action="<?php echo e(route_url('contabilidad/anular_asiento')); ?>"><input type="hidden" name="id_asiento" value="<?php echo (int)$a['id']; ?>"><button class="btn btn-danger btn-sm">Anular</button></form><?php endif; ?></div>
-      <ul><?php foreach ($detalleFn((int)$a['id']) as $d): ?><li><?php echo e($d['cuenta_codigo'].' '.$d['cuenta_nombre'].' | D:'.$d['debe'].' H:'.$d['haber']); ?></li><?php endforeach; ?></ul>
+      <ul><?php foreach ($detalleFn((int)$a['id']) as $d): ?><li><?php echo e($d['cuenta_codigo'].' '.$d['cuenta_nombre'].' | CC: '.($d['centro_costo_codigo'] ?? '-') .' | D:'.$d['debe'].' H:'.$d['haber']); ?></li><?php endforeach; ?></ul>
     </div></div>
   <?php endforeach; ?>
 </div>
-<script>window.CONTA_CUENTAS=<?php echo json_encode($cuentas, JSON_UNESCAPED_UNICODE); ?>;</script>
+<script>window.CONTA_CUENTAS=<?php echo json_encode($cuentas, JSON_UNESCAPED_UNICODE); ?>;window.CONTA_CENTROS=<?php echo json_encode($centrosCosto ?? [], JSON_UNESCAPED_UNICODE); ?>;</script>
 <script src="<?php echo e(base_url()); ?>/assets/js/contabilidad.js"></script>
 
 <?php if (($totalPaginas ?? 1) > 1): ?>

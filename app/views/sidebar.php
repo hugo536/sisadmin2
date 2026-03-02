@@ -261,6 +261,12 @@ function renderSidebarInner(
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/asientos'); ?>" href="<?php echo e(route_url('contabilidad/asientos')); ?>"><span>Asientos</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/reportes'); ?>" href="<?php echo e(route_url('contabilidad/reportes')); ?>"><span>Reportes</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/centros_costo'); ?>" href="<?php echo e(route_url('contabilidad/centros_costo')); ?>"><span>Centros de costo</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('conciliacion/index'); ?>" href="<?php echo e(route_url('conciliacion/index')); ?>"><span>Conciliación bancaria</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('activos/index'); ?>" href="<?php echo e(route_url('activos/index')); ?>"><span>Activos fijos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/index'); ?>" href="<?php echo e(route_url('cierre_contable/index')); ?>"><span>Cierres contables</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/estados_financieros'); ?>" href="<?php echo e(route_url('cierre_contable/estados_financieros')); ?>"><span>Estados financieros</span></a></li>
+                        <?php if (tiene_permiso('auditoria.ver')): ?><li class="nav-item"><a class="sidebar-link<?php echo $activo('auditoria/index'); ?>" href="<?php echo e(route_url('auditoria/index')); ?>"><span>Modo auditoría</span></a></li><?php endif; ?>
                     </ul>
                 </div>
             <?php endif; ?>
