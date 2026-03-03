@@ -2,6 +2,28 @@ document.addEventListener('DOMContentLoaded', () => {
     'use strict';
 
     // ========================================================================
+    // 0. INICIALIZACIÓN GLOBAL (Tooltips y Modales Auto-Open)
+    // ========================================================================
+    
+    // Inicializar tooltips de Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Lógica para auto-abrir el Modal de Cuentas si PHP inyectó el indicador en el HTML
+    // Buscamos un elemento oculto o un dataset que la vista haya generado
+    const tesoreriaApp = document.getElementById('tesoreriaCuentasApp');
+    if (tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true') {
+        const modalCuenta = document.getElementById('modalCuentaTesoreria');
+        if (modalCuenta) {
+            const myModal = new bootstrap.Modal(modalCuenta);
+            myModal.show();
+        }
+    }
+
+
+    // ========================================================================
     // 1. DELEGACIÓN DE EVENTOS: APERTURA DE MODALES (Cobros y Pagos)
     // ========================================================================
     const openModal = (id) => {
@@ -118,14 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. FILTROS AUTOMÁTICOS CON AJAX UNIVERSAL (CXC, CXP y Movimientos)
     // ========================================================================
     
-    // Buscamos cuál de los 3 formularios existe en la página actual
     const formFiltros = document.getElementById('formFiltrosCxc') || 
                         document.getElementById('formFiltrosCxp') || 
                         document.getElementById('formFiltrosMovimientos');
     
     if (formFiltros) {
-        
-        // Prevenir envío por botón/tecla Enter (dejamos que AJAX controle)
         formFiltros.addEventListener('submit', (e) => {
             e.preventDefault();
             triggerAutoSubmit();
@@ -134,8 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let debounceTimer;
 
         const autoSubmitForm = async () => {
-            
-            // Detección inteligente: ¿En qué vista estamos y qué debemos actualizar?
             let tableManager = null;
             let tableBodyId = '';
             
@@ -150,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 tableBodyId = 'movimientosTableBody';
             }
 
-            // Mostrar el spinner global en la tabla detectada
             if (tableManager && typeof tableManager.showLoading === 'function') {
                 tableManager.showLoading();
             }
@@ -158,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = new URL(window.location.href);
             const formData = new FormData(formFiltros);
             
-            // Reconstruimos la URL con todos los campos del formulario activo
             for (const [key, value] of formData.entries()) {
                 if (key !== 'ruta') {
                     url.searchParams.set(key, value);
@@ -176,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parser = new DOMParser();
                 const docVirtual = parser.parseFromString(html, 'text/html');
 
-                // 1. Reemplazar cuerpo de la tabla
                 if (tableBodyId) {
                     const currentTbody = document.getElementById(tableBodyId);
                     const newTbody = docVirtual.getElementById(tableBodyId);
@@ -185,24 +199,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 2. Reemplazar Badges (Si existen en la vista)
                 const currentBadge = document.getElementById('badgeRegistros');
                 const newBadge = docVirtual.getElementById('badgeRegistros');
                 if (currentBadge && newBadge) {
                     currentBadge.innerHTML = newBadge.innerHTML;
                 }
 
-                // 3. Refrescar el paginador de ERPTable
                 if (tableManager && typeof tableManager.refresh === 'function') {
                     tableManager.refresh();
                 }
 
-                // 4. Refrescar Tooltips de Bootstrap para botones nuevos
                 if (window.ERPTable && typeof window.ERPTable.initTooltips === 'function') {
                     window.ERPTable.initTooltips();
                 }
 
-                // 5. Actualizar la URL de la barra de direcciones sin recargar
                 window.history.pushState({}, '', url);
 
             } catch (error) {
@@ -211,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     Swal.fire('Aviso', 'No se pudo actualizar la tabla automáticamente.', 'warning');
                 }
             } finally {
-                // Ocultar el spinner independientemente de si hubo error o éxito
                 if (tableManager && typeof tableManager.hideLoading === 'function') {
                     tableManager.hideLoading();
                 }
@@ -222,11 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 autoSubmitForm(); 
-            }, 150); // El punto dulce de 150ms
+            }, 150);
         };
 
-        // Escuchar cambios en selects, radios o inputs del form actual
-        // Para inputs de texto ('input', 'keyup'), usamos el evento 'input' para reacción instantánea
         formFiltros.addEventListener('change', triggerAutoSubmit);
         formFiltros.addEventListener('input', triggerAutoSubmit);
     }
