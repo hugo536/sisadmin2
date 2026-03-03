@@ -39,7 +39,7 @@ $badgeTipo = static function (string $tipo): string {
                 <div class="col-12 col-lg-6">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control" name="q" id="cbFiltroBusqueda" placeholder="Buscar por código, nombre, entidad o titular" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>" autocomplete="off">
+                        <input type="search" class="form-control" name="q" id="cbFiltroBusqueda" placeholder="Buscar por código, nombre o entidad" value="<?php echo e((string) ($filtros['q'] ?? '')); ?>" autocomplete="off">
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
@@ -71,7 +71,7 @@ $badgeTipo = static function (string $tipo): string {
                             <th>Código</th>
                             <th>Nombre</th>
                             <th>Tipo</th>
-                            <th>Entidad / Cuenta</th>
+                            <th>Entidad</th>
                             <th class="text-center">Uso</th>
                             <th class="text-center">Estado</th>
                             <th class="text-end">Acciones</th>
@@ -88,10 +88,7 @@ $badgeTipo = static function (string $tipo): string {
                                 <?php if (!empty($r['observaciones'])): ?><small class="text-muted"><?php echo e((string) $r['observaciones']); ?></small><?php endif; ?>
                             </td>
                             <td><?php echo $badgeTipo((string) ($r['tipo'] ?? 'BANCO')); ?></td>
-                            <td>
-                                <div><?php echo e((string) ($r['entidad'] ?? '-')); ?></div>
-                                <small class="text-muted"><?php echo e((string) ($r['tipo_cuenta'] ?? '-')); ?> · <?php echo e((string) ($r['moneda'] ?? 'PEN')); ?></small>
-                            </td>
+                            <td><?php echo e((string) ($r['entidad'] ?? '-')); ?></td>
                             <td class="text-center">
                                 <?php if ((int)($r['permite_cobros'] ?? 0) === 1): ?><span class="badge bg-success-subtle text-success-emphasis border me-1">Cobros</span><?php endif; ?>
                                 <?php if ((int)($r['permite_pagos'] ?? 0) === 1): ?><span class="badge bg-warning-subtle text-warning-emphasis border">Pagos</span><?php endif; ?>
@@ -125,10 +122,6 @@ $badgeTipo = static function (string $tipo): string {
                                                 data-nombre="<?php echo e((string) ($r['nombre'] ?? '')); ?>"
                                                 data-tipo="<?php echo e((string) ($r['tipo'] ?? 'BANCO')); ?>"
                                                 data-entidad="<?php echo e((string) ($r['entidad'] ?? '')); ?>"
-                                                data-tipo-cuenta="<?php echo e((string) ($r['tipo_cuenta'] ?? '')); ?>"
-                                                data-moneda="<?php echo e((string) ($r['moneda'] ?? 'PEN')); ?>"
-                                                data-titular="<?php echo e((string) ($r['titular'] ?? '')); ?>"
-                                                data-numero-cuenta="<?php echo e((string) ($r['numero_cuenta'] ?? '')); ?>"
                                                 data-permite-cobros="<?php echo (int) ($r['permite_cobros'] ?? 0); ?>"
                                                 data-permite-pagos="<?php echo (int) ($r['permite_pagos'] ?? 0); ?>"
                                                 data-estado="<?php echo (int) ($r['estado'] ?? 1); ?>"
@@ -175,10 +168,6 @@ $badgeTipo = static function (string $tipo): string {
                     <div class="col-md-8"><div class="form-floating"><input class="form-control" id="cbNombre" name="nombre" maxlength="120" required placeholder="Nombre"><label for="cbNombre">Nombre</label></div></div>
                     <div class="col-md-4"><div class="form-floating"><select class="form-select" id="cbTipo" name="tipo"><option value="CAJA">Caja</option><option value="BANCO">Banco</option><option value="BILLETERA">Billetera</option><option value="OTROS">Otros</option></select><label for="cbTipo">Tipo</label></div></div>
                     <div class="col-md-4"><div class="form-floating"><input class="form-control" id="cbEntidad" name="entidad" placeholder="Entidad"><label for="cbEntidad">Entidad</label></div></div>
-                    <div class="col-md-4"><div class="form-floating"><select class="form-select" id="cbMoneda" name="moneda"><option value="PEN">PEN</option><option value="USD">USD</option></select><label for="cbMoneda">Moneda</label></div></div>
-                    <div class="col-md-4"><div class="form-floating"><input class="form-control" id="cbTipoCuenta" name="tipo_cuenta" placeholder="Tipo de cuenta"><label for="cbTipoCuenta">Tipo de Cuenta</label></div></div>
-                    <div class="col-md-4"><div class="form-floating"><input class="form-control" id="cbTitular" name="titular" placeholder="Titular"><label for="cbTitular">Titular</label></div></div>
-                    <div class="col-md-4"><div class="form-floating"><input class="form-control" id="cbNumeroCuenta" name="numero_cuenta" placeholder="Número / CCI"><label for="cbNumeroCuenta">Número / CCI</label></div></div>
                     <div class="col-md-12"><div class="form-floating"><textarea class="form-control" id="cbObservaciones" name="observaciones" style="height: 85px" placeholder="Observaciones"></textarea><label for="cbObservaciones">Observaciones</label></div></div>
                     <div class="col-md-4"><div class="form-check form-switch mt-2"><input class="form-check-input" type="checkbox" id="cbPermiteCobros" name="permite_cobros" value="1"><label class="form-check-label" for="cbPermiteCobros">Permite cobros</label></div></div>
                     <div class="col-md-4"><div class="form-check form-switch mt-2"><input class="form-check-input" type="checkbox" id="cbPermitePagos" name="permite_pagos" value="1"><label class="form-check-label" for="cbPermitePagos">Permite pagos</label></div></div>

@@ -8,7 +8,7 @@ class CajasBancosModel extends Modelo
      */
     public function listarActivos(): array
     {
-        $sql = 'SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda 
+        $sql = 'SELECT id, codigo, nombre, tipo, entidad 
                 FROM configuracion_cajas_bancos 
                 WHERE estado = 1 AND deleted_at IS NULL 
                 ORDER BY COALESCE(updated_at, created_at) DESC, id DESC';
@@ -27,14 +27,13 @@ class CajasBancosModel extends Modelo
         $busqueda = trim((string) ($filtros['q'] ?? ''));
         if ($busqueda !== '') {
             // Asignamos un nombre único a cada marcador
-            $where[] = '(codigo LIKE :q1 OR nombre LIKE :q2 OR entidad LIKE :q3 OR titular LIKE :q4)';
+            $where[] = '(codigo LIKE :q1 OR nombre LIKE :q2 OR entidad LIKE :q3)';
             
             // Pasamos el valor para cada uno de los marcadores
             $valorBusqueda = '%' . $busqueda . '%';
             $params['q1'] = $valorBusqueda;
             $params['q2'] = $valorBusqueda;
             $params['q3'] = $valorBusqueda;
-            $params['q4'] = $valorBusqueda;
         }
 
         $tipo = trim((string) ($filtros['tipo'] ?? ''));
@@ -82,9 +81,9 @@ class CajasBancosModel extends Modelo
     public function crear(array $data): bool
     {
         $sql = 'INSERT INTO configuracion_cajas_bancos
-                (codigo, nombre, tipo, entidad, tipo_cuenta, moneda, titular, numero_cuenta, permite_cobros, permite_pagos, estado, observaciones, created_by, updated_by)
+                (codigo, nombre, tipo, entidad, permite_cobros, permite_pagos, estado, observaciones, created_by, updated_by)
                 VALUES
-                (:codigo, :nombre, :tipo, :entidad, :tipo_cuenta, :moneda, :titular, :numero_cuenta, :permite_cobros, :permite_pagos, :estado, :observaciones, :created_by, :updated_by)';
+                (:codigo, :nombre, :tipo, :entidad, :permite_cobros, :permite_pagos, :estado, :observaciones, :created_by, :updated_by)';
 
         $stmt = $this->db()->prepare($sql);
         return $stmt->execute([
@@ -92,10 +91,6 @@ class CajasBancosModel extends Modelo
             'nombre' => $data['nombre'],
             'tipo' => $data['tipo'],
             'entidad' => $data['entidad'],
-            'tipo_cuenta' => $data['tipo_cuenta'],
-            'moneda' => $data['moneda'],
-            'titular' => $data['titular'],
-            'numero_cuenta' => $data['numero_cuenta'],
             'permite_cobros' => $data['permite_cobros'],
             'permite_pagos' => $data['permite_pagos'],
             'estado' => $data['estado'],
@@ -112,10 +107,6 @@ class CajasBancosModel extends Modelo
                     nombre = :nombre,
                     tipo = :tipo,
                     entidad = :entidad,
-                    tipo_cuenta = :tipo_cuenta,
-                    moneda = :moneda,
-                    titular = :titular,
-                    numero_cuenta = :numero_cuenta,
                     permite_cobros = :permite_cobros,
                     permite_pagos = :permite_pagos,
                     estado = :estado,
@@ -131,10 +122,6 @@ class CajasBancosModel extends Modelo
             'nombre' => $data['nombre'],
             'tipo' => $data['tipo'],
             'entidad' => $data['entidad'],
-            'tipo_cuenta' => $data['tipo_cuenta'],
-            'moneda' => $data['moneda'],
-            'titular' => $data['titular'],
-            'numero_cuenta' => $data['numero_cuenta'],
             'permite_cobros' => $data['permite_cobros'],
             'permite_pagos' => $data['permite_pagos'],
             'estado' => $data['estado'],
