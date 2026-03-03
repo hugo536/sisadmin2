@@ -1,61 +1,60 @@
 <?php
+/**
+ * SCRIPT DE DEPURACIÓN AUTÓNOMO
+ * No requiere archivos externos para evitar errores de ruta.
+ */
 declare(strict_types=1);
 
-// --- CONFIGURACIÓN DE CONEXIÓN ---
-$host = 'localhost';
-$db   = 'sisadmin2'; // <--- CAMBIA ESTO POR EL NOMBRE REAL
-$user = 'root';                        // Usuario por defecto en XAMPP
-$pass = '';                            // Contraseña vacía por defecto en XAMPP
-$charset = 'utf8mb4';
+// --- CONFIGURA ESTOS DATOS ---
+$db_host = 'localhost';
+$db_name = 'sisadmin2'; // Confirmado por tu archivo .sql
+$db_user = 'root';
+$db_pass = ''; 
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES   => false,
-];
-
-echo "<h2>🔍 Diagnóstico de Sistema Contable</h2>";
+echo "<h2>🔍 Probando Actualización Directa en BD</h2>";
 
 try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-    echo "<p style='color:green;'>✅ Conexión a la base de datos exitosa.</p>";
+    // 1. Conexión Directa
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+    ]);
+    echo "<p style='color:green;'>✅ Conexión establecida.</p>";
 
-    // 1. Verificar si la tabla existe y su estructura
-    echo "<h3>1. Estructura de la tabla 'conta_cuentas'</h3>";
-    $stmt = $pdo->query("DESCRIBE conta_cuentas");
-    echo "<table border='1' style='border-collapse:collapse; width:100%; text-align:left;'>";
-    echo "<tr style='background:#eee;'><th>Campo</th><th>Tipo</th><th>Null</th><th>Key</th><th>Default</th></tr>";
-    while ($row = $stmt->fetch()) {
-        echo "<tr><td>{$row['Field']}</td><td>{$row['Type']}</td><td>{$row['Null']}</td><td>{$row['Key']}</td><td>{$row['Default']}</td></tr>";
+    // 2. Buscar la primera cuenta disponible
+    $stmt = $pdo->query("SELECT id, codigo, nombre, estado FROM conta_cuentas LIMIT 1");
+    $cuenta = $stmt->fetch();
+
+    if (!$cuenta) {
+        die("<p style='color:red;'>❌ La tabla 'conta_cuentas' está vacía.</p>");
     }
-    echo "</table>";
 
-    // 2. Probar la consulta que causa el error SQLSTATE[HY093]
-    echo "<h3>2. Prueba de consulta de Listado</h3>";
-    
-    // El error HY093 ocurre cuando pasas un array de parámetros 
-    // pero el SQL no tiene los marcadores ":" correspondientes.
-    $params = []; 
-    $sql = "SELECT id, codigo, nombre FROM conta_cuentas WHERE deleted_at IS NULL ORDER BY codigo ASC";
-    
-    $stmtPrueba = $pdo->prepare($sql);
-    
-    // Esta es la línea crítica que queremos probar:
-    $stmtPrueba->execute($params); 
-    
-    echo "<p style='color:blue;'>✅ Prueba superada: Se encontraron " . $stmtPrueba->rowCount() . " registros sin errores de parámetros.</p>";
+    $id = (int)$cuenta['id'];
+    $estadoOriginal = (int)$cuenta['estado'];
+    $nuevoEstado = ($estadoOriginal === 1) ? 0 : 1;
 
-} catch (\PDOException $e) {
-    echo "<div style='background:#ffeeee; padding:10px; border:1px solid red;'>";
-    echo "<p style='color:red; font-weight:bold;'>❌ ERROR DETECTADO:</p>";
-    echo "<p><strong>Mensaje:</strong> " . $e->getMessage() . "</p>";
-    echo "<p><strong>Código SQLSTATE:</strong> " . $e->getCode() . "</p>";
-    echo "</div>";
-    
-    if ($e->getCode() == "1045") {
-        echo "<p>💡 <em>Tip: Revisa que el usuario y contraseña en check.php coincidan con los de tu phpMyAdmin.</em></p>";
+    echo "<p>Cuenta a probar: <b>{$cuenta['nombre']}</b> (ID: $id)</p>";
+    echo "<p>Estado actual: <b>$estadoOriginal</b>. Intentando cambiar a: <b>$nuevoEstado</b>...</p>";
+
+    // 3. Ejecutar el UPDATE directamente
+    $update = $pdo->prepare("UPDATE conta_cuentas SET estado = :nuevo WHERE id = :id");
+    $update->execute(['nuevo' => $nuevoEstado, 'id' => $id]);
+
+    // 4. Verificar si el cambio se guardó
+    $stmtVerificar = $pdo->prepare("SELECT estado FROM conta_cuentas WHERE id = :id");
+    $stmtVerificar->execute(['id' => $id]);
+    $estadoFinal = (int)$stmtVerificar->fetchColumn();
+
+    echo "<hr>";
+    if ($estadoFinal === $nuevoEstado) {
+        echo "<h1 style='color:green;'>✅ ¡LA BASE DE DATOS FUNCIONA!</h1>";
+        echo "<p>El cambio se guardó correctamente en MySQL.</p>";
+        echo "<p><b>Conclusión:</b> Si el switch no funciona en el sistema, el problema es que el <b>Formulario HTML</b> o el <b>Controlador PHP</b> no están procesando la petición.</p>";
+    } else {
+        echo "<h1 style='color:red;'>❌ LA BASE DE DATOS NO CAMBIÓ</h1>";
+        echo "<p>El UPDATE se ejecutó pero el valor no cambió. Revisa si tienes 'Triggers' o restricciones en la tabla.</p>";
     }
+
+} catch (Exception $e) {
+    echo "<p style='color:red;'>❌ Error: " . $e->getMessage() . "</p>";
 }
-
-echo "<hr><p>Fin del diagnóstico.</p>";

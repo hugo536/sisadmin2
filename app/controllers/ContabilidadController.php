@@ -76,22 +76,30 @@ class ContabilidadController extends Controlador
     }
 
     public function cambiar_estado_cuenta(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('conta.plan_contable.gestionar');
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            redirect('contabilidad/plan');
-        }
+{
+    AuthMiddleware::handle();
+    require_permiso('conta.plan_contable.gestionar');
 
-        try {
-            $idCuenta = (int)($_POST['id_cuenta'] ?? 0);
-            $estado = (int)($_POST['estado'] ?? 0);
+    // Verificamos que sea POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        redirect('contabilidad/plan');
+    }
+
+    try {
+        // Capturamos los datos del formulario (el name en el HTML es 'id_cuenta' y 'estado')
+        $idCuenta = (int)($_POST['id_cuenta'] ?? 0);
+        $estado = (int)($_POST['estado'] ?? 0);
+
+        if ($idCuenta > 0) {
             $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->uid());
             redirect('contabilidad/plan?ok=1');
-        } catch (Throwable $e) {
-            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+        } else {
+            throw new Exception("ID de cuenta no válido.");
         }
+    } catch (Throwable $e) {
+        redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
     }
+}
 
     public function guardar_parametro(): void
     {

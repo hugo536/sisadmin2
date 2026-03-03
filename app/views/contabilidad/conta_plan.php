@@ -437,4 +437,4 @@ if ($err !== '') {
     </div>
 </div>
 
-<script src="<?php echo e(asset_url('js/plan_contable.js')); ?>"></script>
+<script src="<?php echo e(asset_url('js/contabilidad/plan_contable.js')); ?>?v=<?php echo time(); ?>"></script>
