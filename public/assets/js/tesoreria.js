@@ -131,97 +131,133 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================================
     const tipoCuentaSelect = document.getElementById('cuentaTipo');
     const codigoInput = document.getElementById('cuentaCodigo');
-    
-    // Contenedores a mostrar/ocultar
-    const wrapBancoGral = document.getElementById('wrapBancarioGral'); // Envuelve todo lo bancario
-    const wrapCci = document.getElementById('wrapCci');
-    const wrapTipoCta = document.getElementById('wrapTipoCta'); // Ahorros/Corriente
-    
-    // Labels e inputs que cambian
-    const labelNumCta = document.getElementById('labelNumCta');
-    const inputNumCta = document.getElementById('inputNumCta');
-    const selectEntidad = document.getElementById('cuentaEntidad'); // El TomSelect
+    const tipoCuentaInput = document.getElementById('cuentaTipoCuenta');
+    const entidadSelect = document.getElementById('cuentaEntidad');
 
-    let tomEntidadInstance = null;
+    const bankFields = document.querySelectorAll('.js-bank-field');
+    const tipoCuentaWrap = document.getElementById('cuentaTipoCuentaWrap');
+    const cciWrap = document.getElementById('cuentaCciWrap');
+    const cciInput = document.getElementById('cuentaCci');
+    const numeroLabel = document.getElementById('cuentaNumeroLabel');
+    const numeroInput = document.getElementById('cuentaNumero');
 
-    if (tipoCuentaSelect) {
-        
-        // --- 4.1 Lógica de Visibilidad Condicional ---
-        const syncFormUX = () => {
-            const tipo = tipoCuentaSelect.value.toUpperCase();
+    const tipoCuentaOpciones = {
+        BANCO: ['AHORROS', 'CORRIENTE', 'MAESTRA'],
+        BILLETERA: ['YAPE', 'PLIN', 'LUKITA', 'OTRA']
+    };
 
-            if (tipo === 'CAJA') {
-                // Si es caja, ocultamos todo lo de bancos
-                wrapBancoGral.style.display = 'none';
-                
-            } else if (tipo === 'BILLETERA') {
-                // Mostrar bloque bancario
-                wrapBancoGral.style.display = '';
-                // Ocultar tipo de cuenta (No aplica a Yape/Plin) y CCI
-                wrapTipoCta.style.display = 'none';
-                wrapCci.style.display = 'none';
-                
-                // Cambiar Número de cuenta por Celular
-                labelNumCta.textContent = 'N° de Celular';
-                inputNumCta.placeholder = '999999999';
-                inputNumCta.maxLength = 9;
-                
-            } else if (tipo === 'BANCO') {
-                // Mostrar todo
-                wrapBancoGral.style.display = '';
-                wrapTipoCta.style.display = '';
-                wrapCci.style.display = '';
-                
-                // Restaurar Número de Cuenta
-                labelNumCta.textContent = 'N° de Cuenta';
-                inputNumCta.placeholder = '000-00000000';
-                inputNumCta.maxLength = 80;
-            }
+    const setTipoCuentaOptions = (tipo) => {
+        if (!tipoCuentaInput) return;
 
-            // --- Filtrar TomSelect de Entidades (Bancos vs Billeteras) ---
-            if (selectEntidad && tomEntidadInstance) {
-                // Aquí asumiríamos que los options tienen data-tipo="BANCO" o "BILLETERA"
-                // Como lo configuraste en tu código original.
-                // ...
-            }
-        };
+        const selected = (tipoCuentaInput.dataset.selected || tipoCuentaInput.value || '').toUpperCase();
+        tipoCuentaInput.innerHTML = '';
 
-        // --- 4.2 Lógica de Autogeneración de Código ---
-        const autogenerateCode = () => {
-            // Solo autogenera si el campo está vacío (es decir, en creación nueva)
-            if (codigoInput && codigoInput.value.trim() === '') {
-                const prefix = tipoCuentaSelect.value === 'CAJA' ? 'CJ-' : (tipoCuentaSelect.value === 'BILLETERA' ? 'WL-' : 'BN-');
-                const randomNum = Math.floor(Math.random() * 900) + 100; // Ej: BN-452
-                codigoInput.value = `${prefix}${randomNum}`;
-            }
-        };
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Seleccionar...';
+        tipoCuentaInput.appendChild(placeholder);
 
-        // Eventos
-        tipoCuentaSelect.addEventListener('change', () => {
-            syncFormUX();
-            
-            // CORRECCIÓN: Guardamos la validación en una variable clara usando Optional Chaining (?.)
-            const appEl = document.getElementById('tesoreriaCuentasApp');
-            const esEdicion = appEl && appEl.dataset.esEdicion === 'true';
-            
-            // Si cambian el tipo, limpiamos el código para que genere uno nuevo acorde al prefijo
-            if(codigoInput && !esEdicion) {
-                 codigoInput.value = ''; 
-                 autogenerateCode();
-            }
+        const opciones = tipoCuentaOpciones[tipo] || [];
+        opciones.forEach((opcion) => {
+            const opt = document.createElement('option');
+            opt.value = opcion;
+            opt.textContent = opcion.charAt(0) + opcion.slice(1).toLowerCase();
+            if (selected === opcion) opt.selected = true;
+            tipoCuentaInput.appendChild(opt);
         });
 
-        // Limitar input a solo números si es billetera
-        if (inputNumCta) {
-            inputNumCta.addEventListener('input', () => {
-                if (tipoCuentaSelect.value === 'BILLETERA') {
-                    inputNumCta.value = inputNumCta.value.replace(/\D/g, '').slice(0, 9);
+        tipoCuentaInput.dataset.selected = '';
+    };
+
+    const generarCodigoCliente = () => {
+        if (!codigoInput || codigoInput.value.trim() !== '') return;
+        const tipo = (tipoCuentaSelect?.value || 'CAJA').toUpperCase();
+        const prefijo = tipo === 'CAJA' ? 'CJ-' : (tipo === 'BILLETERA' ? 'WL-' : 'BN-');
+        const randomNum = Math.floor(Math.random() * 9000) + 1000;
+        codigoInput.value = `${prefijo}${randomNum}`;
+    };
+
+    const syncEntidadOptions = () => {
+        if (!entidadSelect || !tipoCuentaSelect) return;
+        const tipo = tipoCuentaSelect.value.toUpperCase();
+
+        Array.from(entidadSelect.options).forEach((opt, index) => {
+            if (index === 0) {
+                opt.hidden = false;
+                return;
+            }
+
+            const optionTipo = (opt.dataset.tipo || '').toUpperCase();
+            const mostrar = tipo === 'CAJA' || optionTipo === '' || optionTipo === tipo;
+            opt.hidden = !mostrar;
+
+            if (!mostrar && opt.selected) {
+                entidadSelect.value = '';
+            }
+        });
+    };
+
+    const syncFormUX = () => {
+        if (!tipoCuentaSelect) return;
+
+        const tipo = tipoCuentaSelect.value.toUpperCase();
+        const esCaja = tipo === 'CAJA';
+        const esBilletera = tipo === 'BILLETERA';
+
+        bankFields.forEach((field) => {
+            field.style.display = esCaja ? 'none' : '';
+        });
+
+        if (tipoCuentaWrap) tipoCuentaWrap.style.display = esCaja ? 'none' : '';
+        if (cciWrap) cciWrap.style.display = (esCaja || esBilletera) ? 'none' : '';
+
+        if (numeroLabel) numeroLabel.textContent = esBilletera ? 'N° de Teléfono' : 'N° de cuenta';
+        if (numeroInput) {
+            numeroInput.placeholder = esBilletera ? '999999999' : '000-0000000';
+            numeroInput.maxLength = esBilletera ? 9 : 80;
+        }
+
+        setTipoCuentaOptions(tipo);
+        syncEntidadOptions();
+    };
+
+    if (tipoCuentaSelect) {
+        tipoCuentaSelect.addEventListener('change', () => {
+            const esEdicion = tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true';
+
+            if (!esEdicion && codigoInput) {
+                codigoInput.value = '';
+            }
+
+            if (tipoCuentaInput) {
+                tipoCuentaInput.value = '';
+                tipoCuentaInput.dataset.selected = '';
+            }
+
+            syncFormUX();
+            generarCodigoCliente();
+        });
+
+        if (numeroInput) {
+            numeroInput.addEventListener('input', () => {
+                if (tipoCuentaSelect.value.toUpperCase() === 'BILLETERA') {
+                    numeroInput.value = numeroInput.value.replace(/\D/g, '').slice(0, 9);
                 }
             });
         }
 
-        // Ejecutar al cargar
+        const formCuenta = document.getElementById('formCuentaTesoreria');
+        if (formCuenta) {
+            formCuenta.addEventListener('submit', () => {
+                generarCodigoCliente();
+                if (tipoCuentaSelect.value.toUpperCase() === 'BILLETERA' && cciInput) {
+                    cciInput.value = '';
+                }
+            });
+        }
+
         syncFormUX();
+        generarCodigoCliente();
     }
 
     // ========================================================================
@@ -244,17 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. Limpiar validaciones previas de Bootstrap si existen
                 formCreacionEl.classList.remove('was-validated'); 
                 
-                // 3. Reiniciar TomSelect si está activo (verificando que la variable exista)
-                if (typeof tomEntidadInstance !== 'undefined' && tomEntidadInstance) {
-                    tomEntidadInstance.clear();
-                }
-
-                // 4. Limpiar el input de código manual para forzar uno nuevo
+                // 3. Limpiar el input de código manual para forzar uno nuevo
                 if (codigoInput) {
                     codigoInput.value = '';
                 }
                 
-                // 5. Disparar el evento change para que la interfaz (UX) vuelva a su estado original
+                // 4. Disparar el evento change para que la interfaz (UX) vuelva a su estado original
                 if(tipoCuentaSelect) {
                     tipoCuentaSelect.dispatchEvent(new Event('change')); 
                 }
