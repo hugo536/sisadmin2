@@ -3,6 +3,7 @@ $err = (string)($_GET['error'] ?? '');
 $ok = (string)($_GET['ok'] ?? '');
 $cuentas = $cuentas ?? [];
 $cuentasMovimiento = $cuentasMovimiento ?? [];
+$parametros = $parametros ?? [];
 $swalIcon = null;
 $swalMessage = null;
 
@@ -41,6 +42,9 @@ if ($err !== '') {
         </div>
 
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalParametrosVigentes">
+                <i class="bi bi-link-45deg me-2 text-primary"></i>Parámetros Vigentes
+            </button>
             <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalParametros">
                 <i class="bi bi-gear-fill me-2 text-info"></i>Parámetros
             </button>
@@ -122,29 +126,40 @@ if ($err !== '') {
                                             <?php echo $esActivo ? 'Activa' : 'Inactiva'; ?>
                                         </span>
                                     </td>
-                                    <td class="text-end pe-4 pt-3 d-flex justify-content-end gap-1">
-                                        <button type="button" 
-                                            class="btn btn-sm btn-outline-primary px-2 rounded-pill fw-semibold btn-editar-cuenta" 
-                                            title="Editar cuenta"
-                                            data-id="<?php echo (int)$c['id']; ?>"
-                                            data-codigo="<?php echo e($c['codigo']); ?>"
-                                            data-nombre="<?php echo e($c['nombre']); ?>"
-                                            data-tipo="<?php echo e($c['tipo']); ?>"
-                                            data-nivel="<?php echo (int)$c['nivel']; ?>"
-                                            data-permite-movimiento="<?php echo (int)$c['permite_movimiento']; ?>">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-
-                                        <?php if ($esActivo): ?>
-                                            <form method="post" action="<?php echo e(route_url('contabilidad/inactivar_cuenta')); ?>" class="m-0 form-inactivar-cuenta">
+                                    <td class="text-end pe-4 pt-3">
+                                        <div class="d-flex align-items-center justify-content-end gap-2">
+                                            <form method="post" action="<?php echo e(route_url('contabilidad/cambiar_estado_cuenta')); ?>" class="m-0 form-cambiar-estado-cuenta" data-codigo="<?php echo e($c['codigo']); ?>" data-nombre="<?php echo e($c['nombre']); ?>">
                                                 <input type="hidden" name="id_cuenta" value="<?php echo (int)$c['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill fw-semibold" title="Inactivar">
-                                                    <i class="bi bi-power me-1"></i> Inactivar
-                                                </button>
+                                                <input type="hidden" name="estado" value="<?php echo $esActivo ? 0 : 1; ?>">
+                                                <div class="form-check form-switch pt-1 m-0" title="<?php echo $esActivo ? 'Inactivar cuenta' : 'Activar cuenta'; ?>">
+                                                    <input class="form-check-input switch-estado-cuenta" type="checkbox" role="switch" <?php echo $esActivo ? 'checked' : ''; ?>>
+                                                </div>
                                             </form>
-                                        <?php else: ?>
-                                            <span class="small text-muted fst-italic mt-1"><i class="bi bi-slash-circle me-1"></i>Deshabilitada</span>
-                                        <?php endif; ?>
+
+                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                            <button type="button"
+                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-cuenta"
+                                                title="Editar cuenta"
+                                                data-id="<?php echo (int)$c['id']; ?>"
+                                                data-codigo="<?php echo e($c['codigo']); ?>"
+                                                data-nombre="<?php echo e($c['nombre']); ?>"
+                                                data-tipo="<?php echo e($c['tipo']); ?>"
+                                                data-nivel="<?php echo (int)$c['nivel']; ?>"
+                                                data-permite-movimiento="<?php echo (int)$c['permite_movimiento']; ?>"
+                                                data-estado="<?php echo (int)$c['estado']; ?>">
+                                                <i class="bi bi-pencil-square fs-5"></i>
+                                            </button>
+
+                                            <button type="button"
+                                                class="btn btn-sm btn-light text-info border-0 bg-transparent btn-parametros-cuenta"
+                                                title="Ver parámetros vinculados"
+                                                data-codigo="<?php echo e($c['codigo']); ?>"
+                                                data-nombre="<?php echo e($c['nombre']); ?>"
+                                                data-parametros='<?php echo e(json_encode(array_values(array_filter($parametros, static fn(array $p): bool => (int)($p['id_cuenta'] ?? 0) === (int)$c['id'])))); ?>'>
+                                                <i class="bi bi-link-45deg fs-5"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -276,6 +291,60 @@ if ($err !== '') {
                         <button type="submit" class="btn btn-secondary px-4 fw-bold"><i class="bi bi-check2-circle me-2"></i>Asignar Parámetro</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalParametrosVigentes" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>Parámetros Contables Vigentes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Clave</th>
+                                <th>Cuenta vinculada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($parametros)): ?>
+                                <?php foreach ($parametros as $p): ?>
+                                    <tr>
+                                        <td class="ps-3 font-monospace text-primary fw-semibold"><?php echo e((string)($p['clave'] ?? '')); ?></td>
+                                        <td><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted py-4">No hay parámetros contables configurados todavía.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalParametrosCuenta" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white border-bottom-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-link me-2"></i>Parámetros vinculados a la cuenta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" id="parametrosCuentaTitulo"></p>
+                <ul class="list-group list-group-flush" id="parametrosCuentaLista">
+                    <li class="list-group-item text-muted">Sin datos</li>
+                </ul>
             </div>
         </div>
     </div>
