@@ -118,4 +118,19 @@ class ContaCuentaModel extends Modelo
         $stmt = $this->db()->prepare('UPDATE conta_cuentas SET estado = 0, updated_by = :user, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL');
         $stmt->execute(['id' => $id, 'user' => $userId]);
     }
+
+    public function cambiarEstado(int $id, int $estado, int $userId): void
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Cuenta inválida.');
+        }
+
+        $estadoNormalizado = $estado === 1 ? 1 : 0;
+        $stmt = $this->db()->prepare('UPDATE conta_cuentas SET estado = :estado, updated_by = :user, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'estado' => $estadoNormalizado,
+            'user' => $userId,
+        ]);
+    }
 }

@@ -75,6 +75,24 @@ class ContabilidadController extends Controlador
         }
     }
 
+    public function cambiar_estado_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.plan_contable.gestionar');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('contabilidad/plan');
+        }
+
+        try {
+            $idCuenta = (int)($_POST['id_cuenta'] ?? 0);
+            $estado = (int)($_POST['estado'] ?? 0);
+            $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->uid());
+            redirect('contabilidad/plan?ok=1');
+        } catch (Throwable $e) {
+            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     public function guardar_parametro(): void
     {
         AuthMiddleware::handle();
