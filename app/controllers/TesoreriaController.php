@@ -81,14 +81,21 @@ class TesoreriaController extends Controlador
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
             ];
 
-            $id = $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
+            $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
+
             if ((int) $payload['id'] > 0) {
-                redirect('tesoreria/cuentas?ok=1&id=' . $id);
+                redirect('tesoreria/cuentas?ok=1&action=updated');
             }
 
-            redirect('tesoreria/cuentas?ok=1');
+            redirect('tesoreria/cuentas?ok=1&action=created');
         } catch (Throwable $e) {
-            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+            $errorUrl = 'tesoreria/cuentas?error=' . urlencode($e->getMessage());
+
+            if ((int) ($_POST['id'] ?? 0) > 0) {
+                $errorUrl .= '&id=' . (int) $_POST['id'];
+            }
+
+            redirect($errorUrl);
         }
     }
 
