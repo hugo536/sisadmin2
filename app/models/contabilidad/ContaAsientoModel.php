@@ -159,7 +159,14 @@ class ContaAsientoModel extends Modelo
         }
         foreach ($req as $clave) {
             if (!isset($mapa[$clave])) {
-                throw new RuntimeException('Falta parametrización contable obligatoria: ' . $clave);
+                $idCuentaResuelta = $this->resolverCuentaParametroFaltante($db, $clave);
+                if ($idCuentaResuelta !== null) {
+                    $paramModel->guardar($clave, $idCuentaResuelta, $userId);
+                    $mapa[$clave] = $idCuentaResuelta;
+                    continue;
+                }
+
+                throw new RuntimeException('Falta parametrización contable obligatoria: ' . $clave . '. Configure este parámetro en Contabilidad > Plan Contable > Parámetros.');
             }
         }
 
@@ -188,6 +195,57 @@ class ContaAsientoModel extends Modelo
             'id_origen' => (int)$movimiento['id_movimiento'],
             'estado' => 'REGISTRADO',
         ], $lineas, $userId);
+    }
+
+    private function resolverCuentaParametroFaltante(PDO $db, string $clave): ?int
+    {
+        $condiciones = match ($clave) {
+            'CTA_CAJA_DEFECTO' => [
+                'prioridad' => 'CASE
+                    WHEN UPPER(c.nombre) LIKE "%CAJA%" THEN 0
+                    WHEN UPPER(c.nombre) LIKE "%BANCO%" THEN 1
+                    WHEN c.codigo LIKE "10%" THEN 2
+                    ELSE 3
+                END',
+                'where' => '(UPPER(c.nombre) LIKE "%CAJA%" OR UPPER(c.nombre) LIKE "%BANCO%" OR c.codigo LIKE "10%")',
+            ],
+            'CTA_CXC' => [
+                'prioridad' => 'CASE
+                    WHEN UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" THEN 0
+                    WHEN UPPER(c.nombre) LIKE "%CLIENT%" THEN 1
+                    WHEN c.codigo LIKE "12%" THEN 2
+                    ELSE 3
+                END',
+                'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" OR UPPER(c.nombre) LIKE "%CLIENT%" OR c.codigo LIKE "12%")',
+            ],
+            'CTA_CXP' => [
+                'prioridad' => 'CASE
+                    WHEN UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" THEN 0
+                    WHEN UPPER(c.nombre) LIKE "%PROVEEDOR%" THEN 1
+                    WHEN c.codigo LIKE "42%" THEN 2
+                    ELSE 3
+                END',
+                'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PROVEEDOR%" OR c.codigo LIKE "42%")',
+            ],
+            default => null,
+        };
+
+        if ($condiciones === null) {
+            return null;
+        }
+
+        $sql = 'SELECT c.id
+                FROM conta_cuentas c
+                WHERE c.deleted_at IS NULL
+                  AND c.estado = 1
+                  AND c.permite_movimiento = 1
+                  AND ' . $condiciones['where'] . '
+                ORDER BY ' . $condiciones['prioridad'] . ', c.codigo ASC, c.id ASC
+                LIMIT 1';
+
+        $stmt = $db->query($sql);
+        $idCuenta = (int)($stmt->fetchColumn() ?: 0);
+        return $idCuenta > 0 ? $idCuenta : null;
     }
 
     private function crearAsiento(PDO $db, array $cabecera, array $lineas, int $userId): int
