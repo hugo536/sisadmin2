@@ -242,15 +242,109 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. FORMULARIO DE CUENTAS: CAMPOS BANCARIOS CONDICIONALES
     // ========================================================================
     const tipoCuentaEl = document.getElementById('cuentaTipo');
-    if (tipoCuentaEl) {
-        const syncBankFields = () => {
-            const show = ['BANCO', 'BILLETERA'].includes((tipoCuentaEl.value || '').toUpperCase());
-            document.querySelectorAll('.js-bank-field').forEach((el) => {
-                el.style.display = show ? '' : 'none';
+    const entidadSelectEl = document.getElementById('cuentaEntidad');
+    if (tipoCuentaEl && entidadSelectEl) {
+        const numeroCuentaEl = document.getElementById('cuentaNumero');
+        const numeroCuentaLabelEl = document.getElementById('cuentaNumeroLabel');
+        const cciWrapEl = document.getElementById('cuentaCciWrap');
+        const cciInputEl = document.getElementById('cuentaCci');
+
+        const entidadesOriginales = Array.from(entidadSelectEl.options)
+            .filter((opt) => (opt.value || '').trim() !== '')
+            .map((opt) => ({
+                value: opt.value,
+                text: opt.textContent || '',
+                tipo: (opt.dataset.tipo || '').toUpperCase().trim(),
+                selected: !!opt.selected
+            }));
+
+        let tomEntidad = null;
+
+        const ensureTomSelectEntidad = () => {
+            if (tomEntidad || typeof TomSelect === 'undefined') return;
+            tomEntidad = new TomSelect(entidadSelectEl, {
+                create: false,
+                maxOptions: 300,
+                sortField: { field: 'text', direction: 'asc' },
+                placeholder: 'Seleccionar...',
+                allowEmptyOption: true
             });
         };
 
-        tipoCuentaEl.addEventListener('change', syncBankFields);
-        syncBankFields();
+        const syncEntidadOptions = () => {
+            const tipoActual = (tipoCuentaEl.value || '').toUpperCase().trim();
+            const valorActual = entidadSelectEl.value || '';
+
+            const opcionesFiltradas = entidadesOriginales.filter((item) => item.tipo === tipoActual);
+
+            if (tomEntidad) {
+                tomEntidad.clearOptions();
+                tomEntidad.addOption({ value: '', text: 'Seleccionar...' });
+                opcionesFiltradas.forEach((item) => tomEntidad.addOption({ value: item.value, text: item.text }));
+
+                const valorValido = opcionesFiltradas.some((item) => item.value === valorActual) ? valorActual : '';
+                tomEntidad.setValue(valorValido, true);
+                tomEntidad.refreshOptions(false);
+                return;
+            }
+
+            entidadSelectEl.innerHTML = '<option value="">Seleccionar...</option>';
+            opcionesFiltradas.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.value;
+                option.textContent = item.text;
+                if (item.value === valorActual) option.selected = true;
+                entidadSelectEl.appendChild(option);
+            });
+
+            if (!opcionesFiltradas.some((item) => item.value === valorActual)) {
+                entidadSelectEl.value = '';
+            }
+        };
+
+        const syncNumeroBilletera = () => {
+            const tipoActual = (tipoCuentaEl.value || '').toUpperCase().trim();
+            const isBilletera = tipoActual === 'BILLETERA';
+
+            document.querySelectorAll('.js-bank-field').forEach((el) => {
+                el.style.display = '';
+            });
+
+            if (isBilletera) {
+                if (numeroCuentaLabelEl) numeroCuentaLabelEl.textContent = 'Celular (9 dígitos)';
+                if (numeroCuentaEl) {
+                    numeroCuentaEl.placeholder = '999999999';
+                    numeroCuentaEl.maxLength = 9;
+                    numeroCuentaEl.value = (numeroCuentaEl.value || '').replace(/\D/g, '').slice(0, 9);
+                }
+                if (cciWrapEl) cciWrapEl.style.display = 'none';
+                if (cciInputEl) cciInputEl.value = '';
+            } else {
+                if (numeroCuentaLabelEl) numeroCuentaLabelEl.textContent = 'N° de cuenta';
+                if (numeroCuentaEl) {
+                    numeroCuentaEl.placeholder = '000-0000000';
+                    numeroCuentaEl.maxLength = 80;
+                }
+                if (cciWrapEl) cciWrapEl.style.display = '';
+            }
+        };
+
+        if (numeroCuentaEl) {
+            numeroCuentaEl.addEventListener('input', () => {
+                const tipoActual = (tipoCuentaEl.value || '').toUpperCase().trim();
+                if (tipoActual === 'BILLETERA') {
+                    numeroCuentaEl.value = (numeroCuentaEl.value || '').replace(/\D/g, '').slice(0, 9);
+                }
+            });
+        }
+
+        tipoCuentaEl.addEventListener('change', () => {
+            syncEntidadOptions();
+            syncNumeroBilletera();
+        });
+
+        ensureTomSelectEntidad();
+        syncEntidadOptions();
+        syncNumeroBilletera();
     }
 });

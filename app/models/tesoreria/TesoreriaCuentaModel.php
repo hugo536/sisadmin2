@@ -80,6 +80,12 @@ class TesoreriaCuentaModel extends Modelo
         $data['cci'] = $data['cci'] !== '' ? $data['cci'] : null;
         $data['observaciones'] = $data['observaciones'] !== '' ? $data['observaciones'] : null;
 
+        if ($data['tipo'] === 'BILLETERA') {
+            $digits = preg_replace('/\D+/', '', (string) ($data['numero_cuenta'] ?? ''));
+            $data['numero_cuenta'] = $digits !== '' ? substr($digits, 0, 9) : null;
+            $data['cci'] = null;
+        }
+
         $db = $this->db();
         $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL AND id <> :id LIMIT 1');
         $stmtExiste->execute(['codigo' => $data['codigo'], 'id' => $id]);
