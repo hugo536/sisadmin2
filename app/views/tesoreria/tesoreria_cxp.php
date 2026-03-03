@@ -14,6 +14,18 @@ $badge = static function (string $estado): string {
     };
 };
 ?>
+<?php
+$swalIcon = null;
+$swalMessage = null;
+
+if (!empty($_GET['error'])) {
+    $swalIcon = 'error';
+    $swalMessage = (string) $_GET['error'];
+} elseif (!empty($_GET['ok'])) {
+    $swalIcon = 'success';
+    $swalMessage = 'Pago registrado correctamente.';
+}
+?>
 
 <div class="container-fluid p-4" id="tesoreriaCxpApp">
     
@@ -33,16 +45,20 @@ $badge = static function (string $estado): string {
             </a>
         </div>
     </div>
-
-    <?php if (!empty($_GET['ok'])): ?>
-        <div class="alert alert-success d-flex align-items-center py-2 shadow-sm border-0 fade-in mb-4">
-            <i class="bi bi-check-circle-fill fs-5 me-2"></i> Pago registrado correctamente.
-        </div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="alert alert-danger d-flex align-items-center py-2 shadow-sm border-0 fade-in mb-4">
-            <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i> <?php echo e((string) $_GET['error']); ?>
-        </div>
+    <?php if ($swalMessage !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: <?php echo json_encode($swalIcon); ?>,
+                    title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode($swalMessage); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
     <?php endif; ?>
 
     <div class="card border-0 shadow-sm mb-4">

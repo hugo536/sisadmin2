@@ -3,6 +3,7 @@ $almacenes = $almacenes ?? [];
 $filtros = $filtros ?? [];
 $resumen = $resumen ?? ['activos' => 0, 'inactivos' => 0, 'ultimos' => [], 'sin_actividad' => []];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
+$swalFlashIcon = ($flash['tipo'] ?? '') === 'error' ? 'error' : 'success';
 ?>
 
 <div class="container-fluid p-4">
@@ -17,12 +18,20 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             <i class="bi bi-plus-circle me-2"></i>Nuevo almacén
         </button>
     </div>
-
     <?php if (!empty($flash['texto'])): ?>
-        <div class="alert alert-<?php echo ($flash['tipo'] ?? '') === 'error' ? 'danger' : 'success'; ?> alert-dismissible fade show" role="alert">
-            <?php echo e((string) $flash['texto']); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: <?php echo json_encode($swalFlashIcon); ?>,
+                    title: <?php echo json_encode($swalFlashIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode((string) $flash['texto']); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
     <?php endif; ?>
 
     <div class="card border-0 shadow-sm mb-3">
