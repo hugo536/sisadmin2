@@ -230,4 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
         formFiltros.addEventListener('change', triggerAutoSubmit);
         formFiltros.addEventListener('input', triggerAutoSubmit);
     }
+
+    // ========================================================================
+    // 4. FORMULARIO DE CUENTAS: CAMPOS BANCARIOS CONDICIONALES
+    // ========================================================================
+    const tipoCuentaEl = document.getElementById('cuentaTipo');
+    if (tipoCuentaEl) {
+        const syncBankFields = () => {
+            const show = ['BANCO', 'BILLETERA'].includes((tipoCuentaEl.value || '').toUpperCase());
+            document.querySelectorAll('.js-bank-field').forEach((el) => {
+                el.style.display = show ? '' : 'none';
+            });
+        };
+
+        tipoCuentaEl.addEventListener('change', syncBankFields);
+        syncBankFields();
+    }
 });

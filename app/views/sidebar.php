@@ -232,14 +232,15 @@ function renderSidebarInner(
                 </a>
                 <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="menuTesoreria">
                     <ul class="nav flex-column ps-3">
+                        <?php if (tiene_permiso('tesoreria.ver')): ?>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cuentas'); ?>" href="<?php echo e(route_url('tesoreria/cuentas')); ?>"><span>Cuentas</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><span>Movimientos</span></a></li>
+                        <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><span>Cuentas por Cobrar</span></a></li>
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxp.ver')): ?>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><span>Cuentas por Pagar</span></a></li>
-                        <?php endif; ?>
-                        <?php if (tiene_permiso('tesoreria.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><span>Movimientos</span></a></li>
                         <?php endif; ?>
                     </ul>
                 </div>
