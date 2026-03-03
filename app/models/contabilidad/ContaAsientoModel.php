@@ -203,11 +203,13 @@ class ContaAsientoModel extends Modelo
             'CTA_CAJA_DEFECTO' => [
                 'prioridad' => 'CASE
                     WHEN UPPER(c.nombre) LIKE "%CAJA%" THEN 0
+                    WHEN UPPER(c.nombre) LIKE "%EFECTIVO%" THEN 0
                     WHEN UPPER(c.nombre) LIKE "%BANCO%" THEN 1
                     WHEN c.codigo LIKE "10%" THEN 2
                     ELSE 3
                 END',
-                'where' => '(UPPER(c.nombre) LIKE "%CAJA%" OR UPPER(c.nombre) LIKE "%BANCO%" OR c.codigo LIKE "10%")',
+                'where' => '(UPPER(c.nombre) LIKE "%CAJA%" OR UPPER(c.nombre) LIKE "%EFECTIVO%" OR UPPER(c.nombre) LIKE "%BANCO%" OR c.codigo LIKE "10%")',
+                'tipo_fallback' => 'ACTIVO',
             ],
             'CTA_CXC' => [
                 'prioridad' => 'CASE
@@ -217,6 +219,7 @@ class ContaAsientoModel extends Modelo
                     ELSE 3
                 END',
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" OR UPPER(c.nombre) LIKE "%CLIENT%" OR c.codigo LIKE "12%")',
+                'tipo_fallback' => 'ACTIVO',
             ],
             'CTA_CXP' => [
                 'prioridad' => 'CASE
@@ -226,6 +229,7 @@ class ContaAsientoModel extends Modelo
                     ELSE 3
                 END',
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PROVEEDOR%" OR c.codigo LIKE "42%")',
+                'tipo_fallback' => 'PASIVO',
             ],
             default => null,
         };
@@ -245,6 +249,22 @@ class ContaAsientoModel extends Modelo
 
         $stmt = $db->query($sql);
         $idCuenta = (int)($stmt->fetchColumn() ?: 0);
+        if ($idCuenta > 0) {
+            return $idCuenta;
+        }
+
+        $sqlFallback = 'SELECT c.id
+                        FROM conta_cuentas c
+                        WHERE c.deleted_at IS NULL
+                          AND c.estado = 1
+                          AND c.permite_movimiento = 1
+                          AND c.tipo = :tipo
+                        ORDER BY c.codigo ASC, c.id ASC
+                        LIMIT 1';
+        $stmtFallback = $db->prepare($sqlFallback);
+        $stmtFallback->execute(['tipo' => (string)$condiciones['tipo_fallback']]);
+        $idCuenta = (int)($stmtFallback->fetchColumn() ?: 0);
+
         return $idCuenta > 0 ? $idCuenta : null;
     }
 
