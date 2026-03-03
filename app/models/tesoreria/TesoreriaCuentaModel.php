@@ -140,10 +140,10 @@ class TesoreriaCuentaModel extends Modelo
                 VALUES
                     (:codigo, :nombre, :tipo, :moneda, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
                      :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :principal, :observaciones,
-                     :estado, :user, :user, NOW(), NOW())';
+                     :estado, :created_by, :updated_by, NOW(), NOW())';
 
         $stmt = $db->prepare($sql);
-        $stmt->execute(array_merge($data, ['user' => $userId]));
+        $stmt->execute(array_merge($data, ['created_by' => $userId, 'updated_by' => $userId]));
 
         return (int) $db->lastInsertId();
     }
