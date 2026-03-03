@@ -4,6 +4,23 @@ declare(strict_types=1);
 
 class TesoreriaCxpModel extends Modelo
 {
+    public function listarProveedoresConSaldoPendiente(): array
+    {
+        $sql = 'SELECT p.id_proveedor,
+                       p.moneda,
+                       ROUND(SUM(p.saldo), 4) AS saldo_total,
+                       COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor
+                FROM tesoreria_cxp p
+                LEFT JOIN terceros t ON t.id = p.id_proveedor
+                WHERE p.deleted_at IS NULL
+                  AND p.estado <> "ANULADA"
+                  AND p.saldo > 0
+                GROUP BY p.id_proveedor, p.moneda, t.nombre_completo
+                ORDER BY t.nombre_completo ASC, p.moneda ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function listar(array $filtros = []): array
     {
         // MEJORA: Usamos LEFT JOIN para evitar perder el registro si el proveedor fue eliminado (soft-delete)

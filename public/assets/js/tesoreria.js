@@ -91,6 +91,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+
+    const syncManualTerceroForm = (selectId, monedaId, saldoId, montoId) => {
+        const terceroSelect = document.getElementById(selectId);
+        const monedaInput = document.getElementById(monedaId);
+        const saldoInput = document.getElementById(saldoId);
+        const montoInput = document.getElementById(montoId);
+
+        if (!terceroSelect || !monedaInput || !saldoInput || !montoInput) return;
+
+        const applySelection = () => {
+            const option = terceroSelect.options[terceroSelect.selectedIndex];
+            const moneda = option?.dataset?.moneda || '';
+            const saldo = option?.dataset?.saldo || '0';
+
+            monedaInput.value = moneda;
+            saldoInput.value = saldo;
+            montoInput.max = saldo;
+            montoInput.value = '';
+        };
+
+        terceroSelect.addEventListener('change', applySelection);
+        applySelection();
+    };
+
+    syncManualTerceroForm('cobroManualTercero', 'cobroManualMoneda', 'cobroManualSaldo', 'cobroManualMonto');
+    syncManualTerceroForm('pagoManualTercero', 'pagoManualMoneda', 'pagoManualSaldo', 'pagoManualMonto');
+
     // ========================================================================
     // 2. VALIDACIÓN Y CONFIRMACIÓN DE FORMULARIOS (SweetAlert)
     // ========================================================================

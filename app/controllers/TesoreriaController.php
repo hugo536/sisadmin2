@@ -122,6 +122,7 @@ class TesoreriaController extends Controlador
             'filtros'     => $filtros,
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
+            'clientesPendientes' => $this->cxcModel->listarClientesConSaldoPendiente(),
         ]);
     }
 
@@ -131,6 +132,14 @@ class TesoreriaController extends Controlador
         require_permiso('tesoreria.cobros.registrar');
         
         $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+    }
+
+    public function registrar_cobro_manual(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cobros.registrar');
+
+        $this->registrarAplicacionManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
     }
 
     // ========================================================================
@@ -153,6 +162,7 @@ class TesoreriaController extends Controlador
             'filtros'     => $filtros,
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
+            'proveedoresPendientes' => $this->cxpModel->listarProveedoresConSaldoPendiente(),
         ]);
     }
 
@@ -162,6 +172,14 @@ class TesoreriaController extends Controlador
         require_permiso('tesoreria.pagos.registrar');
         
         $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+    }
+
+    public function registrar_pago_manual(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.pagos.registrar');
+
+        $this->registrarAplicacionManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
     }
 
     // ========================================================================
@@ -279,6 +297,35 @@ class TesoreriaController extends Controlador
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
             // Pasamos el error por URL de forma segura para que la vista lo atrape
+            redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+
+    private function registrarAplicacionManualDesdePost(string $origen, string $tipo, string $redirectRuta): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect($redirectRuta);
+        }
+
+        try {
+            $payload = [
+                'tipo'           => $tipo,
+                'origen'         => $origen,
+                'id_tercero'     => (int) ($_POST['id_tercero'] ?? 0),
+                'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
+                'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
+                'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
+                'moneda'         => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'monto'          => round((float) ($_POST['monto'] ?? 0), 4),
+                'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
+            ];
+
+            $resultado = $this->movModel->registrarAplicacionManualMasiva($payload, $this->obtenerUsuarioId());
+
+            redirect($redirectRuta . '?ok=1&aplicados=' . (int) ($resultado['movimientos'] ?? 0));
+        } catch (Throwable $e) {
             redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
         }
     }
