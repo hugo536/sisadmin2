@@ -122,7 +122,7 @@ if ($err !== '') {
                                         </span>
                                     </td>
                                     <td class="text-center pt-3">
-                                        <span class="badge rounded-pill <?php echo $esActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'; ?>">
+                                        <span class="badge rounded-pill badge-estado-cuenta <?php echo $esActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'; ?>" data-estado-badge>
                                             <?php echo $esActivo ? 'Activa' : 'Inactiva'; ?>
                                         </span>
                                     </td>
@@ -130,9 +130,9 @@ if ($err !== '') {
                                         <div class="d-flex align-items-center justify-content-end gap-2">
                                             <form method="post" action="<?php echo e(route_url('contabilidad/cambiar_estado_cuenta')); ?>" class="m-0 form-cambiar-estado-cuenta" data-codigo="<?php echo e($c['codigo']); ?>" data-nombre="<?php echo e($c['nombre']); ?>">
                                                 <input type="hidden" name="id_cuenta" value="<?php echo (int)$c['id']; ?>">
-                                                <input type="hidden" name="estado" value="<?php echo $esActivo ? 0 : 1; ?>">
+                                                <input type="hidden" name="estado" value="<?php echo $esActivo ? 1 : 0; ?>">
                                                 <div class="form-check form-switch pt-1 m-0" title="<?php echo $esActivo ? 'Inactivar cuenta' : 'Activar cuenta'; ?>">
-                                                    <input class="form-check-input switch-estado-cuenta" type="checkbox" role="switch" <?php echo $esActivo ? 'checked' : ''; ?>>
+                                                    <input class="form-check-input switch-estado-cuenta" type="checkbox" role="switch" data-estado-actual="<?php echo $esActivo ? 1 : 0; ?>" <?php echo $esActivo ? 'checked' : ''; ?>>
                                                 </div>
                                             </form>
 
@@ -151,14 +151,6 @@ if ($err !== '') {
                                                 <i class="bi bi-pencil-square fs-5"></i>
                                             </button>
 
-                                            <button type="button"
-                                                class="btn btn-sm btn-light text-info border-0 bg-transparent btn-parametros-cuenta"
-                                                title="Ver parámetros vinculados"
-                                                data-codigo="<?php echo e($c['codigo']); ?>"
-                                                data-nombre="<?php echo e($c['nombre']); ?>"
-                                                data-parametros='<?php echo e(json_encode(array_values(array_filter($parametros, static fn(array $p): bool => (int)($p['id_cuenta'] ?? 0) === (int)$c['id'])))); ?>'>
-                                                <i class="bi bi-link-45deg fs-5"></i>
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -266,7 +258,7 @@ if ($err !== '') {
                             <div class="row g-3">
                                 <div class="col-12">
                                     <label class="form-label small text-muted fw-bold">Parámetro del Sistema <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none font-monospace text-primary fw-bold" name="clave" required>
+                                    <select class="form-select shadow-none font-monospace text-primary fw-bold" name="clave" id="parametroClave" required>
                                         <option value="">Seleccione clave...</option>
                                         <option value="CTA_CAJA_DEFECTO">CTA_CAJA_DEFECTO (Caja Principal)</option>
                                         <option value="CTA_CXC">CTA_CXC (Cuentas por Cobrar)</option>
@@ -275,7 +267,7 @@ if ($err !== '') {
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label small text-muted fw-bold">Cuenta Contable a Asignar <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none" name="id_cuenta" required>
+                                    <select class="form-select shadow-none" name="id_cuenta" id="parametroCuenta" required>
                                         <option value="">Seleccione cuenta transaccional...</option>
                                         <?php foreach ($cuentasMovimiento as $c): ?>
                                             <option value="<?php echo (int)$c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre']); ?></option>
@@ -297,54 +289,83 @@ if ($err !== '') {
 </div>
 
 <div class="modal fade" id="modalParametrosVigentes" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white border-bottom-0">
                 <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>Parámetros Contables Vigentes</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Clave</th>
-                                <th>Cuenta vinculada</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($parametros)): ?>
-                                <?php foreach ($parametros as $p): ?>
-                                    <tr>
-                                        <td class="ps-3 font-monospace text-primary fw-semibold"><?php echo e((string)($p['clave'] ?? '')); ?></td>
-                                        <td><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="2" class="text-center text-muted py-4">No hay parámetros contables configurados todavía.</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+            <div class="modal-body p-3 bg-light">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body pb-2">
+                        <div class="row g-2 align-items-center mb-3">
+                            <div class="col-md-7">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="buscarParametroVigente" class="form-control shadow-none" placeholder="Buscar por clave, código o cuenta...">
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <select id="filtroClaveParametroVigente" class="form-select form-select-sm shadow-none">
+                                    <option value="">Todas las claves</option>
+                                    <?php foreach ($parametros as $p): ?>
+                                        <option value="<?php echo e((string)($p['clave'] ?? '')); ?>"><?php echo e((string)($p['clave'] ?? '')); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
 
-<div class="modal fade" id="modalParametrosCuenta" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-info text-white border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="bi bi-link me-2"></i>Parámetros vinculados a la cuenta</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="small text-muted mb-3" id="parametrosCuentaTitulo"></p>
-                <ul class="list-group list-group-flush" id="parametrosCuentaLista">
-                    <li class="list-group-item text-muted">Sin datos</li>
-                </ul>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Clave</th>
+                                        <th>Cuenta vinculada</th>
+                                        <th class="text-end pe-3">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaParametrosVigentesBody">
+                                    <?php if (!empty($parametros)): ?>
+                                        <?php foreach ($parametros as $p): ?>
+                                            <?php
+                                                $claveParam = strtolower((string)($p['clave'] ?? ''));
+                                                $searchParam = strtolower(trim((string)($p['clave'] ?? '') . ' ' . (string)($p['cuenta_codigo'] ?? '') . ' ' . (string)($p['cuenta_nombre'] ?? '')));
+                                            ?>
+                                            <tr data-param-row="true" data-clave="<?php echo e($claveParam); ?>" data-search="<?php echo e($searchParam); ?>">
+                                                <td class="ps-3 font-monospace text-primary fw-semibold"><?php echo e((string)($p['clave'] ?? '')); ?></td>
+                                                <td><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
+                                                <td class="text-end pe-3">
+                                                    <div class="d-inline-flex gap-2">
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-parametro"
+                                                                data-clave="<?php echo e((string)($p['clave'] ?? '')); ?>"
+                                                                data-id-cuenta="<?php echo (int)($p['id_cuenta'] ?? 0); ?>"
+                                                                title="Editar parámetro">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </button>
+                                                        <form method="post" action="<?php echo e(route_url('contabilidad/eliminar_parametro')); ?>" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este parámetro contable?');">
+                                                            <input type="hidden" name="id_parametro" value="<?php echo (int)($p['id'] ?? 0); ?>">
+                                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar parámetro">
+                                                                <i class="bi bi-trash3"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        <tr id="filaSinParametrosFiltrados" class="d-none">
+                                            <td colspan="3" class="text-center text-muted py-4">No hay resultados con los filtros actuales.</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted py-4">No hay parámetros contables configurados todavía.</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

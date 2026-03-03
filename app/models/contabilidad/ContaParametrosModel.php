@@ -45,4 +45,17 @@ class ContaParametrosModel extends Modelo
             'updated_by' => $userId,
         ]);
     }
+
+    public function eliminar(int $id, int $userId): void
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Parámetro inválido.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE conta_parametros SET deleted_at = NOW(), updated_by = :user, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'user' => $userId,
+        ]);
+    }
 }
