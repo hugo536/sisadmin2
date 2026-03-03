@@ -53,7 +53,7 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                             <th class="text-secondary fw-semibold">Nombre</th>
                             <th class="text-secondary fw-semibold">Tipo</th>
                             <th class="text-secondary fw-semibold">Moneda</th>
-                            <th class="text-secondary fw-semibold">Banco/Caja</th>
+                            <th class="text-secondary fw-semibold">Saldo actual</th>
                             <th class="text-center text-secondary fw-semibold">Cobros / Pagos</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acción</th>
@@ -72,10 +72,11 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                                         <?php if ((int) ($c['principal'] ?? 0) === 1): ?> 
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.65rem;">Principal</span>
                                         <?php endif; ?>
+                                        <div class="small text-muted mt-1"><?php echo e((string) ($c['banco_nombre'] ?? '-')); ?></div>
                                     </td>
                                     <td class="text-muted pt-3"><?php echo e((string) ($c['tipo'] ?? '')); ?></td>
                                     <td class="text-muted pt-3 fw-bold"><?php echo e((string) ($c['moneda'] ?? '')); ?></td>
-                                    <td class="text-muted pt-3"><?php echo e((string) ($c['banco_nombre'] ?? '-')); ?></td>
+                                    <td class="text-muted pt-3 fw-bold"><?php echo e((string) ($c['moneda'] ?? '')); ?> <?php echo number_format((float) ($c['saldo_actual'] ?? 0), 2); ?></td>
                                     
                                     <td class="text-center pt-3">
                                         <span class="badge <?php echo ((int) ($c['permite_cobros'] ?? 0) === 1) ? 'text-success' : 'text-muted'; ?>" title="Permite Cobros"><i class="bi bi-box-arrow-in-down-right fs-6"></i></span>
