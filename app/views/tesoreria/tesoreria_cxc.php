@@ -25,6 +25,9 @@ $badge = static function (string $estado): string {
             <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
+            </a>
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>

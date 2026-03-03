@@ -29,7 +29,63 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
         
-        redirect('tesoreria/cxc');
+        redirect('tesoreria/cuentas');
+    }
+
+
+    // ========================================================================
+    // MÓDULO: CUENTAS (CAJA/BANCO/BILLETERA)
+    // ========================================================================
+    public function cuentas(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        $idEditar = (int) ($_GET['id'] ?? 0);
+
+        $this->render('tesoreria/tesoreria_cuentas', [
+            'ruta_actual' => 'tesoreria/cuentas',
+            'cuentas' => $this->cuentaModel->listarGestion(),
+            'bancos' => $this->cuentaModel->listarBancosConfigurados(),
+            'cuentaEditar' => $idEditar > 0 ? $this->cuentaModel->obtenerPorId($idEditar) : null,
+        ]);
+    }
+
+    public function guardar_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $payload = [
+                'id' => (int) ($_POST['id'] ?? 0),
+                'codigo' => trim((string) ($_POST['codigo'] ?? '')),
+                'nombre' => trim((string) ($_POST['nombre'] ?? '')),
+                'tipo' => strtoupper(trim((string) ($_POST['tipo'] ?? 'CAJA'))),
+                'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'config_banco_id' => (int) ($_POST['config_banco_id'] ?? 0),
+                'titular' => trim((string) ($_POST['titular'] ?? '')),
+                'tipo_cuenta' => trim((string) ($_POST['tipo_cuenta'] ?? '')),
+                'numero_cuenta' => trim((string) ($_POST['numero_cuenta'] ?? '')),
+                'cci' => trim((string) ($_POST['cci'] ?? '')),
+                'permite_cobros' => isset($_POST['permite_cobros']) ? 1 : 0,
+                'permite_pagos' => isset($_POST['permite_pagos']) ? 1 : 0,
+                'saldo_inicial' => (float) ($_POST['saldo_inicial'] ?? 0),
+                'fecha_saldo_inicial' => trim((string) ($_POST['fecha_saldo_inicial'] ?? '')),
+                'principal' => isset($_POST['principal']) ? 1 : 0,
+                'estado' => isset($_POST['estado']) ? 1 : 0,
+                'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+            ];
+
+            $id = $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1&id=' . $id);
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
     }
 
     // ========================================================================
