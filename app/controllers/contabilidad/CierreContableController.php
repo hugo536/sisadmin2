@@ -6,7 +6,7 @@ require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/contabilidad/DepreciacionModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
-require_once BASE_PATH . '/app/models/ContaParametrosModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaParametrosModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
 
 class CierreContableController extends Controlador
