@@ -18,6 +18,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    if (tesoreriaApp) {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('ok') === '1') {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Cuenta guardada',
+                    text: 'La cuenta se guardó correctamente.',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+
+            params.delete('ok');
+            const query = params.toString();
+            const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+            window.history.replaceState({}, '', nextUrl);
+        }
+    }
+
     // ========================================================================
     // 1. DELEGACIÓN DE EVENTOS: APERTURA DE MODALES (Cobros y Pagos)
     // ========================================================================
@@ -140,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cciInput = document.getElementById('cuentaCci');
     const numeroLabel = document.getElementById('cuentaNumeroLabel');
     const numeroInput = document.getElementById('cuentaNumero');
+    const cuentaPrincipalInput = document.getElementById('cuentaPrincipal');
+    const cuentaEstadoInput = document.getElementById('cuentaEstado');
 
     const tipoCuentaOpciones = {
         BANCO: ['AHORROS', 'CORRIENTE', 'MAESTRA'],
@@ -221,6 +242,32 @@ document.addEventListener('DOMContentLoaded', () => {
         syncEntidadOptions();
     };
 
+    const syncPrincipalEstado = (source = '') => {
+        if (!cuentaPrincipalInput || !cuentaEstadoInput) return;
+
+        if (cuentaPrincipalInput.checked) {
+            cuentaEstadoInput.checked = true;
+        }
+
+        if (source === 'estado' && !cuentaEstadoInput.checked) {
+            cuentaPrincipalInput.checked = false;
+        }
+
+        if (!cuentaEstadoInput.checked) {
+            cuentaPrincipalInput.checked = false;
+        }
+    };
+
+    if (cuentaPrincipalInput) {
+        cuentaPrincipalInput.addEventListener('change', () => syncPrincipalEstado('principal'));
+    }
+
+    if (cuentaEstadoInput) {
+        cuentaEstadoInput.addEventListener('change', () => syncPrincipalEstado('estado'));
+    }
+
+    syncPrincipalEstado();
+
     if (tipoCuentaSelect) {
         tipoCuentaSelect.addEventListener('change', () => {
             const esEdicion = tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true';
@@ -250,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formCuenta) {
             formCuenta.addEventListener('submit', () => {
                 generarCodigoCliente();
+                syncPrincipalEstado('principal');
                 if (tipoCuentaSelect.value.toUpperCase() === 'BILLETERA' && cciInput) {
                     cciInput.value = '';
                 }

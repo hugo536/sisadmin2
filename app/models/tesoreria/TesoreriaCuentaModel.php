@@ -98,6 +98,14 @@ class TesoreriaCuentaModel extends Modelo
             $data['cci'] = null;
         }
 
+        if ($data['principal'] === 1) {
+            $data['estado'] = 1;
+        }
+
+        if ($data['estado'] === 0) {
+            $data['principal'] = 0;
+        }
+
         $db = $this->db();
         $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL AND id <> :id LIMIT 1');
         $stmtExiste->execute(['codigo' => $data['codigo'], 'id' => $id]);
@@ -105,8 +113,28 @@ class TesoreriaCuentaModel extends Modelo
             throw new RuntimeException('Ya existe una cuenta con ese código.');
         }
 
-        if ($id > 0) {
-            $sql = 'UPDATE tesoreria_cuentas SET
+        $db->beginTransaction();
+
+        try {
+            if ($data['principal'] === 1) {
+                $sqlLimpiarPrincipal = 'UPDATE tesoreria_cuentas
+                                      SET principal = 0,
+                                          updated_by = :user,
+                                          updated_at = NOW()
+                                      WHERE moneda = :moneda
+                                        AND deleted_at IS NULL
+                                        AND id <> :id';
+
+                $stmtLimpiarPrincipal = $db->prepare($sqlLimpiarPrincipal);
+                $stmtLimpiarPrincipal->execute([
+                    'moneda' => $data['moneda'],
+                    'id' => $id,
+                    'user' => $userId,
+                ]);
+            }
+
+            if ($id > 0) {
+                $sql = 'UPDATE tesoreria_cuentas SET
                         codigo = :codigo,
                         nombre = :nombre,
                         tipo = :tipo,
@@ -127,13 +155,15 @@ class TesoreriaCuentaModel extends Modelo
                         updated_at = NOW()
                     WHERE id = :id AND deleted_at IS NULL';
 
-            $stmt = $db->prepare($sql);
-            $stmt->execute(array_merge($data, ['id' => $id, 'user' => $userId]));
+                $stmt = $db->prepare($sql);
+                $stmt->execute(array_merge($data, ['id' => $id, 'user' => $userId]));
 
-            return $id;
-        }
+                $db->commit();
 
-        $sql = 'INSERT INTO tesoreria_cuentas
+                return $id;
+            }
+
+            $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
                      permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, principal, observaciones,
                      estado, created_by, updated_by, created_at, updated_at)
@@ -142,10 +172,20 @@ class TesoreriaCuentaModel extends Modelo
                      :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :principal, :observaciones,
                      :estado, :created_by, :updated_by, NOW(), NOW())';
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute(array_merge($data, ['created_by' => $userId, 'updated_by' => $userId]));
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array_merge($data, ['created_by' => $userId, 'updated_by' => $userId]));
 
-        return (int) $db->lastInsertId();
+            $idCreado = (int) $db->lastInsertId();
+            $db->commit();
+
+            return $idCreado;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+
+            throw $e;
+        }
     }
 
     private function generarCodigoDisponible(string $tipo): string
