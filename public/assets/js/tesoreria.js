@@ -21,16 +21,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tesoreriaApp) {
         const params = new URLSearchParams(window.location.search);
         if (params.get('ok') === '1') {
+            const action = (params.get('action') || '').toLowerCase();
+            const isUpdate = action === 'updated';
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Cuenta guardada',
-                    text: 'La cuenta se guardó correctamente.',
+                    title: isUpdate ? 'Cuenta actualizada' : 'Cuenta guardada',
+                    text: isUpdate
+                        ? 'La cuenta se actualizó correctamente.'
+                        : 'La cuenta se guardó correctamente.',
                     confirmButtonText: 'Aceptar'
                 });
             }
 
             params.delete('ok');
+            params.delete('action');
             const query = params.toString();
             const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
             window.history.replaceState({}, '', nextUrl);
