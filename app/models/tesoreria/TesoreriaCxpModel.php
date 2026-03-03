@@ -129,4 +129,23 @@ class TesoreriaCxpModel extends Modelo
             WHERE id = :id');
         $stmt->execute(['id' => $id, 'user' => $userId]);
     }
+
+    public function listarPendientesPorAntiguedad(int $idProveedor, string $moneda): array
+    {
+        $stmt = $this->db()->prepare('SELECT id
+            FROM tesoreria_cxp
+            WHERE id_proveedor = :id_proveedor
+              AND moneda = :moneda
+              AND estado <> "ANULADA"
+              AND saldo > 0
+              AND deleted_at IS NULL
+            ORDER BY fecha_emision ASC, fecha_vencimiento ASC, id ASC');
+        $stmt->execute([
+            'id_proveedor' => $idProveedor,
+            'moneda' => strtoupper(trim($moneda)),
+        ]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
+
 }

@@ -3,6 +3,7 @@ $registros = $registros ?? [];
 $filtros = $filtros ?? [];
 $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
+$clientes = $clientes ?? [];
 
 $badge = static function (string $estado): string {
     return match ($estado) {
@@ -40,6 +41,9 @@ if (!empty($_GET['error'])) {
             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>
+            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
+            </button>
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
@@ -201,6 +205,77 @@ if (!empty($_GET['error'])) {
                 </nav>
             </div>
             
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalCobroManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro_manual')); ?>" class="js-form-confirm">
+                <div class="modal-body p-4 bg-light">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
+                            <select name="id_tercero" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="">Seleccione cliente...</option>
+                                <?php foreach($clientes as $cli): ?>
+                                    <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
+                            <select name="moneda" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="PEN">PEN (Soles)</option>
+                                <option value="USD">USD (Dólares)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="">Seleccione cuenta...</option>
+                                <?php foreach($cuentas as $c): ?>
+                                    <option value="<?php echo (int) $c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
+                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <?php foreach($metodos as $m): ?>
+                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                            <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. DEP-2026-001">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Se aplicará automáticamente a las deudas más antiguas."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
