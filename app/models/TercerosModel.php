@@ -103,7 +103,7 @@ class TercerosModel extends Modelo
             return [];
         }
 
-        $sql = "SELECT id, codigo, nombre, tipo, entidad, tipo_cuenta, moneda
+        $sql = "SELECT id, codigo, nombre, tipo, entidad
                 FROM configuracion_cajas_bancos
                 WHERE estado = 1 AND deleted_at IS NULL
                 ORDER BY COALESCE(updated_at, created_at) DESC, id DESC";

@@ -92,10 +92,6 @@
   const nombre = document.getElementById('cbNombre');
   const tipo = document.getElementById('cbTipo');
   const entidad = document.getElementById('cbEntidad');
-  const tipoCuenta = document.getElementById('cbTipoCuenta');
-  const moneda = document.getElementById('cbMoneda');
-  const titular = document.getElementById('cbTitular');
-  const numeroCuenta = document.getElementById('cbNumeroCuenta');
   const observaciones = document.getElementById('cbObservaciones');
   const permiteCobros = document.getElementById('cbPermiteCobros');
   const permitePagos = document.getElementById('cbPermitePagos');
@@ -108,10 +104,6 @@
     nombre.value = '';
     tipo.value = 'BANCO';
     entidad.value = '';
-    tipoCuenta.value = '';
-    moneda.value = 'PEN';
-    titular.value = '';
-    numeroCuenta.value = '';
     observaciones.value = '';
     permiteCobros.checked = true;
     permitePagos.checked = true;
@@ -131,10 +123,6 @@
     nombre.value = btn.dataset.nombre || '';
     tipo.value = btn.dataset.tipo || 'BANCO';
     entidad.value = btn.dataset.entidad || '';
-    tipoCuenta.value = btn.dataset.tipoCuenta || '';
-    moneda.value = btn.dataset.moneda || 'PEN';
-    titular.value = btn.dataset.titular || '';
-    numeroCuenta.value = btn.dataset.numeroCuenta || '';
     observaciones.value = btn.dataset.observaciones || '';
     permiteCobros.checked = (btn.dataset.permiteCobros || '0') === '1';
     permitePagos.checked = (btn.dataset.permitePagos || '0') === '1';
