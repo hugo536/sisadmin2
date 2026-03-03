@@ -9,7 +9,6 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
     <?php if ($err !== ''): ?>
         <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 border-start border-danger border-4" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Error:</strong> <?php echo e($err); ?>
-
             <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Cerrar"></button>
         </div>
     <?php endif; ?>
@@ -40,12 +39,20 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-nested text-primary me-2"></i>Estructura de Cuentas</h6>
+            
+            <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" id="buscarCuenta" class="form-control border-start-0 shadow-none" placeholder="Buscar cuenta o código...">
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover table-pro">
+                <table id="planContableTable" class="table align-middle mb-0 table-hover table-pro" 
+                    data-erp-table="true" 
+                    data-search-input="#buscarCuenta" 
+                    data-rows-per-page="50">
                     <thead class="table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold" style="width: 15%;">Código</th>
@@ -73,9 +80,15 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
                                         case 'INGRESO': $tipoColor = 'text-info text-dark'; break;
                                         case 'GASTO': $tipoColor = 'text-primary'; break;
                                     }
+
+                                    // Cálculo de sangría visual según el nivel de la cuenta
+                                    $nivel = (int)$c['nivel'];
+                                    $paddingLeft = ($nivel > 1) ? ($nivel * 15) . 'px' : '0px';
                                 ?>
-                                <tr class="border-bottom <?php echo !$esActivo ? 'opacity-50 bg-light' : ''; ?>">
-                                    <td class="ps-4 font-monospace fw-bold <?php echo !$aceptaMov ? 'text-dark' : 'text-primary'; ?> pt-3">
+                                <tr class="border-bottom <?php echo !$esActivo ? 'opacity-50 bg-light' : ''; ?>" 
+                                     data-search="<?php echo e($c['codigo'] . ' ' . $c['nombre'] . ' ' . $c['tipo']); ?>">
+                                    <td class="ps-4 font-monospace fw-bold <?php echo !$aceptaMov ? 'text-dark' : 'text-primary'; ?> pt-3" style="padding-left: <?php echo $paddingLeft; ?> !important;">
+                                        <?php if($nivel > 1): ?> <i class="bi bi-arrow-return-right text-muted me-1" style="font-size: 0.8rem;"></i> <?php endif; ?>
                                         <?php echo e($c['codigo']); ?>
                                     </td>
                                     <td class="<?php echo !$aceptaMov ? 'fw-bold text-dark' : 'text-body'; ?> pt-3">
@@ -85,7 +98,7 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
                                         <?php echo e($c['tipo']); ?>
                                     </td>
                                     <td class="text-center text-muted fw-bold pt-3">
-                                        Lv. <?php echo (int)$c['nivel']; ?>
+                                        Lv. <?php echo $nivel; ?>
                                     </td>
                                     <td class="text-center pt-3">
                                         <span class="badge rounded-pill <?php echo $aceptaMov ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'; ?>">
@@ -97,16 +110,28 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
                                             <?php echo $esActivo ? 'Activa' : 'Inactiva'; ?>
                                         </span>
                                     </td>
-                                    <td class="text-end pe-4 pt-3">
+                                    <td class="text-end pe-4 pt-3 d-flex justify-content-end gap-1">
+                                        <button type="button" 
+                                            class="btn btn-sm btn-outline-primary px-2 rounded-pill fw-semibold btn-editar-cuenta" 
+                                            title="Editar cuenta"
+                                            data-id="<?php echo (int)$c['id']; ?>"
+                                            data-codigo="<?php echo e($c['codigo']); ?>"
+                                            data-nombre="<?php echo e($c['nombre']); ?>"
+                                            data-tipo="<?php echo e($c['tipo']); ?>"
+                                            data-nivel="<?php echo (int)$c['nivel']; ?>"
+                                            data-permite-movimiento="<?php echo (int)$c['permite_movimiento']; ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+
                                         <?php if ($esActivo): ?>
                                             <form method="post" action="<?php echo e(route_url('contabilidad/inactivar_cuenta')); ?>" class="m-0 form-inactivar-cuenta">
                                                 <input type="hidden" name="id_cuenta" value="<?php echo (int)$c['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill fw-semibold">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill fw-semibold" title="Inactivar">
                                                     <i class="bi bi-power me-1"></i> Inactivar
                                                 </button>
                                             </form>
                                         <?php else: ?>
-                                            <span class="small text-muted fst-italic"><i class="bi bi-slash-circle me-1"></i>Deshabilitada</span>
+                                            <span class="small text-muted fst-italic mt-1"><i class="bi bi-slash-circle me-1"></i>Deshabilitada</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -121,6 +146,10 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
                         <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+            <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center p-3">
+                <span id="planContablePaginationInfo" class="small text-muted fw-semibold"></span>
+                <ul id="planContablePaginationControls" class="pagination pagination-sm mb-0"></ul>
             </div>
         </div>
     </div>
@@ -233,6 +262,72 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
                     <div class="d-flex justify-content-end pt-2 mt-3">
                         <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-secondary px-4 fw-bold"><i class="bi bi-check2-circle me-2"></i>Asignar Parámetro</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarCuenta" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Cuenta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form method="post" action="<?php echo e(route_url('contabilidad/guardar_cuenta')); ?>">
+                    
+                    <input type="hidden" name="id" value="">
+
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold">Código <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control shadow-none font-monospace fw-bold bg-light" name="codigo" readonly>
+                                    <small class="text-muted" style="font-size: 0.7rem;">No modificable</small>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted fw-bold">Nombre de la Cuenta <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control shadow-none" name="nombre" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold">Clasificación <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none" name="tipo" required>
+                                        <option value="ACTIVO">ACTIVO</option>
+                                        <option value="PASIVO">PASIVO</option>
+                                        <option value="PATRIMONIO">PATRIMONIO</option>
+                                        <option value="INGRESO">INGRESO</option>
+                                        <option value="GASTO">GASTO</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold">Nivel <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control shadow-none" min="1" name="nivel" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold">Estado <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none" name="estado" required>
+                                        <option value="1">Activa</option>
+                                        <option value="0">Inactiva</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small text-muted fw-bold">¿Acepta Movimientos Directos? <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none border-primary" name="permite_movimiento" required>
+                                        <option value="1">Sí (Cuenta transaccional para asientos)</option>
+                                        <option value="0">No (Es una cuenta agrupadora/título)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end pt-2 mt-3">
+                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Actualizar Cuenta</button>
                     </div>
                 </form>
             </div>

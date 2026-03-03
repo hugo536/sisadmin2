@@ -1,65 +1,61 @@
 <?php
-/**
- * =========================================================
- * check.php - ESCÁNER DE DEPURACIÓN PARA BOOTSTRAP 5
- * =========================================================
- * Este script escanea el DOM en busca de errores estructurales
- * que causan "Illegal invocation" o fallos en "index.js".
- */
-?>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('%c🕵️‍♂️ SISADMIN Debugger Iniciado: Escaneando DOM...', 'background: #0d6efd; color: white; padding: 5px; font-weight: bold; border-radius: 5px;');
+declare(strict_types=1);
 
-    let erroresEncontrados = 0;
+// --- CONFIGURACIÓN DE CONEXIÓN ---
+$host = 'localhost';
+$db   = 'sisadmin2'; // <--- CAMBIA ESTO POR EL NOMBRE REAL
+$user = 'root';                        // Usuario por defecto en XAMPP
+$pass = '';                            // Contraseña vacía por defecto en XAMPP
+$charset = 'utf8mb4';
 
-    // 1. Buscar Tooltips mal formados (Causa principal de fallos silenciosos)
-    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    tooltips.forEach(el => {
-        if (!el.getAttribute('title') && !el.getAttribute('data-bs-original-title')) {
-            console.error('❌ ERROR CRÍTICO: Tooltip sin atributo "title" encontrado. Esto rompe Bootstrap.', el);
-            erroresEncontrados++;
-        }
-    });
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
 
-    // 2. Buscar Modales incompletos (Falta de .modal-dialog rompe index.js)
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        const dialog = modal.querySelector('.modal-dialog');
-        if (!dialog) {
-            console.error('❌ ERROR CRÍTICO: Modal sin contenedor ".modal-dialog" en su interior.', modal);
-            erroresEncontrados++;
-        }
-    });
+echo "<h2>🔍 Diagnóstico de Sistema Contable</h2>";
 
-    // 3. Buscar Botones con selectores inválidos (Causa "Illegal invocation" en selector-engine.js)
-    const toggles = document.querySelectorAll('[data-bs-toggle="modal"], [data-bs-toggle="collapse"]');
-    toggles.forEach(btn => {
-        let targetSelector = btn.getAttribute('data-bs-target') || btn.getAttribute('href');
-        
-        // Target vacío o es solo un "#"
-        if (!targetSelector || targetSelector === '#' || targetSelector.trim() === '') {
-            console.error('❌ ERROR CRÍTICO: Botón con target vacío o inválido ("#").', btn);
-            erroresEncontrados++;
-            return;
-        }
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+    echo "<p style='color:green;'>✅ Conexión a la base de datos exitosa.</p>";
 
-        // Target con espacios o caracteres ilegales
-        try {
-            const targetEl = document.querySelector(targetSelector);
-            if (!targetEl && targetSelector !== '#') {
-                console.warn(`⚠️ ADVERTENCIA: El botón apunta al ID "${targetSelector}", pero ese elemento NO existe en el HTML actual.`, btn);
-            }
-        } catch (e) {
-            console.error(`❌ ERROR CRÍTICO: El botón tiene un selector mal escrito ("${targetSelector}").`, btn);
-            erroresEncontrados++;
-        }
-    });
-
-    if (erroresEncontrados === 0) {
-        console.log('%c✅ Escaneo completado: No se encontraron errores de estructura en Bootstrap.', 'color: #198754; font-weight: bold;');
-    } else {
-        console.log(`%c🛑 Escaneo completado: Se encontraron ${erroresEncontrados} error(es). Revisa los mensajes de arriba.`, 'color: #dc3545; font-weight: bold;');
+    // 1. Verificar si la tabla existe y su estructura
+    echo "<h3>1. Estructura de la tabla 'conta_cuentas'</h3>";
+    $stmt = $pdo->query("DESCRIBE conta_cuentas");
+    echo "<table border='1' style='border-collapse:collapse; width:100%; text-align:left;'>";
+    echo "<tr style='background:#eee;'><th>Campo</th><th>Tipo</th><th>Null</th><th>Key</th><th>Default</th></tr>";
+    while ($row = $stmt->fetch()) {
+        echo "<tr><td>{$row['Field']}</td><td>{$row['Type']}</td><td>{$row['Null']}</td><td>{$row['Key']}</td><td>{$row['Default']}</td></tr>";
     }
-});
-</script>
+    echo "</table>";
+
+    // 2. Probar la consulta que causa el error SQLSTATE[HY093]
+    echo "<h3>2. Prueba de consulta de Listado</h3>";
+    
+    // El error HY093 ocurre cuando pasas un array de parámetros 
+    // pero el SQL no tiene los marcadores ":" correspondientes.
+    $params = []; 
+    $sql = "SELECT id, codigo, nombre FROM conta_cuentas WHERE deleted_at IS NULL ORDER BY codigo ASC";
+    
+    $stmtPrueba = $pdo->prepare($sql);
+    
+    // Esta es la línea crítica que queremos probar:
+    $stmtPrueba->execute($params); 
+    
+    echo "<p style='color:blue;'>✅ Prueba superada: Se encontraron " . $stmtPrueba->rowCount() . " registros sin errores de parámetros.</p>";
+
+} catch (\PDOException $e) {
+    echo "<div style='background:#ffeeee; padding:10px; border:1px solid red;'>";
+    echo "<p style='color:red; font-weight:bold;'>❌ ERROR DETECTADO:</p>";
+    echo "<p><strong>Mensaje:</strong> " . $e->getMessage() . "</p>";
+    echo "<p><strong>Código SQLSTATE:</strong> " . $e->getCode() . "</p>";
+    echo "</div>";
+    
+    if ($e->getCode() == "1045") {
+        echo "<p>💡 <em>Tip: Revisa que el usuario y contraseña en check.php coincidan con los de tu phpMyAdmin.</em></p>";
+    }
+}
+
+echo "<hr><p>Fin del diagnóstico.</p>";
