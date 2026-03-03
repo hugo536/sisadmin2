@@ -50,8 +50,6 @@ class TesoreriaController extends Controlador
             'ruta_actual' => 'tesoreria/cuentas',
             'cuentas' => $this->cuentaModel->listarGestion(),
             'bancos' => $this->cuentaModel->listarBancosConfigurados(),
-            // Enviamos las cuentas transaccionales del Plan Contable para el modal
-            'cuentasMovimiento' => $this->planContableModel->listarMovimientoActivas(),
             'cuentaEditar' => $idEditar > 0 ? $this->cuentaModel->obtenerPorId($idEditar) : null,
         ]);
     }
@@ -72,8 +70,6 @@ class TesoreriaController extends Controlador
                 'nombre' => trim((string) ($_POST['nombre'] ?? '')),
                 'tipo' => strtoupper(trim((string) ($_POST['tipo'] ?? 'CAJA'))),
                 'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
-                // Nuevo campo: Vinculación con el ID de la cuenta del Plan Contable
-                'id_cuenta_contable' => (int) ($_POST['id_cuenta_contable'] ?? 0),
                 'config_banco_id' => (int) ($_POST['config_banco_id'] ?? 0),
                 'titular' => trim((string) ($_POST['titular'] ?? '')),
                 'tipo_cuenta' => trim((string) ($_POST['tipo_cuenta'] ?? '')),
@@ -120,7 +116,7 @@ class TesoreriaController extends Controlador
             'ruta_actual' => 'tesoreria/cxc',
             'registros'   => $this->cxcModel->listar($filtros),
             'filtros'     => $filtros,
-            // Lista cuentas de tesorería activas con su vinculación contable
+            // Lista cuentas de tesorería activas para operar cobros.
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
             'clientes'    => $this->listarClientesActivos(),

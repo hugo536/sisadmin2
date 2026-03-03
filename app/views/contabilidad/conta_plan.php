@@ -4,6 +4,13 @@ $ok = (string)($_GET['ok'] ?? '');
 $cuentas = $cuentas ?? [];
 $cuentasMovimiento = $cuentasMovimiento ?? [];
 $parametros = $parametros ?? [];
+$cuentasTesoreria = $cuentasTesoreria ?? [];
+
+$paramLabels = [
+    'CTA_CAJA_DEFECTO' => 'Caja por defecto (fallback)',
+    'CTA_CXC' => 'Cuenta por cobrar (CXC)',
+    'CTA_CXP' => 'Cuenta por pagar (CXP)',
+];
 $swalIcon = null;
 $swalMessage = null;
 
@@ -42,6 +49,9 @@ if ($err !== '') {
         </div>
 
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalVinculosTesoreria">
+                <i class="bi bi-bank2 me-2 text-success"></i>Vínculos Tesorería
+            </button>
             <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalParametrosVigentes">
                 <i class="bi bi-link-45deg me-2 text-primary"></i>Parámetros Vigentes
             </button>
@@ -260,9 +270,9 @@ if ($err !== '') {
                                     <label class="form-label small text-muted fw-bold">Parámetro del Sistema <span class="text-danger">*</span></label>
                                     <select class="form-select shadow-none font-monospace text-primary fw-bold" name="clave" id="parametroClave" required>
                                         <option value="">Seleccione clave...</option>
-                                        <option value="CTA_CAJA_DEFECTO">CTA_CAJA_DEFECTO (Caja Principal)</option>
-                                        <option value="CTA_CXC">CTA_CXC (Cuentas por Cobrar)</option>
-                                        <option value="CTA_CXP">CTA_CXP (Cuentas por Pagar)</option>
+                                        <option value="CTA_CAJA_DEFECTO">Caja por defecto (fallback)</option>
+                                        <option value="CTA_CXC">Cuenta por cobrar (CXC)</option>
+                                        <option value="CTA_CXP">Cuenta por pagar (CXP)</option>
                                     </select>
                                 </div>
                                 <div class="col-12">
@@ -332,7 +342,7 @@ if ($err !== '') {
                                                 $searchParam = strtolower(trim((string)($p['clave'] ?? '') . ' ' . (string)($p['cuenta_codigo'] ?? '') . ' ' . (string)($p['cuenta_nombre'] ?? '')));
                                             ?>
                                             <tr data-param-row="true" data-clave="<?php echo e($claveParam); ?>" data-search="<?php echo e($searchParam); ?>">
-                                                <td class="ps-3 font-monospace text-primary fw-semibold"><?php echo e((string)($p['clave'] ?? '')); ?></td>
+                                                <td class="ps-3 fw-semibold text-primary"><?php echo e((string)($paramLabels[(string)($p['clave'] ?? '')] ?? (string)($p['clave'] ?? ''))); ?></td>
                                                 <td><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
                                                 <td class="text-end pe-3">
                                                     <div class="d-inline-flex gap-2">
@@ -365,6 +375,67 @@ if ($err !== '') {
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalVinculosTesoreria" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-bank2 me-2"></i>Vinculación Tesorería &gt; Plan Contable</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <div class="alert alert-info small mb-3">
+                    Defina aquí qué cuenta contable se usará para cada cuenta de tesorería (caja/banco/billetera).
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Cuenta Tesorería</th>
+                                <th>Tipo</th>
+                                <th>Moneda</th>
+                                <th>Cuenta contable vinculada</th>
+                                <th class="text-end pe-3">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($cuentasTesoreria)): ?>
+                                <?php foreach ($cuentasTesoreria as $ct): ?>
+                                    <tr>
+                                        <td class="ps-3">
+                                            <div class="fw-semibold"><?php echo e((string)($ct['codigo'] ?? '') . ' - ' . (string)($ct['nombre'] ?? '')); ?></div>
+                                        </td>
+                                        <td><?php echo e((string)($ct['tipo'] ?? '')); ?></td>
+                                        <td><?php echo e((string)($ct['moneda'] ?? '')); ?></td>
+                                        <td>
+                                            <form class="d-flex gap-2" method="post" action="<?php echo e(route_url('contabilidad/vincular_tesoreria')); ?>">
+                                                <input type="hidden" name="id_cuenta_tesoreria" value="<?php echo (int)($ct['id'] ?? 0); ?>">
+                                                <select class="form-select form-select-sm" name="id_cuenta_contable" required>
+                                                    <option value="">Seleccionar cuenta...</option>
+                                                    <?php foreach ($cuentasMovimiento as $cm): ?>
+                                                        <option value="<?php echo (int)($cm['id'] ?? 0); ?>" <?php echo ((int)($ct['id_cuenta_contable'] ?? 0) === (int)($cm['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                                            <?php echo e((string)($cm['codigo'] ?? '') . ' - ' . (string)($cm['nombre'] ?? '')); ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <button type="submit" class="btn btn-sm btn-success">Guardar vínculo</button>
+                                            </form>
+                                        </td>
+                                        <td class="text-end pe-3 text-muted">—</td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">No hay cuentas de tesorería registradas.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

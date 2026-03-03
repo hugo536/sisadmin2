@@ -144,18 +144,17 @@ class ContaAsientoModel extends Modelo
         $paramModel = new ContaParametrosModel();
         $mapa = $paramModel->obtenerMapa();
 
-        // 1. Identificar Cuenta de Tesorería (Caja/Banco)
-        // Prioridad: El ID enviado directamente desde el movimiento vinculado
-        $idCuentaTesoreria = (int)($movimiento['id_cuenta_contable'] ?? 0);
-        
-        // Fallback: Si no hay ID vinculado, usamos el parámetro global
+        // 1. Identificar Cuenta de Tesorería vinculada desde Contabilidad > Plan Contable.
+        $idCuentaTesoreria = 0;
+        $idCuentaTesoreriaOp = (int)($movimiento['id_cuenta_tesoreria'] ?? 0);
+        if ($idCuentaTesoreriaOp > 0) {
+            $stmt = $db->prepare('SELECT id_cuenta_contable FROM tesoreria_cuentas WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+            $stmt->execute(['id' => $idCuentaTesoreriaOp]);
+            $idCuentaTesoreria = (int)$stmt->fetchColumn();
+        }
+
         if ($idCuentaTesoreria <= 0) {
-            if (!isset($mapa['CTA_CAJA_DEFECTO'])) {
-                $idCuentaTesoreria = $this->resolverCuentaParametroFaltante($db, 'CTA_CAJA_DEFECTO');
-                if ($idCuentaTesoreria) $paramModel->guardar('CTA_CAJA_DEFECTO', $idCuentaTesoreria, $userId);
-            } else {
-                $idCuentaTesoreria = (int)$mapa['CTA_CAJA_DEFECTO'];
-            }
+            throw new RuntimeException('La cuenta de tesorería seleccionada no tiene cuenta contable vinculada. Configure la vinculación en Contabilidad > Plan Contable.');
         }
 
         // 2. Identificar Cuenta de Contrapartida (CXC o CXP)

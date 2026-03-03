@@ -6,11 +6,10 @@ class TesoreriaCuentaModel extends Modelo
 {
     /**
      * Lista las cuentas activas para su uso en formularios de cobro/pago.
-     * Incluye el id_cuenta_contable para automatizar el asiento.
      */
     public function listarActivas(): array
     {
-        $sql = 'SELECT id, codigo, nombre, tipo, moneda, id_cuenta_contable
+        $sql = 'SELECT id, codigo, nombre, tipo, moneda
                 FROM tesoreria_cuentas
                 WHERE estado = 1 
                   AND deleted_at IS NULL
@@ -25,12 +24,9 @@ class TesoreriaCuentaModel extends Modelo
     public function listarGestion(): array
     {
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
-                       cc.nombre AS cuenta_contable_nombre,
-                       cc.codigo AS cuenta_contable_codigo,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
                 LEFT JOIN configuracion_cajas_bancos cb ON cb.id = c.config_banco_id
-                LEFT JOIN conta_cuentas cc ON cc.id = c.id_cuenta_contable
                 LEFT JOIN (
                     SELECT id_cuenta,
                            SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
@@ -58,7 +54,7 @@ class TesoreriaCuentaModel extends Modelo
     }
 
     /**
-     * Guarda o actualiza una cuenta de tesorería vinculándola al Plan Contable.
+     * Guarda o actualiza una cuenta de tesorería.
      */
     public function guardar(array $payload, int $userId): int
     {
@@ -69,7 +65,6 @@ class TesoreriaCuentaModel extends Modelo
             'nombre' => trim((string) ($payload['nombre'] ?? '')),
             'tipo' => strtoupper(trim((string) ($payload['tipo'] ?? 'CAJA'))),
             'moneda' => strtoupper(trim((string) ($payload['moneda'] ?? 'PEN'))),
-            'id_cuenta_contable' => (int) ($payload['id_cuenta_contable'] ?? 0), // Campo clave para la vinculación
             'config_banco_id' => (int) ($payload['config_banco_id'] ?? 0),
             'titular' => trim((string) ($payload['titular'] ?? '')),
             'tipo_cuenta' => trim((string) ($payload['tipo_cuenta'] ?? '')),
@@ -86,7 +81,6 @@ class TesoreriaCuentaModel extends Modelo
 
         // --- VALIDACIONES ---
         if ($data['nombre'] === '') throw new RuntimeException('El nombre es obligatorio.');
-        if ($data['id_cuenta_contable'] <= 0) throw new RuntimeException('Debe vincular una cuenta del Plan Contable.');
         if (!in_array($data['tipo'], ['CAJA', 'BANCO', 'BILLETERA'], true)) throw new RuntimeException('Tipo de cuenta inválido.');
         if (!in_array($data['moneda'], ['PEN', 'USD'], true)) throw new RuntimeException('Moneda inválida.');
 
@@ -119,22 +113,11 @@ class TesoreriaCuentaModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // Manejar lógica de cuenta principal por moneda
-            if ($data['principal'] === 1 && $data['id_cuenta_contable'] > 0) {
-                // Si esta cuenta es la PRINCIPAL de Tesorería, 
-                // actualizamos automáticamente el parámetro global del Plan Contable.
-                $paramModel = new ContaParametrosModel();
-                $paramModel->guardar('CTA_CAJA_DEFECTO', (int)$data['id_cuenta_contable'], $userId);
-            }
-
-            $db->commit();
-            return $id > 0 ? $id : $idCreado;
-
             if ($id > 0) {
                 // --- UPDATE ---
                 $sql = 'UPDATE tesoreria_cuentas SET
                         codigo = :codigo, nombre = :nombre, tipo = :tipo, moneda = :moneda,
-                        id_cuenta_contable = :id_cuenta_contable, config_banco_id = :config_banco_id,
+                        config_banco_id = :config_banco_id,
                         titular = :titular, tipo_cuenta = :tipo_cuenta, numero_cuenta = :numero_cuenta,
                         cci = :cci, permite_cobros = :permite_cobros, permite_pagos = :permite_pagos,
                         saldo_inicial = :saldo_inicial, fecha_saldo_inicial = :fecha_saldo_inicial,
@@ -150,11 +133,11 @@ class TesoreriaCuentaModel extends Modelo
 
             // --- INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
-                    (codigo, nombre, tipo, moneda, id_cuenta_contable, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
+                    (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
                      permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, principal, observaciones,
                      estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                    (:codigo, :nombre, :tipo, :moneda, :id_cuenta_contable, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
+                    (:codigo, :nombre, :tipo, :moneda, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
                      :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :principal, :observaciones,
                      :estado, :created_by, :updated_by, NOW(), NOW())';
 
@@ -199,5 +182,37 @@ class TesoreriaCuentaModel extends Modelo
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    public function vincularCuentaContable(int $idCuentaTesoreria, int $idCuentaContable, int $userId): void
+    {
+        if ($idCuentaTesoreria <= 0 || $idCuentaContable <= 0) {
+            throw new RuntimeException('Debe seleccionar una cuenta de tesorería y una cuenta contable válidas.');
+        }
+
+        $db = $this->db();
+
+        $stmtTes = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmtTes->execute(['id' => $idCuentaTesoreria]);
+        if (!(bool)$stmtTes->fetchColumn()) {
+            throw new RuntimeException('La cuenta de tesorería seleccionada no existe.');
+        }
+
+        $stmtConta = $db->prepare('SELECT id FROM conta_cuentas WHERE id = :id AND estado = 1 AND permite_movimiento = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmtConta->execute(['id' => $idCuentaContable]);
+        if (!(bool)$stmtConta->fetchColumn()) {
+            throw new RuntimeException('La cuenta contable debe estar activa y permitir movimiento.');
+        }
+
+        $stmt = $db->prepare('UPDATE tesoreria_cuentas
+                              SET id_cuenta_contable = :id_cuenta_contable,
+                                  updated_by = :user,
+                                  updated_at = NOW()
+                              WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id_cuenta_contable' => $idCuentaContable,
+            'user' => $userId,
+            'id' => $idCuentaTesoreria,
+        ]);
     }
 }
