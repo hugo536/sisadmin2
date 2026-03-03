@@ -167,33 +167,33 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                         <div class="card-body">
                             <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Configuración Bancaria / Saldos</h6>
                             <div class="row g-3">
-                                <div class="col-12 col-md-4 js-bank-field">
+                                <div class="col-12 col-md-4 js-bank-field" id="cuentaEntidadWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Entidad (Banco/Caja)</label>
-                                    <select name="config_banco_id" class="form-select shadow-none">
+                                    <select name="config_banco_id" id="cuentaEntidad" class="form-select shadow-none">
                                         <option value="">Seleccionar...</option>
                                         <?php $configBancoActual = (int) ($cuentaEditar['config_banco_id'] ?? 0); ?>
                                         <?php foreach ($bancos as $b): ?>
-                                            <option value="<?php echo (int) ($b['id'] ?? 0); ?>" <?php echo $configBancoActual === (int) ($b['id'] ?? 0) ? 'selected' : ''; ?>>
+                                            <option value="<?php echo (int) ($b['id'] ?? 0); ?>" data-tipo="<?php echo e((string) ($b['tipo'] ?? '')); ?>" <?php echo $configBancoActual === (int) ($b['id'] ?? 0) ? 'selected' : ''; ?>>
                                                 <?php echo e((string) ($b['nombre'] ?? '')); ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="col-12 col-md-4 js-bank-field">
+                                <div class="col-12 col-md-4 js-bank-field" id="cuentaTipoCuentaWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Tipo de cuenta</label>
                                     <input type="text" maxlength="30" name="tipo_cuenta" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['tipo_cuenta'] ?? '')); ?>" placeholder="Ahorros, Corriente...">
                                 </div>
-                                <div class="col-12 col-md-4 js-bank-field">
-                                    <label class="form-label small text-muted fw-bold mb-1">N° de cuenta</label>
-                                    <input type="text" maxlength="80" name="numero_cuenta" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['numero_cuenta'] ?? '')); ?>" placeholder="000-0000000">
+                                <div class="col-12 col-md-4 js-bank-field" id="cuentaNumeroWrap">
+                                    <label class="form-label small text-muted fw-bold mb-1" id="cuentaNumeroLabel">N° de cuenta</label>
+                                    <input type="text" maxlength="80" name="numero_cuenta" id="cuentaNumero" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['numero_cuenta'] ?? '')); ?>" placeholder="000-0000000">
                                 </div>
-                                <div class="col-12 col-md-6 js-bank-field">
+                                <div class="col-12 col-md-6 js-bank-field" id="cuentaTitularWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Titular</label>
                                     <input type="text" maxlength="150" name="titular" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['titular'] ?? '')); ?>">
                                 </div>
-                                <div class="col-12 col-md-6 js-bank-field">
+                                <div class="col-12 col-md-6 js-bank-field" id="cuentaCciWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">CCI (Código de Cuenta Interbancario)</label>
-                                    <input type="text" maxlength="80" name="cci" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['cci'] ?? '')); ?>">
+                                    <input type="text" maxlength="80" name="cci" id="cuentaCci" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['cci'] ?? '')); ?>">
                                 </div>
                                 
                                 <div class="col-12 col-md-6 mt-4">
