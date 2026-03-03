@@ -108,6 +108,22 @@ class ContabilidadController extends Controlador
         }
     }
 
+    public function eliminar_parametro(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.plan_contable.gestionar');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('contabilidad/plan');
+        }
+
+        try {
+            $this->paramModel->eliminar((int)($_POST['id_parametro'] ?? 0), $this->uid());
+            redirect('contabilidad/plan?ok=1');
+        } catch (Throwable $e) {
+            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     public function periodos(): void
     {
         AuthMiddleware::handle();
