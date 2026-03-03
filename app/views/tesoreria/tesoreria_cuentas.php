@@ -46,7 +46,10 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover table-pro">
+                <table class="table align-middle mb-0 table-hover table-pro" id="tablaCuentas"
+                       data-erp-table="true"
+                       data-pagination-controls="#cuentasPaginationControls"
+                       data-pagination-info="#cuentasPaginationInfo">
                     <thead class="table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
@@ -101,6 +104,14 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                     </tbody>
                 </table>
             </div>
+            
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted fw-semibold" id="cuentasPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación de cuentas">
+                    <ul class="pagination mb-0 justify-content-end" id="cuentasPaginationControls"></ul>
+                </nav>
+            </div>
+            
         </div>
     </div>
 </div>
