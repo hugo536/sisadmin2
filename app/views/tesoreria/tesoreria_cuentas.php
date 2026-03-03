@@ -127,7 +127,7 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
             </div>
 
             <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <form method="post" action="<?php echo e(route_url('tesoreria/guardar_cuenta')); ?>" autocomplete="off">
+                <form method="post" action="<?php echo e(route_url('tesoreria/guardar_cuenta')); ?>" autocomplete="off" id="formCuentaTesoreria">
                     <input type="hidden" name="id" value="<?php echo (int) ($cuentaEditar['id'] ?? 0); ?>">
 
                     <div class="card border-0 shadow-sm mb-3">
@@ -135,8 +135,8 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                             <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Datos Generales</h6>
                             <div class="row g-3">
                                 <div class="col-12 col-md-3">
-                                    <label class="form-label small text-muted fw-bold mb-1">Código <span class="text-danger">*</span></label>
-                                    <input type="text" maxlength="30" name="codigo" required class="form-control shadow-none font-monospace fw-bold" value="<?php echo e((string) ($cuentaEditar['codigo'] ?? '')); ?>" placeholder="Ej. CJ-01">
+                                    <label class="form-label small text-muted fw-bold mb-1">Código</label>
+                                    <input type="text" maxlength="30" id="cuentaCodigo" name="codigo" class="form-control shadow-none font-monospace fw-bold" value="<?php echo e((string) ($cuentaEditar['codigo'] ?? '')); ?>" placeholder="Se genera automáticamente si se deja vacío">
                                 </div>
                                 <div class="col-12 col-md-5">
                                     <label class="form-label small text-muted fw-bold mb-1">Nombre <span class="text-danger">*</span></label>
@@ -181,7 +181,10 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
                                 </div>
                                 <div class="col-12 col-md-4 js-bank-field" id="cuentaTipoCuentaWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Tipo de cuenta</label>
-                                    <input type="text" maxlength="30" name="tipo_cuenta" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['tipo_cuenta'] ?? '')); ?>" placeholder="Ahorros, Corriente...">
+                                    <?php $tipoCuentaActual = (string) ($cuentaEditar['tipo_cuenta'] ?? ''); ?>
+                                    <select name="tipo_cuenta" id="cuentaTipoCuenta" class="form-select shadow-none" data-selected="<?php echo e($tipoCuentaActual); ?>">
+                                        <option value="">Seleccionar...</option>
+                                    </select>
                                 </div>
                                 <div class="col-12 col-md-4 js-bank-field" id="cuentaNumeroWrap">
                                     <label class="form-label small text-muted fw-bold mb-1" id="cuentaNumeroLabel">N° de cuenta</label>

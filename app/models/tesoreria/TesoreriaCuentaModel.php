@@ -60,8 +60,8 @@ class TesoreriaCuentaModel extends Modelo
             'estado' => (int) ($payload['estado'] ?? 1),
         ];
 
-        if ($data['codigo'] === '' || $data['nombre'] === '') {
-            throw new RuntimeException('Código y nombre son obligatorios.');
+        if ($data['nombre'] === '') {
+            throw new RuntimeException('El nombre es obligatorio.');
         }
 
         if (!in_array($data['tipo'], ['CAJA', 'BANCO', 'BILLETERA'], true)) {
@@ -72,6 +72,10 @@ class TesoreriaCuentaModel extends Modelo
             throw new RuntimeException('Moneda inválida.');
         }
 
+        if ($data['codigo'] === '') {
+            $data['codigo'] = $this->generarCodigoDisponible($data['tipo']);
+        }
+
         $data['config_banco_id'] = $data['config_banco_id'] > 0 ? $data['config_banco_id'] : null;
         $data['fecha_saldo_inicial'] = $data['fecha_saldo_inicial'] !== '' ? $data['fecha_saldo_inicial'] : null;
         $data['titular'] = $data['titular'] !== '' ? $data['titular'] : null;
@@ -79,6 +83,14 @@ class TesoreriaCuentaModel extends Modelo
         $data['numero_cuenta'] = $data['numero_cuenta'] !== '' ? $data['numero_cuenta'] : null;
         $data['cci'] = $data['cci'] !== '' ? $data['cci'] : null;
         $data['observaciones'] = $data['observaciones'] !== '' ? $data['observaciones'] : null;
+
+        if ($data['tipo'] === 'CAJA') {
+            $data['config_banco_id'] = null;
+            $data['titular'] = null;
+            $data['tipo_cuenta'] = null;
+            $data['numero_cuenta'] = null;
+            $data['cci'] = null;
+        }
 
         if ($data['tipo'] === 'BILLETERA') {
             $digits = preg_replace('/\D+/', '', (string) ($data['numero_cuenta'] ?? ''));
@@ -134,6 +146,30 @@ class TesoreriaCuentaModel extends Modelo
         $stmt->execute(array_merge($data, ['user' => $userId]));
 
         return (int) $db->lastInsertId();
+    }
+
+    private function generarCodigoDisponible(string $tipo): string
+    {
+        $prefijo = $tipo === 'CAJA' ? 'CJ-' : ($tipo === 'BILLETERA' ? 'WL-' : 'BN-');
+
+        $stmt = $this->db()->prepare('SELECT codigo FROM tesoreria_cuentas WHERE codigo LIKE :prefijo AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['prefijo' => $prefijo . '%']);
+        $ultimo = (string) ($stmt->fetchColumn() ?: '');
+
+        $correlativo = 1;
+        if ($ultimo !== '' && preg_match('/(\d+)$/', $ultimo, $m)) {
+            $correlativo = ((int) $m[1]) + 1;
+        }
+
+        while (true) {
+            $codigo = $prefijo . str_pad((string) $correlativo, 3, '0', STR_PAD_LEFT);
+            $stmtExiste = $this->db()->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL LIMIT 1');
+            $stmtExiste->execute(['codigo' => $codigo]);
+            if (!$stmtExiste->fetch(PDO::FETCH_ASSOC)) {
+                return $codigo;
+            }
+            $correlativo++;
+        }
     }
 
     public function obtenerPorId(int $id): ?array
