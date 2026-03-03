@@ -172,6 +172,172 @@ class TesoreriaMovimientoModel extends Modelo
         }
     }
 
+
+    public function registrarDistribuido(array $data, array $idsOrigen, int $userId): array
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            $origen = strtoupper(trim((string) ($data['origen'] ?? '')));
+            $tipo = strtoupper(trim((string) ($data['tipo'] ?? '')));
+            $idTercero = (int) ($data['id_tercero'] ?? 0);
+            $montoTotal = round((float) ($data['monto'] ?? 0), 4);
+            $moneda = strtoupper(trim((string) ($data['moneda'] ?? 'PEN')));
+
+            if (!in_array($origen, ['CXC', 'CXP'], true)) {
+                throw new RuntimeException('Origen de transacción inválido.');
+            }
+
+            if (!in_array($tipo, ['COBRO', 'PAGO'], true)) {
+                throw new RuntimeException('Tipo de transacción inválido.');
+            }
+
+            if ($idTercero <= 0 || $montoTotal <= 0) {
+                throw new RuntimeException('Datos inválidos para registrar el movimiento manual.');
+            }
+
+            if ($idsOrigen === []) {
+                throw new RuntimeException('No existen documentos pendientes para aplicar el movimiento.');
+            }
+
+            $stmtCuenta = $db->prepare('SELECT id, moneda, estado FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+            $stmtCuenta->execute(['id' => (int) ($data['id_cuenta'] ?? 0)]);
+            $cuenta = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
+            if (!$cuenta || (int) ($cuenta['estado'] ?? 0) !== 1) {
+                throw new RuntimeException('La cuenta de tesorería seleccionada es inválida o está inactiva.');
+            }
+            if ((string) ($cuenta['moneda'] ?? '') !== $moneda) {
+                throw new RuntimeException('La moneda de la cuenta bancaria no coincide con la moneda de la transacción.');
+            }
+
+            $stmtMetodo = $db->prepare('SELECT id FROM tesoreria_metodos_pago WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+            $stmtMetodo->execute(['id' => (int) ($data['id_metodo_pago'] ?? 0)]);
+            if (!(bool) $stmtMetodo->fetchColumn()) {
+                throw new RuntimeException('El método de pago seleccionado no es válido.');
+            }
+
+            $stmtTercero = $db->prepare('SELECT id FROM terceros WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+            $stmtTercero->execute(['id' => $idTercero]);
+            if (!(bool) $stmtTercero->fetchColumn()) {
+                throw new RuntimeException('El cliente/proveedor asociado se encuentra inactivo en el sistema.');
+            }
+
+            $tabla = $origen === 'CXC' ? 'tesoreria_cxc' : 'tesoreria_cxp';
+            $campoTercero = $origen === 'CXC' ? 'id_cliente' : 'id_proveedor';
+            $stmtOrigen = $db->prepare('SELECT id, saldo, moneda, estado
+                FROM ' . $tabla . '
+                WHERE id = :id
+                  AND ' . $campoTercero . ' = :id_tercero
+                  AND deleted_at IS NULL
+                LIMIT 1 FOR UPDATE');
+
+            $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                VALUES
+                (:tipo, :id_tercero, :origen, :id_origen, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :referencia, :observaciones, "CONFIRMADO", :created_by, :updated_by, NOW(), NOW())');
+
+            $stmtUpd = $db->prepare('UPDATE ' . $tabla . '
+                SET monto_pagado = ROUND(monto_pagado + :monto_a, 4),
+                    saldo = GREATEST(ROUND(monto_total - ROUND(monto_pagado + :monto_b, 4), 4), 0),
+                    estado = CASE
+                        WHEN estado = "ANULADA" THEN "ANULADA"
+                        WHEN ROUND(monto_total - ROUND(monto_pagado + :monto_c, 4), 4) <= 0 THEN "PAGADA"
+                        WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
+                        WHEN ROUND(monto_pagado + :monto_d, 4) > 0 THEN "PARCIAL"
+                        ELSE "ABIERTA"
+                    END,
+                    updated_by = :user,
+                    updated_at = NOW()
+                WHERE id = :id');
+
+            $restante = $montoTotal;
+            $movimientos = 0;
+            $idsAplicados = [];
+            $contaModel = new ContaAsientoModel();
+
+            foreach ($idsOrigen as $idOrigen) {
+                if ($restante <= 0) {
+                    break;
+                }
+
+                $stmtOrigen->execute(['id' => (int) $idOrigen, 'id_tercero' => $idTercero]);
+                $row = $stmtOrigen->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    continue;
+                }
+
+                if ((string) ($row['estado'] ?? '') === 'ANULADA') {
+                    continue;
+                }
+
+                if ((string) ($row['moneda'] ?? 'PEN') !== $moneda) {
+                    throw new RuntimeException('La moneda de uno de los documentos no coincide con la moneda del movimiento.');
+                }
+
+                $saldo = round((float) ($row['saldo'] ?? 0), 4);
+                if ($saldo <= 0) {
+                    continue;
+                }
+
+                $aplicar = min($restante, $saldo);
+                $aplicar = round($aplicar, 4);
+                if ($aplicar <= 0) {
+                    continue;
+                }
+
+                $stmtInsert->execute([
+                    'tipo' => $tipo,
+                    'id_tercero' => $idTercero,
+                    'origen' => $origen,
+                    'id_origen' => (int) $row['id'],
+                    'id_cuenta' => (int) ($data['id_cuenta'] ?? 0),
+                    'id_metodo_pago' => (int) ($data['id_metodo_pago'] ?? 0),
+                    'fecha' => (string) ($data['fecha'] ?? date('Y-m-d')),
+                    'moneda' => $moneda,
+                    'monto' => $aplicar,
+                    'referencia' => !empty($data['referencia']) ? (string) $data['referencia'] : null,
+                    'observaciones' => !empty($data['observaciones']) ? (string) $data['observaciones'] : null,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+                $idMovimiento = (int) $db->lastInsertId();
+
+                $stmtUpd->execute([
+                    'monto_a' => $aplicar,
+                    'monto_b' => $aplicar,
+                    'monto_c' => $aplicar,
+                    'monto_d' => $aplicar,
+                    'user' => $userId,
+                    'id' => (int) $row['id'],
+                ]);
+
+                $contaModel->registrarAutomaticoTesoreria($db, [
+                    'id_movimiento' => $idMovimiento,
+                    'tipo' => $tipo,
+                    'fecha' => (string) ($data['fecha'] ?? date('Y-m-d')),
+                    'monto' => $aplicar,
+                ], $userId);
+
+                $restante = round($restante - $aplicar, 4);
+                $movimientos++;
+                $idsAplicados[] = (int) $row['id'];
+            }
+
+            if ($restante > 0) {
+                throw new RuntimeException('El monto excede la deuda pendiente del tercero para la moneda seleccionada.');
+            }
+
+            $db->commit();
+            return ['movimientos' => $movimientos, 'origenes' => $idsAplicados];
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function anular(int $idMovimiento, int $userId): bool
     {
         $db = $this->db();

@@ -132,4 +132,23 @@ class TesoreriaCxcModel extends Modelo
             WHERE id = :id');
         $stmt->execute(['id' => $id, 'user' => $userId]);
     }
+
+    public function listarPendientesPorAntiguedad(int $idCliente, string $moneda): array
+    {
+        $stmt = $this->db()->prepare('SELECT id
+            FROM tesoreria_cxc
+            WHERE id_cliente = :id_cliente
+              AND moneda = :moneda
+              AND estado <> "ANULADA"
+              AND saldo > 0
+              AND deleted_at IS NULL
+            ORDER BY fecha_emision ASC, fecha_vencimiento ASC, id ASC');
+        $stmt->execute([
+            'id_cliente' => $idCliente,
+            'moneda' => strtoupper(trim($moneda)),
+        ]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
+
 }

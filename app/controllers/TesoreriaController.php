@@ -122,6 +122,7 @@ class TesoreriaController extends Controlador
             'filtros'     => $filtros,
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
+            'clientes'    => $this->listarClientesActivos(),
         ]);
     }
 
@@ -131,6 +132,14 @@ class TesoreriaController extends Controlador
         require_permiso('tesoreria.cobros.registrar');
         
         $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+    }
+
+    public function registrar_cobro_manual(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cobros.registrar');
+
+        $this->registrarMovimientoManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
     }
 
     // ========================================================================
@@ -153,6 +162,7 @@ class TesoreriaController extends Controlador
             'filtros'     => $filtros,
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
+            'proveedores' => $this->listarProveedoresActivos(),
         ]);
     }
 
@@ -162,6 +172,14 @@ class TesoreriaController extends Controlador
         require_permiso('tesoreria.pagos.registrar');
         
         $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+    }
+
+    public function registrar_pago_manual(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.pagos.registrar');
+
+        $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
     }
 
     // ========================================================================
@@ -283,6 +301,56 @@ class TesoreriaController extends Controlador
         }
     }
 
+    private function registrarMovimientoManualDesdePost(string $origen, string $tipo, string $redirectRuta): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect($redirectRuta);
+        }
+
+        try {
+            $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+            $monto = round((float) ($_POST['monto'] ?? 0), 4);
+            $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+
+            if ($idTercero <= 0) {
+                throw new RuntimeException('Debe seleccionar un tercero válido.');
+            }
+
+            if ($monto <= 0) {
+                throw new RuntimeException('El monto debe ser mayor a cero.');
+            }
+
+            $idsOrigen = $origen === 'CXC'
+                ? $this->cxcModel->listarPendientesPorAntiguedad($idTercero, $moneda)
+                : $this->cxpModel->listarPendientesPorAntiguedad($idTercero, $moneda);
+
+            if ($idsOrigen === []) {
+                throw new RuntimeException('El tercero seleccionado no tiene documentos pendientes en la moneda indicada.');
+            }
+
+            $resultado = $this->movModel->registrarDistribuido([
+                'tipo'           => $tipo,
+                'origen'         => $origen,
+                'id_tercero'     => $idTercero,
+                'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
+                'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
+                'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
+                'moneda'         => $moneda,
+                'monto'          => $monto,
+                'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
+            ], $idsOrigen, $this->obtenerUsuarioId());
+
+            if (($resultado['movimientos'] ?? 0) <= 0) {
+                throw new RuntimeException('No se pudo registrar el movimiento manual.');
+            }
+
+            redirect($redirectRuta . '?ok=1');
+        } catch (Throwable $e) {
+            redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     private function listarMetodosPago(): array
     {
         $sql = 'SELECT id, nombre 
@@ -290,6 +358,30 @@ class TesoreriaController extends Controlador
                 WHERE estado = 1 AND deleted_at IS NULL 
                 ORDER BY nombre ASC';
                 
+        return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function listarClientesActivos(): array
+    {
+        $sql = 'SELECT id, nombre_completo
+                FROM terceros
+                WHERE estado = 1
+                  AND es_cliente = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre_completo ASC';
+
+        return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function listarProveedoresActivos(): array
+    {
+        $sql = 'SELECT id, nombre_completo
+                FROM terceros
+                WHERE estado = 1
+                  AND es_proveedor = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre_completo ASC';
+
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
