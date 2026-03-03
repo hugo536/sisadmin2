@@ -2,6 +2,7 @@
 $registros = $registros ?? [];
 $filtros = $filtros ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
+$swalFlashIcon = ($flash['tipo'] ?? '') === 'error' ? 'error' : 'success';
 
 $badgeTipo = static function (string $tipo): string {
     return match (strtoupper($tipo)) {
@@ -25,11 +26,20 @@ $badgeTipo = static function (string $tipo): string {
             </button>
         <?php endif; ?>
     </div>
-
     <?php if (!empty($flash['texto'])): ?>
-        <div class="alert <?php echo $flash['tipo'] === 'error' ? 'alert-danger' : 'alert-success'; ?> border-0 shadow-sm">
-            <?php echo e((string) $flash['texto']); ?>
-        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: <?php echo json_encode($swalFlashIcon); ?>,
+                    title: <?php echo json_encode($swalFlashIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode((string) $flash['texto']); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
     <?php endif; ?>
 
     <div class="card border-0 shadow-sm">

@@ -3,21 +3,33 @@ $err = (string)($_GET['error'] ?? '');
 $ok = (string)($_GET['ok'] ?? '');
 $cuentas = $cuentas ?? [];
 $cuentasMovimiento = $cuentasMovimiento ?? [];
+$swalIcon = null;
+$swalMessage = null;
+
+if ($err !== '') {
+    $swalIcon = 'error';
+    $swalMessage = $err;
+} elseif ($ok !== '') {
+    $swalIcon = 'success';
+    $swalMessage = 'Operación realizada correctamente.';
+}
 ?>
 <div class="container-fluid p-4">
 
-    <?php if ($err !== ''): ?>
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 border-start border-danger border-4" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Error:</strong> <?php echo e($err); ?>
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
-    <?php endif; ?>
-    
-    <?php if ($ok !== ''): ?>
-        <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 border-start border-success border-4" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i><strong>¡Éxito!</strong> Operación realizada correctamente.
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
+    <?php if ($swalMessage !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: <?php echo json_encode($swalIcon); ?>,
+                    title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode($swalMessage); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">

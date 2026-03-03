@@ -3,6 +3,7 @@ $cuentas = $cuentas ?? [];
 $bancos = $bancos ?? [];
 $cuentaEditar = $cuentaEditar ?? null;
 $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
+$swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
 ?>
 
 <div class="container-fluid p-4" id="tesoreriaCuentasApp" data-es-edicion="<?php echo $esEdicion ? 'true' : 'false'; ?>">
@@ -31,12 +32,20 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
             <?php endif; ?>
         </div>
     </div>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 border-start border-danger border-4 mb-4">
-            <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i> <?php echo e((string) $_GET['error']); ?>
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
+    <?php if ($swalError !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: <?php echo json_encode($swalError); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
     <?php endif; ?>
 
     <div class="card border-0 shadow-sm">
