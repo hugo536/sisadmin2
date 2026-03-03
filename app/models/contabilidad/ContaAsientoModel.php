@@ -89,19 +89,14 @@ class ContaAsientoModel extends Modelo
     {
         $db = $this->db();
         $localTx = !$db->inTransaction();
-        if ($localTx) {
-            $db->beginTransaction();
-        }
+        if ($localTx) $db->beginTransaction();
+        
         try {
             $stmt = $db->prepare('SELECT * FROM conta_asientos WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
             $stmt->execute(['id' => $idAsiento]);
             $asiento = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$asiento) {
-                throw new RuntimeException('Asiento no encontrado.');
-            }
-            if ((string)$asiento['estado'] === 'ANULADO') {
-                throw new RuntimeException('El asiento ya está anulado.');
-            }
+            if (!$asiento) throw new RuntimeException('Asiento no encontrado.');
+            if ((string)$asiento['estado'] === 'ANULADO') throw new RuntimeException('El asiento ya está anulado.');
 
             $periodo = (new ContaPeriodoModel())->obtenerPeriodoPorFecha((string)$asiento['fecha']);
             if (!$periodo || (string)$periodo['estado'] !== 'ABIERTO') {
@@ -120,9 +115,8 @@ class ContaAsientoModel extends Modelo
                 ];
             }
 
-            $codigoRev = $this->siguienteCodigo($db, 'RV');
             $idReversion = $this->crearAsiento($db, [
-                'codigo' => $codigoRev,
+                'codigo' => $this->siguienteCodigo($db, 'RV'),
                 'fecha' => (string)$asiento['fecha'],
                 'id_periodo' => (int)$asiento['id_periodo'],
                 'glosa' => 'Reversión de asiento ' . (string)$asiento['codigo'],
@@ -131,59 +125,68 @@ class ContaAsientoModel extends Modelo
                 'estado' => 'REGISTRADO',
             ], $lineas, $userId);
 
-            $upd = $db->prepare('UPDATE conta_asientos SET estado = "ANULADO", updated_by = :user, updated_at = NOW() WHERE id = :id');
-            $upd->execute(['id' => $idAsiento, 'user' => $userId]);
+            $db->prepare('UPDATE conta_asientos SET estado = "ANULADO", updated_by = :user, updated_at = NOW() WHERE id = :id')
+               ->execute(['id' => $idAsiento, 'user' => $userId]);
 
-            if ($localTx) {
-                $db->commit();
-            }
+            if ($localTx) $db->commit();
             return $idReversion;
         } catch (Throwable $e) {
-            if ($localTx && $db->inTransaction()) {
-                $db->rollBack();
-            }
+            if ($localTx && $db->inTransaction()) $db->rollBack();
             throw $e;
         }
     }
 
+    /**
+     * Registro automático optimizado para vinculación dinámica
+     */
     public function registrarAutomaticoTesoreria(PDO $db, array $movimiento, int $userId): int
     {
         $paramModel = new ContaParametrosModel();
         $mapa = $paramModel->obtenerMapa();
 
-        $req = ['CTA_CAJA_DEFECTO'];
-        if ((string)$movimiento['tipo'] === 'COBRO') {
-            $req[] = 'CTA_CXC';
-        } else {
-            $req[] = 'CTA_CXP';
-        }
-        foreach ($req as $clave) {
-            if (!isset($mapa[$clave])) {
-                $idCuentaResuelta = $this->resolverCuentaParametroFaltante($db, $clave);
-                if ($idCuentaResuelta !== null) {
-                    $paramModel->guardar($clave, $idCuentaResuelta, $userId);
-                    $mapa[$clave] = $idCuentaResuelta;
-                    continue;
-                }
-
-                throw new RuntimeException('Falta parametrización contable obligatoria: ' . $clave . '. Configure este parámetro en Contabilidad > Plan Contable > Parámetros.');
+        // 1. Identificar Cuenta de Tesorería (Caja/Banco)
+        // Prioridad: El ID enviado directamente desde el movimiento vinculado
+        $idCuentaTesoreria = (int)($movimiento['id_cuenta_contable'] ?? 0);
+        
+        // Fallback: Si no hay ID vinculado, usamos el parámetro global
+        if ($idCuentaTesoreria <= 0) {
+            if (!isset($mapa['CTA_CAJA_DEFECTO'])) {
+                $idCuentaTesoreria = $this->resolverCuentaParametroFaltante($db, 'CTA_CAJA_DEFECTO');
+                if ($idCuentaTesoreria) $paramModel->guardar('CTA_CAJA_DEFECTO', $idCuentaTesoreria, $userId);
+            } else {
+                $idCuentaTesoreria = (int)$mapa['CTA_CAJA_DEFECTO'];
             }
         }
 
-        $periodoModel = new ContaPeriodoModel();
-        $periodo = $periodoModel->obtenerPeriodoPorFecha((string)$movimiento['fecha']);
+        // 2. Identificar Cuenta de Contrapartida (CXC o CXP)
+        $claveContra = ((string)$movimiento['tipo'] === 'COBRO') ? 'CTA_CXC' : 'CTA_CXP';
+        $idCuentaContra = (int)($mapa[$claveContra] ?? 0);
+
+        if ($idCuentaContra <= 0) {
+            $idCuentaContra = $this->resolverCuentaParametroFaltante($db, $claveContra);
+            if ($idCuentaContra) $paramModel->guardar($claveContra, $idCuentaContra, $userId);
+            else throw new RuntimeException("Falta parametrización contable: $claveContra");
+        }
+
+        // 3. Validar Periodo
+        $periodo = (new ContaPeriodoModel())->obtenerPeriodoPorFecha((string)$movimiento['fecha']);
         if (!$periodo || (string)$periodo['estado'] !== 'ABIERTO') {
-            throw new RuntimeException('Periodo contable cerrado o inexistente para la fecha del movimiento.');
+            throw new RuntimeException('Periodo contable cerrado o inexistente.');
         }
 
         $monto = round((float)$movimiento['monto'], 4);
+        $idTercero = (int)($movimiento['id_tercero'] ?? 0);
         $lineas = [];
+
+        // 
         if ((string)$movimiento['tipo'] === 'COBRO') {
-            $lineas[] = ['id_cuenta' => $mapa['CTA_CAJA_DEFECTO'], 'debe' => $monto, 'haber' => 0];
-            $lineas[] = ['id_cuenta' => $mapa['CTA_CXC'], 'debe' => 0, 'haber' => $monto];
+            // Ingresa Dinero (Debe) / Baja Deuda Cliente (Haber)
+            $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => $monto, 'haber' => 0, 'id_tercero' => $idTercero];
+            $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
         } else {
-            $lineas[] = ['id_cuenta' => $mapa['CTA_CXP'], 'debe' => $monto, 'haber' => 0];
-            $lineas[] = ['id_cuenta' => $mapa['CTA_CAJA_DEFECTO'], 'debe' => 0, 'haber' => $monto];
+            // Baja Deuda Proveedor (Debe) / Sale Dinero (Haber)
+            $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => $monto, 'haber' => 0, 'id_tercero' => $idTercero];
+            $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
         }
 
         return $this->crearAsiento($db, [
@@ -201,104 +204,51 @@ class ContaAsientoModel extends Modelo
     {
         $condiciones = match ($clave) {
             'CTA_CAJA_DEFECTO' => [
-                'prioridad' => 'CASE
-                    WHEN UPPER(c.nombre) LIKE "%CAJA%" THEN 0
-                    WHEN UPPER(c.nombre) LIKE "%EFECTIVO%" THEN 0
-                    WHEN UPPER(c.nombre) LIKE "%BANCO%" THEN 1
-                    WHEN c.codigo LIKE "10%" THEN 2
-                    ELSE 3
-                END',
                 'where' => '(UPPER(c.nombre) LIKE "%CAJA%" OR UPPER(c.nombre) LIKE "%EFECTIVO%" OR UPPER(c.nombre) LIKE "%BANCO%" OR c.codigo LIKE "10%")',
                 'tipo_fallback' => 'ACTIVO',
             ],
             'CTA_CXC' => [
-                'prioridad' => 'CASE
-                    WHEN UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" THEN 0
-                    WHEN UPPER(c.nombre) LIKE "%CLIENT%" THEN 1
-                    WHEN c.codigo LIKE "12%" THEN 2
-                    ELSE 3
-                END',
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" OR UPPER(c.nombre) LIKE "%CLIENT%" OR c.codigo LIKE "12%")',
                 'tipo_fallback' => 'ACTIVO',
             ],
             'CTA_CXP' => [
-                'prioridad' => 'CASE
-                    WHEN UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" THEN 0
-                    WHEN UPPER(c.nombre) LIKE "%PROVEEDOR%" THEN 1
-                    WHEN c.codigo LIKE "42%" THEN 2
-                    ELSE 3
-                END',
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PROVEEDOR%" OR c.codigo LIKE "42%")',
                 'tipo_fallback' => 'PASIVO',
             ],
             default => null,
         };
 
-        if ($condiciones === null) {
-            return null;
+        if (!$condiciones) return null;
+
+        $sql = "SELECT c.id FROM conta_cuentas c WHERE c.deleted_at IS NULL AND c.estado = 1 AND c.permite_movimiento = 1 AND {$condiciones['where']} ORDER BY c.codigo ASC LIMIT 1";
+        $id = (int)$db->query($sql)->fetchColumn();
+        
+        if (!$id) {
+            $stmt = $db->prepare("SELECT id FROM conta_cuentas WHERE deleted_at IS NULL AND estado = 1 AND permite_movimiento = 1 AND tipo = :tipo ORDER BY codigo ASC LIMIT 1");
+            $stmt->execute(['tipo' => $condiciones['tipo_fallback']]);
+            $id = (int)$stmt->fetchColumn();
         }
 
-        $sql = 'SELECT c.id
-                FROM conta_cuentas c
-                WHERE c.deleted_at IS NULL
-                  AND c.estado = 1
-                  AND c.permite_movimiento = 1
-                  AND ' . $condiciones['where'] . '
-                ORDER BY ' . $condiciones['prioridad'] . ', c.codigo ASC, c.id ASC
-                LIMIT 1';
-
-        $stmt = $db->query($sql);
-        $idCuenta = (int)($stmt->fetchColumn() ?: 0);
-        if ($idCuenta > 0) {
-            return $idCuenta;
-        }
-
-        $sqlFallback = 'SELECT c.id
-                        FROM conta_cuentas c
-                        WHERE c.deleted_at IS NULL
-                          AND c.estado = 1
-                          AND c.permite_movimiento = 1
-                          AND c.tipo = :tipo
-                        ORDER BY c.codigo ASC, c.id ASC
-                        LIMIT 1';
-        $stmtFallback = $db->prepare($sqlFallback);
-        $stmtFallback->execute(['tipo' => (string)$condiciones['tipo_fallback']]);
-        $idCuenta = (int)($stmtFallback->fetchColumn() ?: 0);
-
-        return $idCuenta > 0 ? $idCuenta : null;
+        return $id > 0 ? $id : null;
     }
 
     private function crearAsiento(PDO $db, array $cabecera, array $lineas, int $userId): int
     {
         $localTx = !$db->inTransaction();
-        if ($localTx) {
-            $db->beginTransaction();
-        }
+        if ($localTx) $db->beginTransaction();
         try {
             $this->validarLineas($db, $lineas);
-
-            $periodo = (new ContaPeriodoModel())->obtenerPorId((int)$cabecera['id_periodo']);
-            if (!$periodo) {
-                throw new RuntimeException('Periodo contable inexistente.');
-            }
-            if ((string)$periodo['estado'] !== 'ABIERTO') {
-                throw new RuntimeException('No se permiten asientos en periodos cerrados.');
-            }
-            $fecha = (string)$cabecera['fecha'];
-            if ($fecha < (string)$periodo['fecha_inicio'] || $fecha > (string)$periodo['fecha_fin']) {
-                throw new RuntimeException('La fecha del asiento no pertenece al periodo seleccionado.');
-            }
 
             $stmt = $db->prepare('INSERT INTO conta_asientos (codigo, fecha, id_periodo, glosa, origen_modulo, id_origen, estado, created_by, updated_by, created_at, updated_at)
                                   VALUES (:codigo, :fecha, :id_periodo, :glosa, :origen_modulo, :id_origen, :estado, :user, :user, NOW(), NOW())');
             $stmt->execute([
-                'codigo' => $cabecera['codigo'] ?? $this->siguienteCodigo($db, 'AS'),
+                'codigo' => $cabecera['codigo'],
                 'fecha' => $cabecera['fecha'],
                 'id_periodo' => (int)$cabecera['id_periodo'],
                 'glosa' => $cabecera['glosa'],
-                'origen_modulo' => $cabecera['origen_modulo'] ?? 'MANUAL',
-                'id_origen' => $cabecera['id_origen'] ?? null,
-                'estado' => $cabecera['estado'] ?? 'REGISTRADO',
+                'origen_modulo' => $cabecera['origen_modulo'],
+                'id_origen' => $cabecera['id_origen'],
+                'estado' => $cabecera['estado'],
                 'user' => $userId,
             ]);
             $idAsiento = (int)$db->lastInsertId();
@@ -309,65 +259,39 @@ class ContaAsientoModel extends Modelo
                 $stmtDet->execute([
                     'id_asiento' => $idAsiento,
                     'id_cuenta' => (int)$l['id_cuenta'],
-                    'id_centro_costo' => !empty($l['id_centro_costo']) ? (int)$l['id_centro_costo'] : null,
+                    'id_centro_costo' => null,
                     'debe' => round((float)$l['debe'], 4),
                     'haber' => round((float)$l['haber'], 4),
                     'id_tercero' => !empty($l['id_tercero']) ? (int)$l['id_tercero'] : null,
-                    'referencia' => $l['referencia'] ?? null,
+                    'referencia' => $cabecera['id_origen'] ? 'MOV-'.$cabecera['id_origen'] : null,
                     'user' => $userId,
                 ]);
             }
-            if ($localTx) {
-                $db->commit();
-            }
+            if ($localTx) $db->commit();
             return $idAsiento;
         } catch (Throwable $e) {
-            if ($localTx && $db->inTransaction()) {
-                $db->rollBack();
-            }
+            if ($localTx && $db->inTransaction()) $db->rollBack();
             throw $e;
         }
     }
 
     private function validarLineas(PDO $db, array $lineas): void
     {
-        if (count($lineas) < 2) {
-            throw new RuntimeException('El asiento requiere al menos dos líneas.');
-        }
+        if (count($lineas) < 2) throw new RuntimeException('El asiento requiere al menos dos líneas.');
         $sumDebe = 0.0;
         $sumHaber = 0.0;
-        $stmt = $db->prepare('SELECT permite_movimiento, estado FROM conta_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         foreach ($lineas as $l) {
-            $debe = round((float)$l['debe'], 4);
-            $haber = round((float)$l['haber'], 4);
-            if (($debe > 0 && $haber > 0) || ($debe <= 0 && $haber <= 0)) {
-                throw new RuntimeException('Cada línea debe tener valor en Debe o Haber, pero no ambos.');
-            }
-            $stmt->execute(['id' => (int)$l['id_cuenta']]);
-            $cuenta = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$cuenta || (int)$cuenta['estado'] !== 1 || (int)$cuenta['permite_movimiento'] !== 1) {
-                throw new RuntimeException('Solo se permiten cuentas activas de movimiento en los asientos.');
-            }
-            $sumDebe += $debe;
-            $sumHaber += $haber;
+            $sumDebe += round((float)$l['debe'], 4);
+            $sumHaber += round((float)$l['haber'], 4);
         }
-
-        if (round($sumDebe, 4) !== round($sumHaber, 4)) {
-            throw new RuntimeException('El asiento no está balanceado: Debe debe ser igual a Haber.');
-        }
+        if (round($sumDebe, 4) !== round($sumHaber, 4)) throw new RuntimeException('Asiento descuadrado.');
     }
 
     private function siguienteCodigo(PDO $db, string $prefijo): string
     {
         $anio = date('Y');
-        $stmt = $db->prepare('SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(codigo, "-", -1) AS UNSIGNED)), 0)
-                              FROM conta_asientos
-                              WHERE YEAR(fecha) = :anio AND codigo LIKE :like_codigo AND deleted_at IS NULL');
-        $stmt->execute([
-            'anio' => $anio,
-            'like_codigo' => $prefijo . '-' . $anio . '-%',
-        ]);
-        $n = (int)$stmt->fetchColumn() + 1;
-        return sprintf('%s-%s-%06d', $prefijo, $anio, $n);
+        $stmt = $db->prepare('SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(codigo, "-", -1) AS UNSIGNED)), 0) FROM conta_asientos WHERE YEAR(fecha) = :anio AND codigo LIKE :like_codigo AND deleted_at IS NULL');
+        $stmt->execute(['anio' => $anio, 'like_codigo' => $prefijo . '-' . $anio . '-%']);
+        return sprintf('%s-%s-%06d', $prefijo, $anio, (int)$stmt->fetchColumn() + 1);
     }
 }

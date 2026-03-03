@@ -245,7 +245,9 @@ if (!empty($_GET['error'])) {
                             <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="">Seleccione cuenta...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <option value="<?php echo (int) $c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?></option>
+                                    <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -306,7 +308,9 @@ if (!empty($_GET['error'])) {
                             <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="">Seleccione cuenta...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <option value="<?php echo (int) $c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?></option>
+                                    <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

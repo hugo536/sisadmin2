@@ -225,6 +225,18 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                                     <label class="form-label small text-muted fw-bold mb-1">Fecha saldo inicial</label>
                                     <input type="date" name="fecha_saldo_inicial" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['fecha_saldo_inicial'] ?? '')); ?>">
                                 </div>
+                                <div class="col-12 col-md-12">
+                                    <label class="form-label small text-muted fw-bold mb-1">Vincular con Cuenta del Plan Contable <span class="text-danger">*</span></label>
+                                    <select name="id_cuenta_contable" class="form-select shadow-none border-primary" required>
+                                        <option value="">-- Seleccione la cuenta para el asiento contable --</option>
+                                        <?php foreach ($cuentasMovimiento as $cm): ?>
+                                            <option value="<?php echo (int)$cm['id']; ?>" <?php echo (isset($cuentaEditar['id_cuenta_contable']) && (int)$cuentaEditar['id_cuenta_contable'] === (int)$cm['id']) ? 'selected' : ''; ?>>
+                                                <?php echo e($cm['codigo'] . ' - ' . $cm['nombre']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <small class="text-muted">Esta cuenta se usará automáticamente para generar los asientos de cobros/pagos.</small>
+                                </div>
                             </div>
                         </div>
                     </div>

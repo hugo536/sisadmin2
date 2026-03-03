@@ -7,6 +7,8 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
+// Importamos el modelo de contabilidad para listar las cuentas del plan
+require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
 
 class TesoreriaController extends Controlador
 {
@@ -14,6 +16,7 @@ class TesoreriaController extends Controlador
     private TesoreriaCxpModel $cxpModel;
     private TesoreriaMovimientoModel $movModel;
     private TesoreriaCuentaModel $cuentaModel;
+    private ContaCuentaModel $planContableModel;
 
     public function __construct()
     {
@@ -22,6 +25,7 @@ class TesoreriaController extends Controlador
         $this->cxpModel = new TesoreriaCxpModel();
         $this->movModel = new TesoreriaMovimientoModel();
         $this->cuentaModel = new TesoreriaCuentaModel();
+        $this->planContableModel = new ContaCuentaModel();
     }
 
     public function index(): void
@@ -31,7 +35,6 @@ class TesoreriaController extends Controlador
         
         redirect('tesoreria/cuentas');
     }
-
 
     // ========================================================================
     // MÓDULO: CUENTAS (CAJA/BANCO/BILLETERA)
@@ -47,6 +50,8 @@ class TesoreriaController extends Controlador
             'ruta_actual' => 'tesoreria/cuentas',
             'cuentas' => $this->cuentaModel->listarGestion(),
             'bancos' => $this->cuentaModel->listarBancosConfigurados(),
+            // Enviamos las cuentas transaccionales del Plan Contable para el modal
+            'cuentasMovimiento' => $this->planContableModel->listarMovimientoActivas(),
             'cuentaEditar' => $idEditar > 0 ? $this->cuentaModel->obtenerPorId($idEditar) : null,
         ]);
     }
@@ -67,6 +72,8 @@ class TesoreriaController extends Controlador
                 'nombre' => trim((string) ($_POST['nombre'] ?? '')),
                 'tipo' => strtoupper(trim((string) ($_POST['tipo'] ?? 'CAJA'))),
                 'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                // Nuevo campo: Vinculación con el ID de la cuenta del Plan Contable
+                'id_cuenta_contable' => (int) ($_POST['id_cuenta_contable'] ?? 0),
                 'config_banco_id' => (int) ($_POST['config_banco_id'] ?? 0),
                 'titular' => trim((string) ($_POST['titular'] ?? '')),
                 'tipo_cuenta' => trim((string) ($_POST['tipo_cuenta'] ?? '')),
@@ -83,18 +90,14 @@ class TesoreriaController extends Controlador
 
             $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
 
-            if ((int) $payload['id'] > 0) {
-                redirect('tesoreria/cuentas?ok=1&action=updated');
-            }
+            $action = ((int) $payload['id'] > 0) ? 'updated' : 'created';
+            redirect("tesoreria/cuentas?ok=1&action={$action}");
 
-            redirect('tesoreria/cuentas?ok=1&action=created');
         } catch (Throwable $e) {
             $errorUrl = 'tesoreria/cuentas?error=' . urlencode($e->getMessage());
-
             if ((int) ($_POST['id'] ?? 0) > 0) {
                 $errorUrl .= '&id=' . (int) $_POST['id'];
             }
-
             redirect($errorUrl);
         }
     }
@@ -107,19 +110,17 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxc.ver');
 
-        // Saneamiento de filtros para el modelo y la vista
         $filtros = [
             'estado'      => trim((string) ($_GET['estado'] ?? '')),
             'moneda'      => trim((string) ($_GET['moneda'] ?? '')),
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
-        // Nota: Si esta petición viene de AJAX (JS), la vista renderizará todo
-        // y nuestro JS extraerá solo la tabla y el badge de forma silenciosa.
         $this->render('tesoreria/tesoreria_cxc', [
             'ruta_actual' => 'tesoreria/cxc',
             'registros'   => $this->cxcModel->listar($filtros),
             'filtros'     => $filtros,
+            // Lista cuentas de tesorería activas con su vinculación contable
             'cuentas'     => $this->cuentaModel->listarActivas(),
             'metodos'     => $this->listarMetodosPago(),
             'clientes'    => $this->listarClientesActivos(),
@@ -223,10 +224,8 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('Datos inválidos para anular el movimiento.');
             }
 
-            // 1. Anular el movimiento en la base de datos
             $this->movModel->anular($idMovimiento, $userId);
             
-            // 2. Recalcular el saldo y estado del documento origen
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } else {
@@ -240,7 +239,7 @@ class TesoreriaController extends Controlador
     }
 
     // ========================================================================
-    // MÉTODOS INTEGRADORES (Llamados desde otros módulos como Ventas/Compras)
+    // MÉTODOS INTEGRADORES
     // ========================================================================
     public function generar_cxc_desde_venta(int $idDocumentoVenta, int $userId): ?int
     {
@@ -270,8 +269,8 @@ class TesoreriaController extends Controlador
             }
 
             $payload = [
-                'tipo'           => $tipo, // 'COBRO' o 'PAGO'
-                'origen'         => $origen, // 'CXC' o 'CXP'
+                'tipo'           => $tipo,
+                'origen'         => $origen,
                 'id_origen'      => $idOrigen,
                 'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
                 'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
@@ -283,11 +282,8 @@ class TesoreriaController extends Controlador
             ];
 
             $userId = $this->obtenerUsuarioId();
-            
-            // 1. Registrar el ingreso/salida de dinero
             $this->movModel->registrar($payload, $userId);
             
-            // 2. Recalcular el saldo del documento origen (Factura/Boleta/Guía)
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } else {
@@ -296,7 +292,6 @@ class TesoreriaController extends Controlador
 
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
-            // Pasamos el error por URL de forma segura para que la vista lo atrape
             redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
         }
     }
@@ -312,13 +307,8 @@ class TesoreriaController extends Controlador
             $monto = round((float) ($_POST['monto'] ?? 0), 4);
             $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
 
-            if ($idTercero <= 0) {
-                throw new RuntimeException('Debe seleccionar un tercero válido.');
-            }
-
-            if ($monto <= 0) {
-                throw new RuntimeException('El monto debe ser mayor a cero.');
-            }
+            if ($idTercero <= 0) throw new RuntimeException('Debe seleccionar un tercero válido.');
+            if ($monto <= 0) throw new RuntimeException('El monto debe ser mayor a cero.');
 
             $idsOrigen = $origen === 'CXC'
                 ? $this->cxcModel->listarPendientesPorAntiguedad($idTercero, $moneda)
@@ -389,7 +379,7 @@ class TesoreriaController extends Controlador
     {
         $id = (int) ($_SESSION['id'] ?? 0);
         if ($id <= 0) {
-            throw new RuntimeException('Sesión inválida o expirada. Por favor, inicie sesión nuevamente.');
+            throw new RuntimeException('Sesión inválida o expirada.');
         }
         return $id;
     }
