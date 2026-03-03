@@ -4,6 +4,23 @@ declare(strict_types=1);
 
 class TesoreriaCxcModel extends Modelo
 {
+    public function listarClientesConSaldoPendiente(): array
+    {
+        $sql = 'SELECT c.id_cliente,
+                       c.moneda,
+                       ROUND(SUM(c.saldo), 4) AS saldo_total,
+                       COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente
+                FROM tesoreria_cxc c
+                LEFT JOIN terceros t ON t.id = c.id_cliente
+                WHERE c.deleted_at IS NULL
+                  AND c.estado <> "ANULADA"
+                  AND c.saldo > 0
+                GROUP BY c.id_cliente, c.moneda, t.nombre_completo
+                ORDER BY t.nombre_completo ASC, c.moneda ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function listar(array $filtros = []): array
     {
         // MEJORA: Usamos LEFT JOIN para no perder la deuda si el cliente fue "soft-deleted"

@@ -3,6 +3,7 @@ $registros = $registros ?? [];
 $filtros = $filtros ?? [];
 $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
+$proveedoresPendientes = $proveedoresPendientes ?? [];
 
 $badge = static function (string $estado): string {
     return match ($estado) {
@@ -28,6 +29,9 @@ $badge = static function (string $estado): string {
             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>
+            <button type="button" class="btn btn-warning shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalPagoManual">
+                <i class="bi bi-magic me-2"></i>Pago Manual FIFO
+            </button>
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
@@ -253,6 +257,79 @@ $badge = static function (string $estado): string {
                 <div class="modal-footer bg-white">
                     <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-warning px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="modalPagoManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="bi bi-magic me-2"></i>Pago Manual por Proveedor (FIFO)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_pago_manual')); ?>" class="js-form-confirm js-form-monto">
+                <div class="modal-body p-4 bg-light">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Proveedor / Moneda <span class="text-danger">*</span></label>
+                            <select name="id_tercero" id="pagoManualTercero" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="">Seleccione proveedor...</option>
+                                <?php foreach($proveedoresPendientes as $proveedor): ?>
+                                    <option value="<?php echo (int) $proveedor['id_proveedor']; ?>"
+                                            data-moneda="<?php echo e((string) $proveedor['moneda']); ?>"
+                                            data-saldo="<?php echo e((string) $proveedor['saldo_total']); ?>">
+                                        <?php echo e((string) $proveedor['proveedor']); ?> - <?php echo e((string) $proveedor['moneda']); ?> (Saldo: <?php echo e(number_format((float) $proveedor['saldo_total'], 2)); ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
+                            <input name="moneda" id="pagoManualMoneda" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-secondary" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Saldo Total Pendiente</label>
+                            <input id="pagoManualSaldo" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-danger" readonly data-saldo-target="1">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="">Seleccione cuenta...</option>
+                                <?php foreach($cuentas as $c): ?>
+                                    <option value="<?php echo (int) $c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
+                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <?php foreach($metodos as $m): ?>
+                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Aplicar Pago FIFO</button>
                 </div>
             </form>
         </div>
