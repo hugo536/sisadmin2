@@ -37,7 +37,12 @@ class ContaParametrosModel extends Modelo
         }
 
         $ins = $this->db()->prepare('INSERT INTO conta_parametros (clave, id_cuenta, created_by, updated_by, created_at, updated_at)
-                                     VALUES (:clave, :id_cuenta, :user, :user, NOW(), NOW())');
-        $ins->execute(['clave' => $clave, 'id_cuenta' => $idCuenta, 'user' => $userId]);
+                                     VALUES (:clave, :id_cuenta, :created_by, :updated_by, NOW(), NOW())');
+        $ins->execute([
+            'clave' => $clave,
+            'id_cuenta' => $idCuenta,
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
     }
 }
