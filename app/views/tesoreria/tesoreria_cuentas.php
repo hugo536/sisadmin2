@@ -32,12 +32,6 @@ $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
         </div>
     </div>
 
-    <?php if (!empty($_GET['ok'])): ?>
-        <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 border-start border-success border-4 mb-4">
-            <i class="bi bi-check-circle-fill fs-5 me-2"></i> Cuenta guardada correctamente.
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
-    <?php endif; ?>
     <?php if (!empty($_GET['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 border-start border-danger border-4 mb-4">
             <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i> <?php echo e((string) $_GET['error']); ?>

@@ -82,7 +82,11 @@ class TesoreriaController extends Controlador
             ];
 
             $id = $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
-            redirect('tesoreria/cuentas?ok=1&id=' . $id);
+            if ((int) $payload['id'] > 0) {
+                redirect('tesoreria/cuentas?ok=1&id=' . $id);
+            }
+
+            redirect('tesoreria/cuentas?ok=1');
         } catch (Throwable $e) {
             redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
         }
