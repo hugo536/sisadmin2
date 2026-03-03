@@ -8,6 +8,7 @@ require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaParametrosModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 
 class ContabilidadController extends Controlador
 {
@@ -16,6 +17,7 @@ class ContabilidadController extends Controlador
     private ContaAsientoModel $asientoModel;
     private ContaParametrosModel $paramModel;
     private CentroCostoModel $centroCostoModel;
+    private TesoreriaCuentaModel $tesoreriaCuentaModel;
 
     public function __construct()
     {
@@ -25,6 +27,7 @@ class ContabilidadController extends Controlador
         $this->asientoModel = new ContaAsientoModel();
         $this->paramModel = new ContaParametrosModel();
         $this->centroCostoModel = new CentroCostoModel();
+        $this->tesoreriaCuentaModel = new TesoreriaCuentaModel();
     }
 
     public function index(): void
@@ -44,6 +47,7 @@ class ContabilidadController extends Controlador
             'cuentas' => $this->cuentaModel->listar(),
             'parametros' => $this->paramModel->listar(),
             'cuentasMovimiento' => $this->cuentaModel->listarMovimientoActivas(),
+            'cuentasTesoreria' => $this->tesoreriaCuentaModel->listarGestion(),
         ]);
     }
 
@@ -126,6 +130,24 @@ class ContabilidadController extends Controlador
 
         try {
             $this->paramModel->eliminar((int)($_POST['id_parametro'] ?? 0), $this->uid());
+            redirect('contabilidad/plan?ok=1');
+        } catch (Throwable $e) {
+            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function vincular_tesoreria(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.plan_contable.gestionar');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('contabilidad/plan');
+        }
+
+        try {
+            $idCuentaTesoreria = (int)($_POST['id_cuenta_tesoreria'] ?? 0);
+            $idCuentaContable = (int)($_POST['id_cuenta_contable'] ?? 0);
+            $this->tesoreriaCuentaModel->vincularCuentaContable($idCuentaTesoreria, $idCuentaContable, $this->uid());
             redirect('contabilidad/plan?ok=1');
         } catch (Throwable $e) {
             redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));

@@ -93,12 +93,11 @@ class TesoreriaMovimientoModel extends Modelo
 
             // 2. Validar cuenta de tesorería y OBTENER VINCULACIÓN CONTABLE
             // 
-            $stmtCuenta = $db->prepare('SELECT id, moneda, estado, id_cuenta_contable FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+            $stmtCuenta = $db->prepare('SELECT id, moneda, estado FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
             $stmtCuenta->execute(['id' => (int) $data['id_cuenta']]);
             $cuentaTes = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
             
             if (!$cuentaTes || (int)$cuentaTes['estado'] !== 1) throw new RuntimeException('La cuenta de tesorería está inactiva.');
-            if (!$cuentaTes['id_cuenta_contable']) throw new RuntimeException('La cuenta de tesorería no tiene una cuenta del Plan Contable vinculada.');
 
             // 3. Insertar el movimiento de tesorería
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
@@ -136,7 +135,7 @@ class TesoreriaMovimientoModel extends Modelo
                 'tipo'               => strtoupper(trim((string)$data['tipo'])), // COBRO o PAGO
                 'fecha'              => (string)$data['fecha'],
                 'monto'              => $monto,
-                'id_cuenta_contable' => (int)$cuentaTes['id_cuenta_contable'], // Usamos el vínculo directo
+                'id_cuenta_tesoreria' => (int)$data['id_cuenta'],
                 'id_tercero'         => (int)$origenRow['id_tercero']
             ], $userId);
 
@@ -160,13 +159,6 @@ class TesoreriaMovimientoModel extends Modelo
             $idTercero = (int) ($data['id_tercero'] ?? 0);
             $montoTotal = round((float) ($data['monto'] ?? 0), 4);
             $moneda = strtoupper(trim((string) ($data['moneda'] ?? 'PEN')));
-
-            // Obtener vinculación contable de la cuenta seleccionada
-            $stmtCuenta = $db->prepare('SELECT id_cuenta_contable FROM tesoreria_cuentas WHERE id = :id AND estado = 1 LIMIT 1');
-            $stmtCuenta->execute(['id' => (int)$data['id_cuenta']]);
-            $idCuentaContable = (int)$stmtCuenta->fetchColumn();
-
-            if (!$idCuentaContable) throw new RuntimeException('La cuenta de tesorería no tiene vinculación contable.');
 
             $restante = $montoTotal;
             $movimientosCount = 0;
