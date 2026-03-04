@@ -9,12 +9,27 @@ class TesoreriaCuentaModel extends Modelo
      */
     public function listarActivas(): array
     {
-        // AQUI ESTÁ LA CORRECCIÓN: Agregamos id_cuenta_contable al SELECT
-        $sql = 'SELECT id, codigo, nombre, tipo, moneda, id_cuenta_contable
-                FROM tesoreria_cuentas
+        $sql = 'SELECT c.id,
+                       c.codigo,
+                       c.nombre,
+                       c.tipo,
+                       c.moneda,
+                       c.id_cuenta_contable,
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo,
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
+                                    WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
                 WHERE estado = 1 
-                  AND deleted_at IS NULL
-                ORDER BY tipo ASC, nombre ASC';
+                  AND c.deleted_at IS NULL
+                ORDER BY c.tipo ASC, c.nombre ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
