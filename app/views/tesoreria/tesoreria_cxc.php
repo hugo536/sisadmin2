@@ -74,7 +74,7 @@ if (!empty($_GET['error'])) {
                     <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
                         <option value="">Todos los estados</option>
-                        <?php foreach (['PENDIENTE','PARCIAL','PAGADA','VENCIDA','ANULADA'] as $estado): ?>
+                        <?php foreach (['ABIERTA','PARCIAL','PAGADA','VENCIDA','ANULADA'] as $estado): ?>
                             <option value="<?php echo e($estado); ?>" <?php echo (($filtros['estado'] ?? '') === $estado) ? 'selected' : ''; ?>><?php echo e($estado); ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -146,7 +146,7 @@ if (!empty($_GET['error'])) {
                         <?php else: ?>
                             <?php foreach ($registros as $r): ?>
                                 <?php 
-                                    $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
+                                    $estadoStr = (string) ($r['estado'] ?? 'ABIERTA');
                                     // String de búsqueda para JS
                                     $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . $estadoStr);
                                 ?>
@@ -175,7 +175,7 @@ if (!empty($_GET['error'])) {
                                         </span>
                                     </td>
                                     <td class="text-center pe-4 align-top pt-3">
-                                        <?php if (in_array($estadoStr, ['PENDIENTE','PARCIAL','VENCIDA'], true)): ?>
+                                        <?php if (in_array($estadoStr, ['ABIERTA','PARCIAL','VENCIDA'], true)): ?>
                                             <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle js-open-cobro shadow-sm me-1" 
                                                 data-bs-toggle="modal" data-bs-target="#modalCobro"
                                                 data-id-origen="<?php echo (int) $r['id']; ?>" 
