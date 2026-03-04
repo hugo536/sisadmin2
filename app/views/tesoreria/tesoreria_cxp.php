@@ -209,7 +209,6 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-
 <div class="modal fade" id="modalPagoManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -239,20 +238,19 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="montoPagarManual" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione cuenta origen...</option>
-                                <?php foreach($cuentas as $c): ?>
-                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
-                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
-                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
-                                        </option>
-                                    <?php endif; ?>
+                            <label class="form-label fw-bold small text-muted">Cuenta Origen <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" id="selectCuentaOrigenManual" class="form-select shadow-none" required>
+                                <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
+                                <?php foreach ($cuentas as $cta): ?>
+                                    <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
+                                        <?php echo htmlspecialchars($cta['nombre']); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
+                            <small id="textoSaldoDisponibleManual" class="text-primary fw-bold mt-1 d-block"></small>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
@@ -308,17 +306,16 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione cuenta origen...</option>
-                                <?php foreach($cuentas as $c): ?>
-                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
-                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
-                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
-                                        </option>
-                                    <?php endif; ?>
+                            <label class="form-label fw-bold small text-muted">Cuenta Origen <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" id="selectCuentaOrigen" class="form-select shadow-none" required>
+                                <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
+                                <?php foreach ($cuentas as $cta): ?>
+                                    <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
+                                        <?php echo htmlspecialchars($cta['nombre']); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
+                            <small id="textoSaldoDisponible" class="text-primary fw-bold mt-1 d-block"></small>
                         </div>
                         
                         <div class="col-md-12">

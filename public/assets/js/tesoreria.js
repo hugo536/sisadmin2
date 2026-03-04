@@ -213,6 +213,111 @@ document.addEventListener('DOMContentLoaded', () => {
         modalPagoEl.addEventListener('hidden.bs.modal', function () {
             const formPago = modalPagoEl.querySelector('form');
             if (formPago) formPago.reset();
+            
+            // Limpiar los textos de saldo al cerrar
+            const txtSaldo = document.getElementById('textoSaldoDisponible');
+            if(txtSaldo) txtSaldo.innerHTML = '';
+            
+            const inputMonto = document.getElementById('pagoMonto');
+            if(inputMonto) inputMonto.classList.remove('is-invalid');
         });
+    }
+
+    // ========================================================================
+    // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO ESPECÍFICO Y MANUAL)
+    // ========================================================================
+    
+    // --- Lógica para el Modal de PAGO ESPECÍFICO ---
+    const selectCuenta = document.getElementById('selectCuentaOrigen');
+    const textoSaldo = document.getElementById('textoSaldoDisponible');
+    const inputMonto = document.getElementById('pagoMonto');
+    const inputPendiente = document.getElementById('pagoSaldo');
+
+    if(selectCuenta && inputMonto && inputPendiente && textoSaldo) {
+        function actualizarMaximoEspecifico() {
+            const opt = selectCuenta.options[selectCuenta.selectedIndex];
+            const pendiente = parseFloat(inputPendiente.value) || 0;
+
+            if(!opt || opt.value === "") {
+                textoSaldo.innerHTML = "";
+                inputMonto.setAttribute('max', pendiente); // Vuelve al límite original de la deuda
+                return;
+            }
+            
+            const saldoCuenta = parseFloat(opt.getAttribute('data-saldo')) || 0;
+            textoSaldo.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: $${saldoCuenta.toFixed(2)}`;
+            
+            // El límite será el saldo del banco, o la deuda (lo que sea menor)
+            let maximo = Math.min(saldoCuenta, pendiente);
+            if(maximo < 0) maximo = 0;
+            
+            inputMonto.setAttribute('max', maximo);
+            
+            if(parseFloat(inputMonto.value) > maximo) {
+                inputMonto.value = maximo.toFixed(2);
+            }
+        }
+
+        selectCuenta.addEventListener('change', actualizarMaximoEspecifico);
+
+        // Validación en tiempo real al escribir
+        inputMonto.addEventListener('input', function() {
+            const maxVal = parseFloat(this.getAttribute('max'));
+            if(!isNaN(maxVal) && parseFloat(this.value) > maxVal) {
+                this.value = maxVal.toFixed(2);
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        inputMonto.addEventListener('focus', actualizarMaximoEspecifico);
+    }
+
+    // --- Lógica para el Modal de PAGO MANUAL ---
+    const modalPagoManualEl = document.getElementById('modalPagoManual');
+    const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
+    const textoSaldoManual = document.getElementById('textoSaldoDisponibleManual');
+    const inputMontoManual = document.getElementById('montoPagarManual');
+
+    if(selectCuentaManual && inputMontoManual && textoSaldoManual) {
+        selectCuentaManual.addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            if(!opt || opt.value === "") {
+                textoSaldoManual.innerHTML = "";
+                inputMontoManual.removeAttribute('max');
+                return;
+            }
+            
+            const saldoCuenta = parseFloat(opt.getAttribute('data-saldo')) || 0;
+            textoSaldoManual.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: $${saldoCuenta.toFixed(2)}`;
+            
+            let maximo = saldoCuenta > 0 ? saldoCuenta : 0;
+            inputMontoManual.setAttribute('max', maximo);
+            
+            if(parseFloat(inputMontoManual.value) > maximo) {
+                inputMontoManual.value = maximo.toFixed(2);
+            }
+        });
+
+        inputMontoManual.addEventListener('input', function() {
+            const maxVal = parseFloat(this.getAttribute('max'));
+            if(!isNaN(maxVal) && parseFloat(this.value) > maxVal) {
+                this.value = maxVal.toFixed(2);
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+
+        // Limpiar textos al cerrar el modal de pago manual
+        if(modalPagoManualEl) {
+            modalPagoManualEl.addEventListener('hidden.bs.modal', function () {
+                const formPagoManual = modalPagoManualEl.querySelector('form');
+                if (formPagoManual) formPagoManual.reset();
+                textoSaldoManual.innerHTML = '';
+                inputMontoManual.classList.remove('is-invalid');
+            });
+        }
     }
 });

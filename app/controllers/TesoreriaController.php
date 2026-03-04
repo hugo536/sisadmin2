@@ -7,7 +7,6 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
-// Importamos el modelo de contabilidad para listar las cuentas del plan
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
 
 class TesoreriaController extends Controlador
@@ -32,7 +31,6 @@ class TesoreriaController extends Controlador
     {
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
-        
         redirect('tesoreria/cuentas');
     }
 
@@ -85,7 +83,6 @@ class TesoreriaController extends Controlador
             ];
 
             $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
-
             $action = ((int) $payload['id'] > 0) ? 'updated' : 'created';
             redirect("tesoreria/cuentas?ok=1&action={$action}");
 
@@ -112,12 +109,16 @@ class TesoreriaController extends Controlador
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
+        // FILTRO: Solo cuentas con vinculación contable (sin advertencia amarilla)
+        $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function($cta) {
+            return !empty($cta['id_cuenta_contable']) && (int)$cta['id_cuenta_contable'] > 0;
+        });
+
         $this->render('tesoreria/tesoreria_cxc', [
             'ruta_actual' => 'tesoreria/cxc',
             'registros'   => $this->cxcModel->listar($filtros),
             'filtros'     => $filtros,
-            // Lista cuentas de tesorería activas para operar cobros.
-            'cuentas'     => $this->cuentaModel->listarActivas(),
+            'cuentas'     => $cuentasVinculadas,
             'metodos'     => $this->listarMetodosPago(),
             'clientes'    => $this->listarClientesActivos(),
         ]);
@@ -125,18 +126,24 @@ class TesoreriaController extends Controlador
 
     public function registrar_cobro(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.cobros.registrar');
-        
-        $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.cobros.registrar');
+            $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Registrar Cobro");
+        }
     }
 
     public function registrar_cobro_manual(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.cobros.registrar');
-
-        $this->registrarMovimientoManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.cobros.registrar');
+            $this->registrarMovimientoManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Cobro Manual");
+        }
     }
 
     // ========================================================================
@@ -153,11 +160,16 @@ class TesoreriaController extends Controlador
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
+        // FILTRO: Solo cuentas con vinculación contable (sin advertencia amarilla)
+        $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function($cta) {
+            return !empty($cta['id_cuenta_contable']) && (int)$cta['id_cuenta_contable'] > 0;
+        });
+
         $this->render('tesoreria/tesoreria_cxp', [
             'ruta_actual' => 'tesoreria/cxp',
             'registros'   => $this->cxpModel->listar($filtros),
             'filtros'     => $filtros,
-            'cuentas'     => $this->cuentaModel->listarActivas(),
+            'cuentas'     => $cuentasVinculadas,
             'metodos'     => $this->listarMetodosPago(),
             'proveedores' => $this->listarProveedoresActivos(),
         ]);
@@ -165,18 +177,24 @@ class TesoreriaController extends Controlador
 
     public function registrar_pago(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.pagos.registrar');
-        
-        $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.pagos.registrar');
+            $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Registrar Pago");
+        }
     }
 
     public function registrar_pago_manual(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('tesoreria.pagos.registrar');
-
-        $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.pagos.registrar');
+            $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Pago Manual");
+        }
     }
 
     // ========================================================================
@@ -235,25 +253,12 @@ class TesoreriaController extends Controlador
     }
 
     // ========================================================================
-    // MÉTODOS INTEGRADORES
-    // ========================================================================
-    public function generar_cxc_desde_venta(int $idDocumentoVenta, int $userId): ?int
-    {
-        return $this->cxcModel->crearDesdeVenta($idDocumentoVenta, $userId);
-    }
-
-    public function generar_cxp_desde_recepcion(int $idRecepcion, int $userId): ?int
-    {
-        return $this->cxpModel->crearDesdeRecepcion($idRecepcion, $userId);
-    }
-
-    // ========================================================================
     // FUNCIONES PRIVADAS DE APOYO
     // ========================================================================
     private function registrarMovimientoDesdePost(string $origen, string $tipo, string $redirectRuta): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            redirect($redirectRuta);
+            die("<h2 style='color:red;'>El formulario no se envió por el método POST.</h2>");
         }
 
         try {
@@ -261,7 +266,7 @@ class TesoreriaController extends Controlador
             $monto    = (float) ($_POST['monto'] ?? 0);
             
             if ($idOrigen <= 0) {
-                throw new RuntimeException('Origen de documento inválido.');
+                throw new RuntimeException('ID Origen llegó como 0.');
             }
 
             $payload = [
@@ -288,14 +293,14 @@ class TesoreriaController extends Controlador
 
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
-            redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
+            $this->mostrarErrorFatal($e, "Error guardando el movimiento");
         }
     }
 
     private function registrarMovimientoManualDesdePost(string $origen, string $tipo, string $redirectRuta): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            redirect($redirectRuta);
+             die("<h2 style='color:red;'>El formulario manual no se envió por el método POST.</h2>");
         }
 
         try {
@@ -303,18 +308,18 @@ class TesoreriaController extends Controlador
             $monto = round((float) ($_POST['monto'] ?? 0), 4);
             $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
 
-            if ($idTercero <= 0) throw new RuntimeException('Debe seleccionar un tercero válido.');
+            if ($idTercero <= 0) throw new RuntimeException('Tercero no válido.');
             if ($monto <= 0) throw new RuntimeException('El monto debe ser mayor a cero.');
 
             $idsOrigen = $origen === 'CXC'
                 ? $this->cxcModel->listarPendientesPorAntiguedad($idTercero, $moneda)
                 : $this->cxpModel->listarPendientesPorAntiguedad($idTercero, $moneda);
 
-            if ($idsOrigen === []) {
-                throw new RuntimeException('El tercero seleccionado no tiene documentos pendientes en la moneda indicada.');
+            if (empty($idsOrigen)) {
+                throw new RuntimeException('No hay documentos pendientes en la moneda indicada.');
             }
 
-            $resultado = $this->movModel->registrarDistribuido([
+            $this->movModel->registrarDistribuido([
                 'tipo'           => $tipo,
                 'origen'         => $origen,
                 'id_tercero'     => $idTercero,
@@ -327,56 +332,48 @@ class TesoreriaController extends Controlador
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
             ], $idsOrigen, $this->obtenerUsuarioId());
 
-            if (($resultado['movimientos'] ?? 0) <= 0) {
-                throw new RuntimeException('No se pudo registrar el movimiento manual.');
-            }
-
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
-            redirect($redirectRuta . '?error=' . urlencode($e->getMessage()));
+            $this->mostrarErrorFatal($e, "Error en pago manual distribuido");
         }
     }
 
     private function listarMetodosPago(): array
     {
-        $sql = 'SELECT id, nombre 
-                FROM tesoreria_metodos_pago 
-                WHERE estado = 1 AND deleted_at IS NULL 
-                ORDER BY nombre ASC';
-                
+        $sql = 'SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function listarClientesActivos(): array
     {
-        $sql = 'SELECT id, nombre_completo
-                FROM terceros
-                WHERE estado = 1
-                  AND es_cliente = 1
-                  AND deleted_at IS NULL
-                ORDER BY nombre_completo ASC';
-
+        $sql = 'SELECT id, nombre_completo FROM terceros WHERE estado = 1 AND es_cliente = 1 AND deleted_at IS NULL ORDER BY nombre_completo ASC';
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function listarProveedoresActivos(): array
     {
-        $sql = 'SELECT id, nombre_completo
-                FROM terceros
-                WHERE estado = 1
-                  AND es_proveedor = 1
-                  AND deleted_at IS NULL
-                ORDER BY nombre_completo ASC';
-
+        $sql = 'SELECT id, nombre_completo FROM terceros WHERE estado = 1 AND es_proveedor = 1 AND deleted_at IS NULL ORDER BY nombre_completo ASC';
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function obtenerUsuarioId(): int
     {
         $id = (int) ($_SESSION['id'] ?? 0);
-        if ($id <= 0) {
-            throw new RuntimeException('Sesión inválida o expirada.');
-        }
+        if ($id <= 0) throw new RuntimeException('Sesión expirada.');
         return $id;
+    }
+
+    private function mostrarErrorFatal(Throwable $e, string $contexto): void 
+    {
+        die("
+        <div style='padding:30px; background-color:#ffebee; color:#b71c1c; border: 2px solid #c62828; border-radius: 8px; font-family: sans-serif; margin: 20px;'>
+            <h1 style='margin-top:0;'>❌ Error 500 Capturado</h1>
+            <h3 style='color:#c62828;'>Contexto: {$contexto}</h3>
+            <p><strong>Mensaje Técnico:</strong> " . htmlspecialchars($e->getMessage()) . "</p>
+            <p><strong>Archivo que falló:</strong> " . $e->getFile() . "</p>
+            <p><strong>Línea del error:</strong> " . $e->getLine() . "</p>
+            <hr>
+            <p style='font-size: 14px; color:#555;'><em>Copia este mensaje para solucionarlo.</em></p>
+        </div>");
     }
 }

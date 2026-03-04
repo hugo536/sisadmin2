@@ -238,8 +238,9 @@ class ContaAsientoModel extends Modelo
         try {
             $this->validarLineas($db, $lineas);
 
+            // CORRECCIÓN 1: Marcadores únicos para :created_by y :updated_by
             $stmt = $db->prepare('INSERT INTO conta_asientos (codigo, fecha, id_periodo, glosa, origen_modulo, id_origen, estado, created_by, updated_by, created_at, updated_at)
-                                  VALUES (:codigo, :fecha, :id_periodo, :glosa, :origen_modulo, :id_origen, :estado, :user, :user, NOW(), NOW())');
+                                  VALUES (:codigo, :fecha, :id_periodo, :glosa, :origen_modulo, :id_origen, :estado, :created_by, :updated_by, NOW(), NOW())');
             $stmt->execute([
                 'codigo' => $cabecera['codigo'],
                 'fecha' => $cabecera['fecha'],
@@ -248,12 +249,14 @@ class ContaAsientoModel extends Modelo
                 'origen_modulo' => $cabecera['origen_modulo'],
                 'id_origen' => $cabecera['id_origen'],
                 'estado' => $cabecera['estado'],
-                'user' => $userId,
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
             $idAsiento = (int)$db->lastInsertId();
 
+            // CORRECCIÓN 2: Marcadores únicos en el detalle también
             $stmtDet = $db->prepare('INSERT INTO conta_asientos_detalle (id_asiento, id_cuenta, id_centro_costo, debe, haber, id_tercero, referencia, created_by, updated_by, created_at, updated_at)
-                                     VALUES (:id_asiento, :id_cuenta, :id_centro_costo, :debe, :haber, :id_tercero, :referencia, :user, :user, NOW(), NOW())');
+                                     VALUES (:id_asiento, :id_cuenta, :id_centro_costo, :debe, :haber, :id_tercero, :referencia, :created_by, :updated_by, NOW(), NOW())');
             foreach ($lineas as $l) {
                 $stmtDet->execute([
                     'id_asiento' => $idAsiento,
@@ -263,7 +266,8 @@ class ContaAsientoModel extends Modelo
                     'haber' => round((float)$l['haber'], 4),
                     'id_tercero' => !empty($l['id_tercero']) ? (int)$l['id_tercero'] : null,
                     'referencia' => $cabecera['id_origen'] ? 'MOV-'.$cabecera['id_origen'] : null,
-                    'user' => $userId,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
                 ]);
             }
             if ($localTx) $db->commit();

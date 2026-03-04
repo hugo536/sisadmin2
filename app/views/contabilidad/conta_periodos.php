@@ -10,7 +10,7 @@ $mesesNombres = [
 ];
 
 // ==========================================
-// CORRECCIÓN: Capturador de alertas y errores
+// Capturador de alertas y errores
 // ==========================================
 $swalIcon = null;
 $swalMessage = null;
@@ -215,4 +215,4 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-<script src="<?php echo e(asset_url('js/periodos.js')); ?>"></script>
+<script src="<?php echo e(asset_url('js/contabilidad/periodos.js')); ?>"></script>
