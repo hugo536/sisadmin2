@@ -98,42 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================================
-    // 2. RESTRICCIÓN DE MÉTODOS DE PAGO (Lógica para Cobros/Pagos)
-    // ========================================================================
-    // 
-    const accountSelectors = document.querySelectorAll('select[name="id_cuenta"]');
-    
-    accountSelectors.forEach(select => {
-        select.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const tipoCuenta = (selectedOption.dataset.tipo || '').toUpperCase();
-            
-            // Buscamos el selector de método de pago en el mismo modal/formulario
-            const form = this.closest('form');
-            const metodoPagoSelect = form.querySelector('select[name="id_metodo_pago"]');
-            
-            if (!metodoPagoSelect) return;
-
-            if (tipoCuenta === 'CAJA') {
-                // Si es CAJA, forzamos a EFECTIVO (asumimos que ID 1 es Efectivo, ajusta según tu BD)
-                Array.from(metodoPagoSelect.options).forEach(opt => {
-                    const texto = opt.textContent.toUpperCase();
-                    // Deshabilitamos todo lo que no diga "EFECTIVO"
-                    if (!texto.includes('EFECTIVO') && opt.value !== "") {
-                        opt.disabled = true;
-                    } else if (texto.includes('EFECTIVO')) {
-                        opt.selected = true;
-                    }
-                });
-            } else {
-                // Si es BANCO o BILLETERA, habilitamos todo
-                Array.from(metodoPagoSelect.options).forEach(opt => opt.disabled = false);
-            }
-        });
-    });
-
-    // ========================================================================
-    // 3. CONFIRMACIÓN DE OPERACIONES (SweetAlert2)
+    // 2. CONFIRMACIÓN DE OPERACIONES (SweetAlert2)
     // ========================================================================
     document.querySelectorAll('.js-form-confirm').forEach(form => {
         form.addEventListener('submit', function(e) {
@@ -161,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ========================================================================
-    // 4. LIMPIEZA AL CERRAR MODAL
+    // 3. LIMPIEZA AL CERRAR MODALES DE CUENTA
     // ========================================================================
     if (modalCuentaEl && formCuenta) {
         modalCuentaEl.addEventListener('hidden.bs.modal', () => {
@@ -172,6 +137,82 @@ document.addEventListener('DOMContentLoaded', () => {
                     tipoCuentaSelect.dispatchEvent(new Event('change'));
                 }
             }
+        });
+    }
+
+    // ========================================================================
+    // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
+    // ========================================================================
+    const modalCobroEl = document.getElementById('modalCobro');
+    if (modalCobroEl) {
+        modalCobroEl.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+            
+            const idOrigen = button.getAttribute('data-id-origen');
+            const moneda = button.getAttribute('data-moneda');
+            const saldo = button.getAttribute('data-saldo');
+            
+            const inputIdOrigen = document.getElementById('cobroIdOrigen');
+            if (inputIdOrigen) inputIdOrigen.value = idOrigen || '';
+            
+            const inputMoneda = document.getElementById('cobroMoneda');
+            if (inputMoneda) inputMoneda.value = moneda || '';
+            
+            const saldoNum = parseFloat(saldo) || 0;
+            const saldoFormateado = saldoNum.toFixed(2);
+            
+            const inputSaldo = document.getElementById('cobroSaldo');
+            if (inputSaldo) inputSaldo.value = saldoFormateado;
+            
+            const inputMonto = document.getElementById('cobroMonto');
+            if (inputMonto) {
+                inputMonto.value = saldoFormateado;
+                inputMonto.setAttribute('max', saldoFormateado);
+            }
+        });
+
+        modalCobroEl.addEventListener('hidden.bs.modal', function () {
+            const formCobro = modalCobroEl.querySelector('form');
+            if (formCobro) formCobro.reset();
+        });
+    }
+
+    // ========================================================================
+    // 5. RELLENAR DATOS EN EL MODAL DE PAGO REGULAR (CXP)
+    // ========================================================================
+    const modalPagoEl = document.getElementById('modalPago');
+    if (modalPagoEl) {
+        modalPagoEl.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+            
+            const idOrigen = button.getAttribute('data-id-origen');
+            const moneda = button.getAttribute('data-moneda');
+            const saldo = button.getAttribute('data-saldo');
+            
+            const inputIdOrigen = document.getElementById('pagoIdOrigen');
+            if (inputIdOrigen) inputIdOrigen.value = idOrigen || '';
+            
+            const inputMoneda = document.getElementById('pagoMoneda');
+            if (inputMoneda) inputMoneda.value = moneda || '';
+            
+            const saldoNum = parseFloat(saldo) || 0;
+            const saldoFormateado = saldoNum.toFixed(2);
+            
+            const inputSaldo = document.getElementById('pagoSaldo');
+            if (inputSaldo) inputSaldo.value = saldoFormateado;
+            
+            const inputMonto = document.getElementById('pagoMonto');
+            if (inputMonto) {
+                inputMonto.value = saldoFormateado;
+                inputMonto.setAttribute('max', saldoFormateado);
+            }
+        });
+
+        modalPagoEl.addEventListener('hidden.bs.modal', function () {
+            const formPago = modalPagoEl.querySelector('form');
+            if (formPago) formPago.reset();
         });
     }
 });

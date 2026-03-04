@@ -6,11 +6,19 @@ $cuentasMovimiento = $cuentasMovimiento ?? [];
 $parametros = $parametros ?? [];
 $cuentasTesoreria = $cuentasTesoreria ?? [];
 
-$paramLabels = [
-    'CTA_CAJA_DEFECTO' => 'Caja por defecto (fallback)',
-    'CTA_CXC' => 'Cuenta por cobrar (CXC)',
-    'CTA_CXP' => 'Cuenta por pagar (CXP)',
-];
+$paramLabels = [];
+
+// 1. Agregamos dinámicamente las cuentas de tesorería a los labels 
+// para que se lean correctamente en la tabla de "Parámetros Vigentes"
+if (!empty($cuentasTesoreria)) {
+    foreach ($cuentasTesoreria as $ct) {
+        $codigo = (string)($ct['codigo'] ?? '');
+        if ($codigo !== '') {
+            $paramLabels[$codigo] = $codigo . ' - ' . (string)($ct['nombre'] ?? '');
+        }
+    }
+}
+
 $swalIcon = null;
 $swalMessage = null;
 
@@ -49,14 +57,11 @@ if ($err !== '') {
         </div>
 
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalVinculosTesoreria">
-                <i class="bi bi-bank2 me-2 text-success"></i>Vínculos Tesorería
-            </button>
             <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalParametrosVigentes">
                 <i class="bi bi-link-45deg me-2 text-primary"></i>Parámetros Vigentes
             </button>
             <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalParametros">
-                <i class="bi bi-gear-fill me-2 text-info"></i>Parámetros
+                <i class="bi bi-gear-fill me-2 text-info"></i>Configurar Parámetros
             </button>
             <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalNuevaCuenta">
                 <i class="bi bi-plus-circle-fill me-2"></i>Nueva Cuenta
@@ -97,7 +102,6 @@ if ($err !== '') {
                                     $esActivo = ((int)$c['estado'] === 1);
                                     $aceptaMov = ((int)$c['permite_movimiento'] === 1);
                                     
-                                    // Colores por tipo para lectura rápida
                                     $tipoColor = 'text-secondary';
                                     switch(strtoupper($c['tipo'])) {
                                         case 'ACTIVO': $tipoColor = 'text-success'; break;
@@ -107,7 +111,6 @@ if ($err !== '') {
                                         case 'GASTO': $tipoColor = 'text-primary'; break;
                                     }
 
-                                    // Cálculo de sangría visual según el nivel de la cuenta
                                     $nivel = (int)$c['nivel'];
                                     $paddingLeft = ($nivel > 1) ? ($nivel * 15) . 'px' : '0px';
                                 ?>
@@ -259,7 +262,7 @@ if ($err !== '') {
             </div>
             <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <div class="alert alert-info small border-0 shadow-sm mb-4">
-                    <i class="bi bi-info-circle-fill me-1"></i> Asigne las cuentas específicas que el sistema utilizará de forma predeterminada para operaciones automáticas.
+                    <i class="bi bi-info-circle-fill me-1"></i> Asigne las cuentas específicas que el sistema utilizará de forma predeterminada para operaciones automáticas y tesorería.
                 </div>
                 
                 <form method="post" action="<?php echo e(route_url('contabilidad/guardar_parametro')); ?>">
@@ -267,12 +270,18 @@ if ($err !== '') {
                         <div class="card-body">
                             <div class="row g-3">
                                 <div class="col-12">
-                                    <label class="form-label small text-muted fw-bold">Parámetro del Sistema <span class="text-danger">*</span></label>
+                                    <label class="form-label small text-muted fw-bold">Parámetro del Sistema / Tesorería <span class="text-danger">*</span></label>
                                     <select class="form-select shadow-none font-monospace text-primary fw-bold" name="clave" id="parametroClave" required>
-                                        <option value="">Seleccione clave...</option>
-                                        <option value="CTA_CAJA_DEFECTO">Caja por defecto (fallback)</option>
-                                        <option value="CTA_CXC">Cuenta por cobrar (CXC)</option>
-                                        <option value="CTA_CXP">Cuenta por pagar (CXP)</option>
+                                        <option value="">Seleccione cuenta de tesorería...</option>
+                                        <?php if (!empty($cuentasTesoreria)): ?>
+                                            <?php foreach ($cuentasTesoreria as $ct): ?>
+                                                <option value="<?php echo e((string)($ct['codigo'] ?? '')); ?>">
+                                                    <?php echo e((string)($ct['codigo'] ?? '') . ' - ' . (string)($ct['nombre'] ?? '')); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <option value="" disabled>No hay cuentas de tesorería registradas</option>
+                                        <?php endif; ?>
                                     </select>
                                 </div>
                                 <div class="col-12">
@@ -330,7 +339,7 @@ if ($err !== '') {
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-3">Clave</th>
-                                        <th>Cuenta vinculada</th>
+                                        <th class="text-center">Cuenta vinculada</th>
                                         <th class="text-end pe-3">Acciones</th>
                                     </tr>
                                 </thead>
@@ -339,11 +348,15 @@ if ($err !== '') {
                                         <?php foreach ($parametros as $p): ?>
                                             <?php
                                                 $claveParam = strtolower((string)($p['clave'] ?? ''));
-                                                $searchParam = strtolower(trim((string)($p['clave'] ?? '') . ' ' . (string)($p['cuenta_codigo'] ?? '') . ' ' . (string)($p['cuenta_nombre'] ?? '')));
+                                                // Actualizamos el filtro de búsqueda para que también busque por el nombre legible de la caja
+                                                $nombreLegible = $paramLabels[(string)($p['clave'] ?? '')] ?? (string)($p['clave'] ?? '');
+                                                $searchParam = strtolower(trim((string)($p['clave'] ?? '') . ' ' . $nombreLegible . ' ' . (string)($p['cuenta_codigo'] ?? '') . ' ' . (string)($p['cuenta_nombre'] ?? '')));
                                             ?>
                                             <tr data-param-row="true" data-clave="<?php echo e($claveParam); ?>" data-search="<?php echo e($searchParam); ?>">
-                                                <td class="ps-3 fw-semibold text-primary"><?php echo e((string)($paramLabels[(string)($p['clave'] ?? '')] ?? (string)($p['clave'] ?? ''))); ?></td>
-                                                <td><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
+                                                <td class="ps-3 fw-semibold text-primary">
+                                                    <?php echo e((string)($paramLabels[(string)($p['clave'] ?? '')] ?? (string)($p['clave'] ?? ''))); ?>
+                                                </td>
+                                                <td class="text-center"><?php echo e((string)($p['cuenta_codigo'] ?? '') . ' - ' . (string)($p['cuenta_nombre'] ?? '')); ?></td>
                                                 <td class="text-end pe-3">
                                                     <div class="d-inline-flex gap-2">
                                                         <button type="button"
@@ -375,67 +388,6 @@ if ($err !== '') {
                             </table>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalVinculosTesoreria" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="bi bi-bank2 me-2"></i>Vinculación Tesorería &gt; Plan Contable</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-3 bg-light">
-                <div class="alert alert-info small mb-3">
-                    Defina aquí qué cuenta contable se usará para cada cuenta de tesorería (caja/banco/billetera).
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Cuenta Tesorería</th>
-                                <th>Tipo</th>
-                                <th>Moneda</th>
-                                <th>Cuenta contable vinculada</th>
-                                <th class="text-end pe-3">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($cuentasTesoreria)): ?>
-                                <?php foreach ($cuentasTesoreria as $ct): ?>
-                                    <tr>
-                                        <td class="ps-3">
-                                            <div class="fw-semibold"><?php echo e((string)($ct['codigo'] ?? '') . ' - ' . (string)($ct['nombre'] ?? '')); ?></div>
-                                        </td>
-                                        <td><?php echo e((string)($ct['tipo'] ?? '')); ?></td>
-                                        <td><?php echo e((string)($ct['moneda'] ?? '')); ?></td>
-                                        <td>
-                                            <form class="d-flex gap-2" method="post" action="<?php echo e(route_url('contabilidad/vincular_tesoreria')); ?>">
-                                                <input type="hidden" name="id_cuenta_tesoreria" value="<?php echo (int)($ct['id'] ?? 0); ?>">
-                                                <select class="form-select form-select-sm" name="id_cuenta_contable" required>
-                                                    <option value="">Seleccionar cuenta...</option>
-                                                    <?php foreach ($cuentasMovimiento as $cm): ?>
-                                                        <option value="<?php echo (int)($cm['id'] ?? 0); ?>" <?php echo ((int)($ct['id_cuenta_contable'] ?? 0) === (int)($cm['id'] ?? 0)) ? 'selected' : ''; ?>>
-                                                            <?php echo e((string)($cm['codigo'] ?? '') . ' - ' . (string)($cm['nombre'] ?? '')); ?>
-                                                        </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <button type="submit" class="btn btn-sm btn-success">Guardar vínculo</button>
-                                            </form>
-                                        </td>
-                                        <td class="text-end pe-3 text-muted">—</td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No hay cuentas de tesorería registradas.</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>

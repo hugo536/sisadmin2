@@ -41,12 +41,12 @@ if (!empty($_GET['error'])) {
             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>
-            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
-                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
-            </button>
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
+            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
+            </button>
         </div>
     </div>
     <?php if ($swalMessage !== null): ?>
@@ -223,7 +223,7 @@ if (!empty($_GET['error'])) {
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
                             <select name="id_tercero" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="">Seleccione cliente...</option>
+                                <option value="" selected disabled>Seleccione un cliente...</option>
                                 <?php foreach($clientes as $cli): ?>
                                     <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
                                 <?php endforeach; ?>
@@ -232,6 +232,7 @@ if (!empty($_GET['error'])) {
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
                             <select name="moneda" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione moneda...</option>
                                 <option value="PEN">PEN (Soles)</option>
                                 <option value="USD">USD (Dólares)</option>
                             </select>
@@ -243,17 +244,20 @@ if (!empty($_GET['error'])) {
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
                             <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="">Seleccione cuenta...</option>
+                                <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
-                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
-                                    </option>
+                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
+                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                        </option>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
                             <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione un método...</option>
                                 <?php foreach($metodos as $m): ?>
                                     <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
                                 <?php endforeach; ?>
@@ -282,6 +286,7 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
+
 <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -306,11 +311,13 @@ if (!empty($_GET['error'])) {
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
                             <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="">Seleccione cuenta...</option>
+                                <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
-                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
-                                    </option>
+                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
+                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                        </option>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -318,6 +325,7 @@ if (!empty($_GET['error'])) {
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
                             <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione un método...</option>
                                 <?php foreach($metodos as $m): ?>
                                     <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
                                 <?php endforeach; ?>

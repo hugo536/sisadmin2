@@ -81,9 +81,19 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                                     <td class="ps-4 fw-bold text-primary pt-3"><?php echo e((string) ($c['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark pt-3">
                                         <?php echo e((string) ($c['nombre'] ?? '')); ?>
+                                        
                                         <?php if ((int) ($c['principal'] ?? 0) === 1): ?> 
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.65rem;">Principal</span>
                                         <?php endif; ?>
+
+                                        <?php if (empty($c['id_cuenta_contable'])): ?>
+                                            <i class="bi bi-exclamation-triangle-fill text-warning ms-1 fs-6" 
+                                            data-bs-toggle="tooltip" 
+                                            data-bs-placement="top" 
+                                            title="Atención: Esta cuenta falta vincular con un libro contable. Configúrelo en Contabilidad > Parámetros."
+                                            style="cursor: help;"></i>
+                                        <?php endif; ?>
+                                        
                                         <div class="small text-muted mt-1"><?php echo e((string) ($c['banco_nombre'] ?? '-')); ?></div>
                                     </td>
                                     <td class="text-muted pt-3"><?php echo e((string) ($c['tipo'] ?? '')); ?></td>

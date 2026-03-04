@@ -9,7 +9,8 @@ class TesoreriaCuentaModel extends Modelo
      */
     public function listarActivas(): array
     {
-        $sql = 'SELECT id, codigo, nombre, tipo, moneda
+        // AQUI ESTÁ LA CORRECCIÓN: Agregamos id_cuenta_contable al SELECT
+        $sql = 'SELECT id, codigo, nombre, tipo, moneda, id_cuenta_contable
                 FROM tesoreria_cuentas
                 WHERE estado = 1 
                   AND deleted_at IS NULL

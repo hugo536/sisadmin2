@@ -80,30 +80,30 @@ class ContabilidadController extends Controlador
     }
 
     public function cambiar_estado_cuenta(): void
-{
-    AuthMiddleware::handle();
-    require_permiso('conta.plan_contable.gestionar');
+    {
+        AuthMiddleware::handle();
+        require_permiso('conta.plan_contable.gestionar');
 
-    // Verificamos que sea POST
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        redirect('contabilidad/plan');
-    }
-
-    try {
-        // Capturamos los datos del formulario (el name en el HTML es 'id_cuenta' y 'estado')
-        $idCuenta = (int)($_POST['id_cuenta'] ?? 0);
-        $estado = (int)($_POST['estado'] ?? 0);
-
-        if ($idCuenta > 0) {
-            $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->uid());
-            redirect('contabilidad/plan?ok=1');
-        } else {
-            throw new Exception("ID de cuenta no válido.");
+        // Verificamos que sea POST
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('contabilidad/plan');
         }
-    } catch (Throwable $e) {
-        redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+
+        try {
+            // Capturamos los datos del formulario
+            $idCuenta = (int)($_POST['id_cuenta'] ?? 0);
+            $estado = (int)($_POST['estado'] ?? 0);
+
+            if ($idCuenta > 0) {
+                $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->uid());
+                redirect('contabilidad/plan?ok=1');
+            } else {
+                throw new Exception("ID de cuenta no válido.");
+            }
+        } catch (Throwable $e) {
+            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
+        }
     }
-}
 
     public function guardar_parametro(): void
     {
@@ -112,8 +112,25 @@ class ContabilidadController extends Controlador
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
             redirect('contabilidad/plan');
         }
+        
         try {
-            $this->paramModel->guardar((string)($_POST['clave'] ?? ''), (int)($_POST['id_cuenta'] ?? 0), $this->uid());
+            $clave = trim((string)($_POST['clave'] ?? ''));
+            $idCuentaContable = (int)($_POST['id_cuenta'] ?? 0);
+            $userId = $this->uid();
+
+            // 1. Guardar en con_parametros (Para que aparezca en la ventana unificada azul)
+            $this->paramModel->guardar($clave, $idCuentaContable, $userId);
+
+            // 2. Sincronización de Tesorería: Buscar si la clave es el código de una caja/banco
+            $cuentasTesoreria = $this->tesoreriaCuentaModel->listarGestion();
+            foreach ($cuentasTesoreria as $ct) {
+                if ((string)$ct['codigo'] === $clave) {
+                    // Si coincide, vinculamos en la tabla de tesorería para no romper el resto del sistema
+                    $this->tesoreriaCuentaModel->vincularCuentaContable((int)$ct['id'], $idCuentaContable, $userId);
+                    break; // Salimos del bucle, ya lo encontramos
+                }
+            }
+
             redirect('contabilidad/plan?ok=1');
         } catch (Throwable $e) {
             redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
@@ -136,23 +153,7 @@ class ContabilidadController extends Controlador
         }
     }
 
-    public function vincular_tesoreria(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('conta.plan_contable.gestionar');
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            redirect('contabilidad/plan');
-        }
-
-        try {
-            $idCuentaTesoreria = (int)($_POST['id_cuenta_tesoreria'] ?? 0);
-            $idCuentaContable = (int)($_POST['id_cuenta_contable'] ?? 0);
-            $this->tesoreriaCuentaModel->vincularCuentaContable($idCuentaTesoreria, $idCuentaContable, $this->uid());
-            redirect('contabilidad/plan?ok=1');
-        } catch (Throwable $e) {
-            redirect('contabilidad/plan?error=' . urlencode($e->getMessage()));
-        }
-    }
+    // ELIMINADO: public function vincular_tesoreria() - Ya no es necesario
 
     public function periodos(): void
     {
