@@ -8,8 +8,38 @@ $mesesNombres = [
     5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
     9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
 ];
+
+// ==========================================
+// CORRECCIÓN: Capturador de alertas y errores
+// ==========================================
+$swalIcon = null;
+$swalMessage = null;
+
+if (!empty($_GET['error'])) {
+    $swalIcon = 'error';
+    $swalMessage = (string) $_GET['error'];
+} elseif (!empty($_GET['ok'])) {
+    $swalIcon = 'success';
+    $swalMessage = 'Operación realizada correctamente.';
+}
 ?>
 <div class="container-fluid p-4">
+
+    <?php if ($swalMessage !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') {
+                    return;
+                }
+                Swal.fire({
+                    icon: <?php echo json_encode($swalIcon); ?>,
+                    title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode($swalMessage); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
+    <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -48,12 +78,20 @@ $mesesNombres = [
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom pt-3 pb-2">
-            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-columns-reverse text-primary me-2"></i>Listado de Periodos del Año <?php echo $anio; ?></h6>
+        <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center flex-wrap">
+            <h6 class="fw-bold text-dark mb-2 mb-md-0"><i class="bi bi-list-columns-reverse text-primary me-2"></i>Listado de Periodos del Año <?php echo $anio; ?></h6>
+            <div style="width: 250px;">
+                <input type="text" id="periodosSearch" class="form-control form-control-sm bg-light" placeholder="Buscar por mes, estado...">
+            </div>
         </div>
+        
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-hover table-pro">
+                <table class="table align-middle mb-0 table-hover table-pro"
+                       id="periodosTable" 
+                       data-erp-table="true" 
+                       data-search-input="#periodosSearch" 
+                       data-rows-per-page="10">
                     <thead class="table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold" style="width: 20%;">Periodo</th>
@@ -71,8 +109,11 @@ $mesesNombres = [
                                     $esAbierto = ($estado === 'ABIERTO');
                                     $mesNum = (int)$p['mes'];
                                     $nombreMes = $mesesNombres[$mesNum] ?? "Mes $mesNum";
+                                    
+                                    // Preparamos el texto para que el buscador del JS lo encuentre fácilmente
+                                    $textoBusqueda = $p['anio'] . ' ' . $nombreMes . ' ' . $estado;
                                 ?>
-                                <tr class="border-bottom">
+                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars(strtolower($textoBusqueda)); ?>">
                                     <td class="ps-4 fw-bold text-dark pt-3">
                                         <?php echo (int)$p['anio']; ?> - <?php echo str_pad((string)$mesNum, 2, '0', STR_PAD_LEFT); ?>
                                         <span class="d-block text-muted fw-normal small"><?php echo $nombreMes; ?></span>
@@ -88,14 +129,14 @@ $mesesNombres = [
                                         <?php if ($esAbierto): ?>
                                             <form method="post" action="<?php echo e(route_url('contabilidad/cerrar_periodo')); ?>" class="m-0 form-cerrar-periodo">
                                                 <input type="hidden" name="id_periodo" value="<?php echo (int)$p['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill fw-semibold">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill fw-semibold" data-bs-toggle="tooltip" title="Cerrar Periodo">
                                                     <i class="bi bi-door-closed me-1"></i> Cerrar
                                                 </button>
                                             </form>
                                         <?php else: ?>
                                             <form method="post" action="<?php echo e(route_url('contabilidad/abrir_periodo')); ?>" class="m-0 form-abrir-periodo">
                                                 <input type="hidden" name="id_periodo" value="<?php echo (int)$p['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-success px-3 rounded-pill fw-semibold">
+                                                <button type="submit" class="btn btn-sm btn-outline-success px-3 rounded-pill fw-semibold" data-bs-toggle="tooltip" title="Reabrir Periodo">
                                                     <i class="bi bi-door-open me-1"></i> Reabrir
                                                 </button>
                                             </form>
@@ -104,7 +145,7 @@ $mesesNombres = [
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr>
+                            <tr class="empty-msg-row">
                                 <td colspan="5" class="text-center text-muted py-5">
                                     <i class="bi bi-calendar-x fs-1 d-block mb-2 text-light"></i>
                                     No hay periodos registrados para el año <?php echo $anio; ?>.
@@ -114,6 +155,16 @@ $mesesNombres = [
                     </tbody>
                 </table>
             </div>
+            
+            <div class="px-4 py-3 border-top">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                    <span id="periodosPaginationInfo" class="text-muted small fw-medium"></span>
+                    <nav aria-label="Navegación de tabla">
+                        <ul id="periodosPaginationControls" class="pagination pagination-sm mb-0 shadow-sm"></ul>
+                    </nav>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -140,12 +191,14 @@ $mesesNombres = [
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label small text-muted fw-bold">Mes <span class="text-danger">*</span></label>
+                                    
                                     <select class="form-select shadow-none" name="mes" required>
-                                        <option value="">Seleccione el mes...</option>
+                                        <option value="" selected disabled>Seleccione el mes...</option>
                                         <?php foreach ($mesesNombres as $num => $nombre): ?>
                                             <option value="<?php echo $num; ?>"><?php echo str_pad((string)$num, 2, '0', STR_PAD_LEFT) . ' - ' . $nombre; ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                    
                                 </div>
                             </div>
                         </div>

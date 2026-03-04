@@ -184,25 +184,61 @@ class ContabilidadController extends Controlador
 
     public function cerrar_periodo(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('conta.periodos.cerrar');
         try {
-            $this->periodoModel->cambiarEstado((int)($_POST['id_periodo'] ?? 0), 'CERRADO', $this->uid());
-            redirect('contabilidad/periodos?ok=1');
+            // 1. Metemos todo dentro del try para que NADA se escape
+            AuthMiddleware::handle();
+            require_permiso('conta.periodos.cerrar');
+
+            // 2. Verificamos si realmente llegan datos POST
+            if (empty($_POST)) {
+                die("<h1 style='color:red;'>Error: El formulario no envió datos por POST. ¿Falta la ruta en tu Router?</h1>");
+            }
+
+            $idPeriodo = (int)($_POST['id_periodo'] ?? 0);
+            if ($idPeriodo === 0) {
+                die("<h1 style='color:red;'>Error: El id_periodo llegó vacío o es 0.</h1>");
+            }
+
+            // 3. Ejecutamos el modelo
+            $this->periodoModel->cambiarEstado($idPeriodo, 'CERRADO', $this->uid());
+            
+            // 4. Pausamos la redirección para asegurar que la base de datos pasó la prueba
+            die("<h1 style='color:green;'>¡ÉXITO! El periodo se cerró en la base de datos. <a href='" . route_url('contabilidad/periodos') . "'>Volver a la vista</a></h1>");
+
         } catch (Throwable $e) {
-            redirect('contabilidad/periodos?error=' . urlencode($e->getMessage()));
+            // 5. Imprimimos el error gigante en pantalla en vez del F12
+            die("<div style='padding:20px; background:#ffebee; color:#c62828; font-family:sans-serif;'>
+                    <h2>❌ Error Fatal de PHP Atrapado:</h2>
+                    <p><b>Mensaje:</b> " . $e->getMessage() . "</p>
+                    <p><b>Archivo:</b> " . $e->getFile() . "</p>
+                    <p><b>Línea:</b> " . $e->getLine() . "</p>
+                 </div>");
         }
     }
 
     public function abrir_periodo(): void
     {
-        AuthMiddleware::handle();
-        require_permiso('conta.periodos.cerrar');
         try {
-            $this->periodoModel->cambiarEstado((int)($_POST['id_periodo'] ?? 0), 'ABIERTO', $this->uid());
-            redirect('contabilidad/periodos?ok=1');
+            AuthMiddleware::handle();
+            require_permiso('conta.periodos.cerrar');
+
+            if (empty($_POST)) {
+                die("<h1 style='color:red;'>Error: El formulario no envió datos por POST.</h1>");
+            }
+
+            $idPeriodo = (int)($_POST['id_periodo'] ?? 0);
+            
+            $this->periodoModel->cambiarEstado($idPeriodo, 'ABIERTO', $this->uid());
+            
+            die("<h1 style='color:green;'>¡ÉXITO! El periodo se reabrió. <a href='" . route_url('contabilidad/periodos') . "'>Volver a la vista</a></h1>");
+
         } catch (Throwable $e) {
-            redirect('contabilidad/periodos?error=' . urlencode($e->getMessage()));
+            die("<div style='padding:20px; background:#ffebee; color:#c62828; font-family:sans-serif;'>
+                    <h2>❌ Error Fatal de PHP Atrapado:</h2>
+                    <p><b>Mensaje:</b> " . $e->getMessage() . "</p>
+                    <p><b>Archivo:</b> " . $e->getFile() . "</p>
+                    <p><b>Línea:</b> " . $e->getLine() . "</p>
+                 </div>");
         }
     }
 

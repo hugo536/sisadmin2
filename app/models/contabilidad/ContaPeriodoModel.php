@@ -42,14 +42,16 @@ class ContaPeriodoModel extends Modelo
         $inicio = sprintf('%04d-%02d-01', $anio, $mes);
         $fin = date('Y-m-t', strtotime($inicio));
 
+        // CORRECCIÓN 1: Usamos :created_by y :updated_by en lugar de repetir :user
         $stmtIns = $this->db()->prepare('INSERT INTO conta_periodos (anio, mes, fecha_inicio, fecha_fin, estado, created_by, updated_by, created_at, updated_at)
-                                         VALUES (:anio, :mes, :fecha_inicio, :fecha_fin, "ABIERTO", :user, :user, NOW(), NOW())');
+                                         VALUES (:anio, :mes, :fecha_inicio, :fecha_fin, "ABIERTO", :created_by, :updated_by, NOW(), NOW())');
         $stmtIns->execute([
             'anio' => $anio,
             'mes' => $mes,
             'fecha_inicio' => $inicio,
             'fecha_fin' => $fin,
-            'user' => $userId,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
 
         return (int)$this->db()->lastInsertId();
@@ -62,20 +64,29 @@ class ContaPeriodoModel extends Modelo
             throw new RuntimeException('Estado de periodo inválido.');
         }
 
+        $esCerrado = ($estado === 'CERRADO');
+
         $sql = 'UPDATE conta_periodos
                 SET estado = :estado,
-                    cerrado_at = ' . ($estado === 'CERRADO' ? 'NOW()' : 'NULL') . ',
-                    cerrado_by = ' . ($estado === 'CERRADO' ? ':cerrado_by' : 'NULL') . ',
+                    cerrado_at = ' . ($esCerrado ? 'NOW()' : 'NULL') . ',
+                    cerrado_by = ' . ($esCerrado ? ':cerrado_by' : 'NULL') . ',
                     updated_by = :updated_by,
                     updated_at = NOW()
                 WHERE id = :id AND deleted_at IS NULL';
 
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
+        // CORRECCIÓN 2: Construimos los parámetros dinámicamente
+        $params = [
             'estado' => $estado,
-            'cerrado_by' => $userId,
             'updated_by' => $userId,
             'id' => $idPeriodo,
-        ]);
+        ];
+
+        // Solo añadimos 'cerrado_by' al array si realmente existe en la consulta SQL
+        if ($esCerrado) {
+            $params['cerrado_by'] = $userId;
+        }
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
     }
 }
