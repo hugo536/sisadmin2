@@ -105,7 +105,9 @@ class TesoreriaCxpModel extends Modelo
             'moneda'            => 'PEN', // Igual que en CXC, podrías heredar la moneda de la orden de compra en el futuro
             'monto_total'       => $total,
             'saldo'             => $total,
-            'estado'            => $total > 0 ? 'ABIERTA' : 'PAGADA',
+            'estado'            => $total > 0
+                ? ((strtotime($fechaVencimiento) < strtotime(date('Y-m-d'))) ? 'VENCIDA' : 'PENDIENTE')
+                : 'PAGADA',
             'created_by'        => $userId,
             'updated_by'        => $userId,
         ]);
@@ -120,9 +122,10 @@ class TesoreriaCxpModel extends Modelo
                 estado = CASE
                     WHEN estado = "ANULADA" THEN "ANULADA"
                     WHEN ROUND(monto_total - monto_pagado, 4) <= 0 THEN "PAGADA"
-                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
                     WHEN monto_pagado > 0 THEN "PARCIAL"
-                    ELSE "ABIERTA"
+                    WHEN DATE(fecha_vencimiento) >= CURDATE() THEN "PENDIENTE"
+                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
+                    ELSE "PENDIENTE"
                 END,
                 updated_by = :user,
                 updated_at = NOW()
