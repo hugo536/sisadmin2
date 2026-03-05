@@ -707,13 +707,28 @@ if (!window.produccionJsInitialized) {
                 let textoClase = esDomingo ? 'text-danger' : 'text-secondary';
                 let htmlContenido = '';
 
-                // Lógica visual si hay datos en ese día (Simulado)
+                // Lógica visual si hay datos en ese día
                 if (registro) {
                     if(registro.tipo === 'normal') colorClase = 'bg-primary-subtle border-primary text-primary-emphasis';
                     if(registro.tipo === 'excepcion') colorClase = 'bg-warning-subtle border-warning text-warning-emphasis';
-                    
+
                     if (registro.ops > 0) {
                         htmlContenido += `<div class="badge bg-dark mt-2 w-100"><i class="bi bi-gear-fill me-1"></i> ${registro.ops} OPs</div>`;
+                    }
+
+                    if (vistaActual === 'semana' && Array.isArray(registro.detalle) && registro.detalle.length > 0) {
+                        const detalleHtml = registro.detalle.map((op) => {
+                            const producto = op.producto || '-';
+                            const receta = op.receta || '-';
+                            const cantidad = Number(op.cantidad_planificada || 0).toFixed(4);
+                            return `<div class="small bg-white border rounded p-1 mt-1 text-start text-dark-emphasis">
+                                        <div class="fw-semibold text-truncate" title="${producto}">${producto}</div>
+                                        <div class="text-muted text-truncate" title="${receta}">${receta}</div>
+                                        <div class="fw-bold">Plan: ${cantidad}</div>
+                                    </div>`;
+                        }).join('');
+
+                        htmlContenido += `<div class="w-100 mt-1">${detalleHtml}</div>`;
                     }
                 }
 
