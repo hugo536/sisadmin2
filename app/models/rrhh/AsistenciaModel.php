@@ -951,3 +951,9 @@ class AsistenciaModel extends Modelo
                 'updated_by'        => $userId
 
             ]);
+
+        }
+
+    }
+
+}
