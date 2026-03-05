@@ -706,63 +706,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<div class="modal fade" id="modalAsignarGrupos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-people-fill me-2"></i>Planificar Personal y Horarios - <span id="lblFechaGrupo"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body bg-light p-4">
-                <input type="hidden" id="grupoFechaOculta">
-                
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body">
-                        <h6 class="fw-bold text-dark mb-3">1. Crear Grupos y Definir su Horario</h6>
-                        
-                        <div class="input-group mb-3 shadow-sm rounded">
-                            <input type="text" id="txtNuevoGrupo" class="form-control" placeholder="Nombre del Grupo (Ej: Línea 1, Empaque...)">
-                            
-                            <select id="selNuevoHorarioGrupo" class="form-select bg-light border-start-0" style="max-width: 250px;">
-                                <option value="NORMAL">Turno Normal</option>
-                                <option value="EXCEPCION" class="text-warning fw-bold">Horas Extras (Excepción)</option>
-                            </select>
-                            
-                            <button class="btn btn-primary fw-bold px-3" type="button" id="btnCrearGrupo">
-                                <i class="bi bi-plus-lg"></i> Añadir
-                            </button>
-                        </div>
 
-                        <div id="contenedorEtiquetasGrupos" class="d-flex flex-wrap gap-2">
-                            <span class="text-muted small font-italic" id="msgSinGrupos">No hay grupos creados aún para este día.</span>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-0">
-                        <table class="table table-hover align-middle mb-0" id="tablaAsignacionPersonal">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-4">Empleado</th>
-                                    <th style="width: 250px;" class="pe-4">Asignar a Grupo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="2" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando personal...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer bg-white">
-                <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-info text-white px-4 fw-bold shadow-sm" id="btnGuardarAsignacionGrupos">
-                    <i class="bi bi-save me-2"></i>Guardar Planificación
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.6"></script>
+
+<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.7"></script>
