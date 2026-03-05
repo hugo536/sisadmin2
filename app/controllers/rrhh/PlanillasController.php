@@ -4,25 +4,20 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/rrhh/PlanillasModel.php';
 require_once BASE_PATH . '/app/models/TercerosModel.php'; 
-// NUEVO: Importamos los modelos de Tesorería
-require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentasModel.php';
-require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMetodosModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 
 class PlanillasController extends Controlador
 {
     private PlanillasModel $planillasModel;
     private TercerosModel $tercerosModel;
-    // NUEVO: Instanciamos los modelos de Tesorería
-    private TesoreriaCuentasModel $cuentasModel;
-    private TesoreriaMetodosModel $metodosModel;
+    private TesoreriaCuentaModel $cuentasModel;
 
     public function __construct()
     {
         parent::__construct();
         $this->planillasModel = new PlanillasModel();
         $this->tercerosModel = new TercerosModel();
-        $this->cuentasModel = new TesoreriaCuentasModel();
-        $this->metodosModel = new TesoreriaMetodosModel();
+        $this->cuentasModel = new TesoreriaCuentaModel();
     }
 
     public function index(): void
@@ -64,15 +59,24 @@ class PlanillasController extends Controlador
             'id_tercero' => $idTercero,
             'empleados' => $this->tercerosModel->listar(), 
             'planillas' => $planillasCalculadas,
-            // NUEVO: Enviamos a la vista las cuentas y métodos de pago para el modal
-            'cuentas' => $this->cuentasModel->listar(),
-            'metodos' => $this->metodosModel->listar(),
+            'cuentas' => $this->cuentasModel->listarActivas(),
+            'metodos' => $this->listarMetodosPago(),
             'totales' => [
                 'planilla' => $totalPlanilla,
                 'descuentos' => $totalDescuentos,
                 'extras' => $totalExtras
             ]
         ]);
+    }
+
+    private function listarMetodosPago(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM tesoreria_metodos_pago
+                WHERE estado = 1 AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+
+        return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     /**
