@@ -708,6 +708,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 
 
-
-
 <script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.7"></script>
