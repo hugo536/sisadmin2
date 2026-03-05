@@ -10,28 +10,53 @@ class ProduccionOrdenesModel extends Modelo
     // =====================================================================
     public function obtenerDatosPlanificador(string $desde, string $hasta): array
     {
-        // 1. Buscamos cuántas Órdenes de Producción hay por día
-        $sqlOps = 'SELECT DATE(fecha_programada) as fecha_prog, COUNT(id) as total_ops 
-                   FROM produccion_ordenes 
-                   WHERE fecha_programada >= :desde AND fecha_programada <= :hasta 
-                     AND estado IN (0, 1) 
-                     AND deleted_at IS NULL 
-                   GROUP BY DATE(fecha_programada)';
-        
+        // 1. Buscamos el detalle de Órdenes de Producción por día
+        $sqlOps = 'SELECT DATE(o.fecha_programada) AS fecha_prog,
+                          COUNT(o.id) AS total_ops,
+                          p.nombre AS producto_nombre,
+                          r.codigo AS receta_codigo,
+                          SUM(o.cantidad_planificada) AS cantidad_planificada
+                   FROM produccion_ordenes o
+                   INNER JOIN produccion_recetas r ON r.id = o.id_receta
+                   INNER JOIN items p ON p.id = r.id_producto
+                   WHERE o.fecha_programada >= :desde
+                     AND o.fecha_programada <= :hasta
+                     AND o.estado IN (0, 1)
+                     AND o.deleted_at IS NULL
+                   GROUP BY DATE(o.fecha_programada), p.nombre, r.codigo
+                   ORDER BY DATE(o.fecha_programada) ASC, p.nombre ASC';
+
         $stmtOps = $this->db()->prepare($sqlOps);
         $stmtOps->execute(['desde' => $desde, 'hasta' => $hasta]);
         $rawOps = $stmtOps->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        
-        $conteoOps = [];
-        foreach($rawOps as $r) {
-            $conteoOps[$r['fecha_prog']] = (int)$r['total_ops'];
+
+        $opsPorFecha = [];
+        foreach ($rawOps as $row) {
+            $fecha = (string) ($row['fecha_prog'] ?? '');
+            if ($fecha === '') {
+                continue;
+            }
+
+            if (!isset($opsPorFecha[$fecha])) {
+                $opsPorFecha[$fecha] = [
+                    'ops' => 0,
+                    'detalle' => [],
+                ];
+            }
+
+            $opsPorFecha[$fecha]['ops'] += (int) ($row['total_ops'] ?? 0);
+            $opsPorFecha[$fecha]['detalle'][] = [
+                'producto' => (string) ($row['producto_nombre'] ?? '-'),
+                'receta' => (string) ($row['receta_codigo'] ?? '-'),
+                'cantidad_planificada' => round((float) ($row['cantidad_planificada'] ?? 0), 4),
+            ];
         }
 
-        // 2. Buscamos los Grupos Diarios y Excepciones (Nombre de tabla corregido)
-        $sqlPlan = 'SELECT fecha, tipo_horario 
-                    FROM produccion_grupos_diarios 
+        // 2. Buscamos los Grupos Diarios y Excepciones
+        $sqlPlan = 'SELECT fecha, tipo_horario
+                    FROM produccion_grupos_diarios
                     WHERE fecha >= :desde AND fecha <= :hasta';
-        
+
         $stmtPlan = $this->db()->prepare($sqlPlan);
         $stmtPlan->execute(['desde' => $desde, 'hasta' => $hasta]);
         $planes = $stmtPlan->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -40,26 +65,31 @@ class ProduccionOrdenesModel extends Modelo
 
         // Unificamos la información
         foreach ($planes as $plan) {
-            $fecha = $plan['fecha'];
-            $tipo = strtolower($plan['tipo_horario'] ?? 'normal');
-            
-            // Si el día tiene varios grupos, y alguno es "excepcion", pintamos el día de naranja
+            $fecha = (string) ($plan['fecha'] ?? '');
+            if ($fecha === '') {
+                continue;
+            }
+
+            $tipo = strtolower((string) ($plan['tipo_horario'] ?? 'normal'));
+
             if (!isset($diccionario[$fecha])) {
                 $diccionario[$fecha] = [
                     'tipo' => $tipo,
-                    'ops' => $conteoOps[$fecha] ?? 0
+                    'ops' => $opsPorFecha[$fecha]['ops'] ?? 0,
+                    'detalle' => $opsPorFecha[$fecha]['detalle'] ?? [],
                 ];
-            } else if ($tipo === 'excepcion') {
+            } elseif ($tipo === 'excepcion') {
                 $diccionario[$fecha]['tipo'] = 'excepcion';
             }
         }
 
-        // Si hay días que tienen OPs pero no tienen grupos creados, los marcamos como 'normal'
-        foreach ($conteoOps as $fecha => $cantidad) {
+        // Si hay días con OPs pero sin grupos creados, los marcamos como 'normal'
+        foreach ($opsPorFecha as $fecha => $registroOp) {
             if (!isset($diccionario[$fecha])) {
                 $diccionario[$fecha] = [
                     'tipo' => 'normal',
-                    'ops' => $cantidad
+                    'ops' => $registroOp['ops'],
+                    'detalle' => $registroOp['detalle'],
                 ];
             }
         }
