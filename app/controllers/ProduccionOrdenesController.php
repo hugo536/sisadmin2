@@ -38,16 +38,14 @@ class ProduccionOrdenesController extends Controlador
                 'obtener_receta_ajax', 
                 'iniciar_ejecucion_ajax', 
                 'obtener_planificador_ajax',
-                'obtener_personal_grupos_ajax',
-                'guardar_grupos_diarios_ajax',
-                'crear_orden_ajax' // <--- AÑADIDO
+                'crear_orden_ajax'
             ], true);
             
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
                 // ==========================================================
-                // ENDPOINTS DEL PLANIFICADOR Y GRUPOS
+                // ENDPOINTS DEL PLANIFICADOR
                 // ==========================================================
                 if ($accion === 'crear_orden_ajax') {
                     ob_clean();
@@ -83,30 +81,6 @@ class ProduccionOrdenesController extends Controlador
                     echo json_encode(['success' => true, 'data' => $datos]);
                     exit;
                 }
-
-                if ($accion === 'obtener_personal_grupos_ajax') {
-                    ob_clean();
-                    header('Content-Type: application/json; charset=utf-8');
-                    $fecha = trim((string) ($_POST['fecha'] ?? ''));
-                    
-                    $datos = $this->produccionOrdenesModel->obtenerPersonalYGruposPorFecha($fecha);
-                    echo json_encode(['success' => true, 'data' => $datos]);
-                    exit;
-                }
-
-                if ($accion === 'guardar_grupos_diarios_ajax') {
-                    ob_clean();
-                    header('Content-Type: application/json; charset=utf-8');
-                    $fecha = trim((string) ($_POST['fecha'] ?? ''));
-                    $grupos = isset($_POST['grupos']) && is_array($_POST['grupos']) ? $_POST['grupos'] : [];
-                    $asignaciones = isset($_POST['asignaciones']) && is_array($_POST['asignaciones']) ? $_POST['asignaciones'] : [];
-
-                    $this->produccionOrdenesModel->guardarGruposYAsignaciones($fecha, $grupos, $asignaciones, $userId);
-                    
-                    echo json_encode(['success' => true, 'message' => 'Grupos guardados correctamente.']);
-                    exit;
-                }
-
                 // ==========================================================
                 // ENDPOINTS DE ÓRDENES DE PRODUCCIÓN
                 // ==========================================================

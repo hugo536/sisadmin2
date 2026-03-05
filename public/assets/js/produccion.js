@@ -2,7 +2,7 @@
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
  * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
  * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
- * Incluye: Planificador de Operaciones (Calendario) y Dashboard de Personal.
+ * Incluye: Planificador de Operaciones (Calendario).
  * Modo: Consumo Teórico Estricto (Strict Backflushing)
  */
 
@@ -16,7 +16,6 @@ if (!window.produccionJsInitialized) {
         initModalEjecucion();
         initModalPlanificacion();
         initPlanificadorOperaciones(); 
-        initGestorGrupos(); 
     });
 
     // =========================================================================
@@ -530,7 +529,6 @@ if (!window.produccionJsInitialized) {
 
                     const formData = new FormData(form);
                     formData.set('accion', 'crear_orden_ajax'); 
-                    const fechaGuardada = formData.get('fecha_programada');
 
                     const btnSubmit = form.querySelector('button[type="submit"]');
                     const originalText = btnSubmit.innerHTML;
@@ -553,12 +551,7 @@ if (!window.produccionJsInitialized) {
                                 window.cargarGridPlanificador(); 
                             }
                             
-                            // 3. Volvemos a abrir el menú de opciones de ese día (Auto-retorno)
-                            setTimeout(() => {
-                                if (typeof window.abrirDiaPlanificador === 'function') {
-                                    window.abrirDiaPlanificador(fechaGuardada);
-                                }
-                            }, 400);
+                            // 3. El usuario puede seguir planificando directamente desde el calendario.
 
                         } else {
                             Swal.fire('Error', res.message || 'No se pudo crear la orden.', 'error');
@@ -781,7 +774,7 @@ if (!window.produccionJsInitialized) {
                 html += `
                     <div class="card shadow-sm position-relative ${colorClase} cursor-pointer hover-lift transition-all overflow-hidden plan-dia-card" 
                          style="min-height: ${minHeight};" 
-                         onclick="abrirDiaPlanificador('${dateStr}')" ${tooltipAttr}>
+                         onclick="accionProgramarOP('${dateStr}')" ${tooltipAttr}>
                         <div class="card-body p-1 p-md-2 d-flex flex-column align-items-center justify-content-start h-100">
                             <span class="fs-6 fw-bold ${textoClase} lh-1 mb-1 w-100 text-center">${diaNum}</span>
                             ${htmlContenido}
@@ -803,270 +796,20 @@ if (!window.produccionJsInitialized) {
         }
     }
 
-    // =========================================================================
-    // 8. DASHBOARD DIARIO: GESTIÓN DE GRUPOS Y HORARIOS UNIFICADO
-    // =========================================================================
-    function initGestorGrupos() {
-        window.gruposDelDia = []; 
-        
-        const btnCrearGrupo = document.getElementById('btnCrearGrupo');
-        const inputNuevoGrupo = document.getElementById('txtNuevoGrupo');
-        const selectHorarioGrupo = document.getElementById('selNuevoHorarioGrupo'); // Nuevo select de horario
-        const contenedorEtiquetas = document.getElementById('contenedorEtiquetasGrupos');
-        const msgSinGrupos = document.getElementById('msgSinGrupos');
-
-        if (!btnCrearGrupo || !inputNuevoGrupo || !contenedorEtiquetas) return;
-
-        window.renderizarEtiquetas = function() {
-            contenedorEtiquetas.innerHTML = '';
-            
-            if (window.gruposDelDia.length === 0) {
-                if (msgSinGrupos) contenedorEtiquetas.appendChild(msgSinGrupos);
-                msgSinGrupos.style.display = 'block';
-                return;
-            }
-
-            if (msgSinGrupos) msgSinGrupos.style.display = 'none';
-
-            window.gruposDelDia.forEach((grupoObj, index) => {
-                // Ahora grupoObj es un objeto con {nombre: 'Línea 1', horario: 'NORMAL'}
-                const bgClase = grupoObj.horario === 'EXCEPCION' ? 'bg-warning text-dark' : 'bg-primary text-white';
-                const icono = grupoObj.horario === 'EXCEPCION' ? 'bi-clock-history' : 'bi-tags-fill';
-
-                const badge = document.createElement('div');
-                badge.className = `badge ${bgClase} d-flex align-items-center py-2 px-3 fs-6 shadow-sm fade-in border`;
-                badge.innerHTML = `
-                    <div class="d-flex flex-column text-start me-3">
-                        <span><i class="bi ${icono} me-1"></i> ${grupoObj.nombre}</span>
-                        <small class="fw-normal mt-1 opacity-75" style="font-size: 0.65rem;">Horario: ${grupoObj.horario}</small>
-                    </div>
-                    <button type="button" class="btn-close ${grupoObj.horario === 'EXCEPCION' ? '' : 'btn-close-white'}" aria-label="Eliminar" onclick="eliminarGrupoTemporal(${index})" style="font-size: 0.6rem;"></button>
-                `;
-                contenedorEtiquetas.appendChild(badge);
-            });
-
-            actualizarSelectsDeTabla();
-        };
-
-        btnCrearGrupo.addEventListener('click', () => {
-            const nombre = inputNuevoGrupo.value.trim().toUpperCase();
-            const horario = selectHorarioGrupo ? selectHorarioGrupo.value : 'NORMAL';
-
-            if (nombre === '') {
-                Swal.fire('Atención', 'Escribe un nombre para el grupo.', 'warning');
-                return;
-            }
-            
-            const existe = window.gruposDelDia.some(g => g.nombre === nombre);
-            if (existe) {
-                Swal.fire('Atención', 'Este grupo ya existe. Bórralo si deseas cambiarle el horario.', 'warning');
-                return;
-            }
-
-            window.gruposDelDia.push({ nombre: nombre, horario: horario });
-            inputNuevoGrupo.value = '';
-            if (selectHorarioGrupo) selectHorarioGrupo.value = 'NORMAL';
-            
-            window.renderizarEtiquetas();
-        });
-
-        window.eliminarGrupoTemporal = function(index) {
-            window.gruposDelDia.splice(index, 1);
-            window.renderizarEtiquetas();
-        };
-
-        function actualizarSelectsDeTabla() {
-            const selects = document.querySelectorAll('.select-grupo-empleado');
-            selects.forEach(select => {
-                const valorSeleccionadoPreviamente = select.value;
-                
-                let optionsHtml = '<option value="">-- Sin Grupo (Libre) --</option>';
-                window.gruposDelDia.forEach(g => {
-                    optionsHtml += `<option value="${g.nombre}">${g.nombre}</option>`;
-                });
-                
-                select.innerHTML = optionsHtml;
-                
-                const grupoAunExiste = window.gruposDelDia.some(g => g.nombre === valorSeleccionadoPreviamente);
-                if (grupoAunExiste) {
-                    select.value = valorSeleccionadoPreviamente;
-                }
-            });
-        }
-
-        // GUARDADO DEL DASHBOARD DIARIO (AUTO-RETORNO)
-        document.getElementById('btnGuardarAsignacionGrupos')?.addEventListener('click', () => {
-            const fecha = document.getElementById('grupoFechaOculta').value;
-            const asignaciones = {};
-            
-            document.querySelectorAll('.select-grupo-empleado').forEach(sel => {
-                if (sel.value !== '') {
-                    asignaciones[sel.getAttribute('data-id-emp')] = sel.value;
-                }
-            });
-
-            const formData = new FormData();
-            formData.append('accion', 'guardar_grupos_diarios_ajax');
-            formData.append('fecha', fecha);
-            
-            // Enviamos los grupos como JSON string para que PHP lo procese fácil
-            formData.append('grupos_json', JSON.stringify(window.gruposDelDia));
-            
-            for (const [idEmp, nombreGrupo] of Object.entries(asignaciones)) {
-                formData.append(`asignaciones[${idEmp}]`, nombreGrupo);
-            }
-
-            const btnGuardar = document.getElementById('btnGuardarAsignacionGrupos');
-            const txtOriginal = btnGuardar.innerHTML;
-            btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-            btnGuardar.disabled = true;
-
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(res => res.json())
-            .then(res => {
-                if(res.success) {
-                    // 1. Cerramos el modal de grupos
-                    bootstrap.Modal.getInstance(document.getElementById('modalAsignarGrupos')).hide();
-                    
-                    // 2. Recargamos los cuadritos por si el color cambió a Excepción (Amarillo)
-                    if (typeof window.cargarGridPlanificador === 'function') {
-                        window.cargarGridPlanificador(); 
-                    }
-
-                    // 3. Volvemos a mostrar el menú diario principal
-                    setTimeout(() => {
-                        if (typeof window.abrirDiaPlanificador === 'function') {
-                            window.abrirDiaPlanificador(fecha);
-                        }
-                    }, 400);
-
-                } else {
-                    Swal.fire('Error', res.message || 'No se pudo guardar la configuración.', 'error');
-                }
-            })
-            .finally(() => {
-                btnGuardar.innerHTML = txtOriginal;
-                btnGuardar.disabled = false;
-            });
-        });
-    }
-
-    // =========================================================================
-    // ACCIONES DE LOS BOTONES DEL MENU DIARIO (2 BOTONES UNIFICADOS)
-    // =========================================================================
-    
-    window.abrirDiaPlanificador = function(dateStr) {
-        const [y, m, d] = dateStr.split('-');
-        const fechaBonita = new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-        Swal.fire({
-            title: `<span class="fs-5 text-capitalize text-primary"><i class="bi bi-calendar-event me-2"></i>${fechaBonita}</span>`,
-            html: `
-                <div class="text-start mt-3">
-                    <p class="text-muted small mb-3">¿Qué acción deseas realizar para el <strong>${d}/${m}/${y}</strong>?</p>
-                    <div class="d-grid gap-3 mb-2">
-                        <button onclick="accionProgramarOP('${dateStr}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift shadow-sm">
-                            <i class="bi bi-box-seam me-2 text-primary fs-5"></i> 1. Programar Órdenes (OP)
-                            <div class="small fw-normal text-muted mt-1 ms-4">Crear nuevas tareas de producción para este día.</div>
-                        </button>
-                        
-                        <button onclick="accionGestionarGrupos('${dateStr}', '${fechaBonita}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift shadow-sm">
-                            <i class="bi bi-people me-2 text-info fs-5"></i> 2. Planificar Personal y Horarios
-                            <div class="small fw-normal text-muted mt-1 ms-4">Crear grupos, asignar operarios y aprobar horas extras.</div>
-                        </button>
-                    </div>
-                </div>
-            `,
-            showConfirmButton: true,
-            confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Cerrar Menú',
-            confirmButtonColor: '#6c757d',
-            showCloseButton: false,
-            customClass: { popup: 'rounded-4' }
-        });
-    };
-
     window.accionProgramarOP = function(fechaStr) {
-        Swal.close(); 
-        
         const modalOPEl = document.getElementById('modalPlanificarOP');
-        if (modalOPEl && typeof bootstrap !== 'undefined') {
-            const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
-            
-            const inputFecha = document.getElementById('newFechaProgramada');
-            if(inputFecha) {
-                inputFecha.value = ''; 
-                inputFecha.value = fechaStr; 
-            }
-
-            modalOP.show(); 
+        if (!modalOPEl || typeof bootstrap === 'undefined') {
+            return;
         }
-    };
 
-    window.accionGestionarGrupos = function(fechaStr, fechaBonita) {
-        Swal.close(); 
-        
-        const inputFechaVal = document.getElementById('grupoFechaOculta');
-        const lblFechaBonita = document.getElementById('lblFechaGrupo');
-        
-        if(inputFechaVal) inputFechaVal.value = fechaStr;
-        if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
-        
-        const modalGruposEl = document.getElementById('modalAsignarGrupos');
-        if (modalGruposEl && typeof bootstrap !== 'undefined') {
-            const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
-            modalGrupos.show(); 
+        const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
+        const inputFecha = document.getElementById('newFechaProgramada');
 
-            const tbody = document.querySelector('#tablaAsignacionPersonal tbody');
-            tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando personal y configuración del día...</td></tr>';
-
-            const formData = new FormData();
-            formData.append('accion', 'obtener_personal_grupos_ajax');
-            formData.append('fecha', fechaStr);
-
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(res => res.json())
-            .then(res => {
-                if(res.success) {
-                    // Ahora PHP nos enviará un array de objetos con {nombre, horario}
-                    window.gruposDelDia = res.data.grupos || [];
-                    if (typeof window.renderizarEtiquetas === 'function') window.renderizarEtiquetas();
-
-                    let html = '';
-                    res.data.empleados.forEach(emp => {
-                        let optionsHtml = '<option value="">-- Sin Grupo (Día Libre o No asignado) --</option>';
-                        window.gruposDelDia.forEach(g => {
-                            const sel = (emp.nombre_grupo === g.nombre) ? 'selected' : '';
-                            optionsHtml += `<option value="${g.nombre}" ${sel}>${g.nombre}</option>`;
-                        });
-
-                        html += `
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark">
-                                    <i class="bi bi-person me-2 text-secondary"></i>${emp.nombre_completo}
-                                    ${emp.nombre_grupo ? `<span class="badge bg-light text-secondary ms-2 border d-none d-md-inline">Último Guardado: ${emp.nombre_grupo}</span>` : ''}
-                                </td>
-                                <td class="pe-4">
-                                    <select class="form-select form-select-sm border-secondary-subtle select-grupo-empleado" data-id-emp="${emp.id_empleado}">
-                                        ${optionsHtml}
-                                    </select>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    tbody.innerHTML = html;
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger py-4">Error al cargar: ${res.message}</td></tr>`;
-                }
-            });
+        if (inputFecha) {
+            inputFecha.value = fechaStr;
         }
+
+        modalOP.show();
     };
 
     document.getElementById('modalPlanificarOP')?.addEventListener('hidden.bs.modal', function () {
@@ -1074,12 +817,7 @@ if (!window.produccionJsInitialized) {
             document.body.classList.add('modal-open');
         }
     });
-    
-    document.getElementById('modalAsignarGrupos')?.addEventListener('hidden.bs.modal', function () {
-        if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
-            document.body.classList.add('modal-open');
-        }
-    });
+
 
     // =========================================================================
     // FIX DEFINITIVO PARA MODALES SUPERPUESTOS EN BOOTSTRAP (Z-INDEX)
