@@ -90,7 +90,11 @@ class AsistenciaModel extends Modelo
 
     public function obtenerHorarioEsperado(int $idTercero, int $diaSemana): ?array
     {
-        $sql = 'SELECT ah.id, ah.nombre, ah.hora_entrada, ah.hora_salida, ah.tolerancia_minutos
+        $sql = 'SELECT ah.id,
+                       ah.nombre,
+                       COALESCE(ah.t1_entrada, ah.t2_entrada, ah.t3_entrada) AS hora_entrada,
+                       COALESCE(ah.t3_salida, ah.t2_salida, ah.t1_salida) AS hora_salida,
+                       ah.tolerancia_minutos
                 FROM asistencia_empleado_horario aeh
                 INNER JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
                 WHERE aeh.id_tercero = :id_tercero
@@ -179,8 +183,8 @@ class AsistenciaModel extends Modelo
                        :fecha_dashboard AS fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
-                       ah.hora_entrada,
-                       ah.hora_salida,
+                       COALESCE(ah.t1_entrada, ah.t2_entrada, ah.t3_entrada) AS hora_entrada,
+                       COALESCE(ah.t3_salida, ah.t2_salida, ah.t1_salida) AS hora_salida,
                        ar.hora_ingreso,
                        ar.hora_salida AS hora_salida_real,
                        ar.estado_asistencia,
@@ -228,8 +232,8 @@ class AsistenciaModel extends Modelo
                        ar.fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
-                       ah.hora_entrada,
-                       ah.hora_salida,
+                       COALESCE(ah.t1_entrada, ah.t2_entrada, ah.t3_entrada) AS hora_entrada,
+                       COALESCE(ah.t3_salida, ah.t2_salida, ah.t1_salida) AS hora_salida,
                        ar.hora_ingreso,
                        ar.hora_salida AS hora_salida_real,
                        ar.estado_asistencia,
@@ -474,4 +478,3 @@ class AsistenciaModel extends Modelo
         }
     }
 }
-
