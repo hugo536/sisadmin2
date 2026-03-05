@@ -646,17 +646,32 @@ if (!window.produccionJsInitialized) {
             const strDesde = formatDate(primerDia);
             const strHasta = formatDate(ultimoDia);
 
-            // TODO: Aquí llamaremos al Backend PHP luego
-            /* try {
-                const url = `?ruta=produccion/api_planificador&desde=${strDesde}&hasta=${strHasta}`;
-                const response = await fetch(url);
+            try {
+                const payload = new URLSearchParams({
+                    accion: 'obtener_planificador_ajax',
+                    desde: strDesde,
+                    hasta: strHasta,
+                });
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: payload.toString()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status}`);
+                }
+
                 const resultado = await response.json();
-                diccPlanificacion = resultado.data || {};
-            } catch (e) { console.error(e); } 
-            */
-            
-            // Simulación de datos temporales para que veas cómo queda
-            diccPlanificacion = {};
+                diccPlanificacion = resultado.success ? (resultado.data || {}) : {};
+            } catch (e) {
+                console.error('No se pudo cargar la planificación de operaciones:', e);
+                diccPlanificacion = {};
+            }
 
             dibujarGrid(primerDia, ultimoDia);
             loader.classList.add('d-none');
