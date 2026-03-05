@@ -6,7 +6,7 @@ class PlanillasModel extends Modelo
     /**
      * Obtiene el resumen consolidado de asistencia y sueldos para el cálculo de planilla.
      */
-    public function obtenerResumenPlanilla(string $desde, string $hasta, ?int $idTercero = null): array
+    public function obtenerResumenPlanilla(string $desde, string $hasta, ?int $idTercero = null, ?string $frecuenciaPago = null): array
     {
         $sql = "SELECT 
                     t.id AS id_tercero,
@@ -50,6 +50,11 @@ class PlanillasModel extends Modelo
         if ($idTercero !== null && $idTercero > 0) {
             $sql .= " AND t.id = :id_tercero";
             $params['id_tercero'] = $idTercero;
+        }
+
+        if ($frecuenciaPago !== null && $frecuenciaPago !== '') {
+            $sql .= " AND UPPER(te.tipo_pago) = :frecuencia_pago";
+            $params['frecuencia_pago'] = strtoupper($frecuenciaPago);
         }
 
         $sql .= " GROUP BY 

@@ -44,6 +44,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputHasta = formFiltros.querySelector('input[name="hasta"]');
     const selectFrecuencia = formFiltros.querySelector('select[name="frecuencia_pago"]'); // NUEVO
     const selectEmpleado = formFiltros.querySelector('select[name="id_tercero"]');
+    const inputSemana = document.getElementById('filtroSemana');
+
+
+    const obtenerRangoSemanaDesdeISO = (isoWeek) => {
+        if (!isoWeek || !/^\d{4}-W\d{2}$/.test(isoWeek)) return null;
+
+        const [yearText, weekText] = isoWeek.split('-W');
+        const year = Number(yearText);
+        const week = Number(weekText);
+        if (!year || !week) return null;
+
+        const jan4 = new Date(Date.UTC(year, 0, 4));
+        const jan4Day = jan4.getUTCDay() || 7;
+        const mondayWeek1 = new Date(jan4);
+        mondayWeek1.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+
+        const monday = new Date(mondayWeek1);
+        monday.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7);
+
+        const sunday = new Date(monday);
+        sunday.setUTCDate(monday.getUTCDate() + 6);
+
+        const format = (date) => date.toISOString().slice(0, 10);
+        return { desde: format(monday), hasta: format(sunday) };
+    };
 
     // --- EL DEBOUNCE (Retraso inteligente para no saturar el servidor) ---
     let debounceTimer;
@@ -139,9 +164,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ESCUCHAMOS CAMBIOS EN TODOS LOS FILTROS Y DISPARAMOS LA BÚSQUEDA
-    if (inputDesde) inputDesde.addEventListener('change', triggerAutoSubmit);
-    if (inputHasta) inputHasta.addEventListener('change', triggerAutoSubmit);
+    if (inputDesde) inputDesde.addEventListener('change', () => {
+        if (inputSemana) inputSemana.value = '';
+        triggerAutoSubmit();
+    });
+
+    if (inputHasta) inputHasta.addEventListener('change', () => {
+        if (inputSemana) inputSemana.value = '';
+        triggerAutoSubmit();
+    });
     if (selectFrecuencia) selectFrecuencia.addEventListener('change', triggerAutoSubmit); // NUEVO
     if (selectEmpleado) selectEmpleado.addEventListener('change', triggerAutoSubmit);
+
+    if (inputSemana) {
+        inputSemana.addEventListener('change', () => {
+            const rango = obtenerRangoSemanaDesdeISO(inputSemana.value);
+            if (!rango) return;
+
+            if (inputDesde) inputDesde.value = rango.desde;
+            if (inputHasta) inputHasta.value = rango.hasta;
+            triggerAutoSubmit();
+        });
+    }
 
 });

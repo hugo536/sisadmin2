@@ -4,6 +4,7 @@ $desde = $desde ?? date('Y-m-d');
 $hasta = $hasta ?? date('Y-m-d');
 $idTercero = (int) ($id_tercero ?? 0);
 $frecuencia = $frecuencia ?? ''; // NUEVO: Mantenemos el estado del filtro
+$semana = $semana ?? '';
 $empleados = $empleados ?? [];
 $planillas = $planillas ?? [];
 $totales = $totales ?? ['planilla' => 0, 'descuentos' => 0, 'extras' => 0];
@@ -75,17 +76,22 @@ $metodos = $metodos ?? [];
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosPlanillas">
                 <input type="hidden" name="ruta" value="planillas">
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Desde</label>
                     <input type="date" id="filtroDesde" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
                 </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
                     <input type="date" id="filtroHasta" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
                 </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Semana</label>
+                    <input type="week" id="filtroSemana" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" value="<?php echo e($semana); ?>">
+                </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Frecuencia</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="frecuencia_pago" id="filtroFrecuencia">
                         <option value="">Todas</option>
@@ -95,7 +101,7 @@ $metodos = $metodos ?? [];
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Filtrar Empleado (Opcional)</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero">
                         <option value="">Todo el personal</option>
