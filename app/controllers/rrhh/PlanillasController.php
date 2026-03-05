@@ -3,24 +3,32 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/rrhh/PlanillasModel.php';
-require_once BASE_PATH . '/app/models/TercerosModel.php'; // Para listar los empleados en el filtro
+require_once BASE_PATH . '/app/models/TercerosModel.php'; 
+// NUEVO: Importamos los modelos de Tesorería
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentasModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMetodosModel.php';
 
 class PlanillasController extends Controlador
 {
     private PlanillasModel $planillasModel;
     private TercerosModel $tercerosModel;
+    // NUEVO: Instanciamos los modelos de Tesorería
+    private TesoreriaCuentasModel $cuentasModel;
+    private TesoreriaMetodosModel $metodosModel;
 
     public function __construct()
     {
         parent::__construct();
         $this->planillasModel = new PlanillasModel();
         $this->tercerosModel = new TercerosModel();
+        $this->cuentasModel = new TesoreriaCuentasModel();
+        $this->metodosModel = new TesoreriaMetodosModel();
     }
 
     public function index(): void
     {
         AuthMiddleware::handle();
-        require_permiso('terceros.ver'); // Idealmente crearías un permiso 'planillas.ver'
+        require_permiso('terceros.ver'); 
 
         // 1. Recoger filtros de fecha (Por defecto: La semana actual)
         $fechaActual = new DateTimeImmutable();
@@ -54,8 +62,11 @@ class PlanillasController extends Controlador
             'desde' => $desde,
             'hasta' => $hasta,
             'id_tercero' => $idTercero,
-            'empleados' => $this->tercerosModel->listar(), // Filtramos solo empleados en la vista
+            'empleados' => $this->tercerosModel->listar(), 
             'planillas' => $planillasCalculadas,
+            // NUEVO: Enviamos a la vista las cuentas y métodos de pago para el modal
+            'cuentas' => $this->cuentasModel->listar(),
+            'metodos' => $this->metodosModel->listar(),
             'totales' => [
                 'planilla' => $totalPlanilla,
                 'descuentos' => $totalDescuentos,
@@ -72,6 +83,12 @@ class PlanillasController extends Controlador
         $resultado = [];
 
         foreach ($resumenCrudo as $row) {
+            // NUEVO: Filtramos si es SIN_REGISTROS no lo calculamos para ahorrar recursos
+            $estadoPago = (string) ($row['estado_pago'] ?? 'PENDIENTE');
+            if ($estadoPago === 'SIN_REGISTROS') {
+                continue; 
+            }
+
             // --- VARIABLES BASE ---
             $sueldoBasico = (float) ($row['sueldo_basico'] ?? 0);
             $tipoPago = strtolower(trim((string) ($row['tipo_pago'] ?? 'mensual')));
@@ -151,11 +168,60 @@ class PlanillasController extends Controlador
                 
                 'total_ingresos' => round($totalIngresos, 2),
                 'total_descuentos' => round($totalDescuentos, 2),
-                'neto_a_pagar' => round($netoAPagar, 2)
+                'neto_a_pagar' => round($netoAPagar, 2),
+                
+                // NUEVO: Agregamos el estado de pago arrastrado del SQL
+                'estado_pago' => $estadoPago
             ];
         }
 
         return $resultado;
+    }
+
+    // NUEVO ENDPOINT: Recibe el POST del modal para pagar y descontar de tesorería
+    public function registrar_pago(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('terceros.ver'); // O el permiso 'planillas.crear' si lo creas luego
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('planillas');
+        }
+
+        $idEmpleado = (int) ($_POST['id_empleado'] ?? 0);
+        $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+        $idMetodoPago = (int) ($_POST['id_metodo_pago'] ?? 0);
+        $montoPagar = (float) ($_POST['monto_pagar'] ?? 0);
+        $fechaInicio = (string) ($_POST['fecha_inicio'] ?? '');
+        $fechaFin = (string) ($_POST['fecha_fin'] ?? '');
+        $fechaPago = (string) ($_POST['fecha_pago'] ?? date('Y-m-d'));
+        $referencia = (string) ($_POST['referencia'] ?? '');
+
+        if ($idEmpleado <= 0 || $idCuenta <= 0 || $idMetodoPago <= 0 || $montoPagar <= 0 || empty($fechaInicio) || empty($fechaFin)) {
+            redirect('planillas?error=Datos+incompletos+para+el+pago');
+        }
+
+        $datosPago = [
+            'id_empleado' => $idEmpleado,
+            'id_cuenta' => $idCuenta,
+            'id_metodo_pago' => $idMetodoPago,
+            'monto_pagar' => $montoPagar,
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+            'fecha_pago' => $fechaPago,
+            'referencia' => $referencia
+        ];
+
+        // Ejecutar el pago
+        $userId = AuthMiddleware::getUserId();
+        $exito = $this->planillasModel->registrarPagoPlanilla($datosPago, $userId);
+
+        if ($exito) {
+            // Redirigir de vuelta a la página con los mismos filtros de fecha y mensaje de éxito
+            redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&ok=1");
+        } else {
+            redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&error=Error+al+registrar+el+pago.+Verifica+saldos+y+conexion.");
+        }
     }
 
     // --- ENDPOINTS PARA IMPRESIÓN ---

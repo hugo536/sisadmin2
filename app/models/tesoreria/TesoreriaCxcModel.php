@@ -105,10 +105,11 @@ class TesoreriaCxcModel extends Modelo
             'id_documento_venta' => $idDocumentoVenta,
             'fecha_emision' => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda' => 'PEN', // Nota: Si tu venta soporta USD, deberías heredar la moneda de $venta['moneda'] aquí
+            'moneda' => 'PEN', 
             'monto_total' => $total,
             'saldo' => $total,
-            'estado' => $total > 0 ? 'ABIERTA' : 'PAGADA',
+            // CAMBIO: Ahora el estado inicial es PENDIENTE si el total es mayor a 0
+            'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA', 
             'created_by' => $userId,
             'updated_by' => $userId,
         ]);
@@ -118,14 +119,16 @@ class TesoreriaCxcModel extends Modelo
 
     public function recalcularEstado(int $id, int $userId): void
     {
+        // CAMBIO: Se actualizó la lógica del CASE según las reglas solicitadas
         $stmt = $this->db()->prepare('UPDATE tesoreria_cxc
             SET saldo = GREATEST(ROUND(monto_total - monto_pagado, 4), 0),
                 estado = CASE
                     WHEN estado = "ANULADA" THEN "ANULADA"
                     WHEN ROUND(monto_total - monto_pagado, 4) <= 0 THEN "PAGADA"
-                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
-                    WHEN monto_pagado > 0 THEN "PARCIAL"
-                    ELSE "ABIERTA"
+                    WHEN monto_pagado > 0 AND ROUND(monto_total - monto_pagado, 4) > 0 THEN "PARCIAL"
+                    WHEN monto_pagado <= 0 AND DATE(fecha_vencimiento) >= CURDATE() THEN "PENDIENTE"
+                    WHEN monto_pagado <= 0 AND DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
+                    ELSE "PENDIENTE"
                 END,
                 updated_by = :user,
                 updated_at = NOW()

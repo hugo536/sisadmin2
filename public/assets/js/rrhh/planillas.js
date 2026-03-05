@@ -2,6 +2,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formFiltros = document.getElementById('formFiltrosPlanillas');
     const searchInput = document.getElementById('searchPlanilla');
+    const tablaPlanillas = document.getElementById('planillasTable'); // Capturamos la tabla
+
+    // --- NUEVA LÓGICA: Preparar Modal de Pago (Delegación de Eventos) ---
+    if (tablaPlanillas) {
+        tablaPlanillas.addEventListener('click', (e) => {
+            // Buscamos si el clic fue en el botón o dentro de él (el ícono)
+            const botonPago = e.target.closest('button[data-bs-target="#modalPagarPlanilla"]');
+            
+            if (botonPago) {
+                // Pasamos los datos del botón al Modal
+                document.getElementById('pagoIdEmpleado').value = botonPago.getAttribute('data-id-empleado');
+                document.getElementById('pagoMontoTotal').value = botonPago.getAttribute('data-monto-pagar');
+                document.getElementById('pagoFechaDesde').value = botonPago.getAttribute('data-fecha-desde');
+                document.getElementById('pagoFechaHasta').value = botonPago.getAttribute('data-fecha-hasta');
+                
+                // Actualizamos las etiquetas visuales del modal
+                document.getElementById('lblEmpleadoNombre').textContent = botonPago.getAttribute('data-nombre-empleado');
+                document.getElementById('lblPeriodo').textContent = botonPago.getAttribute('data-fecha-desde') + ' al ' + botonPago.getAttribute('data-fecha-hasta');
+            }
+        });
+    }
 
     // 1. CANDADO AL BUSCADOR
     if (searchInput) {
@@ -65,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newBadge = docVirtual.querySelector('.badge.bg-primary-subtle');
             if (badge && newBadge) badge.innerHTML = newBadge.innerHTML;
 
-            // 3. Refrescamos la paginación global (Esto vuelve a leer las filas y quita el spinner de paso si se reinicia)
+            // 3. Refrescamos la paginación global
             if (window.planillasManager && typeof window.planillasManager.refresh === 'function') {
                 window.planillasManager.refresh();
             }
@@ -87,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Función que dispara el AJAX con un retraso de 500ms
+    // Función que dispara el AJAX con un retraso
     const triggerAutoSubmit = () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {

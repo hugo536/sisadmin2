@@ -11,6 +11,8 @@ $badge = static function (string $estado): string {
         'PARCIAL' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
         'VENCIDA' => 'bg-danger-subtle text-danger border border-danger-subtle',
         'ANULADA' => 'bg-secondary-subtle text-secondary border border-secondary-subtle',
+        // CAMBIO: Se añade PENDIENTE y se mantiene ABIERTA por retrocompatibilidad
+        'PENDIENTE', 'ABIERTA' => 'bg-primary-subtle text-primary border border-primary-subtle',
         default => 'bg-primary-subtle text-primary border border-primary-subtle',
     };
 };
@@ -74,7 +76,7 @@ if (!empty($_GET['error'])) {
                     <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
                         <option value="">Todos los estados</option>
-                        <?php foreach (['ABIERTA','PARCIAL','PAGADA','VENCIDA','ANULADA'] as $estado): ?>
+                        <?php foreach (['PENDIENTE', 'ABIERTA', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'] as $estado): ?>
                             <option value="<?php echo e($estado); ?>" <?php echo (($filtros['estado'] ?? '') === $estado) ? 'selected' : ''; ?>><?php echo e($estado); ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -146,7 +148,8 @@ if (!empty($_GET['error'])) {
                         <?php else: ?>
                             <?php foreach ($registros as $r): ?>
                                 <?php 
-                                    $estadoStr = (string) ($r['estado'] ?? 'ABIERTA');
+                                    // CAMBIO: El valor por defecto al fallar ahora es PENDIENTE
+                                    $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
                                     // String de búsqueda para JS
                                     $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . $estadoStr);
                                 ?>
@@ -175,7 +178,7 @@ if (!empty($_GET['error'])) {
                                         </span>
                                     </td>
                                     <td class="text-center pe-4 align-top pt-3">
-                                        <?php if (in_array($estadoStr, ['ABIERTA','PARCIAL','VENCIDA'], true)): ?>
+                                        <?php if (in_array($estadoStr, ['PENDIENTE', 'ABIERTA', 'PARCIAL', 'VENCIDA'], true)): ?>
                                             <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle js-open-cobro shadow-sm me-1" 
                                                 data-bs-toggle="modal" data-bs-target="#modalCobro"
                                                 data-id-origen="<?php echo (int) $r['id']; ?>" 

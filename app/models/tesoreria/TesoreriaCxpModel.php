@@ -102,10 +102,11 @@ class TesoreriaCxpModel extends Modelo
             'id_recepcion'      => $idRecepcion,
             'fecha_emision'     => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda'            => 'PEN', // Igual que en CXC, podrías heredar la moneda de la orden de compra en el futuro
+            'moneda'            => 'PEN',
             'monto_total'       => $total,
             'saldo'             => $total,
-            'estado'            => $total > 0 ? 'ABIERTA' : 'PAGADA',
+            // CAMBIO: Estado inicial pasa a ser PENDIENTE
+            'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',
             'created_by'        => $userId,
             'updated_by'        => $userId,
         ]);
@@ -115,14 +116,16 @@ class TesoreriaCxpModel extends Modelo
 
     public function recalcularEstado(int $id, int $userId): void
     {
+        // CAMBIO: Nueva lógica de estados (PAGADA, PARCIAL, PENDIENTE, VENCIDA)
         $stmt = $this->db()->prepare('UPDATE tesoreria_cxp
             SET saldo = GREATEST(ROUND(monto_total - monto_pagado, 4), 0),
                 estado = CASE
                     WHEN estado = "ANULADA" THEN "ANULADA"
                     WHEN ROUND(monto_total - monto_pagado, 4) <= 0 THEN "PAGADA"
-                    WHEN DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
-                    WHEN monto_pagado > 0 THEN "PARCIAL"
-                    ELSE "ABIERTA"
+                    WHEN monto_pagado > 0 AND ROUND(monto_total - monto_pagado, 4) > 0 THEN "PARCIAL"
+                    WHEN monto_pagado <= 0 AND DATE(fecha_vencimiento) >= CURDATE() THEN "PENDIENTE"
+                    WHEN monto_pagado <= 0 AND DATE(fecha_vencimiento) < CURDATE() THEN "VENCIDA"
+                    ELSE "PENDIENTE"
                 END,
                 updated_by = :user,
                 updated_at = NOW()

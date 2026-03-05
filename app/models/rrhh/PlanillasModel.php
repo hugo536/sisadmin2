@@ -8,6 +8,7 @@ class PlanillasModel extends Modelo
      */
     public function obtenerResumenPlanilla(string $desde, string $hasta, ?int $idTercero = null): array
     {
+        // CAMBIO: Se agregó la lógica para determinar el estado_pago general del periodo
         $sql = "SELECT 
                     t.id AS id_tercero,
                     t.numero_documento,
@@ -25,7 +26,17 @@ class PlanillasModel extends Modelo
                     COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
                     SUM(COALESCE(ar.horas_trabajadas, 0)) AS total_horas,
                     SUM(COALESCE(ar.horas_extras, 0)) AS total_horas_extras,
-                    SUM(COALESCE(ar.minutos_tardanza, 0)) AS total_minutos_tardanza
+                    SUM(COALESCE(ar.minutos_tardanza, 0)) AS total_minutos_tardanza,
+                    
+                    -- LÓGICA DE ESTADO DE PAGO:
+                    -- Si hay al menos un registro en el periodo que esté PENDIENTE, el bloque entero es PENDIENTE.
+                    -- Si no hay pendientes, pero hay registros, entonces está PAGADA.
+                    -- Si no hay registros de asistencia en absoluto, no mostramos botón de pago (PENDIENTE_VACIO).
+                    CASE 
+                        WHEN COUNT(ar.id) = 0 THEN 'SIN_REGISTROS'
+                        WHEN SUM(CASE WHEN ar.estado_pago = 'PENDIENTE' THEN 1 ELSE 0 END) > 0 THEN 'PENDIENTE'
+                        ELSE 'PAGADA'
+                    END AS estado_pago
                     
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
@@ -83,5 +94,84 @@ class PlanillasModel extends Modelo
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * NUEVA FUNCIÓN: Procesa el pago, descuenta de tesorería y marca las asistencias como pagadas.
+     */
+    public function registrarPagoPlanilla(array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        
+        try {
+            $db->beginTransaction();
+
+            // 1. Insertar el Egreso en Tesorería (Salida de dinero)
+            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, referencia, observaciones, estado, created_by, created_at, updated_at) 
+                VALUES 
+                ('PAGO', :id_tercero, 'PLANILLA', 0, :id_cuenta, :id_metodo_pago, :fecha, 'PEN', :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by, NOW(), NOW())");
+            
+            $stmtMov->execute([
+                'id_tercero' => $datos['id_empleado'],
+                'id_cuenta' => $datos['id_cuenta'],
+                'id_metodo_pago' => $datos['id_metodo_pago'],
+                'fecha' => $datos['fecha_pago'],
+                'monto' => $datos['monto_pagar'],
+                'referencia' => $datos['referencia'] ?? null,
+                'observaciones' => "Pago de Planilla periodo " . $datos['fecha_inicio'] . " al " . $datos['fecha_fin'],
+                'created_by' => $userId
+            ]);
+            
+            $idMovimientoTesoreria = (int) $db->lastInsertId();
+
+            // 2. Descontar el saldo de la cuenta de origen (Caja/Banco)
+            $stmtCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
+            $stmtCuenta->execute([
+                'monto' => $datos['monto_pagar'],
+                'id_cuenta' => $datos['id_cuenta']
+            ]);
+
+            // 3. Crear el Recibo Maestro en RRHH
+            $stmtNomina = $db->prepare("INSERT INTO rrhh_pagos_nomina 
+                (id_empleado, fecha_inicio, fecha_fin, monto_base, total_pagado, id_cuenta_origen, id_movimiento_tesoreria, estado, created_by, created_at) 
+                VALUES 
+                (:id_empleado, :fecha_inicio, :fecha_fin, :monto_base, :total_pagado, :id_cuenta, :id_movimiento, 'PAGADA', :created_by, NOW())");
+            
+            $stmtNomina->execute([
+                'id_empleado' => $datos['id_empleado'],
+                'fecha_inicio' => $datos['fecha_inicio'],
+                'fecha_fin' => $datos['fecha_fin'],
+                'monto_base' => $datos['monto_pagar'], // Simplificado, asume que ya calculaste base + bono - desc en el controlador o vista
+                'total_pagado' => $datos['monto_pagar'],
+                'id_cuenta' => $datos['id_cuenta'],
+                'id_movimiento' => $idMovimientoTesoreria,
+                'created_by' => $userId
+            ]);
+            
+            $idPagoNomina = (int) $db->lastInsertId();
+
+            // 4. Actualizar las asistencias de ese periodo para que pasen a "PAGADA" y queden enlazadas al recibo
+            $stmtAsistencias = $db->prepare("UPDATE asistencia_registros 
+                SET estado_pago = 'PAGADA', id_pago_nomina = :id_pago_nomina 
+                WHERE id_tercero = :id_empleado 
+                  AND fecha BETWEEN :fecha_inicio AND :fecha_fin 
+                  AND estado_pago = 'PENDIENTE'");
+            
+            $stmtAsistencias->execute([
+                'id_pago_nomina' => $idPagoNomina,
+                'id_empleado' => $datos['id_empleado'],
+                'fecha_inicio' => $datos['fecha_inicio'],
+                'fecha_fin' => $datos['fecha_fin']
+            ]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            // Para depuración, puedes hacer error_log($e->getMessage());
+            return false;
+        }
     }
 }
