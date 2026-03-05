@@ -582,7 +582,6 @@ class TercerosController extends Controlador
             if ($configBancoId <= 0 && $entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipoEntidad[$i] ?? 'Banco');
-            // AQUÍ SOLUCIONAMOS LOS BOOLEANOS DE CUENTAS BANCARIAS
             $esBilletera = ($tipoEntidad === 'Billetera Digital' || filter_var($cuentasBilletera[$i] ?? false, FILTER_VALIDATE_BOOLEAN));
             
             $numeroVal = trim((string)($cuentasNumero[$i] ?? ''));
@@ -668,7 +667,7 @@ class TercerosController extends Controlador
         }
 
         if ($esDistribuidor) {
-            $esCliente = true; // Actualizamos a booleano
+            $esCliente = true; 
         }
 
         $roles = [$esCliente, $esProveedor, $esEmpleado, $esDistribuidor];
@@ -705,14 +704,9 @@ class TercerosController extends Controlador
             $tipoPagoRaw = strtoupper(trim($tipoPagoInput));
             $codigoBiometricoRaw = trim((string) ($data['codigo_biometrico'] ?? ''));
             
-            // Le damos valor '0' por defecto si estos campos no vienen o están vacíos en el formulario
             $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? '0'));
             if ($sueldoBasicoRaw === '') $sueldoBasicoRaw = '0';
-            
-            $pagoDiarioRaw = trim((string) ($data['pago_diario'] ?? '0'));
-            if ($pagoDiarioRaw === '') $pagoDiarioRaw = '0';
 
-            // Actualizamos la validación: ya NO exigimos el sueldo básico
             if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
                 throw new Exception('Para el rol Empleado, el cargo, área y la fecha de ingreso son obligatorios.');
             }
@@ -721,16 +715,16 @@ class TercerosController extends Controlador
                 throw new Exception('El código biométrico no puede exceder 50 caracteres.');
             }
 
-            // Validamos que sean números válidos
+            // Validamos que el sueldo (que usamos tanto para mensual como para jornal) sea numérico
             if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {
-                throw new Exception('El sueldo básico debe ser un número válido mayor o igual a 0.');
+                throw new Exception('El sueldo básico/jornal debe ser un número válido mayor o igual a 0.');
             }
-            if (!is_numeric($pagoDiarioRaw) || (float) $pagoDiarioRaw < 0) {
-                throw new Exception('El pago diario debe ser un número válido mayor o igual a 0.');
-            }
-
-            if (!in_array($tipoPagoRaw, ['MENSUAL', 'DIARIO'], true)) {
-                throw new Exception('El tipo de pago del empleado debe ser MENSUAL o DIARIO.');
+            
+            // ==============================================================================
+            // AQUÍ ESTABA EL ERROR: AGREGAMOS 'QUINCENAL' Y 'SEMANAL' A LOS PAGOS PERMITIDOS
+            // ==============================================================================
+            if (!in_array($tipoPagoRaw, ['MENSUAL', 'QUINCENAL', 'SEMANAL'], true)) {
+                throw new Exception('El tipo de pago del empleado debe ser MENSUAL, QUINCENAL o SEMANAL.');
             }
 
             $fechaIngreso = DateTimeImmutable::createFromFormat('Y-m-d', $fechaIngresoRaw);
@@ -738,13 +732,13 @@ class TercerosController extends Controlador
                 throw new Exception('La fecha de ingreso del empleado no tiene un formato válido.');
             }
             
-            // Reasignamos los valores limpios al array principal
             $data['tipo_pago'] = $tipoPagoRaw;
             $data['sueldo_basico'] = $sueldoBasicoRaw;
-            $data['pago_diario'] = $pagoDiarioRaw;
+            
+            // Forzamos el pago diario a 0 ya que limpiamos ese input
+            $data['pago_diario'] = '0';
         }
 
-        // --- CORRECCIÓN DE VALIDACIÓN DEL CUMPLEAÑOS AQUÍ ---
         $recordarCumpleanos = $esEmpleado && filter_var($data['recordar_cumpleanos'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $fechaNacimientoRaw = trim((string) ($data['fecha_nacimiento'] ?? ''));
         $fechaNacimientoNormalizada = null;
@@ -848,9 +842,12 @@ class TercerosController extends Controlador
             return $map[$v] ?? '';
         };
 
+        // ==============================================================================
+        // SEGUNDO CAMBIO: NORMALIZADOR DE TIPO DE PAGO
+        // ==============================================================================
         $normalizeTipoPago = static function ($value) use ($normalizeCatalog) {
             $v = $normalizeCatalog($value);
-            return in_array($v, ['MENSUAL', 'QUINCENAL', 'DIARIO'], true) ? $v : 'MENSUAL';
+            return in_array($v, ['MENSUAL', 'QUINCENAL', 'SEMANAL'], true) ? $v : 'MENSUAL';
         };
 
         $normalizeMoneda = static function ($value) use ($normalizeCatalog) {

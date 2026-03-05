@@ -1,15 +1,17 @@
 <?php
-// Inicialización de variables
+// Inicialización
 $desde = $desde ?? date('Y-m-d');
 $hasta = $hasta ?? date('Y-m-d');
 $idTercero = (int) ($id_tercero ?? 0);
-$frecuencia = $frecuencia ?? ''; // NUEVO: Mantenemos el estado del filtro
-$semana = $semana ?? '';
+$frecuencia = $frecuencia ?? ''; 
 $empleados = $empleados ?? [];
 $planillas = $planillas ?? [];
 $totales = $totales ?? ['planilla' => 0, 'descuentos' => 0, 'extras' => 0];
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? [];
+
+// Calculamos la semana actual para el atajo
+$semanaActualFormat = date('Y-\WW', strtotime($desde)); 
 ?>
 
 <div class="container-fluid p-4">
@@ -21,7 +23,6 @@ $metodos = $metodos ?? [];
             </h1>
             <p class="text-muted small mb-0 ms-1">Liquidación de nómina, cálculo de horas extras y registro de pagos.</p>
         </div>
-
         <div class="d-flex gap-2 flex-wrap justify-content-end d-print-none">
             <button type="button" id="btnImprimirResumen" class="btn btn-white border shadow-sm text-secondary fw-semibold" onclick="window.print()">
                 <i class="bi bi-printer me-2 text-info"></i>Imprimir Resumen
@@ -73,25 +74,22 @@ $metodos = $metodos ?? [];
 
     <div class="card border-0 shadow-sm mb-4 d-print-none" style="border-radius: 12px;">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosPlanillas">
+            <form method="get" action="" class="row g-2 align-items-end" id="formFiltrosPlanillas">
                 <input type="hidden" name="ruta" value="planillas">
                 
                 <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                    <input type="date" id="filtroDesde" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
+                    <label class="form-label small text-primary fw-bold mb-1"><i class="bi bi-calendar-week me-1"></i>Atajo Semana</label>
+                    <input type="week" id="filtroSemana" class="form-control bg-primary-subtle border-primary-subtle text-primary fw-bold shadow-sm" value="<?php echo $semanaActualFormat; ?>" title="Selecciona una semana para autocompletar fechas">
                 </div>
-                
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
+                    <input type="date" id="filtroDesde" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
+                </div>
                 <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                    <input type="date" id="filtroHasta" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
+                    <input type="date" id="filtroHasta" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
                 </div>
-
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Semana</label>
-                    <input type="week" id="filtroSemana" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" value="<?php echo e($semana); ?>">
-                </div>
-                
-                <div class="col-12 col-md-2">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Frecuencia</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="frecuencia_pago" id="filtroFrecuencia">
                         <option value="">Todas</option>
@@ -100,10 +98,9 @@ $metodos = $metodos ?? [];
                         <option value="MENSUAL" <?php echo $frecuencia === 'MENSUAL' ? 'selected' : ''; ?>>Mensual</option>
                     </select>
                 </div>
-                
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Filtrar Empleado (Opcional)</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero" id="filtroEmpleado">
                         <option value="">Todo el personal</option>
                         <?php foreach ($empleados as $emp): ?>
                             <?php if (!empty($emp['es_empleado'])): ?>
@@ -127,7 +124,7 @@ $metodos = $metodos ?? [];
             </div>
             <div class="input-group shadow-sm d-print-none" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchPlanilla" placeholder="Buscar empleado..." aria-label="Buscar empleado">
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchPlanilla" placeholder="Buscar empleado...">
             </div>
         </div>
         
@@ -166,7 +163,6 @@ $metodos = $metodos ?? [];
                                     $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . ($row['numero_documento'] ?? '')); 
                                     $estadoStr = (string) ($row['estado_pago'] ?? 'PENDIENTE');
                                 ?>
-                                
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 align-top pt-3">
                                         <div class="fw-bold text-dark"><?php echo e($row['nombre_completo']); ?></div>
@@ -182,7 +178,7 @@ $metodos = $metodos ?? [];
                                     </td>
                                     
                                     <td class="text-center align-top pt-3">
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" title="Días Pagados (Asistencias + Justificados)">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" title="Días Pagados">
                                             <i class="bi bi-check-circle me-1"></i><?php echo e((string)($row['dias_asistidos'] ?? 0)); ?>
                                         </span>
                                         <?php if(($row['dias_falta'] ?? 0) > 0): ?>
@@ -195,7 +191,6 @@ $metodos = $metodos ?? [];
                                     <td class="text-end align-top pt-3 fw-medium text-secondary">
                                         <?php echo e($row['moneda'] ?? 'S/'); ?> <?php echo number_format((float)($row['sueldo_base_calculado'] ?? 0), 2); ?>
                                     </td>
-                                    
                                     <td class="text-end align-top pt-3 fw-medium text-success">
                                         <?php if(($row['monto_horas_extras'] ?? 0) > 0): ?>
                                             + <?php echo number_format((float)$row['monto_horas_extras'], 2); ?>
@@ -204,7 +199,6 @@ $metodos = $metodos ?? [];
                                             <span class="text-muted opacity-50">0.00</span>
                                         <?php endif; ?>
                                     </td>
-                                    
                                     <td class="text-end align-top pt-3 fw-medium text-danger">
                                         <?php if(($row['monto_descuento_tardanza'] ?? 0) > 0): ?>
                                             - <?php echo number_format((float)$row['monto_descuento_tardanza'], 2); ?>
@@ -213,13 +207,11 @@ $metodos = $metodos ?? [];
                                             <span class="text-muted opacity-50">0.00</span>
                                         <?php endif; ?>
                                     </td>
-                                    
                                     <td class="text-end align-top pt-3">
                                         <span class="fs-5 fw-bold text-primary">
                                             <?php echo e($row['moneda'] ?? 'S/'); ?> <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?>
                                         </span>
                                     </td>
-
                                     <td class="text-center align-top pt-3">
                                         <?php if ($estadoStr === 'PAGADA'): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill shadow-sm">PAGADA</span>
@@ -230,9 +222,18 @@ $metodos = $metodos ?? [];
                                     
                                     <td class="text-center align-top pt-3 pe-4 d-print-none">
                                         <div class="d-flex justify-content-center gap-1">
-                                            <?php 
-                                                $montoNeto = (float) ($row['neto_a_pagar'] ?? 0); 
-                                            ?>
+                                            
+                                            <button type="button" class="btn btn-sm btn-light text-info border-0 rounded-circle shadow-sm btn-ver-calendario"
+                                                data-bs-toggle="modal" data-bs-target="#modalCalendarioAsistencia"
+                                                data-id-empleado="<?php echo (int) $row['id_tercero']; ?>"
+                                                data-nombre-empleado="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-fecha-desde="<?php echo e($desde); ?>"
+                                                data-fecha-hasta="<?php echo e($hasta); ?>"
+                                                data-bs-toggle="tooltip" title="Ver Auditoría Visual (Calendario)">
+                                                <i class="bi bi-calendar3 fs-5"></i>
+                                            </button>
+
+                                            <?php $montoNeto = (float) ($row['neto_a_pagar'] ?? 0); ?>
                                             <?php if ($estadoStr === 'PENDIENTE' && $montoNeto > 0): ?>
                                                 <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm"
                                                     data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla"
@@ -250,14 +251,11 @@ $metodos = $metodos ?? [];
 
                                             <?php 
                                             $printParams = http_build_query([
-                                                'id' => $row['id_tercero'],
-                                                'desde' => $desde,
-                                                'hasta' => $hasta
+                                                'id' => $row['id_tercero'], 'desde' => $desde, 'hasta' => $hasta
                                             ]);
                                             ?>
                                             <a href="<?php echo e(route_url("planillas/imprimirTicket&{$printParams}")); ?>" 
-                                            target="_blank" 
-                                            class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm"
+                                            target="_blank" class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm"
                                             data-bs-toggle="tooltip" title="Imprimir Ticket (80mm)">
                                                 <i class="bi bi-printer fs-5"></i>
                                             </a>
@@ -276,7 +274,43 @@ $metodos = $metodos ?? [];
                     <ul class="pagination mb-0 shadow-sm" id="planillasPaginationControls"></ul>
                 </nav>
             </div>
-            
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCalendarioAsistencia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered"> <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-check me-2"></i>Auditoría de Asistencia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-primary fw-bold mb-0" id="calNombreEmpleado">Cargando...</h5>
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis px-3 py-2 border" id="calRangoFechas"></span>
+                </div>
+
+                <div id="calendarioContenedor" class="bg-white p-3 rounded shadow-sm border text-center min-vh-50">
+                    <div class="spinner-border text-primary my-5" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+
+                <div class="card mt-4 border-0 shadow-sm bg-white">
+                    <div class="card-body p-3">
+                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Colores</h6>
+                        <div class="d-flex flex-wrap gap-3 small fw-medium">
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-success me-2" style="width: 12px; height: 12px;"></span> Asistencia / Puntual</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-warning me-2" style="width: 12px; height: 12px;"></span> Tardanza</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-danger me-2" style="width: 12px; height: 12px;"></span> Falta</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-info me-2" style="width: 12px; height: 12px;"></span> Descanso / Vacaciones</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-secondary bg-opacity-25 me-2" style="width: 12px; height: 12px;"></span> Sin Registro / Feriado</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 </div>
