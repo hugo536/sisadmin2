@@ -5,6 +5,72 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class ProduccionOrdenesModel extends Modelo
 {
+    // =====================================================================
+    // OBTENER DATOS PARA EL CALENDARIO DEL PLANIFICADOR
+    // =====================================================================
+    public function obtenerDatosPlanificador(string $desde, string $hasta): array
+    {
+        // 1. Buscamos cuántas Órdenes de Producción hay por día
+        $sqlOps = 'SELECT DATE(fecha_programada) as fecha_prog, COUNT(id) as total_ops 
+                   FROM produccion_ordenes 
+                   WHERE fecha_programada >= :desde AND fecha_programada <= :hasta 
+                     AND estado IN (0, 1) 
+                     AND deleted_at IS NULL 
+                   GROUP BY DATE(fecha_programada)';
+        
+        $stmtOps = $this->db()->prepare($sqlOps);
+        $stmtOps->execute(['desde' => $desde, 'hasta' => $hasta]);
+        $rawOps = $stmtOps->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        
+        $conteoOps = [];
+        foreach($rawOps as $r) {
+            $conteoOps[$r['fecha_prog']] = (int)$r['total_ops'];
+        }
+
+        // 2. Buscamos los Grupos Diarios y Excepciones (Nombre de tabla corregido)
+        $sqlPlan = 'SELECT fecha, tipo_horario 
+                    FROM produccion_grupos_diarios 
+                    WHERE fecha >= :desde AND fecha <= :hasta';
+        
+        $stmtPlan = $this->db()->prepare($sqlPlan);
+        $stmtPlan->execute(['desde' => $desde, 'hasta' => $hasta]);
+        $planes = $stmtPlan->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $diccionario = [];
+
+        // Unificamos la información
+        foreach ($planes as $plan) {
+            $fecha = $plan['fecha'];
+            $tipo = strtolower($plan['tipo_horario'] ?? 'normal');
+            
+            // Si el día tiene varios grupos, y alguno es "excepcion", pintamos el día de naranja
+            if (!isset($diccionario[$fecha])) {
+                $diccionario[$fecha] = [
+                    'tipo' => $tipo,
+                    'ops' => $conteoOps[$fecha] ?? 0
+                ];
+            } else if ($tipo === 'excepcion') {
+                $diccionario[$fecha]['tipo'] = 'excepcion';
+            }
+        }
+
+        // Si hay días que tienen OPs pero no tienen grupos creados, los marcamos como 'normal'
+        foreach ($conteoOps as $fecha => $cantidad) {
+            if (!isset($diccionario[$fecha])) {
+                $diccionario[$fecha] = [
+                    'tipo' => 'normal',
+                    'ops' => $cantidad
+                ];
+            }
+        }
+
+        return $diccionario;
+    }
+
+    // =====================================================================
+    // CÓDIGO EXISTENTE INTACTO
+    // =====================================================================
+
     public function listarTurnosProgramadosDisponibles(): array
     {
         $sql = 'SELECT id, nombre
@@ -257,7 +323,6 @@ class ProduccionOrdenesModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
     public function buscarInsumosStockeables(string $termino, int $limite = 30): array
     {
         $busqueda = '%' . $termino . '%';
@@ -279,8 +344,6 @@ class ProduccionOrdenesModel extends Modelo
         
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // Calculamos el costo dinámico en un loop rápido (Máximo 30 iteraciones)
-        // Esto es muchísimo más eficiente que agrupar toda la tabla en un JOIN
         foreach ($items as &$item) {
             $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
         }
@@ -288,7 +351,6 @@ class ProduccionOrdenesModel extends Modelo
         return $items;
     }
 
-    // Se mantiene por retrocompatibilidad, pero ahora usa la lógica rápida
     public function listarItemsStockeables(): array
     {
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
@@ -538,7 +600,6 @@ class ProduccionOrdenesModel extends Modelo
                 }
             }
 
-            // Se actualizó para recibir las fechas exactas del formulario
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             estado = 2,
@@ -551,8 +612,8 @@ class ProduccionOrdenesModel extends Modelo
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
-                'fecha_inicio' => $fechaInicio, // Pasa la fecha recibida
-                'fecha_fin' => $fechaFin,       // Pasa la fecha recibida
+                'fecha_inicio' => $fechaInicio, 
+                'fecha_fin' => $fechaFin,       
                 'justificacion' => $justificacion !== '' ? $justificacion : null,
                 'updated_by' => $userId,
                 'id' => $idOrden,
@@ -653,17 +714,13 @@ class ProduccionOrdenesModel extends Modelo
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
-    // FUNCIÓN EXTREMADAMENTE OPTIMIZADA
-
     private function obtenerCostoReferencial(int $idItem): float
     {
-        // 1. Primero buscamos el costo fijo en el ítem
         $stmt = $this->db()->prepare('SELECT costo_referencial FROM items WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $idItem]);
         $costoFijo = (float)($stmt->fetchColumn() ?: 0);
         if ($costoFijo > 0) return $costoFijo;
 
-        // 2. Si no hay, buscamos el costo de su última receta (Si es producto terminado)
         $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario 
                                          FROM produccion_recetas 
                                          WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL 
@@ -672,7 +729,6 @@ class ProduccionOrdenesModel extends Modelo
         $costoReceta = (float)($stmtRec->fetchColumn() ?: 0);
         if ($costoReceta > 0) return $costoReceta;
 
-        // 3. Si no hay receta, buscamos el último costo al que se compró o movió
         $stmtMov = $this->db()->prepare('SELECT costo_unitario 
                                          FROM inventario_movimientos 
                                          WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 
@@ -681,10 +737,6 @@ class ProduccionOrdenesModel extends Modelo
         return (float)($stmtMov->fetchColumn() ?: 0);
     }
 
-    /**
-     * Obtiene el ID de la última unidad de medida utilizada para un ítem
-     * Útil para registrar los movimientos de inventario con la unidad correcta.
-     */
     private function obtenerUnidadPorDefecto(int $idItem): ?int
     {
         $stmt = $this->db()->prepare('SELECT id_item_unidad

@@ -5,7 +5,8 @@ class HorarioModel extends Modelo
 {
     public function listarHorarios(): array
     {
-        $sql = 'SELECT id, nombre, hora_entrada, hora_salida, tolerancia_minutos, estado
+        // Actualizado para traer los 3 tramos y el total de horas
+        $sql = 'SELECT id, nombre, t1_entrada, t1_salida, t2_entrada, t2_salida, t3_entrada, t3_salida, total_horas_pago, tolerancia_minutos, estado
                 FROM asistencia_horarios
                 WHERE deleted_at IS NULL
                 ORDER BY estado DESC, nombre ASC';
@@ -15,15 +16,21 @@ class HorarioModel extends Modelo
 
     public function crearHorario(array $data, int $userId): bool
     {
-        $sql = 'INSERT INTO asistencia_horarios (nombre, hora_entrada, hora_salida, tolerancia_minutos, estado, created_by)
-                VALUES (:nombre, :hora_entrada, :hora_salida, :tolerancia_minutos, 1, :created_by)';
+        $sql = 'INSERT INTO asistencia_horarios (nombre, t1_entrada, t1_salida, t2_entrada, t2_salida, t3_entrada, t3_salida, total_horas_pago, tolerancia_minutos, estado, created_by)
+                VALUES (:nombre, :t1_entrada, :t1_salida, :t2_entrada, :t2_salida, :t3_entrada, :t3_salida, :total_horas_pago, :tolerancia_minutos, 1, :created_by)';
 
         return $this->db()->prepare($sql)->execute([
-            'nombre' => $data['nombre'],
-            'hora_entrada' => $data['hora_entrada'],
-            'hora_salida' => $data['hora_salida'],
+            'nombre'             => $data['nombre'],
+            // Validamos que si llega vacío guarde NULL en la BD
+            't1_entrada'         => !empty($data['t1_entrada']) ? $data['t1_entrada'] : null,
+            't1_salida'          => !empty($data['t1_salida'])  ? $data['t1_salida']  : null,
+            't2_entrada'         => !empty($data['t2_entrada']) ? $data['t2_entrada'] : null,
+            't2_salida'          => !empty($data['t2_salida'])  ? $data['t2_salida']  : null,
+            't3_entrada'         => !empty($data['t3_entrada']) ? $data['t3_entrada'] : null,
+            't3_salida'          => !empty($data['t3_salida'])  ? $data['t3_salida']  : null,
+            'total_horas_pago'   => $data['total_horas_pago'] ?? 0.00,
             'tolerancia_minutos' => $data['tolerancia_minutos'],
-            'created_by' => $userId,
+            'created_by'         => $userId,
         ]);
     }
 
@@ -31,20 +38,30 @@ class HorarioModel extends Modelo
     {
         $sql = 'UPDATE asistencia_horarios
                 SET nombre = :nombre,
-                    hora_entrada = :hora_entrada,
-                    hora_salida = :hora_salida,
+                    t1_entrada = :t1_entrada,
+                    t1_salida = :t1_salida,
+                    t2_entrada = :t2_entrada,
+                    t2_salida = :t2_salida,
+                    t3_entrada = :t3_entrada,
+                    t3_salida = :t3_salida,
+                    total_horas_pago = :total_horas_pago,
                     tolerancia_minutos = :tolerancia_minutos,
                     updated_by = :updated_by,
                     updated_at = NOW()
                 WHERE id = :id AND deleted_at IS NULL';
 
         return $this->db()->prepare($sql)->execute([
-            'id' => $id,
-            'nombre' => $data['nombre'],
-            'hora_entrada' => $data['hora_entrada'],
-            'hora_salida' => $data['hora_salida'],
+            'id'                 => $id,
+            'nombre'             => $data['nombre'],
+            't1_entrada'         => !empty($data['t1_entrada']) ? $data['t1_entrada'] : null,
+            't1_salida'          => !empty($data['t1_salida'])  ? $data['t1_salida']  : null,
+            't2_entrada'         => !empty($data['t2_entrada']) ? $data['t2_entrada'] : null,
+            't2_salida'          => !empty($data['t2_salida'])  ? $data['t2_salida']  : null,
+            't3_entrada'         => !empty($data['t3_entrada']) ? $data['t3_entrada'] : null,
+            't3_salida'          => !empty($data['t3_salida'])  ? $data['t3_salida']  : null,
+            'total_horas_pago'   => $data['total_horas_pago'] ?? 0.00,
             'tolerancia_minutos' => $data['tolerancia_minutos'],
-            'updated_by' => $userId,
+            'updated_by'         => $userId,
         ]);
     }
 
@@ -77,14 +94,19 @@ class HorarioModel extends Modelo
 
     public function listarAsignaciones(): array
     {
+        // Se actualiza para traer los tramos en lugar de la entrada/salida única
         $sql = 'SELECT aeh.id,
                        aeh.id_tercero,
                        t.nombre_completo AS empleado,
                        te.codigo_biometrico,
                        aeh.id_horario,
                        ah.nombre AS horario,
-                       ah.hora_entrada,
-                       ah.hora_salida,
+                       ah.t1_entrada,
+                       ah.t1_salida,
+                       ah.t2_entrada,
+                       ah.t2_salida,
+                       ah.t3_entrada,
+                       ah.t3_salida,
                        aeh.dia_semana
                 FROM asistencia_empleado_horario aeh
                 INNER JOIN terceros t ON t.id = aeh.id_tercero
@@ -124,7 +146,6 @@ class HorarioModel extends Modelo
         return $this->db()->prepare('DELETE FROM asistencia_empleado_horario WHERE id = :id')->execute(['id' => $id]);
     }
 
-    // --- NUEVA FUNCIÓN AGREGADA ---
     public function limpiarSemanaEmpleado(int $idTercero): bool
     {
         $sql = 'DELETE FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero';

@@ -279,33 +279,54 @@ $semanaActualFormat = date('Y-\WW', strtotime($desde));
 </div>
 
 <div class="modal fade" id="modalCalendarioAsistencia" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered"> <div class="modal-content border-0 shadow">
+    <div class="modal-dialog modal-lg modal-dialog-centered"> <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-calendar-check me-2"></i>Auditoría de Asistencia</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4 bg-light">
                 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-primary fw-bold mb-0" id="calNombreEmpleado">Cargando...</h5>
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis px-3 py-2 border" id="calRangoFechas"></span>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h5 class="text-primary fw-bold mb-0" id="calNombreEmpleado">Cargando...</h5>
+                        <small class="text-muted" id="calPeriodoOriginal">Periodo filtrado: ...</small>
+                    </div>
+                    <div class="d-flex align-items-center bg-white border rounded shadow-sm p-1">
+                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnMesAnterior"><i class="bi bi-chevron-left"></i></button>
+                        <span class="mx-3 fw-bold text-dark text-uppercase" id="lblMesActual" style="min-width: 120px; text-align: center;">MES 2026</span>
+                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnMesSiguiente"><i class="bi bi-chevron-right"></i></button>
+                    </div>
                 </div>
 
-                <div id="calendarioContenedor" class="bg-white p-3 rounded shadow-sm border text-center min-vh-50">
-                    <div class="spinner-border text-primary my-5" role="status">
-                        <span class="visually-hidden">Cargando...</span>
+                <div class="bg-white p-3 rounded shadow-sm border text-center min-vh-50 position-relative">
+                    
+                    <div id="calLoader" class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex justify-content-center align-items-center d-none" style="z-index: 10;">
+                        <div class="spinner-border text-primary" role="status"></div>
                     </div>
+
+                    <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                        <div class="fw-bold text-muted small">Lun</div>
+                        <div class="fw-bold text-muted small">Mar</div>
+                        <div class="fw-bold text-muted small">Mié</div>
+                        <div class="fw-bold text-muted small">Jue</div>
+                        <div class="fw-bold text-muted small">Vie</div>
+                        <div class="fw-bold text-muted small">Sáb</div>
+                        <div class="fw-bold text-danger small">Dom</div>
+                    </div>
+                    
+                    <div id="calendarioGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 300px;">
+                        </div>
                 </div>
 
                 <div class="card mt-4 border-0 shadow-sm bg-white">
                     <div class="card-body p-3">
-                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Colores</h6>
+                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Colores (Clic en un día para ver detalle)</h6>
                         <div class="d-flex flex-wrap gap-3 small fw-medium">
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-success me-2" style="width: 12px; height: 12px;"></span> Asistencia / Puntual</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-success me-2" style="width: 12px; height: 12px;"></span> Puntual</div>
                             <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-warning me-2" style="width: 12px; height: 12px;"></span> Tardanza</div>
                             <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-danger me-2" style="width: 12px; height: 12px;"></span> Falta</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-info me-2" style="width: 12px; height: 12px;"></span> Descanso / Vacaciones</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-secondary bg-opacity-25 me-2" style="width: 12px; height: 12px;"></span> Sin Registro / Feriado</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-info me-2" style="width: 12px; height: 12px;"></span> Justificado / Vacaciones</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block border border-secondary border-dashed me-2" style="width: 12px; height: 12px;"></span> Sin Registro / Feriado</div>
                         </div>
                     </div>
                 </div>

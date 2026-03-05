@@ -10,13 +10,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectEl = document.getElementById('empleadoTomSelect');
     
     if (selectEl && typeof TomSelect !== 'undefined') {
-        // Inicializamos TomSelect (Oculta las opciones al seleccionarlas)
-        const ts = new TomSelect(selectEl, {
-            create: false,
-            placeholder: 'Escribe nombre o código...',
-            dropdownParent: 'body',
-            maxItems: 1 // Solo dejamos elegir uno a la vez porque lo vamos a mover al panel
-        });
+        let ts;
+        
+        // ¡LA SOLUCIÓN! Verificamos si ya tiene una instancia previa
+        if (selectEl.tomselect) {
+            ts = selectEl.tomselect; // Usamos la instancia que ya existe
+        } else {
+            // Solo si no existe, lo inicializamos
+            ts = new TomSelect(selectEl, {
+                create: false,
+                placeholder: 'Escribe nombre o código...',
+                dropdownParent: 'body',
+                maxItems: 1
+            });
+        }
 
         // Referencias al DOM del panel derecho
         const panel = document.getElementById('panelSeleccionados');
@@ -165,14 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================================
-    // 2. LÓGICA DE EDICIÓN DE TURNOS (Con Delegación de Eventos)
+    // 2. LÓGICA DE EDICIÓN DE TURNOS (TRAMOS)
     // ========================================================================
     
+    // Referencias a los nuevos inputs del DOM
     const idInput = document.getElementById('horarioId');
     const nombreInput = document.getElementById('horarioNombre');
-    const entradaInput = document.getElementById('horarioEntrada');
-    const salidaInput = document.getElementById('horarioSalida');
     const toleranciaInput = document.getElementById('horarioTolerancia');
+    
+    // Tramos
+    const t1EntradaInput = document.getElementById('t1Entrada');
+    const t1SalidaInput = document.getElementById('t1Salida');
+    const t2EntradaInput = document.getElementById('t2Entrada');
+    const t2SalidaInput = document.getElementById('t2Salida');
+    const t3EntradaInput = document.getElementById('t3Entrada');
+    const t3SalidaInput = document.getElementById('t3Salida');
 
     // Delegación de eventos: Escucha los clics en toda la página
     document.addEventListener('click', function (e) {
@@ -180,14 +194,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnEditar = e.target.closest('.js-editar-horario');
         
         if (btnEditar) {
-            if (!idInput || !nombreInput || !entradaInput || !salidaInput || !toleranciaInput) return;
+            // Validamos que existan los inputs principales
+            if (!idInput || !nombreInput || !t1EntradaInput || !t1SalidaInput) return;
             
             // Llena el formulario izquierdo con los datos de la fila (data-attributes)
             idInput.value = btnEditar.dataset.id || '0';
             nombreInput.value = btnEditar.dataset.nombre || '';
-            entradaInput.value = btnEditar.dataset.entrada || '';
-            salidaInput.value = btnEditar.dataset.salida || '';
             toleranciaInput.value = btnEditar.dataset.tolerancia || '0';
+
+            // Tramo 1
+            t1EntradaInput.value = btnEditar.dataset.t1Entrada && btnEditar.dataset.t1Entrada !== '00:00' ? btnEditar.dataset.t1Entrada : '';
+            t1SalidaInput.value  = btnEditar.dataset.t1Salida && btnEditar.dataset.t1Salida !== '00:00' ? btnEditar.dataset.t1Salida : '';
+            
+            // Tramo 2
+            if (t2EntradaInput && t2SalidaInput) {
+                t2EntradaInput.value = btnEditar.dataset.t2Entrada && btnEditar.dataset.t2Entrada !== '00:00' ? btnEditar.dataset.t2Entrada : '';
+                t2SalidaInput.value  = btnEditar.dataset.t2Salida && btnEditar.dataset.t2Salida !== '00:00' ? btnEditar.dataset.t2Salida : '';
+            }
+
+            // Tramo 3
+            if (t3EntradaInput && t3SalidaInput) {
+                t3EntradaInput.value = btnEditar.dataset.t3Entrada && btnEditar.dataset.t3Entrada !== '00:00' ? btnEditar.dataset.t3Entrada : '';
+                t3SalidaInput.value  = btnEditar.dataset.t3Salida && btnEditar.dataset.t3Salida !== '00:00' ? btnEditar.dataset.t3Salida : '';
+            }
             
             // Sube suavemente la pantalla hasta el formulario y pone el cursor en el Nombre
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -195,15 +224,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Limpiar el formulario de turnos si se arrepiente de editar
+    // Limpiar el formulario de turnos
     const btnLimpiarHorario = document.getElementById('btnLimpiarHorario');
-    if (btnLimpiarHorario && idInput && nombreInput && entradaInput && salidaInput && toleranciaInput) {
+    if (btnLimpiarHorario) {
         btnLimpiarHorario.addEventListener('click', function () {
-            idInput.value = '0';
-            nombreInput.value = '';
-            entradaInput.value = '';
-            salidaInput.value = '';
-            toleranciaInput.value = '0';
+            if(idInput) idInput.value = '0';
+            if(nombreInput) nombreInput.value = '';
+            if(toleranciaInput) toleranciaInput.value = '0';
+            
+            if(t1EntradaInput) t1EntradaInput.value = '';
+            if(t1SalidaInput) t1SalidaInput.value = '';
+            
+            if(t2EntradaInput) t2EntradaInput.value = '';
+            if(t2SalidaInput) t2SalidaInput.value = '';
+            
+            if(t3EntradaInput) t3EntradaInput.value = '';
+            if(t3SalidaInput) t3SalidaInput.value = '';
         });
     }
 

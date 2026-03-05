@@ -463,3 +463,7 @@ body {
     border-right: 1px solid #dee2e6 !important;
   }
 }
+.border-dashed { border-style: dashed !important; }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+.transition-all { transition: all 0.2s ease-in-out; }
+.cursor-pointer { cursor: pointer; }

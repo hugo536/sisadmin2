@@ -2,6 +2,7 @@
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
  * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
  * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
+ * Incluye: Planificador de Operaciones (Calendario Mes/Semana)
  * Modo: Consumo Teórico Estricto (Strict Backflushing)
  */
 
@@ -14,6 +15,7 @@ if (!window.produccionJsInitialized) {
         initAccionesTabla();
         initModalEjecucion();
         initModalPlanificacion();
+        initPlanificadorOperaciones(); // <--- NUEVA FUNCIÓN AÑADIDA
     });
 
     // =========================================================================
@@ -564,4 +566,255 @@ if (!window.produccionJsInitialized) {
             if (form) form.reset();
         });
     }
+
+    // =========================================================================
+    // 7. PLANIFICADOR DE OPERACIONES (CALENDARIO MES / SEMANA)
+    // =========================================================================
+    function initPlanificadorOperaciones() {
+        const modalPlanificador = document.getElementById('modalPlanificadorProduccion');
+        if (!modalPlanificador) return; // Si no estamos en la vista de OP, no hacer nada
+
+        let planFechaActual = new Date(); // Fecha pivote
+        let vistaActual = 'mes'; // 'mes' o 'semana'
+        let diccPlanificacion = {}; // Aquí guardaremos los datos del backend
+
+        // --- EVENTOS DEL PLANIFICADOR ---
+        modalPlanificador.addEventListener('show.bs.modal', () => {
+            planFechaActual = new Date();
+            cargarGridPlanificador();
+        });
+
+        document.getElementById('btnPlanAnterior').addEventListener('click', () => {
+            if (vistaActual === 'mes') {
+                planFechaActual.setMonth(planFechaActual.getMonth() - 1);
+            } else {
+                planFechaActual.setDate(planFechaActual.getDate() - 7);
+            }
+            cargarGridPlanificador();
+        });
+
+        document.getElementById('btnPlanSiguiente').addEventListener('click', () => {
+            if (vistaActual === 'mes') {
+                planFechaActual.setMonth(planFechaActual.getMonth() + 1);
+            } else {
+                planFechaActual.setDate(planFechaActual.getDate() + 7);
+            }
+            cargarGridPlanificador();
+        });
+
+        // Detectar cambio de toggle Mes / Semana
+        document.querySelectorAll('input[name="vistaPlanificador"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                vistaActual = e.target.value;
+                cargarGridPlanificador();
+            });
+        });
+
+        // --- LÓGICA DE DIBUJO ---
+        async function cargarGridPlanificador() {
+            const loader = document.getElementById('planLoader');
+            const grid = document.getElementById('planificadorGrid');
+            const lblPlan = document.getElementById('lblPlanActual');
+            if (!grid || !loader || !lblPlan) return;
+
+            loader.classList.remove('d-none');
+            
+            let primerDia, ultimoDia;
+            const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+            if (vistaActual === 'mes') {
+                const year = planFechaActual.getFullYear();
+                const month = planFechaActual.getMonth();
+                primerDia = new Date(year, month, 1);
+                ultimoDia = new Date(year, month + 1, 0);
+                lblPlan.textContent = `${nombresMeses[month]} ${year}`;
+            } else {
+                // Lógica para Semana (Empieza en Lunes)
+                primerDia = new Date(planFechaActual);
+                const day = primerDia.getDay() || 7; 
+                if (day !== 1) primerDia.setHours(-24 * (day - 1)); // Retroceder a Lunes
+                
+                ultimoDia = new Date(primerDia);
+                ultimoDia.setDate(ultimoDia.getDate() + 6); // Avanzar a Domingo
+
+                const mes1 = nombresMeses[primerDia.getMonth()];
+                const mes2 = nombresMeses[ultimoDia.getMonth()];
+                lblPlan.innerHTML = `<span class="small">Semana:</span> <br> ${primerDia.getDate()} ${mes1} - ${ultimoDia.getDate()} ${mes2}`;
+            }
+
+            const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const strDesde = formatDate(primerDia);
+            const strHasta = formatDate(ultimoDia);
+
+            // TODO: Aquí llamaremos al Backend PHP luego
+            /* try {
+                const url = `?ruta=produccion/api_planificador&desde=${strDesde}&hasta=${strHasta}`;
+                const response = await fetch(url);
+                const resultado = await response.json();
+                diccPlanificacion = resultado.data || {};
+            } catch (e) { console.error(e); } 
+            */
+            
+            // Simulación de datos temporales para que veas cómo queda
+            diccPlanificacion = {};
+
+            dibujarGrid(primerDia, ultimoDia);
+            loader.classList.add('d-none');
+        }
+
+        function dibujarGrid(primerDia, ultimoDia) {
+            const grid = document.getElementById('planificadorGrid');
+            let html = '';
+            
+            // Ajustar altura de las celdas según la vista
+            const minHeight = vistaActual === 'mes' ? '100px' : '300px';
+
+            // Determinar qué día de la semana cae el primerDía (Para vista mensual)
+            if (vistaActual === 'mes') {
+                let inicioSemana = primerDia.getDay();
+                inicioSemana = inicioSemana === 0 ? 6 : inicioSemana - 1; 
+                for (let i = 0; i < inicioSemana; i++) {
+                    html += `<div class="bg-light rounded opacity-25" style="min-height: ${minHeight}; border: 1px dashed #dee2e6;"></div>`;
+                }
+            }
+
+            // Bucle de días
+            const currentDate = new Date(primerDia);
+            while (currentDate <= ultimoDia) {
+                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
+                const diaNum = currentDate.getDate();
+                const esDomingo = currentDate.getDay() === 0;
+                
+                const registro = diccPlanificacion[dateStr];
+                
+                // Estilos Base
+                let colorClase = 'bg-white border-secondary-subtle border-dashed'; 
+                let textoClase = esDomingo ? 'text-danger' : 'text-secondary';
+                let htmlContenido = '';
+
+                // Lógica visual si hay datos en ese día (Simulado)
+                if (registro) {
+                    if(registro.tipo === 'normal') colorClase = 'bg-primary-subtle border-primary text-primary-emphasis';
+                    if(registro.tipo === 'excepcion') colorClase = 'bg-warning-subtle border-warning text-warning-emphasis';
+                    
+                    if (registro.ops > 0) {
+                        htmlContenido += `<div class="badge bg-dark mt-2 w-100"><i class="bi bi-gear-fill me-1"></i> ${registro.ops} OPs</div>`;
+                    }
+                }
+
+                html += `
+                    <div class="card shadow-sm position-relative ${colorClase} cursor-pointer hover-lift transition-all overflow-hidden" 
+                         style="min-height: ${minHeight};" 
+                         onclick="abrirDiaPlanificador('${dateStr}')">
+                        <div class="card-body p-2 d-flex flex-column align-items-center justify-content-start">
+                            <span class="fs-5 fw-bold ${textoClase} lh-1 mb-1">${diaNum}</span>
+                            ${htmlContenido}
+                        </div>
+                    </div>
+                `;
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            grid.innerHTML = html;
+        }
+    }
+
+    // --- CLIC EN UN DÍA DEL PLANIFICADOR ---
+    // Lo definimos globalmente en window para que el HTML inyectado pueda acceder a la función
+    window.abrirDiaPlanificador = function(dateStr) {
+        const [y, m, d] = dateStr.split('-');
+        const fechaBonita = new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Aquí usamos SweetAlert2 para mostrar las opciones del día
+        Swal.fire({
+            title: `<span class="fs-5 text-capitalize text-primary"><i class="bi bi-calendar-event me-2"></i>${fechaBonita}</span>`,
+            html: `
+                <div class="text-start mt-3">
+                    <p class="text-muted small mb-3">¿Qué acción deseas realizar para el <strong>${d}/${m}/${y}</strong>?</p>
+                    <div class="d-grid gap-2">
+                        <button onclick="accionProgramarOP('${dateStr}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift">
+                            <i class="bi bi-plus-circle me-2 text-primary"></i> Programar Nueva OP
+                        </button>
+                        
+                        <button onclick="accionGestionarGrupos('${dateStr}', '${fechaBonita}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift">
+                            <i class="bi bi-people me-2 text-info"></i> Asignar / Modificar Grupo de Trabajo
+                        </button>
+                        
+                        <button onclick="accionConfigurarExcepcion('${dateStr}')" class="btn btn-outline-warning text-dark text-start p-3 fw-semibold border-warning hover-lift">
+                            <i class="bi bi-clock-history me-2"></i> Configurar Excepción (Horas Extra)
+                        </button>
+                    </div>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: { popup: 'rounded-4' }
+        });
+    };
+
+    // =========================================================================
+    // ACCIONES DE LOS BOTONES DEL SWEET ALERT (PLANIFICADOR)
+    // =========================================================================
+    
+    // Acción 1: Programar OP (Abrimos el modal ENCIMA del calendario)
+    window.accionProgramarOP = function(fechaStr) {
+        Swal.close(); 
+        
+        const modalOPEl = document.getElementById('modalPlanificarOP');
+        if (modalOPEl && typeof bootstrap !== 'undefined') {
+            const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
+            modalOP.show();
+            
+            // Seteamos la fecha elegida
+            setTimeout(() => {
+                const inputFecha = document.getElementById('newFechaProgramada');
+                if(inputFecha) inputFecha.value = fechaStr;
+            }, 200);
+        }
+    };
+
+    // Acción 2: Gestionar Grupos (Abrimos el modal de Grupos ENCIMA del calendario)
+    window.accionGestionarGrupos = function(fechaStr, fechaBonita) {
+        Swal.close(); 
+        
+        // Seteamos las fechas en el modal de grupos
+        const inputFechaVal = document.getElementById('grupoFechaVal');
+        const lblFechaBonita = document.getElementById('lblGrupoFechaBonita');
+        
+        if(inputFechaVal) inputFechaVal.value = fechaStr;
+        if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
+        
+        const modalGruposEl = document.getElementById('modalAsignarGrupos');
+        if (modalGruposEl && typeof bootstrap !== 'undefined') {
+            const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
+            modalGrupos.show();
+
+            console.log("Cargando grupos para el día: " + fechaStr);
+        }
+    };
+
+    // Acción 3: Configurar Excepción (En construcción)
+    window.accionConfigurarExcepcion = function(fechaStr) {
+        Swal.close();
+        Swal.fire({
+            icon: 'info',
+            title: 'Módulo en proceso',
+            text: 'La configuración de horas extras para el día ' + fechaStr + ' se implementará en el siguiente paso.',
+            confirmButtonColor: '#0d6efd'
+        });
+    };
+
+    // --- FIX BOOTSTRAP SCROLL (Mantiene el scroll si cierras un modal secundario pero el calendario sigue abierto) ---
+    document.getElementById('modalPlanificarOP')?.addEventListener('hidden.bs.modal', function () {
+        if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
+            document.body.classList.add('modal-open');
+        }
+    });
+    
+    document.getElementById('modalAsignarGrupos')?.addEventListener('hidden.bs.modal', function () {
+        if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
+            document.body.classList.add('modal-open');
+        }
+    });
 }

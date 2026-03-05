@@ -32,10 +32,34 @@ class ProduccionOrdenesController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
-            $esAjaxReceta = in_array($accion, ['obtener_receta_ajax', 'iniciar_ejecucion_ajax'], true);
+            
+            // AÑADIDO: 'obtener_planificador_ajax' a la lista de peticiones AJAX
+            $esAjaxReceta = in_array($accion, ['obtener_receta_ajax', 'iniciar_ejecucion_ajax', 'obtener_planificador_ajax'], true);
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
+                // ==========================================================
+                // NUEVO: Endpoint para pintar el calendario del Planificador
+                // ==========================================================
+                if ($accion === 'obtener_planificador_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    
+                    $desde = trim((string) ($_POST['desde'] ?? ''));
+                    $hasta = trim((string) ($_POST['hasta'] ?? ''));
+
+                    if ($desde === '' || $hasta === '') {
+                        echo json_encode(['success' => false, 'message' => 'Fechas inválidas.']);
+                        exit;
+                    }
+
+                    // Llamamos al modelo que creamos en el paso anterior
+                    $datos = $this->produccionOrdenesModel->obtenerDatosPlanificador($desde, $hasta);
+                    
+                    echo json_encode(['success' => true, 'data' => $datos]);
+                    exit;
+                }
+
                 if ($accion === 'obtener_receta_ajax') {
                     ob_clean();
                     header('Content-Type: application/json; charset=utf-8');

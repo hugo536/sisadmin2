@@ -40,7 +40,7 @@ class PlanillasController extends Controlador
         $idTercero = (int) ($_GET['id_tercero'] ?? 0);
         if ($idTercero <= 0) $idTercero = null;
 
-        // NUEVO: Capturar el filtro de frecuencia de pago
+        // Capturar el filtro de frecuencia de pago
         $frecuencia = strtoupper(trim((string) ($_GET['frecuencia_pago'] ?? '')));
         $frecuenciasPermitidas = ['SEMANAL', 'QUINCENAL', 'MENSUAL'];
         if ($frecuencia === '' || !in_array($frecuencia, $frecuenciasPermitidas, true)) {
@@ -49,7 +49,6 @@ class PlanillasController extends Controlador
 
         // 2. Obtener datos crudos del Modelo (Agregamos la frecuencia)
         $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($desde, $hasta, $idTercero, $frecuencia);
-
 
         $semana = '';
         $inicioSemana = DateTimeImmutable::createFromFormat('Y-m-d', $desde);
@@ -75,7 +74,7 @@ class PlanillasController extends Controlador
             'desde' => $desde,
             'hasta' => $hasta,
             'id_tercero' => $idTercero,
-            'frecuencia' => $frecuencia, // Pasamos la frecuencia para mantenerla en el formulario HTML
+            'frecuencia' => $frecuencia, 
             'semana' => $semana,
             'empleados' => $this->tercerosModel->listar(), 
             'planillas' => $planillasCalculadas,
@@ -112,11 +111,7 @@ class PlanillasController extends Controlador
                 continue; 
             }
 
-            // --- VARIABLES BASE (NUEVA LÓGICA) ---
-            // Tomamos el sueldo_basico que ahora sirve tanto para sueldo mensual como para jornal diario
             $remuneracionBase = (float) ($row['sueldo_basico'] ?? 0);
-            
-            // Forzamos mayúsculas para evitar errores ('Mensual', 'MENSUAL', 'mensual')
             $tipoPago = strtoupper(trim((string) ($row['tipo_pago'] ?? 'MENSUAL')));
             
             $diasAsistidos = (int) ($row['dias_asistidos'] ?? 0);
@@ -126,31 +121,23 @@ class PlanillasController extends Controlador
             $horasExtras = (float) ($row['total_horas_extras'] ?? 0);
             $minutosTardanza = (int) ($row['total_minutos_tardanza'] ?? 0);
 
-            // Días a pagar (Asistidos + Justificados con goce)
             $diasAPagar = $diasAsistidos + $diasJustificados;
 
-            // --- CÁLCULO DE TARIFAS ---
             $tarifaDiaria = 0;
             
             if ($tipoPago === 'MENSUAL' || $tipoPago === 'QUINCENAL') {
-                // Si le pago fijo al mes, divido su sueldo base entre 30 días
                 $tarifaDiaria = $remuneracionBase > 0 ? ($remuneracionBase / 30) : 0;
             } elseif ($tipoPago === 'SEMANAL') {
-                // Si es semanal (Jornal), la remuneración base que pusimos en el formulario ES la tarifa de 1 día
                 $tarifaDiaria = $remuneracionBase;
             } else {
-                // Fallback de seguridad
                 $tarifaDiaria = 0; 
             }
 
-            // Calculamos el valor de 1 hora y 1 minuto (Asumiendo jornada de 8 horas)
             $tarifaHora = $tarifaDiaria / 8;
             $tarifaMinuto = $tarifaHora / 60;
 
-            // --- CÁLCULO DE INGRESOS ---
             $sueldoCalculado = $tarifaDiaria * $diasAPagar;
             
-            // Horas extras (Por defecto: 25% adicional sobre el valor hora normal)
             $tarifaHoraExtra = $tarifaHora * 1.25; 
             $montoHorasExtras = $horasExtras * $tarifaHoraExtra;
 
@@ -159,34 +146,27 @@ class PlanillasController extends Controlador
 
             $totalIngresos = $sueldoCalculado + $montoHorasExtras + $asignacionFamiliar + $bonosManuales;
 
-            // --- CÁLCULO DE DESCUENTOS ---
             $montoDescuentoTardanza = $minutosTardanza * $tarifaMinuto;
-            
             $totalDescuentos = $montoDescuentoTardanza;
 
-            // --- TOTAL NETO ---
             $netoAPagar = $totalIngresos - $totalDescuentos;
 
-            // --- ENSAMBLAR FILA RESULTANTE ---
             $resultado[] = [
                 'id_tercero' => $row['id_tercero'],
                 'numero_documento' => $row['numero_documento'],
                 'nombre_completo' => $row['nombre_completo'],
                 'cargo' => $row['cargo'],
                 'moneda' => $row['moneda'] ?? 'PEN',
-                'tipo_pago' => $tipoPago, // Lo pasamos a la vista para las insignias visuales
+                'tipo_pago' => $tipoPago, 
                 
-                // Estadísticas de tiempo
                 'dias_asistidos' => $diasAsistidos,
                 'dias_falta' => $diasFalta,
                 'horas_extras' => round($horasExtras, 2),
                 'minutos_tardanza' => $minutosTardanza,
                 
-                // Tarifas 
                 'tarifa_diaria' => round($tarifaDiaria, 2),
                 'tarifa_hora' => round($tarifaHora, 2),
 
-                // Dinero
                 'sueldo_base_calculado' => round($sueldoCalculado, 2),
                 'monto_horas_extras' => round($montoHorasExtras, 2),
                 'asignacion_familiar' => round($asignacionFamiliar, 2),
@@ -203,7 +183,6 @@ class PlanillasController extends Controlador
         return $resultado;
     }
 
-    // ENDPOINT: Recibe el POST del modal para pagar y descontar de tesorería
     public function registrar_pago(): void
     {
         AuthMiddleware::handle();
@@ -228,7 +207,6 @@ class PlanillasController extends Controlador
             return;
         }
 
-        // Seguridad: Recalcular el monto a pagar desde el backend usando la misma lógica
         $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($fechaInicio, $fechaFin, $idEmpleado);
         
         if (empty($resumenCrudo)) {
@@ -263,7 +241,6 @@ class PlanillasController extends Controlador
             'referencia' => $referencia
         ];
 
-        // Ejecutar el pago transaccional
         $userId = AuthMiddleware::getUserId();
         $exito = $this->planillasModel->registrarPagoPlanilla($datosPago, $userId);
 
@@ -272,6 +249,35 @@ class PlanillasController extends Controlador
         } else {
             $msgError = urlencode('Error al registrar el pago. Verifica que la cuenta de tesorería tenga saldo suficiente.');
             redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&error={$msgError}");
+        }
+    }
+
+    // ==============================================================
+    // NUEVO ENDPOINT: PARA EL CALENDARIO DE AUDITORÍA (AJAX)
+    // ==============================================================
+    public function api_asistencia_calendario(): void
+    {
+        AuthMiddleware::handle();
+
+        if (!es_ajax()) {
+            die("Acceso denegado");
+        }
+
+        $idTercero = (int) ($_GET['id_tercero'] ?? 0);
+        $desde = (string) ($_GET['desde'] ?? '');
+        $hasta = (string) ($_GET['hasta'] ?? '');
+
+        if ($idTercero <= 0 || empty($desde) || empty($hasta)) {
+            json_response(['ok' => false, 'mensaje' => 'Datos incompletos para consultar el calendario.']);
+            return;
+        }
+
+        try {
+            // Reutilizamos la función que busca día por día
+            $detalleAsistencia = $this->planillasModel->obtenerDetalleAsistenciaEmpleado($idTercero, $desde, $hasta);
+            json_response(['ok' => true, 'data' => $detalleAsistencia]);
+        } catch (Exception $e) {
+            json_response(['ok' => false, 'mensaje' => 'Error al obtener datos: ' . $e->getMessage()]);
         }
     }
 

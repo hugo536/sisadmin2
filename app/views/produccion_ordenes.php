@@ -23,6 +23,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             <p class="text-muted small mb-0 ms-1">Planificación, ejecución y control de fabricación.</p>
         </div>
         <div class="d-flex gap-2">
+            <button class="btn btn-dark shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalPlanificadorProduccion">
+                <i class="bi bi-calendar3-week me-2"></i>Ver Planificador
+            </button>
             <button class="btn btn-primary shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalPlanificarOP">
                 <i class="bi bi-plus-circle me-2"></i>Nueva OP
             </button>
@@ -560,10 +563,118 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     </div>
 </div>
 
+<div class="modal fade" id="modalPlanificadorProduccion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered"> 
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-range me-2"></i>Planificador de Operaciones</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                    <div class="d-flex align-items-center bg-white border rounded shadow-sm p-1">
+                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnPlanAnterior"><i class="bi bi-chevron-left"></i></button>
+                        <span class="mx-3 fw-bold text-dark text-uppercase text-center" id="lblPlanActual" style="min-width: 150px;">Cargando...</span>
+                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnPlanSiguiente"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                    
+                    <div class="btn-group shadow-sm" role="group">
+                        <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaMes" value="mes" checked autocomplete="off">
+                        <label class="btn btn-outline-primary fw-semibold" for="vistaMes"><i class="bi bi-calendar-month me-1"></i> Mes</label>
+
+                        <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaSemana" value="semana" autocomplete="off">
+                        <label class="btn btn-outline-primary fw-semibold" for="vistaSemana"><i class="bi bi-calendar-week me-1"></i> Semana</label>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded shadow-sm border text-center min-vh-50 position-relative overflow-hidden">
+                    <div id="planLoader" class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex justify-content-center align-items-center d-none" style="z-index: 10;">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+
+                    <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                        <div class="fw-bold text-muted small">Lun</div>
+                        <div class="fw-bold text-muted small">Mar</div>
+                        <div class="fw-bold text-muted small">Mié</div>
+                        <div class="fw-bold text-muted small">Jue</div>
+                        <div class="fw-bold text-muted small">Vie</div>
+                        <div class="fw-bold text-muted small">Sáb</div>
+                        <div class="fw-bold text-danger small">Dom</div>
+                    </div>
+                    
+                    <div id="planificadorGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 400px;">
+                        </div>
+                </div>
+
+                <div class="card mt-4 border-0 shadow-sm bg-white">
+                    <div class="card-body p-3">
+                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Planificación</h6>
+                        <div class="d-flex flex-wrap gap-3 small fw-medium">
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-white border border-secondary border-dashed me-2" style="width: 14px; height: 14px;"></span> Día Libre / Sin Actividad</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-primary-subtle border border-primary me-2" style="width: 14px; height: 14px;"></span> Turno Normal</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-warning-subtle border border-warning me-2" style="width: 14px; height: 14px;"></span> Turno Extendido (Excepción)</div>
+                            <div class="d-flex align-items-center"><span class="badge bg-dark ms-2 me-1 border px-1">OP</span> Órdenes Asignadas al día</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 <template id="tplSelectAlmacenes">
     <?php foreach ($almacenes as $a): ?>
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
 </template>
+
+<div class="modal fade" id="modalAsignarGrupos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-people-fill me-2"></i>Asignar Personal - <span id="lblFechaGrupo"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4">
+                <input type="hidden" id="grupoFechaOculta">
+                
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-dark mb-3">1. Crear Grupos de Trabajo para este día</h6>
+                        <div class="input-group mb-3">
+                            <input type="text" id="txtNuevoGrupo" class="form-control" placeholder="Ej: Línea 1, Empaque, Apoyo...">
+                            <button class="btn btn-primary fw-bold" type="button" id="btnCrearGrupo"><i class="bi bi-plus-lg"></i> Añadir Grupo</button>
+                        </div>
+                        <div id="contenedorEtiquetasGrupos" class="d-flex flex-wrap gap-2">
+                            <span class="text-muted small font-italic" id="msgSinGrupos">No hay grupos creados aún.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <table class="table table-hover align-middle mb-0" id="tablaAsignacionPersonal">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4">Empleado</th>
+                                    <th style="width: 250px;" class="pe-4">Asignar a Grupo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="2" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando personal...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white">
+                <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info text-white px-4 fw-bold shadow-sm" id="btnGuardarAsignacionGrupos"><i class="bi bi-save me-2"></i>Guardar Asignación</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.6"></script>

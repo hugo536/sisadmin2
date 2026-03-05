@@ -5,6 +5,18 @@ $asignaciones = $asignaciones ?? [];
 $empleadosAgrupados = $empleadosAgrupados ?? [];
 $dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 => 'Sáb', 7 => 'Dom'];
+
+// Función auxiliar para formatear los tramos en texto
+function formatearTramos($horario) {
+    $texto = substr((string) ($horario['t1_entrada'] ?? '00:00'), 0, 5) . ' - ' . substr((string) ($horario['t1_salida'] ?? '00:00'), 0, 5);
+    if (!empty($horario['t2_entrada']) && !empty($horario['t2_salida'])) {
+        $texto .= ' | ' . substr((string) $horario['t2_entrada'], 0, 5) . ' - ' . substr((string) $horario['t2_salida'], 0, 5);
+    }
+    if (!empty($horario['t3_entrada']) && !empty($horario['t3_salida'])) {
+        $texto .= ' | ' . substr((string) $horario['t3_entrada'], 0, 5) . ' - ' . substr((string) $horario['t3_salida'], 0, 5);
+    }
+    return $texto;
+}
 ?>
 
 <div class="container-fluid p-4">
@@ -14,7 +26,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-calendar-week-fill me-2 text-primary"></i> Horarios y Asignaciones
             </h1>
-            <p class="text-muted small mb-0 ms-1">Catálogo de turnos y asignación de horarios por empleado/día.</p>
+            <p class="text-muted small mb-0 ms-1">Catálogo de turnos y asignación de horarios por tramos.</p>
         </div>
 
         <div class="d-flex gap-2 flex-wrap justify-content-end">
@@ -40,22 +52,53 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
 
                         <div class="mb-3">
                             <label for="horarioNombre" class="form-label small text-muted fw-bold">Nombre del turno <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control bg-light border-secondary-subtle" name="nombre" id="horarioNombre" placeholder="Ej. Turno Mañana" maxlength="100" required>
+                            <input type="text" class="form-control bg-light border-secondary-subtle" name="nombre" id="horarioNombre" placeholder="Ej. Turno Día Completo" maxlength="100" required>
                         </div>
                         
-                        <div class="row g-3 mb-3">
-                            <div class="col-6">
-                                <label for="horarioEntrada" class="form-label small text-muted fw-bold">Entrada <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_entrada" id="horarioEntrada" required>
+                        <div class="p-3 bg-light border border-secondary-subtle rounded mb-3 shadow-sm">
+                            <h6 class="small fw-bold text-primary mb-2">Primer Tramo <span class="text-danger">*</span></h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="t1Entrada" class="form-label small text-muted mb-1">Entrada</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t1_entrada" id="t1Entrada" required>
+                                </div>
+                                <div class="col-6">
+                                    <label for="t1Salida" class="form-label small text-muted mb-1">Salida</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t1_salida" id="t1Salida" required>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <label for="horarioSalida" class="form-label small text-muted fw-bold">Salida <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="hora_salida" id="horarioSalida" required>
+                        </div>
+
+                        <div class="p-3 bg-light bg-opacity-50 border border-secondary-subtle rounded mb-3">
+                            <h6 class="small fw-bold text-secondary mb-2">Segundo Tramo <span class="fw-normal text-muted" style="font-size: 0.75rem;">(Opcional)</span></h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="t2Entrada" class="form-label small text-muted mb-1">Entrada</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t2_entrada" id="t2Entrada">
+                                </div>
+                                <div class="col-6">
+                                    <label for="t2Salida" class="form-label small text-muted mb-1">Salida</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t2_salida" id="t2Salida">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-light bg-opacity-25 border border-secondary-subtle rounded mb-3">
+                            <h6 class="small fw-bold text-secondary mb-2">Tercer Tramo <span class="fw-normal text-muted" style="font-size: 0.75rem;">(Opcional)</span></h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="t3Entrada" class="form-label small text-muted mb-1">Entrada</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t3_entrada" id="t3Entrada">
+                                </div>
+                                <div class="col-6">
+                                    <label for="t3Salida" class="form-label small text-muted mb-1">Salida</label>
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle" name="t3_salida" id="t3Salida">
+                                </div>
                             </div>
                         </div>
                         
                         <div class="mb-4">
-                            <label for="horarioTolerancia" class="form-label small text-muted fw-bold">Tolerancia <span class="text-danger">*</span></label>
+                            <label for="horarioTolerancia" class="form-label small text-muted fw-bold">Tolerancia Ingreso (General) <span class="text-danger">*</span></label>
                             <div class="input-group shadow-sm">
                                 <input type="number" class="form-control bg-light border-secondary-subtle border-end-0" name="tolerancia_minutos" id="horarioTolerancia" min="0" step="1" value="0" required>
                                 <span class="input-group-text bg-light border-secondary-subtle text-muted">min</span>
@@ -65,7 +108,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                         <div class="d-flex justify-content-end gap-2 mt-2">
                             <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" id="btnLimpiarHorario">Limpiar</button>
                             <button class="btn btn-primary shadow-sm fw-semibold" type="submit">
-                                <i class="bi bi-save me-1"></i> Guardar
+                                <i class="bi bi-save me-1"></i> Guardar Turno
                             </button>
                         </div>
                     </form>
@@ -95,8 +138,8 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                data-pagination-info="#turnosPaginationInfo">
                             <thead>
                                 <tr>
-                                    <th class="ps-4 text-secondary fw-semibold">Nombre del Turno</th>
-                                    <th class="text-center text-secondary fw-semibold">Horario</th>
+                                    <th class="ps-4 text-secondary fw-semibold">Turno</th>
+                                    <th class="text-center text-secondary fw-semibold">Detalle de Tramos</th>
                                     <th class="text-center text-secondary fw-semibold">Tolerancia</th>
                                     <th class="text-center text-secondary fw-semibold">Estado</th>
                                     <th class="text-center text-secondary fw-semibold pe-4 col-w-100">Acciones</th>
@@ -115,14 +158,18 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                         <?php 
                                             $activo = ((int) $horario['estado'] === 1); 
                                             $searchStrTurno = strtolower($horario['nombre'] . ' ' . ($activo ? 'activo' : 'inactivo'));
+                                            $textoTramos = formatearTramos($horario);
                                         ?>
                                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStrTurno, ENT_QUOTES, 'UTF-8'); ?>">
                                             <td class="ps-4 fw-semibold text-dark">
                                                 <?php echo e($horario['nombre']); ?>
+                                                <?php if(!empty($horario['total_horas_pago'])): ?>
+                                                    <div class="small text-muted fw-normal mt-1"><i class="bi bi-calculator"></i> <?php echo e($horario['total_horas_pago']); ?> hrs a pagar</div>
+                                                <?php endif; ?>
                                             </td>
-                                            <td class="text-center text-secondary fw-medium">
+                                            <td class="text-center text-secondary fw-medium small">
                                                 <i class="bi bi-clock small text-muted me-1"></i>
-                                                <?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>
+                                                <?php echo e($textoTramos); ?>
                                             </td>
                                             <td class="text-center text-muted">
                                                 <?php echo (int) $horario['tolerancia_minutos']; ?> min
@@ -139,8 +186,12 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                                     data-bs-toggle="tooltip" title="Editar Turno"
                                                     data-id="<?php echo (int) $horario['id']; ?>"
                                                     data-nombre="<?php echo e($horario['nombre']); ?>"
-                                                    data-entrada="<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?>"
-                                                    data-salida="<?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>"
+                                                    data-t1-entrada="<?php echo e(substr((string) ($horario['t1_entrada'] ?? ''), 0, 5)); ?>"
+                                                    data-t1-salida="<?php echo e(substr((string) ($horario['t1_salida'] ?? ''), 0, 5)); ?>"
+                                                    data-t2-entrada="<?php echo e(substr((string) ($horario['t2_entrada'] ?? ''), 0, 5)); ?>"
+                                                    data-t2-salida="<?php echo e(substr((string) ($horario['t2_salida'] ?? ''), 0, 5)); ?>"
+                                                    data-t3-entrada="<?php echo e(substr((string) ($horario['t3_entrada'] ?? ''), 0, 5)); ?>"
+                                                    data-t3-salida="<?php echo e(substr((string) ($horario['t3_salida'] ?? ''), 0, 5)); ?>"
                                                     data-tolerancia="<?php echo (int) $horario['tolerancia_minutos']; ?>">
                                                     <i class="bi bi-pencil fs-6"></i>
                                                 </button>
@@ -224,7 +275,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                     <option value="">Seleccione turno...</option>
                                     <?php foreach ($horarios as $horario): ?>
                                         <?php if ((int) $horario['estado'] !== 1) continue; ?>
-                                        <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(substr((string) $horario['hora_entrada'], 0, 5)); ?> - <?php echo e(substr((string) $horario['hora_salida'], 0, 5)); ?>)</option>
+                                        <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(formatearTramos($horario)); ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -273,10 +324,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                        data-erp-table="true"
                        data-rows-selector="#horariosTableBody tr:not(.empty-msg-row)"
                        data-search-input="#searchEmpleadoHorario"
-                       data-empty-text="No hay horarios asignados"
-                       data-info-text-template="Mostrando {start} a {end} de {total} empleados"
-                       data-pagination-info="#horariosPaginationInfo"
-                       data-pagination-controls="#horariosPaginationControls">
+                       data-empty-text="No hay horarios asignados">
                     <thead class="horario-sticky-thead bg-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold col-w-25p">Empleado</th>
@@ -308,7 +356,7 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                                         <td class="text-center">
                                             <?php if(isset($emp['dias_asignados'][$i])): ?>
                                                 <?php $info = $emp['dias_asignados'][$i]; ?>
-                                                <div class="badge bg-primary-subtle text-primary border border-primary-subtle text-wrap p-2 lh-sm shadow-sm" data-bs-toggle="tooltip" title="<?php echo $info['hora_entrada']; ?> a <?php echo $info['hora_salida']; ?>" style="font-size: 0.75rem; width: 100%;">
+                                                <div class="badge bg-primary-subtle text-primary border border-primary-subtle text-wrap p-2 lh-sm shadow-sm" data-bs-toggle="tooltip" title="Turno Asignado" style="font-size: 0.75rem; width: 100%;">
                                                     <?php echo e($info['nombre_horario']); ?>
                                                 </div>
                                             <?php else: ?>
@@ -331,16 +379,6 @@ $diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 =>
                     </tbody>
                 </table>
             </div>
-            
-            <?php if (!empty($empleadosAgrupados)): ?>
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
-                <div class="small text-muted fw-medium" id="horariosPaginationInfo">Procesando...</div>
-                <nav aria-label="Paginación de horarios">
-                    <ul class="pagination mb-0 shadow-sm" id="horariosPaginationControls"></ul>
-                </nav>
-            </div>
-            <?php endif; ?>
-            
         </div>
     </div>
 </div>

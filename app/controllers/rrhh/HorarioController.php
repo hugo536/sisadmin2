@@ -53,8 +53,9 @@ class HorarioController extends Controlador
                     'id_asignacion' => $row['id'], 
                     'nombre_dia'    => $nombresDias[$diaNumero] ?? 'Día',
                     'nombre_horario'=> $row['horario'] ?? $row['horario_nombre'] ?? 'Turno', 
-                    'hora_entrada'  => substr((string)($row['hora_entrada'] ?? ''), 0, 5),
-                    'hora_salida'   => substr((string)($row['hora_salida'] ?? ''), 0, 5)
+                    // Ajustamos el tooltip para mostrar el primer tramo como referencia
+                    'hora_entrada'  => substr((string)($row['t1_entrada'] ?? ''), 0, 5),
+                    'hora_salida'   => substr((string)($row['t1_salida'] ?? ''), 0, 5)
                 ];
             }
         }
@@ -101,7 +102,6 @@ class HorarioController extends Controlador
                 return;
             }
 
-            // NUEVA ACCIÓN: Para el botón de limpiar toda la semana
             if ($accion === 'limpiar_semana_empleado') {
                 $this->limpiarSemanaEmpleado();
                 return;
@@ -113,26 +113,62 @@ class HorarioController extends Controlador
         }
     }
 
+    // --- FUNCIÓN MATEMÁTICA AUXILIAR PARA CALCULAR HORAS ---
+    private function calcularHorasTramo(string $entrada, string $salida): float
+    {
+        if (empty($entrada) || empty($salida)) return 0.0;
+        
+        $in = strtotime($entrada);
+        $out = strtotime($salida);
+        
+        // Si la hora de salida es menor a la de entrada (ej: Entra 22:00, Sale 06:00)
+        // Significa que cruzó la medianoche, sumamos 24 horas (86400 segundos) a la salida.
+        if ($out < $in) {
+            $out += 86400;
+        }
+        
+        return round(($out - $in) / 3600, 2); // Devuelve las horas en decimales (Ej: 8.5)
+    }
+
     private function guardarHorario(int $userId): void
     {
         $id = (int) ($_POST['id'] ?? 0);
         $nombre = trim((string) ($_POST['nombre'] ?? ''));
-        $horaEntrada = trim((string) ($_POST['hora_entrada'] ?? ''));
-        $horaSalida = trim((string) ($_POST['hora_salida'] ?? ''));
         $tolerancia = (int) ($_POST['tolerancia_minutos'] ?? 0);
 
-        if ($nombre === '' || $horaEntrada === '' || $horaSalida === '') {
-            throw new RuntimeException('Nombre, hora de entrada y salida son obligatorios.');
+        // Recibimos los 6 posibles tramos
+        $t1e = trim((string) ($_POST['t1_entrada'] ?? ''));
+        $t1s = trim((string) ($_POST['t1_salida'] ?? ''));
+        $t2e = trim((string) ($_POST['t2_entrada'] ?? ''));
+        $t2s = trim((string) ($_POST['t2_salida'] ?? ''));
+        $t3e = trim((string) ($_POST['t3_entrada'] ?? ''));
+        $t3s = trim((string) ($_POST['t3_salida'] ?? ''));
+
+        // Validaciones Básicas
+        if ($nombre === '' || $t1e === '' || $t1s === '') {
+            throw new RuntimeException('El nombre y el primer tramo (entrada y salida) son obligatorios.');
         }
 
-        if (!preg_match('/^\d{2}:\d{2}$/', $horaEntrada) || !preg_match('/^\d{2}:\d{2}$/', $horaSalida)) {
-            throw new RuntimeException('Las horas deben tener el formato HH:MM.');
+        $timePattern = '/^\d{2}:\d{2}$/';
+        if (!preg_match($timePattern, $t1e) || !preg_match($timePattern, $t1s)) {
+            throw new RuntimeException('Las horas del primer tramo deben tener el formato HH:MM.');
         }
 
+        // Calculamos el total de horas de la suma de los tramos que existan
+        $totalHoras = $this->calcularHorasTramo($t1e, $t1s) + 
+                      $this->calcularHorasTramo($t2e, $t2s) + 
+                      $this->calcularHorasTramo($t3e, $t3s);
+
+        // Preparamos el array de datos (añadiendo los segundos ':00' para MySQL)
         $payload = [
-            'nombre' => $nombre,
-            'hora_entrada' => $horaEntrada . ':00',
-            'hora_salida' => $horaSalida . ':00',
+            'nombre'             => $nombre,
+            't1_entrada'         => $t1e !== '' ? $t1e . ':00' : null,
+            't1_salida'          => $t1s !== '' ? $t1s . ':00' : null,
+            't2_entrada'         => $t2e !== '' ? $t2e . ':00' : null,
+            't2_salida'          => $t2s !== '' ? $t2s . ':00' : null,
+            't3_entrada'         => $t3e !== '' ? $t3e . ':00' : null,
+            't3_salida'          => $t3s !== '' ? $t3s . ':00' : null,
+            'total_horas_pago'   => $totalHoras,
             'tolerancia_minutos' => max(0, $tolerancia),
         ];
 
@@ -165,19 +201,16 @@ class HorarioController extends Controlador
         redirect('horario/index?tipo=success&msg=Estado de horario actualizado.');
     }
 
-    // ACTUALIZADO: Maneja múltiples empleados y múltiples días
     private function guardarAsignacion(int $userId): void
     {
         $idHorario = (int) ($_POST['id_horario'] ?? 0);
         
-        // Obtenemos los arreglos de la vista
         $idsTerceros = $_POST['id_terceros'] ?? [];
         $diasSeleccionados = $_POST['dias'] ?? [];
 
         if (!is_array($idsTerceros)) $idsTerceros = [];
         if (!is_array($diasSeleccionados)) $diasSeleccionados = [];
 
-        // Limpiamos los arreglos para asegurarnos de que solo haya números válidos
         $idsTerceros = array_values(array_unique(array_filter(array_map(
             static fn($id): int => (int) $id,
             $idsTerceros
@@ -188,15 +221,12 @@ class HorarioController extends Controlador
             $diasSeleccionados
         ), static fn(int $dia): bool => $dia >= 1 && $dia <= 7)));
 
-        // Validamos que exista al menos 1 empleado, 1 día y 1 horario
         if (empty($idsTerceros) || empty($diasSeleccionados) || $idHorario <= 0) {
             throw new RuntimeException('Datos inválidos. Asegúrese de seleccionar empleado(s), día(s) y un turno.');
         }
 
-        // Guardamos iterando sobre cada empleado y luego sobre cada día
         foreach ($idsTerceros as $idTercero) {
             foreach ($diasSeleccionados as $dia) {
-                // Aquí el MODELO se encargará de sobreescribir si ya existe
                 if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $dia, $userId)) {
                     throw new RuntimeException('No se pudo guardar una o más asignaciones.');
                 }
@@ -225,7 +255,6 @@ class HorarioController extends Controlador
         redirect('horario/index?tipo=success&msg=Turno eliminado correctamente.');
     }
 
-    // NUEVO MÉTODO: Limpia toda la semana de un empleado específico
     private function limpiarSemanaEmpleado(): void
     {
         $idTercero = (int) ($_POST['id_tercero'] ?? 0);
