@@ -15,7 +15,7 @@ if (!window.produccionJsInitialized) {
         initAccionesTabla();
         initModalEjecucion();
         initModalPlanificacion();
-        initPlanificadorOperaciones(); // <--- NUEVA FUNCIÓN AÑADIDA
+        initPlanificadorOperaciones(); 
     });
 
     // =========================================================================
@@ -32,7 +32,6 @@ if (!window.produccionJsInitialized) {
             const term = input.value.toLowerCase();
             const estado = select ? select.value : '';
             
-            // Solo seleccionamos las filas principales (las que tienen data-estado)
             const mainRows = table.querySelectorAll('tbody tr[data-estado]');
 
             mainRows.forEach(row => {
@@ -40,10 +39,8 @@ if (!window.produccionJsInitialized) {
                 const matchEstado = estado === '' || (row.getAttribute('data-estado') || '') === estado;
                 const isVisible = matchText && matchEstado;
 
-                // Mostramos u ocultamos la fila principal
                 row.style.display = isVisible ? '' : 'none';
 
-                // Manejo de la fila hija (Acordeón de Faltantes)
                 const nextRow = row.nextElementSibling;
                 if (nextRow && nextRow.classList.contains('collapse-faltantes')) {
                     if (!isVisible) {
@@ -56,7 +53,7 @@ if (!window.produccionJsInitialized) {
             });
         };
 
-        input.addEventListener('input', filterFn); // Detecta escritura y borrado rápido
+        input.addEventListener('input', filterFn);
         if (select) select.addEventListener('change', filterFn);
     }
 
@@ -71,18 +68,15 @@ if (!window.produccionJsInitialized) {
     // 2. ACCIONES DE TABLA Y UX DE ACORDEONES
     // =========================================================================
     function initAccionesTabla() {
-        // Variables para almacenar las instancias de los modales (solo si existen)
         let modalEditar = null;
         let modalDetalle = null;
 
         document.addEventListener('click', function(e) {
-            // --- LÓGICA DE EDICIÓN ---
             const btnEditar = e.target.closest('.js-editar-op');
             if (btnEditar) {
                 const modalEditarEl = document.getElementById('modalEditarOP');
                 
                 if (modalEditarEl && typeof bootstrap !== 'undefined') {
-                    // Inicializamos solo la primera vez que se hace clic
                     if (!modalEditar) {
                         modalEditar = new bootstrap.Modal(modalEditarEl);
                     }
@@ -101,13 +95,11 @@ if (!window.produccionJsInitialized) {
                 return;
             }
 
-            // --- LÓGICA DE DETALLE ---
             const btnDetalle = e.target.closest('.js-ver-detalle');
             if (btnDetalle) {
                 const modalDetalleEl = document.getElementById('modalDetalleOP');
 
                 if (modalDetalleEl && typeof bootstrap !== 'undefined') {
-                     // Inicializamos solo la primera vez que se hace clic
                     if (!modalDetalle) {
                         modalDetalle = new bootstrap.Modal(modalDetalleEl);
                     }
@@ -131,11 +123,9 @@ if (!window.produccionJsInitialized) {
             }
         });
 
-        // --- LÓGICA DE UX PARA LOS ACORDEONES DE FALTANTES ---
         const tablaOrdenes = document.getElementById('tablaOrdenes');
         
         if (tablaOrdenes) {
-            // 1. Que al abrir uno, se cierren los demás
             tablaOrdenes.addEventListener('show.bs.collapse', function (e) {
                 const abiertos = tablaOrdenes.querySelectorAll('.collapse-faltantes.show');
                 abiertos.forEach(abierto => {
@@ -147,7 +137,6 @@ if (!window.produccionJsInitialized) {
             });
         }
 
-        // 2. Que al hacer clic fuera de la tabla, se cierre el acordeón abierto
         document.addEventListener('click', function(e) {
             const isClickInsideTable = e.target.closest('#tablaOrdenes');
             if (!isClickInsideTable) {
@@ -169,10 +158,8 @@ if (!window.produccionJsInitialized) {
 
         let modalEjecutar;
 
-        // --- DELEGACIÓN GLOBAL DE CLICS ---
         document.addEventListener('click', async function(e) {
             
-            // A. Abrir Modal y Cargar AJAX
             const btnAbrir = e.target.closest('.js-abrir-ejecucion');
             if (btnAbrir) {
                 const idOrden = btnAbrir.getAttribute('data-id') || '';
@@ -183,24 +170,20 @@ if (!window.produccionJsInitialized) {
                 document.getElementById('execIdOrden').value = idOrden;
                 document.getElementById('lblExecCodigo').textContent = codigo;
 
-                // --- NUEVO: Extraer atributos del Item ---
                 const reqLote = btnAbrir.getAttribute('data-req-lote') || '0';
                 const reqVenc = btnAbrir.getAttribute('data-req-venc') || '0';
                 const unidad = btnAbrir.getAttribute('data-unidad') || 'UND';
 
-                // Guardar en inputs ocultos
                 document.getElementById('execReqLote').value = reqLote;
                 document.getElementById('execReqVenc').value = reqVenc;
                 document.getElementById('execUnidad').value = unidad;
 
-                // Establecer la fecha y hora actual por defecto
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                 const localDatetime = now.toISOString().slice(0, 16);
                 
                 document.getElementById('execFechaInicio').value = localDatetime;
                 document.getElementById('execFechaFin').value = localDatetime;
-                // -------------------------------------------
 
                 const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
                 const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
@@ -211,7 +194,6 @@ if (!window.produccionJsInitialized) {
                 const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
                 const precheckMsg = btnAbrir.getAttribute('data-precheck-msg') || 'Falta stock en planta para ejecutar.';
 
-                // Validamos si hay faltantes antes de abrir
                 if (!precheckOk && typeof Swal !== 'undefined') {
                     const confirmacion = await Swal.fire({
                         icon: 'warning',
@@ -260,7 +242,7 @@ if (!window.produccionJsInitialized) {
                         result.data.forEach(item => {
                             addConsumoRow(item, planificada);
                         });
-                        recalcularSemaforos(); // Primera evaluación al cargar
+                        recalcularSemaforos(); 
                     } else {
                         tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">No se cargaron insumos. Añádalos manualmente.</td></tr>';
                     }
@@ -273,54 +255,45 @@ if (!window.produccionJsInitialized) {
                 return;
             }
 
-            // B. Agregar Fila Extra (Manual)
             if (e.target.closest('#btnAgregarConsumo')) { addConsumoRow(null); return; }
             if (e.target.closest('#btnAgregarIngreso')) { addIngresoRow(); return; }
 
-            // C. Eliminar Fila
             const btnRemove = e.target.closest('.js-remove-row');
             if (btnRemove) {
                 const tr = btnRemove.closest('tr');
                 if (tr) {
                     tr.remove();
-                    // Si eliminan un ingreso, hay que recalcular el total
                     dispararRecalculoTotal();
                 }
                 return;
             }
 
-            // D. Dividir Insumo en múltiples almacenes
             const btnSplit = e.target.closest('.js-split-row');
             if (btnSplit) {
                 const trOriginal = btnSplit.closest('tr');
                 const trClon = trOriginal.cloneNode(true);
                 
-                // Limpiar valores del clon para que el usuario los llene
                 trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
                 trClon.querySelector('select[name="consumo_id_almacen[]"]').value = '';
                 trClon.querySelector('input[name="consumo_id_lote[]"]').value = '';
                 
-                // Ocultar la insignia de "Req:" y el botón "Dividir" en la fila hija para que se vea más limpio
                 const badgeReq = trClon.querySelector('.badge-req');
                 const btnDiv = trClon.querySelector('.js-split-row');
                 if (badgeReq) badgeReq.style.display = 'none';
                 if (btnDiv) btnDiv.style.display = 'none';
 
-                // Insertar justo debajo de la original
                 trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
                 recalcularSemaforos();
                 return;
             }
         });
 
-        // --- MAGIA DEL CONSUMO TEÓRICO: RECALCULAR RECETA SI CAMBIA LO PRODUCIDO ---
         function dispararRecalculoTotal() {
             let totalProducido = 0;
             document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach(inp => {
                 totalProducido += parseFloat(inp.value) || 0;
             });
 
-            // Actualizar todas las filas de la Pestaña 1 (Consumos)
             document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => {
                 const reqUnitario = parseFloat(tr.getAttribute('data-req-unitario')) || 0;
                 const inputConsumo = tr.querySelector('input[name="consumo_cantidad[]"]');
@@ -333,13 +306,11 @@ if (!window.produccionJsInitialized) {
         }
 
         document.addEventListener('input', function(e) {
-            // Solo escuchamos cambios en la Pestaña 2 (Ingresos)
             if (e.target.matches('input[name="ingreso_cantidad[]"]')) {
                 dispararRecalculoTotal();
             }
         });
 
-        // Si cambia el almacén origen en la Pestaña 1, verificar stock
         document.addEventListener('change', function(e) {
             if (e.target.matches('select[name="consumo_id_almacen[]"]')) {
                 recalcularSemaforos();
@@ -370,7 +341,7 @@ if (!window.produccionJsInitialized) {
             const requerimientoUnitario = (parseFloat(item.cantidad_calculada) / planificada) || 0;
 
             tr.setAttribute('data-id-insumo', item.id_insumo);
-            tr.setAttribute('data-req-unitario', requerimientoUnitario); // Guardamos la receta unitaria
+            tr.setAttribute('data-req-unitario', requerimientoUnitario); 
             tr.classList.add('fila-calculada');
 
             let optionsHtml = '<option value="">Seleccione almacén...</option>';
@@ -405,7 +376,6 @@ if (!window.produccionJsInitialized) {
                     </td>
             `;
         } else {
-            // Fila Libre (Por si necesitan meter algo adicional)
             tr.innerHTML = `
                 <td class="align-middle">
                     <input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required>
@@ -432,18 +402,15 @@ if (!window.produccionJsInitialized) {
         const templateAlmacenes = document.getElementById('tplSelectAlmacenes').innerHTML;
         const tr = document.createElement('tr');
 
-        // Leer reglas del producto de los inputs ocultos
         const reqLote = document.getElementById('execReqLote').value === '1';
         const reqVenc = document.getElementById('execReqVenc').value === '1';
         const unidad = document.getElementById('execUnidad').value || 'UND';
 
-        // Lógica de Lote
         const autoLote = reqLote ? ('L' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 90 + 10)) : '';
         const inputLote = reqLote 
             ? `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}" required>`
             : `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm bg-light text-muted" placeholder="N/A" readonly tabindex="-1">`;
 
-        // Lógica de Vencimiento
         const inputVenc = reqVenc
             ? `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm border-warning" required>`
             : `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm bg-light text-muted" readonly tabindex="-1">`;
@@ -488,11 +455,9 @@ if (!window.produccionJsInitialized) {
             const optionSel = selectEl.options[selectEl.selectedIndex];
             const stockDisp = (optionSel && optionSel.hasAttribute('data-stock')) ? parseFloat(optionSel.getAttribute('data-stock')) : null;
 
-            // Limpiamos estilos previos
             inputElement.classList.remove('border-danger', 'bg-danger-subtle', 'border-success', 'text-danger', 'text-success');
             inputElement.classList.add('bg-light');
 
-            // BLOQUEO ROJO: Si intenta sacar más de lo que físicamente hay en ese almacén
             if (stockDisp !== null && cantRequerida > stockDisp) {
                 faltaStockFisico = true;
                 inputElement.classList.add('border-danger', 'bg-danger-subtle', 'text-danger');
@@ -508,7 +473,6 @@ if (!window.produccionJsInitialized) {
         if (!boxJustificacion || !btnGuardar) return;
 
         if (faltaStockFisico) {
-            // BLOQUEO ESTRICTO
             btnGuardar.disabled = true;
             boxJustificacion.className = 'alert alert-danger mt-3 mb-0';
             boxJustificacion.innerHTML = `
@@ -522,7 +486,6 @@ if (!window.produccionJsInitialized) {
             `;
             boxJustificacion.style.display = 'block';
         } else {
-            // TODO OK
             btnGuardar.disabled = false;
             boxJustificacion.style.display = 'none';
         }
@@ -546,21 +509,17 @@ if (!window.produccionJsInitialized) {
             const sec = String(now.getSeconds()).padStart(2, '0');
 
             if (inputCodigo) {
-                // Generar código único: OP-AAMMDD-HHMMSS
                 inputCodigo.value = `OP-${yy}${mm}${dd}-${hh}${min}${sec}`;
-                
-                // Aseguramos que esté bloqueado (readonly) y tenga fondo gris (bg-light)
                 inputCodigo.setAttribute('readonly', 'true');
                 inputCodigo.classList.add('bg-light');
             }
 
             const inputFechaProgramada = document.getElementById('newFechaProgramada');
-            if (inputFechaProgramada) {
+            if (inputFechaProgramada && !inputFechaProgramada.value) {
                 inputFechaProgramada.value = `${now.getFullYear()}-${mm}-${dd}`;
             }
         });
         
-        // Limpiar el formulario al cerrar el modal (si el usuario cancela)
         modalPlanificar.addEventListener('hidden.bs.modal', function () {
             const form = modalPlanificar.querySelector('form');
             if (form) form.reset();
@@ -572,13 +531,12 @@ if (!window.produccionJsInitialized) {
     // =========================================================================
     function initPlanificadorOperaciones() {
         const modalPlanificador = document.getElementById('modalPlanificadorProduccion');
-        if (!modalPlanificador) return; // Si no estamos en la vista de OP, no hacer nada
+        if (!modalPlanificador) return; 
 
-        let planFechaActual = new Date(); // Fecha pivote
-        let vistaActual = 'mes'; // 'mes' o 'semana'
-        let diccPlanificacion = {}; // Aquí guardaremos los datos del backend
+        let planFechaActual = new Date(); 
+        let vistaActual = 'mes'; 
+        let diccPlanificacion = {}; 
 
-        // --- EVENTOS DEL PLANIFICADOR ---
         modalPlanificador.addEventListener('show.bs.modal', () => {
             planFechaActual = new Date();
             cargarGridPlanificador();
@@ -602,7 +560,6 @@ if (!window.produccionJsInitialized) {
             cargarGridPlanificador();
         });
 
-        // Detectar cambio de toggle Mes / Semana
         document.querySelectorAll('input[name="vistaPlanificador"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 vistaActual = e.target.value;
@@ -610,7 +567,6 @@ if (!window.produccionJsInitialized) {
             });
         });
 
-        // --- LÓGICA DE DIBUJO ---
         async function cargarGridPlanificador() {
             const loader = document.getElementById('planLoader');
             const grid = document.getElementById('planificadorGrid');
@@ -629,13 +585,12 @@ if (!window.produccionJsInitialized) {
                 ultimoDia = new Date(year, month + 1, 0);
                 lblPlan.textContent = `${nombresMeses[month]} ${year}`;
             } else {
-                // Lógica para Semana (Empieza en Lunes)
                 primerDia = new Date(planFechaActual);
                 const day = primerDia.getDay() || 7; 
-                if (day !== 1) primerDia.setHours(-24 * (day - 1)); // Retroceder a Lunes
+                if (day !== 1) primerDia.setHours(-24 * (day - 1)); 
                 
                 ultimoDia = new Date(primerDia);
-                ultimoDia.setDate(ultimoDia.getDate() + 6); // Avanzar a Domingo
+                ultimoDia.setDate(ultimoDia.getDate() + 6); 
 
                 const mes1 = nombresMeses[primerDia.getMonth()];
                 const mes2 = nombresMeses[ultimoDia.getMonth()];
@@ -647,44 +602,44 @@ if (!window.produccionJsInitialized) {
             const strHasta = formatDate(ultimoDia);
 
             try {
-                const payload = new URLSearchParams({
-                    accion: 'obtener_planificador_ajax',
-                    desde: strDesde,
-                    hasta: strHasta,
-                });
+                const formData = new FormData();
+                formData.append('accion', 'obtener_planificador_ajax');
+                formData.append('desde', strDesde);
+                formData.append('hasta', strHasta);
 
                 const response = await fetch(window.location.href, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: payload.toString()
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
-
-                if (!response.ok) {
-                    throw new Error(`Error HTTP ${response.status}`);
-                }
-
+                
                 const resultado = await response.json();
-                diccPlanificacion = resultado.success ? (resultado.data || {}) : {};
-            } catch (e) {
-                console.error('No se pudo cargar la planificación de operaciones:', e);
+                
+                if (resultado.success) {
+                    diccPlanificacion = resultado.data || {};
+                } else {
+                    console.error("Error del servidor:", resultado.message);
+                    diccPlanificacion = {};
+                }
+            } catch (e) { 
+                console.error("Error crítico de red o PHP:", e); 
                 diccPlanificacion = {};
-            }
+            } 
 
             dibujarGrid(primerDia, ultimoDia);
             loader.classList.add('d-none');
         }
 
+        // =========================================================
+        // AQUI ESTÁ LA MAGIA DE DIBUJAR LAS TARJETAS (MES vs SEMANA)
+        // =========================================================
         function dibujarGrid(primerDia, ultimoDia) {
             const grid = document.getElementById('planificadorGrid');
             let html = '';
             
-            // Ajustar altura de las celdas según la vista
-            const minHeight = vistaActual === 'mes' ? '100px' : '300px';
+            // Si es semana las celdas son altas, si es mes son más pequeñas
+            const minHeight = vistaActual === 'mes' ? '130px' : '350px';
 
-            // Determinar qué día de la semana cae el primerDía (Para vista mensual)
             if (vistaActual === 'mes') {
                 let inicioSemana = primerDia.getDay();
                 inicioSemana = inicioSemana === 0 ? 6 : inicioSemana - 1; 
@@ -693,7 +648,6 @@ if (!window.produccionJsInitialized) {
                 }
             }
 
-            // Bucle de días
             const currentDate = new Date(primerDia);
             while (currentDate <= ultimoDia) {
                 const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
@@ -702,42 +656,75 @@ if (!window.produccionJsInitialized) {
                 
                 const registro = diccPlanificacion[dateStr];
                 
-                // Estilos Base
                 let colorClase = 'bg-white border-secondary-subtle border-dashed'; 
                 let textoClase = esDomingo ? 'text-danger' : 'text-secondary';
                 let htmlContenido = '';
+                let tooltipAttr = '';
 
-                // Lógica visual si hay datos en ese día
                 if (registro) {
                     if(registro.tipo === 'normal') colorClase = 'bg-primary-subtle border-primary text-primary-emphasis';
                     if(registro.tipo === 'excepcion') colorClase = 'bg-warning-subtle border-warning text-warning-emphasis';
 
-                    if (registro.ops > 0) {
-                        htmlContenido += `<div class="badge bg-dark mt-2 w-100"><i class="bi bi-gear-fill me-1"></i> ${registro.ops} OPs</div>`;
-                    }
+                    if (Array.isArray(registro.detalle) && registro.detalle.length > 0) {
+                        
+                        if (vistaActual === 'semana') {
+                            // --- VISTA DE SEMANA: TARJETAS DETALLADAS ---
+                            const detalleHtml = registro.detalle.map((op) => {
+                                const producto = op.producto || '-';
+                                const codigo = op.codigo || '-';
+                                const cantidad = Number(op.cantidad || 0).toFixed(2);
+                                const badgeColor = op.estado === 1 ? 'bg-warning text-dark' : 'bg-secondary text-white';
+                                
+                                return `<div class="small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-bold text-primary" style="font-size:0.75rem;">${codigo}</span>
+                                                <span class="badge ${badgeColor} py-1" style="font-size:0.65rem;">${op.estado === 1 ? 'Proceso' : 'Borrador'}</span>
+                                            </div>
+                                            <div class="fw-semibold text-dark text-truncate" style="font-size:0.8rem;" title="${producto}">${producto}</div>
+                                            <div class="text-muted mt-1" style="font-size:0.75rem;"><i class="bi bi-box-seam me-1"></i>Plan: ${cantidad}</div>
+                                        </div>`;
+                            }).join('');
 
-                    if (vistaActual === 'semana' && Array.isArray(registro.detalle) && registro.detalle.length > 0) {
-                        const detalleHtml = registro.detalle.map((op) => {
-                            const producto = op.producto || '-';
-                            const receta = op.receta || '-';
-                            const cantidad = Number(op.cantidad_planificada || 0).toFixed(4);
-                            return `<div class="small bg-white border rounded p-1 mt-1 text-start text-dark-emphasis">
-                                        <div class="fw-semibold text-truncate" title="${producto}">${producto}</div>
-                                        <div class="text-muted text-truncate" title="${receta}">${receta}</div>
-                                        <div class="fw-bold">Plan: ${cantidad}</div>
+                            // Agregamos scroll interno para que no se desborde el calendario hacia abajo
+                            htmlContenido += `<div class="w-100 overflow-auto px-1 pb-1 mt-1" style="max-height: 280px;">${detalleHtml}</div>`;
+                        
+                        } else {
+                            // --- VISTA DE MES: RESUMEN MINIATURA ---
+                            let resumenHtml = '';
+                            let tooltipText = []; // Aquí guardaremos los textos para mostrar al pasar el mouse
+                            
+                            registro.detalle.forEach((op, index) => {
+                                tooltipText.push(`• ${op.codigo}: ${op.producto} (${Number(op.cantidad||0).toFixed(2)})`);
+                                
+                                // Solo mostramos las 2 primeras para no romper el calendario
+                                if (index < 2) {
+                                    const bgColor = op.estado === 1 ? 'bg-warning-subtle border-warning text-warning-emphasis' : 'bg-light border-secondary-subtle text-secondary';
+                                    resumenHtml += `<div class="border rounded px-1 mb-1 text-truncate text-start ${bgColor}" style="font-size: 0.65rem; line-height:1.3;" title="${op.producto}">
+                                        <span class="fw-bold">${op.codigo}</span> <span class="d-block text-truncate opacity-75">${op.producto}</span>
                                     </div>`;
-                        }).join('');
+                                }
+                            });
 
-                        htmlContenido += `<div class="w-100 mt-1">${detalleHtml}</div>`;
+                            if (registro.detalle.length > 2) {
+                                resumenHtml += `<div class="text-muted fw-bold mt-1 text-center" style="font-size: 0.7rem;">+${registro.detalle.length - 2} más...</div>`;
+                            }
+
+                            htmlContenido += `<div class="w-100 mt-2 px-1">${resumenHtml}</div>`;
+                            
+                            // Se activa el Tooltip de Bootstrap
+                            tooltipAttr = `data-bs-toggle="tooltip" data-bs-html="true" title="${tooltipText.join('<br>')}"`;
+                        }
+                    } else if (registro.ops > 0) {
+                        htmlContenido += `<div class="badge bg-dark mt-2 w-100"><i class="bi bi-gear-fill me-1"></i> ${registro.ops} OPs</div>`;
                     }
                 }
 
                 html += `
                     <div class="card shadow-sm position-relative ${colorClase} cursor-pointer hover-lift transition-all overflow-hidden" 
                          style="min-height: ${minHeight};" 
-                         onclick="abrirDiaPlanificador('${dateStr}')">
-                        <div class="card-body p-2 d-flex flex-column align-items-center justify-content-start">
-                            <span class="fs-5 fw-bold ${textoClase} lh-1 mb-1">${diaNum}</span>
+                         onclick="abrirDiaPlanificador('${dateStr}')" ${tooltipAttr}>
+                        <div class="card-body p-1 p-md-2 d-flex flex-column align-items-center justify-content-start h-100">
+                            <span class="fs-6 fw-bold ${textoClase} lh-1 mb-1">${diaNum}</span>
                             ${htmlContenido}
                         </div>
                     </div>
@@ -747,16 +734,22 @@ if (!window.produccionJsInitialized) {
             }
 
             grid.innerHTML = html;
+            
+            // Inicializar los tooltips que acabamos de crear en el HTML inyectado
+            if (typeof bootstrap !== 'undefined') {
+                const tooltipTriggerList = [].slice.call(grid.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            }
         }
     }
 
     // --- CLIC EN UN DÍA DEL PLANIFICADOR ---
-    // Lo definimos globalmente en window para que el HTML inyectado pueda acceder a la función
     window.abrirDiaPlanificador = function(dateStr) {
         const [y, m, d] = dateStr.split('-');
         const fechaBonita = new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-        // Aquí usamos SweetAlert2 para mostrar las opciones del día
         Swal.fire({
             title: `<span class="fs-5 text-capitalize text-primary"><i class="bi bi-calendar-event me-2"></i>${fechaBonita}</span>`,
             html: `
@@ -787,44 +780,58 @@ if (!window.produccionJsInitialized) {
     // ACCIONES DE LOS BOTONES DEL SWEET ALERT (PLANIFICADOR)
     // =========================================================================
     
-    // Acción 1: Programar OP (Abrimos el modal ENCIMA del calendario)
     window.accionProgramarOP = function(fechaStr) {
         Swal.close(); 
         
-        const modalOPEl = document.getElementById('modalPlanificarOP');
-        if (modalOPEl && typeof bootstrap !== 'undefined') {
-            const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
-            modalOP.show();
-            
-            // Seteamos la fecha elegida
-            setTimeout(() => {
-                const inputFecha = document.getElementById('newFechaProgramada');
-                if(inputFecha) inputFecha.value = fechaStr;
-            }, 200);
+        const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
+        if (modalPlanificadorEl && typeof bootstrap !== 'undefined') {
+            const modalPlanificador = bootstrap.Modal.getInstance(modalPlanificadorEl);
+            if (modalPlanificador) modalPlanificador.hide();
         }
+
+        setTimeout(() => {
+            const modalOPEl = document.getElementById('modalPlanificarOP');
+            if (modalOPEl && typeof bootstrap !== 'undefined') {
+                const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
+                
+                // Limpiamos el valor de la fecha programada y seteamos la nueva
+                const inputFecha = document.getElementById('newFechaProgramada');
+                if(inputFecha) {
+                    inputFecha.value = ''; // Limpiar
+                    inputFecha.value = fechaStr; // Setear
+                }
+
+                modalOP.show();
+            }
+        }, 300); 
     };
 
-    // Acción 2: Gestionar Grupos (Abrimos el modal de Grupos ENCIMA del calendario)
     window.accionGestionarGrupos = function(fechaStr, fechaBonita) {
         Swal.close(); 
         
-        // Seteamos las fechas en el modal de grupos
-        const inputFechaVal = document.getElementById('grupoFechaVal');
-        const lblFechaBonita = document.getElementById('lblGrupoFechaBonita');
-        
-        if(inputFechaVal) inputFechaVal.value = fechaStr;
-        if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
-        
-        const modalGruposEl = document.getElementById('modalAsignarGrupos');
-        if (modalGruposEl && typeof bootstrap !== 'undefined') {
-            const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
-            modalGrupos.show();
-
-            console.log("Cargando grupos para el día: " + fechaStr);
+        const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
+        if (modalPlanificadorEl && typeof bootstrap !== 'undefined') {
+            const modalPlanificador = bootstrap.Modal.getInstance(modalPlanificadorEl);
+            if (modalPlanificador) modalPlanificador.hide();
         }
+
+        setTimeout(() => {
+            const inputFechaVal = document.getElementById('grupoFechaVal');
+            const lblFechaBonita = document.getElementById('lblGrupoFechaBonita');
+            
+            if(inputFechaVal) inputFechaVal.value = fechaStr;
+            if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
+            
+            const modalGruposEl = document.getElementById('modalAsignarGrupos');
+            if (modalGruposEl && typeof bootstrap !== 'undefined') {
+                const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
+                modalGrupos.show();
+
+                console.log("Cargando grupos para el día: " + fechaStr);
+            }
+        }, 300);
     };
 
-    // Acción 3: Configurar Excepción (En construcción)
     window.accionConfigurarExcepcion = function(fechaStr) {
         Swal.close();
         Swal.fire({
@@ -835,7 +842,6 @@ if (!window.produccionJsInitialized) {
         });
     };
 
-    // --- FIX BOOTSTRAP SCROLL (Mantiene el scroll si cierras un modal secundario pero el calendario sigue abierto) ---
     document.getElementById('modalPlanificarOP')?.addEventListener('hidden.bs.modal', function () {
         if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
             document.body.classList.add('modal-open');

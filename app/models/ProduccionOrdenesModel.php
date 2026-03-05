@@ -6,25 +6,25 @@ require_once BASE_PATH . '/app/models/InventarioModel.php';
 class ProduccionOrdenesModel extends Modelo
 {
     // =====================================================================
-    // OBTENER DATOS PARA EL CALENDARIO DEL PLANIFICADOR
+    // OBTENER DATOS PARA EL CALENDARIO DEL PLANIFICADOR (BLINDADO)
     // =====================================================================
     public function obtenerDatosPlanificador(string $desde, string $hasta): array
     {
-        // 1. Buscamos el detalle de Órdenes de Producción por día
+        // 1. Buscamos el detalle de Órdenes (Usamos LEFT JOIN por seguridad)
         $sqlOps = 'SELECT DATE(o.fecha_programada) AS fecha_prog,
-                          COUNT(o.id) AS total_ops,
-                          p.nombre AS producto_nombre,
-                          r.codigo AS receta_codigo,
-                          SUM(o.cantidad_planificada) AS cantidad_planificada
+                          o.codigo AS op_codigo,
+                          o.estado AS op_estado,
+                          COALESCE(p.nombre, "Producto no encontrado") AS producto_nombre,
+                          COALESCE(r.codigo, "Sin Receta") AS receta_codigo,
+                          o.cantidad_planificada
                    FROM produccion_ordenes o
-                   INNER JOIN produccion_recetas r ON r.id = o.id_receta
-                   INNER JOIN items p ON p.id = r.id_producto
-                   WHERE o.fecha_programada >= :desde
-                     AND o.fecha_programada <= :hasta
+                   LEFT JOIN produccion_recetas r ON r.id = o.id_receta
+                   LEFT JOIN items p ON p.id = r.id_producto
+                   WHERE DATE(o.fecha_programada) >= :desde
+                     AND DATE(o.fecha_programada) <= :hasta
                      AND o.estado IN (0, 1)
                      AND o.deleted_at IS NULL
-                   GROUP BY DATE(o.fecha_programada), p.nombre, r.codigo
-                   ORDER BY DATE(o.fecha_programada) ASC, p.nombre ASC';
+                   ORDER BY DATE(o.fecha_programada) ASC, o.id ASC';
 
         $stmtOps = $this->db()->prepare($sqlOps);
         $stmtOps->execute(['desde' => $desde, 'hasta' => $hasta]);
@@ -33,9 +33,7 @@ class ProduccionOrdenesModel extends Modelo
         $opsPorFecha = [];
         foreach ($rawOps as $row) {
             $fecha = (string) ($row['fecha_prog'] ?? '');
-            if ($fecha === '') {
-                continue;
-            }
+            if ($fecha === '') continue;
 
             if (!isset($opsPorFecha[$fecha])) {
                 $opsPorFecha[$fecha] = [
@@ -44,18 +42,20 @@ class ProduccionOrdenesModel extends Modelo
                 ];
             }
 
-            $opsPorFecha[$fecha]['ops'] += (int) ($row['total_ops'] ?? 0);
+            $opsPorFecha[$fecha]['ops']++;
             $opsPorFecha[$fecha]['detalle'][] = [
+                'codigo' => (string) ($row['op_codigo'] ?? '-'),
                 'producto' => (string) ($row['producto_nombre'] ?? '-'),
                 'receta' => (string) ($row['receta_codigo'] ?? '-'),
-                'cantidad_planificada' => round((float) ($row['cantidad_planificada'] ?? 0), 4),
+                'cantidad' => round((float) ($row['cantidad_planificada'] ?? 0), 2),
+                'estado' => (int) ($row['op_estado'] ?? 0)
             ];
         }
 
-        // 2. Buscamos los Grupos Diarios y Excepciones
-        $sqlPlan = 'SELECT fecha, tipo_horario
+        // 2. Buscamos los Grupos Diarios
+        $sqlPlan = 'SELECT DATE(fecha) as fecha_plan, tipo_horario
                     FROM produccion_grupos_diarios
-                    WHERE fecha >= :desde AND fecha <= :hasta';
+                    WHERE DATE(fecha) >= :desde AND DATE(fecha) <= :hasta';
 
         $stmtPlan = $this->db()->prepare($sqlPlan);
         $stmtPlan->execute(['desde' => $desde, 'hasta' => $hasta]);
@@ -63,12 +63,9 @@ class ProduccionOrdenesModel extends Modelo
 
         $diccionario = [];
 
-        // Unificamos la información
         foreach ($planes as $plan) {
-            $fecha = (string) ($plan['fecha'] ?? '');
-            if ($fecha === '') {
-                continue;
-            }
+            $fecha = (string) ($plan['fecha_plan'] ?? '');
+            if ($fecha === '') continue;
 
             $tipo = strtolower((string) ($plan['tipo_horario'] ?? 'normal'));
 
@@ -83,7 +80,6 @@ class ProduccionOrdenesModel extends Modelo
             }
         }
 
-        // Si hay días con OPs pero sin grupos creados, los marcamos como 'normal'
         foreach ($opsPorFecha as $fecha => $registroOp) {
             if (!isset($diccionario[$fecha])) {
                 $diccionario[$fecha] = [
