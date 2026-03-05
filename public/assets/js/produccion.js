@@ -2,7 +2,7 @@
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
  * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
  * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
- * Incluye: Planificador de Operaciones (Calendario Mes/Semana)
+ * Incluye: Planificador de Operaciones (Calendario) y Dashboard de Personal.
  * Modo: Consumo Teórico Estricto (Strict Backflushing)
  */
 
@@ -16,6 +16,7 @@ if (!window.produccionJsInitialized) {
         initModalEjecucion();
         initModalPlanificacion();
         initPlanificadorOperaciones(); 
+        initGestorGrupos(); 
     });
 
     // =========================================================================
@@ -124,7 +125,6 @@ if (!window.produccionJsInitialized) {
         });
 
         const tablaOrdenes = document.getElementById('tablaOrdenes');
-        
         if (tablaOrdenes) {
             tablaOrdenes.addEventListener('show.bs.collapse', function (e) {
                 const abiertos = tablaOrdenes.querySelectorAll('.collapse-faltantes.show');
@@ -192,14 +192,12 @@ if (!window.produccionJsInitialized) {
                 tbodyIngresos.innerHTML = '';
 
                 const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
-                const precheckMsg = btnAbrir.getAttribute('data-precheck-msg') || 'Falta stock en planta para ejecutar.';
 
                 if (!precheckOk && typeof Swal !== 'undefined') {
                     const confirmacion = await Swal.fire({
                         icon: 'warning',
                         title: 'Insumos insuficientes en Planta',
                         text: 'Insumos insuficientes en Planta. Asegúrate de transferir o regularizar el stock en el sistema para poder guardar esta ejecución. ¿Desea abrir el formulario de todos modos?',
-                        footer: 'Revisa el detalle de faltantes en la tabla antes de continuar.',
                         showCancelButton: true,
                         confirmButtonText: 'Sí, abrir formulario',
                         cancelButtonText: 'Cancelar'
@@ -441,7 +439,7 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 5. LÓGICA DE SEMÁFOROS (Tráfico Light - Bloqueo Estricto)
+    // 5. LÓGICA DE SEMÁFOROS
     // =========================================================================
     function recalcularSemaforos() {
         const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
@@ -480,7 +478,7 @@ if (!window.produccionJsInitialized) {
                     <i class="bi bi-x-circle-fill fs-4 me-3 mt-1"></i>
                     <div class="w-100">
                         <h6 class="fw-bold mb-1">Producción Bloqueada: Stock Insuficiente</h6>
-                        <p class="small mb-0">La cantidad que deseas producir exige más insumos de los que existen actualmente en el almacén de planta seleccionado. <strong>Transfiere stock a la planta</strong> o ajusta lo producido para poder guardar.</p>
+                        <p class="small mb-0">La cantidad que deseas producir exige más insumos de los que existen actualmente en el almacén de planta seleccionado.</p>
                     </div>
                 </div>
             `;
@@ -492,7 +490,7 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 6. MODAL DE PLANIFICACIÓN (Generador de Código OP)
+    // 6. MODAL DE PLANIFICACIÓN Y GUARDADO AJAX (MEJORADO)
     // =========================================================================
     function initModalPlanificacion() {
         const modalPlanificar = document.getElementById('modalPlanificarOP'); 
@@ -520,6 +518,65 @@ if (!window.produccionJsInitialized) {
             }
         });
         
+        // INTERCEPTAR EL FORMULARIO DE NUEVA OP (Auto-retorno)
+        const form = modalPlanificar.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
+                
+                // Solo usamos AJAX si el Planificador (Calendario) está abierto de fondo
+                if (modalPlanificadorEl && modalPlanificadorEl.classList.contains('show')) {
+                    e.preventDefault(); 
+
+                    const formData = new FormData(form);
+                    formData.set('accion', 'crear_orden_ajax'); 
+                    const fechaGuardada = formData.get('fecha_programada');
+
+                    const btnSubmit = form.querySelector('button[type="submit"]');
+                    const originalText = btnSubmit.innerHTML;
+                    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+                    btnSubmit.disabled = true;
+
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if (res.success) {
+                            // 1. Cerramos el formulario
+                            bootstrap.Modal.getInstance(modalPlanificar).hide();
+                            
+                            // 2. Recargamos los cuadritos del calendario para que aparezca la OP
+                            if (typeof window.cargarGridPlanificador === 'function') {
+                                window.cargarGridPlanificador(); 
+                            }
+                            
+                            // 3. Volvemos a abrir el menú de opciones de ese día (Auto-retorno)
+                            setTimeout(() => {
+                                if (typeof window.abrirDiaPlanificador === 'function') {
+                                    window.abrirDiaPlanificador(fechaGuardada);
+                                }
+                            }, 400);
+
+                        } else {
+                            Swal.fire('Error', res.message || 'No se pudo crear la orden.', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire('Error', 'Hubo un problema de conexión.', 'error');
+                    })
+                    .finally(() => {
+                        btnSubmit.innerHTML = originalText;
+                        btnSubmit.disabled = false;
+                        form.reset(); 
+                    });
+                }
+            });
+        }
+
         modalPlanificar.addEventListener('hidden.bs.modal', function () {
             const form = modalPlanificar.querySelector('form');
             if (form) form.reset();
@@ -539,7 +596,7 @@ if (!window.produccionJsInitialized) {
 
         modalPlanificador.addEventListener('show.bs.modal', () => {
             planFechaActual = new Date();
-            cargarGridPlanificador();
+            window.cargarGridPlanificador();
         });
 
         document.getElementById('btnPlanAnterior').addEventListener('click', () => {
@@ -548,7 +605,7 @@ if (!window.produccionJsInitialized) {
             } else {
                 planFechaActual.setDate(planFechaActual.getDate() - 7);
             }
-            cargarGridPlanificador();
+            window.cargarGridPlanificador();
         });
 
         document.getElementById('btnPlanSiguiente').addEventListener('click', () => {
@@ -557,17 +614,17 @@ if (!window.produccionJsInitialized) {
             } else {
                 planFechaActual.setDate(planFechaActual.getDate() + 7);
             }
-            cargarGridPlanificador();
+            window.cargarGridPlanificador();
         });
 
         document.querySelectorAll('input[name="vistaPlanificador"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 vistaActual = e.target.value;
-                cargarGridPlanificador();
+                window.cargarGridPlanificador();
             });
         });
 
-        async function cargarGridPlanificador() {
+        window.cargarGridPlanificador = async function() {
             const loader = document.getElementById('planLoader');
             const grid = document.getElementById('planificadorGrid');
             const lblPlan = document.getElementById('lblPlanActual');
@@ -628,29 +685,37 @@ if (!window.produccionJsInitialized) {
 
             dibujarGrid(primerDia, ultimoDia);
             loader.classList.add('d-none');
-        }
+        };
 
-        // =========================================================
-        // AQUI ESTÁ LA MAGIA DE DIBUJAR LAS TARJETAS (MES vs SEMANA)
-        // =========================================================
         function dibujarGrid(primerDia, ultimoDia) {
             const grid = document.getElementById('planificadorGrid');
             let html = '';
             
-            // Si es semana las celdas son altas, si es mes son más pequeñas
             const minHeight = vistaActual === 'mes' ? '130px' : '350px';
+
+            if (vistaActual === 'semana') {
+                grid.classList.remove('vista-mes');
+                grid.classList.add('vista-semana');
+            } else {
+                grid.classList.remove('vista-semana');
+                grid.classList.add('vista-mes');
+            }
 
             if (vistaActual === 'mes') {
                 let inicioSemana = primerDia.getDay();
                 inicioSemana = inicioSemana === 0 ? 6 : inicioSemana - 1; 
                 for (let i = 0; i < inicioSemana; i++) {
-                    html += `<div class="bg-light rounded opacity-25" style="min-height: ${minHeight}; border: 1px dashed #dee2e6;"></div>`;
+                    html += `<div class="bg-light rounded opacity-25 d-none d-md-block" style="min-height: ${minHeight}; border: 1px dashed #dee2e6;"></div>`;
                 }
             }
 
             const currentDate = new Date(primerDia);
             while (currentDate <= ultimoDia) {
-                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
+                const y = currentDate.getFullYear();
+                const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const d = String(currentDate.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`; 
+                
                 const diaNum = currentDate.getDate();
                 const esDomingo = currentDate.getDay() === 0;
                 
@@ -666,41 +731,37 @@ if (!window.produccionJsInitialized) {
                     if(registro.tipo === 'excepcion') colorClase = 'bg-warning-subtle border-warning text-warning-emphasis';
 
                     if (Array.isArray(registro.detalle) && registro.detalle.length > 0) {
-                        
                         if (vistaActual === 'semana') {
-                            // --- VISTA DE SEMANA: TARJETAS DETALLADAS ---
                             const detalleHtml = registro.detalle.map((op) => {
                                 const producto = op.producto || '-';
-                                const codigo = op.codigo || '-';
+                                const codigoLimpio = op.codigo ? op.codigo.replace('OP-', '') : '-'; 
                                 const cantidad = Number(op.cantidad || 0).toFixed(2);
                                 const badgeColor = op.estado === 1 ? 'bg-warning text-dark' : 'bg-secondary text-white';
                                 
-                                return `<div class="small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm">
+                                return `<div class="mini-card-op small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm border-start border-4 ${op.estado == 1 ? 'border-warning' : 'border-secondary'}" style="min-height: 60px;">
                                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <span class="fw-bold text-primary" style="font-size:0.75rem;">${codigo}</span>
-                                                <span class="badge ${badgeColor} py-1" style="font-size:0.65rem;">${op.estado === 1 ? 'Proceso' : 'Borrador'}</span>
+                                                <span class="fw-bold text-primary" style="font-size:0.7rem;"><i class="bi bi-tag-fill me-1"></i>${codigoLimpio}</span>
+                                                <span class="badge ${badgeColor} py-1 px-2" style="font-size:0.6rem;">${op.estado === 1 ? 'Proceso' : 'Borrador'}</span>
                                             </div>
-                                            <div class="fw-semibold text-dark text-truncate" style="font-size:0.8rem;" title="${producto}">${producto}</div>
-                                            <div class="text-muted mt-1" style="font-size:0.75rem;"><i class="bi bi-box-seam me-1"></i>Plan: ${cantidad}</div>
+                                            <div class="op-product-name" title="${producto}">${producto}</div>
+                                            <div class="text-muted mt-1" style="font-size:0.75rem;"><i class="bi bi-box-seam me-1"></i>Plan: <span class="fw-bold text-dark">${cantidad}</span></div>
                                         </div>`;
                             }).join('');
 
-                            // Agregamos scroll interno para que no se desborde el calendario hacia abajo
-                            htmlContenido += `<div class="w-100 overflow-auto px-1 pb-1 mt-1" style="max-height: 280px;">${detalleHtml}</div>`;
-                        
+                            htmlContenido += `<div class="w-100 overflow-auto px-1 pb-1 mt-1" style="max-height: 280px; scrollbar-width: thin;">${detalleHtml}</div>`;
                         } else {
-                            // --- VISTA DE MES: RESUMEN MINIATURA ---
                             let resumenHtml = '';
-                            let tooltipText = []; // Aquí guardaremos los textos para mostrar al pasar el mouse
+                            let tooltipText = []; 
                             
                             registro.detalle.forEach((op, index) => {
-                                tooltipText.push(`• ${op.codigo}: ${op.producto} (${Number(op.cantidad||0).toFixed(2)})`);
+                                const codigoLimpio = op.codigo ? op.codigo.replace('OP-', '') : '-';
+                                tooltipText.push(`• ${codigoLimpio}: ${op.producto} (${Number(op.cantidad||0).toFixed(2)})`);
                                 
-                                // Solo mostramos las 2 primeras para no romper el calendario
                                 if (index < 2) {
                                     const bgColor = op.estado === 1 ? 'bg-warning-subtle border-warning text-warning-emphasis' : 'bg-light border-secondary-subtle text-secondary';
-                                    resumenHtml += `<div class="border rounded px-1 mb-1 text-truncate text-start ${bgColor}" style="font-size: 0.65rem; line-height:1.3;" title="${op.producto}">
-                                        <span class="fw-bold">${op.codigo}</span> <span class="d-block text-truncate opacity-75">${op.producto}</span>
+                                    
+                                    resumenHtml += `<div class="border rounded px-1 mb-1 text-start ${bgColor}" style="font-size: 0.65rem; padding: 4px 2px;" title="${op.producto}">
+                                        <span class="d-block op-product-name-mes fw-bold opacity-100 text-center">${op.producto}</span>
                                     </div>`;
                                 }
                             });
@@ -710,8 +771,6 @@ if (!window.produccionJsInitialized) {
                             }
 
                             htmlContenido += `<div class="w-100 mt-2 px-1">${resumenHtml}</div>`;
-                            
-                            // Se activa el Tooltip de Bootstrap
                             tooltipAttr = `data-bs-toggle="tooltip" data-bs-html="true" title="${tooltipText.join('<br>')}"`;
                         }
                     } else if (registro.ops > 0) {
@@ -720,11 +779,11 @@ if (!window.produccionJsInitialized) {
                 }
 
                 html += `
-                    <div class="card shadow-sm position-relative ${colorClase} cursor-pointer hover-lift transition-all overflow-hidden" 
+                    <div class="card shadow-sm position-relative ${colorClase} cursor-pointer hover-lift transition-all overflow-hidden plan-dia-card" 
                          style="min-height: ${minHeight};" 
                          onclick="abrirDiaPlanificador('${dateStr}')" ${tooltipAttr}>
                         <div class="card-body p-1 p-md-2 d-flex flex-column align-items-center justify-content-start h-100">
-                            <span class="fs-6 fw-bold ${textoClase} lh-1 mb-1">${diaNum}</span>
+                            <span class="fs-6 fw-bold ${textoClase} lh-1 mb-1 w-100 text-center">${diaNum}</span>
                             ${htmlContenido}
                         </div>
                     </div>
@@ -735,7 +794,6 @@ if (!window.produccionJsInitialized) {
 
             grid.innerHTML = html;
             
-            // Inicializar los tooltips que acabamos de crear en el HTML inyectado
             if (typeof bootstrap !== 'undefined') {
                 const tooltipTriggerList = [].slice.call(grid.querySelectorAll('[data-bs-toggle="tooltip"]'));
                 tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -745,7 +803,162 @@ if (!window.produccionJsInitialized) {
         }
     }
 
-    // --- CLIC EN UN DÍA DEL PLANIFICADOR ---
+    // =========================================================================
+    // 8. DASHBOARD DIARIO: GESTIÓN DE GRUPOS Y HORARIOS UNIFICADO
+    // =========================================================================
+    function initGestorGrupos() {
+        window.gruposDelDia = []; 
+        
+        const btnCrearGrupo = document.getElementById('btnCrearGrupo');
+        const inputNuevoGrupo = document.getElementById('txtNuevoGrupo');
+        const selectHorarioGrupo = document.getElementById('selNuevoHorarioGrupo'); // Nuevo select de horario
+        const contenedorEtiquetas = document.getElementById('contenedorEtiquetasGrupos');
+        const msgSinGrupos = document.getElementById('msgSinGrupos');
+
+        if (!btnCrearGrupo || !inputNuevoGrupo || !contenedorEtiquetas) return;
+
+        window.renderizarEtiquetas = function() {
+            contenedorEtiquetas.innerHTML = '';
+            
+            if (window.gruposDelDia.length === 0) {
+                if (msgSinGrupos) contenedorEtiquetas.appendChild(msgSinGrupos);
+                msgSinGrupos.style.display = 'block';
+                return;
+            }
+
+            if (msgSinGrupos) msgSinGrupos.style.display = 'none';
+
+            window.gruposDelDia.forEach((grupoObj, index) => {
+                // Ahora grupoObj es un objeto con {nombre: 'Línea 1', horario: 'NORMAL'}
+                const bgClase = grupoObj.horario === 'EXCEPCION' ? 'bg-warning text-dark' : 'bg-primary text-white';
+                const icono = grupoObj.horario === 'EXCEPCION' ? 'bi-clock-history' : 'bi-tags-fill';
+
+                const badge = document.createElement('div');
+                badge.className = `badge ${bgClase} d-flex align-items-center py-2 px-3 fs-6 shadow-sm fade-in border`;
+                badge.innerHTML = `
+                    <div class="d-flex flex-column text-start me-3">
+                        <span><i class="bi ${icono} me-1"></i> ${grupoObj.nombre}</span>
+                        <small class="fw-normal mt-1 opacity-75" style="font-size: 0.65rem;">Horario: ${grupoObj.horario}</small>
+                    </div>
+                    <button type="button" class="btn-close ${grupoObj.horario === 'EXCEPCION' ? '' : 'btn-close-white'}" aria-label="Eliminar" onclick="eliminarGrupoTemporal(${index})" style="font-size: 0.6rem;"></button>
+                `;
+                contenedorEtiquetas.appendChild(badge);
+            });
+
+            actualizarSelectsDeTabla();
+        };
+
+        btnCrearGrupo.addEventListener('click', () => {
+            const nombre = inputNuevoGrupo.value.trim().toUpperCase();
+            const horario = selectHorarioGrupo ? selectHorarioGrupo.value : 'NORMAL';
+
+            if (nombre === '') {
+                Swal.fire('Atención', 'Escribe un nombre para el grupo.', 'warning');
+                return;
+            }
+            
+            const existe = window.gruposDelDia.some(g => g.nombre === nombre);
+            if (existe) {
+                Swal.fire('Atención', 'Este grupo ya existe. Bórralo si deseas cambiarle el horario.', 'warning');
+                return;
+            }
+
+            window.gruposDelDia.push({ nombre: nombre, horario: horario });
+            inputNuevoGrupo.value = '';
+            if (selectHorarioGrupo) selectHorarioGrupo.value = 'NORMAL';
+            
+            window.renderizarEtiquetas();
+        });
+
+        window.eliminarGrupoTemporal = function(index) {
+            window.gruposDelDia.splice(index, 1);
+            window.renderizarEtiquetas();
+        };
+
+        function actualizarSelectsDeTabla() {
+            const selects = document.querySelectorAll('.select-grupo-empleado');
+            selects.forEach(select => {
+                const valorSeleccionadoPreviamente = select.value;
+                
+                let optionsHtml = '<option value="">-- Sin Grupo (Libre) --</option>';
+                window.gruposDelDia.forEach(g => {
+                    optionsHtml += `<option value="${g.nombre}">${g.nombre}</option>`;
+                });
+                
+                select.innerHTML = optionsHtml;
+                
+                const grupoAunExiste = window.gruposDelDia.some(g => g.nombre === valorSeleccionadoPreviamente);
+                if (grupoAunExiste) {
+                    select.value = valorSeleccionadoPreviamente;
+                }
+            });
+        }
+
+        // GUARDADO DEL DASHBOARD DIARIO (AUTO-RETORNO)
+        document.getElementById('btnGuardarAsignacionGrupos')?.addEventListener('click', () => {
+            const fecha = document.getElementById('grupoFechaOculta').value;
+            const asignaciones = {};
+            
+            document.querySelectorAll('.select-grupo-empleado').forEach(sel => {
+                if (sel.value !== '') {
+                    asignaciones[sel.getAttribute('data-id-emp')] = sel.value;
+                }
+            });
+
+            const formData = new FormData();
+            formData.append('accion', 'guardar_grupos_diarios_ajax');
+            formData.append('fecha', fecha);
+            
+            // Enviamos los grupos como JSON string para que PHP lo procese fácil
+            formData.append('grupos_json', JSON.stringify(window.gruposDelDia));
+            
+            for (const [idEmp, nombreGrupo] of Object.entries(asignaciones)) {
+                formData.append(`asignaciones[${idEmp}]`, nombreGrupo);
+            }
+
+            const btnGuardar = document.getElementById('btnGuardarAsignacionGrupos');
+            const txtOriginal = btnGuardar.innerHTML;
+            btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+            btnGuardar.disabled = true;
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) {
+                    // 1. Cerramos el modal de grupos
+                    bootstrap.Modal.getInstance(document.getElementById('modalAsignarGrupos')).hide();
+                    
+                    // 2. Recargamos los cuadritos por si el color cambió a Excepción (Amarillo)
+                    if (typeof window.cargarGridPlanificador === 'function') {
+                        window.cargarGridPlanificador(); 
+                    }
+
+                    // 3. Volvemos a mostrar el menú diario principal
+                    setTimeout(() => {
+                        if (typeof window.abrirDiaPlanificador === 'function') {
+                            window.abrirDiaPlanificador(fecha);
+                        }
+                    }, 400);
+
+                } else {
+                    Swal.fire('Error', res.message || 'No se pudo guardar la configuración.', 'error');
+                }
+            })
+            .finally(() => {
+                btnGuardar.innerHTML = txtOriginal;
+                btnGuardar.disabled = false;
+            });
+        });
+    }
+
+    // =========================================================================
+    // ACCIONES DE LOS BOTONES DEL MENU DIARIO (2 BOTONES UNIFICADOS)
+    // =========================================================================
+    
     window.abrirDiaPlanificador = function(dateStr) {
         const [y, m, d] = dateStr.split('-');
         const fechaBonita = new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -755,91 +968,105 @@ if (!window.produccionJsInitialized) {
             html: `
                 <div class="text-start mt-3">
                     <p class="text-muted small mb-3">¿Qué acción deseas realizar para el <strong>${d}/${m}/${y}</strong>?</p>
-                    <div class="d-grid gap-2">
-                        <button onclick="accionProgramarOP('${dateStr}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift">
-                            <i class="bi bi-plus-circle me-2 text-primary"></i> Programar Nueva OP
+                    <div class="d-grid gap-3 mb-2">
+                        <button onclick="accionProgramarOP('${dateStr}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift shadow-sm">
+                            <i class="bi bi-box-seam me-2 text-primary fs-5"></i> 1. Programar Órdenes (OP)
+                            <div class="small fw-normal text-muted mt-1 ms-4">Crear nuevas tareas de producción para este día.</div>
                         </button>
                         
-                        <button onclick="accionGestionarGrupos('${dateStr}', '${fechaBonita}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift">
-                            <i class="bi bi-people me-2 text-info"></i> Asignar / Modificar Grupo de Trabajo
-                        </button>
-                        
-                        <button onclick="accionConfigurarExcepcion('${dateStr}')" class="btn btn-outline-warning text-dark text-start p-3 fw-semibold border-warning hover-lift">
-                            <i class="bi bi-clock-history me-2"></i> Configurar Excepción (Horas Extra)
+                        <button onclick="accionGestionarGrupos('${dateStr}', '${fechaBonita}')" class="btn btn-outline-dark text-start p-3 fw-semibold hover-lift shadow-sm">
+                            <i class="bi bi-people me-2 text-info fs-5"></i> 2. Planificar Personal y Horarios
+                            <div class="small fw-normal text-muted mt-1 ms-4">Crear grupos, asignar operarios y aprobar horas extras.</div>
                         </button>
                     </div>
                 </div>
             `,
-            showConfirmButton: false,
-            showCloseButton: true,
+            showConfirmButton: true,
+            confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Cerrar Menú',
+            confirmButtonColor: '#6c757d',
+            showCloseButton: false,
             customClass: { popup: 'rounded-4' }
         });
     };
 
-    // =========================================================================
-    // ACCIONES DE LOS BOTONES DEL SWEET ALERT (PLANIFICADOR)
-    // =========================================================================
-    
     window.accionProgramarOP = function(fechaStr) {
         Swal.close(); 
         
-        const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
-        if (modalPlanificadorEl && typeof bootstrap !== 'undefined') {
-            const modalPlanificador = bootstrap.Modal.getInstance(modalPlanificadorEl);
-            if (modalPlanificador) modalPlanificador.hide();
-        }
-
-        setTimeout(() => {
-            const modalOPEl = document.getElementById('modalPlanificarOP');
-            if (modalOPEl && typeof bootstrap !== 'undefined') {
-                const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
-                
-                // Limpiamos el valor de la fecha programada y seteamos la nueva
-                const inputFecha = document.getElementById('newFechaProgramada');
-                if(inputFecha) {
-                    inputFecha.value = ''; // Limpiar
-                    inputFecha.value = fechaStr; // Setear
-                }
-
-                modalOP.show();
+        const modalOPEl = document.getElementById('modalPlanificarOP');
+        if (modalOPEl && typeof bootstrap !== 'undefined') {
+            const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
+            
+            const inputFecha = document.getElementById('newFechaProgramada');
+            if(inputFecha) {
+                inputFecha.value = ''; 
+                inputFecha.value = fechaStr; 
             }
-        }, 300); 
+
+            modalOP.show(); 
+        }
     };
 
     window.accionGestionarGrupos = function(fechaStr, fechaBonita) {
         Swal.close(); 
         
-        const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
-        if (modalPlanificadorEl && typeof bootstrap !== 'undefined') {
-            const modalPlanificador = bootstrap.Modal.getInstance(modalPlanificadorEl);
-            if (modalPlanificador) modalPlanificador.hide();
+        const inputFechaVal = document.getElementById('grupoFechaOculta');
+        const lblFechaBonita = document.getElementById('lblFechaGrupo');
+        
+        if(inputFechaVal) inputFechaVal.value = fechaStr;
+        if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
+        
+        const modalGruposEl = document.getElementById('modalAsignarGrupos');
+        if (modalGruposEl && typeof bootstrap !== 'undefined') {
+            const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
+            modalGrupos.show(); 
+
+            const tbody = document.querySelector('#tablaAsignacionPersonal tbody');
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando personal y configuración del día...</td></tr>';
+
+            const formData = new FormData();
+            formData.append('accion', 'obtener_personal_grupos_ajax');
+            formData.append('fecha', fechaStr);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) {
+                    // Ahora PHP nos enviará un array de objetos con {nombre, horario}
+                    window.gruposDelDia = res.data.grupos || [];
+                    if (typeof window.renderizarEtiquetas === 'function') window.renderizarEtiquetas();
+
+                    let html = '';
+                    res.data.empleados.forEach(emp => {
+                        let optionsHtml = '<option value="">-- Sin Grupo (Día Libre o No asignado) --</option>';
+                        window.gruposDelDia.forEach(g => {
+                            const sel = (emp.nombre_grupo === g.nombre) ? 'selected' : '';
+                            optionsHtml += `<option value="${g.nombre}" ${sel}>${g.nombre}</option>`;
+                        });
+
+                        html += `
+                            <tr>
+                                <td class="ps-4 fw-medium text-dark">
+                                    <i class="bi bi-person me-2 text-secondary"></i>${emp.nombre_completo}
+                                    ${emp.nombre_grupo ? `<span class="badge bg-light text-secondary ms-2 border d-none d-md-inline">Último Guardado: ${emp.nombre_grupo}</span>` : ''}
+                                </td>
+                                <td class="pe-4">
+                                    <select class="form-select form-select-sm border-secondary-subtle select-grupo-empleado" data-id-emp="${emp.id_empleado}">
+                                        ${optionsHtml}
+                                    </select>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger py-4">Error al cargar: ${res.message}</td></tr>`;
+                }
+            });
         }
-
-        setTimeout(() => {
-            const inputFechaVal = document.getElementById('grupoFechaVal');
-            const lblFechaBonita = document.getElementById('lblGrupoFechaBonita');
-            
-            if(inputFechaVal) inputFechaVal.value = fechaStr;
-            if(lblFechaBonita) lblFechaBonita.textContent = fechaBonita;
-            
-            const modalGruposEl = document.getElementById('modalAsignarGrupos');
-            if (modalGruposEl && typeof bootstrap !== 'undefined') {
-                const modalGrupos = bootstrap.Modal.getOrCreateInstance(modalGruposEl);
-                modalGrupos.show();
-
-                console.log("Cargando grupos para el día: " + fechaStr);
-            }
-        }, 300);
-    };
-
-    window.accionConfigurarExcepcion = function(fechaStr) {
-        Swal.close();
-        Swal.fire({
-            icon: 'info',
-            title: 'Módulo en proceso',
-            text: 'La configuración de horas extras para el día ' + fechaStr + ' se implementará en el siguiente paso.',
-            confirmButtonColor: '#0d6efd'
-        });
     };
 
     document.getElementById('modalPlanificarOP')?.addEventListener('hidden.bs.modal', function () {
@@ -853,4 +1080,23 @@ if (!window.produccionJsInitialized) {
             document.body.classList.add('modal-open');
         }
     });
+
+    // =========================================================================
+    // FIX DEFINITIVO PARA MODALES SUPERPUESTOS EN BOOTSTRAP (Z-INDEX)
+    // =========================================================================
+    document.addEventListener('show.bs.modal', function (event) {
+        const modalsAbiertos = document.querySelectorAll('.modal.show').length;
+        const nuevoZIndex = 1060 + (10 * modalsAbiertos);
+        
+        event.target.style.zIndex = nuevoZIndex;
+        
+        setTimeout(() => {
+            const backdrops = document.querySelectorAll('.modal-backdrop:not(.z-fixed)');
+            backdrops.forEach(backdrop => {
+                backdrop.style.zIndex = nuevoZIndex - 1;
+                backdrop.classList.add('z-fixed');
+            });
+        }, 10);
+    });
+
 }

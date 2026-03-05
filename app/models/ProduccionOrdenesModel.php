@@ -10,7 +10,6 @@ class ProduccionOrdenesModel extends Modelo
     // =====================================================================
     public function obtenerDatosPlanificador(string $desde, string $hasta): array
     {
-        // 1. Buscamos el detalle de Órdenes (Usamos LEFT JOIN por seguridad)
         $sqlOps = 'SELECT DATE(o.fecha_programada) AS fecha_prog,
                           o.codigo AS op_codigo,
                           o.estado AS op_estado,
@@ -52,9 +51,6 @@ class ProduccionOrdenesModel extends Modelo
             ];
         }
 
-        // 2. Buscamos los Grupos Diarios.
-        // Nota: en algunos ambientes la tabla aún no existe (despliegues parciales).
-        // En ese caso continuamos con el planificador usando solo las OP programadas.
         $planes = [];
         try {
             $sqlPlan = 'SELECT DATE(fecha) as fecha_plan, tipo_horario
@@ -435,7 +431,6 @@ class ProduccionOrdenesModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-
     public function crearOrden(array $payload, int $userId): int
     {
         $codigo = trim((string) ($payload['codigo'] ?? ''));
@@ -783,5 +778,86 @@ class ProduccionOrdenesModel extends Modelo
         $val = $stmt->fetchColumn();
         
         return $val ? (int) $val : null;
+    }
+
+    // =====================================================================
+    // NUEVO: GESTIÓN DE GRUPOS DIARIOS UNIFICADO (NOMBRE + HORARIO)
+    // =====================================================================
+    public function obtenerPersonalYGruposPorFecha(string $fecha): array
+    {
+        $sql = 'SELECT t.id AS id_empleado, t.nombre_completo,
+                       pgd.nombre_grupo
+                FROM terceros t
+                INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                LEFT JOIN produccion_grupos_personal pgp ON pgp.id_tercero = t.id
+                LEFT JOIN produccion_grupos_diarios pgd ON pgd.id = pgp.id_grupo_diario AND pgd.fecha = :fecha
+                WHERE t.es_empleado = 1 
+                  AND t.estado = 1 
+                  AND t.deleted_at IS NULL
+                ORDER BY t.nombre_completo ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['fecha' => $fecha]);
+        $empleados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Ahora traemos Nombre y Horario
+        $sqlGrupos = 'SELECT nombre_grupo AS nombre, tipo_horario AS horario 
+                      FROM produccion_grupos_diarios 
+                      WHERE fecha = :fecha';
+        $stmtGrupos = $this->db()->prepare($sqlGrupos);
+        $stmtGrupos->execute(['fecha' => $fecha]);
+        $grupos = $stmtGrupos->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'empleados' => $empleados,
+            'grupos' => $grupos // Array de objetos {nombre, horario}
+        ];
+    }
+
+    public function guardarGruposYAsignaciones(string $fecha, array $gruposObj, array $asignaciones, int $userId): void
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+        try {
+            // 1. Limpiar grupos de esa fecha 
+            $stmtDel = $db->prepare('DELETE FROM produccion_grupos_diarios WHERE fecha = :fecha');
+            $stmtDel->execute(['fecha' => $fecha]);
+
+            // 2. Insertar los nuevos grupos (con su horario normal/excepcion)
+            $mapaGrupos = []; 
+            $stmtInsGrupo = $db->prepare('INSERT INTO produccion_grupos_diarios (fecha, nombre_grupo, tipo_horario, created_by) VALUES (:fecha, :nombre, :horario, :created_by)');
+            
+            foreach ($gruposObj as $g) {
+                $nombre = trim($g['nombre'] ?? '');
+                $horario = trim($g['horario'] ?? 'NORMAL');
+                
+                if ($nombre === '') continue;
+                
+                $stmtInsGrupo->execute([
+                    'fecha' => $fecha,
+                    'nombre' => $nombre,
+                    'horario' => $horario,
+                    'created_by' => $userId
+                ]);
+                $mapaGrupos[$nombre] = (int) $db->lastInsertId();
+            }
+
+            // 3. Insertar las asignaciones de personal a esos grupos
+            $stmtInsAsig = $db->prepare('INSERT INTO produccion_grupos_personal (id_grupo_diario, id_tercero) VALUES (:id_grupo, :id_tercero)');
+            
+            foreach ($asignaciones as $idEmpleado => $nombreGrupo) {
+                if (isset($mapaGrupos[$nombreGrupo])) {
+                    $stmtInsAsig->execute([
+                        'id_grupo' => $mapaGrupos[$nombreGrupo],
+                        'id_tercero' => (int) $idEmpleado
+                    ]);
+                }
+            }
+
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 }

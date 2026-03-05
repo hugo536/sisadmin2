@@ -12,6 +12,80 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         transition: none !important;
         animation: none !important;
     }
+
+    /* ========================================================================= */
+    /* ESTILOS DEL PLANIFICADOR (RESPONSIVO Y TARJETAS OPTIMIZADAS)              */
+    /* ========================================================================= */
+    
+    .planificador-scroll-area {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 15px;
+    }
+
+    /* Ajuste del Grid para PC: Scroll dinámico (Solo en semana) */
+    @media (min-width: 768px) {
+        #planificadorGrid.vista-semana {
+            min-width: 1100px; /* Obliga al scroll en semana para mantener columnas anchas */
+        }
+        #planificadorGrid.vista-mes {
+            min-width: 100%; /* Ajusta el mes exacto a la pantalla (Sin scroll) */
+        }
+    }
+
+    /* DISEÑO PARA MÓVILES: El calendario se vuelve una lista (Agenda) */
+    @media (max-width: 767px) {
+        #modalPlanificadorProduccion .modal-body .d-grid.mb-2 { display: none !important; }
+        
+        #planificadorGrid {
+            display: block !important; 
+            min-width: 100% !important;
+        }
+
+        .plan-dia-card {
+            margin-bottom: 15px !important;
+            min-height: auto !important;
+            border-style: solid !important; 
+        }
+
+        .plan-dia-card .fs-6 {
+            background: #f8f9fa;
+            display: block;
+            margin: -8px -8px 8px -8px;
+            padding: 5px 10px;
+            border-bottom: 1px solid #ddd;
+            font-size: 0.9rem !important;
+        }
+    }
+
+    /* ESTILO DE LAS TARJETAS DE PRODUCTO (3 FILAS EN SEMANA) */
+    .mini-card-op {
+        transition: transform 0.2s;
+        border-left-width: 4px !important;
+    }
+    .mini-card-op:hover {
+        transform: scale(1.02);
+    }
+    .op-product-name {
+        display: -webkit-box;
+        -webkit-line-clamp: 3; /* <--- AHORA PERMITE 3 LÍNEAS EN SEMANA */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.2;
+        font-weight: 700;
+        color: #2d3436;
+    }
+
+    /* ESTILO DE LAS TARJETAS MINIATURA (3 FILAS EN MES) */
+    .op-product-name-mes {
+        display: -webkit-box;
+        -webkit-line-clamp: 3; /* <--- PERMITE 3 LÍNEAS EN EL MES */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal; /* Permite que el texto baje de línea */
+        line-height: 1.2;
+    }
 </style>
 <div class="container-fluid p-4">
 
@@ -603,8 +677,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         <div class="fw-bold text-danger small">Dom</div>
                     </div>
                     
-                    <div id="planificadorGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 400px;">
-                        </div>
+                    <div class="planificador-scroll-area">
+                        <div id="planificadorGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 400px;">
+                            </div>
+                    </div>
                 </div>
 
                 <div class="card mt-4 border-0 shadow-sm bg-white">
@@ -634,7 +710,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-people-fill me-2"></i>Asignar Personal - <span id="lblFechaGrupo"></span></h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-people-fill me-2"></i>Planificar Personal y Horarios - <span id="lblFechaGrupo"></span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4">
@@ -642,13 +718,23 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
-                        <h6 class="fw-bold text-dark mb-3">1. Crear Grupos de Trabajo para este día</h6>
-                        <div class="input-group mb-3">
-                            <input type="text" id="txtNuevoGrupo" class="form-control" placeholder="Ej: Línea 1, Empaque, Apoyo...">
-                            <button class="btn btn-primary fw-bold" type="button" id="btnCrearGrupo"><i class="bi bi-plus-lg"></i> Añadir Grupo</button>
+                        <h6 class="fw-bold text-dark mb-3">1. Crear Grupos y Definir su Horario</h6>
+                        
+                        <div class="input-group mb-3 shadow-sm rounded">
+                            <input type="text" id="txtNuevoGrupo" class="form-control" placeholder="Nombre del Grupo (Ej: Línea 1, Empaque...)">
+                            
+                            <select id="selNuevoHorarioGrupo" class="form-select bg-light border-start-0" style="max-width: 250px;">
+                                <option value="NORMAL">Turno Normal</option>
+                                <option value="EXCEPCION" class="text-warning fw-bold">Horas Extras (Excepción)</option>
+                            </select>
+                            
+                            <button class="btn btn-primary fw-bold px-3" type="button" id="btnCrearGrupo">
+                                <i class="bi bi-plus-lg"></i> Añadir
+                            </button>
                         </div>
+
                         <div id="contenedorEtiquetasGrupos" class="d-flex flex-wrap gap-2">
-                            <span class="text-muted small font-italic" id="msgSinGrupos">No hay grupos creados aún.</span>
+                            <span class="text-muted small font-italic" id="msgSinGrupos">No hay grupos creados aún para este día.</span>
                         </div>
                     </div>
                 </div>
@@ -671,7 +757,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             </div>
             <div class="modal-footer bg-white">
                 <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-info text-white px-4 fw-bold shadow-sm" id="btnGuardarAsignacionGrupos"><i class="bi bi-save me-2"></i>Guardar Asignación</button>
+                <button type="button" class="btn btn-info text-white px-4 fw-bold shadow-sm" id="btnGuardarAsignacionGrupos">
+                    <i class="bi bi-save me-2"></i>Guardar Planificación
+                </button>
             </div>
         </div>
     </div>

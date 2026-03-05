@@ -33,14 +33,40 @@ class ProduccionOrdenesController extends Controlador
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
             
-            // AÑADIDO: 'obtener_planificador_ajax' a la lista de peticiones AJAX
-            $esAjaxReceta = in_array($accion, ['obtener_receta_ajax', 'iniciar_ejecucion_ajax', 'obtener_planificador_ajax'], true);
+            // AÑADIDOS LOS NUEVOS ENDPOINTS A LA LISTA AJAX
+            $esAjaxReceta = in_array($accion, [
+                'obtener_receta_ajax', 
+                'iniciar_ejecucion_ajax', 
+                'obtener_planificador_ajax',
+                'obtener_personal_grupos_ajax',
+                'guardar_grupos_diarios_ajax',
+                'crear_orden_ajax' // <--- AÑADIDO
+            ], true);
+            
             $userId = (int) ($_SESSION['id'] ?? 0);
 
             try {
                 // ==========================================================
-                // NUEVO: Endpoint para pintar el calendario del Planificador
+                // ENDPOINTS DEL PLANIFICADOR Y GRUPOS
                 // ==========================================================
+                if ($accion === 'crear_orden_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    
+                    $this->produccionOrdenesModel->crearOrden([
+                        'codigo' => (string) ($_POST['codigo'] ?? ''),
+                        'id_receta' => (int) ($_POST['id_receta'] ?? 0),
+                        'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
+                        'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
+                        'fecha_programada' => (string) ($_POST['fecha_programada'] ?? ''),
+                        'turno_programado' => (string) ($_POST['turno_programado'] ?? ''),
+                        'observaciones' => (string) ($_POST['observaciones'] ?? ''),
+                    ], $userId);
+
+                    echo json_encode(['success' => true, 'message' => 'Orden planificada correctamente.']);
+                    exit;
+                }
+                
                 if ($accion === 'obtener_planificador_ajax') {
                     ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
@@ -53,13 +79,37 @@ class ProduccionOrdenesController extends Controlador
                         exit;
                     }
 
-                    // Llamamos al modelo que creamos en el paso anterior
                     $datos = $this->produccionOrdenesModel->obtenerDatosPlanificador($desde, $hasta);
-                    
                     echo json_encode(['success' => true, 'data' => $datos]);
                     exit;
                 }
 
+                if ($accion === 'obtener_personal_grupos_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    $fecha = trim((string) ($_POST['fecha'] ?? ''));
+                    
+                    $datos = $this->produccionOrdenesModel->obtenerPersonalYGruposPorFecha($fecha);
+                    echo json_encode(['success' => true, 'data' => $datos]);
+                    exit;
+                }
+
+                if ($accion === 'guardar_grupos_diarios_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    $fecha = trim((string) ($_POST['fecha'] ?? ''));
+                    $grupos = isset($_POST['grupos']) && is_array($_POST['grupos']) ? $_POST['grupos'] : [];
+                    $asignaciones = isset($_POST['asignaciones']) && is_array($_POST['asignaciones']) ? $_POST['asignaciones'] : [];
+
+                    $this->produccionOrdenesModel->guardarGruposYAsignaciones($fecha, $grupos, $asignaciones, $userId);
+                    
+                    echo json_encode(['success' => true, 'message' => 'Grupos guardados correctamente.']);
+                    exit;
+                }
+
+                // ==========================================================
+                // ENDPOINTS DE ÓRDENES DE PRODUCCIÓN
+                // ==========================================================
                 if ($accion === 'obtener_receta_ajax') {
                     ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
