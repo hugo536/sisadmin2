@@ -52,14 +52,23 @@ class ProduccionOrdenesModel extends Modelo
             ];
         }
 
-        // 2. Buscamos los Grupos Diarios
-        $sqlPlan = 'SELECT DATE(fecha) as fecha_plan, tipo_horario
-                    FROM produccion_grupos_diarios
-                    WHERE DATE(fecha) >= :desde AND DATE(fecha) <= :hasta';
+        // 2. Buscamos los Grupos Diarios.
+        // Nota: en algunos ambientes la tabla aún no existe (despliegues parciales).
+        // En ese caso continuamos con el planificador usando solo las OP programadas.
+        $planes = [];
+        try {
+            $sqlPlan = 'SELECT DATE(fecha) as fecha_plan, tipo_horario
+                        FROM produccion_grupos_diarios
+                        WHERE DATE(fecha) >= :desde AND DATE(fecha) <= :hasta';
 
-        $stmtPlan = $this->db()->prepare($sqlPlan);
-        $stmtPlan->execute(['desde' => $desde, 'hasta' => $hasta]);
-        $planes = $stmtPlan->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $stmtPlan = $this->db()->prepare($sqlPlan);
+            $stmtPlan->execute(['desde' => $desde, 'hasta' => $hasta]);
+            $planes = $stmtPlan->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (PDOException $e) {
+            if ((string) $e->getCode() !== '42S02') {
+                throw $e;
+            }
+        }
 
         $diccionario = [];
 
