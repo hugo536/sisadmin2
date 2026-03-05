@@ -41,11 +41,25 @@ class PlanillasController extends Controlador
         if ($idTercero <= 0) $idTercero = null;
 
         // NUEVO: Capturar el filtro de frecuencia de pago
-        $frecuencia = (string) ($_GET['frecuencia_pago'] ?? '');
-        if (empty($frecuencia)) $frecuencia = null;
+        $frecuencia = strtoupper(trim((string) ($_GET['frecuencia_pago'] ?? '')));
+        $frecuenciasPermitidas = ['SEMANAL', 'QUINCENAL', 'MENSUAL'];
+        if ($frecuencia === '' || !in_array($frecuencia, $frecuenciasPermitidas, true)) {
+            $frecuencia = null;
+        }
 
         // 2. Obtener datos crudos del Modelo (Agregamos la frecuencia)
         $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($desde, $hasta, $idTercero, $frecuencia);
+
+
+        $semana = '';
+        $inicioSemana = DateTimeImmutable::createFromFormat('Y-m-d', $desde);
+        if ($inicioSemana instanceof DateTimeImmutable) {
+            $lunes = $inicioSemana->modify('monday this week');
+            $domingo = $inicioSemana->modify('sunday this week');
+            if ($lunes->format('Y-m-d') === $desde && $domingo->format('Y-m-d') === $hasta) {
+                $semana = $inicioSemana->format('o-\WW');
+            }
+        }
 
         // 3. Procesar Matemáticas Financieras
         $planillasCalculadas = $this->procesarCalculosFinancieros($resumenCrudo);
@@ -62,6 +76,7 @@ class PlanillasController extends Controlador
             'hasta' => $hasta,
             'id_tercero' => $idTercero,
             'frecuencia' => $frecuencia, // Pasamos la frecuencia para mantenerla en el formulario HTML
+            'semana' => $semana,
             'empleados' => $this->tercerosModel->listar(), 
             'planillas' => $planillasCalculadas,
             'cuentas' => $this->cuentasModel->listarActivas(),
