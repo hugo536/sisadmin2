@@ -4,10 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchPlanilla');
     const tablaPlanillas = document.getElementById('planillasTable'); // Capturamos la tabla
 
-    // --- NUEVA LÓGICA: Preparar Modal de Pago (Delegación de Eventos) ---
+    // --- LÓGICA: Preparar Modal de Pago (Delegación de Eventos Segura) ---
     if (tablaPlanillas) {
         tablaPlanillas.addEventListener('click', (e) => {
-            // Buscamos si el clic fue en el botón o dentro de él (el ícono)
+            // Buscamos si el clic fue exactamente en el botón o dentro de él (ej. el ícono)
             const botonPago = e.target.closest('button[data-bs-target="#modalPagarPlanilla"]');
             
             if (botonPago) {
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 1. CANDADO AL BUSCADOR
+    // 1. CANDADO AL BUSCADOR (Evitar que el enter recargue la página)
     if (searchInput) {
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') e.preventDefault();
@@ -33,17 +33,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!formFiltros) return;
 
-    // 2. CANDADO AL FORMULARIO
+    // 2. CANDADO AL FORMULARIO (Manejar el submit manual por si presionan enter en algún input)
     formFiltros.addEventListener('submit', (e) => {
         e.preventDefault();
         triggerAutoSubmit();
     });
 
+    // 3. CAPTURAMOS LOS FILTROS
     const inputDesde = formFiltros.querySelector('input[name="desde"]');
     const inputHasta = formFiltros.querySelector('input[name="hasta"]');
+    const selectFrecuencia = formFiltros.querySelector('select[name="frecuencia_pago"]'); // NUEVO
     const selectEmpleado = formFiltros.querySelector('select[name="id_tercero"]');
 
-    // --- EL DEBOUNCE (Retraso inteligente) ---
+    // --- EL DEBOUNCE (Retraso inteligente para no saturar el servidor) ---
     let debounceTimer;
 
     const autoSubmitForm = async () => {
@@ -51,13 +53,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const paginationInfo = document.getElementById('planillasPaginationInfo');
         if (paginationInfo) paginationInfo.textContent = 'Calculando nómina...';
 
-        // Usamos nuestro NUEVO superpoder global para mostrar el Spinner
+        // Mostrar el Spinner de carga de tu renderizador
         if (window.planillasManager) window.planillasManager.showLoading();
 
         const url = new URL(window.location.href);
+        
+        // Asignamos las fechas
         if (inputDesde) url.searchParams.set('desde', inputDesde.value);
         if (inputHasta) url.searchParams.set('hasta', inputHasta.value);
-        if (selectEmpleado) url.searchParams.set('id_tercero', selectEmpleado.value);
+        
+        // Asignamos Frecuencia (o lo quitamos de la URL si eligió "Todas")
+        if (selectFrecuencia) {
+            if (selectFrecuencia.value === "") {
+                url.searchParams.delete('frecuencia_pago');
+            } else {
+                url.searchParams.set('frecuencia_pago', selectFrecuencia.value);
+            }
+        }
+
+        // Asignamos Empleado (o lo quitamos de la URL si eligió "Todos")
+        if (selectEmpleado) {
+            if (selectEmpleado.value === "") {
+                url.searchParams.delete('id_tercero');
+            } else {
+                url.searchParams.set('id_tercero', selectEmpleado.value);
+            }
+        }
 
         try {
             const response = await fetch(url.toString(), {
@@ -70,14 +91,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const parser = new DOMParser();
             const docVirtual = parser.parseFromString(html, 'text/html');
 
-            // 1. Reemplazamos los Totales
+            // 1. Reemplazamos los Totales (Tarjetas de arriba)
             ['totalPlanilla', 'totalExtras', 'totalDescuentos'].forEach(id => {
                 const el = document.getElementById(id);
                 const virtualEl = docVirtual.getElementById(id);
                 if (el && virtualEl) el.innerHTML = virtualEl.innerHTML;
             });
 
-            // 2. Reemplazamos la Tabla y el Badge
+            // 2. Reemplazamos la Tabla y el Badge de contadores
             const currentTbody = document.querySelector('#planillasTable tbody');
             const newTbody = docVirtual.querySelector('#planillasTable tbody');
             if (currentTbody && newTbody) currentTbody.innerHTML = newTbody.innerHTML;
@@ -86,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newBadge = docVirtual.querySelector('.badge.bg-primary-subtle');
             if (badge && newBadge) badge.innerHTML = newBadge.innerHTML;
 
-            // 3. Refrescamos la paginación global
+            // 3. Refrescamos la paginación global y los tooltips visuales
             if (window.planillasManager && typeof window.planillasManager.refresh === 'function') {
                 window.planillasManager.refresh();
             }
@@ -95,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.ERPTable.initTooltips();
             }
 
+            // Actualizamos la URL en el navegador sin recargar (para que si el usuario recarga, se quede donde estaba)
             window.history.pushState({}, '', url);
 
         } catch (error) {
@@ -103,12 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 Swal.fire('Aviso', 'No se pudo actualizar en tiempo real.', 'warning');
             }
         } finally {
-            // Usamos nuestro NUEVO superpoder global para ocultar el Spinner
+            // Ocultar el Spinner de carga
             if (window.planillasManager) window.planillasManager.hideLoading();
         }
     };
 
-    // Función que dispara el AJAX con un retraso
+    // Función que dispara el AJAX con un ligero retraso
     const triggerAutoSubmit = () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -116,9 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 150); 
     };
 
-    // Escuchar cambios en los filtros y activar el temporizador
+    // ESCUCHAMOS CAMBIOS EN TODOS LOS FILTROS Y DISPARAMOS LA BÚSQUEDA
     if (inputDesde) inputDesde.addEventListener('change', triggerAutoSubmit);
     if (inputHasta) inputHasta.addEventListener('change', triggerAutoSubmit);
+    if (selectFrecuencia) selectFrecuencia.addEventListener('change', triggerAutoSubmit); // NUEVO
     if (selectEmpleado) selectEmpleado.addEventListener('change', triggerAutoSubmit);
 
 });

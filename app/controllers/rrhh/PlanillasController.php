@@ -40,8 +40,12 @@ class PlanillasController extends Controlador
         $idTercero = (int) ($_GET['id_tercero'] ?? 0);
         if ($idTercero <= 0) $idTercero = null;
 
-        // 2. Obtener datos crudos del Modelo
-        $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($desde, $hasta, $idTercero);
+        // NUEVO: Capturar el filtro de frecuencia de pago
+        $frecuencia = (string) ($_GET['frecuencia_pago'] ?? '');
+        if (empty($frecuencia)) $frecuencia = null;
+
+        // 2. Obtener datos crudos del Modelo (Agregamos la frecuencia)
+        $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($desde, $hasta, $idTercero, $frecuencia);
 
         // 3. Procesar Matemáticas Financieras
         $planillasCalculadas = $this->procesarCalculosFinancieros($resumenCrudo);
@@ -57,6 +61,7 @@ class PlanillasController extends Controlador
             'desde' => $desde,
             'hasta' => $hasta,
             'id_tercero' => $idTercero,
+            'frecuencia' => $frecuencia, // Pasamos la frecuencia para mantenerla en el formulario HTML
             'empleados' => $this->tercerosModel->listar(), 
             'planillas' => $planillasCalculadas,
             'cuentas' => $this->cuentasModel->listarActivas(),
@@ -87,16 +92,17 @@ class PlanillasController extends Controlador
         $resultado = [];
 
         foreach ($resumenCrudo as $row) {
-            // NUEVO: Filtramos si es SIN_REGISTROS no lo calculamos para ahorrar recursos
             $estadoPago = (string) ($row['estado_pago'] ?? 'PENDIENTE');
             if ($estadoPago === 'SIN_REGISTROS') {
                 continue; 
             }
 
-            // --- VARIABLES BASE ---
-            $sueldoBasico = (float) ($row['sueldo_basico'] ?? 0);
-            $tipoPago = strtolower(trim((string) ($row['tipo_pago'] ?? 'mensual')));
-            $pagoDiarioConfig = (float) ($row['pago_diario'] ?? 0);
+            // --- VARIABLES BASE (NUEVA LÓGICA) ---
+            // Tomamos el sueldo_basico que ahora sirve tanto para sueldo mensual como para jornal diario
+            $remuneracionBase = (float) ($row['sueldo_basico'] ?? 0);
+            
+            // Forzamos mayúsculas para evitar errores ('Mensual', 'MENSUAL', 'mensual')
+            $tipoPago = strtoupper(trim((string) ($row['tipo_pago'] ?? 'MENSUAL')));
             
             $diasAsistidos = (int) ($row['dias_asistidos'] ?? 0);
             $diasJustificados = (int) ($row['dias_justificados'] ?? 0);
@@ -111,14 +117,15 @@ class PlanillasController extends Controlador
             // --- CÁLCULO DE TARIFAS ---
             $tarifaDiaria = 0;
             
-            if ($tipoPago === 'mensual') {
-                // Estándar laboral: Sueldo mensual / 30 días
-                $tarifaDiaria = $sueldoBasico > 0 ? ($sueldoBasico / 30) : 0;
-            } elseif ($tipoPago === 'diario') {
-                $tarifaDiaria = $pagoDiarioConfig;
+            if ($tipoPago === 'MENSUAL' || $tipoPago === 'QUINCENAL') {
+                // Si le pago fijo al mes, divido su sueldo base entre 30 días
+                $tarifaDiaria = $remuneracionBase > 0 ? ($remuneracionBase / 30) : 0;
+            } elseif ($tipoPago === 'SEMANAL') {
+                // Si es semanal (Jornal), la remuneración base que pusimos en el formulario ES la tarifa de 1 día
+                $tarifaDiaria = $remuneracionBase;
             } else {
-                // Por hora (Asumimos 8 horas = 1 día para simplificar el fallback)
-                $tarifaDiaria = $pagoDiarioConfig * 8; 
+                // Fallback de seguridad
+                $tarifaDiaria = 0; 
             }
 
             // Calculamos el valor de 1 hora y 1 minuto (Asumiendo jornada de 8 horas)
@@ -132,14 +139,13 @@ class PlanillasController extends Controlador
             $tarifaHoraExtra = $tarifaHora * 1.25; 
             $montoHorasExtras = $horasExtras * $tarifaHoraExtra;
 
-            $bonosManuales = 0; // Aquí en el futuro podrías sumar bonos extra de otra tabla
-            $asignacionFamiliar = (int)($row['asignacion_familiar'] ?? 0) === 1 ? (102.50 / 30 * $diasAPagar) : 0; // Ejemplo Perú (10% RMV)
+            $bonosManuales = 0; 
+            $asignacionFamiliar = (int)($row['asignacion_familiar'] ?? 0) === 1 ? (102.50 / 30 * $diasAPagar) : 0;
 
             $totalIngresos = $sueldoCalculado + $montoHorasExtras + $asignacionFamiliar + $bonosManuales;
 
             // --- CÁLCULO DE DESCUENTOS ---
             $montoDescuentoTardanza = $minutosTardanza * $tarifaMinuto;
-            // Las faltas ya están descontadas porque solo multiplicamos $tarifaDiaria * $diasAPagar
             
             $totalDescuentos = $montoDescuentoTardanza;
 
@@ -153,6 +159,7 @@ class PlanillasController extends Controlador
                 'nombre_completo' => $row['nombre_completo'],
                 'cargo' => $row['cargo'],
                 'moneda' => $row['moneda'] ?? 'PEN',
+                'tipo_pago' => $tipoPago, // Lo pasamos a la vista para las insignias visuales
                 
                 // Estadísticas de tiempo
                 'dias_asistidos' => $diasAsistidos,
@@ -160,7 +167,7 @@ class PlanillasController extends Controlador
                 'horas_extras' => round($horasExtras, 2),
                 'minutos_tardanza' => $minutosTardanza,
                 
-                // Tarifas (Para mostrar en la vista)
+                // Tarifas 
                 'tarifa_diaria' => round($tarifaDiaria, 2),
                 'tarifa_hora' => round($tarifaHora, 2),
 
@@ -174,7 +181,6 @@ class PlanillasController extends Controlador
                 'total_descuentos' => round($totalDescuentos, 2),
                 'neto_a_pagar' => round($netoAPagar, 2),
                 
-                // NUEVO: Agregamos el estado de pago arrastrado del SQL
                 'estado_pago' => $estadoPago
             ];
         }
@@ -182,11 +188,11 @@ class PlanillasController extends Controlador
         return $resultado;
     }
 
-    // NUEVO ENDPOINT: Recibe el POST del modal para pagar y descontar de tesorería
+    // ENDPOINT: Recibe el POST del modal para pagar y descontar de tesorería
     public function registrar_pago(): void
     {
         AuthMiddleware::handle();
-        require_permiso('terceros.ver'); // O el permiso 'planillas.crear' si lo creas luego
+        require_permiso('terceros.ver'); 
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             redirect('planillas');
@@ -195,41 +201,66 @@ class PlanillasController extends Controlador
         $idEmpleado = (int) ($_POST['id_empleado'] ?? 0);
         $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
         $idMetodoPago = (int) ($_POST['id_metodo_pago'] ?? 0);
-        $montoPagar = (float) ($_POST['monto_pagar'] ?? 0);
+        
         $fechaInicio = (string) ($_POST['fecha_inicio'] ?? '');
         $fechaFin = (string) ($_POST['fecha_fin'] ?? '');
         $fechaPago = (string) ($_POST['fecha_pago'] ?? date('Y-m-d'));
         $referencia = (string) ($_POST['referencia'] ?? '');
 
-        if ($idEmpleado <= 0 || $idCuenta <= 0 || $idMetodoPago <= 0 || $montoPagar <= 0 || empty($fechaInicio) || empty($fechaFin)) {
-            redirect('planillas?error=Datos+incompletos+para+el+pago');
+        if ($idEmpleado <= 0 || $idCuenta <= 0 || $idMetodoPago <= 0 || empty($fechaInicio) || empty($fechaFin)) {
+            $msgError = urlencode('Datos incompletos para el pago.');
+            redirect("planillas?error={$msgError}");
+            return;
+        }
+
+        // Seguridad: Recalcular el monto a pagar desde el backend usando la misma lógica
+        $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($fechaInicio, $fechaFin, $idEmpleado);
+        
+        if (empty($resumenCrudo)) {
+            $msgError = urlencode('No se encontraron datos de asistencia para este periodo.');
+            redirect("planillas?error={$msgError}");
+            return;
+        }
+
+        $calculoReal = $this->procesarCalculosFinancieros($resumenCrudo);
+        if (empty($calculoReal) || $calculoReal[0]['estado_pago'] === 'PAGADA') {
+            $msgError = urlencode('La planilla ya fue pagada o no hay monto calculable.');
+            redirect("planillas?error={$msgError}");
+            return;
+        }
+
+        $montoRealBackend = (float) $calculoReal[0]['neto_a_pagar'];
+
+        if ($montoRealBackend <= 0) {
+            $msgError = urlencode('El monto a pagar no puede ser menor o igual a cero.');
+            redirect("planillas?error={$msgError}");
+            return;
         }
 
         $datosPago = [
             'id_empleado' => $idEmpleado,
             'id_cuenta' => $idCuenta,
             'id_metodo_pago' => $idMetodoPago,
-            'monto_pagar' => $montoPagar,
+            'monto_pagar' => $montoRealBackend, 
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
             'fecha_pago' => $fechaPago,
             'referencia' => $referencia
         ];
 
-        // Ejecutar el pago
+        // Ejecutar el pago transaccional
         $userId = AuthMiddleware::getUserId();
         $exito = $this->planillasModel->registrarPagoPlanilla($datosPago, $userId);
 
         if ($exito) {
-            // Redirigir de vuelta a la página con los mismos filtros de fecha y mensaje de éxito
             redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&ok=1");
         } else {
-            redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&error=Error+al+registrar+el+pago.+Verifica+saldos+y+conexion.");
+            $msgError = urlencode('Error al registrar el pago. Verifica que la cuenta de tesorería tenga saldo suficiente.');
+            redirect("planillas?desde={$fechaInicio}&hasta={$fechaFin}&error={$msgError}");
         }
     }
 
     // --- ENDPOINTS PARA IMPRESIÓN ---
-
     public function imprimirTicket(): void
     {
         AuthMiddleware::handle();
@@ -241,7 +272,6 @@ class PlanillasController extends Controlador
             die("Datos incompletos para generar el ticket.");
         }
 
-        // Reutilizamos el motor matemático para este único empleado
         $resumenCrudo = $this->planillasModel->obtenerResumenPlanilla($desde, $hasta, $idTercero);
         if (empty($resumenCrudo)) {
             die("No hay datos de asistencia en este rango para el empleado seleccionado.");
@@ -250,12 +280,11 @@ class PlanillasController extends Controlador
         $calculo = $this->procesarCalculosFinancieros($resumenCrudo)[0];
         $detalleAsistencia = $this->planillasModel->obtenerDetalleAsistenciaEmpleado($idTercero, $desde, $hasta);
 
-        // Renderizamos una vista especial sin menú lateral, lista para la impresora térmica (Ticketera 80mm)
         $this->render('planillas_impresion_ticket', [
             'calculo' => $calculo,
             'detalle' => $detalleAsistencia,
             'desde' => $desde,
             'hasta' => $hasta
-        ], true); // 'true' asumiendo que tu método render soporta un layout vacío/limpio
+        ], true); 
     }
 }

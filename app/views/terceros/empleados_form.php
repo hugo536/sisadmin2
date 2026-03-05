@@ -105,6 +105,7 @@ $today = date('Y-m-d');
                     <label for="<?php echo $prefix; ?>EstadoLaboral">Estado Laboral</label>
                 </div>
             </div>
+            
             <div class="col-md-4">
                 <div class="form-floating">
                     <input type="text" class="form-control" name="codigo_biometrico" id="<?php echo $prefix; ?>CodigoBiometrico" placeholder="Código Biométrico" maxlength="50" autocomplete="off">
@@ -112,7 +113,6 @@ $today = date('Y-m-d');
                 </div>
                 <small class="text-muted d-block mt-1">Opcional. Máximo 50 caracteres.</small>
             </div>
-
             <div class="col-md-4">
                 <div class="form-floating">
                     <select class="form-select" name="tipo_contrato" id="<?php echo $prefix; ?>TipoContrato">
@@ -139,11 +139,11 @@ $today = date('Y-m-d');
             </div>
 
             <div class="col-md-4">
-                <div class="form-floating">
+                <div class="form-floating border border-info rounded">
                     <select class="form-select" name="tipo_pago" id="<?php echo $prefix; ?>TipoPago">
-                        <option value="MENSUAL" selected>Mensual</option>
-                        <option value="QUINCENAL">Quincenal</option>
-                        <option value="DIARIO">Diario (Jornal)</option>
+                        <option value="MENSUAL" selected>Mensual (Sueldo Fijo)</option>
+                        <option value="QUINCENAL">Quincenal (Sueldo Fijo)</option>
+                        <option value="SEMANAL">Semanal (Pago por Jornal)</option>
                     </select>
                     <label for="<?php echo $prefix; ?>TipoPago">Frecuencia Pago</label>
                 </div>
@@ -157,19 +157,15 @@ $today = date('Y-m-d');
                     <label for="<?php echo $prefix; ?>Moneda">Moneda Pago</label>
                 </div>
             </div>
-            <div class="col-md-4" id="<?php echo $prefix; ?>SueldoGroup">
+            
+            <div class="col-md-4">
                 <div class="form-floating">
-                    <input type="number" step="0.01" min="0" class="form-control" name="sueldo_basico" id="<?php echo $prefix; ?>SueldoBasico" placeholder="0.00" data-required-empleado="1">
-                    <label for="<?php echo $prefix; ?>SueldoBasico">Sueldo Básico <span class="text-danger">*</span></label>
+                    <input type="number" step="0.01" min="0" class="form-control fw-bold" name="sueldo_basico" id="<?php echo $prefix; ?>SueldoBasico" placeholder="0.00" data-required-empleado="1">
+                    <label for="<?php echo $prefix; ?>SueldoBasico" id="<?php echo $prefix; ?>LabelSueldo">Sueldo Básico <span class="text-danger">*</span></label>
                 </div>
+                <small class="text-muted d-block mt-1" id="<?php echo $prefix; ?>HelpSueldo">Monto fijo mensual.</small>
             </div>
-            <div class="col-md-4 d-none" id="<?php echo $prefix; ?>PagoDiarioGroup">
-                <div class="form-floating">
-                    <input type="number" step="0.01" class="form-control" name="pago_diario" id="<?php echo $prefix; ?>PagoDiario" placeholder="0.00">
-                    <label for="<?php echo $prefix; ?>PagoDiario">Pago Diario</label>
-                </div>
             </div>
-        </div>
     </div>
 </div>
 

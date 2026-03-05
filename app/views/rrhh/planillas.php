@@ -1,12 +1,12 @@
 <?php
-// Mantenemos la excelente inicialización de variables
+// Inicialización de variables
 $desde = $desde ?? date('Y-m-d');
 $hasta = $hasta ?? date('Y-m-d');
 $idTercero = (int) ($id_tercero ?? 0);
+$frecuencia = $frecuencia ?? ''; // NUEVO: Mantenemos el estado del filtro
 $empleados = $empleados ?? [];
 $planillas = $planillas ?? [];
 $totales = $totales ?? ['planilla' => 0, 'descuentos' => 0, 'extras' => 0];
-// NUEVO: Agregamos variables para tesorería
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? [];
 ?>
@@ -74,15 +74,28 @@ $metodos = $metodos ?? [];
         <div class="card-body p-3 p-md-4">
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosPlanillas">
                 <input type="hidden" name="ruta" value="planillas">
-                <div class="col-12 col-md-4">
+                
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
+                    <input type="date" id="filtroDesde" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
                 </div>
-                <div class="col-12 col-md-4">
+                
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
+                    <input type="date" id="filtroHasta" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
                 </div>
-                <div class="col-12 col-md-4">
+                
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Frecuencia</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="frecuencia_pago" id="filtroFrecuencia">
+                        <option value="">Todas</option>
+                        <option value="SEMANAL" <?php echo $frecuencia === 'SEMANAL' ? 'selected' : ''; ?>>Semanal (Jornal)</option>
+                        <option value="QUINCENAL" <?php echo $frecuencia === 'QUINCENAL' ? 'selected' : ''; ?>>Quincenal</option>
+                        <option value="MENSUAL" <?php echo $frecuencia === 'MENSUAL' ? 'selected' : ''; ?>>Mensual</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Filtrar Empleado (Opcional)</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero">
                         <option value="">Todo el personal</option>
@@ -145,14 +158,21 @@ $metodos = $metodos ?? [];
                             <?php foreach ($planillas as $row): ?>
                                 <?php 
                                     $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . ($row['numero_documento'] ?? '')); 
-                                    // NUEVO: Determinamos el estado (asumimos PENDIENTE si no viene la llave)
                                     $estadoStr = (string) ($row['estado_pago'] ?? 'PENDIENTE');
                                 ?>
                                 
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 align-top pt-3">
                                         <div class="fw-bold text-dark"><?php echo e($row['nombre_completo']); ?></div>
-                                        <div class="small text-muted"><i class="bi bi-person-badge me-1"></i><?php echo e($row['cargo'] ?: 'Sin cargo'); ?></div>
+                                        <div class="small text-muted mb-1"><i class="bi bi-person-badge me-1"></i><?php echo e($row['cargo'] ?: 'Sin cargo'); ?></div>
+                                        
+                                        <?php if(($row['tipo_pago'] ?? '') === 'SEMANAL'): ?>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;">SEMANAL (Jornal)</span>
+                                        <?php elseif(($row['tipo_pago'] ?? '') === 'QUINCENAL'): ?>
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.65rem;">QUINCENAL</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" style="font-size: 0.65rem;">MENSUAL</span>
+                                        <?php endif; ?>
                                     </td>
                                     
                                     <td class="text-center align-top pt-3">
@@ -204,18 +224,22 @@ $metodos = $metodos ?? [];
                                     
                                     <td class="text-center align-top pt-3 pe-4 d-print-none">
                                         <div class="d-flex justify-content-center gap-1">
-                                            <?php if ($estadoStr === 'PENDIENTE'): ?>
+                                            <?php 
+                                                $montoNeto = (float) ($row['neto_a_pagar'] ?? 0); 
+                                            ?>
+                                            <?php if ($estadoStr === 'PENDIENTE' && $montoNeto > 0): ?>
                                                 <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm"
                                                     data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla"
                                                     data-id-empleado="<?php echo (int) $row['id_tercero']; ?>"
                                                     data-nombre-empleado="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                    data-monto-pagar="<?php echo (float) ($row['neto_a_pagar'] ?? 0); ?>"
+                                                    data-monto-pagar="<?php echo $montoNeto; ?>"
                                                     data-fecha-desde="<?php echo e($desde); ?>"
                                                     data-fecha-hasta="<?php echo e($hasta); ?>"
-                                                    onclick="prepararPagoPlanilla(this)"
                                                     data-bs-toggle="tooltip" title="Registrar Pago">
                                                     <i class="bi bi-cash-coin fs-5"></i>
                                                 </button>
+                                            <?php elseif ($estadoStr === 'PENDIENTE' && $montoNeto <= 0): ?>
+                                                 <span class="badge bg-secondary-subtle text-secondary" title="Sin monto a pagar">S/ 0.00</span>
                                             <?php endif; ?>
 
                                             <?php 
@@ -321,6 +345,5 @@ $metodos = $metodos ?? [];
         </div>
     </div>
 </div>
-
 
 <script src="assets/js/rrhh/planillas.js"></script>

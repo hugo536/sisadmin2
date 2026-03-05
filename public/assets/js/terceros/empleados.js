@@ -2,7 +2,7 @@
     'use strict';
 
     // ==========================================
-    // 1. UTILIDADES Y LÓGICA DE CAMPOS (Mantenido)
+    // 1. UTILIDADES Y LÓGICA DE CAMPOS
     // ==========================================
 
     function toggleRegimenFields(regimenSelect) {
@@ -25,33 +25,45 @@
         }
     }
 
+    // --- NUEVA LÓGICA FINANCIERA LIMPIA ---
     function togglePagoFields(tipoPagoSelect) {
         if (!tipoPagoSelect) return;
         const prefix = tipoPagoSelect.id.replace('TipoPago', '');
-        const sueldoGroup = document.getElementById(`${prefix}SueldoGroup`);
-        const diarioGroup = document.getElementById(`${prefix}PagoDiarioGroup`);
+        
         const sueldoInput = document.getElementById(`${prefix}SueldoBasico`);
-        const diarioInput = document.getElementById(`${prefix}PagoDiario`);
+        const labelSueldo = document.getElementById(`${prefix}LabelSueldo`);
+        const helpSueldo = document.getElementById(`${prefix}HelpSueldo`);
         const empleadoCheckbox = document.getElementById(`${prefix}EsEmpleado`);
 
-        if (!sueldoGroup || !diarioGroup) return;
+        if (!sueldoInput || !labelSueldo || !helpSueldo) return;
 
-        const isDiario = tipoPagoSelect.value === 'DIARIO';
-        const isEmpleado = !!empleadoCheckbox?.checked;
+        const valorPago = tipoPagoSelect.value;
+        // Si existe el checkbox de empleado, tomamos su valor, si no, asumimos que es true en esta vista
+        const isEmpleado = empleadoCheckbox ? empleadoCheckbox.checked : true; 
 
-        if (isDiario) {
-            sueldoGroup.classList.add('d-none');
-            diarioGroup.classList.remove('d-none');
-            if (sueldoInput) sueldoInput.value = '';
+        if (valorPago === 'SEMANAL') {
+            // Configuración visual para modo Jornalero
+            labelSueldo.innerHTML = 'Pago por Día (Jornal) <span class="text-danger">*</span>';
+            helpSueldo.innerHTML = '<span class="text-warning fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Poner el valor de 1 solo día (Ej: 50.00)</span>';
+            sueldoInput.classList.add('text-primary');
+            
+        } else if (valorPago === 'QUINCENAL') {
+            // Configuración visual para modo Quincenal
+            labelSueldo.innerHTML = 'Sueldo Mensual Base <span class="text-danger">*</span>';
+            helpSueldo.innerHTML = 'Monto total del mes (El sistema pagará la mitad cada quincena).';
+            sueldoInput.classList.remove('text-primary');
+            
         } else {
-            sueldoGroup.classList.remove('d-none');
-            diarioGroup.classList.add('d-none');
-            if (diarioInput) diarioInput.value = '';
+            // Configuración visual para modo Mensual
+            labelSueldo.innerHTML = 'Sueldo Básico <span class="text-danger">*</span>';
+            helpSueldo.innerHTML = 'Monto fijo mensual.';
+            sueldoInput.classList.remove('text-primary');
         }
 
-        if (sueldoInput) sueldoInput.required = isEmpleado && !isDiario;
-        if (diarioInput) diarioInput.required = isEmpleado && isDiario;
+        // El campo de sueldo ahora siempre es obligatorio si es empleado
+        sueldoInput.required = isEmpleado;
     }
+    // ----------------------------------------
 
     function toggleFechaNacimiento(recordarSwitch) {
         if (!recordarSwitch) return;
@@ -109,12 +121,9 @@
     }
 
     // ==========================================
-    // 2. NUEVA LÓGICA DE HIJOS (Array Dinámico)
+    // 2. LÓGICA DE HIJOS (Array Dinámico)
     // ==========================================
 
-    /**
-     * Genera el HTML de una fila para un hijo
-     */
     function crearFilaHijoHTML(data = {}) {
         const id = data.id || '0';
         const nombre = data.nombre_completo || '';
@@ -155,26 +164,18 @@
         `;
     }
 
-    /**
-     * Agrega una fila al contenedor
-     */
     function agregarHijo(prefix, data = {}) {
         const container = document.getElementById(`${prefix}ListaHijos`);
         const emptyState = document.getElementById(`${prefix}HijosEmptyState`);
         
         if (!container) return;
 
-        // Ocultar mensaje de vacío
         if (emptyState) emptyState.classList.add('d-none');
 
-        // Insertar HTML
         const html = crearFilaHijoHTML(data);
         container.insertAdjacentHTML('beforeend', html);
     }
 
-    /**
-     * Inicializa los eventos para la sección de hijos
-     */
     function setupHijosDinamic(prefix) {
         const switchAsig = document.getElementById(`${prefix}AsignacionFamiliar`);
         const wrapper = document.getElementById(`${prefix}WrapperHijos`);
@@ -184,27 +185,20 @@
 
         if (!switchAsig || !wrapper) return;
 
-        // 1. Toggle Visibilidad
         const toggleVisibility = () => {
             const isChecked = switchAsig.checked;
             wrapper.classList.toggle('d-none', !isChecked);
-            
-            // Si se desactiva, podríamos limpiar los inputs para que no se envíen,
-            // pero el controlador ya maneja eso ignorándolos si asignacion_familiar es 0.
         };
 
         switchAsig.addEventListener('change', toggleVisibility);
-        // Ejecutar al inicio para establecer estado correcto
         toggleVisibility(); 
 
-        // 2. Agregar Fila
         if (btnAdd) {
             btnAdd.addEventListener('click', () => {
                 agregarHijo(prefix);
             });
         }
 
-        // 3. Eliminar Fila (Delegación de eventos)
         if (container) {
             container.addEventListener('click', (e) => {
                 const btn = e.target.closest('.btn-remove-hijo');
@@ -212,7 +206,6 @@
                     const row = btn.closest('.hijo-row');
                     if (row) {
                         row.remove();
-                        // Verificar si quedó vacío
                         if (container.querySelectorAll('.hijo-row').length === 0 && emptyState) {
                             emptyState.classList.remove('d-none');
                         }
@@ -231,7 +224,7 @@
             const regimen = document.getElementById(`${prefix}Regimen`);
             if (regimen) {
                 regimen.addEventListener('change', () => toggleRegimenFields(regimen));
-                toggleRegimenFields(regimen); // Estado inicial
+                toggleRegimenFields(regimen); 
             }
 
             const tipoPago = document.getElementById(`${prefix}TipoPago`);
@@ -258,23 +251,15 @@
                 updateFechaCeseRules(prefix);
             }
 
-            // Inicializar lógica de hijos
             setupHijosDinamic(prefix);
         },
 
-        /**
-         * Método para llenar la tabla de hijos desde AJAX (usar en Edit)
-         * @param {string} prefix 'crear' o 'edit'
-         * @param {Array} hijosArray Array de objetos {id, nombre_completo, ...}
-         */
         setHijos: function(prefix, hijosArray) {
             const container = document.getElementById(`${prefix}ListaHijos`);
             const emptyState = document.getElementById(`${prefix}HijosEmptyState`);
             
             if (!container) return;
 
-            // Limpiar actuales
-            // Mantenemos el emptyState pero removemos las filas .hijo-row
             const filas = container.querySelectorAll('.hijo-row');
             filas.forEach(f => f.remove());
 
@@ -283,7 +268,6 @@
                 return;
             }
 
-            // Agregar cada hijo
             hijosArray.forEach(hijo => {
                 agregarHijo(prefix, hijo);
             });
@@ -300,8 +284,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         window.TercerosEmpleados.init('crear');
-        // Si usas un modal para editar, llama a init('edit') cuando se abra el modal
-        // o si los elementos existen en el DOM al carga.
         if(document.getElementById('editRegimen')) {
              window.TercerosEmpleados.init('edit');
         }

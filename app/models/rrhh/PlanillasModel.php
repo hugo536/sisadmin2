@@ -8,7 +8,6 @@ class PlanillasModel extends Modelo
      */
     public function obtenerResumenPlanilla(string $desde, string $hasta, ?int $idTercero = null): array
     {
-        // CAMBIO: Se agregó la lógica para determinar el estado_pago general del periodo
         $sql = "SELECT 
                     t.id AS id_tercero,
                     t.numero_documento,
@@ -29,9 +28,6 @@ class PlanillasModel extends Modelo
                     SUM(COALESCE(ar.minutos_tardanza, 0)) AS total_minutos_tardanza,
                     
                     -- LÓGICA DE ESTADO DE PAGO:
-                    -- Si hay al menos un registro en el periodo que esté PENDIENTE, el bloque entero es PENDIENTE.
-                    -- Si no hay pendientes, pero hay registros, entonces está PAGADA.
-                    -- Si no hay registros de asistencia en absoluto, no mostramos botón de pago (PENDIENTE_VACIO).
                     CASE 
                         WHEN COUNT(ar.id) = 0 THEN 'SIN_REGISTROS'
                         WHEN SUM(CASE WHEN ar.estado_pago = 'PENDIENTE' THEN 1 ELSE 0 END) > 0 THEN 'PENDIENTE'
@@ -97,7 +93,8 @@ class PlanillasModel extends Modelo
     }
 
     /**
-     * NUEVA FUNCIÓN: Procesa el pago, descuenta de tesorería y marca las asistencias como pagadas.
+     * Procesa el pago, descuenta de tesorería y marca las asistencias como pagadas.
+     * MEJORA: Validación de saldo antes de descontar.
      */
     public function registrarPagoPlanilla(array $datos, int $userId): bool
     {
@@ -105,6 +102,17 @@ class PlanillasModel extends Modelo
         
         try {
             $db->beginTransaction();
+
+            // -- MEJORA DE SEGURIDAD: Verificar saldo suficiente --
+            $stmtVerificar = $db->prepare("SELECT saldo_actual FROM tesoreria_cuentas WHERE id = :id_cuenta FOR UPDATE");
+            $stmtVerificar->execute(['id_cuenta' => $datos['id_cuenta']]);
+            $cuenta = $stmtVerificar->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cuenta || (float)$cuenta['saldo_actual'] < (float)$datos['monto_pagar']) {
+                // Lanzamos una excepción que será capturada por el catch, cancelando la transacción
+                throw new Exception("Saldo insuficiente en la cuenta de tesorería seleccionada.");
+            }
+            // -----------------------------------------------------
 
             // 1. Insertar el Egreso en Tesorería (Salida de dinero)
             $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
@@ -142,7 +150,7 @@ class PlanillasModel extends Modelo
                 'id_empleado' => $datos['id_empleado'],
                 'fecha_inicio' => $datos['fecha_inicio'],
                 'fecha_fin' => $datos['fecha_fin'],
-                'monto_base' => $datos['monto_pagar'], // Simplificado, asume que ya calculaste base + bono - desc en el controlador o vista
+                'monto_base' => $datos['monto_pagar'], 
                 'total_pagado' => $datos['monto_pagar'],
                 'id_cuenta' => $datos['id_cuenta'],
                 'id_movimiento' => $idMovimientoTesoreria,
@@ -170,7 +178,8 @@ class PlanillasModel extends Modelo
 
         } catch (Exception $e) {
             $db->rollBack();
-            // Para depuración, puedes hacer error_log($e->getMessage());
+            // Registramos el error en el log del servidor para poder depurarlo
+            error_log("Error en registrarPagoPlanilla: " . $e->getMessage());
             return false;
         }
     }
