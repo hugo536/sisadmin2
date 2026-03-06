@@ -57,7 +57,6 @@ class ProduccionOrdenesController extends Controlador
                         'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
                         'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                         'fecha_programada' => (string) ($_POST['fecha_programada'] ?? ''),
-                        'turno_programado' => (string) ($_POST['turno_programado'] ?? ''),
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
 
@@ -137,7 +136,6 @@ class ProduccionOrdenesController extends Controlador
                         'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
                         'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                         'fecha_programada' => (string) ($_POST['fecha_programada'] ?? ''),
-                        'turno_programado' => (string) ($_POST['turno_programado'] ?? ''),
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
 
@@ -152,7 +150,6 @@ class ProduccionOrdenesController extends Controlador
                         [
                             'cantidad_planificada' => (float) ($_POST['cantidad_planificada'] ?? 0),
                             'fecha_programada' => (string) ($_POST['fecha_programada'] ?? ''),
-                            'turno_programado' => (string) ($_POST['turno_programado'] ?? ''),
                             'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
                             'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                         ],
@@ -265,7 +262,6 @@ class ProduccionOrdenesController extends Controlador
             'flash' => $flash,
             'ordenes' => $this->produccionOrdenesModel->listarOrdenes(),
             'recetas_activas' => $this->produccionOrdenesModel->listarRecetasActivas(),
-            'turnos_programables' => $this->produccionOrdenesModel->listarTurnosProgramadosDisponibles(),
             'almacenes' => $this->produccionOrdenesModel->listarAlmacenesActivos(),
             'almacenes_planta' => $this->produccionOrdenesModel->listarAlmacenesActivosPorTipo('Planta'),
             'ruta_actual' => 'produccion/ordenes',

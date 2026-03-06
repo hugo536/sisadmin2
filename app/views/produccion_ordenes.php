@@ -3,7 +3,6 @@ $ordenes = $ordenes ?? [];
 $recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
 $almacenesPlanta = $almacenes_planta ?? [];
-$turnosProgramables = $turnos_programables ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <style>
@@ -193,9 +192,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                             <?php if (!empty($orden['fecha_programada'])): ?>
                                                 <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle mb-1"><i class="bi bi-calendar3 me-1"></i><?php echo e((string) $orden['fecha_programada']); ?></span>
                                             <?php endif; ?>
-                                            <?php if (!empty($orden['turno_programado'])): ?>
-                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-1"><i class="bi bi-clock me-1"></i><?php echo e((string) $orden['turno_programado']); ?></span>
-                                            <?php endif; ?>
                                             <?php if (!empty($orden['almacen_planta_nombre'])): ?>
                                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mb-1"><i class="bi bi-building me-1"></i><?php echo e((string) $orden['almacen_planta_nombre']); ?></span>
                                             <?php endif; ?>
@@ -271,7 +267,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                             data-id="<?php echo (int) $orden['id']; ?>"
                                                             data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                             data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
-                                                            data-turno="<?php echo e((string) ($orden['turno_programado'] ?? '')); ?>"
                                                             data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
                                                             data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
                                                             title="Editar borrador">
@@ -397,15 +392,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <input type="date" name="fecha_programada" id="newFechaProgramada" class="form-control" required>
                             </div>
                             <div class="col-md-4">
-                                <label for="newTurnoProgramado" class="form-label small text-muted fw-bold mb-1">Turno Programado <span class="text-danger fs-6">*</span></label>
-                                <select name="turno_programado" id="newTurnoProgramado" class="form-select" required>
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($turnosProgramables as $turno): ?>
-                                        <option value="<?php echo e((string) ($turno['nombre'] ?? '')); ?>"><?php echo e((string) ($turno['nombre'] ?? '')); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
                                 <label for="newAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Almacén Planta <span class="text-danger fs-6">*</span></label>
                                 <select name="id_almacen_planta" id="newAlmacenPlanta" class="form-select" required>
                                     <option value="">Seleccione...</option>
@@ -450,15 +436,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <div class="col-md-4">
                         <label for="editFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger fs-6">*</span></label>
                         <input type="date" name="fecha_programada" id="editFechaProgramada" class="form-control" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="editTurnoProgramado" class="form-label small text-muted fw-bold mb-1">Turno Programado <span class="text-danger fs-6">*</span></label>
-                        <select name="turno_programado" id="editTurnoProgramado" class="form-select" required>
-                            <option value="">Seleccione...</option>
-                            <?php foreach ($turnosProgramables as $turno): ?>
-                                <option value="<?php echo e((string) ($turno['nombre'] ?? '')); ?>"><?php echo e((string) ($turno['nombre'] ?? '')); ?></option>
-                            <?php endforeach; ?>
-                        </select>
                     </div>
                     <div class="col-md-4">
                         <label for="editAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Almacén Planta <span class="text-danger fs-6">*</span></label>

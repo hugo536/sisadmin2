@@ -102,48 +102,10 @@ class ProduccionOrdenesModel extends Modelo
     // CÓDIGO EXISTENTE INTACTO
     // =====================================================================
 
-    public function listarTurnosProgramadosDisponibles(): array
-    {
-        $sql = 'SELECT id, nombre
-                FROM asistencia_horarios
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                ORDER BY nombre ASC';
-
-        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    private function obtenerNombresTurnosProgramados(): array
-    {
-        $turnos = $this->listarTurnosProgramadosDisponibles();
-        $nombres = [];
-
-        foreach ($turnos as $turno) {
-            $nombre = trim((string) ($turno['nombre'] ?? ''));
-            if ($nombre !== '') {
-                $nombres[$nombre] = true;
-            }
-        }
-
-        return array_keys($nombres);
-    }
-
-    private function validarTurnoProgramado(string $turnoProgramado): void
-    {
-        $turnosPermitidos = $this->obtenerNombresTurnosProgramados();
-        if ($turnosPermitidos === []) {
-            throw new RuntimeException('No hay turnos activos en el catálogo de horarios.');
-        }
-
-        if (!in_array($turnoProgramado, $turnosPermitidos, true)) {
-            throw new RuntimeException('El turno programado no es válido para el catálogo de horarios activo.');
-        }
-    }
-
     public function listarOrdenes(): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
-                       o.estado, o.fecha_programada, o.turno_programado,
+                       o.estado, o.fecha_programada,
                        o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
                        r.codigo AS receta_codigo,
@@ -181,19 +143,16 @@ class ProduccionOrdenesModel extends Modelo
 
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $fechaProgramada = trim((string) ($payload['fecha_programada'] ?? ''));
-        $turnoProgramado = trim((string) ($payload['turno_programado'] ?? ''));
         $idAlmacenPlanta = (int) ($payload['id_almacen_planta'] ?? 0);
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
-        if ($cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '' || $idAlmacenPlanta <= 0) {
+        if ($cantidadPlanificada <= 0 || $fechaProgramada === '' || $idAlmacenPlanta <= 0) {
             throw new RuntimeException('Datos incompletos para editar la orden de producción.');
         }
 
         if (DateTime::createFromFormat('Y-m-d', $fechaProgramada) === false) {
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
-
-        $this->validarTurnoProgramado($turnoProgramado);
 
         $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
                                                    FROM almacenes
@@ -212,7 +171,6 @@ class ProduccionOrdenesModel extends Modelo
         $stmt = $this->db()->prepare('UPDATE produccion_ordenes
                                       SET cantidad_planificada = :cantidad_planificada,
                                           fecha_programada = :fecha_programada,
-                                          turno_programado = :turno_programado,
                                           id_almacen_planta = :id_almacen_planta,
                                           observaciones = :observaciones,
                                           updated_at = NOW(),
@@ -223,7 +181,6 @@ class ProduccionOrdenesModel extends Modelo
         $stmt->execute([
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada,
-            'turno_programado' => $turnoProgramado,
             'id_almacen_planta' => $idAlmacenPlanta,
             'observaciones' => $observaciones !== '' ? $observaciones : null,
             'updated_by' => $userId,
@@ -437,19 +394,16 @@ class ProduccionOrdenesModel extends Modelo
         $idReceta = (int) ($payload['id_receta'] ?? 0);
         $cantidadPlanificada = (float) ($payload['cantidad_planificada'] ?? 0);
         $fechaProgramada = trim((string) ($payload['fecha_programada'] ?? ''));
-        $turnoProgramado = trim((string) ($payload['turno_programado'] ?? ''));
         $observaciones = trim((string) ($payload['observaciones'] ?? ''));
         $idAlmacenPlanta = (int) ($payload['id_almacen_planta'] ?? 0);
 
-        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0 || $fechaProgramada === '' || $turnoProgramado === '' || $idAlmacenPlanta <= 0) {
+        if ($codigo === '' || $idReceta <= 0 || $cantidadPlanificada <= 0 || $fechaProgramada === '' || $idAlmacenPlanta <= 0) {
             throw new RuntimeException('Datos incompletos para crear la orden de producción.');
         }
 
         if (DateTime::createFromFormat('Y-m-d', $fechaProgramada) === false) {
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
-
-        $this->validarTurnoProgramado($turnoProgramado);
 
         $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
                                                    FROM almacenes
@@ -466,9 +420,9 @@ class ProduccionOrdenesModel extends Modelo
         }
 
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, id_almacen_planta, cantidad_planificada, fecha_programada, turno_programado, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, id_almacen_planta, cantidad_planificada, fecha_programada, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :id_almacen_planta, :cantidad_planificada, :fecha_programada, :turno_programado, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :id_almacen_planta, :cantidad_planificada, :fecha_programada, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
@@ -477,7 +431,6 @@ class ProduccionOrdenesModel extends Modelo
             'id_almacen_planta' => $idAlmacenPlanta,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada !== '' ? $fechaProgramada : null,
-            'turno_programado' => $turnoProgramado !== '' ? $turnoProgramado : null,
             'created_by' => $userId,
             'updated_by' => $userId,
             'observaciones' => $observaciones !== '' ? $observaciones : null,
