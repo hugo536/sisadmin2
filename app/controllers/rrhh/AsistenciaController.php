@@ -94,6 +94,21 @@ class AsistenciaController extends Controlador
                 echo json_encode($detalle);
                 exit; 
             }
+
+            if ($accion === 'obtener_marcaciones_dia') {
+                $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+                $fecha = trim((string) ($_POST['fecha'] ?? ''));
+                header('Content-Type: application/json');
+
+                if ($idTercero <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                    echo json_encode(['ok' => false, 'msg' => 'Datos inválidos']);
+                    exit;
+                }
+
+                $detalle = $this->asistenciaModel->obtenerDetalleMarcacionesDia($idTercero, $fecha);
+                echo json_encode(['ok' => true, 'detalle' => $detalle]);
+                exit;
+            }
         }
         // ----------------------------------------------------------------------
 
@@ -309,6 +324,8 @@ class AsistenciaController extends Controlador
             'fecha' => $fecha,
             'hora_ingreso_real' => trim((string) ($_POST['hora_ingreso_real'] ?? '')),
             'hora_salida_real' => trim((string) ($_POST['hora_salida_real'] ?? '')),
+            'horas_ingreso_real' => $_POST['horas_ingreso_real'] ?? [],
+            'horas_salida_real' => $_POST['horas_salida_real'] ?? [],
             'aplicar_justificacion' => (int) ($_POST['aplicar_justificacion'] ?? 0),
             'nuevo_estado' => trim((string) ($_POST['nuevo_estado'] ?? '')),
             'observacion' => trim((string) ($_POST['observacion'] ?? ''))

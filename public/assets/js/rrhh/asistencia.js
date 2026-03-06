@@ -39,14 +39,65 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('gestFecha').value = btnGestion.dataset.fecha || '';
             document.getElementById('gestNombreEmpleado').innerText = btnGestion.dataset.nombre || '';
             document.getElementById('gestFechaDisplay').innerText = 'Día: ' + (btnGestion.dataset.fecha || '');
-            
-            // --- CORRECCIÓN AQUÍ: Solo llamamos al input de Salida (que es el único que dejamos en la vista) ---
-            const inputHoraIngreso = document.getElementById('gestHoraIngreso');
-            const inputHoraSalida = document.getElementById('gestHoraSalida');
 
-            if (inputHoraIngreso) inputHoraIngreso.value = btnGestion.dataset.in || '';
-            if (inputHoraSalida) inputHoraSalida.value = btnGestion.dataset.out || '';
-            // ------------------------------------------------------------------------------------------------
+            const setTramosVisibles = (count) => {
+                for (let i = 1; i <= 3; i++) {
+                    const row = document.getElementById('gestTramo' + i);
+                    const inInput = document.getElementById('gestHoraIngreso' + i);
+                    const outInput = document.getElementById('gestHoraSalida' + i);
+                    if (row) {
+                        if (i <= count) row.classList.remove('d-none');
+                        else row.classList.add('d-none');
+                    }
+                    if (inInput) inInput.value = '';
+                    if (outInput) outInput.value = '';
+                }
+            };
+
+            setTramosVisibles(1);
+
+            try {
+                const formData = new FormData();
+                formData.append('accion', 'obtener_marcaciones_dia');
+                formData.append('id_tercero', btnGestion.dataset.tercero || '0');
+                formData.append('fecha', btnGestion.dataset.fecha || '');
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) throw new Error('Error al consultar marcaciones');
+
+                const payload = await response.json();
+                if (payload && payload.ok && payload.detalle) {
+                    const detalle = payload.detalle;
+                    const activos = Math.max(1, Math.min(3, Number(detalle.tramos_activos || 1)));
+                    setTramosVisibles(activos);
+
+                    const ingresos = Array.isArray(detalle.ingresos_reales) ? detalle.ingresos_reales : [];
+                    const salidas = Array.isArray(detalle.salidas_reales) ? detalle.salidas_reales : [];
+
+                    for (let i = 1; i <= 3; i++) {
+                        const inInput = document.getElementById('gestHoraIngreso' + i);
+                        const outInput = document.getElementById('gestHoraSalida' + i);
+                        if (inInput) inInput.value = ingresos[i - 1] || '';
+                        if (outInput) outInput.value = salidas[i - 1] || '';
+                    }
+                }
+            } catch (error) {
+                const ingresosRaw = (btnGestion.dataset.ingresos || '').split('|').filter(Boolean).map(v => v.substring(11, 16));
+                const salidasRaw = (btnGestion.dataset.salidas || '').split('|').filter(Boolean).map(v => v.substring(11, 16));
+                const activos = Math.max(1, Math.min(3, Math.max(ingresosRaw.length, salidasRaw.length, 1)));
+                setTramosVisibles(activos);
+
+                for (let i = 1; i <= 3; i++) {
+                    const inInput = document.getElementById('gestHoraIngreso' + i);
+                    const outInput = document.getElementById('gestHoraSalida' + i);
+                    if (inInput) inInput.value = ingresosRaw[i - 1] || '';
+                    if (outInput) outInput.value = salidasRaw[i - 1] || '';
+                }
+            }
            
             const checkJustificar = document.getElementById('gestCheckJustificar');
             const boxJustificacion = document.getElementById('boxJustificacion');
