@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. DELEGACIÓN DE EVENTOS GLOBAL (Para clics dinámicos como Clonar y Eliminar)
     document.addEventListener('click', async function(e) {
         
-        // A) Botón Gestionar Asistencia (Modal de Justificación)
+        // A) Botón Gestionar Asistencia (Modal de Justificación / Completar de cámaras)
         const btnGestion = e.target.closest('.js-gestionar-asistencia');
         if (btnGestion) {
             document.getElementById('gestIdAsistencia').value = btnGestion.dataset.id || '';
@@ -39,8 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('gestFecha').value = btnGestion.dataset.fecha || '';
             document.getElementById('gestNombreEmpleado').innerText = btnGestion.dataset.nombre || '';
             document.getElementById('gestFechaDisplay').innerText = 'Día: ' + (btnGestion.dataset.fecha || '');
-            document.getElementById('gestHoraEntrada').value = btnGestion.dataset.entrada !== '-' ? btnGestion.dataset.entrada : '';
-            document.getElementById('gestHoraSalida').value = btnGestion.dataset.salida !== '-' ? btnGestion.dataset.salida : '';
+            
+            // --- CORRECCIÓN AQUÍ: Solo llamamos al input de Salida (que es el único que dejamos en la vista) ---
+            const inputHoraIngreso = document.getElementById('gestHoraIngreso');
+            const inputHoraSalida = document.getElementById('gestHoraSalida');
+
+            if (inputHoraIngreso) inputHoraIngreso.value = btnGestion.dataset.in || '';
+            if (inputHoraSalida) inputHoraSalida.value = btnGestion.dataset.out || '';
+            // ------------------------------------------------------------------------------------------------
            
             const checkJustificar = document.getElementById('gestCheckJustificar');
             const boxJustificacion = document.getElementById('boxJustificacion');
@@ -103,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const detalle = await response.json();
                 
                 if(detalle) {
-                    // Seleccionamos los inputs directamente por ID para evitar problemas de scope (AQUÍ ESTÁ LA CORRECCIÓN)
                     const inputNombre = document.getElementById('inputNombreGrupo');
                     const inputTolerancia = document.querySelector('input[name="tolerancia_minutos"]');
                     const checkRangoDias = document.getElementById('checkRangoDias');

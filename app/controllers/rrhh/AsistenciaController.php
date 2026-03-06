@@ -59,19 +59,16 @@ class AsistenciaController extends Controlador
                 return;
             }
             
-            // ¡NUEVO! Capturar creación de grupo
             if ($accion === 'crear_grupo') {
                 $this->guardarGrupoExcepcion();
                 return;
             }
             
-            // ¡NUEVO! Capturar eliminación de grupo
             if ($accion === 'eliminar_grupo') {
                 $this->eliminarGrupoExcepcion();
                 return;
             }
 
-            // ¡NUEVO! Capturar petición AJAX para buscar empleados libres
             if ($accion === 'buscar_disponibles') {
                 $f_ini = trim((string) ($_POST['f_ini'] ?? ''));
                 $f_fin = trim((string) ($_POST['f_fin'] ?? ''));
@@ -85,10 +82,9 @@ class AsistenciaController extends Controlador
                 
                 header('Content-Type: application/json');
                 echo json_encode($empleados);
-                exit; // Detenemos la ejecución porque es una respuesta AJAX
+                exit; 
             }
 
-            // ¡NUEVO! Capturar petición AJAX para clonar plantilla de grupo
             if ($accion === 'obtener_detalle_grupo') {
                 $idG = (int) ($_POST['id_grupo'] ?? 0);
                 $detalle = method_exists($this->asistenciaModel, 'obtenerDetalleGrupo') 
@@ -227,25 +223,21 @@ class AsistenciaController extends Controlador
             'tolerancia_minutos' => (int) ($_POST['tolerancia_minutos'] ?? 0), 
         ];
 
-        // Validaciones básicas de campos vacíos
         if ($data['nombre'] === '' || empty($data['empleados']) || $data['fecha_inicio'] === '') {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Datos incompletos para crear el grupo.'));
             return;
         }
 
-        // Validación de fecha (CORREGIDA: Ahora está separada y se ejecutará siempre)
         $hoy = date('Y-m-d');
         if ($data['fecha_inicio'] < $hoy) {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Error: No se pueden crear o modificar grupos en fechas pasadas.'));
             return;
         }
 
-        // Si no mandaron fecha fin (porque el switch estaba en 1 día), la igualamos a inicio
         if ($data['fecha_fin'] === '') {
             $data['fecha_fin'] = $data['fecha_inicio'];
         }
         
-        // --- 1. VALIDACIÓN DE SOLAPAMIENTO DE FECHAS Y EMPLEADOS ---
         if (method_exists($this->asistenciaModel, 'validarSolapamientoEmpleados')) {
             $conflictos = $this->asistenciaModel->validarSolapamientoEmpleados(
                 $data['empleados'], 
@@ -254,7 +246,6 @@ class AsistenciaController extends Controlador
             );
 
             if (!empty($conflictos)) {
-                // Construimos un mensaje amigable indicando quiénes chocan
                 $nombresConflicto = array_map(function($c) {
                     return $c['nombre_completo'] . ' (en: ' . $c['nombre_grupo'] . ')';
                 }, $conflictos);
@@ -264,9 +255,7 @@ class AsistenciaController extends Controlador
                 return;
             }
         }
-        // -----------------------------------------------------------
 
-        // 2. CREACIÓN DEL GRUPO EN LA BASE DE DATOS
         if (method_exists($this->asistenciaModel, 'crearGrupoExcepcion')) {
             $ok = $this->asistenciaModel->crearGrupoExcepcion($data, $userId);
             if ($ok) {
@@ -318,15 +307,15 @@ class AsistenciaController extends Controlador
         $data = [
             'id_tercero' => (int) ($_POST['id_tercero'] ?? 0),
             'fecha' => $fecha,
-            'hora_entrada_esperada' => trim((string) ($_POST['hora_entrada_esperada'] ?? '')),
-            'hora_salida_esperada' => trim((string) ($_POST['hora_salida_esperada'] ?? '')),
+            'hora_ingreso_real' => trim((string) ($_POST['hora_ingreso_real'] ?? '')),
+            'hora_salida_real' => trim((string) ($_POST['hora_salida_real'] ?? '')),
             'aplicar_justificacion' => (int) ($_POST['aplicar_justificacion'] ?? 0),
             'nuevo_estado' => trim((string) ($_POST['nuevo_estado'] ?? '')),
             'observacion' => trim((string) ($_POST['observacion'] ?? ''))
         ];
 
-        if ($data['id_tercero'] <= 0 || $data['fecha'] === '' || $data['hora_entrada_esperada'] === '' || $data['hora_salida_esperada'] === '') {
-            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('Datos incompletos. Verifica las horas ingresadas.'));
+        if ($data['id_tercero'] <= 0 || $data['fecha'] === '') {
+            redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('Datos de empleado y fecha son obligatorios.'));
             return;
         }
 
@@ -514,8 +503,6 @@ class AsistenciaController extends Controlador
                 $horaIngreso = $marcas[0] ?? null;
                 $horaSalida = count($marcas) > 1 ? $marcas[count($marcas) - 1] : null;
 
-                // ACTUALIZACIÓN DE LLAMADA A HORARIO ESPERADO
-                // Le pasamos la fecha exacta en lugar del diaSemana
                 $horario = $this->asistenciaModel->obtenerHorarioEsperado((int) $idTercero, $fecha);
 
                 $minutosTardanza = 0;
@@ -523,6 +510,17 @@ class AsistenciaController extends Controlador
                 $horasTrabajadas = 0.00;
                 $horasExtras = 0.00;
                 $observaciones = null;
+                
+                // Variables para congelar la memoria en BD
+                $horaEntradaEsperada = null;
+                $horaSalidaEsperada = null;
+                $toleranciaBD = 0;
+
+                if ($horario) {
+                    $horaEntradaEsperada = $fecha . ' ' . substr((string) $horario['hora_entrada'], 0, 8);
+                    $horaSalidaEsperada = $fecha . ' ' . substr((string) $horario['hora_salida'], 0, 8);
+                    $toleranciaBD = (int) ($horario['tolerancia_minutos'] ?? 0);
+                }
 
                 if ($horaIngreso !== null && $horaSalida !== null) {
                     $estado = 'PUNTUAL';
@@ -535,13 +533,13 @@ class AsistenciaController extends Controlador
                     }
 
                     if ($horario) {
-                        $esperadaTs = strtotime($fecha . ' ' . substr((string) $horario['hora_entrada'], 0, 8));
-                        $salidaEsperadaTs = strtotime($fecha . ' ' . substr((string) $horario['hora_salida'], 0, 8));
-                        $tolerancia = (int) ($horario['tolerancia_minutos'] ?? 0);
+                        $esperadaTs = strtotime($horaEntradaEsperada);
+                        $salidaEsperadaTs = strtotime($horaSalidaEsperada);
 
-                        if ($ingresoTs > ($esperadaTs + ($tolerancia * 60))) {
+                        if ($ingresoTs > ($esperadaTs + ($toleranciaBD * 60))) {
                             $estado = 'TARDANZA';
-                            $minutosTardanza = (int) floor(($ingresoTs - $esperadaTs) / 60);
+                            $retrasoBruto = (int) floor(($ingresoTs - $esperadaTs) / 60);
+                            $minutosTardanza = $retrasoBruto - $toleranciaBD;
                         }
 
                         if ($salidaEsperadaTs > $esperadaTs) {
@@ -564,6 +562,9 @@ class AsistenciaController extends Controlador
                     'fecha' => $fecha,
                     'hora_ingreso' => $horaIngreso,
                     'hora_salida' => $horaSalida,
+                    'hora_entrada_esperada' => $horaEntradaEsperada, // GUARDANDO MEMORIA
+                    'hora_salida_esperada' => $horaSalidaEsperada,   // GUARDANDO MEMORIA
+                    'tolerancia_minutos' => $toleranciaBD,           // GUARDANDO MEMORIA
                     'estado_asistencia' => $estado,
                     'minutos_tardanza' => $minutosTardanza,
                     'horas_trabajadas' => $horasTrabajadas,
@@ -679,6 +680,18 @@ class AsistenciaController extends Controlador
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Debe registrar al menos una hora (ingreso o salida).'));
             return;
         }
+
+        // --- NUEVO: BLOQUEO ESTRICTO DE DUPLICADOS EN REGISTRO MANUAL (Opción A) ---
+        // Verificamos si este empleado ya tiene un registro en la base de datos en esta fecha.
+        $db = (new AsistenciaModel())->db();
+        $check = $db->prepare('SELECT id FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1');
+        $check->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
+        
+        if ($check->fetch()) {
+            redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('El empleado ya tiene un registro en esta fecha. Utilice el botón del engranaje (⚙️) para editarlo.'));
+            return;
+        }
+        // --------------------------------------------------------------------------
 
         $horaIngreso = $horaIngresoRaw !== '' ? $fecha . ' ' . $horaIngresoRaw . ':00' : null;
         $horaSalida = $horaSalidaRaw !== '' ? $fecha . ' ' . $horaSalidaRaw . ':00' : null;

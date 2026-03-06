@@ -174,15 +174,9 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                         <?php else: ?>
                             <?php foreach ($registros as $row): ?>
                                 <?php
-                                $esperada = '';
-                                if (!empty($row['hora_entrada']) || !empty($row['hora_salida'])) {
-                                    $esperada = substr((string) ($row['hora_entrada'] ?? ''), 0, 5) . ' - ' . substr((string) ($row['hora_salida'] ?? ''), 0, 5);
-                                }
-
-                                $real = '';
-                                if (!empty($row['hora_ingreso']) || !empty($row['hora_salida_real'])) {
-                                    $real = substr((string) ($row['hora_ingreso'] ?? ''), 11, 5) . ' - ' . substr((string) ($row['hora_salida_real'] ?? ''), 11, 5);
-                                }
+                                // Extraemos directamente las horas pre-formateadas desde el Modelo
+                                $esperada = $row['esperada_formateada'] ?? '-';
+                                $real = $row['real_formateada'] ?? '-';
 
                                 $estado = (string) ($row['estado_asistencia'] ?? 'FALTA');
                                
@@ -206,10 +200,12 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                                         <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
                                     </td>
                                     <td class="text-muted align-top pt-3 text-center">
-                                        <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($esperada !== '' ? $esperada : '-'); ?>
+                                        <i class="bi bi-clock small me-1 opacity-50 d-block mb-1"></i>
+                                        <?php echo nl2br(htmlspecialchars($esperada, ENT_QUOTES, 'UTF-8')); ?>
                                     </td>
                                     <td class="fw-medium align-top pt-3 text-primary text-center">
-                                        <i class="bi bi-clock-history small me-1 opacity-50"></i><?php echo e($real !== '' ? $real : '-'); ?>
+                                        <i class="bi bi-clock-history small me-1 opacity-50 d-block mb-1"></i>
+                                        <?php echo nl2br(htmlspecialchars($real, ENT_QUOTES, 'UTF-8')); ?>
                                     </td>
                                     <td class="text-center align-top pt-3">
                                         <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo $badgeColor; ?>">
@@ -231,9 +227,9 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                                             data-tercero="<?php echo (int)($row['id_tercero'] ?? 0); ?>"
                                             data-nombre="<?php echo htmlspecialchars($row['nombre_completo'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                             data-fecha="<?php echo htmlspecialchars($row['fecha'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-entrada="<?php echo substr((string)($row['hora_entrada'] ?? ''), 0, 5); ?>"
-                                            data-salida="<?php echo substr((string)($row['hora_salida'] ?? ''), 0, 5); ?>"
-                                            data-bs-toggle="tooltip" title="Gestionar Excepciones">
+                                            data-in="<?php echo $real_in; ?>"
+                                            data-out="<?php echo $real_out; ?>"
+                                            data-bs-toggle="tooltip" title="Gestionar Registro">
                                             <i class="bi bi-gear fs-5"></i>
                                         </button>
                                     </td>
@@ -259,7 +255,7 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2"></i>Gestionar Asistencia</h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2"></i>Gestionar Registro</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="post" id="formGestionAsistencia" action="<?php echo e(route_url('asistencia/dashboard')); ?>">
@@ -277,18 +273,23 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                         </div>
                     </div>
 
-                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">1. Ajustar Turno del Día (Excepción)</h6>
+                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">1. Completar Registro Incompleto</h6>
+                    <div class="alert alert-warning small border-0 py-2">
+                        <i class="bi bi-shield-lock me-1"></i> <strong>Memoria Activa:</strong> El sistema calculará la tardanza usando automáticamente la hora de entrada esperada y la tolerancia que estaban vigentes <b>el día que se registró la marcación</b>, sin importar si el horario ha cambiado hoy.
+                    </div>
+                    
+                    <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">1. Editar / Completar Marcaciones</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Entrada Esperada</label>
-                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_entrada_esperada" id="gestHoraEntrada" required>
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Ingreso Real</label>
+                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_ingreso_real" id="gestHoraIngreso">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida Esperada</label>
-                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_salida_esperada" id="gestHoraSalida" required>
+                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida Real</label>
+                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_salida_real" id="gestHoraSalida">
                         </div>
                         <div class="col-12 mt-1">
-                            <small class="text-muted"><i class="bi bi-exclamation-triangle me-1"></i>Modificar esto recalculará la tardanza automáticamente en base a la hora real de llegada.</small>
+                            <small class="text-muted"><i class="bi bi-shield-lock me-1"></i><strong>Memoria Activa:</strong> La tardanza se recalculará automáticamente usando el horario y tolerancia oficiales de ese día.</small>
                         </div>
                     </div>
 

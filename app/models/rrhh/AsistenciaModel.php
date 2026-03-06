@@ -6,6 +6,25 @@ class AsistenciaModel extends Modelo
 {
     public function guardarLogBiometrico(array $data, int $userId): bool
     {
+        // 1. Verificamos si esta marcación exacta ya existe en la base de datos
+        // Comparamos el código del empleado y la fecha y hora EXACTA de la marca
+        $sqlCheck = 'SELECT id FROM asistencia_logs_biometrico 
+                     WHERE codigo_biometrico = :codigo_biometrico 
+                       AND fecha_hora_marca = :fecha_hora_marca 
+                     LIMIT 1';
+                     
+        $stmtCheck = $this->db()->prepare($sqlCheck);
+        $stmtCheck->execute([
+            'codigo_biometrico' => $data['codigo_biometrico'],
+            'fecha_hora_marca' => $data['fecha_hora_marca']
+        ]);
+
+        // Si la marcación ya existe, devolvemos false para ignorarla
+        if ($stmtCheck->fetch()) {
+            return false;
+        }
+
+        // 2. Si es nueva, la insertamos normal para que sea procesada
         $sql = 'INSERT INTO asistencia_logs_biometrico (
                     codigo_biometrico,
                     fecha_hora_marca,
@@ -159,6 +178,9 @@ class AsistenciaModel extends Modelo
                     fecha,
                     hora_ingreso,
                     hora_salida,
+                    hora_entrada_esperada,
+                    hora_salida_esperada,
+                    tolerancia_minutos,
                     estado_asistencia,
                     minutos_tardanza,
                     horas_trabajadas,
@@ -171,6 +193,9 @@ class AsistenciaModel extends Modelo
                     :fecha,
                     :hora_ingreso,
                     :hora_salida,
+                    :hora_entrada_esperada,
+                    :hora_salida_esperada,
+                    :tolerancia_minutos,
                     :estado_asistencia,
                     :minutos_tardanza,
                     :horas_trabajadas,
@@ -182,6 +207,10 @@ class AsistenciaModel extends Modelo
                 ON DUPLICATE KEY UPDATE
                     hora_ingreso = VALUES(hora_ingreso),
                     hora_salida = VALUES(hora_salida),
+                    /* Solo actualizamos las horas esperadas si vienen con datos nuevos (para proteger la memoria al usar el engranaje) */
+                    hora_entrada_esperada = COALESCE(VALUES(hora_entrada_esperada), hora_entrada_esperada),
+                    hora_salida_esperada = COALESCE(VALUES(hora_salida_esperada), hora_salida_esperada),
+                    tolerancia_minutos = COALESCE(VALUES(tolerancia_minutos), tolerancia_minutos),
                     estado_asistencia = VALUES(estado_asistencia),
                     minutos_tardanza = VALUES(minutos_tardanza),
                     horas_trabajadas = VALUES(horas_trabajadas),
@@ -195,6 +224,9 @@ class AsistenciaModel extends Modelo
             'fecha' => $data['fecha'],
             'hora_ingreso' => $data['hora_ingreso'],
             'hora_salida' => $data['hora_salida'],
+            'hora_entrada_esperada' => $data['hora_entrada_esperada'] ?? null,
+            'hora_salida_esperada' => $data['hora_salida_esperada'] ?? null,
+            'tolerancia_minutos' => $data['tolerancia_minutos'] ?? 0,
             'estado_asistencia' => $data['estado_asistencia'],
             'minutos_tardanza' => $data['minutos_tardanza'],
             'horas_trabajadas' => $data['horas_trabajadas'],
@@ -214,6 +246,75 @@ class AsistenciaModel extends Modelo
         $this->db()->prepare($sql)->execute(array_values($ids));
     }
 
+    // ============================================================================
+    // NUEVAS FUNCIONES PARA PROCESAR EL DASHBOARD POR TRAMOS
+    // ============================================================================
+
+    private function calcularEstadoGeneral(?string $estadosStr): string
+    {
+        if (empty($estadosStr)) return 'FALTA';
+        $estados = explode('|', $estadosStr);
+        
+        // Jerarquía de estados generales del día
+        if (in_array('FALTA', $estados)) return 'FALTA';
+        if (in_array('INCOMPLETO', $estados)) return 'INCOMPLETO';
+        if (in_array('TARDANZA', $estados)) return 'TARDANZA';
+        
+        foreach($estados as $est) {
+            if (strpos($est, 'JUSTIFICADA') !== false || strpos($est, 'PERMISO') !== false || strpos($est, 'OLVIDO') !== false) {
+                return $est; // Retorna la primera justificación encontrada
+            }
+        }
+        return 'PUNTUAL';
+    }
+
+    private function procesarFilasDashboard(array $rows, string $estadoFiltro = ''): array
+    {
+        $procesados = [];
+        foreach ($rows as $row) {
+            // 1. Determinar el Estado General del día
+            $estadoGeneral = $this->calcularEstadoGeneral($row['estados_asistencia'] ?? null);
+
+            // 2. Si hay filtro de estado, aplicarlo aquí (ya que agrupamos por SQL)
+            if ($estadoFiltro !== '' && $estadoGeneral !== $estadoFiltro) {
+                continue;
+            }
+
+            // 3. Formatear Horas Esperadas Compactas
+            $arrEsperadas = [];
+            if (!empty($row['t1_entrada'])) $arrEsperadas[] = substr($row['t1_entrada'], 0, 5) . ' - ' . (!empty($row['t1_salida']) ? substr($row['t1_salida'], 0, 5) : '--:--');
+            if (!empty($row['t2_entrada'])) $arrEsperadas[] = substr($row['t2_entrada'], 0, 5) . ' - ' . (!empty($row['t2_salida']) ? substr($row['t2_salida'], 0, 5) : '--:--');
+            if (!empty($row['t3_entrada'])) $arrEsperadas[] = substr($row['t3_entrada'], 0, 5) . ' - ' . (!empty($row['t3_salida']) ? substr($row['t3_salida'], 0, 5) : '--:--');
+            $row['esperada_formateada'] = !empty($arrEsperadas) ? implode("\n", $arrEsperadas) : '-';
+
+            // 4. Formatear Horas Reales Compactas
+            $arrReales = [];
+            $ingresos = !empty($row['horas_ingreso']) ? explode('|', $row['horas_ingreso']) : [];
+            $salidas = !empty($row['horas_salida']) ? explode('|', $row['horas_salida']) : [];
+            $maxTramos = max(count($ingresos), count($salidas));
+            
+            if ($maxTramos > 0) {
+                for ($i = 0; $i < $maxTramos; $i++) {
+                    $in = (!empty($ingresos[$i]) && $ingresos[$i] !== 'null') ? substr($ingresos[$i], 11, 5) : '--:--';
+                    $out = (!empty($salidas[$i]) && $salidas[$i] !== 'null') ? substr($salidas[$i], 11, 5) : '--:--';
+                    if ($in !== '--:--' || $out !== '--:--') {
+                        $arrReales[] = $in . ' - ' . $out;
+                    }
+                }
+            }
+            $row['real_formateada'] = !empty($arrReales) ? implode("\n", $arrReales) : '-';
+
+            // 5. Normalizar datos para la vista (compatibilidad con tus modales)
+            $row['estado_asistencia'] = $estadoGeneral;
+            $row['minutos_tardanza'] = (int) ($row['minutos_tardanza_total'] ?? 0);
+            $row['hora_entrada'] = $row['t1_entrada'] ?? '';
+            $row['hora_salida'] = $row['t1_salida'] ?? '';
+
+            $procesados[] = $row;
+        }
+        return $procesados;
+    }
+
     public function obtenerDashboardDiario(string $fecha, ?int $idTercero = null, string $estado = ''): array
     {
         $diaSemana = (int) date('N', strtotime($fecha));
@@ -222,12 +323,13 @@ class AsistenciaModel extends Modelo
                        :fecha_dashboard AS fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
-                       COALESCE(ah.t1_entrada, ah.t2_entrada, ah.t3_entrada) AS hora_entrada,
-                       COALESCE(ah.t3_salida, ah.t2_salida, ah.t1_salida) AS hora_salida,
-                       ar.hora_ingreso,
-                       ar.hora_salida AS hora_salida_real,
-                       ar.estado_asistencia,
-                       ar.minutos_tardanza
+                       ah.t1_entrada, ah.t1_salida,
+                       ah.t2_entrada, ah.t2_salida,
+                       ah.t3_entrada, ah.t3_salida,
+                       GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
+                       GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
+                       SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 LEFT JOIN asistencia_empleado_horario aeh ON aeh.id_tercero = t.id AND aeh.dia_semana = :dia_semana
@@ -247,22 +349,15 @@ class AsistenciaModel extends Modelo
             $params['id_tercero'] = $idTercero;
         }
 
-        if ($estado !== '') {
-            if ($estado === 'FALTA') {
-                $sql .= ' AND COALESCE(ar.estado_asistencia, "FALTA") = :estado';
-            } else {
-                $sql .= ' AND ar.estado_asistencia = :estado';
-            }
-            $params['estado'] = $estado;
-        }
-
-        $sql .= '
-                ORDER BY t.nombre_completo ASC';
+        // Ya no filtramos el estado en el SQL directo porque está concatenado, lo filtramos en PHP
+        $sql .= ' GROUP BY t.id, t.nombre_completo, ah.nombre, ah.t1_entrada, ah.t1_salida, ah.t2_entrada, ah.t2_salida, ah.t3_entrada, ah.t3_salida
+                  ORDER BY t.nombre_completo ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $this->procesarFilasDashboard($rows, $estado);
     }
 
     public function obtenerDashboardRango(string $desde, string $hasta, ?int $idTercero = null, string $estado = ''): array
@@ -271,12 +366,13 @@ class AsistenciaModel extends Modelo
                        ar.fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
-                       COALESCE(ah.t1_entrada, ah.t2_entrada, ah.t3_entrada) AS hora_entrada,
-                       COALESCE(ah.t3_salida, ah.t2_salida, ah.t1_salida) AS hora_salida,
-                       ar.hora_ingreso,
-                       ar.hora_salida AS hora_salida_real,
-                       ar.estado_asistencia,
-                       ar.minutos_tardanza
+                       ah.t1_entrada, ah.t1_salida,
+                       ah.t2_entrada, ah.t2_salida,
+                       ah.t3_entrada, ah.t3_salida,
+                       GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
+                       GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
+                       SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM asistencia_registros ar
                 INNER JOIN terceros t ON t.id = ar.id_tercero
                 LEFT JOIN asistencia_empleado_horario aeh
@@ -297,17 +393,14 @@ class AsistenciaModel extends Modelo
             $params['id_tercero'] = $idTercero;
         }
 
-        if ($estado !== '') {
-            $sql .= ' AND ar.estado_asistencia = :estado';
-            $params['estado'] = $estado;
-        }
-
-        $sql .= ' ORDER BY ar.fecha DESC, t.nombre_completo ASC';
+        $sql .= ' GROUP BY t.id, ar.fecha, t.nombre_completo, ah.nombre, ah.t1_entrada, ah.t1_salida, ah.t2_entrada, ah.t2_salida, ah.t3_entrada, ah.t3_salida
+                  ORDER BY ar.fecha DESC, t.nombre_completo ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $this->procesarFilasDashboard($rows, $estado);
     }
 
     public function listarEmpleadosParaIncidencias(): array
@@ -398,7 +491,7 @@ class AsistenciaModel extends Modelo
 
     public function gestionarExcepcionDiaria(array $data, int $userId): bool
     {
-        $sqlCheck = "SELECT id, hora_ingreso, hora_salida FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
+        $sqlCheck = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
         $stmtCheck = $this->db()->prepare($sqlCheck);
         $stmtCheck->execute([
             'id_tercero' => $data['id_tercero'],
@@ -406,46 +499,78 @@ class AsistenciaModel extends Modelo
         ]);
         $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-        $minutosTardanza = 0;
-        $horaRealLlegada = null;
+        $horaIngresoFinal = $data['hora_ingreso_real'] !== '' ? $data['fecha'] . ' ' . $data['hora_ingreso_real'] . ':00' : null;
+        $horaSalidaFinal = $data['hora_salida_real'] !== '' ? $data['fecha'] . ' ' . $data['hora_salida_real'] . ':00' : null;
 
-        if ($registroExistente && !empty($registroExistente['hora_ingreso'])) {
-            $horaRealLlegada = substr($registroExistente['hora_ingreso'], 11, 5); 
+        $minutosTardanza = 0;
+        $estadoFinal = 'INCOMPLETO';
+
+        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
+            $estadoFinal = 'PUNTUAL';
+        } elseif ($horaIngresoFinal === null && $horaSalidaFinal === null) {
+            $estadoFinal = 'FALTA';
         }
 
-        if ($horaRealLlegada && empty($data['aplicar_justificacion'])) {
-            $tsEsperada = strtotime($data['fecha'] . ' ' . $data['hora_entrada_esperada'] . ':00');
-            $tsReal = strtotime($registroExistente['hora_ingreso']);
-            
-            if ($tsReal > $tsEsperada) {
-                $minutosTardanza = (int) floor(($tsReal - $tsEsperada) / 60);
+        // --- Memoria Activa (Buscamos la info congelada) ---
+        $horaEntradaEsperada = $registroExistente['hora_entrada_esperada'] ?? null;
+        $horaSalidaEsperada = $registroExistente['hora_salida_esperada'] ?? null;
+        $toleranciaBD = (int) ($registroExistente['tolerancia_minutos'] ?? 0);
+
+        // Si no hay memoria (porque era un registro viejo), la buscamos
+        if (!$horaEntradaEsperada) {
+            $horario = $this->obtenerHorarioEsperado($data['id_tercero'], $data['fecha']);
+            if ($horario) {
+                $horaEntradaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_entrada'], 0, 8);
+                $horaSalidaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_salida'], 0, 8);
+                $toleranciaBD = (int) ($horario['tolerancia_minutos'] ?? 0);
             }
         }
 
-        $estadoFinal = 'FALTA';
-        
-        if (!empty($data['aplicar_justificacion'])) {
-            $estadoFinal = $data['nuevo_estado']; 
-            $minutosTardanza = 0; 
-        } elseif ($horaRealLlegada) {
-            $estadoFinal = ($minutosTardanza > 0) ? 'TARDANZA' : 'PUNTUAL';
+        // Calcular la tardanza usando la memoria
+        if ($horaIngresoFinal && $horaEntradaEsperada) {
+            $tsReal = strtotime($horaIngresoFinal);
+            $tsEsperada = strtotime($horaEntradaEsperada);
+
+            if ($tsReal > ($tsEsperada + ($toleranciaBD * 60))) {
+                $estadoFinal = 'TARDANZA';
+                $retrasoBruto = (int) floor(($tsReal - $tsEsperada) / 60);
+                $minutosTardanza = $retrasoBruto - $toleranciaBD;
+            }
         }
 
-        $observacionEstructurada = "Horario Excepción: {$data['hora_entrada_esperada']} a {$data['hora_salida_esperada']}.";
+        // --- Justificaciones sobrescriben el estado ---
         if (!empty($data['aplicar_justificacion'])) {
-            $observacionEstructurada .= " Justificación: " . $data['observacion'];
+            $estadoFinal = $data['nuevo_estado'];
+            $minutosTardanza = 0; 
+        }
+
+        // --- Construcción de Observaciones ---
+        $obsActual = $registroExistente && !empty($registroExistente['observaciones']) ? $registroExistente['observaciones'] . ' | ' : '';
+        $nuevaObs = $obsActual;
+        if (!empty($data['observacion'])) {
+            $prefix = !empty($data['aplicar_justificacion']) ? '[Justificado]' : '[Editado Manual]';
+            $nuevaObs .= $prefix . ' ' . $data['observacion'];
+        }
+
+        // Calcular horas trabajadas (opcional pero útil)
+        $horasTrabajadas = 0.00;
+        if ($horaIngresoFinal && $horaSalidaFinal) {
+            $horasTrabajadas = round((strtotime($horaSalidaFinal) - strtotime($horaIngresoFinal)) / 3600, 2);
         }
 
         $upsertData = [
             'id_tercero' => $data['id_tercero'],
             'fecha' => $data['fecha'],
-            'hora_ingreso' => $registroExistente['hora_ingreso'] ?? null,
-            'hora_salida' => $registroExistente['hora_salida'] ?? null,
+            'hora_ingreso' => $horaIngresoFinal,
+            'hora_salida' => $horaSalidaFinal,
+            'hora_entrada_esperada' => $horaEntradaEsperada,
+            'hora_salida_esperada' => $horaSalidaEsperada,
+            'tolerancia_minutos' => $toleranciaBD,
             'estado_asistencia' => $estadoFinal,
             'minutos_tardanza' => $minutosTardanza,
-            'horas_trabajadas' => 0, 
-            'horas_extras' => 0,
-            'observaciones' => $observacionEstructurada,
+            'horas_trabajadas' => $horasTrabajadas,
+            'horas_extras' => 0, 
+            'observaciones' => $nuevaObs,
         ];
 
         return $this->upsertRegistroAsistencia($upsertData, $userId);
@@ -468,38 +593,75 @@ class AsistenciaModel extends Modelo
                      : '';
         $nuevaObs = $obsActual . '[Manual]: ' . $data['observaciones'];
 
+        // 1. Definimos cuáles serán las horas finales a guardar
+        $horaIngresoFinal = !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : ($registroExistente['hora_ingreso'] ?? null);
+        $horaSalidaFinal = !empty($data['hora_salida']) ? $data['hora_salida'] : ($registroExistente['hora_salida'] ?? null);
+
+        // 2. Variables por defecto
+        $minutosTardanza = 0;
+        $estado_asistencia = 'INCOMPLETO';
+
+        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
+            $estado_asistencia = 'PUNTUAL';
+        } elseif ($horaIngresoFinal === null && $horaSalidaFinal === null) {
+            $estado_asistencia = 'FALTA';
+        }
+
+        // 3. APLICAMOS LA MAGIA DE LA TOLERANCIA
+        if ($horaIngresoFinal !== null) {
+            // Buscamos si tiene horario normal o especial
+            $horario = $this->obtenerHorarioEsperado($data['id_tercero'], $data['fecha']);
+            
+            if ($horario) {
+                $tsEsperada = strtotime($data['fecha'] . ' ' . substr((string) $horario['hora_entrada'], 0, 8));
+                $tsReal = strtotime($horaIngresoFinal);
+                $tolerancia = (int) ($horario['tolerancia_minutos'] ?? 0);
+
+                // Verificamos si sobrepasó la hora sumando la tolerancia
+                if ($tsReal > ($tsEsperada + ($tolerancia * 60))) {
+                    $estado_asistencia = 'TARDANZA';
+                    $retrasoBruto = (int) floor(($tsReal - $tsEsperada) / 60);
+                    $minutosTardanza = $retrasoBruto - $tolerancia; // Restamos el "colchón"
+                }
+            }
+        }
+
+        // 4. Guardamos o Actualizamos
         if ($registroExistente) {
             $sql = 'UPDATE asistencia_registros
-                    SET hora_ingreso = COALESCE(:hora_ingreso, hora_ingreso),
-                        hora_salida = COALESCE(:hora_salida, hora_salida),
+                    SET hora_ingreso = :hora_ingreso,
+                        hora_salida = :hora_salida,
+                        estado_asistencia = :estado,
+                        minutos_tardanza = :tardanza,
                         observaciones = :observaciones,
                         updated_at = NOW(),
                         updated_by = :updated_by
                     WHERE id = :id';
                     
             return $this->db()->prepare($sql)->execute([
-                'hora_ingreso'  => !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : null,
-                'hora_salida'   => !empty($data['hora_salida']) ? $data['hora_salida'] : null,
+                'hora_ingreso'  => $horaIngresoFinal,
+                'hora_salida'   => $horaSalidaFinal,
+                'estado'        => $estado_asistencia,
+                'tardanza'      => $minutosTardanza,
                 'observaciones' => $nuevaObs,
                 'updated_by'    => $userId,
                 'id'            => $registroExistente['id']
             ]);
         } else {
             $sql = 'INSERT INTO asistencia_registros
-                    (id_tercero, fecha, hora_ingreso, hora_salida, estado_asistencia, observaciones, created_at, created_by, updated_by)
-                    VALUES (:id_tercero, :fecha, :hora_ingreso, :hora_salida, :estado_asistencia, :observaciones, NOW(), :created_by, :updated_by)';
-            
-            $estado_asistencia = (!empty($data['hora_ingreso']) && !empty($data['hora_salida'])) ? 'PUNTUAL' : 'INCOMPLETO';
+                    (id_tercero, fecha, hora_ingreso, hora_salida, estado_asistencia, minutos_tardanza, observaciones, created_at, created_by, updated_by)
+                    VALUES (:id_tercero, :fecha, :hora_ingreso, :hora_salida, :estado, :tardanza, :observaciones, NOW(), :created_by, :updated_by)';
 
             return $this->db()->prepare($sql)->execute([
-                'id_tercero'        => $data['id_tercero'],
-                'fecha'             => $data['fecha'],
-                'hora_ingreso'      => !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : null,
-                'hora_salida'       => !empty($data['hora_salida']) ? $data['hora_salida'] : null,
-                'estado_asistencia' => $estado_asistencia,
-                'observaciones'     => $nuevaObs,
-                'created_by'        => $userId,
-                'updated_by'        => $userId
+                'id_tercero'    => $data['id_tercero'],
+                'fecha'         => $data['fecha'],
+                'hora_ingreso'  => $horaIngresoFinal,
+                'hora_salida'   => $horaSalidaFinal,
+                'estado'        => $estado_asistencia,
+                'tardanza'      => $minutosTardanza,
+                'observaciones' => $nuevaObs,
+                'created_by'    => $userId,
+                'updated_by'    => $userId
             ]);
         }
     }
