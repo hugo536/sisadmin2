@@ -84,7 +84,6 @@ if (!window.produccionJsInitialized) {
                     document.getElementById('editIdOrden').value = btnEditar.getAttribute('data-id') || '';
                     document.getElementById('editCantPlan').value = btnEditar.getAttribute('data-cantidad') || '';
                     document.getElementById('editFechaProgramada').value = btnEditar.getAttribute('data-fecha') || '';
-                    document.getElementById('editTurnoProgramado').value = btnEditar.getAttribute('data-turno') || '';
                     document.getElementById('editAlmacenPlanta').value = btnEditar.getAttribute('data-id-almacen') || '';
                     document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
                     
