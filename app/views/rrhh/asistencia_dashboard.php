@@ -227,8 +227,8 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                                             data-tercero="<?php echo (int)($row['id_tercero'] ?? 0); ?>"
                                             data-nombre="<?php echo htmlspecialchars($row['nombre_completo'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                             data-fecha="<?php echo htmlspecialchars($row['fecha'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-in="<?php echo $real_in; ?>"
-                                            data-out="<?php echo $real_out; ?>"
+                                            data-ingresos="<?php echo htmlspecialchars((string)($row['horas_ingreso'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-salidas="<?php echo htmlspecialchars((string)($row['horas_salida'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-bs-toggle="tooltip" title="Gestionar Registro">
                                             <i class="bi bi-gear fs-5"></i>
                                         </button>
@@ -279,15 +279,25 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                     </div>
                     
                     <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">1. Editar / Completar Marcaciones</h6>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Ingreso Real</label>
-                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_ingreso_real" id="gestHoraIngreso">
+                    <div class="row g-2 mb-2 fw-semibold small text-muted">
+                        <div class="col-4">Tramo</div>
+                        <div class="col-4">Hora Ingreso Real</div>
+                        <div class="col-4">Hora Salida Real</div>
+                    </div>
+                    <div id="gestTramosContainer" class="mb-4">
+                        <?php for ($i = 1; $i <= 3; $i++): ?>
+                        <div class="row g-2 mb-2 tramo-edicion" id="gestTramo<?php echo $i; ?>">
+                            <div class="col-4 d-flex align-items-center">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Tramo <?php echo $i; ?></span>
+                            </div>
+                            <div class="col-4">
+                                <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="horas_ingreso_real[]" id="gestHoraIngreso<?php echo $i; ?>">
+                            </div>
+                            <div class="col-4">
+                                <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="horas_salida_real[]" id="gestHoraSalida<?php echo $i; ?>">
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida Real</label>
-                            <input type="time" class="form-control bg-white shadow-sm border-secondary-subtle" name="hora_salida_real" id="gestHoraSalida">
-                        </div>
+                        <?php endfor; ?>
                         <div class="col-12 mt-1">
                             <small class="text-muted"><i class="bi bi-shield-lock me-1"></i><strong>Memoria Activa:</strong> La tardanza se recalculará automáticamente usando el horario y tolerancia oficiales de ese día.</small>
                         </div>

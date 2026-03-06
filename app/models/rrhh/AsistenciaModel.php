@@ -171,6 +171,116 @@ class AsistenciaModel extends Modelo
         return $rowRegular ?: null;
     }
 
+    public function obtenerTurnoEfectivoPorFecha(int $idTercero, string $fecha): ?array
+    {
+        $sqlExcepcion = "
+            SELECT ah.id,
+                   ah.nombre,
+                   ah.t1_entrada, ah.t1_salida,
+                   ah.t2_entrada, ah.t2_salida,
+                   ah.t3_entrada, ah.t3_salida,
+                   ah.tolerancia_minutos,
+                   1 AS es_excepcion
+            FROM asistencia_grupo_empleados ge
+            INNER JOIN asistencia_planificacion p ON ge.id_grupo = p.id_grupo
+            INNER JOIN asistencia_horarios ah ON p.id_horario = ah.id
+            INNER JOIN asistencia_grupos g ON ge.id_grupo = g.id
+            WHERE ge.id_tercero = :id_tercero
+              AND g.estado = 1
+              AND :fecha BETWEEN p.fecha_inicio AND p.fecha_fin
+            LIMIT 1
+        ";
+
+        $stmtExcepcion = $this->db()->prepare($sqlExcepcion);
+        $stmtExcepcion->execute([
+            'id_tercero' => $idTercero,
+            'fecha' => $fecha,
+        ]);
+
+        $turno = $stmtExcepcion->fetch(PDO::FETCH_ASSOC);
+        if ($turno) {
+            return $turno;
+        }
+
+        $diaSemana = (int) date('N', strtotime($fecha));
+        $sqlRegular = 'SELECT ah.id,
+                              ah.nombre,
+                              ah.t1_entrada, ah.t1_salida,
+                              ah.t2_entrada, ah.t2_salida,
+                              ah.t3_entrada, ah.t3_salida,
+                              ah.tolerancia_minutos,
+                              0 AS es_excepcion
+                       FROM asistencia_empleado_horario aeh
+                       INNER JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
+                       WHERE aeh.id_tercero = :id_tercero
+                         AND aeh.dia_semana = :dia_semana
+                         AND ah.estado = 1
+                         AND ah.deleted_at IS NULL
+                       LIMIT 1';
+
+        $stmtRegular = $this->db()->prepare($sqlRegular);
+        $stmtRegular->execute([
+            'id_tercero' => $idTercero,
+            'dia_semana' => $diaSemana,
+        ]);
+
+        $rowRegular = $stmtRegular->fetch(PDO::FETCH_ASSOC);
+        return $rowRegular ?: null;
+    }
+
+    public function obtenerDetalleMarcacionesDia(int $idTercero, string $fecha): array
+    {
+        $turno = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+
+        $esperadas = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $entrada = (string) ($turno['t' . $i . '_entrada'] ?? '');
+            $salida = (string) ($turno['t' . $i . '_salida'] ?? '');
+            if ($entrada !== '' || $salida !== '') {
+                $esperadas[] = [
+                    'tramo' => $i,
+                    'entrada' => $entrada !== '' ? substr($entrada, 0, 5) : '',
+                    'salida' => $salida !== '' ? substr($salida, 0, 5) : '',
+                ];
+            }
+        }
+
+        $sqlRegistro = 'SELECT hora_ingreso, hora_salida
+                        FROM asistencia_registros
+                        WHERE id_tercero = :id_tercero AND fecha = :fecha
+                        ORDER BY id ASC';
+        $stmtRegistro = $this->db()->prepare($sqlRegistro);
+        $stmtRegistro->execute([
+            'id_tercero' => $idTercero,
+            'fecha' => $fecha,
+        ]);
+        $rowsRegistro = $stmtRegistro->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $ingresos = [];
+        $salidas = [];
+        foreach ($rowsRegistro as $row) {
+            if (!empty($row['hora_ingreso'])) {
+                $ingresos[] = substr((string) $row['hora_ingreso'], 11, 5);
+            }
+            if (!empty($row['hora_salida'])) {
+                $salidas[] = substr((string) $row['hora_salida'], 11, 5);
+            }
+        }
+
+        return [
+            'turno' => [
+                'id' => (int) ($turno['id'] ?? 0),
+                'nombre' => (string) ($turno['nombre'] ?? ''),
+                'es_excepcion' => (int) ($turno['es_excepcion'] ?? 0),
+                'tolerancia_minutos' => (int) ($turno['tolerancia_minutos'] ?? 0),
+            ],
+            'tramos_esperados' => $esperadas,
+            'tramos_activos' => count($esperadas) > 0 ? count($esperadas) : 1,
+            'ingresos_reales' => array_slice($ingresos, 0, 3),
+            'salidas_reales' => array_slice($salidas, 0, 3),
+        ];
+    }
+
     public function upsertRegistroAsistencia(array $data, int $userId): bool
     {
         $sql = 'INSERT INTO asistencia_registros (
@@ -306,6 +416,7 @@ class AsistenciaModel extends Modelo
 
             // 5. Normalizar datos para la vista (compatibilidad con tus modales)
             $row['estado_asistencia'] = $estadoGeneral;
+            $row['id_tercero'] = (int) ($row['id_tercero'] ?? $row['id'] ?? 0);
             $row['minutos_tardanza'] = (int) ($row['minutos_tardanza_total'] ?? 0);
             $row['hora_entrada'] = $row['t1_entrada'] ?? '';
             $row['hora_salida'] = $row['t1_salida'] ?? '';
@@ -320,6 +431,7 @@ class AsistenciaModel extends Modelo
         $diaSemana = (int) date('N', strtotime($fecha));
 
         $sql = 'SELECT t.id,
+                       t.id AS id_tercero,
                        :fecha_dashboard AS fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
@@ -363,6 +475,7 @@ class AsistenciaModel extends Modelo
     public function obtenerDashboardRango(string $desde, string $hasta, ?int $idTercero = null, string $estado = ''): array
     {
         $sql = 'SELECT t.id,
+                       t.id AS id_tercero,
                        ar.fecha,
                        t.nombre_completo,
                        ah.nombre AS horario_nombre,
@@ -499,8 +612,25 @@ class AsistenciaModel extends Modelo
         ]);
         $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-        $horaIngresoFinal = $data['hora_ingreso_real'] !== '' ? $data['fecha'] . ' ' . $data['hora_ingreso_real'] . ':00' : null;
-        $horaSalidaFinal = $data['hora_salida_real'] !== '' ? $data['fecha'] . ' ' . $data['hora_salida_real'] . ':00' : null;
+        $ingresos = $data['horas_ingreso_real'] ?? [];
+        $salidas = $data['horas_salida_real'] ?? [];
+        if (!is_array($ingresos)) $ingresos = [];
+        if (!is_array($salidas)) $salidas = [];
+
+        $ingresos = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $ingresos), static fn($h) => $h !== ''));
+        $salidas = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $salidas), static fn($h) => $h !== ''));
+
+        $horaIngresoManual = trim((string) ($data['hora_ingreso_real'] ?? ''));
+        $horaSalidaManual = trim((string) ($data['hora_salida_real'] ?? ''));
+        if ($horaIngresoManual !== '' && empty($ingresos)) {
+            $ingresos[] = $horaIngresoManual;
+        }
+        if ($horaSalidaManual !== '' && empty($salidas)) {
+            $salidas[] = $horaSalidaManual;
+        }
+
+        $horaIngresoFinal = !empty($ingresos) ? $data['fecha'] . ' ' . $ingresos[0] . ':00' : null;
+        $horaSalidaFinal = !empty($salidas) ? $data['fecha'] . ' ' . $salidas[count($salidas) - 1] . ':00' : null;
 
         $minutosTardanza = 0;
         $estadoFinal = 'INCOMPLETO';
