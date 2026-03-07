@@ -73,6 +73,7 @@ class PlanillasModel extends Modelo
     public function generarLoteNomina(array $datos, int $userId): int
     {
         $db = $this->db();
+        $frecuencia = strtoupper((string)($datos['frecuencia'] ?? 'TODOS'));
         
         try {
             $db->beginTransaction();
@@ -89,7 +90,7 @@ class PlanillasModel extends Modelo
                 'nombre' => $datos['nombre_lote'],
                 'fecha_inicio' => $datos['fecha_inicio'],
                 'fecha_fin' => $datos['fecha_fin'],
-                'frecuencia' => $datos['frecuencia'] ?? 'TODOS',
+                'frecuencia' => $frecuencia,
                 'created_by' => $userId
             ]);
             
@@ -109,14 +110,14 @@ class PlanillasModel extends Modelo
                               LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha BETWEEN :desde AND :hasta
                               WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
                               
-            if ($datos['frecuencia'] !== 'TODOS') {
+            if ($frecuencia !== 'TODOS') {
                 $sqlAsistencia .= " AND UPPER(te.tipo_pago) = :frecuencia";
             }
             $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.pago_diario";
             
             $stmtParams = ['desde' => $datos['fecha_inicio'], 'hasta' => $datos['fecha_fin']];
-            if ($datos['frecuencia'] !== 'TODOS') {
-                $stmtParams['frecuencia'] = strtoupper($datos['frecuencia']);
+            if ($frecuencia !== 'TODOS') {
+                $stmtParams['frecuencia'] = $frecuencia;
             }
             
             $stmtAsist = $db->prepare($sqlAsistencia);
