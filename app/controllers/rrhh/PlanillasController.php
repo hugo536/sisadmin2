@@ -128,6 +128,30 @@ class PlanillasController extends Controlador
         }
     }
 
+    public function recalcular(): void
+    {
+        AuthMiddleware::handle();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('planillas');
+            return;
+        }
+
+        $idLote = (int) ($_POST['id_lote'] ?? 0);
+        if ($idLote <= 0) {
+            redirect('planillas?error=' . urlencode('Lote inválido para recalcular.'));
+            return;
+        }
+
+        try {
+            $userId = AuthMiddleware::getUserId();
+            $this->planillasModel->recalcularLoteNomina($idLote, $userId);
+            redirect('planillas?id_lote=' . $idLote . '&success=' . urlencode('Lote recalculado con datos actualizados.'));
+        } catch (Exception $e) {
+            redirect('planillas?id_lote=' . $idLote . '&error=' . urlencode($e->getMessage()));
+        }
+    }
+
     /**
      * ========================================================================
      * 5. TESORERÍA (Pagar todo el bloque)
