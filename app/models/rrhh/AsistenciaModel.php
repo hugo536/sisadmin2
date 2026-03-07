@@ -281,6 +281,181 @@ class AsistenciaModel extends Modelo
         ];
     }
 
+    /**
+     * Calcula el resumen diario desde un listado cronológico de marcas biométricas.
+     * Reglas:
+     * - Si no hay salida (solo ingreso), el estado queda INCOMPLETO y no calcula tardanza.
+     * - La tardanza se suma por tramo esperado usando las entradas reales detectadas.
+     */
+    public function calcularResumenDesdeMarcas(int $idTercero, string $fecha, array $marcas): array
+    {
+        $marcasNormalizadas = array_values(array_filter(array_map(static fn($m) => trim((string) $m), $marcas), static fn($m) => $m !== ''));
+        sort($marcasNormalizadas);
+
+        $horaIngreso = $marcasNormalizadas[0] ?? null;
+        $marcasCount = count($marcasNormalizadas);
+        $diaCompleto = $marcasCount >= 2 && (($marcasCount % 2) === 0);
+        $horaSalida = $diaCompleto ? $marcasNormalizadas[$marcasCount - 1] : null;
+
+        $ingresos = [];
+        $salidas = [];
+        foreach ($marcasNormalizadas as $index => $marca) {
+            if (($index % 2) === 0) {
+                $ingresos[] = $marca;
+            } else {
+                $salidas[] = $marca;
+            }
+        }
+
+        $turno = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+        $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
+        [$horaEntradaEsperada, $horaSalidaEsperada] = $this->obtenerLimitesEsperadosDesdeTurno($fecha, $turno);
+        $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
+
+        if (empty($entradasEsperadas) && $horaEntradaEsperada) {
+            $entradasEsperadas = [substr((string) $horaEntradaEsperada, 11, 8)];
+        }
+
+        $estado = 'INCOMPLETO';
+        $minutosTardanza = 0;
+        $detalleTardanza = [];
+        if ($diaCompleto && $horaIngreso !== null && $horaSalida !== null) {
+            $estado = 'PUNTUAL';
+            $calcTardanza = $this->calcularTardanzaPorTramos($fecha, $ingresos, $entradasEsperadas, $tolerancia);
+            $minutosTardanza = $calcTardanza['total'];
+            $detalleTardanza = $calcTardanza['detalle'];
+
+            if ($minutosTardanza > 0) {
+                $estado = 'TARDANZA';
+            }
+        } elseif ($horaIngreso === null) {
+            $estado = 'FALTA';
+        }
+
+        $horasTrabajadas = 0.00;
+        if ($diaCompleto && $horaIngreso !== null && $horaSalida !== null) {
+            $tsIn = strtotime($horaIngreso);
+            $tsOut = strtotime($horaSalida);
+            if ($tsOut > $tsIn) {
+                $horasTrabajadas = round(($tsOut - $tsIn) / 3600, 2);
+            }
+        }
+
+        $horasExtras = 0.00;
+        if ($horaEntradaEsperada && $horaSalidaEsperada) {
+            $esperadaInTs = strtotime($horaEntradaEsperada);
+            $esperadaOutTs = strtotime($horaSalidaEsperada);
+            if ($esperadaOutTs > $esperadaInTs) {
+                $horasEsperadas = ($esperadaOutTs - $esperadaInTs) / 3600;
+                if ($horasTrabajadas > $horasEsperadas) {
+                    $horasExtras = round($horasTrabajadas - $horasEsperadas, 2);
+                }
+            }
+        }
+
+        return [
+            'hora_ingreso' => $horaIngreso,
+            'hora_salida' => $horaSalida,
+            'hora_entrada_esperada' => $horaEntradaEsperada,
+            'hora_salida_esperada' => $horaSalidaEsperada,
+            'tolerancia_minutos' => $tolerancia,
+            'estado_asistencia' => $estado,
+            'minutos_tardanza' => $minutosTardanza,
+            'horas_trabajadas' => $horasTrabajadas,
+            'horas_extras' => $horasExtras,
+            'detalle_tardanza' => $detalleTardanza,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function obtenerEntradasEsperadasDesdeTurno(?array $turno): array
+    {
+        $entradas = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $entrada = trim((string) ($turno['t' . $i . '_entrada'] ?? ''));
+            if ($entrada !== '') {
+                $entradas[] = substr($entrada, 0, 8);
+            }
+        }
+        return $entradas;
+    }
+
+    /**
+     * @return array{0:?string,1:?string}
+     */
+    private function obtenerLimitesEsperadosDesdeTurno(string $fecha, ?array $turno): array
+    {
+        $entrada = null;
+        $salida = null;
+
+        for ($i = 1; $i <= 3; $i++) {
+            $e = trim((string) ($turno['t' . $i . '_entrada'] ?? ''));
+            if ($e !== '' && $entrada === null) {
+                $entrada = $fecha . ' ' . substr($e, 0, 8);
+            }
+        }
+
+        for ($i = 3; $i >= 1; $i--) {
+            $s = trim((string) ($turno['t' . $i . '_salida'] ?? ''));
+            if ($s !== '' && $salida === null) {
+                $salida = $fecha . ' ' . substr($s, 0, 8);
+            }
+        }
+
+        return [$entrada, $salida];
+    }
+
+    /**
+     * Suma tardanza por tramo, comparando cada ingreso real contra su entrada esperada.
+     * Se mantiene el redondeo por minuto usando floor().
+     *
+     * @param array<int, string> $ingresosReales
+     * @param array<int, string> $entradasEsperadas
+     * @return array{total:int,detalle:array<int,array<string,mixed>>}
+     */
+    private function calcularTardanzaPorTramos(string $fecha, array $ingresosReales, array $entradasEsperadas, int $tolerancia): array
+    {
+        $total = 0;
+        $detalle = [];
+
+        $ingresosNorm = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $ingresosReales), static fn($h) => $h !== ''));
+        sort($ingresosNorm);
+
+        foreach ($entradasEsperadas as $idx => $horaEsperada) {
+            if (!isset($ingresosNorm[$idx])) {
+                break;
+            }
+
+            $esperadaTs = strtotime($fecha . ' ' . substr((string) $horaEsperada, 0, 8));
+            $realRaw = (string) $ingresosNorm[$idx];
+            $realTs = strpos($realRaw, ' ') !== false
+                ? strtotime($realRaw)
+                : strtotime($fecha . ' ' . substr($realRaw, 0, 8));
+
+            if ($esperadaTs === false || $realTs === false) {
+                continue;
+            }
+
+            $minutos = 0;
+            if ($realTs > ($esperadaTs + ($tolerancia * 60))) {
+                $retrasoBruto = (int) floor(($realTs - $esperadaTs) / 60);
+                $minutos = max(0, $retrasoBruto - $tolerancia);
+            }
+
+            $total += $minutos;
+            $detalle[] = [
+                'tramo' => $idx + 1,
+                'esperada' => substr((string) $horaEsperada, 0, 5),
+                'real' => date('H:i', $realTs),
+                'minutos' => $minutos,
+            ];
+        }
+
+        return ['total' => $total, 'detalle' => $detalle];
+    }
+
     public function upsertRegistroAsistencia(array $data, int $userId): bool
     {
         $sql = 'INSERT INTO asistencia_registros (
@@ -390,11 +565,18 @@ class AsistenciaModel extends Modelo
                 continue;
             }
 
-            // 3. Formatear Horas Esperadas Compactas
+            // 3. Formatear Horas Esperadas Compactas (prioriza memoria congelada del registro)
             $arrEsperadas = [];
-            if (!empty($row['t1_entrada'])) $arrEsperadas[] = substr($row['t1_entrada'], 0, 5) . ' - ' . (!empty($row['t1_salida']) ? substr($row['t1_salida'], 0, 5) : '--:--');
-            if (!empty($row['t2_entrada'])) $arrEsperadas[] = substr($row['t2_entrada'], 0, 5) . ' - ' . (!empty($row['t2_salida']) ? substr($row['t2_salida'], 0, 5) : '--:--');
-            if (!empty($row['t3_entrada'])) $arrEsperadas[] = substr($row['t3_entrada'], 0, 5) . ' - ' . (!empty($row['t3_salida']) ? substr($row['t3_salida'], 0, 5) : '--:--');
+            $entradaMemoria = trim((string) ($row['hora_entrada_esperada_registro'] ?? ''));
+            $salidaMemoria = trim((string) ($row['hora_salida_esperada_registro'] ?? ''));
+
+            if ($entradaMemoria !== '') {
+                $arrEsperadas[] = substr($entradaMemoria, 11, 5) . ' - ' . ($salidaMemoria !== '' ? substr($salidaMemoria, 11, 5) : '--:--');
+            } else {
+                if (!empty($row['t1_entrada'])) $arrEsperadas[] = substr($row['t1_entrada'], 0, 5) . ' - ' . (!empty($row['t1_salida']) ? substr($row['t1_salida'], 0, 5) : '--:--');
+                if (!empty($row['t2_entrada'])) $arrEsperadas[] = substr($row['t2_entrada'], 0, 5) . ' - ' . (!empty($row['t2_salida']) ? substr($row['t2_salida'], 0, 5) : '--:--');
+                if (!empty($row['t3_entrada'])) $arrEsperadas[] = substr($row['t3_entrada'], 0, 5) . ' - ' . (!empty($row['t3_salida']) ? substr($row['t3_salida'], 0, 5) : '--:--');
+            }
             $row['esperada_formateada'] = !empty($arrEsperadas) ? implode("\n", $arrEsperadas) : '-';
 
             // 4. Formatear Horas Reales Compactas
@@ -413,6 +595,46 @@ class AsistenciaModel extends Modelo
                 }
             }
             $row['real_formateada'] = !empty($arrReales) ? implode("\n", $arrReales) : '-';
+
+            // 4.1 Recalcular tardanza mostrada para evitar desfasajes históricos
+            $estadoGeneralUpper = strtoupper((string) $estadoGeneral);
+            $esJustificada = strpos($estadoGeneralUpper, 'JUSTIFICADA') !== false
+                || strpos($estadoGeneralUpper, 'PERMISO') !== false
+                || strpos($estadoGeneralUpper, 'OLVIDO') !== false;
+
+            $ingresosCalc = [];
+            foreach ($ingresos as $ing) {
+                $ing = trim((string) $ing);
+                if ($ing !== '' && $ing !== 'null') {
+                    $ingresosCalc[] = $ing;
+                }
+            }
+            $salidasCalc = [];
+            foreach ($salidas as $out) {
+                $out = trim((string) $out);
+                if ($out !== '' && $out !== 'null') {
+                    $salidasCalc[] = $out;
+                }
+            }
+
+            $diaCompleto = count($ingresosCalc) > 0 && count($salidasCalc) > 0 && count($ingresosCalc) === count($salidasCalc);
+            if ($diaCompleto && !$esJustificada) {
+                $entradasEsperadasCalc = [];
+                if ($entradaMemoria !== '') {
+                    $entradasEsperadasCalc[] = substr($entradaMemoria, 11, 8);
+                } else {
+                    if (!empty($row['t1_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t1_entrada'], 0, 8);
+                    if (!empty($row['t2_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t2_entrada'], 0, 8);
+                    if (!empty($row['t3_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t3_entrada'], 0, 8);
+                }
+
+                $toleranciaCalc = (int) ($row['tolerancia_minutos_registro'] ?? 0);
+                $calc = $this->calcularTardanzaPorTramos((string) ($row['fecha'] ?? ''), $ingresosCalc, $entradasEsperadasCalc, $toleranciaCalc);
+                $row['minutos_tardanza_total'] = (int) ($calc['total'] ?? 0);
+                if ($estadoGeneral === 'TARDANZA' && (int) $row['minutos_tardanza_total'] === 0) {
+                    $estadoGeneral = 'PUNTUAL';
+                }
+            }
 
             // 5. Normalizar datos para la vista (compatibilidad con tus modales)
             $row['estado_asistencia'] = $estadoGeneral;
@@ -440,6 +662,9 @@ class AsistenciaModel extends Modelo
                        ah.t3_entrada, ah.t3_salida,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
+                       MAX(ar.hora_salida_esperada) AS hora_salida_esperada_registro,
+                       MAX(ar.tolerancia_minutos) AS tolerancia_minutos_registro,
                        GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
                        SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM terceros t
@@ -484,6 +709,9 @@ class AsistenciaModel extends Modelo
                        ah.t3_entrada, ah.t3_salida,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
+                       MAX(ar.hora_salida_esperada) AS hora_salida_esperada_registro,
+                       MAX(ar.tolerancia_minutos) AS tolerancia_minutos_registro,
                        GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
                        SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM asistencia_registros ar
@@ -656,15 +884,18 @@ class AsistenciaModel extends Modelo
             }
         }
 
-        // Calcular la tardanza usando la memoria
-        if ($horaIngresoFinal && $horaEntradaEsperada) {
-            $tsReal = strtotime($horaIngresoFinal);
-            $tsEsperada = strtotime($horaEntradaEsperada);
+        // Calcular la tardanza por tramo (solo si el día está completo: ingreso + salida)
+        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
+            $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
+            $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
+            if (empty($entradasEsperadas) && $horaEntradaEsperada) {
+                $entradasEsperadas = [substr((string) $horaEntradaEsperada, 11, 8)];
+            }
 
-            if ($tsReal > ($tsEsperada + ($toleranciaBD * 60))) {
+            $calcTardanza = $this->calcularTardanzaPorTramos((string) $data['fecha'], $ingresos, $entradasEsperadas, $toleranciaBD);
+            $minutosTardanza = (int) ($calcTardanza['total'] ?? 0);
+            if ($minutosTardanza > 0) {
                 $estadoFinal = 'TARDANZA';
-                $retrasoBruto = (int) floor(($tsReal - $tsEsperada) / 60);
-                $minutosTardanza = $retrasoBruto - $toleranciaBD;
             }
         }
 
@@ -737,22 +968,33 @@ class AsistenciaModel extends Modelo
             $estado_asistencia = 'FALTA';
         }
 
-        // 3. APLICAMOS LA MAGIA DE LA TOLERANCIA
-        if ($horaIngresoFinal !== null) {
-            // Buscamos si tiene horario normal o especial
-            $horario = $this->obtenerHorarioEsperado($data['id_tercero'], $data['fecha']);
-            
-            if ($horario) {
-                $tsEsperada = strtotime($data['fecha'] . ' ' . substr((string) $horario['hora_entrada'], 0, 8));
-                $tsReal = strtotime($horaIngresoFinal);
-                $tolerancia = (int) ($horario['tolerancia_minutos'] ?? 0);
+        // 3. APLICAMOS LA LÓGICA DE TARDANZA POR TRAMO (solo cuando está completo)
+        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
+            $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
+            $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
+            $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
 
-                // Verificamos si sobrepasó la hora sumando la tolerancia
-                if ($tsReal > ($tsEsperada + ($tolerancia * 60))) {
-                    $estado_asistencia = 'TARDANZA';
-                    $retrasoBruto = (int) floor(($tsReal - $tsEsperada) / 60);
-                    $minutosTardanza = $retrasoBruto - $tolerancia; // Restamos el "colchón"
+            if (empty($entradasEsperadas)) {
+                $horario = $this->obtenerHorarioEsperado((int) $data['id_tercero'], (string) $data['fecha']);
+                if ($horario) {
+                    $entradaHorario = trim((string) ($horario['hora_entrada'] ?? ''));
+                    if ($entradaHorario !== '') {
+                        $entradasEsperadas = [substr($entradaHorario, 0, 8)];
+                    }
+                    $tolerancia = (int) ($horario['tolerancia_minutos'] ?? $tolerancia);
                 }
+            }
+
+            $ingresos = [];
+            if (!empty($horaIngresoFinal)) {
+                $ingresos[] = $horaIngresoFinal;
+            }
+
+            $calcTardanza = $this->calcularTardanzaPorTramos((string) $data['fecha'], $ingresos, $entradasEsperadas, $tolerancia);
+            $minutosTardanza = (int) ($calcTardanza['total'] ?? 0);
+
+            if ($minutosTardanza > 0) {
+                $estado_asistencia = 'TARDANZA';
             }
         }
 

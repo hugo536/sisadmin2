@@ -126,7 +126,7 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                             <th class="text-secondary fw-semibold text-center">Hora Esperada</th>
                             <th class="text-secondary fw-semibold text-center">Hora Real</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
-                            <th class="text-center text-secondary fw-semibold">Min. Tardanza</th>
+                            <th class="text-center text-secondary fw-semibold" title="Suma de minutos de tardanza del día">Min. Tardanza (Total día)</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -180,7 +180,7 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
                                     </td>
                                     <td class="text-center align-top pt-3">
                                         <?php if((int)($row['minutos_tardanza'] ?? 0) > 0): ?>
-                                            <span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="bi bi-exclamation-triangle me-1"></i><?php echo (int) ($row['minutos_tardanza']); ?> min</span>
+                                            <span class="badge bg-danger text-white rounded-pill px-2 py-1" title="Total de tardanza acumulada del día"><i class="bi bi-exclamation-triangle me-1"></i><?php echo (int) ($row['minutos_tardanza']); ?> min</span>
                                         <?php else: ?>
                                             <span class="text-muted opacity-50">0</span>
                                         <?php endif; ?>
