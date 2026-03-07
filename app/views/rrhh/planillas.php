@@ -1,406 +1,435 @@
 <?php
-// Inicialización
-$desde = $desde ?? date('Y-m-d');
-$hasta = $hasta ?? date('Y-m-d');
-$idTercero = (int) ($id_tercero ?? 0);
-$frecuencia = $frecuencia ?? ''; 
-$empleados = $empleados ?? [];
-$planillas = $planillas ?? [];
-$totales = $totales ?? ['planilla' => 0, 'descuentos' => 0, 'extras' => 0];
+// Inicialización segura de variables
+$loteActual = $lote_actual ?? null; 
+$lotesRecientes = $lotes_recientes ?? [];
+$detallesNomina = $detalles_nomina ?? []; 
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? [];
 
-// Calculamos la semana actual para el atajo
-$semanaActualFormat = date('Y-\WW', strtotime($desde)); 
+// Extraemos totales para los KPIs
+$estadoLote = $loteActual['estado'] ?? 'BORRADOR';
+$nominaTotal = (float) ($loteActual['total_bruto'] ?? 0);
+$deducciones = (float) ($loteActual['total_deducciones'] ?? 0);
+$netoPagar = (float) ($loteActual['total_neto'] ?? 0);
 ?>
 
 <div class="container-fluid p-4">
-    
+
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-cash-coin me-2 text-primary"></i> Planillas y Pagos
+                <i class="bi bi-wallet-fill me-2 text-primary"></i> Procesamiento de Nómina
             </h1>
-            <p class="text-muted small mb-0 ms-1">Liquidación de nómina, cálculo de horas extras y registro de pagos.</p>
+            <p class="text-muted small mb-0 ms-1">Generación de lotes, consolidación financiera, bonos y dispersión de pagos.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap justify-content-end d-print-none">
-            <button type="button" id="btnImprimirResumen" class="btn btn-white border shadow-sm text-secondary fw-semibold" onclick="window.print()">
-                <i class="bi bi-printer me-2 text-info"></i>Imprimir Resumen
+
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <div class="dropdown me-2">
+                <button class="btn btn-white border shadow-sm text-secondary fw-semibold dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-folder2-open me-2 text-warning"></i>
+                    <?php echo $loteActual ? htmlspecialchars($loteActual['referencia']) : 'Seleccionar Lote...'; ?>
+                </button>
+                <ul class="dropdown-menu shadow-sm">
+                    <?php foreach ($lotesRecientes as $l): ?>
+                        <li><a class="dropdown-item fw-medium" href="?ruta=nominas&id_lote=<?php echo (int)$l['id']; ?>"><?php echo htmlspecialchars($l['referencia'] . ' - ' . $l['nombre']); ?></a></li>
+                    <?php endforeach; ?>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-primary fw-bold" href="?ruta=nominas/historial"><i class="bi bi-search me-2"></i>Ver todos los lotes</a></li>
+                </ul>
+            </div>
+
+            <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
+                <form method="post" action="<?php echo e(route_url('nominas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Esto congelará los datos para Finanzas.');">
+                    <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
+                    <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
+                        <i class="bi bi-check-circle me-2"></i>Aprobar Lote
+                    </button>
+                </form>
+            <?php endif; ?>
+            
+            <button class="btn btn-success shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Lote
             </button>
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100 bg-primary text-white" style="border-radius: 12px;">
-                <div class="card-body p-4 d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="small text-white-50 text-uppercase fw-bold mb-1">Total Nómina Neta</p>
-                        <h3 class="fw-bold mb-0" id="totalPlanilla">S/ <?php echo number_format($totales['planilla'], 2); ?></h3>
+    <?php if (!$loteActual): ?>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-5 text-center">
+                <i class="bi bi-folder-plus fs-1 text-muted opacity-50 d-block mb-3"></i>
+                <h5 class="fw-bold text-dark">No hay un lote de nómina seleccionado</h5>
+                <p class="text-muted mb-4">Seleccione un lote en el menú superior o genere uno nuevo para consolidar los pagos del periodo.</p>
+                <button class="btn btn-primary shadow-sm fw-semibold px-4" type="button" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
+                    Generar Nuevo Lote
+                </button>
+            </div>
+        </div>
+    <?php else: ?>
+        
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4 d-flex justify-content-center">
+                <div class="d-flex align-items-center w-75 position-relative">
+                    <?php 
+                        $progreso = ($estadoLote === 'BORRADOR') ? 0 : (($estadoLote === 'APROBADO') ? 50 : 100); 
+                    ?>
+                    <div class="progress w-100" style="height: 3px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progreso; ?>%;"></div>
                     </div>
-                    <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                        <i class="bi bi-wallet2 fs-4 text-white"></i>
-                    </div>
+                    
+                    <button class="position-absolute top-50 start-0 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 0 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Borrador"><i class="bi bi-calculator fs-5"></i></button>
+                    <button class="position-absolute top-50 start-50 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 50 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Aprobado"><i class="bi bi-check2-all fs-5"></i></button>
+                    <button class="position-absolute top-50 start-100 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 100 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Pagado"><i class="bi bi-bank fs-5"></i></button>
+                    
+                    <div class="position-absolute top-100 start-0 translate-middle mt-3 small fw-bold <?php echo $progreso >= 0 ? 'text-success' : 'text-muted'; ?>">Consolidado</div>
+                    <div class="position-absolute top-100 start-50 translate-middle mt-3 small fw-bold <?php echo $progreso >= 50 ? 'text-success' : 'text-muted'; ?>">Aprobado</div>
+                    <div class="position-absolute top-100 start-100 translate-middle mt-3 small fw-bold <?php echo $progreso >= 100 ? 'text-success' : 'text-muted'; ?>">Pagado</div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
-                <div class="card-body p-4 d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="small text-muted text-uppercase fw-bold mb-1">Total Horas Extras</p>
-                        <h3 class="fw-bold text-success mb-0" id="totalExtras">+ S/ <?php echo number_format($totales['extras'], 2); ?></h3>
-                    </div>
-                    <div class="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                        <i class="bi bi-plus-circle text-success fs-4"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
-                <div class="card-body p-4 d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="small text-muted text-uppercase fw-bold mb-1">Total Descuentos</p>
-                        <h3 class="fw-bold text-danger mb-0" id="totalDescuentos">- S/ <?php echo number_format($totales['descuentos'], 2); ?></h3>
-                    </div>
-                    <div class="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                        <i class="bi bi-dash-circle text-danger fs-4"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="card border-0 shadow-sm mb-4 d-print-none" style="border-radius: 12px;">
-        <div class="card-body p-3 p-md-4">
-            <form method="get" action="" class="row g-2 align-items-end" id="formFiltrosPlanillas">
-                <input type="hidden" name="ruta" value="planillas">
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-primary fw-bold mb-1"><i class="bi bi-calendar-week me-1"></i>Atajo Semana</label>
-                    <input type="week" id="filtroSemana" class="form-control bg-primary-subtle border-primary-subtle text-primary fw-bold shadow-sm" value="<?php echo $semanaActualFormat; ?>" title="Selecciona una semana para autocompletar fechas">
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="card border-0 shadow-sm h-100 bg-light border-start border-secondary border-4">
+                    <div class="card-body p-4">
+                        <p class="small text-muted text-uppercase fw-bold mb-1">Percepciones (Bruto + Bonos)</p>
+                        <h3 class="fw-bold text-dark mb-0">S/ <?php echo number_format($nominaTotal, 2); ?></h3>
+                    </div>
                 </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                    <input type="date" id="filtroDesde" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="desde" value="<?php echo e($desde); ?>" required>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card border-0 shadow-sm h-100 bg-light border-start border-danger border-4">
+                    <div class="card-body p-4">
+                        <p class="small text-muted text-uppercase fw-bold mb-1">Deducciones Total</p>
+                        <h3 class="fw-bold text-danger mb-0">- S/ <?php echo number_format($deducciones, 2); ?></h3>
+                    </div>
                 </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                    <input type="date" id="filtroHasta" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="hasta" value="<?php echo e($hasta); ?>" required>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card border-0 shadow-sm h-100 bg-primary text-white border-start border-info border-4">
+                    <div class="card-body p-4">
+                        <p class="small text-white-50 text-uppercase fw-bold mb-1">Neto a Desembolsar</p>
+                        <h3 class="fw-bold mb-0">S/ <?php echo number_format($netoPagar, 2); ?></h3>
+                    </div>
                 </div>
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Frecuencia</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="frecuencia_pago" id="filtroFrecuencia">
-                        <option value="">Todas</option>
-                        <option value="SEMANAL" <?php echo $frecuencia === 'SEMANAL' ? 'selected' : ''; ?>>Semanal (Jornal)</option>
-                        <option value="QUINCENAL" <?php echo $frecuencia === 'QUINCENAL' ? 'selected' : ''; ?>>Quincenal</option>
-                        <option value="MENSUAL" <?php echo $frecuencia === 'MENSUAL' ? 'selected' : ''; ?>>Mensual</option>
-                    </select>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom pt-3 pb-0 px-4">
+                <ul class="nav nav-tabs border-bottom-0 fw-semibold" id="nominaTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active text-primary border-0 border-bottom border-primary border-3 bg-transparent pb-3" id="recibos-tab" data-bs-toggle="tab" data-bs-target="#recibos-pane" type="button" role="tab"><i class="bi bi-people me-2"></i>Recibos (Empleados)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link text-muted border-0 bg-transparent pb-3" id="tesoreria-tab" data-bs-toggle="tab" data-bs-target="#tesoreria-pane" type="button" role="tab"><i class="bi bi-bank me-2"></i>Tesorería (Dispersión)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link text-muted border-0 bg-transparent pb-3" id="contabilidad-tab" data-bs-toggle="tab" data-bs-target="#contabilidad-pane" type="button" role="tab"><i class="bi bi-journal-text me-2"></i>Póliza Contable</button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="tab-content" id="nominaTabContent">
+                    
+                    <div class="tab-pane fade show active" id="recibos-pane" role="tabpanel" tabindex="0">
+                        <div class="p-3 border-bottom bg-light">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-12 col-md-4">
+                                    <div class="input-group input-group-sm shadow-sm">
+                                        <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                        <input type="search" class="form-control bg-white border-secondary-subtle border-start-0 ps-0" id="searchDetalles" placeholder="Buscar empleado...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-pro" id="tablaDetallesNomina"
+                                   data-erp-table="true"
+                                   data-search-input="#searchDetalles"
+                                   data-rows-selector="#detallesTableBody tr:not(.empty-msg-row)"
+                                   data-empty-text="No hay recibos generados en este lote"
+                                   data-info-text-template="Mostrando {start} a {end} de {total} recibos">
+                                <thead class="bg-light border-bottom">
+                                    <tr>
+                                        <th class="ps-4 text-secondary fw-semibold">Empleado</th>
+                                        <th class="text-center text-secondary fw-semibold">Días (Pag/Falt)</th>
+                                        <th class="text-end text-secondary fw-semibold">Percepciones</th>
+                                        <th class="text-end text-secondary fw-semibold">Deducciones</th>
+                                        <th class="text-end text-dark fw-bold">Neto a Pagar</th>
+                                        <th class="text-center text-secondary fw-semibold pe-4">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detallesTableBody">
+                                    <?php if (empty($detallesNomina)): ?>
+                                        <tr class="empty-msg-row border-bottom-0">
+                                            <td colspan="6" class="text-center text-muted py-5">
+                                                <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
+                                                No hay recibos generados.
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($detallesNomina as $row): ?>
+                                            <?php 
+                                                $searchStr = strtolower($row['nombre_completo'] ?? ''); 
+                                                $tieneBono = ((float)($row['monto_bonos'] ?? 0) > 0); 
+                                            ?>
+                                            <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <td class="ps-4 fw-semibold text-dark align-top pt-3">
+                                                    <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
+                                                    <div class="small text-muted fw-normal">
+                                                        <?php echo e((string) ($row['cargo'] ?? '')); ?> 
+                                                        | <span class="badge bg-light text-secondary border"><?php echo e((string) ($row['frecuencia'] ?? 'MENSUAL')); ?></span>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center align-top pt-3">
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="Días Pagados"><?php echo (int)($row['dias_pagados'] ?? 0); ?></span>
+                                                    <?php if((int)($row['dias_falta'] ?? 0) > 0): ?>
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 ms-1" title="Días Falta"><?php echo (int)($row['dias_falta'] ?? 0); ?></span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-end align-top pt-3">
+                                                    <div class="fw-medium text-success">S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?></div>
+                                                    <?php if($tieneBono): ?>
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Incluye Bono</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-end fw-medium text-danger align-top pt-3">- S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?></td>
+                                                <td class="text-end fw-bold text-primary align-top pt-3">S/ <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?></td>
+                                                <td class="text-center pe-4 align-top pt-3">
+                                                    <div class="d-flex justify-content-center gap-1">
+                                                        
+                                                        <?php if ($estadoLote === 'BORRADOR'): ?>
+                                                            <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm btn-ajustar-empleado" 
+                                                                    data-bs-toggle="modal" data-bs-target="#modalAjustarNomina"
+                                                                    data-id="<?php echo (int)($row['id'] ?? 0); ?>"
+                                                                    data-nombre="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                                    data-bs-toggle="tooltip" title="Ajustar Conceptos / Añadir Bono">
+                                                                <i class="bi bi-pencil-square fs-5"></i>
+                                                            </button>
+                                                        <?php endif; ?>
+
+                                                        <a href="?ruta=nominas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta">
+                                                            <i class="bi bi-file-earmark-pdf fs-5"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade p-4" id="tesoreria-pane" role="tabpanel" tabindex="0">
+                        <div class="row g-4">
+                            <div class="col-md-6 border-end pe-md-4">
+                                <h5 class="fw-bold mb-3"><i class="bi bi-file-earmark-arrow-down text-primary me-2"></i>Layouts Bancarios</h5>
+                                <p class="text-muted small mb-4">Descarga el archivo estructurado para subirlo al portal de tu banco y pagar a todos los empleados en una sola operación.</p>
+                                
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-secondary fw-semibold d-flex justify-content-between align-items-center" <?php echo $estadoLote === 'BORRADOR' ? 'disabled' : ''; ?>>
+                                        <span><i class="bi bi-bank me-2"></i>Formato BCP (TXT)</span>
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary fw-semibold d-flex justify-content-between align-items-center" <?php echo $estadoLote === 'BORRADOR' ? 'disabled' : ''; ?>>
+                                        <span><i class="bi bi-bank me-2"></i>Formato BBVA (CSV)</span>
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6 ps-md-4">
+                                <h5 class="fw-bold mb-3"><i class="bi bi-cash-coin text-success me-2"></i>Salida de Dinero</h5>
+                                
+                                <?php if ($estadoLote === 'BORRADOR'): ?>
+                                    <div class="alert alert-secondary border-0 shadow-sm small">
+                                        <i class="bi bi-info-circle me-1"></i> Debes <strong>Aprobar el Lote</strong> (botón superior) antes de poder registrar el pago.
+                                    </div>
+                                <?php elseif ($estadoLote === 'APROBADO'): ?>
+                                    <div class="alert alert-warning border-0 shadow-sm small">
+                                        <i class="bi bi-exclamation-triangle me-1"></i> El lote está aprobado. Falta registrar la salida del dinero.
+                                    </div>
+                                    <button class="btn btn-success fw-bold shadow-sm w-100" type="button" data-bs-toggle="modal" data-bs-target="#modalPagarLote">
+                                        <i class="bi bi-check2-all me-2"></i>Registrar Dispersión
+                                    </button>
+                                <?php else: ?>
+                                    <div class="alert alert-success border-0 shadow-sm small">
+                                        <h6 class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-1"></i>Pago Registrado</h6>
+                                        Pagado el <?php echo htmlspecialchars($loteActual['fecha_pago'] ?? '-'); ?> desde la cuenta bancaria. 
+                                        Ref: <?php echo htmlspecialchars($loteActual['referencia_pago'] ?? '-'); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade p-5 text-center text-muted" id="contabilidad-pane" role="tabpanel" tabindex="0">
+                        <i class="bi bi-journal-check opacity-50 d-block mb-3" style="font-size: 3rem;"></i>
+                        <h6 class="fw-bold text-dark">Póliza de Nómina</h6>
+                        <p class="small">El asiento contable se generará automáticamente en el módulo de Contabilidad una vez que el lote sea aprobado y pagado.</p>
+                        <button class="btn btn-light border text-secondary fw-semibold shadow-sm mt-2" <?php echo $estadoLote !== 'PAGADO' ? 'disabled' : ''; ?>>
+                            Ver Asiento Contable
+                        </button>
+                    </div>
+
                 </div>
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Filtrar Empleado (Opcional)</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_tercero" id="filtroEmpleado">
-                        <option value="">Todo el personal</option>
-                        <?php foreach ($empleados as $emp): ?>
-                            <?php if (!empty($emp['es_empleado'])): ?>
-                                <?php $empId = (int) ($emp['id'] ?? 0); ?>
-                                <option value="<?php echo $empId; ?>" <?php echo $idTercero === $empId ? 'selected' : ''; ?>>
-                                    <?php echo e((string) ($emp['nombre_completo'] ?? '')); ?>
-                                </option>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </select>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
+
+<div class="modal fade" id="modalGenerarLote" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-folder-plus me-2"></i>Generar Nuevo Lote
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('nominas/generar_lote')); ?>">
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia del Lote <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre_lote" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. 1ra Quincena Marzo 2026" required>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha Inicio <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_inicio" class="form-control bg-white border-secondary-subtle shadow-sm" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha Fin <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_fin" class="form-control bg-white border-secondary-subtle shadow-sm" required>
+                        </div>
+                    </div>
+                    <div class="form-text small mt-1"><i class="bi bi-info-circle text-primary me-1"></i> El sistema leerá las asistencias entre estas dos fechas.</div>
+                </div>
+                <div class="modal-footer bg-white border-top-0">
+                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
+                        <i class="bi bi-gear-fill me-2"></i>Calcular Nómina
+                    </button>
                 </div>
             </form>
         </div>
     </div>
-
-    <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
-        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div class="d-flex align-items-center">
-                <h2 class="h6 fw-bold text-dark mb-0">Detalle de Pagos</h2>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3"><?php echo count($planillas); ?> Trabajadores</span>
-            </div>
-            <div class="input-group shadow-sm d-print-none" style="max-width: 300px;">
-                <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchPlanilla" placeholder="Buscar empleado...">
-            </div>
-        </div>
-        
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="planillasTable"
-                        data-erp-table="true"
-                        data-search-input="#searchPlanilla"
-                        data-pagination-controls="#planillasPaginationControls"
-                        data-pagination-info="#planillasPaginationInfo"
-                        data-manager-global="planillasManager"
-                        data-empty-text="No hay planillas calculadas para este periodo">
-                    <thead class="bg-light border-bottom">
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Empleado</th>
-                            <th class="text-center text-secondary fw-semibold">Días (Asist/Falta)</th>
-                            <th class="text-end text-secondary fw-semibold">Sueldo Base</th>
-                            <th class="text-end text-success fw-semibold">H. Extras</th>
-                            <th class="text-end text-danger fw-semibold">Tardanzas</th>
-                            <th class="text-end text-dark fw-bold">Total a Pagar</th>
-                            <th class="text-center text-secondary fw-semibold">Estado</th>
-                            <th class="text-center text-secondary fw-semibold pe-4 d-print-none">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($planillas)): ?>
-                            <tr class="empty-msg-row border-bottom-0">
-                                <td colspan="8" class="text-center text-muted py-5">
-                                    <i class="bi bi-receipt fs-1 d-block mb-2 text-light"></i>
-                                    No se encontraron datos de asistencia para calcular en este periodo.
-                                </td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($planillas as $row): ?>
-                                <?php 
-                                    $searchStr = strtolower(($row['nombre_completo'] ?? '') . ' ' . ($row['numero_documento'] ?? '')); 
-                                    $estadoStr = (string) ($row['estado_pago'] ?? 'PENDIENTE');
-                                ?>
-                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 align-top pt-3">
-                                        <div class="fw-bold text-dark"><?php echo e($row['nombre_completo']); ?></div>
-                                        <div class="small text-muted mb-1"><i class="bi bi-person-badge me-1"></i><?php echo e($row['cargo'] ?: 'Sin cargo'); ?></div>
-                                        
-                                        <?php if(($row['tipo_pago'] ?? '') === 'SEMANAL'): ?>
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;">SEMANAL (Jornal)</span>
-                                        <?php elseif(($row['tipo_pago'] ?? '') === 'QUINCENAL'): ?>
-                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.65rem;">QUINCENAL</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" style="font-size: 0.65rem;">MENSUAL</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    
-                                    <td class="text-center align-top pt-3">
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" title="Días Pagados">
-                                            <i class="bi bi-check-circle me-1"></i><?php echo e((string)($row['dias_asistidos'] ?? 0)); ?>
-                                        </span>
-                                        <?php if(($row['dias_falta'] ?? 0) > 0): ?>
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill ms-1" title="Días de Falta">
-                                                <i class="bi bi-x-circle me-1"></i><?php echo e((string)$row['dias_falta']); ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    
-                                    <td class="text-end align-top pt-3 fw-medium text-secondary">
-                                        <?php echo e($row['moneda'] ?? 'S/'); ?> <?php echo number_format((float)($row['sueldo_base_calculado'] ?? 0), 2); ?>
-                                    </td>
-                                    <td class="text-end align-top pt-3 fw-medium text-success">
-                                        <?php if(($row['monto_horas_extras'] ?? 0) > 0): ?>
-                                            + <?php echo number_format((float)$row['monto_horas_extras'], 2); ?>
-                                            <div class="small text-success opacity-75">(<?php echo e((string)$row['horas_extras']); ?> hrs)</div>
-                                        <?php else: ?>
-                                            <span class="text-muted opacity-50">0.00</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="text-end align-top pt-3 fw-medium text-danger">
-                                        <?php if(($row['monto_descuento_tardanza'] ?? 0) > 0): ?>
-                                            - <?php echo number_format((float)$row['monto_descuento_tardanza'], 2); ?>
-                                            <div class="small text-danger opacity-75">(<?php echo e((string)$row['minutos_tardanza']); ?> min)</div>
-                                        <?php else: ?>
-                                            <span class="text-muted opacity-50">0.00</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="text-end align-top pt-3">
-                                        <span class="fs-5 fw-bold text-primary">
-                                            <?php echo e($row['moneda'] ?? 'S/'); ?> <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?>
-                                        </span>
-                                    </td>
-                                    <td class="text-center align-top pt-3">
-                                        <?php if ($estadoStr === 'PAGADA'): ?>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill shadow-sm">PAGADA</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill shadow-sm">PENDIENTE</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    
-                                    <td class="text-center align-top pt-3 pe-4 d-print-none">
-                                        <div class="d-flex justify-content-center gap-1">
-                                            
-                                            <button type="button" class="btn btn-sm btn-light text-info border-0 rounded-circle shadow-sm btn-ver-calendario"
-                                                data-bs-toggle="modal" data-bs-target="#modalCalendarioAsistencia"
-                                                data-id-empleado="<?php echo (int) $row['id_tercero']; ?>"
-                                                data-nombre-empleado="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                data-fecha-desde="<?php echo e($desde); ?>"
-                                                data-fecha-hasta="<?php echo e($hasta); ?>"
-                                                data-bs-toggle="tooltip" title="Ver Auditoría Visual (Calendario)">
-                                                <i class="bi bi-calendar3 fs-5"></i>
-                                            </button>
-
-                                            <?php $montoNeto = (float) ($row['neto_a_pagar'] ?? 0); ?>
-                                            <?php if ($estadoStr === 'PENDIENTE' && $montoNeto > 0): ?>
-                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla"
-                                                    data-id-empleado="<?php echo (int) $row['id_tercero']; ?>"
-                                                    data-nombre-empleado="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                    data-monto-pagar="<?php echo $montoNeto; ?>"
-                                                    data-fecha-desde="<?php echo e($desde); ?>"
-                                                    data-fecha-hasta="<?php echo e($hasta); ?>"
-                                                    data-bs-toggle="tooltip" title="Registrar Pago">
-                                                    <i class="bi bi-cash-coin fs-5"></i>
-                                                </button>
-                                            <?php elseif ($estadoStr === 'PENDIENTE' && $montoNeto <= 0): ?>
-                                                 <span class="badge bg-secondary-subtle text-secondary" title="Sin monto a pagar">S/ 0.00</span>
-                                            <?php endif; ?>
-
-                                            <?php 
-                                            $printParams = http_build_query([
-                                                'id' => $row['id_tercero'], 'desde' => $desde, 'hasta' => $hasta
-                                            ]);
-                                            ?>
-                                            <a href="<?php echo e(route_url("planillas/imprimirTicket&{$printParams}")); ?>" 
-                                            target="_blank" class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm"
-                                            data-bs-toggle="tooltip" title="Imprimir Ticket (80mm)">
-                                                <i class="bi bi-printer fs-5"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3 d-print-none">
-                <div class="small text-muted fw-medium" id="planillasPaginationInfo">Calculando...</div>
-                <nav aria-label="Paginación">
-                    <ul class="pagination mb-0 shadow-sm" id="planillasPaginationControls"></ul>
-                </nav>
-            </div>
-        </div>
-    </div>
 </div>
 
-<div class="modal fade" id="modalCalendarioAsistencia" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-check me-2"></i>Auditoría de Asistencia</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4 bg-light">
-                
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h5 class="text-primary fw-bold mb-0" id="calNombreEmpleado">Cargando...</h5>
-                        <small class="text-muted" id="calPeriodoOriginal">Periodo filtrado: ...</small>
-                    </div>
-                    <div class="d-flex align-items-center bg-white border rounded shadow-sm p-1">
-                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnMesAnterior"><i class="bi bi-chevron-left"></i></button>
-                        <span class="mx-3 fw-bold text-dark text-uppercase" id="lblMesActual" style="min-width: 120px; text-align: center;">MES 2026</span>
-                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnMesSiguiente"><i class="bi bi-chevron-right"></i></button>
-                    </div>
-                </div>
-
-                <div class="bg-white p-3 rounded shadow-sm border text-center min-vh-50 position-relative">
-                    
-                    <div id="calLoader" class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex justify-content-center align-items-center d-none" style="z-index: 10;">
-                        <div class="spinner-border text-primary" role="status"></div>
-                    </div>
-
-                    <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
-                        <div class="fw-bold text-muted small">Lun</div>
-                        <div class="fw-bold text-muted small">Mar</div>
-                        <div class="fw-bold text-muted small">Mié</div>
-                        <div class="fw-bold text-muted small">Jue</div>
-                        <div class="fw-bold text-muted small">Vie</div>
-                        <div class="fw-bold text-muted small">Sáb</div>
-                        <div class="fw-bold text-danger small">Dom</div>
-                    </div>
-                    
-                    <div id="calendarioGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 300px;">
-                        </div>
-                </div>
-
-                <div class="card mt-4 border-0 shadow-sm bg-white">
-                    <div class="card-body p-3">
-                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Colores (Clic en un día para ver detalle)</h6>
-                        <div class="d-flex flex-wrap gap-3 small fw-medium">
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-success me-2" style="width: 12px; height: 12px;"></span> Puntual</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-warning me-2" style="width: 12px; height: 12px;"></span> Tardanza</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-danger me-2" style="width: 12px; height: 12px;"></span> Falta</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded-circle bg-info me-2" style="width: 12px; height: 12px;"></span> Justificado / Vacaciones</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block border border-secondary border-dashed me-2" style="width: 12px; height: 12px;"></span> Sin Registro / Feriado</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalPagarPlanilla" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalAjustarNomina" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Pago de Nómina</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-sliders me-2"></i>Ajustar Conceptos de Nómina
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('planillas/registrar_pago')); ?>" class="js-form-confirm">
+            <form method="post" action="<?php echo e(route_url('nominas/agregar_concepto')); ?>">
+                <input type="hidden" name="id_detalle_nomina" id="ajusteIdDetalle">
+                
                 <div class="modal-body p-4 bg-light">
-                    <input type="hidden" name="id_empleado" id="pagoIdEmpleado">
-                    <input type="hidden" name="fecha_inicio" id="pagoFechaDesde">
-                    <input type="hidden" name="fecha_fin" id="pagoFechaHasta">
-                    
-                    <div class="alert alert-primary shadow-sm border-0 d-flex align-items-center mb-4">
-                        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                    <div class="d-flex align-items-center mb-4 p-3 bg-white border border-secondary-subtle rounded-3 shadow-sm">
+                        <i class="bi bi-person-badge fs-2 text-warning me-3"></i>
                         <div>
-                            Se registrará el pago para <strong id="lblEmpleadoNombre"></strong> por el periodo del <strong id="lblPeriodo"></strong>.
+                            <span class="small text-muted d-block mb-1">Empleado a ajustar:</span>
+                            <strong class="d-block text-dark fs-5" id="ajusteNombreEmpleado">Cargando...</strong>
                         </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Tipo de Movimiento <span class="text-danger">*</span></label>
+                        <select name="tipo_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
+                            <option value="PERCEPCION">Percepción (Bono, Incentivo) [+ Aumenta el pago]</option>
+                            <option value="DEDUCCION">Deducción (Adelanto, Multa) [- Disminuye el pago]</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
+                            <div class="input-group shadow-sm">
+                                <span class="input-group-text bg-light border-secondary-subtle">S/</span>
+                                <input type="number" step="0.01" min="0.1" name="monto" class="form-control bg-white border-secondary-subtle" required>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
+                            <select name="categoria_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
+                                <option value="Bono Productividad">Bono Productividad</option>
+                                <option value="Bono Especial">Bono Especial</option>
+                                <option value="Incentivo Empresa">Incentivo Empresa</option>
+                                <option value="Adelanto de Sueldo">Adelanto de Sueldo</option>
+                                <option value="Otros">Otros</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small text-muted fw-bold mb-1">Descripción para la Boleta <span class="text-danger">*</span></label>
+                        <input type="text" name="descripcion" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. Bono por meta de ventas alcanzada" required>
+                        <div class="form-text small mt-1"><i class="bi bi-receipt me-1"></i> Este texto es el que leerá el empleado en su recibo de pago impreso.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0">
+                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning px-4 fw-bold shadow-sm text-dark">
+                        <i class="bi bi-save me-2"></i>Guardar Ajuste
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalPagarLote" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-bank me-2"></i>Registrar Dispersión de Nómina
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('planillas/pagar_lote')); ?>">
+                <input type="hidden" name="id_lote" value="<?php echo (int)($loteActual['id'] ?? 0); ?>">
+                
+                <div class="modal-body p-4 bg-light">
+                    <div class="alert alert-success border-0 shadow-sm mb-4">
+                        <h6 class="fw-bold mb-1">Monto Total a Desembolsar:</h6>
+                        <h3 class="mb-0 fw-bold">S/ <?php echo number_format($netoPagar ?? 0, 2); ?></h3>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Cuenta de Origen (Caja/Banco) <span class="text-danger">*</span></label>
+                        <select name="id_cuenta" class="form-select shadow-sm" required>
+                            <option value="">Seleccione una cuenta...</option>
+                            <?php foreach ($cuentas as $c): ?>
+                                <option value="<?php echo (int)$c['id']; ?>">
+                                    <?php echo htmlspecialchars($c['nombre'] . ' - Saldo: S/' . number_format((float)$c['saldo_actual'], 2)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Total a Pagar <span class="text-danger">*</span></label>
-                            <div class="input-group shadow-sm">
-                                <span class="input-group-text bg-white border-secondary-subtle fw-bold">S/</span>
-                                <input type="number" step="0.01" name="monto_pagar" id="pagoMontoTotal" class="form-control border-secondary-subtle fw-bold text-primary" readonly>
-                            </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha_pago" class="form-control shadow-sm" value="<?php echo date('Y-m-d'); ?>" required>
                         </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Desembolso <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha_pago" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label fw-bold small text-muted">Extraer dinero de: (Cuenta de Tesorería) <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione una cuenta de origen...</option>
-                                <?php foreach ($cuentas as $cta): ?>
-                                    <option value="<?php echo $cta['id']; ?>">
-                                        <?php echo htmlspecialchars($cta['nombre']); ?> (Saldo: <?php echo number_format($cta['saldo'] ?? 0, 2); ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
-                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione método (Transferencia, Efectivo...)</option>
-                                <?php foreach($metodos as $m): ?>
-                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">N° Operación / Referencia (Opcional)</label>
-                            <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-10293">
+                        <div class="col-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Referencia / Operación</label>
+                            <input type="text" name="referencia" class="form-control shadow-sm" placeholder="Ej. OP-901234">
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Pago</button>
+                <div class="modal-footer bg-white border-top-0">
+                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
+                        <i class="bi bi-check2-all me-2"></i>Confirmar Pago
+                    </button>
                 </div>
             </form>
         </div>

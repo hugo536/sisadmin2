@@ -14,94 +14,48 @@ $incidencias = $incidencias ?? [];
         </div>
 
         <div class="d-flex gap-2">
-            <a href="<?php echo e(route_url('asistencia/dashboard')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-bar-chart-line me-2 text-info"></i>Dashboard RRHH
+            <button class="btn btn-primary shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearIncidencia">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Incidencia
+            </button>
+            <a href="<?php echo e(route_url('asistencia/dashboard')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold ms-2">
+                <i class="bi bi-bar-chart-line me-2 text-info"></i>Dashboard
             </a>
             <a href="<?php echo e(route_url('asistencia/importar')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-fingerprint me-2 text-info"></i>Importar Logs
+                <i class="bi bi-fingerprint me-2 text-info"></i>Logs
             </a>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body p-4">
-            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
-                <i class="bi bi-plus-circle-fill me-2 text-primary"></i>Registrar Nueva Incidencia
-            </h6>
-            <form method="post" action="<?php echo e(route_url('asistencia/incidencias')); ?>" enctype="multipart/form-data" class="row g-3 align-items-end">
-                <input type="hidden" name="accion" value="guardar">
-                
-                <div class="col-md-4">
-                    <label class="form-label small text-muted fw-bold">Empleado <span class="text-danger">*</span></label>
-                    <select class="form-select bg-light border-secondary-subtle" name="id_tercero" required>
-                        <option value="">Seleccione un empleado...</option>
-                        <?php foreach ($empleados as $emp): ?>
-                            <option value="<?php echo (int) ($emp['id'] ?? 0); ?>">
-                                <?php echo e((string) ($emp['nombre_completo'] ?? '')); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchIncidencias" placeholder="Buscar empleado o tipo de incidencia...">
+                    </div>
                 </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label small text-muted fw-bold">Tipo de Incidencia <span class="text-danger">*</span></label>
-                    <select class="form-select bg-light border-secondary-subtle" name="tipo_incidencia" required>
-                        <option value="VACACIONES">Vacaciones</option>
-                        <option value="DESCANSO_MEDICO">Descanso Médico</option>
-                        <option value="PERMISO_PERSONAL">Permiso Personal</option>
-                        <option value="SUBSIDIO">Subsidio</option>
-                    </select>
+                <div class="col-6 col-md-7 text-md-end">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill shadow-sm">
+                        <?php echo count($incidencias); ?> Incidencias registradas
+                    </span>
                 </div>
-                
-                <div class="col-md-2">
-                    <label class="form-label small text-muted fw-bold">Fecha Inicio <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="fecha_inicio" required>
-                </div>
-                
-                <div class="col-md-2">
-                    <label class="form-label small text-muted fw-bold">Fecha Fin <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle text-secondary fw-medium" name="fecha_fin" required>
-                </div>
-                
-                <div class="col-md-1">
-                    <label class="form-label small text-muted fw-bold">Goce</label>
-                    <select class="form-select bg-light border-secondary-subtle" name="con_goce_sueldo">
-                        <option value="1">Sí</option>
-                        <option value="0">No</option>
-                    </select>
-                </div>
-                
-                <div class="col-md-5 mt-3">
-                    <label class="form-label small text-muted fw-bold">Documento de Respaldo (Opcional)</label>
-                    <input type="file" class="form-control bg-light border-secondary-subtle" name="documento_respaldo" accept=".pdf,.jpg,.jpeg,.png">
-                    <div class="form-text mt-1" style="font-size: 0.7rem;">Soporta PDF, JPG o PNG. Tamaño máximo recomendado: 2MB.</div>
-                </div>
-                
-                <div class="col-md-7 mt-3 text-end">
-                    <button class="btn btn-primary shadow-sm fw-semibold px-4" type="submit">
-                        <i class="bi bi-save me-2"></i>Guardar Incidencia
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <h2 class="h6 fw-bold text-dark mb-0">Historial de Incidencias Registradas</h2>
-            <div class="input-group shadow-sm" style="max-width: 300px;">
-                <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchIncidencias" placeholder="Buscar empleado o tipo...">
-            </div>
-        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaIncidencias"
                        data-erp-table="true"
                        data-search-input="#searchIncidencias"
+                       data-rows-selector="#incidenciasTableBody tr:not(.empty-msg-row)"
+                       data-empty-text="No se encontraron incidencias"
+                       data-info-text-template="Mostrando {start} a {end} de {total} incidencias"
                        data-pagination-controls="#incidenciasPaginationControls"
                        data-pagination-info="#incidenciasPaginationInfo">
-                    <thead>
+                    <thead class="bg-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Empleado</th>
                             <th class="text-secondary fw-semibold">Tipo</th>
@@ -169,8 +123,8 @@ $incidencias = $incidencias ?? [];
                                         <form method="post" action="<?php echo e(route_url('asistencia/incidencias')); ?>" onsubmit="return confirm('¿Estás seguro de eliminar esta incidencia? Esto recalculará la asistencia.');" class="d-inline">
                                             <input type="hidden" name="accion" value="eliminar">
                                             <input type="hidden" name="id" value="<?php echo (int) ($row['id'] ?? 0); ?>">
-                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent rounded-circle" data-bs-toggle="tooltip" title="Eliminar Incidencia">
-                                                <i class="bi bi-trash fs-5"></i>
+                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 rounded-circle" data-bs-toggle="tooltip" title="Eliminar Incidencia">
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                         </form>
                                     </td>
@@ -190,6 +144,78 @@ $incidencias = $incidencias ?? [];
             </div>
             <?php endif; ?>
             
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCrearIncidencia" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-clipboard2-pulse me-2"></i>Registrar Nueva Incidencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <div class="modal-body p-4 bg-light">
+                <form method="post" action="<?php echo e(route_url('asistencia/incidencias')); ?>" enctype="multipart/form-data" class="row g-3">
+                    <input type="hidden" name="accion" value="guardar">
+                    
+                    <div class="col-md-7">
+                        <label class="form-label small text-muted fw-bold mb-1">Empleado <span class="text-danger">*</span></label>
+                        <select class="form-select bg-white border-secondary-subtle shadow-sm" name="id_tercero" required>
+                            <option value="">Seleccione un empleado...</option>
+                            <?php foreach ($empleados as $emp): ?>
+                                <option value="<?php echo (int) ($emp['id'] ?? 0); ?>">
+                                    <?php echo e((string) ($emp['nombre_completo'] ?? '')); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-5">
+                        <label class="form-label small text-muted fw-bold mb-1">Tipo de Incidencia <span class="text-danger">*</span></label>
+                        <select class="form-select bg-white border-secondary-subtle shadow-sm" name="tipo_incidencia" required>
+                            <option value="VACACIONES">Vacaciones</option>
+                            <option value="DESCANSO_MEDICO">Descanso Médico</option>
+                            <option value="PERMISO_PERSONAL">Permiso Personal</option>
+                            <option value="SUBSIDIO">Subsidio</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Fecha Inicio <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_inicio" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Fecha Fin <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_fin" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Goce de Sueldo <span class="text-danger">*</span></label>
+                        <select class="form-select bg-white border-secondary-subtle shadow-sm" name="con_goce_sueldo">
+                            <option value="1">Sí, con goce</option>
+                            <option value="0">No, sin goce</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 mt-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Documento de Respaldo <span class="text-muted fw-normal">(Opcional)</span></label>
+                        <input type="file" class="form-control bg-white border-secondary-subtle shadow-sm" name="documento_respaldo" accept=".pdf,.jpg,.jpeg,.png">
+                        <div class="form-text small mt-1"><i class="bi bi-info-circle me-1"></i> Soporta PDF, JPG o PNG. Tamaño máximo recomendado: 2MB.</div>
+                    </div>
+                    
+                    <div class="col-12 mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary shadow-sm fw-bold px-4" type="submit" onclick="this.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span> Guardando...'; this.classList.add('disabled'); this.form.submit();">
+                            <i class="bi bi-save me-2"></i>Guardar Incidencia
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
