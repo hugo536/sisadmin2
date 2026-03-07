@@ -181,8 +181,7 @@ function showVal($val, $suffix = '') {
                                 <div class="col-md-3"><label class="text-muted small fw-bold">Tipo Contrato</label><div><?php echo showVal($t['tipo_contrato'] ?? ''); ?></div></div>
                                 <div class="col-md-3"><label class="text-muted small fw-bold">Frecuencia Pago</label><div><?php echo showVal($t['tipo_pago'] ?? ''); ?></div></div>
 
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo Básico</label><div class="fw-bold"><?php echo ($t['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/'; ?> <?php echo number_format((float) ($t['sueldo_basico'] ?? 0), 2); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Pago Diario (Jornal)</label><div><?php echo showVal($t['pago_diario'] ?? ''); ?></div></div>
+                                <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo / Jornal</label><div class="fw-bold"><?php echo ($t['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/'; ?> <?php echo number_format((float) ($t['sueldo_basico'] ?? 0), 2); ?></div></div>
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Régimen Pensionario</label><div><?php echo showVal(str_replace('_', ' ', (string) ($t['regimen_pensionario'] ?? ''))); ?></div></div>
 
                                 <div class="col-md-4"><label class="text-muted small fw-bold">Tipo Comisión AFP</label><div><?php echo showVal($t['tipo_comision_afp'] ?? ''); ?></div></div>

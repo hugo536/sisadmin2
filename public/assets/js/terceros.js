@@ -688,7 +688,6 @@
                     safeSetVal('editTipoPago', normalizeTipoPago(btn.dataset.tipoPago));
                     safeSetVal('editMoneda', normalizeMoneda(btn.dataset.moneda));
                     safeSetVal('editSueldoBasico', btn.dataset.sueldoBasico);
-                    safeSetVal('editPagoDiario', btn.dataset.pagoDiario);
                     safeSetVal('editRegimen', normalizeRegimenPensionario(btn.dataset.regimenPensionario));
                     safeSetVal('editTipoComision', normalizeTipoComisionAfp(btn.dataset.tipoComisionAfp));
                     safeSetVal('editCuspp', btn.dataset.cuspp);
@@ -792,8 +791,6 @@
             const tipoPago = (form.querySelector('[name="tipo_pago"]')?.value || '').trim().toUpperCase();
             const sueldoBasicoRaw = (form.querySelector('[name="sueldo_basico"]')?.value || '').trim();
             const sueldoBasico = Number.parseFloat(sueldoBasicoRaw);
-            const pagoDiarioRaw = (form.querySelector('[name="pago_diario"]')?.value || '').trim();
-            const pagoDiario = Number.parseFloat(pagoDiarioRaw);
             const codigoBiometrico = (form.querySelector('[name="codigo_biometrico"]')?.value || '').trim();
 
             if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
@@ -836,20 +833,18 @@
                     return 'El código biométrico no puede exceder 50 caracteres.';
                 }
 
-                if (tipoPago === 'SEMANAL') {
-                    if (pagoDiarioRaw === '') {
-                        return 'Para el rol Empleado con pago semanal, el campo pago diario es obligatorio.';
+                if (sueldoBasicoRaw === '') {
+                    if (tipoPago === 'SEMANAL') {
+                        return 'Para el rol Empleado con pago semanal, el campo Pago por Día (Jornal) es obligatorio.';
                     }
-                    if (Number.isNaN(pagoDiario) || pagoDiario < 0) {
-                        return 'El pago diario del empleado debe ser un número válido mayor o igual a 0.';
+                    return 'Para el rol Empleado, el sueldo básico es obligatorio.';
+                }
+
+                if (Number.isNaN(sueldoBasico) || sueldoBasico < 0) {
+                    if (tipoPago === 'SEMANAL') {
+                        return 'El Pago por Día (Jornal) debe ser un número válido mayor o igual a 0.';
                     }
-                } else {
-                    if (sueldoBasicoRaw === '') {
-                        return 'Para el rol Empleado, el sueldo básico es obligatorio.';
-                    }
-                    if (Number.isNaN(sueldoBasico) || sueldoBasico < 0) {
-                        return 'El sueldo básico del empleado debe ser un número válido mayor o igual a 0.';
-                    }
+                    return 'El sueldo básico del empleado debe ser un número válido mayor o igual a 0.';
                 }
             }
 
