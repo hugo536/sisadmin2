@@ -565,11 +565,18 @@ class AsistenciaModel extends Modelo
                 continue;
             }
 
-            // 3. Formatear Horas Esperadas Compactas
+            // 3. Formatear Horas Esperadas Compactas (prioriza memoria congelada del registro)
             $arrEsperadas = [];
-            if (!empty($row['t1_entrada'])) $arrEsperadas[] = substr($row['t1_entrada'], 0, 5) . ' - ' . (!empty($row['t1_salida']) ? substr($row['t1_salida'], 0, 5) : '--:--');
-            if (!empty($row['t2_entrada'])) $arrEsperadas[] = substr($row['t2_entrada'], 0, 5) . ' - ' . (!empty($row['t2_salida']) ? substr($row['t2_salida'], 0, 5) : '--:--');
-            if (!empty($row['t3_entrada'])) $arrEsperadas[] = substr($row['t3_entrada'], 0, 5) . ' - ' . (!empty($row['t3_salida']) ? substr($row['t3_salida'], 0, 5) : '--:--');
+            $entradaMemoria = trim((string) ($row['hora_entrada_esperada_registro'] ?? ''));
+            $salidaMemoria = trim((string) ($row['hora_salida_esperada_registro'] ?? ''));
+
+            if ($entradaMemoria !== '') {
+                $arrEsperadas[] = substr($entradaMemoria, 11, 5) . ' - ' . ($salidaMemoria !== '' ? substr($salidaMemoria, 11, 5) : '--:--');
+            } else {
+                if (!empty($row['t1_entrada'])) $arrEsperadas[] = substr($row['t1_entrada'], 0, 5) . ' - ' . (!empty($row['t1_salida']) ? substr($row['t1_salida'], 0, 5) : '--:--');
+                if (!empty($row['t2_entrada'])) $arrEsperadas[] = substr($row['t2_entrada'], 0, 5) . ' - ' . (!empty($row['t2_salida']) ? substr($row['t2_salida'], 0, 5) : '--:--');
+                if (!empty($row['t3_entrada'])) $arrEsperadas[] = substr($row['t3_entrada'], 0, 5) . ' - ' . (!empty($row['t3_salida']) ? substr($row['t3_salida'], 0, 5) : '--:--');
+            }
             $row['esperada_formateada'] = !empty($arrEsperadas) ? implode("\n", $arrEsperadas) : '-';
 
             // 4. Formatear Horas Reales Compactas
@@ -588,6 +595,46 @@ class AsistenciaModel extends Modelo
                 }
             }
             $row['real_formateada'] = !empty($arrReales) ? implode("\n", $arrReales) : '-';
+
+            // 4.1 Recalcular tardanza mostrada para evitar desfasajes históricos
+            $estadoGeneralUpper = strtoupper((string) $estadoGeneral);
+            $esJustificada = strpos($estadoGeneralUpper, 'JUSTIFICADA') !== false
+                || strpos($estadoGeneralUpper, 'PERMISO') !== false
+                || strpos($estadoGeneralUpper, 'OLVIDO') !== false;
+
+            $ingresosCalc = [];
+            foreach ($ingresos as $ing) {
+                $ing = trim((string) $ing);
+                if ($ing !== '' && $ing !== 'null') {
+                    $ingresosCalc[] = $ing;
+                }
+            }
+            $salidasCalc = [];
+            foreach ($salidas as $out) {
+                $out = trim((string) $out);
+                if ($out !== '' && $out !== 'null') {
+                    $salidasCalc[] = $out;
+                }
+            }
+
+            $diaCompleto = count($ingresosCalc) > 0 && count($salidasCalc) > 0 && count($ingresosCalc) === count($salidasCalc);
+            if ($diaCompleto && !$esJustificada) {
+                $entradasEsperadasCalc = [];
+                if ($entradaMemoria !== '') {
+                    $entradasEsperadasCalc[] = substr($entradaMemoria, 11, 8);
+                } else {
+                    if (!empty($row['t1_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t1_entrada'], 0, 8);
+                    if (!empty($row['t2_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t2_entrada'], 0, 8);
+                    if (!empty($row['t3_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t3_entrada'], 0, 8);
+                }
+
+                $toleranciaCalc = (int) ($row['tolerancia_minutos_registro'] ?? 0);
+                $calc = $this->calcularTardanzaPorTramos((string) ($row['fecha'] ?? ''), $ingresosCalc, $entradasEsperadasCalc, $toleranciaCalc);
+                $row['minutos_tardanza_total'] = (int) ($calc['total'] ?? 0);
+                if ($estadoGeneral === 'TARDANZA' && (int) $row['minutos_tardanza_total'] === 0) {
+                    $estadoGeneral = 'PUNTUAL';
+                }
+            }
 
             // 5. Normalizar datos para la vista (compatibilidad con tus modales)
             $row['estado_asistencia'] = $estadoGeneral;
@@ -615,6 +662,9 @@ class AsistenciaModel extends Modelo
                        ah.t3_entrada, ah.t3_salida,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
+                       MAX(ar.hora_salida_esperada) AS hora_salida_esperada_registro,
+                       MAX(ar.tolerancia_minutos) AS tolerancia_minutos_registro,
                        GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
                        SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM terceros t
@@ -659,6 +709,9 @@ class AsistenciaModel extends Modelo
                        ah.t3_entrada, ah.t3_salida,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
+                       MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
+                       MAX(ar.hora_salida_esperada) AS hora_salida_esperada_registro,
+                       MAX(ar.tolerancia_minutos) AS tolerancia_minutos_registro,
                        GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia,
                        SUM(ar.minutos_tardanza) AS minutos_tardanza_total
                 FROM asistencia_registros ar
