@@ -179,7 +179,7 @@
 
     function normalizeTipoPago(value) {
         const v = normalizeCatalogValue(value);
-        return ['MENSUAL', 'QUINCENAL', 'DIARIO'].includes(v) ? v : 'MENSUAL';
+        return ['MENSUAL', 'QUINCENAL', 'SEMANAL'].includes(v) ? v : 'MENSUAL';
     }
 
     function normalizeMoneda(value) {
@@ -836,9 +836,9 @@
                     return 'El código biométrico no puede exceder 50 caracteres.';
                 }
 
-                if (tipoPago === 'DIARIO') {
+                if (tipoPago === 'SEMANAL') {
                     if (pagoDiarioRaw === '') {
-                        return 'Para el rol Empleado con pago diario, el campo pago diario es obligatorio.';
+                        return 'Para el rol Empleado con pago semanal, el campo pago diario es obligatorio.';
                     }
                     if (Number.isNaN(pagoDiario) || pagoDiario < 0) {
                         return 'El pago diario del empleado debe ser un número válido mayor o igual a 0.';
