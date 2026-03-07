@@ -517,60 +517,22 @@ class AsistenciaController extends Controlador
                 $marcas = $info['marcas'];
                 sort($marcas);
 
-                $horaIngreso = $marcas[0] ?? null;
-                $horaSalida = count($marcas) > 1 ? $marcas[count($marcas) - 1] : null;
+                $resumen = $this->asistenciaModel->calcularResumenDesdeMarcas((int) $idTercero, $fecha, $marcas);
 
-                $horario = $this->asistenciaModel->obtenerHorarioEsperado((int) $idTercero, $fecha);
+                $horaIngreso = $resumen['hora_ingreso'];
+                $horaSalida = $resumen['hora_salida'];
+                $horaEntradaEsperada = $resumen['hora_entrada_esperada'];
+                $horaSalidaEsperada = $resumen['hora_salida_esperada'];
+                $toleranciaBD = (int) ($resumen['tolerancia_minutos'] ?? 0);
+                $estado = (string) ($resumen['estado_asistencia'] ?? 'INCOMPLETO');
+                $minutosTardanza = (int) ($resumen['minutos_tardanza'] ?? 0);
+                $horasTrabajadas = (float) ($resumen['horas_trabajadas'] ?? 0.00);
+                $horasExtras = (float) ($resumen['horas_extras'] ?? 0.00);
 
-                $minutosTardanza = 0;
-                $estado = 'INCOMPLETO';
-                $horasTrabajadas = 0.00;
-                $horasExtras = 0.00;
                 $observaciones = null;
-                
-                // Variables para congelar la memoria en BD
-                $horaEntradaEsperada = null;
-                $horaSalidaEsperada = null;
-                $toleranciaBD = 0;
-
-                if ($horario) {
-                    $horaEntradaEsperada = $fecha . ' ' . substr((string) $horario['hora_entrada'], 0, 8);
-                    $horaSalidaEsperada = $fecha . ' ' . substr((string) $horario['hora_salida'], 0, 8);
-                    $toleranciaBD = (int) ($horario['tolerancia_minutos'] ?? 0);
-                }
-
-                if ($horaIngreso !== null && $horaSalida !== null) {
-                    $estado = 'PUNTUAL';
-
-                    $ingresoTs = strtotime($horaIngreso);
-                    $salidaTs = strtotime($horaSalida);
-
-                    if ($salidaTs > $ingresoTs) {
-                        $horasTrabajadas = round(($salidaTs - $ingresoTs) / 3600, 2);
-                    }
-
-                    if ($horario) {
-                        $esperadaTs = strtotime($horaEntradaEsperada);
-                        $salidaEsperadaTs = strtotime($horaSalidaEsperada);
-
-                        if ($ingresoTs > ($esperadaTs + ($toleranciaBD * 60))) {
-                            $estado = 'TARDANZA';
-                            $retrasoBruto = (int) floor(($ingresoTs - $esperadaTs) / 60);
-                            $minutosTardanza = $retrasoBruto - $toleranciaBD;
-                        }
-
-                        if ($salidaEsperadaTs > $esperadaTs) {
-                            $horasEsperadas = ($salidaEsperadaTs - $esperadaTs) / 3600;
-                            if ($horasTrabajadas > $horasEsperadas) {
-                                $horasExtras = round($horasTrabajadas - $horasEsperadas, 2);
-                            }
-                        }
-                    }
-                } elseif ($horaIngreso !== null && $horaSalida === null) {
-                    $estado = 'INCOMPLETO';
-                    $observaciones = 'Solo se encontró una marca para el día.';
-                } else {
-                    $estado = 'FALTA';
+                if ($horaIngreso !== null && $horaSalida === null) {
+                    $observaciones = 'Solo se encontró una marca para el día. No se calcula tardanza hasta completar salida.';
+                } elseif ($horaIngreso === null && $horaSalida === null) {
                     $observaciones = 'No se encontraron marcas válidas.';
                 }
 
