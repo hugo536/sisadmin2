@@ -146,7 +146,7 @@ class TercerosModel extends Modelo
                        -- Empleado
                        te.cargo, te.area, te.fecha_ingreso, te.estado_laboral, 
                        te.sueldo_basico, te.moneda, te.asignacion_familiar,
-                       te.tipo_pago, te.pago_diario, te.tipo_contrato, te.fecha_cese,
+                       te.tipo_pago, te.tipo_contrato, te.fecha_cese,
                        te.regimen_pensionario, te.tipo_comision_afp, te.cuspp, te.essalud,
                        {$selectCumple}
                        {$selectPerfilEmpleado}
@@ -252,7 +252,7 @@ class TercerosModel extends Modelo
         $sql = "SELECT id_tercero,
                        cargo, area, fecha_ingreso, estado_laboral,
                        sueldo_basico, moneda, asignacion_familiar,
-                       tipo_pago, pago_diario, tipo_contrato, fecha_cese,
+                       tipo_pago, tipo_contrato, fecha_cese,
                        regimen_pensionario, tipo_comision_afp, cuspp, essalud,
                        {$selectCumple}
                        {$selectPerfilEmpleado}
@@ -693,7 +693,6 @@ class TercerosModel extends Modelo
             'moneda'          => $data['moneda'] ?? 'PEN',
             'asignacion_familiar' => filter_var($data['asignacion_familiar'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             'tipo_pago'       => $data['tipo_pago'] ?? null,
-            'pago_diario'     => (float)($data['pago_diario'] ?? 0),
             'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
             'tipo_comision_afp'   => $data['tipo_comision_afp'] ?? null,
             'cuspp'           => $data['cuspp'] ?? null,

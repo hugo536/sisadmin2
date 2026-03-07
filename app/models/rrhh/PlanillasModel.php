@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 class PlanillasModel extends Modelo
 {
+    private function resolverPagoDiario(float $sueldoBasico, string $tipoPago): float
+    {
+        $tipoPagoEmpleado = strtoupper(trim($tipoPago));
+
+        return match ($tipoPagoEmpleado) {
+            'SEMANAL' => $sueldoBasico,
+            'QUINCENAL' => $sueldoBasico / 15,
+            default => $sueldoBasico / 30,
+        };
+    }
+
     /**
      * ========================================================================
      * 1. LECTURA DE DATOS (Muestra en la vista)
@@ -133,7 +144,6 @@ class PlanillasModel extends Modelo
             $sqlAsistencia = "SELECT 
                                 t.id AS id_tercero,
                                 te.sueldo_basico,
-                                te.pago_diario,
                                 te.tipo_pago,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO') THEN 1 END) AS dias_asistidos,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
@@ -147,7 +157,7 @@ class PlanillasModel extends Modelo
             if ($frecuencia !== 'TODOS') {
                 $sqlAsistencia .= " AND UPPER(te.tipo_pago) = :frecuencia";
             }
-            $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.pago_diario, te.tipo_pago";
+            $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.tipo_pago";
             
             $stmtParams = ['desde' => $fechaInicio, 'hasta' => $fechaFin];
             if ($frecuencia !== 'TODOS') {
@@ -177,17 +187,9 @@ class PlanillasModel extends Modelo
                 $diasPagados = (int) $emp['dias_asistidos'] + (int) $emp['dias_justificados'];
                 $diasFalta = (int) $emp['dias_falta'];
 
-                // Fallback: si pago_diario no está configurado, lo derivamos del sueldo básico según frecuencia.
-                $pagoDiario = (float) ($emp['pago_diario'] ?? 0);
-                if ($pagoDiario <= 0) {
-                    $tipoPagoEmpleado = strtoupper((string) ($emp['tipo_pago'] ?? 'MENSUAL'));
-                    $divisor = match ($tipoPagoEmpleado) {
-                        'SEMANAL' => 7,
-                        'QUINCENAL' => 15,
-                        default => 30,
-                    };
-                    $pagoDiario = ((float) ($emp['sueldo_basico'] ?? 0)) / $divisor;
-                }
+                $sueldoBasico = (float) ($emp['sueldo_basico'] ?? 0);
+                $tipoPagoEmpleado = (string) ($emp['tipo_pago'] ?? 'MENSUAL');
+                $pagoDiario = $this->resolverPagoDiario($sueldoBasico, $tipoPagoEmpleado);
                 
                 // Sueldo base (Si es proporcional o fijo)
                 $sueldoBaseCalculado = $pagoDiario * $diasPagados;
@@ -315,7 +317,6 @@ class PlanillasModel extends Modelo
             $sqlAsistencia = "SELECT
                                 t.id AS id_tercero,
                                 te.sueldo_basico,
-                                te.pago_diario,
                                 te.tipo_pago,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO') THEN 1 END) AS dias_asistidos,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
@@ -331,7 +332,7 @@ class PlanillasModel extends Modelo
                 $sqlAsistencia .= ' AND UPPER(te.tipo_pago) = :frecuencia';
                 $stmtParams['frecuencia'] = $frecuencia;
             }
-            $sqlAsistencia .= ' GROUP BY t.id, te.sueldo_basico, te.pago_diario, te.tipo_pago';
+            $sqlAsistencia .= ' GROUP BY t.id, te.sueldo_basico, te.tipo_pago';
 
             $stmtAsist = $db->prepare($sqlAsistencia);
             $stmtAsist->execute($stmtParams);
@@ -354,16 +355,9 @@ class PlanillasModel extends Modelo
                 $diasPagados = (int) $emp['dias_asistidos'] + (int) $emp['dias_justificados'];
                 $diasFalta = (int) $emp['dias_falta'];
 
-                $pagoDiario = (float) ($emp['pago_diario'] ?? 0);
-                if ($pagoDiario <= 0) {
-                    $tipoPagoEmpleado = strtoupper((string) ($emp['tipo_pago'] ?? 'MENSUAL'));
-                    $divisor = match ($tipoPagoEmpleado) {
-                        'SEMANAL' => 7,
-                        'QUINCENAL' => 15,
-                        default => 30,
-                    };
-                    $pagoDiario = ((float) ($emp['sueldo_basico'] ?? 0)) / $divisor;
-                }
+                $sueldoBasico = (float) ($emp['sueldo_basico'] ?? 0);
+                $tipoPagoEmpleado = (string) ($emp['tipo_pago'] ?? 'MENSUAL');
+                $pagoDiario = $this->resolverPagoDiario($sueldoBasico, $tipoPagoEmpleado);
 
                 $sueldoBaseCalculado = $pagoDiario * $diasPagados;
                 $valorMinuto = ($pagoDiario / 8) / 60;

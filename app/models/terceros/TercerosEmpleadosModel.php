@@ -26,7 +26,7 @@ class TercerosEmpleadosModel extends Modelo
             $columnas = [
                 'id_tercero', 'cargo', 'area', 'fecha_ingreso', 'fecha_cese', 'estado_laboral',
                 'tipo_contrato', 'sueldo_basico', 'moneda', 'asignacion_familiar',
-                'tipo_pago', 'pago_diario', 'regimen_pensionario', 'tipo_comision_afp', 'cuspp', 'essalud',
+                'tipo_pago', 'regimen_pensionario', 'tipo_comision_afp', 'cuspp', 'essalud',
                 'genero', 'estado_civil', 'nivel_educativo',
                 'contacto_emergencia_nombre', 'contacto_emergencia_telf', 'tipo_sangre',
             ];
@@ -75,7 +75,6 @@ class TercerosEmpleadosModel extends Modelo
                 'moneda' => $data['moneda'] ?? 'PEN',
                 'asignacion_familiar' => $asignacionFamiliar,
                 'tipo_pago' => $data['tipo_pago'] ?? null,
-                'pago_diario' => (float) ($data['pago_diario'] ?? 0),
                 'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
                 'tipo_comision_afp' => $data['tipo_comision_afp'] ?? null,
                 'cuspp' => $data['cuspp'] ?? null,
