@@ -39,6 +39,13 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
             </div>
 
             <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
+                <form method="post" action="<?php echo e(route_url('planillas/recalcular')); ?>" class="m-0" onsubmit="return confirm('Se volverá a calcular el lote con asistencias y datos actuales del empleado. ¿Deseas continuar?');">
+                    <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
+                    <button type="submit" class="btn btn-outline-secondary shadow-sm fw-semibold" title="Refresca montos según asistencia y configuración actual">
+                        <i class="bi bi-arrow-repeat me-2"></i>Refrescar Cálculo
+                    </button>
+                </form>
+
                 <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Esto congelará los datos para Finanzas.');">
                     <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
                     <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
