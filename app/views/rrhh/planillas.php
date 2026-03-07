@@ -6,11 +6,20 @@ $detallesNomina = $detalles_nomina ?? [];
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? [];
 
-// Extraemos totales para los KPIs
 $estadoLote = $loteActual['estado'] ?? 'BORRADOR';
-$nominaTotal = (float) ($loteActual['total_bruto'] ?? 0);
-$deducciones = (float) ($loteActual['total_deducciones'] ?? 0);
-$netoPagar = (float) ($loteActual['total_neto'] ?? 0);
+
+// Extraemos totales para los KPIs sumando dinámicamente los detalles
+$nominaTotal = 0.0;
+$deducciones = 0.0;
+$netoPagar = 0.0;
+
+if (!empty($detallesNomina)) {
+    foreach ($detallesNomina as $det) {
+        $nominaTotal += (float) ($det['total_percepciones'] ?? 0);
+        $deducciones += (float) ($det['total_deducciones'] ?? 0);
+        $netoPagar += (float) ($det['neto_a_pagar'] ?? 0);
+    }
+}
 ?>
 
 <div class="container-fluid p-4">
@@ -39,19 +48,18 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
             </div>
 
             <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
-                <form method="post" action="<?php echo e(route_url('planillas/recalcular')); ?>" class="m-0" onsubmit="return confirm('Se volverá a calcular el lote con asistencias y datos actuales del empleado. ¿Deseas continuar?');">
-                    <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
-                    <button type="submit" class="btn btn-outline-secondary shadow-sm fw-semibold" title="Refresca montos según asistencia y configuración actual">
-                        <i class="bi bi-arrow-repeat me-2"></i>Refrescar Cálculo
+                <?php if ($netoPagar > 0): ?>
+                    <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Las asistencias quedarán selladas.');">
+                        <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
+                        <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
+                            <i class="bi bi-check-circle me-2"></i>Aprobar Lote
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <button class="btn btn-secondary shadow-sm fw-semibold opacity-50" disabled title="No hay datos para aprobar">
+                        <i class="bi bi-check-circle me-2"></i>Lote Vacío
                     </button>
-                </form>
-
-                <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Esto congelará los datos para Finanzas.');">
-                    <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
-                    <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
-                        <i class="bi bi-check-circle me-2"></i>Aprobar Lote
-                    </button>
-                </form>
+                <?php endif; ?>
             <?php endif; ?>
             
             <button class="btn btn-success shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
@@ -72,27 +80,6 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
             </div>
         </div>
     <?php else: ?>
-        
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body p-4 d-flex justify-content-center">
-                <div class="d-flex align-items-center w-75 position-relative">
-                    <?php 
-                        $progreso = ($estadoLote === 'BORRADOR') ? 0 : (($estadoLote === 'APROBADO') ? 50 : 100); 
-                    ?>
-                    <div class="progress w-100" style="height: 3px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progreso; ?>%;"></div>
-                    </div>
-                    
-                    <button class="position-absolute top-50 start-0 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 0 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Borrador"><i class="bi bi-calculator fs-5"></i></button>
-                    <button class="position-absolute top-50 start-50 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 50 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Aprobado"><i class="bi bi-check2-all fs-5"></i></button>
-                    <button class="position-absolute top-50 start-100 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 100 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Pagado"><i class="bi bi-bank fs-5"></i></button>
-                    
-                    <div class="position-absolute top-100 start-0 translate-middle mt-3 small fw-bold <?php echo $progreso >= 0 ? 'text-success' : 'text-muted'; ?>">Consolidado</div>
-                    <div class="position-absolute top-100 start-50 translate-middle mt-3 small fw-bold <?php echo $progreso >= 50 ? 'text-success' : 'text-muted'; ?>">Aprobado</div>
-                    <div class="position-absolute top-100 start-100 translate-middle mt-3 small fw-bold <?php echo $progreso >= 100 ? 'text-success' : 'text-muted'; ?>">Pagado</div>
-                </div>
-            </div>
-        </div>
 
         <div class="row g-3 mb-4">
             <div class="col-12 col-md-4">
@@ -117,6 +104,30 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                         <p class="small text-white-50 text-uppercase fw-bold mb-1">Neto a Desembolsar</p>
                         <h3 class="fw-bold mb-0">S/ <?php echo number_format($netoPagar, 2); ?></h3>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-5 d-flex justify-content-center">
+                <div class="d-flex align-items-center w-75 position-relative">
+                    
+                    <?php 
+                        $progreso = ($estadoLote === 'BORRADOR') ? 0 : (($estadoLote === 'APROBADO') ? 50 : 100); 
+                    ?>
+                    
+                    <div class="progress w-100" style="height: 3px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progreso; ?>%;"></div>
+                    </div>
+                    
+                    <button class="position-absolute top-50 start-0 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 0 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Borrador"><i class="bi bi-calculator fs-5"></i></button>
+                    <button class="position-absolute top-50 start-50 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 50 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Aprobado"><i class="bi bi-check2-all fs-5"></i></button>
+                    <button class="position-absolute top-50 start-100 translate-middle btn btn-sm rounded-pill <?php echo $progreso >= 100 ? 'btn-success' : 'btn-secondary'; ?>" style="width: 2.5rem; height:2.5rem;" title="Pagado"><i class="bi bi-bank fs-5"></i></button>
+                    
+                    <div class="position-absolute top-50 start-0 translate-middle-x mt-4 small fw-bold <?php echo $progreso >= 0 ? 'text-success' : 'text-muted'; ?>">Consolidado</div>
+                    <div class="position-absolute top-50 start-50 translate-middle-x mt-4 small fw-bold <?php echo $progreso >= 50 ? 'text-success' : 'text-muted'; ?>">Aprobado</div>
+                    <div class="position-absolute top-50 start-100 translate-middle-x mt-4 small fw-bold <?php echo $progreso >= 100 ? 'text-success' : 'text-muted'; ?>">Pagado</div>
+                    
                 </div>
             </div>
         </div>
@@ -156,12 +167,11 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                                    data-erp-table="true"
                                    data-search-input="#searchDetalles"
                                    data-rows-selector="#detallesTableBody tr:not(.empty-msg-row)"
-                                   data-empty-text="No hay recibos generados en este lote"
-                                   data-info-text-template="Mostrando {start} a {end} de {total} recibos">
+                                   data-empty-text="No hay recibos generados en este lote">
                                 <thead class="bg-light border-bottom">
                                     <tr>
                                         <th class="ps-4 text-secondary fw-semibold">Empleado</th>
-                                        <th class="text-center text-secondary fw-semibold">Días (Pag/Falt)</th>
+                                        <th class="text-center text-secondary fw-semibold">Días / Horas</th>
                                         <th class="text-end text-secondary fw-semibold">Percepciones</th>
                                         <th class="text-end text-secondary fw-semibold">Deducciones</th>
                                         <th class="text-end text-dark fw-bold">Neto a Pagar</th>
@@ -173,7 +183,8 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                                         <tr class="empty-msg-row border-bottom-0">
                                             <td colspan="6" class="text-center text-muted py-5">
                                                 <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
-                                                No hay recibos generados.
+                                                No hay recibos generados.<br>
+                                                <small>Es posible que los empleados ya hayan sido pagados en estas fechas.</small>
                                             </td>
                                         </tr>
                                     <?php else: ?>
@@ -181,28 +192,50 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                                             <?php 
                                                 $searchStr = strtolower($row['nombre_completo'] ?? ''); 
                                                 $tieneBono = ((float)($row['monto_bonos'] ?? 0) > 0); 
+                                                $descuentoAdelanto = (float)($row['descuento_adelanto'] ?? 0);
+                                                
+                                                // No mostramos empleados que salieron en 0 completamente
+                                                if ($row['neto_a_pagar'] <= 0 && $row['dias_pagados'] == 0 && !$tieneBono) continue;
                                             ?>
                                             <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                                 <td class="ps-4 fw-semibold text-dark align-top pt-3">
-                                                    <?php echo e((string) ($row['nombre_completo'] ?? '')); ?>
+                                                    <?php echo htmlspecialchars((string) ($row['nombre_completo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                                                     <div class="small text-muted fw-normal">
-                                                        <?php echo e((string) ($row['cargo'] ?? '')); ?> 
-                                                        | <span class="badge bg-light text-secondary border"><?php echo e((string) ($row['frecuencia'] ?? 'MENSUAL')); ?></span>
+                                                        <?php echo htmlspecialchars((string) ($row['cargo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> 
+                                                        | <span class="badge bg-light text-secondary border"><?php echo htmlspecialchars((string) ($row['frecuencia'] ?? 'MENSUAL'), ENT_QUOTES, 'UTF-8'); ?></span>
                                                     </div>
                                                 </td>
                                                 <td class="text-center align-top pt-3">
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="Días Pagados"><?php echo (int)($row['dias_pagados'] ?? 0); ?></span>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="Días Pagados"><?php echo (int)($row['dias_pagados'] ?? 0); ?> D</span>
                                                     <?php if((int)($row['dias_falta'] ?? 0) > 0): ?>
-                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 ms-1" title="Días Falta"><?php echo (int)($row['dias_falta'] ?? 0); ?></span>
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 ms-1" title="Días Falta"><?php echo (int)($row['dias_falta'] ?? 0); ?> F</span>
                                                     <?php endif; ?>
+                                                    <div class="small text-muted fw-normal mt-1" style="font-size: 0.7rem;">
+                                                        <?php echo (int)($row['horas_acumuladas'] ?? 0); ?> hrs acumuladas
+                                                    </div>
                                                 </td>
                                                 <td class="text-end align-top pt-3">
                                                     <div class="fw-medium text-success">S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?></div>
+                                                    
+                                                    <?php if ((float)($row['pago_por_hora'] ?? 0) > 0): ?>
+                                                        <div class="small text-muted fw-normal mb-1" style="font-size: 0.7rem;">
+                                                            Tarifa: S/ <?php echo number_format((float)($row['pago_por_hora']), 2); ?>/hr
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    
                                                     <?php if($tieneBono): ?>
-                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Incluye Bono</span>
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Incluye Bono</span>
                                                     <?php endif; ?>
                                                 </td>
-                                                <td class="text-end fw-medium text-danger align-top pt-3">- S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?></td>
+                                                <td class="text-end align-top pt-3">
+                                                    <div class="fw-medium text-danger">- S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?></div>
+                                                    
+                                                    <?php if($descuentoAdelanto > 0): ?>
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;" title="Se cobró S/ <?php echo $descuentoAdelanto; ?> por adelantos previos">
+                                                            <i class="bi bi-wallet2 me-1"></i>Cobro de Adelanto
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td class="text-end fw-bold text-primary align-top pt-3">S/ <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?></td>
                                                 <td class="text-center pe-4 align-top pt-3">
                                                     <div class="d-flex justify-content-center gap-1">
@@ -296,11 +329,11 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('planillas/generar')); ?>">
+            <form method="post" action="<?php echo e(route_url('planillas/generar')); ?>" id="formGenerarLote">
                 <div class="modal-body p-4 bg-light">
                     <div class="mb-3">
-                        <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia del Lote <span class="text-danger">*</span></label>
-                        <input type="text" name="nombre_lote" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. 1ra Quincena Marzo 2026" required>
+                        <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia del Lote</label>
+                        <input type="text" name="nombre_lote" id="nombreGeneradoLote" class="form-control bg-secondary-subtle border-secondary-subtle fw-semibold" placeholder="Se generará automáticamente..." readonly>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-bold mb-1">Frecuencia de Pago <span class="text-danger">*</span></label>
@@ -321,7 +354,12 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                             <input type="date" name="fecha_fin" id="fechaFinLote" class="form-control bg-white border-secondary-subtle shadow-sm" required>
                         </div>
                     </div>
-                    <div class="form-text small mt-1" id="ayudaFrecuenciaLote"><i class="bi bi-info-circle text-primary me-1"></i> El sistema leerá las asistencias entre estas dos fechas.</div>
+                    <div class="form-text small mt-1 mb-3" id="ayudaFrecuenciaLote"><i class="bi bi-info-circle text-primary me-1"></i> El sistema leerá las asistencias entre estas dos fechas.</div>
+                    
+                    <div class="mb-1">
+                        <label class="form-label small text-muted fw-bold mb-1">Observaciones Internas <span class="text-muted fw-normal">(Opcional)</span></label>
+                        <textarea name="observaciones" class="form-control bg-white border-secondary-subtle shadow-sm" rows="2" placeholder="Ej. Lote correspondiente a liquidación de destajo..."></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer bg-white border-top-0">
                     <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -392,7 +430,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                 <div class="modal-footer bg-white border-top-0">
                     <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-warning px-4 fw-bold shadow-sm text-dark">
-                        <i class="bi bi-save me-2"></i>Guardar Ajuste
+                        <i class="bi bi-save me-2"></i>Guardar (Recalculará tabla)
                     </button>
                 </div>
             </form>

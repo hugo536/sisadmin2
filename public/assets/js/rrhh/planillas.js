@@ -26,18 +26,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (formAjuste) {
                 formAjuste.querySelector('input[name="monto"]').value = '';
                 formAjuste.querySelector('input[name="descripcion"]').value = '';
+                // Restaurar el botón por si se quedó en estado de carga
+                restaurarBotonSubmit(formAjuste);
             }
         });
     }
 
     // ==============================================================
-    // 2. MODAL GENERAR LOTE: FRECUENCIA + RANGO DE FECHAS
+    // 2. MODAL GENERAR LOTE: FRECUENCIA + RANGO DE FECHAS + NOMBRE AUTO
     // ==============================================================
     const modalGenerarLote = document.getElementById('modalGenerarLote');
     const selectFrecuenciaLote = document.getElementById('frecuenciaLote');
     const inputFechaInicioLote = document.getElementById('fechaInicioLote');
     const inputFechaFinLote = document.getElementById('fechaFinLote');
     const ayudaFrecuenciaLote = document.getElementById('ayudaFrecuenciaLote');
+    const inputNombreGenerado = document.getElementById('nombreGeneradoLote');
 
     const PERIODOS_DIAS = {
         TODOS: 30,
@@ -56,6 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatDateISO(date) {
         return date.toISOString().slice(0, 10);
     }
+    
+    // Función para convertir a formato Latino (DD/MM/YYYY) para el nombre visual
+    function formatLatino(dateStr) {
+        if(!dateStr) return '';
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    }
 
     function addDays(dateValue, days) {
         const date = new Date(dateValue + 'T00:00:00');
@@ -64,6 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         date.setDate(date.getDate() + days);
         return date;
+    }
+
+    // NUEVA FUNCIÓN: Genera el nombre del lote visualmente para el usuario
+    function actualizarNombreLote() {
+        if(inputNombreGenerado && inputFechaInicioLote.value && inputFechaFinLote.value) {
+            const inicio = formatLatino(inputFechaInicioLote.value);
+            const fin = formatLatino(inputFechaFinLote.value);
+            inputNombreGenerado.value = `NOM - ${inicio} al ${fin}`;
+        }
     }
 
     function ajustarRangoPorFrecuencia() {
@@ -90,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ayudaFrecuenciaLote) {
             ayudaFrecuenciaLote.innerHTML = `<i class="bi bi-info-circle text-primary me-1"></i> ${MENSAJES_PERIODO[frecuencia] ?? MENSAJES_PERIODO.TODOS}`;
         }
+        
+        actualizarNombreLote();
     }
 
     function validarRangoSegunFrecuencia() {
@@ -114,10 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         inputFechaFinLote.setCustomValidity('');
+        actualizarNombreLote();
     }
 
     if (modalGenerarLote) {
-        modalGenerarLote.addEventListener('shown.bs.modal', ajustarRangoPorFrecuencia);
+        modalGenerarLote.addEventListener('shown.bs.modal', function() {
+            ajustarRangoPorFrecuencia();
+            // Restaurar el botón en caso de que se haya cerrado previamente mientras cargaba
+            const formGenerarLote = modalGenerarLote.querySelector('form');
+            if(formGenerarLote) restaurarBotonSubmit(formGenerarLote);
+        });
     }
 
     if (selectFrecuenciaLote) {
@@ -146,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.stopPropagation();
                 formGenerarLote.reportValidity();
+            } else {
+                bloquearBotonSubmit(formGenerarLote, "Calculando Nómina...");
             }
         });
     }
@@ -155,12 +184,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==============================================================
     if (searchInput && tablaDetalles) {
 
-        // Prevenir que el "Enter" recargue la página en el buscador
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') e.preventDefault();
         });
 
-        // Filtrado en vivo (Keyup)
         searchInput.addEventListener('keyup', function () {
             const searchTerm = this.value.toLowerCase().trim();
             const filas = tablaDetalles.querySelectorAll('tbody tr:not(.empty-msg-row)');
@@ -168,18 +195,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let filasVisibles = 0;
 
             filas.forEach(fila => {
-                // Recuperamos la cadena de búsqueda (data-search)
                 const dataSearch = fila.getAttribute('data-search') || '';
 
                 if (dataSearch.includes(searchTerm)) {
-                    fila.style.display = ''; // Mostrar
+                    fila.style.display = ''; 
                     filasVisibles++;
                 } else {
-                    fila.style.display = 'none'; // Ocultar
+                    fila.style.display = 'none'; 
                 }
             });
 
-            // Lógica para mostrar/ocultar el mensaje de "No hay resultados"
             const tbody = tablaDetalles.querySelector('tbody');
             let emptyRow = tbody.querySelector('.empty-msg-row-search');
 
@@ -203,21 +228,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==============================================================
-    // 4. SEGURIDAD ADICIONAL (Prevenir doble envíos en pagos)
+    // 4. SEGURIDAD ADICIONAL (UX y Prevención de doble envío)
     // ==============================================================
+    
+    function bloquearBotonSubmit(form, textoCarga = "Procesando...") {
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        if (btnSubmit) {
+            if (!btnSubmit.dataset.originalHtml) {
+                btnSubmit.dataset.originalHtml = btnSubmit.innerHTML;
+            }
+            btnSubmit.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${textoCarga}`;
+            btnSubmit.classList.add('disabled');
+            setTimeout(() => { btnSubmit.disabled = true; }, 10);
+        }
+    }
+
+    function restaurarBotonSubmit(form) {
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        if (btnSubmit && btnSubmit.dataset.originalHtml) {
+            btnSubmit.innerHTML = btnSubmit.dataset.originalHtml;
+            btnSubmit.classList.remove('disabled');
+            btnSubmit.disabled = false;
+        }
+    }
+
     const formPagarLote = document.querySelector('#modalPagarLote form');
     if (formPagarLote) {
         formPagarLote.addEventListener('submit', function (e) {
-            // Evitar que el usuario presione 2 veces el botón de pagar
-            const btnSubmit = this.querySelector('button[type="submit"]');
-            if (btnSubmit) {
-                // Cambiamos el texto e ícono
-                btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
-                // Agregamos una clase visual y deshabilitamos el botón físicamente
-                btnSubmit.classList.add('disabled');
-                btnSubmit.disabled = true;
-            }
+            if(this.checkValidity()) bloquearBotonSubmit(this, "Registrando Pago...");
         });
     }
+
+    const formAjustar = document.querySelector('#modalAjustarNomina form');
+    if (formAjustar) {
+        formAjustar.addEventListener('submit', function (e) {
+            if(this.checkValidity()) bloquearBotonSubmit(this, "Guardando Ajuste...");
+        });
+    }
+
+    const formsEnVista = document.querySelectorAll('form');
+    formsEnVista.forEach(form => {
+        if (form.getAttribute('action') && form.getAttribute('action').includes('aprobar')) {
+            form.addEventListener('submit', function (e) {
+                bloquearBotonSubmit(this, "Aprobando y Guardando...");
+            });
+        }
+    });
 
 });

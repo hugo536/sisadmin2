@@ -33,7 +33,6 @@ class PlanillasController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
-        // require_permiso('terceros.ver'); // Ajusta a tu permiso real
 
         $lotesRecientes = $this->planillasModel->obtenerLotesRecientes(15);
         $loteActual = null;
@@ -48,7 +47,16 @@ class PlanillasController extends Controlador
         if ($idLote > 0) {
             $loteActual = $this->planillasModel->obtenerLotePorId($idLote);
             if ($loteActual) {
-                $detallesNomina = $this->planillasModel->obtenerDetallesLote($idLote);
+                // ¡AQUÍ ESTABA EL ERROR! Ahora forzamos a MAYÚSCULAS para que siempre coincida con 'BORRADOR'
+                $estadoLote = strtoupper((string) $loteActual['estado']);
+                
+                if (in_array($estadoLote, ['PENDIENTE', 'BORRADOR', 'CREADO'])) {
+                    // Motor dinámico
+                    $detallesNomina = $this->planillasModel->calcularNominaEnMemoria($loteActual);
+                } else {
+                    // Datos fijos de la BD
+                    $detallesNomina = $this->planillasModel->obtenerDetallesLote($idLote);
+                }
             }
         }
 
@@ -64,7 +72,7 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
-     * 2. CREACIÓN DEL LOTE (Motor de cálculo)
+     * 2. CREACIÓN DEL LOTE (Solo crea el encabezado del lote)
      * ========================================================================
      */
     public function generar(): void
@@ -77,6 +85,7 @@ class PlanillasController extends Controlador
 
         try {
             $userId = AuthMiddleware::getUserId();
+            // Ahora este método solo debe crear la fila en la tabla maestra (Lotes), no los detalles
             $idLoteNuevo = $this->planillasModel->generarLoteNomina($_POST, $userId);
             
             redirect("planillas?id_lote={$idLoteNuevo}&success=" . urlencode('Lote generado correctamente.'));
@@ -96,6 +105,7 @@ class PlanillasController extends Controlador
         AuthMiddleware::handle();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Esto se guardará en una tabla de novedades/conceptos extras, no en la tabla de cálculo final.
             $exito = $this->planillasModel->agregarConceptoManual($_POST);
             
             $referer = $_SERVER['HTTP_REFERER'] ?? 'planillas';
@@ -110,7 +120,7 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
-     * 4. CONGELAMIENTO (Aprobar Lote)
+     * 4. CONGELAMIENTO (Aprobar Lote y GUARDAR CÁLCULOS)
      * ========================================================================
      */
     public function aprobar(): void
@@ -121,36 +131,16 @@ class PlanillasController extends Controlador
             $idLote = (int) ($_POST['id_lote'] ?? 0);
             
             if ($idLote > 0) {
+                // Al aprobar, el modelo deberá llamar a calcularNominaEnMemoria() una última vez
+                // y ahí sí, hacer todos los INSERT en la base de datos final.
                 $this->planillasModel->aprobarLote($idLote);
             }
             
-            redirect("planillas?id_lote={$idLote}&success=" . urlencode('Lote aprobado y bloqueado para edición.'));
+            redirect("planillas?id_lote={$idLote}&success=" . urlencode('Lote aprobado, calculado y guardado con éxito.'));
         }
     }
 
-    public function recalcular(): void
-    {
-        AuthMiddleware::handle();
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            redirect('planillas');
-            return;
-        }
-
-        $idLote = (int) ($_POST['id_lote'] ?? 0);
-        if ($idLote <= 0) {
-            redirect('planillas?error=' . urlencode('Lote inválido para recalcular.'));
-            return;
-        }
-
-        try {
-            $userId = AuthMiddleware::getUserId();
-            $this->planillasModel->recalcularLoteNomina($idLote, $userId);
-            redirect('planillas?id_lote=' . $idLote . '&success=' . urlencode('Lote recalculado con datos actualizados.'));
-        } catch (Exception $e) {
-            redirect('planillas?id_lote=' . $idLote . '&error=' . urlencode($e->getMessage()));
-        }
-    }
+    // EL MÉTODO recalcular() FUE ELIMINADO CON ÉXITO YA QUE SERÁ AUTOMÁTICO
 
     /**
      * ========================================================================
@@ -201,7 +191,7 @@ class PlanillasController extends Controlador
         $boleta = $this->planillasModel->obtenerDatosBoletaPdf($idDetalle);
 
         if (!$boleta) {
-            die("El recibo solicitado no existe.");
+            die("El recibo solicitado no existe o el lote aún no ha sido aprobado.");
         }
 
         // Renderizamos la vista del PDF de forma oculta para capturar su HTML
@@ -213,7 +203,7 @@ class PlanillasController extends Controlador
                 'ruc' => '20123456789',
                 'direccion' => 'Av. Principal 123, Ciudad'
             ]
-        ], true); // <-- Tu framework podría necesitar este 'true' para no renderizar layouts generales
+        ], true); 
         $html = ob_get_clean();
 
         // Inicializar DomPDF
@@ -235,7 +225,7 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
-     * UTILIDADES (¡Aquí está la función que faltaba!)
+     * UTILIDADES
      * ========================================================================
      */
     private function listarMetodosPago(): array

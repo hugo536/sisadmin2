@@ -19,7 +19,7 @@ class TercerosEmpleadosModel extends Modelo
         }
 
         try {
-            // 1. GUARDAR DATOS DEL EMPLEADO (Lógica original)
+            // 1. GUARDAR DATOS DEL EMPLEADO
             $tieneCumpleanos = $this->hasColumn('terceros_empleados', 'recordar_cumpleanos')
                 && $this->hasColumn('terceros_empleados', 'fecha_nacimiento');
 
@@ -63,6 +63,10 @@ class TercerosEmpleadosModel extends Modelo
 
             $asignacionFamiliar = !empty($data['asignacion_familiar']) ? 1 : 0;
 
+            // PREVENCIÓN DE ERRORES: Limpiamos y estandarizamos el tipo de pago y sueldo
+            $tipoPagoLimpio = !empty($data['tipo_pago']) ? strtoupper(trim((string)$data['tipo_pago'])) : 'MENSUAL';
+            $sueldoLimpio = (float) str_replace(',', '', (string)($data['sueldo_basico'] ?? 0));
+
             $params = [
                 'id_tercero' => $idTercero,
                 'cargo' => $data['cargo'] ?? null,
@@ -71,10 +75,10 @@ class TercerosEmpleadosModel extends Modelo
                 'fecha_cese' => $data['fecha_cese'] ?? null,
                 'estado_laboral' => $data['estado_laboral'] ?? 'activo',
                 'tipo_contrato' => $data['tipo_contrato'] ?? null,
-                'sueldo_basico' => (float) ($data['sueldo_basico'] ?? 0),
+                'sueldo_basico' => $sueldoLimpio, // Dato asegurado
                 'moneda' => $data['moneda'] ?? 'PEN',
                 'asignacion_familiar' => $asignacionFamiliar,
-                'tipo_pago' => $data['tipo_pago'] ?? null,
+                'tipo_pago' => $tipoPagoLimpio, // Dato asegurado y en MAYÚSCULAS
                 'regimen_pensionario' => $data['regimen_pensionario'] ?? null,
                 'tipo_comision_afp' => $data['tipo_comision_afp'] ?? null,
                 'cuspp' => $data['cuspp'] ?? null,
@@ -105,11 +109,10 @@ class TercerosEmpleadosModel extends Modelo
 
             $db->prepare($sql)->execute($params);
 
-            // 2. PROCESAR HIJOS (Lógica integrada del modelo eliminado)
+            // 2. PROCESAR HIJOS
             if (isset($data['hijos_lista']) && is_array($data['hijos_lista'])) {
                 $this->procesarHijos($idTercero, $data['hijos_lista'], $asignacionFamiliar === 1);
             } elseif ($asignacionFamiliar === 0) {
-                // Si no se envía lista pero se desactivó la asignación, borramos todo por seguridad
                 $this->eliminarTodosLosHijos($idTercero);
             }
 
@@ -120,6 +123,7 @@ class TercerosEmpleadosModel extends Modelo
             if ($ownsTransaction && $db->inTransaction()) {
                 $db->rollBack();
             }
+            error_log("Error al guardar Tercero Empleado: " . $e->getMessage());
             throw $e;
         }
     }
@@ -129,24 +133,20 @@ class TercerosEmpleadosModel extends Modelo
      */
     private function procesarHijos(int $idEmpleado, array $hijos, bool $activo): void
     {
-        // Si la asignación familiar está desactivada, eliminamos todos los hijos
         if (!$activo) {
             $this->eliminarTodosLosHijos($idEmpleado);
             return;
         }
 
-        // 1. Obtener IDs actuales para saber qué borrar
         $stmt = $this->db()->prepare('SELECT id FROM terceros_empleados_hijos WHERE id_empleado = :id');
         $stmt->execute(['id' => $idEmpleado]);
-        $idsEnBaseDatos = $stmt->fetchAll(PDO::FETCH_COLUMN); // [1, 5, 8]
+        $idsEnBaseDatos = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         $idsRecibidos = [];
         
-        // 2. Recorrer la lista enviada desde el formulario
         foreach ($hijos as $hijo) {
             $idHijo = (int)($hijo['id'] ?? 0);
             
-            // Validaciones básicas antes de insertar
             if (empty($hijo['nombre_completo']) || empty($hijo['fecha_nacimiento'])) {
                 continue;
             }
@@ -160,7 +160,6 @@ class TercerosEmpleadosModel extends Modelo
             ];
 
             if ($idHijo > 0) {
-                // UPDATE
                 $sql = 'UPDATE terceros_empleados_hijos 
                         SET nombre_completo = :nombre_completo,
                             fecha_nacimiento = :fecha_nacimiento,
@@ -171,22 +170,16 @@ class TercerosEmpleadosModel extends Modelo
                 $this->db()->prepare($sql)->execute($paramsHijo + ['id' => $idHijo]);
                 $idsRecibidos[] = $idHijo;
             } else {
-                // INSERT
                 $sql = 'INSERT INTO terceros_empleados_hijos (id_empleado, nombre_completo, fecha_nacimiento, esta_estudiando, discapacidad, created_at)
                         VALUES (:id_empleado, :nombre_completo, :fecha_nacimiento, :esta_estudiando, :discapacidad, NOW())';
                 $this->db()->prepare($sql)->execute($paramsHijo);
-                
-                // Agregamos el ID insertado a la lista de "recibidos" para que no se borre si hacemos lógica compleja
-                // (Aunque en este flujo simple, los nuevos no están en la DB al principio, así que no afecta el DELETE)
             }
         }
 
-        // 3. Eliminar los que estaban en BD pero no llegaron en el formulario (fueron borrados en el front)
         $idsParaBorrar = array_diff($idsEnBaseDatos, $idsRecibidos);
         if (!empty($idsParaBorrar)) {
             $placeholders = implode(',', array_fill(0, count($idsParaBorrar), '?'));
             $sqlDelete = "DELETE FROM terceros_empleados_hijos WHERE id_empleado = ? AND id IN ($placeholders)";
-            // El primer parámetro es id_empleado, luego los IDs a borrar
             $paramsDelete = array_merge([$idEmpleado], array_values($idsParaBorrar));
             $this->db()->prepare($sqlDelete)->execute($paramsDelete);
         }
@@ -199,13 +192,11 @@ class TercerosEmpleadosModel extends Modelo
     }
 
     // ==========================================
-    // MÉTODOS DE LECTURA (Traídos del modelo eliminado)
+    // MÉTODOS DE LECTURA 
     // ==========================================
 
     public function listarHijos(int $idEmpleado): array
     {
-        // Nota: Quitamos la verificación de tablaDisponible para mejor rendimiento, 
-        // asumiendo que la tabla existe si se ejecuta el código.
         $sql = 'SELECT id, id_empleado, nombre_completo, fecha_nacimiento, esta_estudiando, discapacidad,
                         TIMESTAMPDIFF(YEAR, fecha_nacimiento, CURDATE()) AS edad_actual,
                         CASE

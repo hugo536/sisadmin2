@@ -14,13 +14,6 @@ class PlanillasModel extends Modelo
         };
     }
 
-    /**
-     * ========================================================================
-     * 1. LECTURA DE DATOS (Muestra en la vista)
-     * ========================================================================
-     */
-
-    // Obtiene los lotes recientes para el Dropdown superior
     public function obtenerLotesRecientes(int $limite = 10): array
     {
         $sql = "SELECT id, referencia, nombre, fecha_inicio, fecha_fin, estado, total_neto 
@@ -34,7 +27,6 @@ class PlanillasModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    // Obtiene la cabecera (KPIs) de un Lote específico
     public function obtenerLotePorId(int $idLote): ?array
     {
         $sql = "SELECT * FROM rrhh_nominas WHERE id = :id";
@@ -45,7 +37,6 @@ class PlanillasModel extends Modelo
         return $resultado ?: null;
     }
 
-    // Obtiene la lista de empleados (recibos) dentro de un Lote
     public function obtenerDetallesLote(int $idLote): array
     {
         $sql = "SELECT 
@@ -61,7 +52,8 @@ class PlanillasModel extends Modelo
                     nd.total_percepciones,
                     nd.total_deducciones,
                     nd.neto_a_pagar,
-                    -- Detecta si tiene bonos (conceptos manuales de tipo PERCEPCION)
+                    (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
+                    (nd.dias_pagados * 8) AS horas_acumuladas,
                     (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
                      WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos
                 FROM rrhh_nominas_detalles nd
@@ -76,456 +68,361 @@ class PlanillasModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * ========================================================================
-     * 2. GENERACIÓN DEL LOTE (El motor de cálculo)
-     * ========================================================================
-     */
+    public function calcularNominaEnMemoria(array $lote): array
+    {
+        $db = $this->db();
+        $idLote = (int) $lote['id'];
+        $frecuencia = strtoupper((string)($lote['frecuencia'] ?? 'TODOS'));
+        $fechaInicio = $lote['fecha_inicio'];
+        $fechaFin = $lote['fecha_fin'];
+
+        $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
+                   FROM terceros t
+                   INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                   WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
+        if ($frecuencia !== 'TODOS') {
+            $sqlEmp .= " AND UPPER(te.tipo_pago) = '{$frecuencia}'";
+        }
+        $empleadosActivos = $db->query($sqlEmp)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $stmtCheck = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina");
+        $stmtCheck->execute(['id_nomina' => $idLote]);
+        $detallesExistentes = $stmtCheck->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaDetalles = [];
+        foreach ($detallesExistentes as $det) {
+            $mapaDetalles[$det['id_tercero']] = $det['id'];
+        }
+
+        $stmtInsertDetalle = $db->prepare("INSERT INTO rrhh_nominas_detalles 
+            (id_nomina, id_tercero, dias_pagados, dias_falta, minutos_tardanza, sueldo_base_calculado, total_percepciones, total_deducciones, neto_a_pagar) 
+            VALUES (:id_nomina, :id_tercero, 0, 0, 0, 0, 0, 0, 0)");
+
+        $empleadosProcesar = [];
+        foreach ($empleadosActivos as $emp) {
+            $idTercero = $emp['id'];
+            if (!isset($mapaDetalles[$idTercero])) {
+                $stmtInsertDetalle->execute(['id_nomina' => $idLote, 'id_tercero' => $idTercero]);
+                $idDetalle = (int) $db->lastInsertId();
+                $mapaDetalles[$idTercero] = $idDetalle;
+            } else {
+                $idDetalle = $mapaDetalles[$idTercero];
+            }
+            $emp['id_detalle'] = $idDetalle;
+            $empleadosProcesar[] = $emp;
+        }
+
+        // CORRECCIÓN AQUÍ: id_nomina_pago
+        $sqlAsistencia = "SELECT id_tercero, estado_asistencia, minutos_tardanza 
+                          FROM asistencia_registros 
+                          WHERE fecha BETWEEN :desde AND :hasta 
+                          AND (id_nomina_pago IS NULL OR id_nomina_pago = :id_lote)";
+        $stmtAsist = $db->prepare($sqlAsistencia);
+        $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin, 'id_lote' => $idLote]);
+        $registrosAsistencia = $stmtAsist->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaAsistencia = [];
+        foreach ($registrosAsistencia as $ar) {
+            $idT = $ar['id_tercero'];
+            if (!isset($mapaAsistencia[$idT])) {
+                $mapaAsistencia[$idT] = ['asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 'tardanzas' => 0];
+            }
+            $estado = strtoupper($ar['estado_asistencia']);
+            if (in_array($estado, ['PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO'])) {
+                $mapaAsistencia[$idT]['asistidos']++;
+            } elseif (in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO'])) {
+                $mapaAsistencia[$idT]['justificados']++;
+            } elseif ($estado === 'FALTA') {
+                $mapaAsistencia[$idT]['faltas']++;
+            }
+            $mapaAsistencia[$idT]['tardanzas'] += (int) $ar['minutos_tardanza'];
+        }
+
+        $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
+        $adelantosPendientes = $db->query($sqlAdelantos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $mapaAdelantos = [];
+        foreach ($adelantosPendientes as $ad) {
+            $mapaAdelantos[$ad['id_tercero']][] = $ad;
+        }
+
+        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.monto 
+                        FROM rrhh_nominas_conceptos nc
+                        INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                        WHERE nd.id_nomina = :id_nomina AND nc.es_automatico = 0";
+        $stmtMan = $db->prepare($sqlManuales);
+        $stmtMan->execute(['id_nomina' => $idLote]);
+        $conceptosManuales = $stmtMan->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaManuales = [];
+        foreach ($conceptosManuales as $cm) {
+            $idD = $cm['id_detalle_nomina'];
+            if (!isset($mapaManuales[$idD])) {
+                $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
+            }
+            if ($cm['tipo'] === 'PERCEPCION') {
+                $mapaManuales[$idD]['percepciones'] += $cm['monto'];
+                $mapaManuales[$idD]['bonos'] += $cm['monto'];
+            } else {
+                $mapaManuales[$idD]['deducciones'] += $cm['monto'];
+            }
+        }
+
+        $resultados = [];
+        foreach ($empleadosProcesar as $emp) {
+            $idTercero = $emp['id'];
+            $idDetalle = $emp['id_detalle'];
+            $asis = $mapaAsistencia[$idTercero] ?? ['asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 'tardanzas' => 0];
+
+            $diasPagados = $asis['asistidos'] + $asis['justificados'];
+            
+            $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
+            
+            $pagoPorHora = $pagoDiario / 8;
+            $horasAcumuladas = $diasPagados * 8;
+
+            $sueldoBaseCalculado = $pagoDiario * $diasPagados;
+            
+            $valorMinuto = $pagoPorHora / 60;
+            $descuentoTardanzas = $valorMinuto * $asis['tardanzas'];
+
+            $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
+
+            $totalPercepciones = $sueldoBaseCalculado + $manuales['percepciones'];
+            $deduccionesPrevias = $descuentoTardanzas + $manuales['deducciones'];
+            
+            $netoTemporal = $totalPercepciones - $deduccionesPrevias;
+            
+            $descuentoAdelanto = 0;
+            $adelantosAplicados = [];
+            if (isset($mapaAdelantos[$idTercero]) && $netoTemporal > 0) {
+                foreach ($mapaAdelantos[$idTercero] as &$ad) {
+                    if ($netoTemporal <= 0) break;
+                    $aDescontar = min($netoTemporal, (float)$ad['saldo_pendiente']);
+                    $descuentoAdelanto += $aDescontar;
+                    $netoTemporal -= $aDescontar;
+                    $adelantosAplicados[] = ['id' => $ad['id'], 'monto' => $aDescontar];
+                    $ad['saldo_pendiente'] -= $aDescontar;
+                }
+            }
+
+            $totalDeducciones = $deduccionesPrevias + $descuentoAdelanto;
+            $netoFinal = $totalPercepciones - $totalDeducciones;
+
+            $resultados[] = [
+                'id' => $idDetalle,
+                'id_tercero' => $idTercero,
+                'nombre_completo' => $emp['nombre_completo'],
+                'numero_documento' => $emp['numero_documento'],
+                'cargo' => $emp['cargo'],
+                'frecuencia' => $emp['tipo_pago'],
+                'dias_pagados' => $diasPagados,
+                'dias_falta' => $asis['faltas'],
+                'minutos_tardanza' => $asis['tardanzas'],
+                'pago_por_hora' => round($pagoPorHora, 2),
+                'horas_acumuladas' => $horasAcumuladas,
+                'sueldo_base_calculado' => round($sueldoBaseCalculado, 2),
+                'total_percepciones' => round($totalPercepciones, 2),
+                'total_deducciones' => round($totalDeducciones, 2),
+                'neto_a_pagar' => round(max(0, $netoFinal), 2),
+                'monto_bonos' => round($manuales['bonos'], 2),
+                'descuento_tardanzas' => round($descuentoTardanzas, 2),
+                'descuento_adelanto' => round($descuentoAdelanto, 2),
+                'adelantos_aplicados' => json_encode($adelantosAplicados)
+            ];
+        }
+
+        return $resultados;
+    }
+
     public function generarLoteNomina(array $datos, int $userId): int
     {
         $db = $this->db();
         $frecuencia = strtoupper((string)($datos['frecuencia'] ?? 'TODOS'));
-        $frecuenciasValidas = ['TODOS', 'SEMANAL', 'QUINCENAL', 'MENSUAL'];
-
-        if (!in_array($frecuencia, $frecuenciasValidas, true)) {
-            throw new Exception('La frecuencia seleccionada no es válida.');
-        }
-
         $fechaInicio = (string) ($datos['fecha_inicio'] ?? '');
         $fechaFin = (string) ($datos['fecha_fin'] ?? '');
-
-        $inicioDt = DateTime::createFromFormat('Y-m-d', $fechaInicio);
-        $finDt = DateTime::createFromFormat('Y-m-d', $fechaFin);
-
-        if (!$inicioDt || !$finDt || $inicioDt->format('Y-m-d') !== $fechaInicio || $finDt->format('Y-m-d') !== $fechaFin) {
-            throw new Exception('Las fechas del lote no tienen un formato válido.');
-        }
-
-        $diasPeriodo = [
-            'TODOS' => 30,
-            'SEMANAL' => 7,
-            'QUINCENAL' => 15,
-            'MENSUAL' => 30,
-        ];
-
-        $diferenciaDias = ((int) $inicioDt->diff($finDt)->format('%r%a')) + 1;
-
-        if ($diferenciaDias <= 0) {
-            throw new Exception('La fecha fin debe ser mayor o igual a la fecha de inicio.');
-        }
-
-        $diasEsperados = $diasPeriodo[$frecuencia] ?? 30;
-        if ($diferenciaDias !== $diasEsperados) {
-            throw new Exception(sprintf('Para frecuencia %s debes seleccionar un rango de %d días.', strtolower($frecuencia), $diasEsperados));
-        }
+        $observaciones = !empty($datos['observaciones']) ? $datos['observaciones'] : null;
         
+        $nombreLote = "NOM - " . date('d/m/Y', strtotime($fechaInicio)) . " al " . date('d/m/Y', strtotime($fechaFin));
+
         try {
             $db->beginTransaction();
 
-            // 1. Crear la cabecera del Lote en estado BORRADOR
             $stmtLote = $db->prepare("INSERT INTO rrhh_nominas 
-                (referencia, nombre, fecha_inicio, fecha_fin, frecuencia, estado, created_by) 
-                VALUES (:referencia, :nombre, :fecha_inicio, :fecha_fin, :frecuencia, 'BORRADOR', :created_by)");
+                (referencia, nombre, fecha_inicio, fecha_fin, frecuencia, estado, observaciones, created_by) 
+                VALUES (:referencia, :nombre, :fecha_inicio, :fecha_fin, :frecuencia, 'BORRADOR', :observaciones, :created_by)");
             
-            $referencia = 'NOM-' . date('Ym') . '-' . rand(1000, 9999); // Genera ref única
+            $referencia = 'NOM-' . date('Ym') . '-' . rand(1000, 9999);
             
             $stmtLote->execute([
                 'referencia' => $referencia,
-                'nombre' => $datos['nombre_lote'],
+                'nombre' => $nombreLote,
                 'fecha_inicio' => $fechaInicio,
                 'fecha_fin' => $fechaFin,
                 'frecuencia' => $frecuencia,
+                'observaciones' => $observaciones,
                 'created_by' => $userId
             ]);
             
             $idLote = (int) $db->lastInsertId();
-
-            // 2. Extraer asistencia y sueldos de empleados (Reutilizamos tu lógica antigua adaptada)
-            $sqlAsistencia = "SELECT 
-                                t.id AS id_tercero,
-                                te.sueldo_basico,
-                                te.tipo_pago,
-                                COUNT(CASE WHEN ar.estado_asistencia IN ('PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO') THEN 1 END) AS dias_asistidos,
-                                COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
-                                COUNT(CASE WHEN ar.estado_asistencia = 'FALTA' THEN 1 END) AS dias_falta,
-                                SUM(COALESCE(ar.minutos_tardanza, 0)) AS minutos_tardanza
-                              FROM terceros t
-                              INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                              LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha BETWEEN :desde AND :hasta
-                              WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
-                              
-            if ($frecuencia !== 'TODOS') {
-                $sqlAsistencia .= " AND UPPER(te.tipo_pago) = :frecuencia";
-            }
-            $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.tipo_pago";
-            
-            $stmtParams = ['desde' => $fechaInicio, 'hasta' => $fechaFin];
-            if ($frecuencia !== 'TODOS') {
-                $stmtParams['frecuencia'] = $frecuencia;
-            }
-            
-            $stmtAsist = $db->prepare($sqlAsistencia);
-            $stmtAsist->execute($stmtParams);
-            $empleados = $stmtAsist->fetchAll(PDO::FETCH_ASSOC);
-
-            $loteTotalBruto = 0;
-            $loteTotalDeducciones = 0;
-            $loteTotalNeto = 0;
-            $cantidadEmpleados = 0;
-
-            // 3. Procesar empleado por empleado y guardar su detalle
-            $stmtDetalle = $db->prepare("INSERT INTO rrhh_nominas_detalles 
-                (id_nomina, id_tercero, dias_pagados, dias_falta, minutos_tardanza, sueldo_base_calculado, total_percepciones, total_deducciones, neto_a_pagar) 
-                VALUES (:id_nomina, :id_tercero, :dias_pagados, :dias_falta, :min_tardanza, :sueldo_base, :percepciones, :deducciones, :neto)");
-            
-            $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
-                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
-                VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 1)");
-
-            foreach ($empleados as $emp) {
-                // Cálculo matemático
-                $diasPagados = (int) $emp['dias_asistidos'] + (int) $emp['dias_justificados'];
-                $diasFalta = (int) $emp['dias_falta'];
-
-                $sueldoBasico = (float) ($emp['sueldo_basico'] ?? 0);
-                $tipoPagoEmpleado = (string) ($emp['tipo_pago'] ?? 'MENSUAL');
-                $pagoDiario = $this->resolverPagoDiario($sueldoBasico, $tipoPagoEmpleado);
-                
-                // Sueldo base (Si es proporcional o fijo)
-                $sueldoBaseCalculado = $pagoDiario * $diasPagados;
-                
-                // Deducción por tardanzas (Ejemplo básico: 1 sol por minuto, ajústalo a tu lógica real)
-                // Lo ideal sería: (sueldo_diario / 8 horas / 60 min) * minutos_tardanza
-                $valorMinuto = ($pagoDiario / 8) / 60;
-                $descuentoTardanzas = $valorMinuto * (int) $emp['minutos_tardanza'];
-                
-                $neto = $sueldoBaseCalculado - $descuentoTardanzas;
-
-                // Insertar Detalle (Boleta)
-                $stmtDetalle->execute([
-                    'id_nomina' => $idLote,
-                    'id_tercero' => $emp['id_tercero'],
-                    'dias_pagados' => $diasPagados,
-                    'dias_falta' => $diasFalta,
-                    'min_tardanza' => $emp['minutos_tardanza'],
-                    'sueldo_base' => $sueldoBaseCalculado,
-                    'percepciones' => $sueldoBaseCalculado,
-                    'deducciones' => $descuentoTardanzas,
-                    'neto' => $neto > 0 ? $neto : 0
-                ]);
-                
-                $idDetalle = (int) $db->lastInsertId();
-
-                // Insertar Concepto: Sueldo Base
-                $stmtConcepto->execute([
-                    'id_detalle' => $idDetalle,
-                    'tipo' => 'PERCEPCION',
-                    'categoria' => 'Sueldo Base',
-                    'descripcion' => 'Sueldo proporcional a ' . $diasPagados . ' días',
-                    'monto' => $sueldoBaseCalculado
-                ]);
-
-                // Insertar Concepto: Descuento si hubo tardanzas
-                if ($descuentoTardanzas > 0) {
-                    $stmtConcepto->execute([
-                        'id_detalle' => $idDetalle,
-                        'tipo' => 'DEDUCCION',
-                        'categoria' => 'Tardanza',
-                        'descripcion' => 'Descuento por ' . $emp['minutos_tardanza'] . ' minutos de tardanza',
-                        'monto' => $descuentoTardanzas
-                    ]);
-                }
-
-                // Sumarizadores del Lote
-                $loteTotalBruto += $sueldoBaseCalculado;
-                $loteTotalDeducciones += $descuentoTardanzas;
-                $loteTotalNeto += ($neto > 0 ? $neto : 0);
-                $cantidadEmpleados++;
-            }
-
-            // 4. Actualizar Lote con los totales finales
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
-                SET total_bruto = :bruto, total_deducciones = :deducciones, total_neto = :neto, cantidad_empleados = :cantidad 
-                WHERE id = :id");
-            $stmtUpdateLote->execute([
-                'bruto' => $loteTotalBruto,
-                'deducciones' => $loteTotalDeducciones,
-                'neto' => $loteTotalNeto,
-                'cantidad' => $cantidadEmpleados,
-                'id' => $idLote
-            ]);
-
             $db->commit();
             return $idLote;
 
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("Error al generar Lote de Nómina: " . $e->getMessage());
-            throw new Exception("Error al generar la nómina: " . $e->getMessage());
+            error_log("Error al generar Lote: " . $e->getMessage());
+            throw new Exception("Error al generar el encabezado de la nómina.");
         }
     }
 
-    // Recalcula un lote BORRADOR leyendo nuevamente asistencias y datos actuales del empleado.
-    public function recalcularLoteNomina(int $idLote, int $userId): bool
-    {
-        $db = $this->db();
-
-        try {
-            $db->beginTransaction();
-
-            $stmtLote = $db->prepare('SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE');
-            $stmtLote->execute(['id' => $idLote]);
-            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
-
-            if (!$lote) {
-                throw new Exception('El lote seleccionado no existe.');
-            }
-            if (($lote['estado'] ?? '') !== 'BORRADOR') {
-                throw new Exception('Solo se puede recalcular un lote en estado BORRADOR.');
-            }
-
-            $stmtManual = $db->prepare("SELECT nd.id_tercero, nc.tipo, nc.categoria, nc.descripcion, nc.monto
-                                        FROM rrhh_nominas_conceptos nc
-                                        INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
-                                        WHERE nd.id_nomina = :id_nomina AND nc.es_automatico = 0
-                                        ORDER BY nc.id ASC");
-            $stmtManual->execute(['id_nomina' => $idLote]);
-            $conceptosManuales = $stmtManual->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-            $manualPorEmpleado = [];
-            foreach ($conceptosManuales as $concepto) {
-                $idTercero = (int) ($concepto['id_tercero'] ?? 0);
-                if ($idTercero <= 0) {
-                    continue;
-                }
-                $manualPorEmpleado[$idTercero][] = $concepto;
-            }
-
-            $stmtDeleteConceptos = $db->prepare("DELETE FROM rrhh_nominas_conceptos
-                                                 WHERE id_detalle_nomina IN (
-                                                    SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina
-                                                 )");
-            $stmtDeleteConceptos->execute(['id_nomina' => $idLote]);
-
-            $stmtDeleteDetalles = $db->prepare('DELETE FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina');
-            $stmtDeleteDetalles->execute(['id_nomina' => $idLote]);
-
-            $frecuencia = strtoupper((string) ($lote['frecuencia'] ?? 'TODOS'));
-            $fechaInicio = (string) ($lote['fecha_inicio'] ?? '');
-            $fechaFin = (string) ($lote['fecha_fin'] ?? '');
-
-            $sqlAsistencia = "SELECT
-                                t.id AS id_tercero,
-                                te.sueldo_basico,
-                                te.tipo_pago,
-                                COUNT(CASE WHEN ar.estado_asistencia IN ('PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO') THEN 1 END) AS dias_asistidos,
-                                COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
-                                COUNT(CASE WHEN ar.estado_asistencia = 'FALTA' THEN 1 END) AS dias_falta,
-                                SUM(COALESCE(ar.minutos_tardanza, 0)) AS minutos_tardanza
-                              FROM terceros t
-                              INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                              LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha BETWEEN :desde AND :hasta
-                              WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
-
-            $stmtParams = ['desde' => $fechaInicio, 'hasta' => $fechaFin];
-            if ($frecuencia !== 'TODOS') {
-                $sqlAsistencia .= ' AND UPPER(te.tipo_pago) = :frecuencia';
-                $stmtParams['frecuencia'] = $frecuencia;
-            }
-            $sqlAsistencia .= ' GROUP BY t.id, te.sueldo_basico, te.tipo_pago';
-
-            $stmtAsist = $db->prepare($sqlAsistencia);
-            $stmtAsist->execute($stmtParams);
-            $empleados = $stmtAsist->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-            $loteTotalBruto = 0.0;
-            $loteTotalDeducciones = 0.0;
-            $loteTotalNeto = 0.0;
-            $cantidadEmpleados = 0;
-
-            $stmtDetalle = $db->prepare("INSERT INTO rrhh_nominas_detalles
-                (id_nomina, id_tercero, dias_pagados, dias_falta, minutos_tardanza, sueldo_base_calculado, total_percepciones, total_deducciones, neto_a_pagar)
-                VALUES (:id_nomina, :id_tercero, :dias_pagados, :dias_falta, :min_tardanza, :sueldo_base, :percepciones, :deducciones, :neto)");
-
-            $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos
-                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico)
-                VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, :es_automatico)");
-
-            foreach ($empleados as $emp) {
-                $diasPagados = (int) $emp['dias_asistidos'] + (int) $emp['dias_justificados'];
-                $diasFalta = (int) $emp['dias_falta'];
-
-                $sueldoBasico = (float) ($emp['sueldo_basico'] ?? 0);
-                $tipoPagoEmpleado = (string) ($emp['tipo_pago'] ?? 'MENSUAL');
-                $pagoDiario = $this->resolverPagoDiario($sueldoBasico, $tipoPagoEmpleado);
-
-                $sueldoBaseCalculado = $pagoDiario * $diasPagados;
-                $valorMinuto = ($pagoDiario / 8) / 60;
-                $descuentoTardanzas = $valorMinuto * (int) $emp['minutos_tardanza'];
-
-                $totalPercepciones = $sueldoBaseCalculado;
-                $totalDeducciones = $descuentoTardanzas;
-
-                $idTercero = (int) ($emp['id_tercero'] ?? 0);
-                $manualEmpleado = $manualPorEmpleado[$idTercero] ?? [];
-                foreach ($manualEmpleado as $conceptoManual) {
-                    $tipo = strtoupper((string) ($conceptoManual['tipo'] ?? ''));
-                    $monto = (float) ($conceptoManual['monto'] ?? 0);
-                    if ($tipo === 'PERCEPCION') {
-                        $totalPercepciones += $monto;
-                    } elseif ($tipo === 'DEDUCCION') {
-                        $totalDeducciones += $monto;
-                    }
-                }
-
-                $neto = $totalPercepciones - $totalDeducciones;
-
-                $stmtDetalle->execute([
-                    'id_nomina' => $idLote,
-                    'id_tercero' => $idTercero,
-                    'dias_pagados' => $diasPagados,
-                    'dias_falta' => $diasFalta,
-                    'min_tardanza' => $emp['minutos_tardanza'],
-                    'sueldo_base' => $sueldoBaseCalculado,
-                    'percepciones' => $totalPercepciones,
-                    'deducciones' => $totalDeducciones,
-                    'neto' => $neto > 0 ? $neto : 0,
-                ]);
-
-                $idDetalle = (int) $db->lastInsertId();
-
-                $stmtConcepto->execute([
-                    'id_detalle' => $idDetalle,
-                    'tipo' => 'PERCEPCION',
-                    'categoria' => 'Sueldo Base',
-                    'descripcion' => 'Sueldo proporcional a ' . $diasPagados . ' días',
-                    'monto' => $sueldoBaseCalculado,
-                    'es_automatico' => 1,
-                ]);
-
-                if ($descuentoTardanzas > 0) {
-                    $stmtConcepto->execute([
-                        'id_detalle' => $idDetalle,
-                        'tipo' => 'DEDUCCION',
-                        'categoria' => 'Tardanza',
-                        'descripcion' => 'Descuento por ' . $emp['minutos_tardanza'] . ' minutos de tardanza',
-                        'monto' => $descuentoTardanzas,
-                        'es_automatico' => 1,
-                    ]);
-                }
-
-                foreach ($manualEmpleado as $conceptoManual) {
-                    $stmtConcepto->execute([
-                        'id_detalle' => $idDetalle,
-                        'tipo' => strtoupper((string) ($conceptoManual['tipo'] ?? 'PERCEPCION')),
-                        'categoria' => (string) ($conceptoManual['categoria'] ?? 'Ajuste Manual'),
-                        'descripcion' => (string) ($conceptoManual['descripcion'] ?? ''),
-                        'monto' => (float) ($conceptoManual['monto'] ?? 0),
-                        'es_automatico' => 0,
-                    ]);
-                }
-
-                $loteTotalBruto += $totalPercepciones;
-                $loteTotalDeducciones += $totalDeducciones;
-                $loteTotalNeto += ($neto > 0 ? $neto : 0);
-                $cantidadEmpleados++;
-            }
-
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas
-                SET total_bruto = :bruto,
-                    total_deducciones = :deducciones,
-                    total_neto = :neto,
-                    cantidad_empleados = :cantidad
-                WHERE id = :id");
-            $stmtUpdateLote->execute([
-                'bruto' => $loteTotalBruto,
-                'deducciones' => $loteTotalDeducciones,
-                'neto' => $loteTotalNeto,
-                'cantidad' => $cantidadEmpleados,
-                'id' => $idLote,
-            ]);
-
-            $db->commit();
-            return true;
-        } catch (Exception $e) {
-            $db->rollBack();
-            error_log('Error al recalcular lote de nómina: ' . $e->getMessage() . ' | user=' . $userId);
-            throw $e;
-        }
-    }
-
-    /**
-     * ========================================================================
-     * 3. AJUSTES Y FLUJO DE ESTADOS (Bonos, Aprobación)
-     * ========================================================================
-     */
-
-    // Agrega un bono manual o descuento a un empleado específico (Solo en estado BORRADOR)
     public function agregarConceptoManual(array $datos): bool
     {
         $db = $this->db();
         try {
-            $db->beginTransaction();
-
-            $idDetalle = (int) $datos['id_detalle_nomina'];
-            $tipo = strtoupper($datos['tipo_concepto']); // PERCEPCION o DEDUCCION
-            $monto = (float) $datos['monto'];
-
-            // 1. Insertar el concepto manual
             $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
                 VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
             
             $stmt->execute([
-                'id_detalle' => $idDetalle,
-                'tipo' => $tipo,
+                'id_detalle' => (int) $datos['id_detalle_nomina'],
+                'tipo' => strtoupper($datos['tipo_concepto']),
                 'categoria' => $datos['categoria_concepto'],
                 'descripcion' => $datos['descripcion'],
-                'monto' => $monto
+                'monto' => (float) $datos['monto']
             ]);
 
-            // 2. Recalcular el detalle (Boleta) de este empleado
-            $signo = ($tipo === 'PERCEPCION') ? '+' : '-';
-            $campoAfectado = ($tipo === 'PERCEPCION') ? 'total_percepciones' : 'total_deducciones';
-            
-            $db->exec("UPDATE rrhh_nominas_detalles 
-                       SET {$campoAfectado} = {$campoAfectado} + {$monto},
-                           neto_a_pagar = neto_a_pagar {$signo} {$monto}
-                       WHERE id = {$idDetalle}");
-
-            // 3. Recalcular la cabecera (El Lote Completo)
-            // Primero obtenemos a qué lote pertenece este detalle
-            $stmtLoteId = $db->query("SELECT id_nomina FROM rrhh_nominas_detalles WHERE id = {$idDetalle}");
-            $idLote = $stmtLoteId->fetchColumn();
-
-            $campoLote = ($tipo === 'PERCEPCION') ? 'total_bruto' : 'total_deducciones';
-            $db->exec("UPDATE rrhh_nominas 
-                       SET {$campoLote} = {$campoLote} + {$monto},
-                           total_neto = total_neto {$signo} {$monto}
-                       WHERE id = {$idLote}");
-
-            $db->commit();
             return true;
         } catch (Exception $e) {
-            $db->rollBack();
             error_log("Error al agregar concepto manual: " . $e->getMessage());
             return false;
         }
     }
 
-    // Congela la nómina
     public function aprobarLote(int $idLote): bool
     {
-        $sql = "UPDATE rrhh_nominas SET estado = 'APROBADO' WHERE id = :id AND estado = 'BORRADOR'";
-        $stmt = $this->db()->prepare($sql);
-        return $stmt->execute(['id' => $idLote]);
+        $db = $this->db();
+        try {
+            $db->beginTransaction();
+
+            $lote = $this->obtenerLotePorId($idLote);
+            if (!$lote || $lote['estado'] !== 'BORRADOR') {
+                throw new Exception("El lote no es válido o ya fue aprobado.");
+            }
+
+            $nominaCalculada = $this->calcularNominaEnMemoria($lote);
+
+            $stmtDelAuto = $db->prepare("DELETE FROM rrhh_nominas_conceptos 
+                                         WHERE es_automatico = 1 AND id_detalle_nomina IN (
+                                            SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina
+                                         )");
+            $stmtDelAuto->execute(['id_nomina' => $idLote]);
+
+            $stmtUpdateDet = $db->prepare("UPDATE rrhh_nominas_detalles 
+                SET dias_pagados = :dp, dias_falta = :df, minutos_tardanza = :mt, 
+                    sueldo_base_calculado = :sbc, total_percepciones = :tp, total_deducciones = :td, neto_a_pagar = :neto
+                WHERE id = :id");
+
+            $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
+                VALUES (:id_det, :tipo, :cat, :desc, :monto, 1)");
+                
+            // CORRECCIÓN AQUÍ: id_nomina_pago
+            $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
+                SET id_nomina_pago = :id_lote 
+                WHERE id_tercero = :id_tercero 
+                  AND fecha BETWEEN :desde AND :hasta 
+                  AND id_nomina_pago IS NULL");
+                  
+            $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos 
+                SET saldo_pendiente = saldo_pendiente - :descuento,
+                    estado = IF(saldo_pendiente - :descuento <= 0, 'PAGADO', 'PENDIENTE')
+                WHERE id = :id_adelanto");
+
+            $loteBruto = 0; $loteDeducciones = 0; $loteNeto = 0;
+            $idsValidos = []; 
+
+            foreach ($nominaCalculada as $calc) {
+                if ($calc['neto_a_pagar'] <= 0 && $calc['dias_pagados'] == 0 && $calc['monto_bonos'] == 0) {
+                    continue;
+                }
+
+                $idsValidos[] = $calc['id']; 
+
+                $stmtUpdateDet->execute([
+                    'dp' => $calc['dias_pagados'],
+                    'df' => $calc['dias_falta'],
+                    'mt' => $calc['minutos_tardanza'],
+                    'sbc' => $calc['sueldo_base_calculado'],
+                    'tp' => $calc['total_percepciones'],
+                    'td' => $calc['total_deducciones'],
+                    'neto' => $calc['neto_a_pagar'],
+                    'id' => $calc['id']
+                ]);
+
+                $stmtMarcarAsistencia->execute([
+                    'id_lote' => $idLote,
+                    'id_tercero' => $calc['id_tercero'],
+                    'desde' => $lote['fecha_inicio'],
+                    'hasta' => $lote['fecha_fin']
+                ]);
+
+                if ($calc['sueldo_base_calculado'] > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Sueldo Base',
+                        'desc' => 'Sueldo proporcional a ' . $calc['dias_pagados'] . ' días', 'monto' => $calc['sueldo_base_calculado']
+                    ]);
+                }
+
+                if ($calc['descuento_tardanzas'] > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Tardanza',
+                        'desc' => 'Descuento por ' . $calc['minutos_tardanza'] . ' minutos', 'monto' => $calc['descuento_tardanzas']
+                    ]);
+                }
+
+                if ($calc['descuento_adelanto'] > 0) {
+                    $adelantos = json_decode($calc['adelantos_aplicados'], true);
+                    foreach ($adelantos as $ad) {
+                        $stmtPagarAdelanto->execute([
+                            'descuento' => $ad['monto'],
+                            'id_adelanto' => $ad['id']
+                        ]);
+                    }
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo',
+                        'desc' => 'Cobro automático de adelanto/préstamo', 'monto' => $calc['descuento_adelanto']
+                    ]);
+                }
+
+                $loteBruto += $calc['total_percepciones'];
+                $loteDeducciones += $calc['total_deducciones'];
+                $loteNeto += $calc['neto_a_pagar'];
+            }
+
+            if (!empty($idsValidos)) {
+                $placeholders = implode(',', array_fill(0, count($idsValidos), '?'));
+                $stmtDelHuerfanos = $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ? AND id NOT IN ($placeholders)");
+                $stmtDelHuerfanos->execute(array_merge([$idLote], $idsValidos));
+            } else {
+                $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ?")->execute([$idLote]);
+            }
+
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
+                SET estado = 'APROBADO', total_bruto = :tb, total_deducciones = :td, total_neto = :tn, cantidad_empleados = :cant
+                WHERE id = :id");
+            $stmtUpdateLote->execute([
+                'tb' => $loteBruto, 'td' => $loteDeducciones, 'tn' => $loteNeto,
+                'cant' => count($idsValidos), 'id' => $idLote
+            ]);
+
+            $db->commit();
+            return true;
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error al aprobar lote: " . $e->getMessage());
+            return false;
+        }
     }
 
-    /**
-     * ========================================================================
-     * 4. TESORERÍA: PAGAR LOTE (En bloque)
-     * ========================================================================
-     */
     public function pagarLoteNomina(array $datos, int $userId): bool
     {
         $db = $this->db();
@@ -534,7 +431,6 @@ class PlanillasModel extends Modelo
         try {
             $db->beginTransaction();
 
-            // 1. Obtener datos del lote
             $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
             $stmtLote->execute(['id' => $idLote]);
             $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
@@ -543,7 +439,6 @@ class PlanillasModel extends Modelo
                 throw new Exception("El lote no existe o no está en estado APROBADO.");
             }
 
-            // 2. Verificar saldo en cuenta
             $stmtCuenta = $db->prepare("SELECT saldo_actual FROM tesoreria_cuentas WHERE id = :id_cuenta FOR UPDATE");
             $stmtCuenta->execute(['id_cuenta' => $datos['id_cuenta']]);
             $cuenta = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
@@ -552,7 +447,6 @@ class PlanillasModel extends Modelo
                 throw new Exception("Saldo insuficiente en la cuenta de tesorería seleccionada.");
             }
 
-            // 3. Registrar Salida en Tesorería (Una sola transacción para todos los empleados)
             $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
                 (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, referencia, observaciones, estado, created_by) 
                 VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, 'PEN', :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by)");
@@ -567,14 +461,12 @@ class PlanillasModel extends Modelo
                 'created_by' => $userId
             ]);
 
-            // 4. Descontar de la cuenta bancaria/caja
             $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
             $stmtUpdateCuenta->execute([
                 'monto' => $lote['total_neto'],
                 'id_cuenta' => $datos['id_cuenta']
             ]);
 
-            // 5. Actualizar el estado del Lote a PAGADO
             $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
                 SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta, referencia_pago = :ref 
                 WHERE id = :id_lote");
@@ -596,16 +488,8 @@ class PlanillasModel extends Modelo
         }
     }
 
-    /**
-     * ========================================================================
-     * 5. GENERACIÓN DE BOLETAS (PDF)
-     * ========================================================================
-     */
-    
-    // Obtiene toda la información de un recibo específico con sus conceptos desglosados
     public function obtenerDatosBoletaPdf(int $idDetalle): ?array
     {
-        // 1. Obtenemos los datos del empleado, del detalle y de la cabecera del Lote
         $sqlCabecera = "SELECT 
                             nd.*,
                             t.nombre_completo, 
@@ -629,11 +513,9 @@ class PlanillasModel extends Modelo
         $boleta = $stmtC->fetch(PDO::FETCH_ASSOC);
 
         if (!$boleta) {
-            return null; // Si no existe, retornamos null
+            return null;
         }
 
-        // 2. Obtenemos el desglose de los conceptos (Sueldo, Bonos, Tardanzas)
-        // Ordenamos por 'tipo' DESC para que las PERCEPCIONES salgan primero y las DEDUCCIONES después
         $sqlConceptos = "SELECT tipo, categoria, descripcion, monto, es_automatico 
                          FROM rrhh_nominas_conceptos 
                          WHERE id_detalle_nomina = :id_detalle 
@@ -642,7 +524,6 @@ class PlanillasModel extends Modelo
         $stmtConc = $this->db()->prepare($sqlConceptos);
         $stmtConc->execute(['id_detalle' => $idDetalle]);
         
-        // Guardamos los conceptos dentro del mismo arreglo de la boleta
         $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $boleta;
