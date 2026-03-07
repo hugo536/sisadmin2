@@ -195,7 +195,6 @@
                                                 data-tipo-pago="<?php echo htmlspecialchars((string) ($tercero['tipo_pago'] ?? 'MENSUAL')); ?>"
                                                 data-moneda="<?php echo htmlspecialchars((string) ($tercero['moneda'] ?? 'PEN')); ?>"
                                                 data-sueldo-basico="<?php echo htmlspecialchars((string) ($tercero['sueldo_basico'] ?? '')); ?>"
-                                                data-pago-diario="<?php echo htmlspecialchars((string) ($tercero['pago_diario'] ?? '')); ?>"
                                                 data-regimen-pensionario="<?php echo htmlspecialchars((string) ($tercero['regimen_pensionario'] ?? '')); ?>"
                                                 data-tipo-comision-afp="<?php echo htmlspecialchars((string) ($tercero['tipo_comision_afp'] ?? '')); ?>"
                                                 data-cuspp="<?php echo htmlspecialchars((string) ($tercero['cuspp'] ?? '')); ?>"
