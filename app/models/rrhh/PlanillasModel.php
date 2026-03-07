@@ -74,6 +74,39 @@ class PlanillasModel extends Modelo
     {
         $db = $this->db();
         $frecuencia = strtoupper((string)($datos['frecuencia'] ?? 'TODOS'));
+        $frecuenciasValidas = ['TODOS', 'SEMANAL', 'QUINCENAL', 'MENSUAL'];
+
+        if (!in_array($frecuencia, $frecuenciasValidas, true)) {
+            throw new Exception('La frecuencia seleccionada no es válida.');
+        }
+
+        $fechaInicio = (string) ($datos['fecha_inicio'] ?? '');
+        $fechaFin = (string) ($datos['fecha_fin'] ?? '');
+
+        $inicioDt = DateTime::createFromFormat('Y-m-d', $fechaInicio);
+        $finDt = DateTime::createFromFormat('Y-m-d', $fechaFin);
+
+        if (!$inicioDt || !$finDt || $inicioDt->format('Y-m-d') !== $fechaInicio || $finDt->format('Y-m-d') !== $fechaFin) {
+            throw new Exception('Las fechas del lote no tienen un formato válido.');
+        }
+
+        $diasPeriodo = [
+            'TODOS' => 30,
+            'SEMANAL' => 7,
+            'QUINCENAL' => 15,
+            'MENSUAL' => 30,
+        ];
+
+        $diferenciaDias = ((int) $inicioDt->diff($finDt)->format('%r%a')) + 1;
+
+        if ($diferenciaDias <= 0) {
+            throw new Exception('La fecha fin debe ser mayor o igual a la fecha de inicio.');
+        }
+
+        $diasEsperados = $diasPeriodo[$frecuencia] ?? 30;
+        if ($diferenciaDias !== $diasEsperados) {
+            throw new Exception(sprintf('Para frecuencia %s debes seleccionar un rango de %d días.', strtolower($frecuencia), $diasEsperados));
+        }
         
         try {
             $db->beginTransaction();
@@ -88,8 +121,8 @@ class PlanillasModel extends Modelo
             $stmtLote->execute([
                 'referencia' => $referencia,
                 'nombre' => $datos['nombre_lote'],
-                'fecha_inicio' => $datos['fecha_inicio'],
-                'fecha_fin' => $datos['fecha_fin'],
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
                 'frecuencia' => $frecuencia,
                 'created_by' => $userId
             ]);
@@ -115,7 +148,7 @@ class PlanillasModel extends Modelo
             }
             $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.pago_diario";
             
-            $stmtParams = ['desde' => $datos['fecha_inicio'], 'hasta' => $datos['fecha_fin']];
+            $stmtParams = ['desde' => $fechaInicio, 'hasta' => $fechaFin];
             if ($frecuencia !== 'TODOS') {
                 $stmtParams['frecuencia'] = $frecuencia;
             }
