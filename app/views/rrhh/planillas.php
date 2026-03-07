@@ -295,17 +295,26 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                         <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia del Lote <span class="text-danger">*</span></label>
                         <input type="text" name="nombre_lote" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. 1ra Quincena Marzo 2026" required>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted fw-bold mb-1">Frecuencia de Pago <span class="text-danger">*</span></label>
+                        <select name="frecuencia" id="frecuenciaLote" class="form-select bg-white border-secondary-subtle shadow-sm" required>
+                            <option value="TODOS" selected>Todos (sin filtro)</option>
+                            <option value="SEMANAL">Semanal</option>
+                            <option value="QUINCENAL">Quincenal</option>
+                            <option value="MENSUAL">Mensual</option>
+                        </select>
+                    </div>
                     <div class="row g-3 mb-2">
                         <div class="col-6">
                             <label class="form-label small text-muted fw-bold mb-1">Fecha Inicio <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha_inicio" class="form-control bg-white border-secondary-subtle shadow-sm" required>
+                            <input type="date" name="fecha_inicio" id="fechaInicioLote" class="form-control bg-white border-secondary-subtle shadow-sm" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label small text-muted fw-bold mb-1">Fecha Fin <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha_fin" class="form-control bg-white border-secondary-subtle shadow-sm" required>
+                            <input type="date" name="fecha_fin" id="fechaFinLote" class="form-control bg-white border-secondary-subtle shadow-sm" required>
                         </div>
                     </div>
-                    <div class="form-text small mt-1"><i class="bi bi-info-circle text-primary me-1"></i> El sistema leerá las asistencias entre estas dos fechas.</div>
+                    <div class="form-text small mt-1" id="ayudaFrecuenciaLote"><i class="bi bi-info-circle text-primary me-1"></i> El sistema leerá las asistencias entre estas dos fechas.</div>
                 </div>
                 <div class="modal-footer bg-white border-top-0">
                     <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
