@@ -734,9 +734,6 @@ class TercerosController extends Controlador
             
             $data['tipo_pago'] = $tipoPagoRaw;
             $data['sueldo_basico'] = $sueldoBasicoRaw;
-            
-            // Forzamos el pago diario a 0 ya que limpiamos ese input
-            $data['pago_diario'] = '0';
         }
 
         $recordarCumpleanos = $esEmpleado && filter_var($data['recordar_cumpleanos'] ?? false, FILTER_VALIDATE_BOOLEAN);
