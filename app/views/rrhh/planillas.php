@@ -31,7 +31,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                 </button>
                 <ul class="dropdown-menu shadow-sm">
                     <?php foreach ($lotesRecientes as $l): ?>
-                        <li><a class="dropdown-item fw-medium" href="?ruta=nominas&id_lote=<?php echo (int)$l['id']; ?>"><?php echo htmlspecialchars($l['referencia'] . ' - ' . $l['nombre']); ?></a></li>
+                        <li><a class="dropdown-item fw-medium" href="?ruta=planillas&id_lote=<?php echo (int)$l['id']; ?>"><?php echo htmlspecialchars($l['referencia'] . ' - ' . $l['nombre']); ?></a></li>
                     <?php endforeach; ?>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item text-primary fw-bold" href="?ruta=nominas/historial"><i class="bi bi-search me-2"></i>Ver todos los lotes</a></li>
@@ -39,7 +39,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
             </div>
 
             <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
-                <form method="post" action="<?php echo e(route_url('nominas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Esto congelará los datos para Finanzas.');">
+                <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Esto congelará los datos para Finanzas.');">
                     <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
                     <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
                         <i class="bi bi-check-circle me-2"></i>Aprobar Lote
@@ -210,7 +210,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                                                             </button>
                                                         <?php endif; ?>
 
-                                                        <a href="?ruta=nominas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta">
+                                                        <a href="?ruta=planillas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta">
                                                             <i class="bi bi-file-earmark-pdf fs-5"></i>
                                                         </a>
                                                     </div>
@@ -289,7 +289,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('nominas/generar_lote')); ?>">
+            <form method="post" action="<?php echo e(route_url('planillas/generar')); ?>">
                 <div class="modal-body p-4 bg-light">
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia del Lote <span class="text-danger">*</span></label>
@@ -327,7 +327,7 @@ $netoPagar = (float) ($loteActual['total_neto'] ?? 0);
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('nominas/agregar_concepto')); ?>">
+            <form method="post" action="<?php echo e(route_url('planillas/agregar_concepto')); ?>">
                 <input type="hidden" name="id_detalle_nomina" id="ajusteIdDetalle">
                 
                 <div class="modal-body p-4 bg-light">

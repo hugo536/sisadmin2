@@ -6,6 +6,11 @@ class AuthMiddleware
     private const TIMEOUT_INACTIVIDAD_DEFECTO = 1800;
     private const TIMEOUT_ABSOLUTO_DEFECTO = 28800;
 
+    public static function getUserId(): int
+    {
+        return (int) ($_SESSION['id'] ?? 0);
+    }
+
     public static function handle(): void
     {
         if (!isset($_SESSION['id'], $_SESSION['usuario'], $_SESSION['id_rol'])) {
