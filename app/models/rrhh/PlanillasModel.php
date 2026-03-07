@@ -134,6 +134,7 @@ class PlanillasModel extends Modelo
                                 t.id AS id_tercero,
                                 te.sueldo_basico,
                                 te.pago_diario,
+                                te.tipo_pago,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA', 'INCOMPLETO') THEN 1 END) AS dias_asistidos,
                                 COUNT(CASE WHEN ar.estado_asistencia IN ('FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO') THEN 1 END) AS dias_justificados,
                                 COUNT(CASE WHEN ar.estado_asistencia = 'FALTA' THEN 1 END) AS dias_falta,
@@ -146,7 +147,7 @@ class PlanillasModel extends Modelo
             if ($frecuencia !== 'TODOS') {
                 $sqlAsistencia .= " AND UPPER(te.tipo_pago) = :frecuencia";
             }
-            $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.pago_diario";
+            $sqlAsistencia .= " GROUP BY t.id, te.sueldo_basico, te.pago_diario, te.tipo_pago";
             
             $stmtParams = ['desde' => $fechaInicio, 'hasta' => $fechaFin];
             if ($frecuencia !== 'TODOS') {
@@ -175,13 +176,25 @@ class PlanillasModel extends Modelo
                 // Cálculo matemático
                 $diasPagados = (int) $emp['dias_asistidos'] + (int) $emp['dias_justificados'];
                 $diasFalta = (int) $emp['dias_falta'];
+
+                // Fallback: si pago_diario no está configurado, lo derivamos del sueldo básico según frecuencia.
+                $pagoDiario = (float) ($emp['pago_diario'] ?? 0);
+                if ($pagoDiario <= 0) {
+                    $tipoPagoEmpleado = strtoupper((string) ($emp['tipo_pago'] ?? 'MENSUAL'));
+                    $divisor = match ($tipoPagoEmpleado) {
+                        'SEMANAL' => 7,
+                        'QUINCENAL' => 15,
+                        default => 30,
+                    };
+                    $pagoDiario = ((float) ($emp['sueldo_basico'] ?? 0)) / $divisor;
+                }
                 
                 // Sueldo base (Si es proporcional o fijo)
-                $sueldoBaseCalculado = (float) $emp['pago_diario'] * $diasPagados;
+                $sueldoBaseCalculado = $pagoDiario * $diasPagados;
                 
                 // Deducción por tardanzas (Ejemplo básico: 1 sol por minuto, ajústalo a tu lógica real)
                 // Lo ideal sería: (sueldo_diario / 8 horas / 60 min) * minutos_tardanza
-                $valorMinuto = ((float)$emp['pago_diario'] / 8) / 60; 
+                $valorMinuto = ($pagoDiario / 8) / 60;
                 $descuentoTardanzas = $valorMinuto * (int) $emp['minutos_tardanza'];
                 
                 $neto = $sueldoBaseCalculado - $descuentoTardanzas;
