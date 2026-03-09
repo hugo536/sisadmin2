@@ -194,8 +194,9 @@ if (!empty($detallesNomina)) {
                                                 $tieneBono = ((float)($row['monto_bonos'] ?? 0) > 0); 
                                                 $descuentoAdelanto = (float)($row['descuento_adelanto'] ?? 0);
                                                 
-                                                // No mostramos empleados que salieron en 0 completamente
-                                                if ($row['neto_a_pagar'] <= 0 && $row['dias_pagados'] == 0 && !$tieneBono) continue;
+                                                // No mostramos empleados que salieron en 0 completamente (sin actividad alguna)
+                                                $tieneDeduccion = ((float)($row['total_deducciones'] ?? 0) > 0);
+                                                if ($row['neto_a_pagar'] <= 0 && $row['dias_pagados'] == 0 && !$tieneBono && !$tieneDeduccion) continue;
                                             ?>
                                             <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                                 <td class="ps-4 fw-semibold text-dark align-top pt-3">
@@ -206,17 +207,17 @@ if (!empty($detallesNomina)) {
                                                     </div>
                                                 </td>
                                                 <td class="text-center">
-                                                    <?php if (isset($detalle['tiene_conflicto']) && $detalle['tiene_conflicto']): ?>
+                                                    <?php if (isset($row['tiene_conflicto']) && $row['tiene_conflicto']): ?>
                                                         <span class="badge bg-warning text-dark fw-bold" title="Marcaciones incompletas en asistencia">
                                                             <i class="bi bi-exclamation-triangle-fill"></i> Conflicto
                                                         </span>
                                                     <?php else: ?>
                                                         <span class="fw-bold fs-6">
-                                                            <?= (float)($detalle['dias_pagados'] ?? 0) ?>D
+                                                            <?= (float)($row['dias_pagados'] ?? 0) ?>D
                                                         </span>
                                                         <br>
                                                         <span class="text-muted small">
-                                                            <?= (float)($detalle['horas_acumuladas'] ?? 0) ?>h acumuladas
+                                                            <?= (float)($row['horas_acumuladas'] ?? 0) ?>h acumuladas
                                                         </span>
                                                     <?php endif; ?>
                                                 </td>
