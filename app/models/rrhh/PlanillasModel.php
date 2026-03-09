@@ -80,10 +80,14 @@ class PlanillasModel extends Modelo
                    FROM terceros t
                    INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                    WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
+        $paramsEmp = [];
         if ($frecuencia !== 'TODOS') {
-            $sqlEmp .= " AND UPPER(te.tipo_pago) = '{$frecuencia}'";
+            $sqlEmp .= " AND UPPER(te.tipo_pago) = :frecuencia";
+            $paramsEmp['frecuencia'] = $frecuencia;
         }
-        $empleadosActivos = $db->query($sqlEmp)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $stmtEmp = $db->prepare($sqlEmp);
+        $stmtEmp->execute($paramsEmp);
+        $empleadosActivos = $stmtEmp->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $stmtCheck = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina");
         $stmtCheck->execute(['id_nomina' => $idLote]);
@@ -317,7 +321,7 @@ class PlanillasModel extends Modelo
             $db->beginTransaction();
 
             $lote = $this->obtenerLotePorId($idLote);
-            if (!$lote || $lote['estado'] !== 'BORRADOR') {
+            if (!$lote || strtoupper(trim((string) $lote['estado'])) !== 'BORRADOR') {
                 throw new Exception("El lote no es válido o ya fue aprobado.");
             }
 

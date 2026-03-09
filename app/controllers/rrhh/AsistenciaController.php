@@ -660,14 +660,9 @@ class AsistenciaController extends Controlador
             return;
         }
 
-        // --- NUEVO: BLOQUEO ESTRICTO DE DUPLICADOS EN REGISTRO MANUAL (Opción A) ---
-        // Verificamos si este empleado ya tiene un registro en la base de datos en esta fecha.
-        $db = (new AsistenciaModel())->db();
-        $check = $db->prepare('SELECT id FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1');
-        $check->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
-        
-        if ($check->fetch()) {
-            redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('El empleado ya tiene un registro en esta fecha. Utilice el botón del engranaje (⚙️) para editarlo.'));
+        // --- BLOQUEO ESTRICTO DE DUPLICADOS EN REGISTRO MANUAL ---
+        if ($this->asistenciaModel->existeRegistroAsistencia($idTercero, $fecha)) {
+            redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('El empleado ya tiene un registro en esta fecha. Utilice el botón del engranaje para editarlo.'));
             return;
         }
         // --------------------------------------------------------------------------
