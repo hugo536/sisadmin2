@@ -112,7 +112,6 @@ class PlanillasModel extends Modelo
             $empleadosProcesar[] = $emp;
         }
 
-        // CORRECCIÓN AQUÍ: id_nomina_pago
         $sqlAsistencia = "SELECT id_tercero, estado_asistencia, minutos_tardanza 
                           FROM asistencia_registros 
                           WHERE fecha BETWEEN :desde AND :hasta 
@@ -171,17 +170,30 @@ class PlanillasModel extends Modelo
         foreach ($empleadosProcesar as $emp) {
             $idTercero = $emp['id'];
             $idDetalle = $emp['id_detalle'];
-            $asis = $mapaAsistencia[$idTercero] ?? ['asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 'tardanzas' => 0];
+            
+            // --- LÓGICA DE CÁLCULO DE ASISTENCIA Y CONFLICTOS ---
+            $resultadoAsistencia = $this->calcularHorasReales((int)$idTercero, $fechaInicio, $fechaFin);
+            
+            $diasTrabajadosReales = $resultadoAsistencia['dias_trabajados'];
+            $horasAcumuladas      = $resultadoAsistencia['horas_acumuladas'];
+            $tieneConflicto       = $resultadoAsistencia['tiene_conflicto'];
 
-            $diasPagados = $asis['asistidos'] + $asis['justificados'];
+            // Obtener tabla antigua de asistencias para faltas/justificaciones
+            $asis = $mapaAsistencia[$idTercero] ?? ['asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 'tardanzas' => 0];
+            
+            // Días pagados
+            $diasPagados = $diasTrabajadosReales + $asis['justificados'];
             
             $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
-            
             $pagoPorHora = $pagoDiario / 8;
-            $horasAcumuladas = $diasPagados * 8;
 
-            $sueldoBaseCalculado = $pagoDiario * $diasPagados;
-            
+            // Regla: Si hay conflicto, el sueldo base es 0 hasta que lo resuelvan
+            if ($tieneConflicto) {
+                $sueldoBaseCalculado = 0;
+            } else {
+                $sueldoBaseCalculado = $pagoDiario * $diasPagados;
+            }
+
             $valorMinuto = $pagoPorHora / 60;
             $descuentoTardanzas = $valorMinuto * $asis['tardanzas'];
 
@@ -227,7 +239,8 @@ class PlanillasModel extends Modelo
                 'monto_bonos' => round($manuales['bonos'], 2),
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
-                'adelantos_aplicados' => json_encode($adelantosAplicados)
+                'adelantos_aplicados' => json_encode($adelantosAplicados),
+                'tiene_conflicto' => $tieneConflicto // Variable de alerta visual
             ];
         }
 
@@ -325,7 +338,6 @@ class PlanillasModel extends Modelo
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
                 VALUES (:id_det, :tipo, :cat, :desc, :monto, 1)");
                 
-            // CORRECCIÓN AQUÍ: id_nomina_pago
             $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
                 SET id_nomina_pago = :id_lote 
                 WHERE id_tercero = :id_tercero 
@@ -527,5 +539,71 @@ class PlanillasModel extends Modelo
         $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $boleta;
+    }
+
+    /**
+     * Calcula las horas reales trabajadas por un empleado emparejando sus marcaciones.
+     * Detecta si hay conflictos (número impar de marcaciones).
+     */
+    private function calcularHorasReales(int $id_empleado, string $fecha_inicio, string $fecha_fin): array
+    {
+        // 1. Obtener todas las marcaciones del empleado usando PREPARE para evitar el error de PDO
+        $sqlAsistencia = "SELECT DATE(fecha_hora) as fecha, TIME(fecha_hora) as hora 
+                          FROM rrhh_asistencia 
+                          WHERE id_empleado = :id_empleado 
+                          AND DATE(fecha_hora) BETWEEN :fecha_inicio AND :fecha_fin 
+                          ORDER BY fecha_hora ASC";
+        
+        $stmt = $this->db()->prepare($sqlAsistencia);
+        $stmt->execute([
+            ':id_empleado' => $id_empleado,
+            ':fecha_inicio' => $fecha_inicio,
+            ':fecha_fin' => $fecha_fin
+        ]);
+        $asistencias = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 2. Agrupar las marcaciones por día
+        $marcacionesPorDia = [];
+        foreach ($asistencias as $asistencia) {
+            $fecha = $asistencia['fecha'];
+            if (!isset($marcacionesPorDia[$fecha])) {
+                $marcacionesPorDia[$fecha] = [];
+            }
+            $marcacionesPorDia[$fecha][] = $asistencia['hora'];
+        }
+
+        $totalHorasAcumuladas = 0.0;
+        $diasTrabajados = 0;
+        $tieneConflicto = false;
+
+        // 3. Procesar cada día de forma independiente
+        foreach ($marcacionesPorDia as $fecha => $marcaciones) {
+            $cantidadMarcaciones = count($marcaciones);
+
+            // Validar si hay un número impar de marcaciones (falta una salida o sobra una entrada)
+            if ($cantidadMarcaciones % 2 !== 0) {
+                $tieneConflicto = true;
+                continue; 
+            }
+
+            // Si es par, procedemos a restar los bloques
+            $horasDelDia = 0.0;
+            for ($i = 0; $i < $cantidadMarcaciones; $i += 2) {
+                $horaEntrada = strtotime($fecha . ' ' . $marcaciones[$i]);
+                $horaSalida = strtotime($fecha . ' ' . $marcaciones[$i + 1]);
+                
+                $diferenciaHoras = ($horaSalida - $horaEntrada) / 3600;
+                $horasDelDia += $diferenciaHoras;
+            }
+
+            $totalHorasAcumuladas += $horasDelDia;
+            $diasTrabajados++; 
+        }
+
+        return [
+            'dias_trabajados' => $diasTrabajados,
+            'horas_acumuladas' => round($totalHorasAcumuladas, 2),
+            'tiene_conflicto' => $tieneConflicto
+        ];
     }
 }

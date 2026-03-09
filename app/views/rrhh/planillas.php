@@ -205,14 +205,20 @@ if (!empty($detallesNomina)) {
                                                         | <span class="badge bg-light text-secondary border"><?php echo htmlspecialchars((string) ($row['frecuencia'] ?? 'MENSUAL'), ENT_QUOTES, 'UTF-8'); ?></span>
                                                     </div>
                                                 </td>
-                                                <td class="text-center align-top pt-3">
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="Días Pagados"><?php echo (int)($row['dias_pagados'] ?? 0); ?> D</span>
-                                                    <?php if((int)($row['dias_falta'] ?? 0) > 0): ?>
-                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 ms-1" title="Días Falta"><?php echo (int)($row['dias_falta'] ?? 0); ?> F</span>
+                                                <td class="text-center">
+                                                    <?php if (isset($detalle['tiene_conflicto']) && $detalle['tiene_conflicto']): ?>
+                                                        <span class="badge bg-warning text-dark fw-bold" title="Marcaciones incompletas en asistencia">
+                                                            <i class="bi bi-exclamation-triangle-fill"></i> Conflicto
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="fw-bold fs-6">
+                                                            <?= (float)($detalle['dias_pagados'] ?? 0) ?>D
+                                                        </span>
+                                                        <br>
+                                                        <span class="text-muted small">
+                                                            <?= (float)($detalle['horas_acumuladas'] ?? 0) ?>h acumuladas
+                                                        </span>
                                                     <?php endif; ?>
-                                                    <div class="small text-muted fw-normal mt-1" style="font-size: 0.7rem;">
-                                                        <?php echo (int)($row['horas_acumuladas'] ?? 0); ?> hrs acumuladas
-                                                    </div>
                                                 </td>
                                                 <td class="text-end align-top pt-3">
                                                     <div class="fw-medium text-success">S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?></div>
