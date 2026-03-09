@@ -547,12 +547,13 @@ class PlanillasModel extends Modelo
      */
     private function calcularHorasReales(int $id_empleado, string $fecha_inicio, string $fecha_fin): array
     {
-        // 1. Obtener todas las marcaciones del empleado usando PREPARE para evitar el error de PDO
-        $sqlAsistencia = "SELECT DATE(fecha_hora) as fecha, TIME(fecha_hora) as hora 
-                          FROM rrhh_asistencia 
-                          WHERE id_empleado = :id_empleado 
-                          AND DATE(fecha_hora) BETWEEN :fecha_inicio AND :fecha_fin 
-                          ORDER BY fecha_hora ASC";
+        // 1. Leer los registros procesados de asistencia por día.
+        //    Se usa asistencia_registros porque rrhh_asistencia no existe en el esquema actual.
+        $sqlAsistencia = "SELECT fecha, hora_ingreso, hora_salida, estado_asistencia
+                          FROM asistencia_registros
+                          WHERE id_tercero = :id_empleado
+                            AND fecha BETWEEN :fecha_inicio AND :fecha_fin
+                          ORDER BY fecha ASC";
         
         $stmt = $this->db()->prepare($sqlAsistencia);
         $stmt->execute([
@@ -562,42 +563,33 @@ class PlanillasModel extends Modelo
         ]);
         $asistencias = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 2. Agrupar las marcaciones por día
-        $marcacionesPorDia = [];
-        foreach ($asistencias as $asistencia) {
-            $fecha = $asistencia['fecha'];
-            if (!isset($marcacionesPorDia[$fecha])) {
-                $marcacionesPorDia[$fecha] = [];
-            }
-            $marcacionesPorDia[$fecha][] = $asistencia['hora'];
-        }
-
         $totalHorasAcumuladas = 0.0;
         $diasTrabajados = 0;
         $tieneConflicto = false;
 
-        // 3. Procesar cada día de forma independiente
-        foreach ($marcacionesPorDia as $fecha => $marcaciones) {
-            $cantidadMarcaciones = count($marcaciones);
+        // 2. Procesar cada día de forma independiente
+        foreach ($asistencias as $asistencia) {
+            $fecha = (string) ($asistencia['fecha'] ?? '');
+            $horaIngreso = $asistencia['hora_ingreso'] ?? null;
+            $horaSalida = $asistencia['hora_salida'] ?? null;
+            $estado = strtoupper((string) ($asistencia['estado_asistencia'] ?? ''));
 
-            // Validar si hay un número impar de marcaciones (falta una salida o sobra una entrada)
-            if ($cantidadMarcaciones % 2 !== 0) {
+            // Conflicto cuando no hay un par completo de horas o el estado ya viene incompleto.
+            if (empty($horaIngreso) || empty($horaSalida) || $estado === 'INCOMPLETO') {
                 $tieneConflicto = true;
-                continue; 
+                continue;
             }
 
-            // Si es par, procedemos a restar los bloques
-            $horasDelDia = 0.0;
-            for ($i = 0; $i < $cantidadMarcaciones; $i += 2) {
-                $horaEntrada = strtotime($fecha . ' ' . $marcaciones[$i]);
-                $horaSalida = strtotime($fecha . ' ' . $marcaciones[$i + 1]);
-                
-                $diferenciaHoras = ($horaSalida - $horaEntrada) / 3600;
-                $horasDelDia += $diferenciaHoras;
+            $horaEntradaTs = strtotime($fecha . ' ' . substr((string) $horaIngreso, 0, 8));
+            $horaSalidaTs = strtotime($fecha . ' ' . substr((string) $horaSalida, 0, 8));
+
+            if ($horaEntradaTs === false || $horaSalidaTs === false || $horaSalidaTs <= $horaEntradaTs) {
+                $tieneConflicto = true;
+                continue;
             }
 
-            $totalHorasAcumuladas += $horasDelDia;
-            $diasTrabajados++; 
+            $totalHorasAcumuladas += ($horaSalidaTs - $horaEntradaTs) / 3600;
+            $diasTrabajados++;
         }
 
         return [
