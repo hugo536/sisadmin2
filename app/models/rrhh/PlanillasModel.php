@@ -76,15 +76,18 @@ class PlanillasModel extends Modelo
         $fechaInicio = $lote['fecha_inicio'];
         $fechaFin = $lote['fecha_fin'];
 
+        // CORRECCIÓN: Se quitó 't.estado = 1' para evitar el error fatal en SQL
         $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
                    FROM terceros t
                    INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                   WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
+                   WHERE t.es_empleado = 1 AND t.deleted_at IS NULL";
+        
         $paramsEmp = [];
         if ($frecuencia !== 'TODOS') {
             $sqlEmp .= " AND UPPER(te.tipo_pago) = :frecuencia";
             $paramsEmp['frecuencia'] = $frecuencia;
         }
+        
         $stmtEmp = $db->prepare($sqlEmp);
         $stmtEmp->execute($paramsEmp);
         $empleadosActivos = $stmtEmp->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -191,7 +194,7 @@ class PlanillasModel extends Modelo
             $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
             $pagoPorHora = $pagoDiario / 8;
 
-            // Regla: Si hay conflicto, el sueldo base es 0 hasta que lo resuelvan
+            // Regla de Oro: Si el empleado tiene marcas INCOMPLETAS, se congela el cálculo hasta que RRHH lo solucione
             if ($tieneConflicto) {
                 $sueldoBaseCalculado = 0;
             } else {
@@ -244,7 +247,7 @@ class PlanillasModel extends Modelo
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
-                'tiene_conflicto' => $tieneConflicto // Variable de alerta visual
+                'tiene_conflicto' => $tieneConflicto // Variable de alerta visual para el frontend
             ];
         }
 
@@ -546,18 +549,17 @@ class PlanillasModel extends Modelo
     }
 
     /**
-     * Calcula las horas reales trabajadas por un empleado emparejando sus marcaciones.
-     * Detecta si hay conflictos (número impar de marcaciones).
+     * Calcula las horas reales trabajadas leyendo el dato YA CALCULADO de asistencia_registros.
+     * Detecta si hay conflictos (ej. INCOMPLETO).
      */
     private function calcularHorasReales(int $id_empleado, string $fecha_inicio, string $fecha_fin): array
     {
-        // 1. Leer los registros procesados de asistencia por día.
-        //    Se usa asistencia_registros porque rrhh_asistencia no existe en el esquema actual.
-        $sqlAsistencia = "SELECT fecha, hora_ingreso, hora_salida, estado_asistencia
+        // CORRECCIÓN: Leemos directamente las horas_trabajadas de la BD. 
+        // Ya no intentamos recalcularlas aquí con substr() lo cual fallaba y rompía la app.
+        $sqlAsistencia = "SELECT fecha, estado_asistencia, horas_trabajadas
                           FROM asistencia_registros
                           WHERE id_tercero = :id_empleado
-                            AND fecha BETWEEN :fecha_inicio AND :fecha_fin
-                          ORDER BY fecha ASC";
+                            AND fecha BETWEEN :fecha_inicio AND :fecha_fin";
         
         $stmt = $this->db()->prepare($sqlAsistencia);
         $stmt->execute([
@@ -571,29 +573,26 @@ class PlanillasModel extends Modelo
         $diasTrabajados = 0;
         $tieneConflicto = false;
 
-        // 2. Procesar cada día de forma independiente
         foreach ($asistencias as $asistencia) {
-            $fecha = (string) ($asistencia['fecha'] ?? '');
-            $horaIngreso = $asistencia['hora_ingreso'] ?? null;
-            $horaSalida = $asistencia['hora_salida'] ?? null;
             $estado = strtoupper((string) ($asistencia['estado_asistencia'] ?? ''));
 
-            // Conflicto cuando no hay un par completo de horas o el estado ya viene incompleto.
-            if (empty($horaIngreso) || empty($horaSalida) || $estado === 'INCOMPLETO') {
+            // Regla Estricta: Si está incompleto, activamos el conflicto para bloquear el pago
+            if ($estado === 'INCOMPLETO') {
                 $tieneConflicto = true;
+                continue; 
+            }
+
+            // Las faltas no son conflicto (simplemente no cobran ese día)
+            if ($estado === 'FALTA') {
                 continue;
             }
 
-            $horaEntradaTs = strtotime($fecha . ' ' . substr((string) $horaIngreso, 0, 8));
-            $horaSalidaTs = strtotime($fecha . ' ' . substr((string) $horaSalida, 0, 8));
+            // Sumamos las horas calculadas de forma segura desde la BD
+            $totalHorasAcumuladas += (float) ($asistencia['horas_trabajadas'] ?? 0);
 
-            if ($horaEntradaTs === false || $horaSalidaTs === false || $horaSalidaTs <= $horaEntradaTs) {
-                $tieneConflicto = true;
-                continue;
+            if (in_array($estado, ['PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA'])) {
+                $diasTrabajados++;
             }
-
-            $totalHorasAcumuladas += ($horaSalidaTs - $horaEntradaTs) / 3600;
-            $diasTrabajados++;
         }
 
         return [

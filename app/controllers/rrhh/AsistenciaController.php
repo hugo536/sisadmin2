@@ -248,7 +248,6 @@ class AsistenciaController extends Controlador
         ]);
     }
 
-    // --- NUEVAS FUNCIONES PARA GESTIONAR GRUPOS ---
     private function guardarGrupoExcepcion(): void
     {
         require_permiso('terceros.editar');
@@ -341,7 +340,6 @@ class AsistenciaController extends Controlador
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Método eliminarGrupoExcepcion no existe en el Modelo.'));
         }
     }
-    // ---------------------------------------------
 
     private function gestionarExcepcion(): void
     {
@@ -546,10 +544,23 @@ class AsistenciaController extends Controlador
         }
 
         $procesados = 0;
+        $ignorados = 0; // NUEVO CONTADOR PARA DÍAS LIBRES
         $logsProcesados = [];
 
         foreach ($grupos as $idTercero => $fechas) {
             foreach ($fechas as $fecha => $info) {
+                
+                // --- ESCUDO PARA DÍAS LIBRES (CASO 3) ---
+                $horario = $this->asistenciaModel->obtenerHorarioEsperado((int)$idTercero, $fecha);
+                if (!$horario) {
+                    // Marcamos los logs como procesados para que no se queden atascados,
+                    // pero NO creamos el registro de asistencia en BD porque es su día de descanso.
+                    $logsProcesados = array_merge($logsProcesados, $info['logs_ids']);
+                    $ignorados++;
+                    continue;
+                }
+                // ----------------------------------------
+
                 $marcas = $info['marcas'];
                 sort($marcas);
 
@@ -572,14 +583,20 @@ class AsistenciaController extends Controlador
                     $observaciones = 'No se encontraron marcas válidas.';
                 }
 
+                // Unimos los ingresos y salidas generados
+                $ingresosStr = !empty($ingresos) ? implode('|', $ingresos) : null;
+                $salidasStr = !empty($salidas) ? implode('|', $salidas) : null;
+
                 $ok = $this->asistenciaModel->upsertRegistroAsistencia([
                     'id_tercero' => (int) $idTercero,
                     'fecha' => $fecha,
                     'hora_ingreso' => $horaIngreso,
                     'hora_salida' => $horaSalida,
-                    'hora_entrada_esperada' => $horaEntradaEsperada, // GUARDANDO MEMORIA
-                    'hora_salida_esperada' => $horaSalidaEsperada,   // GUARDANDO MEMORIA
-                    'tolerancia_minutos' => $toleranciaBD,           // GUARDANDO MEMORIA
+                    'marcas_ingresos' => $ingresosStr,
+                    'marcas_salidas' => $salidasStr,
+                    'hora_entrada_esperada' => $horaEntradaEsperada, 
+                    'hora_salida_esperada' => $horaSalidaEsperada,   
+                    'tolerancia_minutos' => $toleranciaBD,           
                     'estado_asistencia' => $estado,
                     'minutos_tardanza' => $minutosTardanza,
                     'horas_trabajadas' => $horasTrabajadas,
@@ -597,7 +614,13 @@ class AsistenciaController extends Controlador
         $logsProcesados = array_values(array_unique(array_filter($logsProcesados)));
         $this->asistenciaModel->marcarLogsProcesados($logsProcesados);
 
-        redirect('asistencia/importar?tipo=success&msg=' . urlencode("Asistencias procesadas: {$procesados}. Logs marcados: " . count($logsProcesados) . '.'));
+        // --- MENSAJE DINÁMICO ---
+        $msgFinal = "Asistencias procesadas: {$procesados}. Logs marcados: " . count($logsProcesados) . ".";
+        if ($ignorados > 0) {
+            $msgFinal .= " Se ignoraron {$ignorados} días por ser descanso (sin horario asignado).";
+        }
+
+        redirect('asistencia/importar?tipo=success&msg=' . urlencode($msgFinal));
     }
 
     private function guardarIncidencia(): void
@@ -704,7 +727,15 @@ class AsistenciaController extends Controlador
             return;
         }
 
-       // --- BLOQUEO ESTRICTO DE DUPLICADOS EN REGISTRO MANUAL ---
+        // --- ESCUDO PARA DÍAS LIBRES (CASO 3) ---
+        $horario = $this->asistenciaModel->obtenerHorarioEsperado($idTercero, $fecha);
+        if (!$horario) {
+            redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('No se puede guardar: El empleado no tiene horario asignado para este día (Día de descanso). Cree una excepción/grupo primero.'));
+            return;
+        }
+        // ----------------------------------------
+
+        // --- BLOQUEO ESTRICTO DE DUPLICADOS EN REGISTRO MANUAL ---
         if ($this->asistenciaModel->existeRegistroAsistencia($idTercero, $fecha)) {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('El empleado ya tiene un registro en esta fecha. Utilice el botón del engranaje para editarlo.'));
         return;
