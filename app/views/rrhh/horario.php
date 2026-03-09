@@ -361,5 +361,3 @@ function formatearTramos($horario) {
         </div>
     </div>
 </div>
-
-<script src="assets/js/rrhh/horario.js"></script>
