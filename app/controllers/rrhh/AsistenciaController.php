@@ -95,6 +95,42 @@ class AsistenciaController extends Controlador
                 exit; 
             }
 
+            if ($accion === 'obtener_horario_empleado') {
+                $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+                $fecha = trim((string) ($_POST['fecha'] ?? ''));
+                header('Content-Type: application/json');
+
+                if ($idTercero <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                    echo json_encode(['ok' => false, 'msg' => 'Datos inválidos']);
+                    exit;
+                }
+
+                $turno = $this->asistenciaModel->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+                $tramos = [];
+                if ($turno) {
+                    for ($i = 1; $i <= 3; $i++) {
+                        $entrada = trim((string) ($turno['t' . $i . '_entrada'] ?? ''));
+                        $salida = trim((string) ($turno['t' . $i . '_salida'] ?? ''));
+                        if ($entrada !== '' || $salida !== '') {
+                            $tramos[] = [
+                                'entrada' => $entrada !== '' ? substr($entrada, 0, 5) : '',
+                                'salida' => $salida !== '' ? substr($salida, 0, 5) : '',
+                            ];
+                        }
+                    }
+                }
+
+                echo json_encode([
+                    'ok' => true,
+                    'tramos' => $tramos,
+                    'total_tramos' => count($tramos),
+                    'tolerancia' => (int) ($turno['tolerancia_minutos'] ?? 0),
+                    'es_excepcion' => (int) ($turno['es_excepcion'] ?? 0),
+                    'nombre_horario' => (string) ($turno['nombre'] ?? ''),
+                ]);
+                exit;
+            }
+
             if ($accion === 'obtener_marcaciones_dia') {
                 $idTercero = (int) ($_POST['id_tercero'] ?? 0);
                 $fecha = trim((string) ($_POST['fecha'] ?? ''));
@@ -646,16 +682,24 @@ class AsistenciaController extends Controlador
 
         $idTercero = (int) ($_POST['id_tercero'] ?? 0);
         $fecha = trim((string) ($_POST['fecha'] ?? ''));
-        $horaIngresoRaw = trim((string) ($_POST['hora_ingreso'] ?? ''));
-        $horaSalidaRaw = trim((string) ($_POST['hora_salida'] ?? ''));
         $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+
+        // Soporte para múltiples tramos
+        $horasIngresoArr = $_POST['horas_ingreso'] ?? [];
+        $horasSalidaArr = $_POST['horas_salida'] ?? [];
+        if (!is_array($horasIngresoArr)) $horasIngresoArr = [];
+        if (!is_array($horasSalidaArr)) $horasSalidaArr = [];
+
+        // Limpiar valores vacíos
+        $horasIngresoArr = array_values(array_filter(array_map('trim', $horasIngresoArr), fn($h) => $h !== ''));
+        $horasSalidaArr = array_values(array_filter(array_map('trim', $horasSalidaArr), fn($h) => $h !== ''));
 
         if ($idTercero <= 0 || $fecha === '' || $observaciones === '') {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Faltan datos obligatorios (Empleado, fecha u observación).'));
             return;
         }
 
-        if ($horaIngresoRaw === '' && $horaSalidaRaw === '') {
+        if (empty($horasIngresoArr) && empty($horasSalidaArr)) {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Debe registrar al menos una hora (ingreso o salida).'));
             return;
         }
@@ -667,14 +711,17 @@ class AsistenciaController extends Controlador
         }
         // --------------------------------------------------------------------------
 
-        $horaIngreso = $horaIngresoRaw !== '' ? $fecha . ' ' . $horaIngresoRaw . ':00' : null;
-        $horaSalida = $horaSalidaRaw !== '' ? $fecha . ' ' . $horaSalidaRaw . ':00' : null;
+        // Construir hora_ingreso (primera entrada) y hora_salida (última salida)
+        $horaIngreso = !empty($horasIngresoArr) ? $fecha . ' ' . $horasIngresoArr[0] . ':00' : null;
+        $horaSalida = !empty($horasSalidaArr) ? $fecha . ' ' . $horasSalidaArr[count($horasSalidaArr) - 1] . ':00' : null;
 
         $data = [
             'id_tercero'    => $idTercero,
             'fecha'         => $fecha,
             'hora_ingreso'  => $horaIngreso,
             'hora_salida'   => $horaSalida,
+            'horas_ingreso' => $horasIngresoArr,
+            'horas_salida'  => $horasSalidaArr,
             'observaciones' => $observaciones
         ];
 
