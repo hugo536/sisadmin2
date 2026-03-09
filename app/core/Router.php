@@ -60,6 +60,17 @@ class Router
             }
         }
 
+        // Rutas RRHH con subcontroladores (ej: rrhh/config_rrhh/guardar)
+        if ($modulo === 'rrhh') {
+            if ($accion === 'config_rrhh') {
+                $controlador_clase = 'ConfigRrhhController';
+                $accion = $partes[2] ?? 'index';
+                if ($accion === '') {
+                    $accion = 'index';
+                }
+            }
+        }
+
         // Rutas específicas que viven en un controlador dedicado dentro del módulo items
         if ($modulo === 'items' && $accion === 'perfil') {
             $controlador_clase = 'ItemPerfilController';
