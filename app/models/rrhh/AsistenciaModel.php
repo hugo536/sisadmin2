@@ -230,7 +230,7 @@ class AsistenciaModel extends Modelo
 
     public function obtenerDetalleMarcacionesDia(int $idTercero, string $fecha): array
     {
-        $turno = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+         $turno = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha) ?? [];
 
         $esperadas = [];
         for ($i = 1; $i <= 3; $i++) {
@@ -336,7 +336,7 @@ class AsistenciaModel extends Modelo
         if ($diaCompleto && $horaIngreso !== null && $horaSalida !== null) {
             $tsIn = strtotime($horaIngreso);
             $tsOut = strtotime($horaSalida);
-            if ($tsOut > $tsIn) {
+            if ($tsIn !== false && $tsOut !== false && $tsOut > $tsIn) {
                 $horasTrabajadas = round(($tsOut - $tsIn) / 3600, 2);
             }
         }
@@ -345,7 +345,7 @@ class AsistenciaModel extends Modelo
         if ($horaEntradaEsperada && $horaSalidaEsperada) {
             $esperadaInTs = strtotime($horaEntradaEsperada);
             $esperadaOutTs = strtotime($horaSalidaEsperada);
-            if ($esperadaOutTs > $esperadaInTs) {
+            if ($esperadaInTs !== false && $esperadaOutTs !== false && $esperadaOutTs > $esperadaInTs) {
                 $horasEsperadas = ($esperadaOutTs - $esperadaInTs) / 3600;
                 if ($horasTrabajadas > $horasEsperadas) {
                     $horasExtras = round($horasTrabajadas - $horasEsperadas, 2);
@@ -937,6 +937,14 @@ class AsistenciaModel extends Modelo
         return $this->upsertRegistroAsistencia($upsertData, $userId);
     }
 
+     public function existeRegistroAsistencia(int $idTercero, string $fecha): bool
+    {
+        $sql = 'SELECT id FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
+        return (bool) $stmt->fetch();
+    }
+    
     public function guardarAsistenciaManual(array $data, int $userId): bool
     {
         $sqlCheck = 'SELECT id, hora_ingreso, hora_salida, observaciones
