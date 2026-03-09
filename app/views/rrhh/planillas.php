@@ -280,12 +280,12 @@ if (!empty($detallesNomina)) {
                                                                     <i class="bi bi-lock-fill fs-5"></i>
                                                                 </button>
                                                             <?php else: ?>
-                                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm btn-ajustar-empleado"
+                                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 rounded-circle shadow-sm btn-ajustar-empleado" 
                                                                         data-bs-toggle="modal" data-bs-target="#modalAjustarNomina"
                                                                         data-id="<?php echo (int)($row['id'] ?? 0); ?>"
                                                                         data-nombre="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                                        title="Ajustar Conceptos / Añadir Bono">
-                                                                    <i class="bi bi-sliders fs-5"></i>
+                                                                        data-bs-toggle="tooltip" title="Ajustar Conceptos / Añadir Bono">
+                                                                    <i class="bi bi-pencil-square fs-5"></i>
                                                                 </button>
                                                             <?php endif; ?>
                                                         <?php endif; ?>
