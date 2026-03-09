@@ -189,5 +189,13 @@ Swal.fire({
 </script>
 <?php endif; ?>
 
+<?php if (str_starts_with($currentRoute, 'planillas')): ?>
+    <script src="<?php echo e(asset_url('js/rrhh/planillas.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if (str_starts_with($currentRoute, 'rrhh/config_rrhh')): ?>
+    <script src="<?php echo e(asset_url('js/rrhh/config_rrhh.js')); ?>"></script>
+<?php endif; ?>
+
 </body>
 </html>

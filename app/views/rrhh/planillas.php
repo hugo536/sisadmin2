@@ -194,8 +194,7 @@ if (!empty($detallesNomina)) {
                                                 $tieneBono = ((float)($row['monto_bonos'] ?? 0) > 0); 
                                                 $descuentoAdelanto = (float)($row['descuento_adelanto'] ?? 0);
                                                 
-                                                // --- SOLUCIÓN AL FILTRO ---
-                                                // Agregamos `empty($row['tiene_conflicto'])` para que NUNCA oculte a los que tienen problemas.
+                                                // NUNCA oculta a los que tienen problemas (tiene_conflicto)
                                                 $tieneDeduccion = ((float)($row['total_deducciones'] ?? 0) > 0);
                                                 if ($row['neto_a_pagar'] <= 0 && $row['dias_pagados'] == 0 && !$tieneBono && !$tieneDeduccion && empty($row['tiene_conflicto'])) {
                                                     continue;
@@ -213,70 +212,64 @@ if (!empty($detallesNomina)) {
 
                                                 <td class="text-center align-top pt-3">
                                                     <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle" title="Marcaciones incompletas en asistencia">
-                                                            <i class="bi bi-exclamation-triangle-fill"></i> Incompleto
-                                                        </span>
-                                                        <div class="small text-muted mt-1" style="font-size: 0.7rem;">Cálculo bloqueado</div>
+                                                        <div class="d-flex flex-column align-items-center">
+                                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle mb-1 px-2 py-1" title="Marcaciones incompletas" style="font-size: 0.65rem;">
+                                                                <i class="bi bi-exclamation-triangle-fill me-1"></i>Incompleto
+                                                            </span>
+                                                            <a href="?ruta=asistencia/dashboard&periodo=rango&fecha_inicio=<?php echo $loteActual['fecha_inicio']; ?>&fecha_fin=<?php echo $loteActual['fecha_fin']; ?>&id_tercero=<?php echo $row['id_tercero']; ?>" 
+                                                            class="text-danger small fw-bold text-decoration-none hover-underline" style="font-size: 0.75rem;">
+                                                                <i class="bi bi-pencil-square me-1"></i>Corregir
+                                                            </a>
+                                                        </div>
                                                     <?php else: ?>
                                                         <span class="fw-bold fs-6">
                                                             <?= (float)($row['dias_pagados'] ?? 0) ?>D
                                                         </span>
                                                         <br>
-                                                        <span class="text-muted small">
+                                                        <span class="text-muted small" style="font-size: 0.75rem;">
                                                             <?= (float)($row['horas_acumuladas'] ?? 0) ?>h acumuladas
+                                                        </span>
+                                                    <?php endif; ?>
+
+                                                <td class="text-end align-top pt-3">
+                                                    <div class="fw-medium <?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-success'; ?>">
+                                                        S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?>
+                                                    </div>
+                                                    
+                                                    <?php if (empty($row['tiene_conflicto']) && (float)($row['pago_por_hora'] ?? 0) > 0): ?>
+                                                        <div class="small text-muted fw-normal mb-1" style="font-size: 0.7rem;">
+                                                            Tarifa: S/ <?php echo number_format((float)($row['pago_por_hora']), 2); ?>/hr
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    
+                                                    <?php if($tieneBono): ?>
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Bono Extra</span>
+                                                    <?php endif; ?>
+                                                </td>
+
+                                                <td class="text-end align-top pt-3">
+                                                    <div class="fw-medium <?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-danger'; ?>">
+                                                        - S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?>
+                                                    </div>
+                                                    
+                                                    <?php if($descuentoAdelanto > 0): ?>
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;" title="Se cobró S/ <?php echo $descuentoAdelanto; ?> por adelantos previos">
+                                                            <i class="bi bi-wallet2 me-1"></i>Cobro Adelanto
                                                         </span>
                                                     <?php endif; ?>
                                                 </td>
 
-                                                <td class="text-end align-top pt-3">
-                                                    <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                        <span class="text-muted opacity-50">--</span>
-                                                    <?php else: ?>
-                                                        <div class="fw-medium text-success">S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?></div>
-                                                        
-                                                        <?php if ((float)($row['pago_por_hora'] ?? 0) > 0): ?>
-                                                            <div class="small text-muted fw-normal mb-1" style="font-size: 0.7rem;">
-                                                                Tarifa: S/ <?php echo number_format((float)($row['pago_por_hora']), 2); ?>/hr
-                                                            </div>
-                                                        <?php endif; ?>
-                                                        
-                                                        <?php if($tieneBono): ?>
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Incluye Bono</span>
-                                                        <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </td>
-
-                                                <td class="text-end align-top pt-3">
-                                                    <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                        <span class="text-muted fw-bold">--</span>
-                                                    <?php else: ?>
-                                                        <div class="fw-medium text-danger">- S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?></div>
-                                                        
-                                                        <?php if($descuentoAdelanto > 0): ?>
-                                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;" title="Se cobró S/ <?php echo $descuentoAdelanto; ?> por adelantos previos">
-                                                                <i class="bi bi-wallet2 me-1"></i>Cobro de Adelanto
-                                                            </span>
-                                                        <?php endif; ?>
-                                                    <?php endif; ?>
-                                                </td>
-
                                                 <td class="text-end fw-bold align-top pt-3">
-                                                    <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                        <a href="?ruta=asistencia/dashboard&periodo=rango&fecha_inicio=<?php echo $loteActual['fecha_inicio']; ?>&fecha_fin=<?php echo $loteActual['fecha_fin']; ?>&id_tercero=<?php echo $row['id_tercero']; ?>" 
-                                                           class="badge bg-danger text-white text-decoration-none px-3 py-2 shadow-sm d-inline-block">
-                                                            <i class="bi bi-tools me-1"></i>Corregir Asistencia
-                                                        </a>
-                                                    <?php else: ?>
-                                                        <span class="text-primary fs-6">S/ <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?></span>
-                                                    <?php endif; ?>
+                                                    <span class="<?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-primary'; ?> fs-6">
+                                                        S/ <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?>
+                                                    </span>
                                                 </td>
 
                                                 <td class="text-center pe-4 align-top pt-3">
                                                     <div class="d-flex justify-content-center gap-1">
-                                                        
                                                         <?php if ($estadoLote === 'BORRADOR'): ?>
                                                             <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                                <button type="button" class="btn btn-sm btn-light text-muted border-0 rounded-circle shadow-sm" disabled title="Corrija la asistencia para poder ajustar la nómina">
+                                                                <button type="button" class="btn btn-sm btn-light text-muted border-0 rounded-circle shadow-sm" disabled title="Corrija la asistencia para desbloquear opciones">
                                                                     <i class="bi bi-lock-fill fs-5"></i>
                                                                 </button>
                                                             <?php else: ?>

@@ -139,17 +139,17 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
 
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas']); ?>"
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']); ?>"
                data-bs-toggle="collapse"
                href="#menuRRHH"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']) ? 'true' : 'false'; ?>"
                aria-controls="menuRRHH">
                 <i class="bi bi-people-fill"></i> <span>RRHH</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </a>
 
-            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas']); ?>" id="menuRRHH">
+            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']); ?>" id="menuRRHH">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
@@ -174,6 +174,11 @@ function renderSidebarInner(
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('planillas'); ?>" href="<?php echo e(route_url('planillas')); ?>">
                             <i class="bi bi-cash-coin"></i> <span>Planillas y Pagos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('rrhh/config_rrhh'); ?>" href="<?php echo e(route_url('rrhh/config_rrhh')); ?>">
+                            <i class="bi bi-sliders"></i> <span>Políticas y Reglas</span>
                         </a>
                     </li>
                 </ul>
