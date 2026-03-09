@@ -26,6 +26,7 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
 ) ? ' active' : ' collapsed';
 
 $puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
+$puedeVerRRHH = tiene_permiso('terceros.ver');
 
 // -----------------------------
 // Usuario
@@ -58,6 +59,7 @@ function renderSidebarInner(
     string $usuarioNombre,
     string $userRole,
     bool $puedeVerComercial,
+    bool $puedeVerRRHH,
     callable $activo,
     callable $grupoActivo,
     callable $linkGrupoActivo
@@ -139,17 +141,18 @@ function renderSidebarInner(
                 <i class="bi bi-people"></i> <span>Terceros</span>
             </a>
 
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']); ?>"
+            <?php if ($puedeVerRRHH): ?>
+            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>"
                data-bs-toggle="collapse"
                href="#menuRRHH"
                role="button"
-               aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']) ? 'true' : 'false'; ?>"
                aria-controls="menuRRHH">
                 <i class="bi bi-people-fill"></i> <span>RRHH</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </a>
 
-            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'config_rrhh']); ?>" id="menuRRHH">
+            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>" id="menuRRHH">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
@@ -183,6 +186,8 @@ function renderSidebarInner(
                     </li>
                 </ul>
             </div>
+
+            <?php endif; ?>
 
             <a class="sidebar-link<?php echo $activo('distribuidores'); ?>" href="<?php echo e(route_url('distribuidores')); ?>">
                 <i class="bi bi-diagram-3"></i> <span>Distribuidores</span>
@@ -361,6 +366,7 @@ function renderSidebarInner(
         $usuarioNombre,
         $userRole,
         $puedeVerComercial,
+        $puedeVerRRHH,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
@@ -384,6 +390,7 @@ function renderSidebarInner(
         $usuarioNombre,
         $userRole,
         $puedeVerComercial,
+        $puedeVerRRHH,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
