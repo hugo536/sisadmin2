@@ -629,6 +629,9 @@ class AsistenciaModel extends Modelo
                 }
 
                 $toleranciaCalc = (int) ($row['tolerancia_minutos_registro'] ?? 0);
+                if ($toleranciaCalc === 0 && !empty($row['tolerancia_horario'])) {
+                    $toleranciaCalc = (int) $row['tolerancia_horario'];
+                }
                 $calc = $this->calcularTardanzaPorTramos((string) ($row['fecha'] ?? ''), $ingresosCalc, $entradasEsperadasCalc, $toleranciaCalc);
                 $row['minutos_tardanza_total'] = (int) ($calc['total'] ?? 0);
                 if ($estadoGeneral === 'TARDANZA' && (int) $row['minutos_tardanza_total'] === 0) {
@@ -656,10 +659,15 @@ class AsistenciaModel extends Modelo
                        t.id AS id_tercero,
                        :fecha_dashboard AS fecha,
                        t.nombre_completo,
-                       ah.nombre AS horario_nombre,
-                       ah.t1_entrada, ah.t1_salida,
-                       ah.t2_entrada, ah.t2_salida,
-                       ah.t3_entrada, ah.t3_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.nombre, ah.nombre) AS horario_nombre,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t1_entrada, ah.t1_entrada) AS t1_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t1_salida, ah.t1_salida) AS t1_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t2_entrada, ah.t2_entrada) AS t2_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t2_salida, ah.t2_salida) AS t2_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t3_entrada, ah.t3_entrada) AS t3_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t3_salida, ah.t3_salida) AS t3_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.tolerancia_minutos, ah.tolerancia_minutos) AS tolerancia_horario,
+                       IF(ah_exc.id IS NOT NULL, 1, 0) AS es_excepcion,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
                        MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
@@ -671,6 +679,11 @@ class AsistenciaModel extends Modelo
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 LEFT JOIN asistencia_empleado_horario aeh ON aeh.id_tercero = t.id AND aeh.dia_semana = :dia_semana
                 LEFT JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
+                LEFT JOIN asistencia_grupo_empleados ge_exc ON ge_exc.id_tercero = t.id
+                LEFT JOIN asistencia_grupos g_exc ON g_exc.id = ge_exc.id_grupo AND g_exc.estado = 1
+                LEFT JOIN asistencia_planificacion p_exc ON p_exc.id_grupo = g_exc.id
+                    AND :fecha_exc BETWEEN p_exc.fecha_inicio AND p_exc.fecha_fin
+                LEFT JOIN asistencia_horarios ah_exc ON ah_exc.id = p_exc.id_horario AND p_exc.id IS NOT NULL
                 LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha = :fecha_registro
                 WHERE t.es_empleado = 1
                   AND t.deleted_at IS NULL';
@@ -678,6 +691,7 @@ class AsistenciaModel extends Modelo
         $params = [
             'dia_semana' => $diaSemana,
             'fecha_dashboard' => $fecha,
+            'fecha_exc' => $fecha,
             'fecha_registro' => $fecha,
         ];
 
@@ -686,8 +700,9 @@ class AsistenciaModel extends Modelo
             $params['id_tercero'] = $idTercero;
         }
 
-        // Ya no filtramos el estado en el SQL directo porque está concatenado, lo filtramos en PHP
-        $sql .= ' GROUP BY t.id, t.nombre_completo, ah.nombre, ah.t1_entrada, ah.t1_salida, ah.t2_entrada, ah.t2_salida, ah.t3_entrada, ah.t3_salida
+        $sql .= ' GROUP BY t.id, t.nombre_completo, horario_nombre,
+                           t1_entrada, t1_salida, t2_entrada, t2_salida, t3_entrada, t3_salida,
+                           tolerancia_horario, es_excepcion
                   ORDER BY t.nombre_completo ASC';
 
         $stmt = $this->db()->prepare($sql);
@@ -703,10 +718,15 @@ class AsistenciaModel extends Modelo
                        t.id AS id_tercero,
                        ar.fecha,
                        t.nombre_completo,
-                       ah.nombre AS horario_nombre,
-                       ah.t1_entrada, ah.t1_salida,
-                       ah.t2_entrada, ah.t2_salida,
-                       ah.t3_entrada, ah.t3_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.nombre, ah.nombre) AS horario_nombre,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t1_entrada, ah.t1_entrada) AS t1_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t1_salida, ah.t1_salida) AS t1_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t2_entrada, ah.t2_entrada) AS t2_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t2_salida, ah.t2_salida) AS t2_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t3_entrada, ah.t3_entrada) AS t3_entrada,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.t3_salida, ah.t3_salida) AS t3_salida,
+                       IF(ah_exc.id IS NOT NULL, ah_exc.tolerancia_minutos, ah.tolerancia_minutos) AS tolerancia_horario,
+                       IF(ah_exc.id IS NOT NULL, 1, 0) AS es_excepcion,
                        GROUP_CONCAT(ar.hora_ingreso ORDER BY ar.hora_ingreso ASC SEPARATOR "|") AS horas_ingreso,
                        GROUP_CONCAT(ar.hora_salida ORDER BY ar.hora_salida ASC SEPARATOR "|") AS horas_salida,
                        MAX(ar.hora_entrada_esperada) AS hora_entrada_esperada_registro,
@@ -720,6 +740,11 @@ class AsistenciaModel extends Modelo
                     ON aeh.id_tercero = t.id
                    AND aeh.dia_semana = (WEEKDAY(ar.fecha) + 1)
                 LEFT JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
+                LEFT JOIN asistencia_grupo_empleados ge_exc ON ge_exc.id_tercero = t.id
+                LEFT JOIN asistencia_grupos g_exc ON g_exc.id = ge_exc.id_grupo AND g_exc.estado = 1
+                LEFT JOIN asistencia_planificacion p_exc ON p_exc.id_grupo = g_exc.id
+                    AND ar.fecha BETWEEN p_exc.fecha_inicio AND p_exc.fecha_fin
+                LEFT JOIN asistencia_horarios ah_exc ON ah_exc.id = p_exc.id_horario AND p_exc.id IS NOT NULL
                 WHERE ar.fecha BETWEEN :desde AND :hasta
                   AND t.es_empleado = 1
                   AND t.deleted_at IS NULL';
@@ -734,7 +759,9 @@ class AsistenciaModel extends Modelo
             $params['id_tercero'] = $idTercero;
         }
 
-        $sql .= ' GROUP BY t.id, ar.fecha, t.nombre_completo, ah.nombre, ah.t1_entrada, ah.t1_salida, ah.t2_entrada, ah.t2_salida, ah.t3_entrada, ah.t3_salida
+        $sql .= ' GROUP BY t.id, ar.fecha, t.nombre_completo, horario_nombre,
+                           t1_entrada, t1_salida, t2_entrada, t2_salida, t3_entrada, t3_salida,
+                           tolerancia_horario, es_excepcion
                   ORDER BY ar.fecha DESC, t.nombre_completo ASC';
 
         $stmt = $this->db()->prepare($sql);
@@ -966,6 +993,14 @@ class AsistenciaModel extends Modelo
         $horaIngresoFinal = !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : ($registroExistente['hora_ingreso'] ?? null);
         $horaSalidaFinal = !empty($data['hora_salida']) ? $data['hora_salida'] : ($registroExistente['hora_salida'] ?? null);
 
+        // Obtener todos los ingresos por tramo para cálculo de tardanza
+        $ingresosTramo = $data['horas_ingreso'] ?? [];
+        $salidasTramo = $data['horas_salida'] ?? [];
+        if (!is_array($ingresosTramo)) $ingresosTramo = [];
+        if (!is_array($salidasTramo)) $salidasTramo = [];
+        $ingresosTramo = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $ingresosTramo), static fn($h) => $h !== ''));
+        $salidasTramo = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $salidasTramo), static fn($h) => $h !== ''));
+
         // 2. Variables por defecto
         $minutosTardanza = 0;
         $estado_asistencia = 'INCOMPLETO';
@@ -976,25 +1011,34 @@ class AsistenciaModel extends Modelo
             $estado_asistencia = 'FALTA';
         }
 
-        // 3. APLICAMOS LA LÓGICA DE TARDANZA POR TRAMO (solo cuando está completo)
-        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
-            $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
-            $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
-            $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
+        // 3. Obtener turno efectivo para tolerancia y entradas esperadas
+        $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
+        $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
+        $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
+        [$horaEntradaEsperada, $horaSalidaEsperada] = $this->obtenerLimitesEsperadosDesdeTurno((string) $data['fecha'], $turno);
 
-            if (empty($entradasEsperadas)) {
-                $horario = $this->obtenerHorarioEsperado((int) $data['id_tercero'], (string) $data['fecha']);
-                if ($horario) {
-                    $entradaHorario = trim((string) ($horario['hora_entrada'] ?? ''));
-                    if ($entradaHorario !== '') {
-                        $entradasEsperadas = [substr($entradaHorario, 0, 8)];
-                    }
-                    $tolerancia = (int) ($horario['tolerancia_minutos'] ?? $tolerancia);
+        if (empty($entradasEsperadas)) {
+            $horario = $this->obtenerHorarioEsperado((int) $data['id_tercero'], (string) $data['fecha']);
+            if ($horario) {
+                $entradaHorario = trim((string) ($horario['hora_entrada'] ?? ''));
+                if ($entradaHorario !== '') {
+                    $entradasEsperadas = [substr($entradaHorario, 0, 8)];
+                }
+                $tolerancia = (int) ($horario['tolerancia_minutos'] ?? $tolerancia);
+                if (!$horaEntradaEsperada) {
+                    $horaEntradaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_entrada'], 0, 8);
+                }
+                if (!$horaSalidaEsperada) {
+                    $horaSalidaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_salida'], 0, 8);
                 }
             }
+        }
 
-            $ingresos = [];
-            if (!empty($horaIngresoFinal)) {
+        // 4. APLICAMOS LA LÓGICA DE TARDANZA POR TRAMO (solo cuando está completo)
+        if ($horaIngresoFinal !== null && $horaSalidaFinal !== null) {
+            // Usar los ingresos por tramo si están disponibles, sino usar el primer ingreso
+            $ingresos = !empty($ingresosTramo) ? $ingresosTramo : [];
+            if (empty($ingresos) && !empty($horaIngresoFinal)) {
                 $ingresos[] = $horaIngresoFinal;
             }
 
@@ -1006,44 +1050,33 @@ class AsistenciaModel extends Modelo
             }
         }
 
-        // 4. Guardamos o Actualizamos
-        if ($registroExistente) {
-            $sql = 'UPDATE asistencia_registros
-                    SET hora_ingreso = :hora_ingreso,
-                        hora_salida = :hora_salida,
-                        estado_asistencia = :estado,
-                        minutos_tardanza = :tardanza,
-                        observaciones = :observaciones,
-                        updated_at = NOW(),
-                        updated_by = :updated_by
-                    WHERE id = :id';
-                    
-            return $this->db()->prepare($sql)->execute([
-                'hora_ingreso'  => $horaIngresoFinal,
-                'hora_salida'   => $horaSalidaFinal,
-                'estado'        => $estado_asistencia,
-                'tardanza'      => $minutosTardanza,
-                'observaciones' => $nuevaObs,
-                'updated_by'    => $userId,
-                'id'            => $registroExistente['id']
-            ]);
-        } else {
-            $sql = 'INSERT INTO asistencia_registros
-                    (id_tercero, fecha, hora_ingreso, hora_salida, estado_asistencia, minutos_tardanza, observaciones, created_at, created_by, updated_by)
-                    VALUES (:id_tercero, :fecha, :hora_ingreso, :hora_salida, :estado, :tardanza, :observaciones, NOW(), :created_by, :updated_by)';
-
-            return $this->db()->prepare($sql)->execute([
-                'id_tercero'    => $data['id_tercero'],
-                'fecha'         => $data['fecha'],
-                'hora_ingreso'  => $horaIngresoFinal,
-                'hora_salida'   => $horaSalidaFinal,
-                'estado'        => $estado_asistencia,
-                'tardanza'      => $minutosTardanza,
-                'observaciones' => $nuevaObs,
-                'created_by'    => $userId,
-                'updated_by'    => $userId
-            ]);
+        // Calcular horas trabajadas
+        $horasTrabajadas = 0.00;
+        if ($horaIngresoFinal && $horaSalidaFinal) {
+            $tsIn = strtotime($horaIngresoFinal);
+            $tsOut = strtotime($horaSalidaFinal);
+            if ($tsIn !== false && $tsOut !== false && $tsOut > $tsIn) {
+                $horasTrabajadas = round(($tsOut - $tsIn) / 3600, 2);
+            }
         }
+
+        // 5. Guardamos con memoria (hora_entrada_esperada, hora_salida_esperada, tolerancia)
+        $upsertData = [
+            'id_tercero' => $data['id_tercero'],
+            'fecha' => $data['fecha'],
+            'hora_ingreso' => $horaIngresoFinal,
+            'hora_salida' => $horaSalidaFinal,
+            'hora_entrada_esperada' => $horaEntradaEsperada,
+            'hora_salida_esperada' => $horaSalidaEsperada,
+            'tolerancia_minutos' => $tolerancia,
+            'estado_asistencia' => $estado_asistencia,
+            'minutos_tardanza' => $minutosTardanza,
+            'horas_trabajadas' => $horasTrabajadas,
+            'horas_extras' => 0,
+            'observaciones' => $nuevaObs,
+        ];
+
+        return $this->upsertRegistroAsistencia($upsertData, $userId);
     }
 
     // ============================================================================

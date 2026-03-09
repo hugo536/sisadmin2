@@ -321,17 +321,33 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
 
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-bold mb-1">Fecha de Registro <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha" class="form-control bg-white border-secondary-subtle shadow-sm" value="<?= date('Y-m-d') ?>" required>
+                        <input type="date" name="fecha" id="fechaRegistroManual" class="form-control bg-white border-secondary-subtle shadow-sm" value="<?= date('Y-m-d') ?>" required>
                     </div>
 
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Ingreso</label>
-                            <input type="time" name="hora_ingreso" class="form-control bg-white border-secondary-subtle shadow-sm">
+                    <div id="manualHorarioInfo" class="d-none alert alert-light small border shadow-sm mb-3 py-2">
+                        <i class="bi bi-clock me-1 text-primary"></i> <span id="manualHorarioTexto">Horario: --</span>
+                    </div>
+
+                    <div class="p-3 bg-white border border-secondary-subtle rounded-3 shadow-sm mb-4">
+                        <div class="row g-2 mb-2 fw-semibold small text-muted">
+                            <div class="col-4">Tramo</div>
+                            <div class="col-4">Hora Ingreso</div>
+                            <div class="col-4">Hora Salida</div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Hora Salida</label>
-                            <input type="time" name="hora_salida" class="form-control bg-white border-secondary-subtle shadow-sm">
+                        <div id="manualTramosContainer">
+                            <?php for ($i = 1; $i <= 3; $i++): ?>
+                            <div class="row g-2 mb-2 align-items-center manual-tramo-row <?php echo $i > 1 ? 'd-none' : ''; ?>" id="manualTramo<?php echo $i; ?>">
+                                <div class="col-4">
+                                    <span class="badge bg-light text-dark border w-100 py-2">Tramo <?php echo $i; ?></span>
+                                </div>
+                                <div class="col-4">
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle shadow-sm" name="horas_ingreso[]" id="manualHoraIngreso<?php echo $i; ?>">
+                                </div>
+                                <div class="col-4">
+                                    <input type="time" class="form-control form-control-sm border-secondary-subtle shadow-sm" name="horas_salida[]" id="manualHoraSalida<?php echo $i; ?>">
+                                </div>
+                            </div>
+                            <?php endfor; ?>
                         </div>
                     </div>
 

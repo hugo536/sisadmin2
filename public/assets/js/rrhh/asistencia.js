@@ -340,7 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const formRegistroManual = document.getElementById('formRegistroManual');
     const modalRegistroManual = document.getElementById('modalRegistroManual');
     const selectEmpleadoManual = document.getElementById('selectEmpleadoManual');
-   
+    const fechaRegistroManual = document.getElementById('fechaRegistroManual');
+
     let tomSelectInstanceManual = null;
 
     if (selectEmpleadoManual && typeof TomSelect !== 'undefined') {
@@ -355,21 +356,92 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Función para cargar tramos del horario en el modal manual ---
+    const cargarTramosManual = async () => {
+        const idTercero = tomSelectInstanceManual ? tomSelectInstanceManual.getValue() : (selectEmpleadoManual ? selectEmpleadoManual.value : '');
+        const fecha = fechaRegistroManual ? fechaRegistroManual.value : '';
+        const infoDiv = document.getElementById('manualHorarioInfo');
+        const infoTexto = document.getElementById('manualHorarioTexto');
+
+        // Resetear tramos a solo 1 visible
+        for (let i = 1; i <= 3; i++) {
+            const row = document.getElementById('manualTramo' + i);
+            const inInput = document.getElementById('manualHoraIngreso' + i);
+            const outInput = document.getElementById('manualHoraSalida' + i);
+            if (row) { if (i === 1) row.classList.remove('d-none'); else row.classList.add('d-none'); }
+            if (inInput) inInput.value = '';
+            if (outInput) outInput.value = '';
+        }
+        if (infoDiv) infoDiv.classList.add('d-none');
+
+        if (!idTercero || !fecha) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('accion', 'obtener_horario_empleado');
+            formData.append('id_tercero', idTercero);
+            formData.append('fecha', fecha);
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) return;
+
+            const result = await response.json();
+            if (result && result.ok) {
+                const totalTramos = Math.max(1, Math.min(3, result.total_tramos || 1));
+                for (let i = 1; i <= 3; i++) {
+                    const row = document.getElementById('manualTramo' + i);
+                    if (row) {
+                        if (i <= totalTramos) row.classList.remove('d-none');
+                        else row.classList.add('d-none');
+                    }
+                }
+
+                if (infoDiv && infoTexto && result.nombre_horario) {
+                    let texto = result.nombre_horario;
+                    if (result.es_excepcion) texto += ' (Excepción)';
+                    if (result.tolerancia > 0) texto += ' — Tolerancia: ' + result.tolerancia + ' min';
+                    infoTexto.textContent = texto;
+                    infoDiv.classList.remove('d-none');
+                }
+            }
+        } catch (error) {
+            console.error('Error cargando horario manual:', error);
+        }
+    };
+
+    if (selectEmpleadoManual) {
+        if (tomSelectInstanceManual) {
+            tomSelectInstanceManual.on('change', cargarTramosManual);
+        } else {
+            selectEmpleadoManual.addEventListener('change', cargarTramosManual);
+        }
+    }
+    if (fechaRegistroManual) {
+        fechaRegistroManual.addEventListener('change', cargarTramosManual);
+    }
+
     if (formRegistroManual) {
         formRegistroManual.addEventListener('submit', function(e) {
-            const horaIngreso = this.querySelector('input[name="hora_ingreso"]').value;
-            const horaSalida = this.querySelector('input[name="hora_salida"]').value;
+            const ingresos = this.querySelectorAll('input[name="horas_ingreso[]"]');
+            const salidas = this.querySelectorAll('input[name="horas_salida[]"]');
+            let tieneAlguno = false;
+            ingresos.forEach(inp => { if (inp.value) tieneAlguno = true; });
+            salidas.forEach(inp => { if (inp.value) tieneAlguno = true; });
 
-            if (!horaIngreso && !horaSalida) {
+            if (!tieneAlguno) {
                 e.preventDefault();
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'warning', title: 'Atención',
-                        text: 'Debe registrar al menos la Hora de Ingreso o la Hora de Salida.',
+                        text: 'Debe registrar al menos una hora de ingreso o salida.',
                         confirmButtonColor: '#0d6efd'
                     });
                 } else {
-                    alert('Debe registrar al menos la Hora de Ingreso o la Hora de Salida.');
+                    alert('Debe registrar al menos una hora de ingreso o salida.');
                 }
             }
         });
@@ -379,13 +451,21 @@ document.addEventListener('DOMContentLoaded', () => {
         modalRegistroManual.addEventListener('hidden.bs.modal', function () {
             formRegistroManual.reset();
             if (tomSelectInstanceManual) tomSelectInstanceManual.clear();
-           
+
             const inputFecha = formRegistroManual.querySelector('input[name="fecha"]');
             if (inputFecha) {
                 const hoy = new Date();
                 hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
                 inputFecha.value = hoy.toISOString().split('T')[0];
             }
+
+            // Reset tramos visibility
+            for (let i = 1; i <= 3; i++) {
+                const row = document.getElementById('manualTramo' + i);
+                if (row) { if (i === 1) row.classList.remove('d-none'); else row.classList.add('d-none'); }
+            }
+            const infoDiv = document.getElementById('manualHorarioInfo');
+            if (infoDiv) infoDiv.classList.add('d-none');
         });
     }
 
