@@ -226,8 +226,13 @@ if (!empty($detallesNomina)) {
                                                             <?= (float)($row['dias_pagados'] ?? 0) ?>D
                                                         </span>
                                                         <br>
-                                                        <span class="text-muted small" style="font-size: 0.75rem;">
-                                                            <?= (float)($row['horas_acumuladas'] ?? 0) ?>h acumuladas
+                                                        <span class="text-muted fw-medium" style="font-size: 0.8rem;">
+                                                            <?php 
+                                                                $hAcum = (float)($row['horas_acumuladas'] ?? 0);
+                                                                $horasCompletas = floor($hAcum);
+                                                                $minutosRestantes = round(($hAcum - $horasCompletas) * 60);
+                                                                echo "{$horasCompletas}h " . ($minutosRestantes > 0 ? "{$minutosRestantes}m" : "00m");
+                                                            ?>
                                                         </span>
                                                     <?php endif; ?>
 
@@ -242,6 +247,12 @@ if (!empty($detallesNomina)) {
                                                         </div>
                                                     <?php endif; ?>
                                                     
+                                                    <?php if(($row['pago_horas_extras'] ?? 0) > 0): ?>
+                                                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.65rem;" title="<?= (float)($row['horas_extras'] ?? 0) ?>h extras a S/ <?= number_format((float)($row['pago_por_hora'] ?? 0), 2) ?>/hr">
+                                                            <i class="bi bi-clock-fill me-1"></i>+S/ <?= number_format((float)$row['pago_horas_extras'], 2) ?> HE
+                                                        </span>
+                                                    <?php endif; ?>
+
                                                     <?php if($tieneBono): ?>
                                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Bono Extra</span>
                                                     <?php endif; ?>

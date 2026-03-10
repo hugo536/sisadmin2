@@ -18,7 +18,7 @@ class PlanillasModel extends Modelo
     {
         $sql = "SELECT id, referencia, nombre, fecha_inicio, fecha_fin, estado, total_neto 
                 FROM rrhh_nominas 
-                ORDER BY id DESC LIMIT :limite";
+                ORDER BY ID DESC LIMIT :limite";
         
         $stmt = $this->db()->prepare($sql);
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
@@ -48,7 +48,7 @@ class PlanillasModel extends Modelo
         }
 
         // 3. Si el lote ya está Aprobado o Pagado, devolvemos la data congelada de la BD
-        $sql = "SELECT 
+        $sql = "SELECT
                     nd.id,
                     nd.id_tercero,
                     t.nombre_completo,
@@ -63,8 +63,10 @@ class PlanillasModel extends Modelo
                     nd.neto_a_pagar,
                     (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
                     (nd.dias_pagados * 8) AS horas_acumuladas,
-                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
-                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos
+                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
+                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos,
+                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
+                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.categoria = 'Horas Extras') AS pago_horas_extras
                 FROM rrhh_nominas_detalles nd
                 INNER JOIN terceros t ON t.id = nd.id_tercero
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
@@ -132,11 +134,12 @@ class PlanillasModel extends Modelo
         }
 
         // LEEMOS TODA LA ASISTENCIA Y APLICAMOS LA REGLA ESTRICTA EN MEMORIA
-        $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida, 
-                                 marcas_ingresos, marcas_salidas, 
-                                 estado_asistencia, minutos_tardanza, horas_trabajadas 
-                          FROM asistencia_registros 
-                          WHERE fecha BETWEEN :desde AND :hasta 
+        $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida,
+                                 marcas_ingresos, marcas_salidas,
+                                 estado_asistencia, minutos_tardanza, horas_trabajadas,
+                                 horas_extras
+                          FROM asistencia_registros
+                          WHERE fecha BETWEEN :desde AND :hasta
                           AND (id_nomina_pago IS NULL OR id_nomina_pago = :id_lote)";
         $stmtAsist = $db->prepare($sqlAsistencia);
         $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin, 'id_lote' => $idLote]);
@@ -149,8 +152,9 @@ class PlanillasModel extends Modelo
             
             if (!isset($mapaAsistencia[$idT])) {
                 $mapaAsistencia[$idT] = [
-                    'asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 
-                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'tiene_conflicto' => false
+                    'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
+                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0,
+                    'tiene_conflicto' => false
                 ];
             }
 
@@ -187,6 +191,7 @@ class PlanillasModel extends Modelo
             if (in_array($estado, ['PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA'])) {
                 $mapaAsistencia[$idT]['asistidos']++;
                 $mapaAsistencia[$idT]['horas_trabajadas'] += (float) ($ar['horas_trabajadas'] ?? 0);
+                $mapaAsistencia[$idT]['horas_extras'] += (float) ($ar['horas_extras'] ?? 0);
             } elseif (in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO'])) {
                 $mapaAsistencia[$idT]['justificados']++;
             } elseif ($estado === 'FALTA') {
@@ -194,6 +199,17 @@ class PlanillasModel extends Modelo
             }
             
             $mapaAsistencia[$idT]['tardanzas'] += (int) $ar['minutos_tardanza'];
+        }
+
+        // Obtener configuración RRHH para saber si se pagan horas extras
+        $configRRHH = ['pagar_salida_tarde' => 0, 'pagar_llegada_temprano' => 0];
+        try {
+            $stmtConf = $db->query("SELECT * FROM rrhh_configuracion WHERE id = 1 LIMIT 1");
+            if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) {
+                $configRRHH = $rowConf;
+            }
+        } catch (Exception $e) {
+            // Usa defaults si la tabla no existe
         }
 
         $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
@@ -232,7 +248,7 @@ class PlanillasModel extends Modelo
             
             $asis = $mapaAsistencia[$idTercero] ?? [
                 'asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 
-                'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'tiene_conflicto' => false
+                'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false
             ];
             
             $tieneConflicto = $asis['tiene_conflicto'];
@@ -254,9 +270,18 @@ class PlanillasModel extends Modelo
             $valorMinuto = $pagoPorHora / 60;
             $descuentoTardanzas = $tieneConflicto ? 0 : ($valorMinuto * $asis['tardanzas']);
 
+            // PAGO DE HORAS EXTRAS: Se pagan al mismo valor por hora (1x)
+            // Las horas extras ya están filtradas por las reglas de configuración
+            // (minutos_minimos_extra, minutos_gracia_salida) en AsistenciaModel
+            $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
+            $pagoHorasExtras = 0;
+            if ((int)($configRRHH['pagar_salida_tarde'] ?? 0) === 1 && $horasExtras > 0) {
+                $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
+            }
+
             $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
 
-            $totalPercepciones = $sueldoBaseCalculado + $manuales['percepciones'];
+            $totalPercepciones = $sueldoBaseCalculado + $pagoHorasExtras + $manuales['percepciones'];
             $deduccionesPrevias = $descuentoTardanzas + $manuales['deducciones'];
             
             $netoTemporal = $totalPercepciones - $deduccionesPrevias;
@@ -290,6 +315,8 @@ class PlanillasModel extends Modelo
                 'minutos_tardanza' => $asis['tardanzas'],
                 'pago_por_hora' => round($pagoPorHora, 2),
                 'horas_acumuladas' => round($horasAcumuladas, 2),
+                'horas_extras' => round($horasExtras, 2),
+                'pago_horas_extras' => $pagoHorasExtras,
                 'sueldo_base_calculado' => round($sueldoBaseCalculado, 2),
                 'total_percepciones' => round($totalPercepciones, 2),
                 'total_deducciones' => round($totalDeducciones, 2),
@@ -439,6 +466,13 @@ class PlanillasModel extends Modelo
                     $stmtConcepto->execute([
                         'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Sueldo Base',
                         'desc' => 'Sueldo proporcional a ' . $calc['dias_pagados'] . ' días', 'monto' => $calc['sueldo_base_calculado']
+                    ]);
+                }
+
+                if (($calc['pago_horas_extras'] ?? 0) > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Horas Extras',
+                        'desc' => 'Pago por ' . $calc['horas_extras'] . ' horas extras', 'monto' => $calc['pago_horas_extras']
                     ]);
                 }
 

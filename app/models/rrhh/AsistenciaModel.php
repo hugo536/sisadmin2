@@ -334,16 +334,15 @@ class AsistenciaModel extends Modelo
             $estado = 'FALTA';
         }
 
+                // -------------------------------------------------------------
+        // MOTOR DE REGLAS DE TIEMPO (TOPES Y BLOQUES)
         // -------------------------------------------------------------
-        // MOTOR DE REGLAS DE TIEMPO (TOPES / CLAMPING)
-        // -------------------------------------------------------------
-
-        // 1. Obtener la configuración global (Fallback a reglas estrictas si no hay tabla)
         $configRRHH = [
             'pagar_llegada_temprano' => 0,
             'pagar_salida_tarde' => 0,
-            'minutos_gracia_salida' => 15,
-            'minutos_minimos_extra' => 30
+            'tipo_calculo_horas_extras' => 'EXACTO',
+            'minutos_bloque_extra' => 30,
+            'minutos_umbral_extra' => 15
         ];
 
         try {
@@ -351,8 +350,8 @@ class AsistenciaModel extends Modelo
             if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) {
                 $configRRHH = $rowConf;
             }
-        } catch (Exception $e) {
-            // Si la tabla no existe aún, ignoramos el error y usamos los valores default
+        } catch (Exception $e) { 
+            // Usa default si la tabla no existe
         }
 
         $horasTrabajadas = 0.00;
@@ -367,47 +366,65 @@ class AsistenciaModel extends Modelo
 
             if ($tsInReal !== false && $tsOutReal !== false && $tsOutReal > $tsInReal) {
                 
-                // --- APLICAR REGLAS DEL DUEÑO ---
+                // --- REGLA 1: Llegada Temprana ---
+                $tsInEfectivo = ((int)$configRRHH['pagar_llegada_temprano'] === 0) 
+                                ? max($tsInReal, $tsInEsperado) 
+                                : $tsInReal;
 
-                // REGLA 1: Tope a hora de entrada
-                if ((int)$configRRHH['pagar_llegada_temprano'] === 0) {
-                    $tsInEfectivo = max($tsInReal, $tsInEsperado); // Corta a la hora oficial
-                } else {
-                    $tsInEfectivo = $tsInReal; // Paga desde que marcó
-                }
-
-                // REGLA 2: Tope a hora de salida
+                // --- REGLA 2: Salida Tarde y Horas Extras ---
                 if ((int)$configRRHH['pagar_salida_tarde'] === 0) {
-                    $tsOutEfectivo = min($tsOutReal, $tsOutEsperado); // Corta a la hora oficial
+                    $tsOutEfectivo = min($tsOutReal, $tsOutEsperado);
                 } else {
-                    // SÍ PAGA horas extra, pero validamos si cumplió el tiempo mínimo
                     $minutosTarde = ($tsOutReal - $tsOutEsperado) / 60;
-                    $minutosMinimos = (int)$configRRHH['minutos_minimos_extra'];
+                    $minutosGracia = (int)($configRRHH['minutos_gracia_salida'] ?? 5);
 
-                    if ($minutosTarde >= $minutosMinimos) {
-                        $tsOutEfectivo = $tsOutReal; // Cumplió la regla, cobra todo el extra
+                    // Si la tardanza es menor o igual a la gracia, se ignora (ej. sale 18:03, límite 18:05)
+                    if ($minutosTarde > $minutosGracia) {
+                        
+                        // OJO: Los minutos a evaluar para el pago son TODOS los minutos tarde, no le restamos la gracia.
+                        // Si se queda 20 min y la gracia era 5, se evalúan los 20 min.
+                        
+                        if ($configRRHH['tipo_calculo_horas_extras'] === 'BLOQUES') {
+                            $umbralMedia = (int)$configRRHH['minutos_umbral_media_hora'];
+                            $umbralHora = (int)$configRRHH['minutos_umbral_hora_completa'];
+                            
+                            $horasCompletas = floor($minutosTarde / 60);
+                            $minutosRestantes = $minutosTarde % 60; 
+                            
+                            $minutosExtraAPagar = $horasCompletas * 60;
+                            
+                            if ($minutosRestantes >= $umbralHora) {
+                                $minutosExtraAPagar += 60; 
+                            } elseif ($minutosRestantes >= $umbralMedia) {
+                                $minutosExtraAPagar += 30; 
+                            }
+                            
+                            $tsOutEfectivo = $tsOutEsperado + ($minutosExtraAPagar * 60);
+                        } else {
+                            // Cálculo EXACTO: Pagamos todo el tiempo real
+                            $tsOutEfectivo = $tsOutReal;
+                        }
                     } else {
-                        $tsOutEfectivo = $tsOutEsperado; // No cumplió, se le corta en su hora oficial
+                        // Estaba dentro del tiempo de gracia, se corta en la hora oficial
+                        $tsOutEfectivo = $tsOutEsperado;
                     }
                 }
 
-                // Cálculo Final Matemático
+                // Cálculo Matemático Final
                 if ($tsOutEfectivo > $tsInEfectivo) {
                     $horasTrabajadas = round(($tsOutEfectivo - $tsInEfectivo) / 3600, 2);
                 }
 
-                // Separar Horas Base de Horas Extras
+                // Separar la Base de las Extras para la nómina
                 if ($tsOutEsperado > $tsInEsperado) {
                     $horasEsperadas = ($tsOutEsperado - $tsInEsperado) / 3600;
                     if ($horasTrabajadas > $horasEsperadas) {
                         $horasExtras = round($horasTrabajadas - $horasEsperadas, 2);
-                        // Dependiendo del negocio, puedes dejar que horas_trabajadas sea el TOTAL 
-                        // o solo el BASE. Aquí lo dejamos como el TOTAL (Base + Extras), 
-                        // pero la variable extra te dirá cuántas de ese total fueron extras.
                     }
                 }
             }
         }
+
 
         return [
             'hora_ingreso' => $horaIngreso,
