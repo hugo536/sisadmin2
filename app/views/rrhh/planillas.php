@@ -53,9 +53,11 @@ if (!empty($detallesNomina)) {
 
             <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
                 <?php if ($netoPagar > 0): ?>
-                    <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Las asistencias quedarán selladas.');">
+                    <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" id="formAprobarLote">
                         <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
-                        <button type="submit" class="btn btn-primary shadow-sm fw-semibold" <?php echo $hayConflictos ? 'disabled title="Hay empleados con asistencia incompleta"' : ''; ?>>
+                        <button type="submit" 
+                            class="btn btn-primary shadow-sm fw-semibold"
+                            data-hay-conflictos="<?php echo $hayConflictos ? 'true' : 'false'; ?>">
                             <i class="bi bi-check-circle me-2"></i>Aprobar Lote
                         </button>
                     </form>
@@ -86,14 +88,6 @@ if (!empty($detallesNomina)) {
     <?php else: ?>
 
         <div class="row g-3 mb-4">
-            <?php if ($estadoLote === 'BORRADOR' && $hayConflictos): ?>
-                <div class="col-12">
-                    <div class="alert alert-danger border-0 shadow-sm mb-1">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                        No se puede aprobar este lote: existen empleados con <strong>asistencia incompleta</strong>. Corrige los registros marcados en rojo antes de continuar.
-                    </div>
-                </div>
-            <?php endif; ?>
             <div class="col-12 col-md-4">
                 <div class="card border-0 shadow-sm h-100 bg-light border-start border-secondary border-4">
                     <div class="card-body p-4">
