@@ -43,34 +43,43 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('gestNombreEmpleado').innerText = btnGestion.dataset.nombre || '';
             document.getElementById('gestFechaDisplay').innerText = 'Día: ' + (btnGestion.dataset.fecha || '');
 
-            // 2. Obtener las cadenas crudas de ingresos y salidas (Ej. "2023-10-01 08:00|2023-10-01 14:00")
+            // 2. Obtener las cadenas crudas de ingresos y salidas
             const ingresosRaw = btnGestion.dataset.ingresos || '';
             const salidasRaw = btnGestion.dataset.salidas || '';
             
-            // Función para extraer solo la hora "HH:mm" ignorando la fecha y los nulos
+            // Función para extraer solo la hora e ignorar la palabra "null"
             const extraerHora = (str) => {
-                if (!str || str === 'null') return '';
+                if (!str || str.trim() === '' || str.includes('null')) return '';
                 const partes = str.split(' ');
                 return partes.length > 1 ? partes[1].substring(0, 5) : str.substring(0, 5);
             };
 
-            // Convertir las cadenas en Arrays de Horas Limpias
-            const arrIngresos = ingresosRaw.split('|').filter(Boolean).map(extraerHora);
-            const arrSalidas = salidasRaw.split('|').filter(Boolean).map(extraerHora);
+            // Filtrar inteligentemente los nulos
+            const arrIngresos = ingresosRaw.split('|').filter(h => h && h.trim() !== '' && !h.includes('null')).map(extraerHora);
+            const arrSalidas = salidasRaw.split('|').filter(h => h && h.trim() !== '' && !h.includes('null')).map(extraerHora);
             
-            // Determinar cuántos tramos mostrar en el Modal (Mínimo 1, Máximo 3)
-            // LA CLAVE: Mostrar SIEMPRE los 3 tramos en el modal para permitir 
-            // a RRHH agregar el refrigerio que se haya perdido o no se haya marcado
+            // Leer la tabla HTML para saber cuántos tramos exige su turno (Contamos los guiones)
+            let tramosEsperados = 1;
+            const filaHtml = btnGestion.closest('tr');
+            if (filaHtml && filaHtml.cells[2]) {
+                const matches = filaHtml.cells[2].innerText.match(/-/g); 
+                if (matches) tramosEsperados = Math.max(1, Math.min(3, matches.length));
+            }
+
+            // Muestra los tramos exigidos o los reales (lo que sea mayor)
+            const activos = Math.max(tramosEsperados, arrIngresos.length, arrSalidas.length, 1);
+
+            // Resetear y mostrar las filas necesarias en el modal
             for (let i = 1; i <= 3; i++) {
                 const row = document.getElementById('gestTramo' + i);
                 const inInput = document.getElementById('gestHoraIngreso' + i);
                 const outInput = document.getElementById('gestHoraSalida' + i);
                 
                 if (row) {
-                    row.classList.remove('d-none'); // <--- AHORA SIEMPRE ESTARÁN VISIBLES
+                    if (i <= activos) row.classList.remove('d-none');
+                    else row.classList.add('d-none');
                 }
                 
-                // Pintar los valores si existen, si no, se quedan en blanco listos para escribirse
                 if (inInput) inInput.value = arrIngresos[i - 1] || '';
                 if (outInput) outInput.value = arrSalidas[i - 1] || '';
             }
@@ -81,8 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectEstado = document.getElementById('gestNuevoEstado');
             const textObs = document.getElementById('gestObservacion');
             
-            // Buscar la etiqueta (Badge) en la misma fila de la tabla para ver si dice "INCOMPLETO"
-            const filaHtml = btnGestion.closest('tr');
             const esIncompleto = filaHtml && filaHtml.innerHTML.includes('INCOMPLETO');
 
             if (esIncompleto) {
@@ -93,11 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Hacer requeridos los campos
                 if(selectEstado) {
                     selectEstado.setAttribute('required', 'required');
-                    selectEstado.value = "OLVIDO MARCACION"; // Auto-seleccionar la causa
+                    selectEstado.value = "OLVIDO MARCACION"; 
                 }
                 if(textObs) {
                     textObs.setAttribute('required', 'required');
-                    textObs.value = "Regularizado manualmente por RRHH debido a olvido de marcación."; // Auto-llenar texto
+                    textObs.value = "Regularizado manualmente por RRHH debido a olvido de marcación."; 
                 }
             } else {
                 // Si es puntual o tardanza, resetear y apagar
@@ -238,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (contadorMiembros) contadorMiembros.textContent = empleadosSeleccionados.length;
                     if (hintVacio && empleadosSeleccionados.length > 0) hintVacio.style.display = 'none';
 
-                    // Focalizar visualmente en el primer campo
                     if (inputNombre) inputNombre.focus();
                 }
             } catch (error) {
@@ -324,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Toggle para el Modal de Justificación manual (Por si el usuario hace click)
+    // Toggle para el Modal de Justificación manual
     const checkJustificar = document.getElementById('gestCheckJustificar');
     const boxJustificacion = document.getElementById('boxJustificacion');
     const obsInput = document.getElementById('gestObservacion');
@@ -778,10 +784,13 @@ document.addEventListener('DOMContentLoaded', () => {
         modalGestionGrupos.addEventListener('hidden.bs.modal', function () {
             formCrearGrupo.reset();
             
-            tramo2.classList.add('d-none');
-            tramo3.classList.add('d-none');
+            const tramo2 = document.getElementById('tramo2');
+            const tramo3 = document.getElementById('tramo3');
+            if (tramo2) tramo2.classList.add('d-none');
+            if (tramo3) tramo3.classList.add('d-none');
             if(btnAgregarTramo) btnAgregarTramo.classList.remove('d-none');
-            inputCantidadTramos.value = 1;
+            const inputTramos = document.getElementById('inputCantidadTramos');
+            if (inputTramos) inputTramos.value = 1;
             
             labelPeriodo.textContent = 'Fecha Específica';
             colFechaInicio.classList.remove('col-6');
