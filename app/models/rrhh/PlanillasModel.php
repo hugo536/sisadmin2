@@ -149,6 +149,32 @@ class PlanillasModel extends Modelo
         foreach ($registrosAsistencia as $ar) {
             $idT = (int)$ar['id_tercero'];
             $fecha = $ar['fecha'];
+
+            // Recalcular en vivo desde marcas para que los BORRADOR reflejen
+            // inmediatamente cambios de tolerancia/reglas RRHH.
+            $marcasDia = [];
+            if (!empty($ar['marcas_ingresos'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
+            } elseif (!empty($ar['hora_ingreso'])) {
+                $marcasDia[] = (string)$ar['hora_ingreso'];
+            }
+
+            if (!empty($ar['marcas_salidas'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
+            } elseif (!empty($ar['hora_salida'])) {
+                $marcasDia[] = (string)$ar['hora_salida'];
+            }
+
+            $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== ''));
+            sort($marcasDia);
+
+            if (!empty($marcasDia)) {
+                $resumenVivo = $asistenciaModel->calcularResumenDesdeMarcas($idT, $fecha, $marcasDia);
+                $ar['estado_asistencia'] = $resumenVivo['estado_asistencia'] ?? $ar['estado_asistencia'];
+                $ar['minutos_tardanza'] = (int)($resumenVivo['minutos_tardanza'] ?? $ar['minutos_tardanza']);
+                $ar['horas_trabajadas'] = (float)($resumenVivo['horas_trabajadas'] ?? $ar['horas_trabajadas']);
+                $ar['horas_extras'] = (float)($resumenVivo['horas_extras'] ?? $ar['horas_extras']);
+            }
             
             if (!isset($mapaAsistencia[$idT])) {
                 $mapaAsistencia[$idT] = [
