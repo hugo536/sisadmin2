@@ -349,6 +349,10 @@ class AsistenciaController extends Controlador
         $fecha = (string) ($_POST['fecha'] ?? '');
 
         if ($userId <= 0) {
+            if (es_ajax()) {
+                json_response(['ok' => false, 'mensaje' => 'No se pudo identificar al usuario actual.'], 401);
+                return;
+            }
             redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('No se pudo identificar al usuario actual.'));
             return;
         }
@@ -366,11 +370,19 @@ class AsistenciaController extends Controlador
         ];
 
         if ($data['id_tercero'] <= 0 || $data['fecha'] === '') {
+            if (es_ajax()) {
+                json_response(['ok' => false, 'mensaje' => 'Datos de empleado y fecha son obligatorios.'], 422);
+                return;
+            }
             redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('Datos de empleado y fecha son obligatorios.'));
             return;
         }
 
         if ($data['aplicar_justificacion'] === 1 && $data['observacion'] === '') {
+            if (es_ajax()) {
+                json_response(['ok' => false, 'mensaje' => 'Debes ingresar un motivo para la justificación.'], 422);
+                return;
+            }
             redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('Debes ingresar un motivo para la justificación.'));
             return;
         }
@@ -378,7 +390,16 @@ class AsistenciaController extends Controlador
         $ok = $this->asistenciaModel->gestionarExcepcionDiaria($data, $userId);
 
         if (!$ok) {
+            if (es_ajax()) {
+                json_response(['ok' => false, 'mensaje' => 'No fue posible guardar la excepción.'], 500);
+                return;
+            }
             redirect("asistencia/dashboard?fecha={$fecha}&tipo=error&msg=" . urlencode('No fue posible guardar la excepción.'));
+            return;
+        }
+
+        if (es_ajax()) {
+            json_response(['ok' => true, 'mensaje' => 'Excepción gestionada correctamente.']);
             return;
         }
 

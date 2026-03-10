@@ -244,6 +244,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+    const formGestionAsistencia = document.getElementById('formGestionAsistencia');
+    const modalGestionAsistencia = document.getElementById('modalGestionAsistencia');
+
+    if (formGestionAsistencia) {
+        formGestionAsistencia.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const btnSubmit = this.querySelector('button[type="submit"]');
+            const originalHtml = btnSubmit ? btnSubmit.innerHTML : '';
+
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...';
+            }
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (_) {
+                    payload = null;
+                }
+
+                if (!response.ok || !payload || !payload.ok) {
+                    throw new Error((payload && payload.mensaje) ? payload.mensaje : 'No se pudo guardar el registro.');
+                }
+
+                if (typeof bootstrap !== 'undefined' && modalGestionAsistencia) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalGestionAsistencia);
+                    if (modalInstance) modalInstance.hide();
+                }
+
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Guardado',
+                        text: payload.mensaje || 'Cambios guardados correctamente.',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                }
+
+                if (formFiltros) {
+                    formFiltros.dispatchEvent(new Event('submit'));
+                } else {
+                    window.location.reload();
+                }
+            } catch (error) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'No se pudo guardar el registro.',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                } else {
+                    alert(error.message || 'No se pudo guardar el registro.');
+                }
+            } finally {
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = originalHtml;
+                }
+            }
+        });
+    }
+
     // Toggle para el Modal de Justificación
     const checkJustificar = document.getElementById('gestCheckJustificar');
     const boxJustificacion = document.getElementById('boxJustificacion');
