@@ -31,87 +31,92 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. DELEGACIÓN DE EVENTOS GLOBAL (Para clics dinámicos como Clonar y Eliminar)
     document.addEventListener('click', async function(e) {
         
-        // A) Botón Gestionar Asistencia (Modal de Justificación / Completar de cámaras)
+        // =====================================================================
+        // A) Botón Gestionar Asistencia (Modal de Justificación / Completar)
+        // =====================================================================
         const btnGestion = e.target.closest('.js-gestionar-asistencia');
         if (btnGestion) {
+            // 1. Llenar encabezados del Modal
             document.getElementById('gestIdAsistencia').value = btnGestion.dataset.id || '';
             document.getElementById('gestIdTercero').value = btnGestion.dataset.tercero || '';
             document.getElementById('gestFecha').value = btnGestion.dataset.fecha || '';
             document.getElementById('gestNombreEmpleado').innerText = btnGestion.dataset.nombre || '';
             document.getElementById('gestFechaDisplay').innerText = 'Día: ' + (btnGestion.dataset.fecha || '');
 
-            const setTramosVisibles = (count) => {
-                for (let i = 1; i <= 3; i++) {
-                    const row = document.getElementById('gestTramo' + i);
-                    const inInput = document.getElementById('gestHoraIngreso' + i);
-                    const outInput = document.getElementById('gestHoraSalida' + i);
-                    if (row) {
-                        if (i <= count) row.classList.remove('d-none');
-                        else row.classList.add('d-none');
-                    }
-                    if (inInput) inInput.value = '';
-                    if (outInput) outInput.value = '';
-                }
+            // 2. Obtener las cadenas crudas de ingresos y salidas (Ej. "2023-10-01 08:00|2023-10-01 14:00")
+            const ingresosRaw = btnGestion.dataset.ingresos || '';
+            const salidasRaw = btnGestion.dataset.salidas || '';
+            
+            // Función para extraer solo la hora "HH:mm" ignorando la fecha y los nulos
+            const extraerHora = (str) => {
+                if (!str || str === 'null') return '';
+                const partes = str.split(' ');
+                return partes.length > 1 ? partes[1].substring(0, 5) : str.substring(0, 5);
             };
 
-            setTramosVisibles(1);
-
-            try {
-                const formData = new FormData();
-                formData.append('accion', 'obtener_marcaciones_dia');
-                formData.append('id_tercero', btnGestion.dataset.tercero || '0');
-                formData.append('fecha', btnGestion.dataset.fecha || '');
-
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                if (!response.ok) throw new Error('Error al consultar marcaciones');
-
-                const payload = await response.json();
-                if (payload && payload.ok && payload.detalle) {
-                    const detalle = payload.detalle;
-                    const activos = Math.max(1, Math.min(3, Number(detalle.tramos_activos || 1)));
-                    setTramosVisibles(activos);
-
-                    const ingresos = Array.isArray(detalle.ingresos_reales) ? detalle.ingresos_reales : [];
-                    const salidas = Array.isArray(detalle.salidas_reales) ? detalle.salidas_reales : [];
-
-                    for (let i = 1; i <= 3; i++) {
-                        const inInput = document.getElementById('gestHoraIngreso' + i);
-                        const outInput = document.getElementById('gestHoraSalida' + i);
-                        if (inInput) inInput.value = ingresos[i - 1] || '';
-                        if (outInput) outInput.value = salidas[i - 1] || '';
-                    }
+            // Convertir las cadenas en Arrays de Horas Limpias
+            const arrIngresos = ingresosRaw.split('|').filter(Boolean).map(extraerHora);
+            const arrSalidas = salidasRaw.split('|').filter(Boolean).map(extraerHora);
+            
+            // Determinar cuántos tramos mostrar en el Modal (Mínimo 1, Máximo 3)
+            // LA CLAVE: Mostrar SIEMPRE los 3 tramos en el modal para permitir 
+            // a RRHH agregar el refrigerio que se haya perdido o no se haya marcado
+            for (let i = 1; i <= 3; i++) {
+                const row = document.getElementById('gestTramo' + i);
+                const inInput = document.getElementById('gestHoraIngreso' + i);
+                const outInput = document.getElementById('gestHoraSalida' + i);
+                
+                if (row) {
+                    row.classList.remove('d-none'); // <--- AHORA SIEMPRE ESTARÁN VISIBLES
                 }
-            } catch (error) {
-                const ingresosRaw = (btnGestion.dataset.ingresos || '').split('|').filter(Boolean).map(v => v.substring(11, 16));
-                const salidasRaw = (btnGestion.dataset.salidas || '').split('|').filter(Boolean).map(v => v.substring(11, 16));
-                const activos = Math.max(1, Math.min(3, Math.max(ingresosRaw.length, salidasRaw.length, 1)));
-                setTramosVisibles(activos);
-
-                for (let i = 1; i <= 3; i++) {
-                    const inInput = document.getElementById('gestHoraIngreso' + i);
-                    const outInput = document.getElementById('gestHoraSalida' + i);
-                    if (inInput) inInput.value = ingresosRaw[i - 1] || '';
-                    if (outInput) outInput.value = salidasRaw[i - 1] || '';
-                }
+                
+                // Pintar los valores si existen, si no, se quedan en blanco listos para escribirse
+                if (inInput) inInput.value = arrIngresos[i - 1] || '';
+                if (outInput) outInput.value = arrSalidas[i - 1] || '';
             }
-           
+
+            // 3. LÓGICA DE AUTOMATIZACIÓN DE "INCOMPLETOS"
             const checkJustificar = document.getElementById('gestCheckJustificar');
             const boxJustificacion = document.getElementById('boxJustificacion');
-            const obsInput = document.getElementById('gestObservacion');
-           
-            if (checkJustificar) checkJustificar.checked = false;
-            if (boxJustificacion) boxJustificacion.classList.add('d-none');
-            if (obsInput) {
-                obsInput.value = '';
-                obsInput.removeAttribute('required');
+            const selectEstado = document.getElementById('gestNuevoEstado');
+            const textObs = document.getElementById('gestObservacion');
+            
+            // Buscar la etiqueta (Badge) en la misma fila de la tabla para ver si dice "INCOMPLETO"
+            const filaHtml = btnGestion.closest('tr');
+            const esIncompleto = filaHtml && filaHtml.innerHTML.includes('INCOMPLETO');
+
+            if (esIncompleto) {
+                // Auto-activar la justificación
+                if(checkJustificar) checkJustificar.checked = true;
+                if(boxJustificacion) boxJustificacion.classList.remove('d-none');
+                
+                // Hacer requeridos los campos
+                if(selectEstado) {
+                    selectEstado.setAttribute('required', 'required');
+                    selectEstado.value = "OLVIDO MARCACION"; // Auto-seleccionar la causa
+                }
+                if(textObs) {
+                    textObs.setAttribute('required', 'required');
+                    textObs.value = "Regularizado manualmente por RRHH debido a olvido de marcación."; // Auto-llenar texto
+                }
+            } else {
+                // Si es puntual o tardanza, resetear y apagar
+                if(checkJustificar) checkJustificar.checked = false;
+                if(boxJustificacion) boxJustificacion.classList.add('d-none');
+                if(selectEstado) {
+                    selectEstado.removeAttribute('required');
+                    selectEstado.value = "TARDANZA JUSTIFICADA";
+                }
+                if(textObs) {
+                    textObs.removeAttribute('required');
+                    textObs.value = "";
+                }
             }
         }
 
+        // =====================================================================
         // B) Botón Eliminar Grupo (SweetAlert o Confirmación normal)
+        // =====================================================================
         const btnEliminar = e.target.closest('.js-btn-eliminar-grupo');
         if (btnEliminar) {
             e.preventDefault();
@@ -134,7 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // =====================================================================
         // C) Botón Clonar Plantilla (Llamada AJAX segura)
+        // =====================================================================
         const btnClonar = e.target.closest('.js-clonar-grupo');
         if (btnClonar) {
             e.preventDefault();
@@ -244,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
+    // Guardado de Gestionar Asistencia
     const formGestionAsistencia = document.getElementById('formGestionAsistencia');
     const modalGestionAsistencia = document.getElementById('modalGestionAsistencia');
 
@@ -317,24 +324,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Toggle para el Modal de Justificación
+    // Toggle para el Modal de Justificación manual (Por si el usuario hace click)
     const checkJustificar = document.getElementById('gestCheckJustificar');
     const boxJustificacion = document.getElementById('boxJustificacion');
     const obsInput = document.getElementById('gestObservacion');
+    const estadoInput = document.getElementById('gestNuevoEstado');
    
     if (checkJustificar && boxJustificacion && obsInput) {
         checkJustificar.addEventListener('change', function() {
             if (this.checked) {
                 boxJustificacion.classList.remove('d-none');
                 obsInput.setAttribute('required', 'required');
+                estadoInput.setAttribute('required', 'required');
             } else {
                 boxJustificacion.classList.add('d-none');
                 obsInput.removeAttribute('required');
+                estadoInput.removeAttribute('required');
             }
         });
     }
 
+    // =========================================================================
     // 4. EL DEBOUNCE Y AJAX (Filtros de Asistencia)
+    // =========================================================================
     if (formFiltros) {
         formFiltros.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -429,7 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Función para cargar tramos del horario en el modal manual ---
     const cargarTramosManual = async () => {
         const idTercero = tomSelectInstanceManual ? tomSelectInstanceManual.getValue() : (selectEmpleadoManual ? selectEmpleadoManual.value : '');
         const fecha = fechaRegistroManual ? fechaRegistroManual.value : '';
@@ -532,7 +543,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputFecha.value = hoy.toISOString().split('T')[0];
             }
 
-            // Reset tramos visibility
             for (let i = 1; i <= 3; i++) {
                 const row = document.getElementById('manualTramo' + i);
                 if (row) { if (i === 1) row.classList.remove('d-none'); else row.classList.add('d-none'); }

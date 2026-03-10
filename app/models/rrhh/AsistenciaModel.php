@@ -334,15 +334,16 @@ class AsistenciaModel extends Modelo
             $estado = 'FALTA';
         }
 
-                // -------------------------------------------------------------
-        // MOTOR DE REGLAS DE TIEMPO (TOPES Y BLOQUES)
+        // -------------------------------------------------------------
+        // MOTOR DE REGLAS DE TIEMPO (TRAMOS, TOPES Y BLOQUES)
         // -------------------------------------------------------------
         $configRRHH = [
             'pagar_llegada_temprano' => 0,
             'pagar_salida_tarde' => 0,
+            'minutos_gracia_salida' => 5,
             'tipo_calculo_horas_extras' => 'EXACTO',
-            'minutos_bloque_extra' => 30,
-            'minutos_umbral_extra' => 15
+            'minutos_umbral_media_hora' => 15,
+            'minutos_umbral_hora_completa' => 45
         ];
 
         try {
@@ -350,78 +351,123 @@ class AsistenciaModel extends Modelo
             if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) {
                 $configRRHH = $rowConf;
             }
-        } catch (Exception $e) { 
-            // Usa default si la tabla no existe
-        }
+        } catch (Exception $e) { }
 
         $horasTrabajadas = 0.00;
         $horasExtras = 0.00;
 
-        if ($diaCompleto && $horaIngreso !== null && $horaSalida !== null) {
-            $tsInReal = strtotime($horaIngreso);
-            $tsOutReal = strtotime($horaSalida);
+        if ($diaCompleto && count($ingresos) > 0 && count($salidas) > 0) {
             
-            $tsInEsperado = $horaEntradaEsperada ? strtotime($horaEntradaEsperada) : $tsInReal;
-            $tsOutEsperado = $horaSalidaEsperada ? strtotime($horaSalidaEsperada) : $tsOutReal;
+            // 1. Extraer todos los tramos esperados del horario oficial
+            $tramosEsperados = [];
+            for ($i = 1; $i <= 3; $i++) {
+                $e = trim((string) ($turno['t' . $i . '_entrada'] ?? ''));
+                $s = trim((string) ($turno['t' . $i . '_salida'] ?? ''));
+                if ($e !== '' && $s !== '') {
+                    $tramosEsperados[] = [
+                        'in' => strtotime($fecha . ' ' . substr($e, 0, 8)),
+                        'out' => strtotime($fecha . ' ' . substr($s, 0, 8))
+                    ];
+                }
+            }
+            // Fallback si no hay tramos detallados pero sí límites generales
+            if (empty($tramosEsperados) && $horaEntradaEsperada && $horaSalidaEsperada) {
+                $tramosEsperados[] = [
+                    'in' => strtotime($horaEntradaEsperada),
+                    'out' => strtotime($horaSalidaEsperada)
+                ];
+            }
 
-            if ($tsInReal !== false && $tsOutReal !== false && $tsOutReal > $tsInReal) {
-                
-                // --- REGLA 1: Llegada Temprana ---
-                $tsInEfectivo = ((int)$configRRHH['pagar_llegada_temprano'] === 0) 
-                                ? max($tsInReal, $tsInEsperado) 
-                                : $tsInReal;
+            // Calcular el total de horas matemáticas que exige el día completo
+            $totalHorasEsperadas = 0;
+            foreach ($tramosEsperados as $te) {
+                if ($te['out'] > $te['in']) {
+                    $totalHorasEsperadas += ($te['out'] - $te['in']) / 3600;
+                }
+            }
 
-                // --- REGLA 2: Salida Tarde y Horas Extras ---
-                if ((int)$configRRHH['pagar_salida_tarde'] === 0) {
+            $totalHorasTrabajadas = 0;
+
+            // 2. Iterar CADA TRAMO REAL trabajado para descontar los huecos (ej. refrigerio)
+            for ($k = 0; $k < count($ingresos); $k++) {
+                if (!isset($salidas[$k])) continue;
+
+                $rawIn = $ingresos[$k];
+                $rawOut = $salidas[$k];
+                $tsInReal = strpos($rawIn, ' ') !== false ? strtotime($rawIn) : strtotime($fecha . ' ' . $rawIn);
+                $tsOutReal = strpos($rawOut, ' ') !== false ? strtotime($rawOut) : strtotime($fecha . ' ' . $rawOut);
+
+                if ($tsInReal === false || $tsOutReal === false || $tsOutReal <= $tsInReal) continue;
+
+                $tsInEsperado = $tramosEsperados[$k]['in'] ?? $tsInReal;
+                $tsOutEsperado = $tramosEsperados[$k]['out'] ?? $tsOutReal;
+
+                // --- REGLA 1: LLEGADA (Entrada al tramo) ---
+                if ($tsInReal <= $tsInEsperado) {
+                    // Llegó temprano
+                    $tsInEfectivo = ((int)$configRRHH['pagar_llegada_temprano'] === 0) ? $tsInEsperado : $tsInReal;
+                } else {
+                    // LLEGÓ TARDE: Aplicar la tolerancia inteligentemente
+                    $retrasoBruto = floor(($tsInReal - $tsInEsperado) / 60);
+                    
+                    if ($retrasoBruto > $tolerancia) {
+                        // Se excedió la tolerancia. SOLO le restamos a su tiempo los minutos excedentes (Ej. 6 - 5 = 1 min penalizado)
+                        $minutosPenalizados = $retrasoBruto - $tolerancia;
+                        $tsInEfectivo = $tsInEsperado + ($minutosPenalizados * 60);
+                    } else {
+                        // Llegó tarde pero dentro de tolerancia. ¡El sistema asume que llegó puntual a las 08:00!
+                        $tsInEfectivo = $tsInEsperado;
+                    }
+                }
+
+                // --- REGLA 2: SALIDA (Fin del tramo) ---
+                $esUltimoTramo = ($k === count($ingresos) - 1);
+
+                if (!$esUltimoTramo) {
+                    // Tramos intermedios (ej. salida a comer): Se cortan estrictamente a la hora oficial, no generan extras.
                     $tsOutEfectivo = min($tsOutReal, $tsOutEsperado);
                 } else {
-                    $minutosTarde = ($tsOutReal - $tsOutEsperado) / 60;
-                    $minutosGracia = (int)($configRRHH['minutos_gracia_salida'] ?? 5);
-
-                    // Si la tardanza es menor o igual a la gracia, se ignora (ej. sale 18:03, límite 18:05)
-                    if ($minutosTarde > $minutosGracia) {
-                        
-                        // OJO: Los minutos a evaluar para el pago son TODOS los minutos tarde, no le restamos la gracia.
-                        // Si se queda 20 min y la gracia era 5, se evalúan los 20 min.
-                        
-                        if ($configRRHH['tipo_calculo_horas_extras'] === 'BLOQUES') {
-                            $umbralMedia = (int)$configRRHH['minutos_umbral_media_hora'];
-                            $umbralHora = (int)$configRRHH['minutos_umbral_hora_completa'];
-                            
-                            $horasCompletas = floor($minutosTarde / 60);
-                            $minutosRestantes = $minutosTarde % 60; 
-                            
-                            $minutosExtraAPagar = $horasCompletas * 60;
-                            
-                            if ($minutosRestantes >= $umbralHora) {
-                                $minutosExtraAPagar += 60; 
-                            } elseif ($minutosRestantes >= $umbralMedia) {
-                                $minutosExtraAPagar += 30; 
-                            }
-                            
-                            $tsOutEfectivo = $tsOutEsperado + ($minutosExtraAPagar * 60);
-                        } else {
-                            // Cálculo EXACTO: Pagamos todo el tiempo real
-                            $tsOutEfectivo = $tsOutReal;
-                        }
+                    // Último tramo del día: Horas extras y salidas tarde
+                    if ((int)$configRRHH['pagar_salida_tarde'] === 0) {
+                        $tsOutEfectivo = min($tsOutReal, $tsOutEsperado);
                     } else {
-                        // Estaba dentro del tiempo de gracia, se corta en la hora oficial
-                        $tsOutEfectivo = $tsOutEsperado;
+                        $minutosTarde = floor(($tsOutReal - $tsOutEsperado) / 60);
+                        $minutosGracia = (int)($configRRHH['minutos_gracia_salida'] ?? 5);
+
+                        if ($minutosTarde > $minutosGracia) {
+                            if ($configRRHH['tipo_calculo_horas_extras'] === 'BLOQUES') {
+                                $umbralMedia = (int)$configRRHH['minutos_umbral_media_hora'];
+                                $umbralHora = (int)$configRRHH['minutos_umbral_hora_completa'];
+                                
+                                $horasCompletas = floor($minutosTarde / 60);
+                                $minutosRestantes = $minutosTarde % 60; 
+                                
+                                $minutosExtraAPagar = $horasCompletas * 60;
+                                if ($minutosRestantes >= $umbralHora) $minutosExtraAPagar += 60; 
+                                elseif ($minutosRestantes >= $umbralMedia) $minutosExtraAPagar += 30; 
+                                
+                                $tsOutEfectivo = $tsOutEsperado + ($minutosExtraAPagar * 60);
+                            } else {
+                                $tsOutEfectivo = $tsOutReal; // EXACTO
+                            }
+                        } else {
+                            $tsOutEfectivo = $tsOutEsperado; // Dentro de gracia, no hay extras
+                        }
                     }
                 }
 
-                // Cálculo Matemático Final
+                // Sumar la duración de ESTE tramo específico a sus horas del día
                 if ($tsOutEfectivo > $tsInEfectivo) {
-                    $horasTrabajadas = round(($tsOutEfectivo - $tsInEfectivo) / 3600, 2);
+                    $totalHorasTrabajadas += ($tsOutEfectivo - $tsInEfectivo) / 3600;
                 }
+            }
 
-                // Separar la Base de las Extras para la nómina
-                if ($tsOutEsperado > $tsInEsperado) {
-                    $horasEsperadas = ($tsOutEsperado - $tsInEsperado) / 3600;
-                    if ($horasTrabajadas > $horasEsperadas) {
-                        $horasExtras = round($horasTrabajadas - $horasEsperadas, 2);
-                    }
-                }
+            // Redondear el total de horas físicas trabajadas en el día
+            $horasTrabajadas = round($totalHorasTrabajadas, 2);
+
+            // Calcular Extras reales comparando con el global del día
+            if ($horasTrabajadas > $totalHorasEsperadas && $totalHorasEsperadas > 0) {
+                $horasExtras = round($horasTrabajadas - $totalHorasEsperadas, 2);
             }
         }
 
@@ -916,6 +962,7 @@ class AsistenciaModel extends Modelo
         ]);
         $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
+        // 1. Recoger marcas reales de la BD + las que el admin escribió en el Modal
         $ingresos = $data['horas_ingreso_real'] ?? [];
         $salidas = $data['horas_salida_real'] ?? [];
         if (!is_array($ingresos)) $ingresos = [];
@@ -926,63 +973,42 @@ class AsistenciaModel extends Modelo
 
         $horaIngresoManual = trim((string) ($data['hora_ingreso_real'] ?? ''));
         $horaSalidaManual = trim((string) ($data['hora_salida_real'] ?? ''));
-        if ($horaIngresoManual !== '' && empty($ingresos)) {
-            $ingresos[] = $horaIngresoManual;
-        }
-        if ($horaSalidaManual !== '' && empty($salidas)) {
-            $salidas[] = $horaSalidaManual;
-        }
-
-        $horaIngresoFinal = !empty($ingresos) ? $data['fecha'] . ' ' . $ingresos[0] . ':00' : null;
-        $horaSalidaFinal = !empty($salidas) ? $data['fecha'] . ' ' . $salidas[count($salidas) - 1] . ':00' : null;
-
-        // --- Memoria Activa ---
-        $horaEntradaEsperada = $registroExistente['hora_entrada_esperada'] ?? null;
-        $horaSalidaEsperada = $registroExistente['hora_salida_esperada'] ?? null;
-        $toleranciaBD = (int) ($registroExistente['tolerancia_minutos'] ?? 0);
-
-        $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
-        $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
         
-        if (!$horaEntradaEsperada && $turno) {
-            $toleranciaBD = (int) ($turno['tolerancia_minutos'] ?? 0);
-            [$horaEntradaEsperada, $horaSalidaEsperada] = $this->obtenerLimitesEsperadosDesdeTurno((string) $data['fecha'], $turno);
+        if ($horaIngresoManual !== '' && empty($ingresos)) $ingresos[] = $horaIngresoManual;
+        if ($horaSalidaManual !== '' && empty($salidas)) $salidas[] = $horaSalidaManual;
+
+        // 2. Intercalar todas las marcas cronológicamente para enviarlas al Motor de Reglas
+        $todasLasMarcas = [];
+        $maxTramos = max(count($ingresos), count($salidas));
+        for ($i = 0; $i < $maxTramos; $i++) {
+            if (isset($ingresos[$i])) $todasLasMarcas[] = $data['fecha'] . ' ' . $ingresos[$i] . ':00';
+            if (isset($salidas[$i])) $todasLasMarcas[] = $data['fecha'] . ' ' . $salidas[$i] . ':00';
         }
 
-        if (empty($entradasEsperadas) && $horaEntradaEsperada) {
-            $entradasEsperadas = [substr((string) $horaEntradaEsperada, 11, 8)];
-        }
+        // 3. ¡LA MAGIA! Pasamos las marcas editadas por nuestro MOTOR DE REGLAS
+        $resumenMotor = $this->calcularResumenDesdeMarcas((int)$data['id_tercero'], $data['fecha'], $todasLasMarcas);
 
-        $tramosEsperados = count($entradasEsperadas);
-        if ($tramosEsperados === 0) $tramosEsperados = 1;
-
-        $tramosReales = count($ingresos);
+        $estadoFinal = $resumenMotor['estado_asistencia'];
+        $minutosTardanza = $resumenMotor['minutos_tardanza'];
+        $horasTrabajadas = $resumenMotor['horas_trabajadas'];
+        $horasExtras = $resumenMotor['horas_extras'];
         
-        // --- APLICACIÓN DE LA REGLA ESTRICTA ---
-        $diaCompleto = ($tramosReales === $tramosEsperados) && (count($ingresos) === count($salidas)) && ($tramosReales > 0);
-
-        $estadoFinal = 'INCOMPLETO';
-        $minutosTardanza = 0;
-
-        if ($diaCompleto) {
-            $estadoFinal = 'PUNTUAL';
-        } elseif (empty($ingresos) && empty($salidas)) {
-            $estadoFinal = 'FALTA';
-        }
-
-        if ($diaCompleto) {
-            $calcTardanza = $this->calcularTardanzaPorTramos((string) $data['fecha'], $ingresos, $entradasEsperadas, $toleranciaBD);
-            $minutosTardanza = (int) ($calcTardanza['total'] ?? 0);
-            if ($minutosTardanza > 0) {
-                $estadoFinal = 'TARDANZA';
+        // 4. APLICAR JUSTIFICACIÓN (La Carta de Perdón que sobreescribe al Motor)
+        if (!empty($data['aplicar_justificacion'])) {
+            $estadoFinal = $data['nuevo_estado'];
+            
+            // Si justifican, se perdona el descuento por tardanza
+            if (in_array($estadoFinal, ['TARDANZA JUSTIFICADA', 'FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'OLVIDO MARCACION'])) {
+                $minutosTardanza = 0; 
+            }
+            
+            // Si no fue a trabajar por motivo justificado, lógicamente no hay horas extras
+            if (in_array($estadoFinal, ['FALTA JUSTIFICADA', 'VACACIONES', 'DESCANSO MEDICO'])) {
+                $horasExtras = 0;
             }
         }
 
-        if (!empty($data['aplicar_justificacion'])) {
-            $estadoFinal = $data['nuevo_estado'];
-            $minutosTardanza = 0; 
-        }
-
+        // 5. Preparar historial de Observaciones
         $obsActual = $registroExistente && !empty($registroExistente['observaciones']) ? $registroExistente['observaciones'] . ' | ' : '';
         $nuevaObs = $obsActual;
         if (!empty($data['observacion'])) {
@@ -990,28 +1016,24 @@ class AsistenciaModel extends Modelo
             $nuevaObs .= $prefix . ' ' . $data['observacion'];
         }
 
-        $horasTrabajadas = 0.00;
-        if ($horaIngresoFinal && $horaSalidaFinal) {
-            $horasTrabajadas = round((strtotime($horaSalidaFinal) - strtotime($horaIngresoFinal)) / 3600, 2);
-        }
-
+        // 6. Preparar arrays para la base de datos
         $marcasIngresosStr = !empty($ingresos) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $ingresos)) : null;
         $marcasSalidasStr = !empty($salidas) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $salidas)) : null;
 
         $upsertData = [
             'id_tercero' => $data['id_tercero'],
             'fecha' => $data['fecha'],
-            'hora_ingreso' => $horaIngresoFinal,
-            'hora_salida' => $horaSalidaFinal,
+            'hora_ingreso' => $resumenMotor['hora_ingreso'],
+            'hora_salida' => $resumenMotor['hora_salida'],
             'marcas_ingresos' => $marcasIngresosStr,
             'marcas_salidas' => $marcasSalidasStr,
-            'hora_entrada_esperada' => $horaEntradaEsperada,
-            'hora_salida_esperada' => $horaSalidaEsperada,
-            'tolerancia_minutos' => $toleranciaBD,
+            'hora_entrada_esperada' => $resumenMotor['hora_entrada_esperada'],
+            'hora_salida_esperada' => $resumenMotor['hora_salida_esperada'],
+            'tolerancia_minutos' => $resumenMotor['tolerancia_minutos'],
             'estado_asistencia' => $estadoFinal,
             'minutos_tardanza' => $minutosTardanza,
             'horas_trabajadas' => $horasTrabajadas,
-            'horas_extras' => 0, 
+            'horas_extras' => $horasExtras, // Ya calculado con los topes de RRHH
             'observaciones' => $nuevaObs,
         ];
 
@@ -1028,9 +1050,7 @@ class AsistenciaModel extends Modelo
     
     public function guardarAsistenciaManual(array $data, int $userId): bool
     {
-        $sqlCheck = 'SELECT id, hora_ingreso, hora_salida, observaciones
-                     FROM asistencia_registros
-                     WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1';
+        $sqlCheck = 'SELECT id, observaciones FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1';
         $stmtCheck = $this->db()->prepare($sqlCheck);
         $stmtCheck->execute([
             'id_tercero' => $data['id_tercero'],
@@ -1038,105 +1058,51 @@ class AsistenciaModel extends Modelo
         ]);
         $registroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-        $obsActual = $registroExistente && !empty($registroExistente['observaciones'])
-                     ? (string)$registroExistente['observaciones'] . ' | '
-                     : '';
-        $nuevaObs = $obsActual . '[Manual]: ' . $data['observaciones'];
-
-        $horaIngresoFinal = !empty($data['hora_ingreso']) ? $data['hora_ingreso'] : ($registroExistente['hora_ingreso'] ?? null);
-        $horaSalidaFinal = !empty($data['hora_salida']) ? $data['hora_salida'] : ($registroExistente['hora_salida'] ?? null);
-
+        // 1. Recopilar tramos enviados desde el formulario modal
         $ingresosTramo = $data['horas_ingreso'] ?? [];
         $salidasTramo = $data['horas_salida'] ?? [];
         if (!is_array($ingresosTramo)) $ingresosTramo = [];
         if (!is_array($salidasTramo)) $salidasTramo = [];
+        
         $ingresosTramo = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $ingresosTramo), static fn($h) => $h !== ''));
         $salidasTramo = array_values(array_filter(array_map(static fn($h) => trim((string) $h), $salidasTramo), static fn($h) => $h !== ''));
 
-        $turno = $this->obtenerTurnoEfectivoPorFecha((int) $data['id_tercero'], (string) $data['fecha']);
-        $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);
-        $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
-        [$horaEntradaEsperada, $horaSalidaEsperada] = $this->obtenerLimitesEsperadosDesdeTurno((string) $data['fecha'], $turno);
-
-        if (empty($entradasEsperadas)) {
-            $horario = $this->obtenerHorarioEsperado((int) $data['id_tercero'], (string) $data['fecha']);
-            if ($horario) {
-                $entradaHorario = trim((string) ($horario['hora_entrada'] ?? ''));
-                if ($entradaHorario !== '') {
-                    $entradasEsperadas = [substr($entradaHorario, 0, 8)];
-                }
-                $tolerancia = (int) ($horario['tolerancia_minutos'] ?? $tolerancia);
-                if (!$horaEntradaEsperada) {
-                    $horaEntradaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_entrada'], 0, 8);
-                }
-                if (!$horaSalidaEsperada) {
-                    $horaSalidaEsperada = $data['fecha'] . ' ' . substr((string) $horario['hora_salida'], 0, 8);
-                }
-            }
+        // 2. Intercalar cronológicamente todas las marcas para el Motor
+        $todasLasMarcas = [];
+        $maxTramos = max(count($ingresosTramo), count($salidasTramo));
+        for ($i = 0; $i < $maxTramos; $i++) {
+            if (isset($ingresosTramo[$i])) $todasLasMarcas[] = $data['fecha'] . ' ' . $ingresosTramo[$i] . ':00';
+            if (isset($salidasTramo[$i])) $todasLasMarcas[] = $data['fecha'] . ' ' . $salidasTramo[$i] . ':00';
         }
 
-        $tramosEsperados = count($entradasEsperadas);
-        if ($tramosEsperados === 0) $tramosEsperados = 1;
+        // 3. ¡LA MAGIA! Pasamos las marcas por el Motor de Reglas en lugar de usar matemáticas crudas
+        // Esto aplicará automáticamente la tolerancia, descontará el refrigerio y calculará las extras
+        $resumenMotor = $this->calcularResumenDesdeMarcas((int)$data['id_tercero'], $data['fecha'], $todasLasMarcas);
 
-        $ingresos = !empty($ingresosTramo) ? $ingresosTramo : [];
-        if (empty($ingresos) && !empty($horaIngresoFinal)) {
-            $ingresos[] = $horaIngresoFinal;
-        }
+        // 4. Manejo del historial de Observaciones
+        $obsActual = $registroExistente && !empty($registroExistente['observaciones'])
+                     ? (string)$registroExistente['observaciones'] . ' | '
+                     : '';
+        $nuevaObs = $obsActual . '[Manual]: ' . ($data['observaciones'] ?? 'Registro manual');
 
-        $salidas = !empty($salidasTramo) ? $salidasTramo : [];
-        if (empty($salidas) && !empty($horaSalidaFinal)) {
-            $salidas[] = $horaSalidaFinal;
-        }
-
-        $tramosReales = count($ingresos);
-        
-        // --- APLICACIÓN DE LA REGLA ESTRICTA ---
-        $diaCompleto = ($tramosReales === $tramosEsperados) && (count($ingresos) === count($salidas)) && ($tramosReales > 0);
-
-        $minutosTardanza = 0;
-        $estado_asistencia = 'INCOMPLETO';
-
-        if ($diaCompleto) {
-            $estado_asistencia = 'PUNTUAL';
-        } elseif (empty($ingresos) && empty($salidas)) {
-            $estado_asistencia = 'FALTA';
-        }
-
-        if ($diaCompleto) {
-            $calcTardanza = $this->calcularTardanzaPorTramos((string) $data['fecha'], $ingresos, $entradasEsperadas, $tolerancia);
-            $minutosTardanza = (int) ($calcTardanza['total'] ?? 0);
-
-            if ($minutosTardanza > 0) {
-                $estado_asistencia = 'TARDANZA';
-            }
-        }
-
-        $horasTrabajadas = 0.00;
-        if ($horaIngresoFinal && $horaSalidaFinal) {
-            $tsIn = strtotime($horaIngresoFinal);
-            $tsOut = strtotime($horaSalidaFinal);
-            if ($tsIn !== false && $tsOut !== false && $tsOut > $tsIn) {
-                $horasTrabajadas = round(($tsOut - $tsIn) / 3600, 2);
-            }
-        }
-
-        $marcasIngresosStr = !empty($ingresos) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $ingresos)) : null;
-        $marcasSalidasStr = !empty($salidas) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $salidas)) : null;
+        // 5. Preparar cadenas para la Base de Datos
+        $marcasIngresosStr = !empty($ingresosTramo) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $ingresosTramo)) : null;
+        $marcasSalidasStr = !empty($salidasTramo) ? implode('|', array_map(fn($h) => strpos($h, ' ') !== false ? $h : $data['fecha'] . ' ' . $h . ':00', $salidasTramo)) : null;
 
         $upsertData = [
             'id_tercero' => $data['id_tercero'],
             'fecha' => $data['fecha'],
-            'hora_ingreso' => $horaIngresoFinal,
-            'hora_salida' => $horaSalidaFinal,
+            'hora_ingreso' => $resumenMotor['hora_ingreso'],
+            'hora_salida' => $resumenMotor['hora_salida'],
             'marcas_ingresos' => $marcasIngresosStr,
             'marcas_salidas' => $marcasSalidasStr,
-            'hora_entrada_esperada' => $horaEntradaEsperada,
-            'hora_salida_esperada' => $horaSalidaEsperada,
-            'tolerancia_minutos' => $tolerancia,
-            'estado_asistencia' => $estado_asistencia,
-            'minutos_tardanza' => $minutosTardanza,
-            'horas_trabajadas' => $horasTrabajadas,
-            'horas_extras' => 0,
+            'hora_entrada_esperada' => $resumenMotor['hora_entrada_esperada'],
+            'hora_salida_esperada' => $resumenMotor['hora_salida_esperada'],
+            'tolerancia_minutos' => $resumenMotor['tolerancia_minutos'],
+            'estado_asistencia' => $resumenMotor['estado_asistencia'],
+            'minutos_tardanza' => $resumenMotor['minutos_tardanza'],
+            'horas_trabajadas' => $resumenMotor['horas_trabajadas'],
+            'horas_extras' => $resumenMotor['horas_extras'],
             'observaciones' => $nuevaObs,
         ];
 
