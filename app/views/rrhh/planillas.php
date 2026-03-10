@@ -293,21 +293,25 @@ if (!empty($detallesNomina)) {
                                                                 <?php
                                                                     $tipo = '';
                                                                     $categoria = '';
+                                                                    $montoMov = 0.0;
                                                                     if (is_array($mov)) {
                                                                         $tipo = (string)($mov['tipo'] ?? 'Movimiento');
                                                                         $categoria = (string)($mov['categoria'] ?? 'Sin categoría');
+                                                                        $montoMov = (float)($mov['monto'] ?? 0);
                                                                     } else {
                                                                         $partes = explode('::', (string)$mov);
                                                                         $tipoRaw = strtoupper((string)($partes[0] ?? ''));
                                                                         $tipo = $tipoRaw === 'PERCEPCION' ? 'Percepción' : ($tipoRaw === 'DEDUCCION' ? 'Deducción' : 'Movimiento');
                                                                         $categoria = (string)($partes[1] ?? 'Sin categoría');
+                                                                        $montoMov = (float)str_replace(',', '', (string)($partes[3] ?? 0));
                                                                     }
                                                                     $badgeClass = stripos($tipo, 'Deducción') !== false
                                                                         ? 'bg-danger-subtle text-danger border border-danger-subtle'
                                                                         : 'bg-success-subtle text-success border border-success-subtle';
+                                                                    $textoBadge = $tipo . ': ' . $categoria . ' S/ ' . number_format($montoMov, 2);
                                                                 ?>
-                                                                <span class="badge <?php echo $badgeClass; ?>" style="font-size:0.65rem;" title="<?php echo htmlspecialchars($tipo . ': ' . $categoria, ENT_QUOTES, 'UTF-8'); ?>">
-                                                                    <?php echo htmlspecialchars($tipo . ': ' . $categoria, ENT_QUOTES, 'UTF-8'); ?>
+                                                                <span class="badge <?php echo $badgeClass; ?>" style="font-size:0.65rem;" title="<?php echo htmlspecialchars($textoBadge, ENT_QUOTES, 'UTF-8'); ?>">
+                                                                    <?php echo htmlspecialchars($textoBadge, ENT_QUOTES, 'UTF-8'); ?>
                                                                 </span>
                                                             <?php endforeach; ?>
                                                         </div>
@@ -332,7 +336,7 @@ if (!empty($detallesNomina)) {
                                                                         data-bs-toggle="modal" data-bs-target="#modalAjustarNomina"
                                                                         data-id="<?php echo (int)($row['id'] ?? 0); ?>"
                                                                         data-nombre="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                                        data-bs-toggle="tooltip" title="Ajustar Conceptos / Añadir Bono">
+                                                                        data-bs-toggle="tooltip" title="Editar movimientos de nómina">
                                                                     <i class="bi bi-pencil-square fs-5"></i>
                                                                 </button>
                                                             <?php endif; ?>

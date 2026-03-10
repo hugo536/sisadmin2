@@ -27,11 +27,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
+    function crearItemMovimiento(data = {}) {
+        if (!contenedorMovimientos || !tplMovimiento) return null;
+        const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
+        const tipo = (data.tipo || '').toString().trim().toUpperCase();
+        const categoria = (data.categoria || '').toString().trim();
+        const descripcion = (data.descripcion || '').toString().trim();
+        const monto = Number.parseFloat(data.monto ?? 0);
+
+        const inputTipo = nodo.querySelector('[data-name="tipo_concepto"]');
+        const inputCategoria = nodo.querySelector('[data-name="categoria_concepto"]');
+        const inputDescripcion = nodo.querySelector('[data-name="descripcion"]');
+        const inputMonto = nodo.querySelector('[data-name="monto"]');
+
+        if (inputTipo && (tipo === 'PERCEPCION' || tipo === 'DEDUCCION')) inputTipo.value = tipo;
+        if (inputCategoria && categoria !== '') inputCategoria.value = categoria;
+        if (inputDescripcion) inputDescripcion.value = descripcion;
+        if (inputMonto && Number.isFinite(monto) && monto > 0) inputMonto.value = monto.toFixed(2);
+
+        contenedorMovimientos.appendChild(nodo);
+        return nodo;
+    }
+
     function agregarMovimientoInicial() {
         if (!contenedorMovimientos || !tplMovimiento) return;
-        const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
-        contenedorMovimientos.appendChild(nodo);
+        crearItemMovimiento();
         renombrarCamposMovimientos();
+    }
+
+    async function cargarMovimientosGuardados(idDetalle) {
+        if (!contenedorMovimientos || !idDetalle) return;
+        const url = `?ruta=planillas&accion=movimientos_detalle&id_detalle=${encodeURIComponent(idDetalle)}`;
+
+        try {
+            const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await resp.json();
+            const movimientos = Array.isArray(data?.movimientos) ? data.movimientos : [];
+
+            contenedorMovimientos.innerHTML = '';
+            if (movimientos.length === 0) {
+                agregarMovimientoInicial();
+                return;
+            }
+
+            movimientos.forEach((mov) => {
+                crearItemMovimiento({
+                    tipo: mov.tipo,
+                    categoria: mov.categoria,
+                    descripcion: mov.descripcion,
+                    monto: mov.monto,
+                });
+            });
+            renombrarCamposMovimientos();
+        } catch (error) {
+            console.error('No se pudieron cargar movimientos guardados', error);
+            contenedorMovimientos.innerHTML = '';
+            agregarMovimientoInicial();
+        }
     }
 
     function validarDuplicadosMovimientos() {
@@ -68,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (contenedorMovimientos) {
                     contenedorMovimientos.innerHTML = '';
                     agregarMovimientoInicial();
+                    cargarMovimientosGuardados(id);
                 }
                 restaurarBotonSubmit(formAjuste);
             }
