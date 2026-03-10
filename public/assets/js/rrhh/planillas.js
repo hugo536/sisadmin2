@@ -8,6 +8,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. GESTIÓN DEL MODAL DE AJUSTES (BONOS/DEDUCCIONES)
     // ==============================================================
     const modalAjustar = document.getElementById('modalAjustarNomina');
+    const contenedorMovimientos = document.getElementById('contenedorMovimientosNomina');
+    const tplMovimiento = document.getElementById('tplMovimientoNomina');
+    const btnAgregarMovimiento = document.getElementById('btnAgregarMovimientoNomina');
+
+    function renombrarCamposMovimientos() {
+        if (!contenedorMovimientos) return;
+        const items = contenedorMovimientos.querySelectorAll('.movimiento-nomina-item');
+        items.forEach((item, idx) => {
+            const lbl = item.querySelector('.js-mov-index');
+            if (lbl) lbl.textContent = `#${idx + 1}`;
+            item.querySelectorAll('[data-name]').forEach((field) => {
+                const key = field.getAttribute('data-name');
+                field.setAttribute('name', `movimientos[${idx}][${key}]`);
+            });
+            const btnRemove = item.querySelector('.js-remove-movimiento');
+            if (btnRemove) btnRemove.disabled = items.length === 1;
+        });
+    }
+
+    function agregarMovimientoInicial() {
+        if (!contenedorMovimientos || !tplMovimiento) return;
+        const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
+        contenedorMovimientos.appendChild(nodo);
+        renombrarCamposMovimientos();
+    }
+
+    function validarDuplicadosMovimientos() {
+        if (!contenedorMovimientos) return true;
+        const vistos = new Set();
+        const items = contenedorMovimientos.querySelectorAll('.movimiento-nomina-item');
+        for (const item of items) {
+            const tipo = (item.querySelector('[data-name="tipo_concepto"]')?.value || '').trim().toUpperCase();
+            const categoria = (item.querySelector('[data-name="categoria_concepto"]')?.value || '').trim().toLowerCase();
+            const descripcion = (item.querySelector('[data-name="descripcion"]')?.value || '').trim().toLowerCase();
+            const llave = `${tipo}::${categoria}::${descripcion}`;
+            if (vistos.has(llave)) {
+                return false;
+            }
+            vistos.add(llave);
+        }
+        return true;
+    }
+
     if (modalAjustar) {
         modalAjustar.addEventListener('show.bs.modal', function (event) {
             // Botón (el lápiz amarillo) que disparó el modal
@@ -24,10 +67,34 @@ document.addEventListener('DOMContentLoaded', () => {
             // Resetear los campos de monto y descripción cada vez que se abre
             const formAjuste = modalAjustar.querySelector('form');
             if (formAjuste) {
-                formAjuste.querySelector('input[name="monto"]').value = '';
-                formAjuste.querySelector('input[name="descripcion"]').value = '';
+                if (contenedorMovimientos) {
+                    contenedorMovimientos.innerHTML = '';
+                    agregarMovimientoInicial();
+                }
                 // Restaurar el botón por si se quedó en estado de carga
                 restaurarBotonSubmit(formAjuste);
+            }
+        });
+    }
+
+    if (btnAgregarMovimiento) {
+        btnAgregarMovimiento.addEventListener('click', () => {
+            agregarMovimientoInicial();
+        });
+    }
+
+    if (contenedorMovimientos) {
+        contenedorMovimientos.addEventListener('click', (e) => {
+            const btn = e.target.closest('.js-remove-movimiento');
+            if (!btn) return;
+            const item = btn.closest('.movimiento-nomina-item');
+            if (item) {
+                item.remove();
+                if (!contenedorMovimientos.querySelector('.movimiento-nomina-item')) {
+                    agregarMovimientoInicial();
+                } else {
+                    renombrarCamposMovimientos();
+                }
             }
         });
     }
@@ -216,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 emptyRow.style.display = '';
                 emptyRow.innerHTML = `
-                    <td colspan="6" class="text-center text-muted py-5">
+                    <td colspan="7" class="text-center text-muted py-5">
                         <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
                         No se encontraron empleados que coincidan con "<b>${searchTerm}</b>".
                     </td>
@@ -262,6 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const formAjustar = document.querySelector('#modalAjustarNomina form');
     if (formAjustar) {
         formAjustar.addEventListener('submit', function (e) {
+            if (!validarDuplicadosMovimientos()) {
+                e.preventDefault();
+                e.stopPropagation();
+                alert('Hay movimientos repetidos. Ajusta tipo/categoría/descripción para continuar.');
+                return;
+            }
             if(this.checkValidity()) bloquearBotonSubmit(this, "Guardando Ajuste...");
         });
     }

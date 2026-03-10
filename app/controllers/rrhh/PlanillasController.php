@@ -131,6 +131,17 @@ class PlanillasController extends Controlador
             $idLote = (int) ($_POST['id_lote'] ?? 0);
             
             if ($idLote > 0) {
+                $lote = $this->planillasModel->obtenerLotePorId($idLote);
+                if ($lote) {
+                    $nominaCalculada = $this->planillasModel->calcularNominaEnMemoria($lote);
+                    foreach ($nominaCalculada as $row) {
+                        if (!empty($row['tiene_conflicto'])) {
+                            redirect("planillas?id_lote={$idLote}&error=" . urlencode('No se puede aprobar: hay empleados con asistencia incompleta. Corrige los registros antes de continuar.'));
+                            return;
+                        }
+                    }
+                }
+
                 // Al aprobar, el modelo deberá llamar a calcularNominaEnMemoria() una última vez
                 // y ahí sí, hacer todos los INSERT en la base de datos final.
                 $this->planillasModel->aprobarLote($idLote);

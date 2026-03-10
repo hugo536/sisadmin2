@@ -12,12 +12,16 @@ $estadoLote = $loteActual['estado'] ?? 'BORRADOR';
 $nominaTotal = 0.0;
 $deducciones = 0.0;
 $netoPagar = 0.0;
+$hayConflictos = false;
 
 if (!empty($detallesNomina)) {
     foreach ($detallesNomina as $det) {
         $nominaTotal += (float) ($det['total_percepciones'] ?? 0);
         $deducciones += (float) ($det['total_deducciones'] ?? 0);
         $netoPagar += (float) ($det['neto_a_pagar'] ?? 0);
+        if (!empty($det['tiene_conflicto'])) {
+            $hayConflictos = true;
+        }
     }
 }
 ?>
@@ -51,7 +55,7 @@ if (!empty($detallesNomina)) {
                 <?php if ($netoPagar > 0): ?>
                     <form method="post" action="<?php echo e(route_url('planillas/aprobar')); ?>" class="m-0" onsubmit="return confirm('¿Aprobar este lote? Ya no se podrán agregar bonos ni modificar montos. Las asistencias quedarán selladas.');">
                         <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
-                        <button type="submit" class="btn btn-primary shadow-sm fw-semibold">
+                        <button type="submit" class="btn btn-primary shadow-sm fw-semibold" <?php echo $hayConflictos ? 'disabled title="Hay empleados con asistencia incompleta"' : ''; ?>>
                             <i class="bi bi-check-circle me-2"></i>Aprobar Lote
                         </button>
                     </form>
@@ -82,6 +86,14 @@ if (!empty($detallesNomina)) {
     <?php else: ?>
 
         <div class="row g-3 mb-4">
+            <?php if ($estadoLote === 'BORRADOR' && $hayConflictos): ?>
+                <div class="col-12">
+                    <div class="alert alert-danger border-0 shadow-sm mb-1">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        No se puede aprobar este lote: existen empleados con <strong>asistencia incompleta</strong>. Corrige los registros marcados en rojo antes de continuar.
+                    </div>
+                </div>
+            <?php endif; ?>
             <div class="col-12 col-md-4">
                 <div class="card border-0 shadow-sm h-100 bg-light border-start border-secondary border-4">
                     <div class="card-body p-4">
@@ -174,6 +186,7 @@ if (!empty($detallesNomina)) {
                                         <th class="text-center text-secondary fw-semibold">Días / Horas</th>
                                         <th class="text-end text-secondary fw-semibold">Percepciones</th>
                                         <th class="text-end text-secondary fw-semibold">Deducciones</th>
+                                        <th class="text-start text-secondary fw-semibold">Movimientos</th>
                                         <th class="text-end text-dark fw-bold">Neto a Pagar</th>
                                         <th class="text-center text-secondary fw-semibold pe-4">Acciones</th>
                                     </tr>
@@ -181,7 +194,7 @@ if (!empty($detallesNomina)) {
                                 <tbody id="detallesTableBody">
                                     <?php if (empty($detallesNomina)): ?>
                                         <tr class="empty-msg-row border-bottom-0">
-                                            <td colspan="6" class="text-center text-muted py-5">
+                                            <td colspan="7" class="text-center text-muted py-5">
                                                 <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                                 No hay recibos generados.<br>
                                                 <small>Es posible que los empleados ya hayan sido pagados en estas fechas.</small>
@@ -257,9 +270,6 @@ if (!empty($detallesNomina)) {
                                                         </span>
                                                     <?php endif; ?>
 
-                                                    <?php if($tieneBono): ?>
-                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;"><i class="bi bi-star-fill me-1"></i>Bono Extra</span>
-                                                    <?php endif; ?>
                                                 </td>
 
                                                 <td class="text-end align-top pt-3">
@@ -271,6 +281,42 @@ if (!empty($detallesNomina)) {
                                                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;" title="Se cobró S/ <?php echo $descuentoAdelanto; ?> por adelantos previos">
                                                             <i class="bi bi-wallet2 me-1"></i>Cobro Adelanto
                                                         </span>
+                                                    <?php endif; ?>
+                                                </td>
+
+                                                <td class="align-top pt-3">
+                                                    <?php
+                                                        $movimientos = $row['movimientos_manuales'] ?? [];
+                                                        if (is_string($movimientos)) {
+                                                            $movimientos = array_filter(explode('||', $movimientos));
+                                                        }
+                                                    ?>
+                                                    <?php if (empty($movimientos)): ?>
+                                                        <span class="text-muted small">-</span>
+                                                    <?php else: ?>
+                                                        <div class="d-flex flex-wrap gap-1">
+                                                            <?php foreach ($movimientos as $mov): ?>
+                                                                <?php
+                                                                    $tipo = '';
+                                                                    $categoria = '';
+                                                                    if (is_array($mov)) {
+                                                                        $tipo = (string)($mov['tipo'] ?? 'Movimiento');
+                                                                        $categoria = (string)($mov['categoria'] ?? 'Sin categoría');
+                                                                    } else {
+                                                                        $partes = explode('::', (string)$mov);
+                                                                        $tipoRaw = strtoupper((string)($partes[0] ?? ''));
+                                                                        $tipo = $tipoRaw === 'PERCEPCION' ? 'Percepción' : ($tipoRaw === 'DEDUCCION' ? 'Deducción' : 'Movimiento');
+                                                                        $categoria = (string)($partes[1] ?? 'Sin categoría');
+                                                                    }
+                                                                    $badgeClass = stripos($tipo, 'Deducción') !== false
+                                                                        ? 'bg-danger-subtle text-danger border border-danger-subtle'
+                                                                        : 'bg-success-subtle text-success border border-success-subtle';
+                                                                ?>
+                                                                <span class="badge <?php echo $badgeClass; ?>" style="font-size:0.65rem;" title="<?php echo htmlspecialchars($tipo . ': ' . $categoria, ENT_QUOTES, 'UTF-8'); ?>">
+                                                                    <?php echo htmlspecialchars($tipo . ': ' . $categoria, ENT_QUOTES, 'UTF-8'); ?>
+                                                                </span>
+                                                            <?php endforeach; ?>
+                                                        </div>
                                                     <?php endif; ?>
                                                 </td>
 
@@ -443,39 +489,15 @@ if (!empty($detallesNomina)) {
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label small text-muted fw-bold mb-1">Tipo de Movimiento <span class="text-danger">*</span></label>
-                        <select name="tipo_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
-                            <option value="PERCEPCION">Percepción (Bono, Incentivo) [+ Aumenta el pago]</option>
-                            <option value="DEDUCCION">Deducción (Adelanto, Multa) [- Disminuye el pago]</option>
-                        </select>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label small text-muted fw-bold mb-0">Movimientos a registrar <span class="text-danger">*</span></label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarMovimientoNomina">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Movimiento
+                        </button>
                     </div>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
-                            <div class="input-group shadow-sm">
-                                <span class="input-group-text bg-light border-secondary-subtle">S/</span>
-                                <input type="number" step="0.01" min="0.1" name="monto" class="form-control bg-white border-secondary-subtle" required>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
-                            <select name="categoria_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
-                                <option value="Bono Productividad">Bono Productividad</option>
-                                <option value="Bono Especial">Bono Especial</option>
-                                <option value="Incentivo Empresa">Incentivo Empresa</option>
-                                <option value="Adelanto de Sueldo">Adelanto de Sueldo</option>
-                                <option value="Otros">Otros</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-0">
-                        <label class="form-label small text-muted fw-bold mb-1">Descripción para la Boleta <span class="text-danger">*</span></label>
-                        <input type="text" name="descripcion" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. Bono por meta de ventas alcanzada" required>
-                        <div class="form-text small mt-1"><i class="bi bi-receipt me-1"></i> Este texto es el que leerá el empleado en su recibo de pago impreso.</div>
-                    </div>
+                    <div id="contenedorMovimientosNomina" class="d-flex flex-column gap-3"></div>
+                    <div class="form-text small mt-2"><i class="bi bi-shield-check me-1"></i> No se permiten movimientos repetidos (mismo tipo + categoría + descripción).</div>
                 </div>
                 <div class="modal-footer bg-white border-top-0">
                     <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -487,6 +509,49 @@ if (!empty($detallesNomina)) {
         </div>
     </div>
 </div>
+
+<template id="tplMovimientoNomina">
+    <div class="card border border-secondary-subtle shadow-sm movimiento-nomina-item">
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong class="small text-dark">Movimiento <span class="js-mov-index">#1</span></strong>
+                <button type="button" class="btn btn-sm btn-light text-danger js-remove-movimiento" title="Eliminar movimiento">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small text-muted fw-bold mb-1">Tipo de Movimiento <span class="text-danger">*</span></label>
+                <select data-name="tipo_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
+                    <option value="PERCEPCION">Percepción (Bono, Incentivo) [+ Aumenta el pago]</option>
+                    <option value="DEDUCCION">Deducción (Adelanto, Multa) [- Disminuye el pago]</option>
+                </select>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle">S/</span>
+                        <input type="number" step="0.01" min="0.1" data-name="monto" class="form-control bg-white border-secondary-subtle" required>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
+                    <select data-name="categoria_concepto" class="form-select bg-white border-secondary-subtle shadow-sm" required>
+                        <option value="Bono Productividad">Bono Productividad</option>
+                        <option value="Bono Especial">Bono Especial</option>
+                        <option value="Incentivo Empresa">Incentivo Empresa</option>
+                        <option value="Adelanto de Sueldo">Adelanto de Sueldo</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="form-label small text-muted fw-bold mb-1">Descripción para la Boleta <span class="text-danger">*</span></label>
+                <input type="text" data-name="descripcion" class="form-control bg-white border-secondary-subtle shadow-sm" placeholder="Ej. Bono por meta de ventas alcanzada" required>
+            </div>
+        </div>
+    </div>
+</template>
 
 <div class="modal fade" id="modalPagarLote" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
