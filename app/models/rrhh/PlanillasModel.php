@@ -48,7 +48,7 @@ class PlanillasModel extends Modelo
         }
 
         // 3. Si el lote ya está Aprobado o Pagado, devolvemos la data congelada de la BD
-        $sql = "SELECT
+                $sql = "SELECT
                     nd.id,
                     nd.id_tercero,
                     t.nombre_completo,
@@ -67,6 +67,9 @@ class PlanillasModel extends Modelo
                      WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos,
                     (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
                      WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.categoria = 'Horas Extras') AS pago_horas_extras
+                    ,(SELECT GROUP_CONCAT(DISTINCT CONCAT(nc.tipo, '::', COALESCE(nc.categoria, 'Sin categoría'), '::', COALESCE(nc.descripcion, '')) SEPARATOR '||')
+                      FROM rrhh_nominas_conceptos nc
+                      WHERE nc.id_detalle_nomina = nd.id AND nc.es_automatico = 0) AS movimientos_manuales
                 FROM rrhh_nominas_detalles nd
                 INNER JOIN terceros t ON t.id = nd.id_tercero
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
@@ -149,6 +152,32 @@ class PlanillasModel extends Modelo
         foreach ($registrosAsistencia as $ar) {
             $idT = (int)$ar['id_tercero'];
             $fecha = $ar['fecha'];
+
+            // Recalcular en vivo desde marcas para que los BORRADOR reflejen
+            // inmediatamente cambios de tolerancia/reglas RRHH.
+            $marcasDia = [];
+            if (!empty($ar['marcas_ingresos'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
+            } elseif (!empty($ar['hora_ingreso'])) {
+                $marcasDia[] = (string)$ar['hora_ingreso'];
+            }
+
+            if (!empty($ar['marcas_salidas'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
+            } elseif (!empty($ar['hora_salida'])) {
+                $marcasDia[] = (string)$ar['hora_salida'];
+            }
+
+            $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== ''));
+            sort($marcasDia);
+
+            if (!empty($marcasDia)) {
+                $resumenVivo = $asistenciaModel->calcularResumenDesdeMarcas($idT, $fecha, $marcasDia);
+                $ar['estado_asistencia'] = $resumenVivo['estado_asistencia'] ?? $ar['estado_asistencia'];
+                $ar['minutos_tardanza'] = (int)($resumenVivo['minutos_tardanza'] ?? $ar['minutos_tardanza']);
+                $ar['horas_trabajadas'] = (float)($resumenVivo['horas_trabajadas'] ?? $ar['horas_trabajadas']);
+                $ar['horas_extras'] = (float)($resumenVivo['horas_extras'] ?? $ar['horas_extras']);
+            }
             
             if (!isset($mapaAsistencia[$idT])) {
                 $mapaAsistencia[$idT] = [
@@ -219,7 +248,7 @@ class PlanillasModel extends Modelo
             $mapaAdelantos[$ad['id_tercero']][] = $ad;
         }
 
-        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.monto 
+        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.categoria, nc.descripcion, nc.monto 
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                         WHERE nd.id_nomina = :id_nomina AND nc.es_automatico = 0";
@@ -233,12 +262,24 @@ class PlanillasModel extends Modelo
             if (!isset($mapaManuales[$idD])) {
                 $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
             }
+            if (!isset($mapaManuales[$idD]['movimientos'])) {
+                $mapaManuales[$idD]['movimientos'] = [];
+            }
             if ($cm['tipo'] === 'PERCEPCION') {
                 $mapaManuales[$idD]['percepciones'] += $cm['monto'];
                 $mapaManuales[$idD]['bonos'] += $cm['monto'];
             } else {
                 $mapaManuales[$idD]['deducciones'] += $cm['monto'];
             }
+            $categoria = trim((string)($cm['categoria'] ?? 'Sin categoría'));
+            $descripcion = trim((string)($cm['descripcion'] ?? ''));
+            $tipoLabel = strtoupper((string)$cm['tipo']) === 'PERCEPCION' ? 'Percepción' : 'Deducción';
+            $llaveMovimiento = strtoupper((string)$cm['tipo']) . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
+            $mapaManuales[$idD]['movimientos'][$llaveMovimiento] = [
+                'tipo' => $tipoLabel,
+                'categoria' => $categoria,
+                'descripcion' => $descripcion
+            ];
         }
 
         $resultados = [];
@@ -322,6 +363,7 @@ class PlanillasModel extends Modelo
                 'total_deducciones' => round($totalDeducciones, 2),
                 'neto_a_pagar' => round(max(0, $netoFinal), 2),
                 'monto_bonos' => round($manuales['bonos'], 2),
+                'movimientos_manuales' => array_values($manuales['movimientos'] ?? []),
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
@@ -376,17 +418,68 @@ class PlanillasModel extends Modelo
     {
         $db = $this->db();
         try {
+            $movimientos = $datos['movimientos'] ?? null;
+            if (!is_array($movimientos) || empty($movimientos)) {
+                $movimientos = [[
+                    'tipo_concepto' => $datos['tipo_concepto'] ?? '',
+                    'categoria_concepto' => $datos['categoria_concepto'] ?? '',
+                    'descripcion' => $datos['descripcion'] ?? '',
+                    'monto' => $datos['monto'] ?? 0,
+                ]];
+            }
+
+            $idDetalle = (int) ($datos['id_detalle_nomina'] ?? 0);
+            if ($idDetalle <= 0) {
+                throw new InvalidArgumentException('Detalle de nómina inválido.');
+            }
+
+            $stmtExiste = $db->prepare("SELECT COUNT(*) FROM rrhh_nominas_conceptos
+                                       WHERE id_detalle_nomina = :id_detalle
+                                         AND es_automatico = 0
+                                         AND UPPER(tipo) = :tipo
+                                         AND LOWER(COALESCE(categoria, '')) = :categoria
+                                         AND LOWER(COALESCE(descripcion, '')) = :descripcion");
+
             $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
                 VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
-            
-            $stmt->execute([
-                'id_detalle' => (int) $datos['id_detalle_nomina'],
-                'tipo' => strtoupper($datos['tipo_concepto']),
-                'categoria' => $datos['categoria_concepto'],
-                'descripcion' => $datos['descripcion'],
-                'monto' => (float) $datos['monto']
-            ]);
+
+            $vistos = [];
+            foreach ($movimientos as $mov) {
+                $tipo = strtoupper(trim((string)($mov['tipo_concepto'] ?? '')));
+                $categoria = trim((string)($mov['categoria_concepto'] ?? ''));
+                $descripcion = trim((string)($mov['descripcion'] ?? ''));
+                $monto = (float)($mov['monto'] ?? 0);
+
+                if (!in_array($tipo, ['PERCEPCION', 'DEDUCCION'], true) || $categoria === '' || $descripcion === '' || $monto <= 0) {
+                    throw new InvalidArgumentException('Movimiento manual inválido.');
+                }
+
+                $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
+                if (isset($vistos[$llave])) {
+                    throw new InvalidArgumentException('Hay movimientos repetidos en el formulario.');
+                }
+                $vistos[$llave] = true;
+
+                $stmtExiste->execute([
+                    'id_detalle' => $idDetalle,
+                    'tipo' => $tipo,
+                    'categoria' => strtolower($categoria),
+                    'descripcion' => strtolower($descripcion),
+                ]);
+
+                if ((int)$stmtExiste->fetchColumn() > 0) {
+                    throw new InvalidArgumentException('Movimiento repetido detectado para este empleado.');
+                }
+
+                $stmt->execute([
+                    'id_detalle' => $idDetalle,
+                    'tipo' => $tipo,
+                    'categoria' => $categoria,
+                    'descripcion' => $descripcion,
+                    'monto' => $monto
+                ]);
+            }
 
             return true;
         } catch (Exception $e) {

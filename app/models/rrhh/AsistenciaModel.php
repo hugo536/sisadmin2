@@ -288,10 +288,13 @@ class AsistenciaModel extends Modelo
         $turno = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
         
         $tolerancia = 0;
-        if ($memoria && $memoria['tolerancia_minutos'] !== null) {
-            $tolerancia = (int) $memoria['tolerancia_minutos']; // Usa la tolerancia guardada ese día!
-        } elseif ($turno) {
+        // Prioridad de fuente de tolerancia:
+        // 1) Horario efectivo del día (Excepción > Turno regular, ya resuelto por obtenerTurnoEfectivoPorFecha)
+        // 2) Memoria histórica del registro (solo fallback si hoy no hay horario resoluble)
+        if ($turno) {
             $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
+        } elseif ($memoria && $memoria['tolerancia_minutos'] !== null) {
+            $tolerancia = (int) $memoria['tolerancia_minutos'];
         }
 
         $entradasEsperadas = $this->obtenerEntradasEsperadasDesdeTurno($turno);

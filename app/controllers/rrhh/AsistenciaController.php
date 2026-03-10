@@ -587,6 +587,17 @@ class AsistenciaController extends Controlador
 
                 $resumen = $this->asistenciaModel->calcularResumenDesdeMarcas((int) $idTercero, $fecha, $marcas);
 
+                // Reconstruir ingresos/salidas para conservar trazabilidad por tramos en BD.
+                $ingresos = [];
+                $salidas = [];
+                foreach ($marcas as $idx => $marca) {
+                    if (($idx % 2) === 0) {
+                        $ingresos[] = $marca;
+                    } else {
+                        $salidas[] = $marca;
+                    }
+                }
+
                 $horaIngreso = $resumen['hora_ingreso'];
                 $horaSalida = $resumen['hora_salida'];
                 $horaEntradaEsperada = $resumen['hora_entrada_esperada'];
