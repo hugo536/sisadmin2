@@ -231,6 +231,10 @@ if (!empty($detallesNomina)) {
                                                                 $hAcum = (float)($row['horas_acumuladas'] ?? 0);
                                                                 $horasCompletas = floor($hAcum);
                                                                 $minutosRestantes = round(($hAcum - $horasCompletas) * 60);
+                                                                if ($minutosRestantes >= 60) {
+                                                                    $horasCompletas += intdiv((int)$minutosRestantes, 60);
+                                                                    $minutosRestantes = $minutosRestantes % 60;
+                                                                }
                                                                 echo "{$horasCompletas}h " . ($minutosRestantes > 0 ? "{$minutosRestantes}m" : "00m");
                                                             ?>
                                                         </span>
