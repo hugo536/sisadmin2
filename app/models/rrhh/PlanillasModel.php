@@ -67,7 +67,7 @@ class PlanillasModel extends Modelo
                      WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos,
                     (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
                      WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.categoria = 'Horas Extras') AS pago_horas_extras
-                    ,(SELECT GROUP_CONCAT(DISTINCT CONCAT(nc.tipo, '::', COALESCE(nc.categoria, 'Sin categoría'), '::', COALESCE(nc.descripcion, '')) SEPARATOR '||')
+                    ,(SELECT GROUP_CONCAT(CONCAT(nc.tipo, '::', COALESCE(nc.categoria, 'Sin categoría'), '::', COALESCE(nc.descripcion, ''), '::', FORMAT(nc.monto, 2)) SEPARATOR '||')
                       FROM rrhh_nominas_conceptos nc
                       WHERE nc.id_detalle_nomina = nd.id AND nc.es_automatico = 0) AS movimientos_manuales
                 FROM rrhh_nominas_detalles nd
@@ -275,11 +275,16 @@ class PlanillasModel extends Modelo
             $descripcion = trim((string)($cm['descripcion'] ?? ''));
             $tipoLabel = strtoupper((string)$cm['tipo']) === 'PERCEPCION' ? 'Percepción' : 'Deducción';
             $llaveMovimiento = strtoupper((string)$cm['tipo']) . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
-            $mapaManuales[$idD]['movimientos'][$llaveMovimiento] = [
-                'tipo' => $tipoLabel,
-                'categoria' => $categoria,
-                'descripcion' => $descripcion
-            ];
+            if (!isset($mapaManuales[$idD]['movimientos'][$llaveMovimiento])) {
+                $mapaManuales[$idD]['movimientos'][$llaveMovimiento] = [
+                    'tipo' => $tipoLabel,
+                    'categoria' => $categoria,
+                    'descripcion' => $descripcion,
+                    'monto' => 0.0,
+                ];
+            }
+            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] += (float) $cm['monto'];
+            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] = round((float) $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'], 2);
         }
 
         $resultados = [];
@@ -433,16 +438,27 @@ class PlanillasModel extends Modelo
                 throw new InvalidArgumentException('Detalle de nómina inválido.');
             }
 
-            $stmtExiste = $db->prepare("SELECT COUNT(*) FROM rrhh_nominas_conceptos
-                                       WHERE id_detalle_nomina = :id_detalle
-                                         AND es_automatico = 0
-                                         AND UPPER(tipo) = :tipo
-                                         AND LOWER(COALESCE(categoria, '')) = :categoria
-                                         AND LOWER(COALESCE(descripcion, '')) = :descripcion");
+            $stmtDetalle = $db->prepare('SELECT nd.id_nomina, n.estado
+                                         FROM rrhh_nominas_detalles nd
+                                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                                         WHERE nd.id = :id_detalle
+                                         LIMIT 1');
+            $stmtDetalle->execute(['id_detalle' => $idDetalle]);
+            $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
+            if (!$detalle || strtoupper(trim((string) ($detalle['estado'] ?? ''))) !== 'BORRADOR') {
+                throw new InvalidArgumentException('Solo se pueden editar movimientos en lotes BORRADOR.');
+            }
 
-            $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
-                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
+            $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico)
                 VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
+
+            $db->beginTransaction();
+
+            $db->prepare('DELETE FROM rrhh_nominas_conceptos
+                          WHERE id_detalle_nomina = :id_detalle
+                            AND es_automatico = 0')
+               ->execute(['id_detalle' => $idDetalle]);
 
             $vistos = [];
             foreach ($movimientos as $mov) {
@@ -461,17 +477,6 @@ class PlanillasModel extends Modelo
                 }
                 $vistos[$llave] = true;
 
-                $stmtExiste->execute([
-                    'id_detalle' => $idDetalle,
-                    'tipo' => $tipo,
-                    'categoria' => strtolower($categoria),
-                    'descripcion' => strtolower($descripcion),
-                ]);
-
-                if ((int)$stmtExiste->fetchColumn() > 0) {
-                    throw new InvalidArgumentException('Movimiento repetido detectado para este empleado.');
-                }
-
                 $stmt->execute([
                     'id_detalle' => $idDetalle,
                     'tipo' => $tipo,
@@ -481,11 +486,32 @@ class PlanillasModel extends Modelo
                 ]);
             }
 
+            $db->commit();
             return true;
         } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             error_log("Error al agregar concepto manual: " . $e->getMessage());
             return false;
         }
+    }
+
+    public function obtenerMovimientosManualesDetalle(int $idDetalle): array
+    {
+        $sql = 'SELECT nc.tipo, nc.categoria, nc.descripcion, nc.monto
+                FROM rrhh_nominas_conceptos nc
+                INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                WHERE nc.id_detalle_nomina = :id_detalle
+                  AND nc.es_automatico = 0
+                  AND UPPER(TRIM(n.estado)) = "BORRADOR"
+                ORDER BY nc.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_detalle' => $idDetalle]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function aprobarLote(int $idLote): bool

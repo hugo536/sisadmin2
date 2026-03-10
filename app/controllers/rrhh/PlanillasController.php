@@ -60,6 +60,21 @@ class PlanillasController extends Controlador
             }
         }
 
+
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'movimientos_detalle') {
+            $idDetalle = (int) ($_GET['id_detalle'] ?? 0);
+            if ($idDetalle <= 0) {
+                json_response(['ok' => false, 'mensaje' => 'Detalle inválido.'], 400);
+                return;
+            }
+
+            json_response([
+                'ok' => true,
+                'movimientos' => $this->planillasModel->obtenerMovimientosManualesDetalle($idDetalle),
+            ]);
+            return;
+        }
+
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
             'lotes_recientes' => $lotesRecientes,
