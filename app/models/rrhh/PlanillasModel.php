@@ -1065,9 +1065,62 @@ class PlanillasModel extends Modelo
             $conceptosAgrupados[$c['id_detalle_nomina']][] = $c;
         }
 
+        $diasSemana = [
+            'MONDAY' => 'LUNES',
+            'TUESDAY' => 'MARTES',
+            'WEDNESDAY' => 'MIERCOLES',
+            'THURSDAY' => 'JUEVES',
+            'FRIDAY' => 'VIERNES',
+            'SATURDAY' => 'SABADO',
+            'SUNDAY' => 'DOMINGO',
+        ];
+
+        $sqlAsistencia = "SELECT fecha, estado_asistencia, horas_trabajadas, horas_extras
+                         FROM asistencia_registros
+                         WHERE id_tercero = :id_tercero
+                           AND fecha BETWEEN :fecha_inicio AND :fecha_fin";
+        $stmtAsistencia = $this->db()->prepare($sqlAsistencia);
+
         // 4. Armamos el arreglo final
         foreach ($boletas as &$b) {
             $b['conceptos'] = $conceptosAgrupados[$b['id']] ?? [];
+
+            $stmtAsistencia->execute([
+                'id_tercero' => (int) $b['id_tercero'],
+                'fecha_inicio' => $b['fecha_inicio'],
+                'fecha_fin' => $b['fecha_fin'],
+            ]);
+            $asistencias = $stmtAsistencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            $asistenciaPorFecha = [];
+            foreach ($asistencias as $asistencia) {
+                $asistenciaPorFecha[$asistencia['fecha']] = [
+                    'estado' => strtoupper((string) ($asistencia['estado_asistencia'] ?? '')),
+                    'horas_normales' => round((float) ($asistencia['horas_trabajadas'] ?? 0), 2),
+                    'horas_extras' => round((float) ($asistencia['horas_extras'] ?? 0), 2),
+                ];
+            }
+
+            $resumenDias = [];
+            $fechaCursor = new DateTime((string) $b['fecha_inicio']);
+            $fechaFin = new DateTime((string) $b['fecha_fin']);
+            while ($fechaCursor <= $fechaFin) {
+                $fechaIso = $fechaCursor->format('Y-m-d');
+                $diaClave = strtoupper($fechaCursor->format('l'));
+                $rowAsistencia = $asistenciaPorFecha[$fechaIso] ?? null;
+                $horasNormales = (float) ($rowAsistencia['horas_normales'] ?? 0);
+                $horasExtras = (float) ($rowAsistencia['horas_extras'] ?? 0);
+
+                $resumenDias[] = [
+                    'fecha' => $fechaIso,
+                    'dia' => $diasSemana[$diaClave] ?? strtoupper($diaClave),
+                    'horas_normales' => $horasNormales,
+                    'horas_extras' => $horasExtras,
+                ];
+                $fechaCursor->modify('+1 day');
+            }
+
+            $b['resumen_dias'] = $resumenDias;
         }
         unset($b);
 
