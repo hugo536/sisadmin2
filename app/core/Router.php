@@ -80,29 +80,6 @@ class Router
                 $controlador_clase = 'CentroCostoController';
                 $accion = 'guardar'; 
             }
-            // 2. Asientos Contables (NUEVO)
-            elseif ($accion === 'asientos') {
-                $controlador_clase = 'AsientoController';
-                $accion = 'index';
-            } elseif ($accion === 'guardar_asiento') {
-                $controlador_clase = 'AsientoController';
-                $accion = 'guardar';
-            } elseif ($accion === 'anular_asiento') {
-                $controlador_clase = 'AsientoController';
-                $accion = 'anular';
-            }
-        }
-
-        // Rutas de CONTABILIDAD desviadas a subcontroladores específicos
-        if ($modulo === 'contabilidad') {
-            // 1. Centros de Costo
-            if ($accion === 'centros_costo') {
-                $controlador_clase = 'CentroCostoController';
-                $accion = 'index'; 
-            } elseif ($accion === 'guardar_centro_costo') {
-                $controlador_clase = 'CentroCostoController';
-                $accion = 'guardar'; 
-            }
             // 2. Asientos Contables
             elseif ($accion === 'asientos') {
                 $controlador_clase = 'AsientoController';
@@ -114,9 +91,17 @@ class Router
                 $controlador_clase = 'AsientoController';
                 $accion = 'anular';
             }
-            // 3. Reportes Contables (NUEVO)
+            // 3. Reportes Contables
             elseif ($accion === 'reportes') {
                 $controlador_clase = 'ReporteContableController';
+                $accion = 'index';
+            }
+        }
+
+        // Rutas de CONCILIACIÓN BANCARIA (NUEVO)
+        if ($modulo === 'conciliacion') {
+            $controlador_clase = 'ConciliacionController';
+            if ($accion === '') {
                 $accion = 'index';
             }
         }

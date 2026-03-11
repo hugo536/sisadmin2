@@ -40,8 +40,18 @@ class ConciliacionBancariaModel extends Modelo
             return $id;
         }
 
-        $stmt = $this->db()->prepare('INSERT INTO tesoreria_conciliaciones (id_cuenta_bancaria,periodo,saldo_estado_cuenta,saldo_sistema,diferencia,estado,observaciones,created_by,updated_by,created_at,updated_at) VALUES (:id_cuenta_bancaria,:periodo,:saldo_estado_cuenta,:saldo_sistema,:diferencia,:estado,:observaciones,:user,:user,NOW(),NOW())');
-        $stmt->execute($payload + ['saldo_sistema' => $saldoSistema, 'diferencia' => $diferencia, 'estado' => $estado, 'user' => $userId]);
+        $stmt = $this->db()->prepare('INSERT INTO tesoreria_conciliaciones 
+            (id_cuenta_bancaria,periodo,saldo_estado_cuenta,saldo_sistema,diferencia,estado,observaciones,created_by,updated_by,created_at,updated_at) 
+            VALUES (:id_cuenta_bancaria,:periodo,:saldo_estado_cuenta,:saldo_sistema,:diferencia,:estado,:observaciones,:user_created,:user_updated,NOW(),NOW())');
+        
+        $stmt->execute($payload + [
+            'saldo_sistema' => $saldoSistema, 
+            'diferencia' => $diferencia, 
+            'estado' => $estado, 
+            'user_created' => $userId, 
+            'user_updated' => $userId
+        ]);
+        
         return (int)$this->db()->lastInsertId();
     }
 
@@ -52,18 +62,31 @@ class ConciliacionBancariaModel extends Modelo
         }
         $fh = fopen((string)$file['tmp_name'], 'rb');
         if (!$fh) throw new RuntimeException('No se pudo leer el archivo.');
+        
         $n = 0;
-        fgetcsv($fh);
-        $ins = $this->db()->prepare('INSERT INTO tesoreria_conciliaciones_detalle (id_conciliacion,fecha,descripcion,monto,referencia,created_by,updated_by,created_at,updated_at) VALUES (:id_conciliacion,:fecha,:descripcion,:monto,:referencia,:user,:user,NOW(),NOW())');
+        fgetcsv($fh); // Saltar cabecera
+        
+        // CORRECCIÓN: Separamos :user_created y :user_updated
+        $ins = $this->db()->prepare('INSERT INTO tesoreria_conciliaciones_detalle 
+            (id_conciliacion,fecha,descripcion,monto,referencia,created_by,updated_by,created_at,updated_at) 
+            VALUES (:id_conciliacion,:fecha,:descripcion,:monto,:referencia,:user_created,:user_updated,NOW(),NOW())');
+            
         while (($row = fgetcsv($fh)) !== false) {
             if (count($row) < 3) continue;
+            
+            // MAGIA DE FECHAS: Convertir DD/MM/YYYY a YYYY-MM-DD
+            $fechaRaw = trim($row[0]);
+            $fechaFormat = DateTime::createFromFormat('d/m/Y', $fechaRaw);
+            $fechaSql = $fechaFormat ? $fechaFormat->format('Y-m-d') : $fechaRaw; 
+
             $ins->execute([
                 'id_conciliacion' => $idConciliacion,
-                'fecha' => $row[0],
-                'descripcion' => $row[1],
+                'fecha' => $fechaSql,
+                'descripcion' => trim($row[1]),
                 'monto' => round((float)$row[2], 4),
-                'referencia' => $row[3] ?? null,
-                'user' => $userId,
+                'referencia' => trim($row[3] ?? ''),
+                'user_created' => $userId,
+                'user_updated' => $userId,
             ]);
             $n++;
         }
@@ -73,8 +96,22 @@ class ConciliacionBancariaModel extends Modelo
 
     public function marcarDetalle(int $idDetalle, bool $conciliado, int $userId): void
     {
+        // 1. Actualiza el detalle
         $stmt = $this->db()->prepare('UPDATE tesoreria_conciliaciones_detalle SET conciliado=:conciliado, updated_by=:user, updated_at=NOW() WHERE id=:id');
         $stmt->execute(['conciliado' => $conciliado ? 1 : 0, 'user' => $userId, 'id' => $idDetalle]);
+
+        // 2. Busca a qué conciliación pertenece este detalle
+        $idConc = $this->db()->query("SELECT id_conciliacion FROM tesoreria_conciliaciones_detalle WHERE id=$idDetalle")->fetchColumn();
+        
+        // 3. OBTENEMOS LOS DATOS Y RECALCULAMOS
+        if ($idConc) {
+            $conc = $this->db()->query("SELECT id_cuenta_bancaria, periodo, saldo_estado_cuenta FROM tesoreria_conciliaciones WHERE id=$idConc")->fetch(PDO::FETCH_ASSOC);
+            $nuevoSaldoSis = $this->calcularSaldoSistema((int)$conc['id_cuenta_bancaria'], $conc['periodo']);
+            $nuevaDif = round((float)$conc['saldo_estado_cuenta'] - $nuevoSaldoSis, 4);
+            
+            $upd = $this->db()->prepare("UPDATE tesoreria_conciliaciones SET saldo_sistema=:sis, diferencia=:dif WHERE id=:id");
+            $upd->execute(['sis' => $nuevoSaldoSis, 'dif' => $nuevaDif, 'id' => $idConc]);
+        }
     }
 
     public function obtenerDetalle(int $idConciliacion): array
