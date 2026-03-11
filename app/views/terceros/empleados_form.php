@@ -2,6 +2,7 @@
 $prefix = $prefix ?? 'crear';
 $cargos_list = $cargos_list ?? [];
 $areas_list = $areas_list ?? [];
+$centros_costo_list = $centros_costo_list ?? [];
 $today = date('Y-m-d');
 ?>
 
@@ -93,6 +94,17 @@ $today = date('Y-m-d');
                         <?php endforeach; ?>
                     </select>
                     <label for="<?php echo $prefix; ?>Area">Área <span class="text-danger">*</span></label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-floating">
+                    <select class="form-select" name="id_centro_costo" id="<?php echo $prefix; ?>CentroCosto" data-required-empleado="1">
+                        <option value="">Seleccione Centro...</option>
+                        <?php foreach ($centros_costo_list as $cc): ?>
+                            <option value="<?php echo (int) ($cc['id'] ?? 0); ?>"><?php echo e((string) ($cc['codigo'] ?? '')); ?> - <?php echo e((string) ($cc['nombre'] ?? '')); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <label for="<?php echo $prefix; ?>CentroCosto">Centro de Costo <span class="text-danger">*</span></label>
                 </div>
             </div>
             <div class="col-md-4">

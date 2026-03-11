@@ -4,6 +4,17 @@ declare(strict_types=1);
 
 class CentroCostoModel extends Modelo
 {
+    public function existe(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1 FROM conta_centros_costo WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        return (bool)$stmt->fetchColumn();
+    }
+
     public function listar(): array
     {
         $stmt = $this->db()->query('SELECT * FROM conta_centros_costo WHERE deleted_at IS NULL ORDER BY estado DESC, codigo ASC');

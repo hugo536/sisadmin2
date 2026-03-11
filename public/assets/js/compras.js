@@ -141,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function filaToPayload(fila) {
         const inputItem = fila.querySelector('.detalle-item');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+        const inputCentroCosto = fila.querySelector('.detalle-centro-costo');
         const info = fila.querySelector('.detalle-conversion-info'); // Asegúrate de tener un span con esta clase debajo del select
 
         const idItem = Number(inputItem.value || 0);
@@ -175,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cantidad,
             cantidad_base: cantidadBase,
             costo_unitario: costoUnitario,
+            id_centro_costo: inputCentroCosto?.value ? Number(inputCentroCosto.value) : null,
         };
     }
 
@@ -267,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputCantidad = fila.querySelector('.detalle-cantidad');
         const inputCosto = fila.querySelector('.detalle-costo');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+        const inputCentroCosto = fila.querySelector('.detalle-centro-costo');
         const btnQuitar = fila.querySelector('.btn-quitar-fila');
 
         tbodyDetalle.appendChild(fila);
@@ -282,6 +285,10 @@ document.addEventListener('DOMContentLoaded', () => {
             input.addEventListener('input', () => recalcularFila(fila));
             input.addEventListener('change', () => recalcularFila(fila));
         });
+
+        if (inputCentroCosto) {
+            inputCentroCosto.addEventListener('change', () => recalcularFila(fila));
+        }
 
         tomSelectItem.on('change', async (value) => {
             if (!value) {
@@ -318,6 +325,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tomSelectItem.setValue(item.id_item);
             inputCantidad.value = item.cantidad;
             inputCosto.value = item.costo_unitario;
+            if (inputCentroCosto) {
+                inputCentroCosto.value = item.id_centro_costo ? String(item.id_centro_costo) : '';
+            }
             actualizarUnidadPorItem(fila, item);
         } else {
             actualizarUnidadPorItem(fila, null);

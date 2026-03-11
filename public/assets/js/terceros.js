@@ -679,6 +679,7 @@
                     // Datos Empleado
                     safeSetVal('editCargo', btn.dataset.cargo);
                     safeSetVal('editArea', btn.dataset.area);
+                    safeSetVal('editCentroCosto', btn.dataset.idCentroCosto);
                     safeSetVal('editCodigoBiometrico', btn.dataset.codigoBiometrico);
                     safeSetVal('editFechaIngreso', btn.dataset.fechaIngreso);
                     safeSetVal('editFechaCese', btn.dataset.fechaCese);

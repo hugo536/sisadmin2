@@ -79,6 +79,7 @@ class ComprasOrdenModel extends Modelo
                               COALESCE(d.factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
                               COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad,
                               COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) AS cantidad_base,
+                              d.id_centro_costo,
                               d.costo_unitario_pactado AS costo_unitario,
                               (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal
                        FROM compras_ordenes_detalle d
@@ -207,6 +208,7 @@ class ComprasOrdenModel extends Modelo
                             cantidad_base_solicitada,
                             cantidad_solicitada,
                             costo_unitario_pactado,
+                            id_centro_costo,
                             created_by,
                             updated_by,
                             created_at,
@@ -221,6 +223,7 @@ class ComprasOrdenModel extends Modelo
                             :cantidad_base,
                             :cantidad,
                             :costo_unitario,
+                            :id_centro_costo,
                             :created_by,
                             :updated_by,
                             NOW(),
@@ -251,6 +254,7 @@ class ComprasOrdenModel extends Modelo
                     // Debe ser la cantidad original solicitada en esa unidad.
                     'cantidad' => $cantidadConversion, 
                     'costo_unitario' => $costo,
+                    'id_centro_costo' => !empty($linea['id_centro_costo']) ? (int) $linea['id_centro_costo'] : null,
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);

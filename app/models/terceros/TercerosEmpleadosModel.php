@@ -25,7 +25,7 @@ class TercerosEmpleadosModel extends Modelo
 
             $columnas = [
                 'id_tercero', 'cargo', 'area', 'fecha_ingreso', 'fecha_cese', 'estado_laboral',
-                'tipo_contrato', 'sueldo_basico', 'moneda', 'asignacion_familiar',
+                'tipo_contrato', 'sueldo_basico', 'id_centro_costo', 'moneda', 'asignacion_familiar',
                 'tipo_pago', 'regimen_pensionario', 'tipo_comision_afp', 'cuspp', 'essalud',
                 'genero', 'estado_civil', 'nivel_educativo',
                 'contacto_emergencia_nombre', 'contacto_emergencia_telf', 'tipo_sangre',
@@ -76,6 +76,7 @@ class TercerosEmpleadosModel extends Modelo
                 'estado_laboral' => $data['estado_laboral'] ?? 'activo',
                 'tipo_contrato' => $data['tipo_contrato'] ?? null,
                 'sueldo_basico' => $sueldoLimpio, // Dato asegurado
+                'id_centro_costo' => !empty($data['id_centro_costo']) ? (int) $data['id_centro_costo'] : null,
                 'moneda' => $data['moneda'] ?? 'PEN',
                 'asignacion_familiar' => $asignacionFamiliar,
                 'tipo_pago' => $tipoPagoLimpio, // Dato asegurado y en MAYÚSCULAS

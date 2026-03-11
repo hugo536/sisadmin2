@@ -7,18 +7,21 @@ require_once BASE_PATH . '/app/models/ComprasOrdenModel.php';
 require_once BASE_PATH . '/app/models/ComprasRecepcionModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 
 class ComprasController extends Controlador
 {
     private ComprasOrdenModel $ordenModel;
     private ComprasRecepcionModel $recepcionModel;
     private TesoreriaCxpModel $tesoreriaCxpModel;
+    private CentroCostoModel $centroCostoModel;
 
     public function __construct()
     {
         $this->ordenModel = new ComprasOrdenModel();
         $this->recepcionModel = new ComprasRecepcionModel();
         $this->tesoreriaCxpModel = new TesoreriaCxpModel();
+        $this->centroCostoModel = new CentroCostoModel();
     }
 
     public function index(): void
@@ -77,6 +80,7 @@ class ComprasController extends Controlador
             'proveedores' => $this->ordenModel->listarProveedoresActivos(),
             'items' => $this->ordenModel->listarItemsActivos(),
             'almacenes' => $this->recepcionModel->listarAlmacenesActivos(),
+            'centros_costo' => $this->centroCostoModel->listar(),
         ]);
     }
 
@@ -123,6 +127,7 @@ class ComprasController extends Controlador
                 $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
                 $factor = (float) ($linea['factor_conversion_aplicado'] ?? 1);
                 $costo = (float) ($linea['costo_unitario'] ?? 0);
+                $idCentroCosto = (int) ($linea['id_centro_costo'] ?? 0);
 
                 if ($cantidad <= 0) {
                     throw new RuntimeException('La cantidad de compra de los ítems debe ser mayor a 0.');
@@ -132,6 +137,9 @@ class ComprasController extends Controlador
                 }
                 if ($costo < 0) {
                     throw new RuntimeException('El costo no puede ser negativo.');
+                }
+                if ($idCentroCosto > 0 && !$this->centroCostoModel->existe($idCentroCosto)) {
+                    throw new RuntimeException('Uno de los centros de costo seleccionados no es válido.');
                 }
                 $total += $cantidad * $costo;
             }
