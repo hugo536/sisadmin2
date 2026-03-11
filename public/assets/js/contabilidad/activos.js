@@ -88,27 +88,31 @@ document.addEventListener('DOMContentLoaded', function() {
     function autoCalcularDepreciacion() {
         const id = parseInt(document.getElementById('af_id').value) || 0;
         
-        // Si estamos editando un activo viejo, respetamos la base de datos y no recalculamos
+        // Si estamos editando un activo viejo, respetamos la base de datos y no recalculamos en vivo
         if (id > 0) return; 
 
         const fechaStr = document.getElementById('af_fecha').value;
         const costo = parseFloat(document.getElementById('af_costo').value) || 0;
-        const residual = parseFloat(document.getElementById('af_residual').value) || 0;
+        // El valor residual puede ser 0, así que lo forzamos a ser un número válido
+        const residual = parseFloat(document.getElementById('af_residual').value) || 0; 
         const vida = parseInt(document.getElementById('af_vida').value) || 0;
 
-        if (!fechaStr || costo <= 0 || vida <= 0) {
+        // Validación más permisiva: Solo exige fecha, costo y vida útil mayor a cero
+        if (fechaStr === '' || costo <= 0 || vida <= 0) {
             setDepAcumulada(0);
             return;
         }
 
-        const fechaAdq = new Date(fechaStr + 'T00:00:00'); // Evita desfase de zona horaria
+        // Dividimos la fecha (Ej: "2018-05-15") para evitar problemas de zona horaria (UTC)
+        const partesFecha = fechaStr.split('-');
+        const fechaAdq = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]); 
         const hoy = new Date();
         
-        // Calcular cuántos meses han pasado desde la compra hasta hoy
+        // Calcular cuántos meses exactos han pasado
         let mesesPasados = (hoy.getFullYear() - fechaAdq.getFullYear()) * 12 + (hoy.getMonth() - fechaAdq.getMonth());
         
         if (mesesPasados < 0) mesesPasados = 0;
-        if (mesesPasados > vida) mesesPasados = vida; // No se puede depreciar más de su vida útil
+        if (mesesPasados > vida) mesesPasados = vida; // Tope máximo: su vida útil total
 
         const baseDepreciable = costo - residual;
         let depAcumulada = 0;
@@ -121,12 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
         setDepAcumulada(depAcumulada);
     }
 
-    // Escuchar cada vez que el usuario escriba o cambie estos campos
+    // Usamos delegación de eventos para capturar cada pulsación de tecla y clic
+    const eventos = ['input', 'keyup', 'change'];
     ['af_fecha', 'af_costo', 'af_residual', 'af_vida'].forEach(idCaja => {
         const caja = document.getElementById(idCaja);
-        if(caja) {
-            caja.addEventListener('input', autoCalcularDepreciacion);
-            caja.addEventListener('change', autoCalcularDepreciacion);
+        if (caja) {
+            eventos.forEach(evt => caja.addEventListener(evt, autoCalcularDepreciacion));
         }
     });
-});
+}); // Cierre del DOMContentLoaded principal
