@@ -393,7 +393,9 @@ class TercerosController extends Controlador
 
             } catch (Exception $e) {
                 if (es_ajax()) {
-                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+                    // Para validaciones de negocio devolvemos 200 + ok=false,
+                    // así evitamos el ruido de 400 en consola y mantenemos SweetAlert.
+                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 200);
                     return;
                 }
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
@@ -578,8 +580,6 @@ class TercerosController extends Controlador
         for ($i = 0; $i < $maxIndex; $i++) {
             $configBancoId = (int)($cuentasConfigBancoId[$i] ?? 0);
             $entidad = trim((string)($cuentasEntidad[$i] ?? ''));
-            
-            if ($configBancoId <= 0 && $entidad === '' && empty($cuentasNumero[$i]) && empty($cuentasCci[$i])) continue;
 
             $tipoEntidad = $normalizarTipoEntidad($cuentasTipoEntidad[$i] ?? 'Banco');
             $esBilletera = ($tipoEntidad === 'Billetera Digital' || filter_var($cuentasBilletera[$i] ?? false, FILTER_VALIDATE_BOOLEAN));
@@ -598,11 +598,20 @@ class TercerosController extends Controlador
             }
 
             $tipoCuentaVal = trim((string)($cuentasTipoCuenta[$i] ?? ''));
-            if ($esBilletera && $tipoCuentaVal === '') $tipoCuentaVal = 'N/A';
+
+            if ($configBancoId <= 0 || $entidad === '') {
+                throw new Exception("Cuenta #" . ($i + 1) . ": la entidad financiera es obligatoria.");
+            }
+            if ($tipoCuentaVal === '') {
+                throw new Exception("Cuenta #" . ($i + 1) . ": el tipo de cuenta es obligatorio.");
+            }
+            if ($cciVal === '' && $numeroVal === '') {
+                throw new Exception("Cuenta #" . ($i + 1) . ": el CCI o número de cuenta es obligatorio.");
+            }
 
             $titularVal = trim((string)($cuentasTitular[$i] ?? ''));
             if ($titularVal === '') {
-                throw new Exception("Cuenta #" . ($i + 1) . ": el titular de la cuenta es obligatorio.");
+                $titularVal = $nombre;
             }
 
             $cuentasNormalizadas[] = [

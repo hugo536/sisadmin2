@@ -323,7 +323,6 @@
         const colEnt = document.createElement('div'); colEnt.className = 'col-md-3';
         const selEnt = document.createElement('select');
         selEnt.className = 'form-select form-select-sm';
-        selEnt.name = 'cuenta_config_banco_id[]'; 
         
         const hidEntidadTexto = document.createElement('input');
         hidEntidadTexto.type = 'hidden'; hidEntidadTexto.name = 'cuenta_entidad[]';
@@ -850,6 +849,29 @@
 
             if (!tiposSangreValidos.has(tipoSangre)) {
                 return 'El tipo de sangre seleccionado no es válido.';
+            }
+
+            const cuentas = form.querySelectorAll('#' + form.id.replace('form', '').replace('Tercero','').toLowerCase() + 'CuentasList .card');
+            for (let i = 0; i < cuentas.length; i++) {
+                const row = cuentas[i];
+                const entidadId = (row.querySelector('input[name="cuenta_config_banco_id[]"]')?.value || '').trim();
+                const entidadTexto = (row.querySelector('input[name="cuenta_entidad[]"]')?.value || '').trim();
+                const tipoCuenta = (row.querySelector('select[name="cuenta_tipo_cta[]"]')?.value || '').trim();
+                const cciCuenta = (row.querySelector('input[name="cuenta_cci[]"]')?.value || '').trim();
+                const moneda = (row.querySelector('select[name="cuenta_moneda[]"]')?.value || '').trim();
+
+                if (!entidadId || entidadId === '0' || !entidadTexto) {
+                    return `Cuenta #${i + 1}: la entidad financiera es obligatoria.`;
+                }
+                if (!tipoCuenta) {
+                    return `Cuenta #${i + 1}: el tipo de cuenta es obligatorio.`;
+                }
+                if (!cciCuenta) {
+                    return `Cuenta #${i + 1}: el número de cuenta/CCI es obligatorio.`;
+                }
+                if (!moneda) {
+                    return `Cuenta #${i + 1}: la moneda es obligatoria.`;
+                }
             }
 
             return null;
