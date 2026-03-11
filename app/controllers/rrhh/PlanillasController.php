@@ -279,22 +279,24 @@ class PlanillasController extends Controlador
                     throw new Exception('ID de lote inválido.');
                 }
                 
-                // Aquí usa la variable de sesión donde guardas el ID del usuario actual en tu ERP
+                // Obtenemos el ID del usuario que está haciendo el pago (Ajusta la variable de sesión si tu sistema usa otra, ej: $_SESSION['id_usuario'])
                 $userId = $_SESSION['usuario_id'] ?? 1; 
 
+                // Instanciamos tu modelo
                 $modelo = new PlanillasModel();
-                // Llamamos a la nueva función maestra
+                
+                // Llamamos a la super función que creamos en el paso anterior
                 $resultado = $modelo->pagarLoteNominaMixto($_POST, $userId);
 
                 if ($resultado) {
-                    // Redirigir de vuelta con mensaje de éxito
-                    header('Location: ?ruta=planillas&id_lote=' . $idLote . '&ok=Lote pagado y dispersado correctamente');
+                    // Si todo sale bien, redirigimos con el mensaje de éxito (ok)
+                    header('Location: ?ruta=planillas&id_lote=' . $idLote . '&ok=' . urlencode('Lote pagado y dispersado correctamente'));
                     exit;
                 } else {
                     throw new Exception('No se pudo procesar el pago mixto.');
                 }
             } catch (Exception $e) {
-                // Redirigir de vuelta con mensaje de error
+                // Si falla (ej: por saldo insuficiente), redirigimos con el mensaje de error
                 header('Location: ?ruta=planillas&id_lote=' . ($_POST['id_lote'] ?? '') . '&error=' . urlencode($e->getMessage()));
                 exit;
             }
