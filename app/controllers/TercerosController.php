@@ -393,7 +393,9 @@ class TercerosController extends Controlador
 
             } catch (Exception $e) {
                 if (es_ajax()) {
-                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+                    // Para validaciones de negocio devolvemos 200 + ok=false,
+                    // así evitamos el ruido de 400 en consola y mantenemos SweetAlert.
+                    json_response(['ok' => false, 'mensaje' => $e->getMessage()], 200);
                     return;
                 }
                 $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
@@ -602,7 +604,7 @@ class TercerosController extends Controlador
 
             $titularVal = trim((string)($cuentasTitular[$i] ?? ''));
             if ($titularVal === '') {
-                throw new Exception("Cuenta #" . ($i + 1) . ": el titular de la cuenta es obligatorio.");
+                $titularVal = $nombre;
             }
 
             $cuentasNormalizadas[] = [
