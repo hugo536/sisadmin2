@@ -317,13 +317,6 @@ class PlanillasController extends Controlador
             die("No hay recibos con montos a pagar en este lote.");
         }
 
-        // Datos genéricos de la empresa (Puedes reemplazarlos por los de tu BD)
-        $empresa = [
-            'nombre' => 'MI EMPRESA S.A.C.',
-            'ruc' => '20123456789',
-            'direccion' => 'Av. Principal 123, Ciudad'
-        ];
-
         // Aquí llamas a tu librería PDF (DOMPDF, mPDF, etc)
         // Ejemplo usando solo HTML para imprimir con el navegador:
         $vistaBoletas = BASE_PATH . '/app/views/rrhh/planillas_boleta_pdf.php';
