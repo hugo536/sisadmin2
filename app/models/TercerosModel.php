@@ -247,6 +247,9 @@ class TercerosModel extends Modelo
         $selectCodigoBiometrico = $this->hasColumn('terceros_empleados', 'codigo_biometrico')
             ? 'codigo_biometrico,'
             : 'NULL AS codigo_biometrico,';
+        $selectCentroCosto = $this->hasColumn('terceros_empleados', 'id_centro_costo')
+            ? 'id_centro_costo,'
+            : 'NULL AS id_centro_costo,';
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "SELECT id_tercero,
@@ -257,6 +260,7 @@ class TercerosModel extends Modelo
                        {$selectCumple}
                        {$selectPerfilEmpleado}
                        {$selectCodigoBiometrico}
+                       {$selectCentroCosto}
                        id_tercero AS _id_ref
                 FROM terceros_empleados
                 WHERE id_tercero IN ($in)";
@@ -690,6 +694,7 @@ class TercerosModel extends Modelo
             'codigo_biometrico' => !empty($data['codigo_biometrico']) ? trim((string) $data['codigo_biometrico']) : null,
             'tipo_contrato'   => $data['tipo_contrato'] ?? null,
             'sueldo_basico'   => (float)($data['sueldo_basico'] ?? 0),
+            'id_centro_costo' => (int)($data['id_centro_costo'] ?? 0),
             'moneda'          => $data['moneda'] ?? 'PEN',
             'asignacion_familiar' => filter_var($data['asignacion_familiar'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0,
             'tipo_pago'       => $data['tipo_pago'] ?? null,

@@ -3,6 +3,7 @@
     $departamentos_list = $departamentos_list ?? []; 
     $cargos_list = $cargos_list ?? [];
     $areas_list = $areas_list ?? [];
+    $centros_costo_list = $centros_costo_list ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in terceros-sticky-header">
@@ -187,6 +188,7 @@
                                                 data-es-distribuidor="<?php echo (int)$tercero['es_distribuidor']; ?>"
                                                 data-cargo="<?php echo htmlspecialchars((string) ($tercero['cargo'] ?? '')); ?>"
                                                 data-area="<?php echo htmlspecialchars((string) ($tercero['area'] ?? '')); ?>"
+                                                data-id-centro-costo="<?php echo (int) ($tercero['id_centro_costo'] ?? 0); ?>"
                                                 data-codigo-biometrico="<?php echo htmlspecialchars((string) ($tercero['codigo_biometrico'] ?? '')); ?>"
                                                 data-fecha-ingreso="<?php echo htmlspecialchars((string) ($tercero['fecha_ingreso'] ?? '')); ?>"
                                                 data-fecha-cese="<?php echo htmlspecialchars((string) ($tercero['fecha_cese'] ?? '')); ?>"

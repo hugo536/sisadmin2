@@ -4,6 +4,7 @@ $filtros = $filtros ?? [];
 $proveedores = $proveedores ?? [];
 $items = $items ?? [];
 $almacenes = $almacenes ?? [];
+$centros_costo = $centros_costo ?? [];
 
 // Configuración de Estados (Estilo Subtle)
 $estadoLabels = [
@@ -187,6 +188,7 @@ $estadoLabels = [
                                             <th class="ps-3 text-secondary col-min-w-320">Ítem / Producto</th>
                                             <th class="text-secondary text-center col-w-140">Cantidad</th>
                                             <th class="text-secondary text-center col-w-160">Costo Unit.</th>
+                                            <th class="text-secondary text-center col-w-200">Centro de Costo</th>
                                             <th class="text-end text-secondary col-w-150">Subtotal</th>
                                             <th class="text-center col-w-60"></th>
                                         </tr>
@@ -194,7 +196,7 @@ $estadoLabels = [
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="3" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
+                                            <td colspan="4" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
                                             <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ordenTotal">S/ 0.00</td>
                                             <td></td>
                                         </tr>
@@ -281,6 +283,16 @@ $estadoLabels = [
                 <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle">S/</span>
                 <input type="number" class="form-control border-start-0 text-end detalle-costo shadow-none border-secondary-subtle" min="0" step="0.01" value="0.00" required>
             </div>
+        </td>
+        <td class="align-top py-3 px-2">
+            <select class="form-select form-select-sm detalle-centro-costo shadow-none border-secondary-subtle">
+                <option value="">Sin centro de costo</option>
+                <?php foreach ($centros_costo as $centro): ?>
+                    <option value="<?php echo (int) ($centro['id'] ?? 0); ?>">
+                        <?php echo e((string) ($centro['codigo'] ?? '')); ?> - <?php echo e((string) ($centro['nombre'] ?? '')); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </td>
         <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6">S/ 0.00</td>
         <td class="text-center align-top py-3">

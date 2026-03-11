@@ -6,11 +6,13 @@
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/TercerosModel.php';
 require_once __DIR__ . '/../models/configuracion/CajasBancosModel.php';
+require_once __DIR__ . '/../models/contabilidad/CentroCostoModel.php';
 
 class TercerosController extends Controlador
 {
     private $tercerosModel;
     private $cajasBancosModel;
+    private $centroCostoModel;
 
     public function __construct()
     {
@@ -24,6 +26,7 @@ class TercerosController extends Controlador
         
         $this->tercerosModel = new TercerosModel();
         $this->cajasBancosModel = new CajasBancosModel();
+        $this->centroCostoModel = new CentroCostoModel();
     }
 
     public function index()
@@ -426,7 +429,8 @@ class TercerosController extends Controlador
             'ruta_actual'    => 'tercero',
             'departamentos_list' => $departamentos,
             'cargos_list'    => $cargos,
-            'areas_list'     => $areas
+            'areas_list'     => $areas,
+            'centros_costo_list' => $this->centroCostoModel->listar(),
         ]);
     }
 
@@ -708,6 +712,7 @@ class TercerosController extends Controlador
         if ($esEmpleado) {
             $cargo = trim((string) ($data['cargo'] ?? ''));
             $area = trim((string) ($data['area'] ?? ''));
+            $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
             $fechaIngresoRaw = trim((string) ($data['fecha_ingreso'] ?? ''));
             $tipoPagoInput = isset($data['tipo_pago']) ? (string) $data['tipo_pago'] : 'MENSUAL';
             $tipoPagoRaw = strtoupper(trim($tipoPagoInput));
@@ -716,8 +721,12 @@ class TercerosController extends Controlador
             $sueldoBasicoRaw = trim((string) ($data['sueldo_basico'] ?? '0'));
             if ($sueldoBasicoRaw === '') $sueldoBasicoRaw = '0';
 
-            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '') {
-                throw new Exception('Para el rol Empleado, el cargo, área y la fecha de ingreso son obligatorios.');
+            if ($cargo === '' || $area === '' || $fechaIngresoRaw === '' || $idCentroCosto <= 0) {
+                throw new Exception('Para el rol Empleado, el cargo, área, centro de costo y fecha de ingreso son obligatorios.');
+            }
+
+            if (!$this->centroCostoModel->existe($idCentroCosto)) {
+                throw new Exception('El centro de costo seleccionado para el empleado no es válido o está inactivo.');
             }
 
             if (mb_strlen($codigoBiometricoRaw) > 50) {
@@ -743,6 +752,7 @@ class TercerosController extends Controlador
             
             $data['tipo_pago'] = $tipoPagoRaw;
             $data['sueldo_basico'] = $sueldoBasicoRaw;
+            $data['id_centro_costo'] = $idCentroCosto;
         }
 
         $recordarCumpleanos = $esEmpleado && filter_var($data['recordar_cumpleanos'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -893,6 +903,7 @@ class TercerosController extends Controlador
         $prepared['contacto_emergencia_nombre'] = $esEmpleado ? trim((string) ($data['contacto_emergencia_nombre'] ?? '')) : '';
         $prepared['contacto_emergencia_telf']   = $esEmpleado ? trim((string) ($data['contacto_emergencia_telf'] ?? '')) : '';
         $prepared['tipo_sangre']                = $esEmpleado ? strtoupper(trim((string) ($data['tipo_sangre'] ?? ''))) : '';
+        $prepared['id_centro_costo']            = $esEmpleado ? (int) ($data['id_centro_costo'] ?? 0) : 0;
 
         // Pasar los booleanos limpios al payload
         $prepared['es_cliente'] = $esCliente ? 1 : 0;
