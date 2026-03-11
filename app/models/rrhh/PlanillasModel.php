@@ -843,7 +843,7 @@ class PlanillasModel extends Modelo
                 throw new Exception("El lote no existe o no está en estado APROBADO.");
             }
 
-            $stmtDetalle = $db->prepare("SELECT id FROM rrhh_nominas_detalles WHERE id = :id_detalle AND id_nomina = :id_lote LIMIT 1");
+            $stmtDetalle = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id = :id_detalle AND id_nomina = :id_lote LIMIT 1");
             $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
                     (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
@@ -861,8 +861,29 @@ class PlanillasModel extends Modelo
                 FOR UPDATE");
 
             $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos
-                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, observaciones, estado, created_by)
-                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by)");
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                VALUES ('PAGO', :id_tercero, 'LOTE_NOMINA', :id_lote, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())");
+
+            $stmtMetodoPago = $db->prepare("SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL");
+            $stmtMetodoPago->execute();
+            $metodosDisponibles = [];
+            foreach (($stmtMetodoPago->fetchAll(PDO::FETCH_ASSOC) ?: []) as $metodoRow) {
+                $nombreMetodo = strtoupper(trim((string) ($metodoRow['nombre'] ?? '')));
+                if ($nombreMetodo !== '') {
+                    $metodosDisponibles[$nombreMetodo] = (int) ($metodoRow['id'] ?? 0);
+                }
+            }
+
+            $idMetodoEfectivo = (int) ($metodosDisponibles['EFECTIVO'] ?? 0);
+            $idMetodoTransferencia = (int) (
+                $metodosDisponibles['TRANSFERENCIA']
+                ?? $metodosDisponibles['TRANSFERENCIA BANCARIA']
+                ?? 0
+            );
+
+            if ($idMetodoEfectivo <= 0 || $idMetodoTransferencia <= 0) {
+                throw new Exception('Configura los métodos de pago "Efectivo" y "Transferencia" en Tesorería para poder dispersar nómina.');
+            }
             
             $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
             
@@ -887,13 +908,23 @@ class PlanillasModel extends Modelo
                     'id_detalle' => $idDetalle,
                     'id_lote' => $idLote,
                 ]);
-                if (!$stmtDetalle->fetch(PDO::FETCH_ASSOC)) {
+                $detalleRow = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
+                if (!$detalleRow) {
                     throw new Exception("El detalle #{$idDetalle} no pertenece al lote seleccionado.");
                 }
 
+                $idTercero = (int) ($detalleRow['id_tercero'] ?? 0);
+                if ($idTercero <= 0) {
+                    throw new Exception("El detalle #{$idDetalle} no tiene un tercero válido asociado.");
+                }
+
+                $idMetodoPago = str_starts_with($metodo, 'BANCO_') ? $idMetodoTransferencia : $idMetodoEfectivo;
+
                 $pagosProcesables[] = [
                     'id_detalle' => $idDetalle,
+                    'id_tercero' => $idTercero,
                     'id_cuenta' => $idCuenta,
+                    'id_metodo_pago' => $idMetodoPago,
                     'metodo' => $metodo,
                     'monto' => $monto,
                 ];
@@ -925,13 +956,16 @@ class PlanillasModel extends Modelo
                 $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$item['id_detalle']} | Vía: {$metodoLimpio}";
 
                 $stmtMov->execute([
+                    'id_tercero' => $item['id_tercero'],
                     'id_lote' => $idLote,
                     'id_cuenta' => $item['id_cuenta'],
+                    'id_metodo_pago' => $item['id_metodo_pago'],
                     'fecha' => $fechaPago,
                     'moneda' => $cuentasInfo[$item['id_cuenta']]['moneda'],
                     'monto' => $item['monto'],
                     'observaciones' => $observacion,
                     'created_by' => $userId,
+                    'updated_by' => $userId,
                 ]);
 
                 $metodoJson = json_encode([
