@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
+    const depAcumuladaInput = document.getElementById('af_dep_acumulada');
+    const depAcumuladaHiddenInput = document.getElementById('af_dep_acumulada_hidden');
+
+    function setDepAcumulada(value) {
+        const safeValue = Number.isFinite(value) ? value.toFixed(4) : '0.0000';
+        if (depAcumuladaInput) depAcumuladaInput.value = safeValue;
+        if (depAcumuladaHiddenInput) depAcumuladaHiddenInput.value = safeValue;
+    }
     
     // 1. Instancia del Modal
     const modalElement = document.getElementById('modalActivoFijo');
@@ -22,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btnNuevo.addEventListener('click', function() {
             const form = document.getElementById('formActivoFijo');
             if(form) form.reset();
-            document.getElementById('af_dep_acumulada').value = '0';
+            setDepAcumulada(0);
             document.getElementById('af_id').value = '0';
             document.getElementById('tituloModalActivo').innerHTML = '<i class="bi bi-building-add me-2"></i>Registrar Activo Fijo';
             
@@ -31,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tomDep.clear();
             tomGasto.clear();
             tomCentro.setValue('0');
+            autoCalcularDepreciacion();
         });
     }
 
@@ -38,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.btn-editar-activo').forEach(btn => {
         btn.addEventListener('click', function() {
             // Llenar inputs de texto y fecha
-            document.getElementById('af_dep_acumulada').value = this.dataset.depacum || '0';
+            setDepAcumulada(parseFloat(this.dataset.depacum || '0'));
             document.getElementById('af_id').value = this.dataset.id || '0';
             document.getElementById('af_codigo').value = this.dataset.codigo || '';
             document.getElementById('af_nombre').value = this.dataset.nombre || '';
@@ -86,10 +95,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const costo = parseFloat(document.getElementById('af_costo').value) || 0;
         const residual = parseFloat(document.getElementById('af_residual').value) || 0;
         const vida = parseInt(document.getElementById('af_vida').value) || 0;
-        const inputDep = document.getElementById('af_dep_acumulada');
 
         if (!fechaStr || costo <= 0 || vida <= 0) {
-            inputDep.value = '0.0000';
+            setDepAcumulada(0);
             return;
         }
 
@@ -110,12 +118,15 @@ document.addEventListener('DOMContentLoaded', function() {
             depAcumulada = depMensual * mesesPasados;
         }
 
-        inputDep.value = depAcumulada.toFixed(4);
+        setDepAcumulada(depAcumulada);
     }
 
     // Escuchar cada vez que el usuario escriba o cambie estos campos
     ['af_fecha', 'af_costo', 'af_residual', 'af_vida'].forEach(idCaja => {
         const caja = document.getElementById(idCaja);
-        if(caja) caja.addEventListener('input', autoCalcularDepreciacion);
+        if(caja) {
+            caja.addEventListener('input', autoCalcularDepreciacion);
+            caja.addEventListener('change', autoCalcularDepreciacion);
+        }
     });
 });

@@ -160,7 +160,8 @@ $centrosCosto = $centrosCosto ?? [];
                                     <label class="form-label small text-muted fw-bold text-primary">Dep. Acumulada Previa</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">$</span>
-                                        <input type="number" step="0.0001" min="0" class="form-control bg-light border-primary" name="depreciacion_acumulada" id="af_dep_acumulada" value="0" readonly tabindex="-1">
+                                        <input type="number" step="0.0001" min="0" class="form-control" id="af_dep_acumulada" value="0" disabled>
+                                        <input type="hidden" name="depreciacion_acumulada" id="af_dep_acumulada_hidden" value="0">
                                     </div>
                                 </div>
                                 <div class="col-md-3">
@@ -221,4 +222,4 @@ $centrosCosto = $centrosCosto ?? [];
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
-<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/activos_fijos.js"></script>
+<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/activos.js"></script>
