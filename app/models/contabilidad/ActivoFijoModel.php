@@ -7,6 +7,29 @@ require_once BASE_PATH . '/app/models/contabilidad/ContaPeriodoModel.php';
 
 class ActivoFijoModel extends Modelo
 {
+    private function calcularDepreciacionHistorica(array $data): float
+    {
+        $fechaAdq = new DateTime($data['fecha_adquisicion'] ?? date('Y-m-d'));
+        $hoy = new DateTime();
+        $mesesPasados = 0;
+        $vidaUtil = max(1, (int)($data['vida_util_meses'] ?? 1));
+
+        if ($fechaAdq < $hoy) {
+            $diff = $fechaAdq->diff($hoy);
+            $mesesPasados = ($diff->y * 12) + $diff->m;
+        }
+
+        if ($mesesPasados > $vidaUtil) {
+            $mesesPasados = $vidaUtil;
+        }
+
+        $costo = round((float)($data['costo_adquisicion'] ?? 0), 4);
+        $residual = round((float)($data['valor_residual'] ?? 0), 4);
+        $base = max(0, $costo - $residual);
+
+        return round(($base / $vidaUtil) * $mesesPasados, 4);
+    }
+
     public function listar(): array
     {
         $sql = 'SELECT a.*, c1.codigo AS cuenta_activo_codigo, c2.codigo AS cuenta_dep_codigo, c3.codigo AS cuenta_gasto_codigo, cc.codigo AS centro_costo_codigo
@@ -17,7 +40,17 @@ class ActivoFijoModel extends Modelo
                 LEFT JOIN conta_centros_costo cc ON cc.id = a.id_centro_costo
                 WHERE a.deleted_at IS NULL
                 ORDER BY a.fecha_adquisicion DESC, a.id DESC';
-        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $activos = $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($activos as &$activo) {
+            $depGuardada = round((float)($activo['depreciacion_acumulada'] ?? 0), 4);
+            if ($depGuardada <= 0) {
+                $activo['depreciacion_acumulada'] = $this->calcularDepreciacionHistorica($activo);
+            }
+        }
+        unset($activo);
+
+        return $activos;
     }
 
     public function guardar(array $data, int $userId): int
@@ -25,28 +58,19 @@ class ActivoFijoModel extends Modelo
         $id = (int)($data['id'] ?? 0);
         
         if ($id === 0) {
-            // BACKEND AL RESCATE: Si es nuevo, PHP calcula la depreciación exacta histórica
-            $fechaAdq = new DateTime($data['fecha_adquisicion'] ?? date('Y-m-d'));
-            $hoy = new DateTime();
-            $mesesPasados = 0;
-            $vida_util = max(1, (int)($data['vida_util_meses'] ?? 1));
-            
-            if ($fechaAdq < $hoy) {
-                $diff = $fechaAdq->diff($hoy);
-                $mesesPasados = ($diff->y * 12) + $diff->m;
-            }
-            if ($mesesPasados > $vida_util) $mesesPasados = $vida_util;
-            
-            $costo = round((float)($data['costo_adquisicion'] ?? 0), 4);
-            $residual = round((float)($data['valor_residual'] ?? 0), 4);
-            $base = max(0, $costo - $residual);
-            
-            $dep_acumulada = round(($base / $vida_util) * $mesesPasados, 4);
+            // Si es nuevo, PHP calcula la depreciación histórica automáticamente.
+            $dep_acumulada = $this->calcularDepreciacionHistorica($data);
         } else {
-            // Si es edición, mantenemos la que ya tiene en la base de datos
+            // Si es edición, leemos la que ya tiene en base de datos.
             $stmtDep = $this->db()->prepare('SELECT depreciacion_acumulada FROM activos_fijos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
             $stmtDep->execute(['id' => $id]);
-            $dep_acumulada = round((float)($stmtDep->fetchColumn() ?: 0), 4);
+            $depGuardada = round((float)($stmtDep->fetchColumn() ?: 0), 4);
+
+            // Si la depreciación guardada está en cero (cargas antiguas/migradas),
+            // la recalculamos con la data actual para evitar que siga en 0 al editar.
+            $dep_acumulada = $depGuardada > 0
+                ? $depGuardada
+                : $this->calcularDepreciacionHistorica($data);
         }
         
         $payload = [
