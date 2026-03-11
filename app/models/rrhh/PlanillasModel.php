@@ -866,9 +866,6 @@ class PlanillasModel extends Modelo
             
             $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
             
-            // FALTABA ESTA CONSULTA PARA DESCONTAR EL SALDO
-            $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
-
             $pagosProcesables = [];
             $totalesPorCuenta = [];
 
@@ -946,12 +943,6 @@ class PlanillasModel extends Modelo
                 $stmtUpdateDetalle->execute([
                     'json' => $metodoJson,
                     'id_detalle' => $item['id_detalle'],
-                ]);
-                
-                // AQUÍ SE APLICA EL DESCUENTO REAL A LA TABLA DE CUENTAS
-                $stmtUpdateCuenta->execute([
-                    'monto' => $item['monto'],
-                    'id_cuenta' => $item['id_cuenta']
                 ]);
             }
 
