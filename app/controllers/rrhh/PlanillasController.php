@@ -75,12 +75,18 @@ class PlanillasController extends Controlador
             return;
         }
 
+        $cuentasDisponiblesDispersion = array_values(array_filter(
+            $this->cuentasModel->listarActivas(),
+            static fn (array $cuenta): bool => !empty($cuenta['id_cuenta_contable'])
+                && (int) ($cuenta['permite_pagos'] ?? 1) === 1
+        ));
+
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
             'lotes_recientes' => $lotesRecientes,
             'lote_actual' => $loteActual,
             'detalles_nomina' => $detallesNomina,
-            'cuentas' => $this->cuentasModel->listarActivas(),
+            'cuentas' => $cuentasDisponiblesDispersion,
             'metodos' => $this->listarMetodosPago()
         ]);
     }
