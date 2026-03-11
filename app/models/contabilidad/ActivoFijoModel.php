@@ -44,7 +44,9 @@ class ActivoFijoModel extends Modelo
             $dep_acumulada = round(($base / $vida_util) * $mesesPasados, 4);
         } else {
             // Si es edición, mantenemos la que ya tiene en la base de datos
-            $dep_acumulada = round((float)($data['depreciacion_acumulada'] ?? 0), 4);
+            $stmtDep = $this->db()->prepare('SELECT depreciacion_acumulada FROM activos_fijos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+            $stmtDep->execute(['id' => $id]);
+            $dep_acumulada = round((float)($stmtDep->fetchColumn() ?: 0), 4);
         }
         
         $payload = [
