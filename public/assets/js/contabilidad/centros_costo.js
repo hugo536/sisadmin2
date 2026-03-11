@@ -1,4 +1,10 @@
-(function(){
+document.addEventListener('DOMContentLoaded', function() {
+    // Pequeña validación de seguridad para asegurarnos de que Bootstrap cargó
+    if (typeof bootstrap === 'undefined') {
+        console.error('Error: La librería Bootstrap JS no está cargada en esta página.');
+        return;
+    }
+
     // 1. Inicializar los tooltips de Bootstrap para los iconos de la tabla
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -7,7 +13,7 @@
 
     // 2. Crear la instancia del Modal de Bootstrap para poder controlarlo por JS
     const modalCCElement = document.getElementById('modalCentroCosto');
-    const modalCC = modalCCElement ? new bootstrap.Modal(modalCCElement) : null;
+    const modalCC = modalCCElement ? bootstrap.Modal.getOrCreateInstance(modalCCElement) : null;
 
     // 3. Lógica para los botones de Editar
     document.querySelectorAll('.btn-editar-cc').forEach((btn) => {
@@ -47,4 +53,29 @@
             }
         });
     }
-})();
+
+    // 5. Lógica para el buscador en tiempo real
+    const inputBuscador = document.getElementById('searchCentrosCosto');
+    if (inputBuscador) {
+        inputBuscador.addEventListener('keyup', function() {
+            const textoBusqueda = this.value.toLowerCase();
+            const filas = document.querySelectorAll('#tablaCentrosCosto tbody tr');
+
+            filas.forEach(fila => {
+                // Evitar ocultar la fila de "No hay centros de costo registrados" si aparece
+                if (fila.querySelector('td[colspan]')) return;
+
+                // Capturamos el texto de la columna Código (1) y Nombre (2)
+                const codigo = fila.querySelector('td:nth-child(1)').textContent.toLowerCase();
+                const nombre = fila.querySelector('td:nth-child(2)').textContent.toLowerCase();
+
+                // Si el texto buscado está en el código o en el nombre, mostramos la fila, si no, la ocultamos
+                if (codigo.includes(textoBusqueda) || nombre.includes(textoBusqueda)) {
+                    fila.style.display = '';
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+        });
+    }
+});

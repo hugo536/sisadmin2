@@ -42,7 +42,6 @@ class Router
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
 
-
         if ($modulo === 'dashboard') {
             $modulo = 'reportes';
             $controlador_clase = 'ReportesController';
@@ -68,6 +67,57 @@ class Router
                 if ($accion === '') {
                     $accion = 'index';
                 }
+            }
+        }
+
+        // Rutas de CONTABILIDAD desviadas a subcontroladores específicos
+        if ($modulo === 'contabilidad') {
+            // 1. Centros de Costo
+            if ($accion === 'centros_costo') {
+                $controlador_clase = 'CentroCostoController';
+                $accion = 'index'; 
+            } elseif ($accion === 'guardar_centro_costo') {
+                $controlador_clase = 'CentroCostoController';
+                $accion = 'guardar'; 
+            }
+            // 2. Asientos Contables (NUEVO)
+            elseif ($accion === 'asientos') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'index';
+            } elseif ($accion === 'guardar_asiento') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'guardar';
+            } elseif ($accion === 'anular_asiento') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'anular';
+            }
+        }
+
+        // Rutas de CONTABILIDAD desviadas a subcontroladores específicos
+        if ($modulo === 'contabilidad') {
+            // 1. Centros de Costo
+            if ($accion === 'centros_costo') {
+                $controlador_clase = 'CentroCostoController';
+                $accion = 'index'; 
+            } elseif ($accion === 'guardar_centro_costo') {
+                $controlador_clase = 'CentroCostoController';
+                $accion = 'guardar'; 
+            }
+            // 2. Asientos Contables
+            elseif ($accion === 'asientos') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'index';
+            } elseif ($accion === 'guardar_asiento') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'guardar';
+            } elseif ($accion === 'anular_asiento') {
+                $controlador_clase = 'AsientoController';
+                $accion = 'anular';
+            }
+            // 3. Reportes Contables (NUEVO)
+            elseif ($accion === 'reportes') {
+                $controlador_clase = 'ReporteContableController';
+                $accion = 'index';
             }
         }
 

@@ -26,7 +26,7 @@ $balance = $balance ?? [];
             <form method="get" class="row g-2 align-items-center">
                 <input type="hidden" name="ruta" value="contabilidad/reportes">
                 
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0 small text-muted"><i class="bi bi-calendar-check me-1"></i> Periodo</span>
                         <select class="form-select bg-light border-start-0 shadow-none fw-semibold" name="id_periodo">
@@ -42,15 +42,29 @@ $balance = $balance ?? [];
 
                 <div class="col-12 col-md-3">
                     <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 small text-muted"><i class="bi bi-diagram-3 me-1"></i> C. Costo</span>
+                        <select class="form-select bg-light border-start-0 shadow-none" name="id_centro_costo">
+                            <option value="0">Todos</option>
+                            <?php foreach ($centrosCosto as $cc): ?>
+                                <option value="<?php echo (int)$cc['id']; ?>" <?php echo (int)($filtros['id_centro_costo'] ?? 0) === (int)$cc['id'] ? 'selected' : ''; ?>>
+                                    <?php echo e($cc['codigo']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <div class="input-group">
                         <span class="input-group-text bg-light border-end-0 small text-muted">Desde</span>
-                        <input type="date" class="form-control bg-light border-start-0" name="fecha_desde" value="<?php echo e((string)($filtros['fecha_desde'] ?? '')); ?>">
+                        <input type="date" class="form-control bg-light border-start-0 px-1" name="fecha_desde" value="<?php echo e((string)($filtros['fecha_desde'] ?? '')); ?>">
                     </div>
                 </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0 small text-muted">Hasta</span>
-                        <input type="date" class="form-control bg-light border-start-0" name="fecha_hasta" value="<?php echo e((string)($filtros['fecha_hasta'] ?? '')); ?>">
+                        <input type="date" class="form-control bg-light border-start-0 px-1" name="fecha_hasta" value="<?php echo e((string)($filtros['fecha_hasta'] ?? '')); ?>">
                     </div>
                 </div>
                 
@@ -194,19 +208,3 @@ $balance = $balance ?? [];
     </div>
 </div>
 
-<style>
-/* Pequeño ajuste visual para las pestañas activas */
-.nav-tabs-pro .nav-link {
-    border: none;
-    border-bottom: 3px solid transparent;
-    color: #6c757d;
-}
-.nav-tabs-pro .nav-link:hover {
-    border-color: #e9ecef;
-}
-.nav-tabs-pro .nav-link.active {
-    color: #0d6efd !important;
-    border-bottom: 3px solid #0d6efd;
-    background-color: transparent;
-}
-</style>

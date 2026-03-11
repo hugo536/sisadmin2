@@ -261,7 +261,7 @@ class ContaAsientoModel extends Modelo
                 $stmtDet->execute([
                     'id_asiento' => $idAsiento,
                     'id_cuenta' => (int)$l['id_cuenta'],
-                    'id_centro_costo' => null,
+                    'id_centro_costo' => !empty($l['id_centro_costo']) ? (int)$l['id_centro_costo'] : null,
                     'debe' => round((float)$l['debe'], 4),
                     'haber' => round((float)$l['haber'], 4),
                     'id_tercero' => !empty($l['id_tercero']) ? (int)$l['id_tercero'] : null,

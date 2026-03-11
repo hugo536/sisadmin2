@@ -260,8 +260,8 @@ $totalPaginas = $totalPaginas ?? 1;
 </div>
 
 <script>
-    window.CONTA_CUENTAS = <?php echo json_encode($cuentas, JSON_UNESCAPED_UNICODE); ?>;
+    window.CONTA_CUENTAS = <?php echo json_encode($cuentas ?? [], JSON_UNESCAPED_UNICODE); ?>;
     window.CONTA_CENTROS = <?php echo json_encode($centrosCosto ?? [], JSON_UNESCAPED_UNICODE); ?>;
 </script>
 
-<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad.js"></script>
+<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/conta_asientos.js"></script>

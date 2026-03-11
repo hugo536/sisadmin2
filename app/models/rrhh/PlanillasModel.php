@@ -48,7 +48,7 @@ class PlanillasModel extends Modelo
         }
 
         // 3. Si el lote ya está Aprobado o Pagado, devolvemos la data congelada de la BD
-                $sql = "SELECT
+        $sql = "SELECT
                     nd.id,
                     nd.id_tercero,
                     t.nombre_completo,
@@ -61,6 +61,7 @@ class PlanillasModel extends Modelo
                     nd.total_percepciones,
                     nd.total_deducciones,
                     nd.neto_a_pagar,
+                    nd.metodos_pago_json,
                     (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
                     (nd.dias_pagados * 8) AS horas_acumuladas,
                     (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
@@ -79,7 +80,35 @@ class PlanillasModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_nomina' => $idLote]);
         
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (empty($detalles)) {
+            return [];
+        }
+
+        // FASE 1: Obtener las cuentas bancarias de los empleados para la Dispersión (Tesorería)
+        $idsTerceros = array_unique(array_column($detalles, 'id_tercero'));
+        $placeholders = implode(',', array_fill(0, count($idsTerceros), '?'));
+        
+        $sqlCuentas = "SELECT id, tercero_id, entidad, tipo_cuenta, numero_cuenta, cci, billetera_digital 
+                       FROM terceros_cuentas_bancarias 
+                       WHERE tercero_id IN ($placeholders) AND estado = 1";
+        
+        $stmtCuentas = $this->db()->prepare($sqlCuentas);
+        $stmtCuentas->execute(array_values($idsTerceros));
+        $cuentas = $stmtCuentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        
+        $mapaCuentas = [];
+        foreach ($cuentas as $cta) {
+            $mapaCuentas[$cta['tercero_id']][] = $cta;
+        }
+
+        foreach ($detalles as &$det) {
+            $det['cuentas_bancarias'] = $mapaCuentas[$det['id_tercero']] ?? [];
+        }
+        unset($det);
+
+        return $detalles;
     }
 
     public function calcularNominaEnMemoria(array $lote): array
@@ -346,8 +375,9 @@ class PlanillasModel extends Modelo
                 }
             }
 
-            $totalDeducciones = $deduccionesPrevias + $descuentoAdelanto;
-            $netoFinal = $totalPercepciones - $totalDeducciones;
+            $totalDeducciones = round($deduccionesPrevias + $descuentoAdelanto, 1);
+            $totalPercepciones = round($totalPercepciones, 1);
+            $netoFinal = round($totalPercepciones - $totalDeducciones, 1);
 
             $resultados[] = [
                 'id' => $idDetalle,
@@ -372,6 +402,8 @@ class PlanillasModel extends Modelo
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
+                'metodos_pago_json' => null,
+                'cuentas_bancarias' => [],
                 'tiene_conflicto' => $tieneConflicto
             ];
         }
@@ -750,5 +782,114 @@ class PlanillasModel extends Modelo
         $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $boleta;
+    }
+
+    public function pagarLoteNominaMixto(array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        $idLote = (int) $datos['id_lote'];
+        $pagos = $datos['pagos'] ?? [];
+        $fechaPago = date('Y-m-d');
+        
+        try {
+            $db->beginTransaction();
+
+            $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
+            $stmtLote->execute(['id' => $idLote]);
+            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
+
+            if (!$lote || $lote['estado'] !== 'APROBADO') {
+                throw new Exception("El lote no existe o no está en estado APROBADO.");
+            }
+
+            // Preparar consultas que usaremos en el bucle
+            $stmtCuenta = $db->prepare("SELECT saldo_actual, nombre, moneda FROM tesoreria_cuentas WHERE id = :id_cuenta FOR UPDATE");
+            $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
+            
+            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
+                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, observaciones, estado, created_by) 
+                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by)");
+
+            $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
+
+            $cuentasUsadas = [];
+
+            // Recorremos empleado por empleado
+            foreach ($pagos as $idDetalle => $pago) {
+                $monto = (float)($pago['monto'] ?? 0);
+                if ($monto <= 0) continue;
+
+                $idCuenta = (int)($pago['id_cuenta_origen'] ?? 0);
+                $metodo = (string)($pago['metodo'] ?? 'EFECTIVO');
+
+                if ($idCuenta <= 0) {
+                    throw new Exception("Por favor seleccione la cuenta origen para todos los empleados.");
+                }
+
+                // 1. Verificamos que tu cuenta bancaria / caja tenga saldo
+                $stmtCuenta->execute(['id_cuenta' => $idCuenta]);
+                $cuentaBD = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
+
+                if (!$cuentaBD || (float)$cuentaBD['saldo_actual'] < $monto) {
+                    throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'.");
+                }
+
+                // 2. Descontamos el dinero de esa cuenta
+                $stmtUpdateCuenta->execute([
+                    'monto' => $monto,
+                    'id_cuenta' => $idCuenta
+                ]);
+
+                // 3. Registramos el movimiento individual en Tesorería
+                $metodoLimpio = str_replace('BANCO_', 'Transferencia Bancaria ', $metodo);
+                $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$idDetalle} | Vía: {$metodoLimpio}";
+                
+                $stmtMov->execute([
+                    'id_lote' => $idLote,
+                    'id_cuenta' => $idCuenta,
+                    'fecha' => $fechaPago,
+                    'moneda' => $cuentaBD['moneda'],
+                    'monto' => $monto,
+                    'observaciones' => $observacion,
+                    'created_by' => $userId
+                ]);
+
+                // 4. Guardamos en el recibo del empleado cómo se le pagó (el "sello" interno)
+                $metodoJson = json_encode([
+                    'metodo' => $metodo,
+                    'id_cuenta_origen' => $idCuenta,
+                    'monto' => $monto
+                ], JSON_UNESCAPED_UNICODE);
+                
+                $stmtUpdateDetalle->execute([
+                    'json' => $metodoJson,
+                    'id_detalle' => $idDetalle
+                ]);
+
+                $cuentasUsadas[$idCuenta] = true;
+            }
+
+            // Tomamos una cuenta de referencia para marcar el lote principal (la primera usada)
+            $idCuentaRef = !empty($cuentasUsadas) ? array_key_first($cuentasUsadas) : null;
+
+            // 5. Finalizamos marcando el lote general como PAGADO
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
+                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta 
+                WHERE id = :id_lote");
+            
+            $stmtUpdateLote->execute([
+                'fecha' => $fechaPago,
+                'id_cuenta' => $idCuentaRef,
+                'id_lote' => $idLote
+            ]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error en pagarLoteNominaMixto: " . $e->getMessage());
+            throw new Exception($e->getMessage());
+        }
     }
 }

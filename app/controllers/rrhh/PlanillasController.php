@@ -263,4 +263,35 @@ class PlanillasController extends Controlador
 
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+
+    public function pagar_lote_mixto()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            try {
+                $idLote = (int) ($_POST['id_lote'] ?? 0);
+                if ($idLote <= 0) {
+                    throw new Exception('ID de lote inválido.');
+                }
+                
+                // Aquí usa la variable de sesión donde guardas el ID del usuario actual en tu ERP
+                $userId = $_SESSION['usuario_id'] ?? 1; 
+
+                $modelo = new PlanillasModel();
+                // Llamamos a la nueva función maestra
+                $resultado = $modelo->pagarLoteNominaMixto($_POST, $userId);
+
+                if ($resultado) {
+                    // Redirigir de vuelta con mensaje de éxito
+                    header('Location: ?ruta=planillas&id_lote=' . $idLote . '&ok=Lote pagado y dispersado correctamente');
+                    exit;
+                } else {
+                    throw new Exception('No se pudo procesar el pago mixto.');
+                }
+            } catch (Exception $e) {
+                // Redirigir de vuelta con mensaje de error
+                header('Location: ?ruta=planillas&id_lote=' . ($_POST['id_lote'] ?? '') . '&error=' . urlencode($e->getMessage()));
+                exit;
+            }
+        }
+    }
 }

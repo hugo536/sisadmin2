@@ -180,7 +180,7 @@ if (!empty($detallesNomina)) {
                                         <th class="text-center text-secondary fw-semibold">Días / Horas</th>
                                         <th class="text-end text-secondary fw-semibold">Percepciones</th>
                                         <th class="text-end text-secondary fw-semibold">Deducciones</th>
-                                        <th class="text-start text-secondary fw-semibold">Movimientos</th>
+                                        <th class="text-center text-secondary fw-semibold">Movimientos</th>
                                         <th class="text-end text-dark fw-bold">Neto a Pagar</th>
                                         <th class="text-center text-secondary fw-semibold pe-4">Acciones</th>
                                     </tr>
@@ -278,7 +278,7 @@ if (!empty($detallesNomina)) {
                                                     <?php endif; ?>
                                                 </td>
 
-                                                <td class="align-top pt-3">
+                                                <td class="align-top pt-3 text-center">
                                                     <?php
                                                         $movimientos = $row['movimientos_manuales'] ?? [];
                                                         if (is_string($movimientos)) {
@@ -288,7 +288,7 @@ if (!empty($detallesNomina)) {
                                                     <?php if (empty($movimientos)): ?>
                                                         <span class="text-muted small">-</span>
                                                     <?php else: ?>
-                                                        <div class="d-flex flex-wrap gap-1">
+                                                        <div class="d-flex flex-column align-items-center gap-1">
                                                             <?php foreach ($movimientos as $mov): ?>
                                                                 <?php
                                                                     $tipo = '';
@@ -342,7 +342,7 @@ if (!empty($detallesNomina)) {
                                                             <?php endif; ?>
                                                         <?php endif; ?>
 
-                                                        <?php if (empty($row['tiene_conflicto'])): ?>
+                                                        <?php if (empty($row['tiene_conflicto']) && $estadoLote !== 'BORRADOR'): ?>
                                                             <a href="?ruta=planillas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta">
                                                                 <i class="bi bi-file-earmark-pdf fs-5"></i>
                                                             </a>
@@ -358,45 +358,99 @@ if (!empty($detallesNomina)) {
                     </div>
 
                     <div class="tab-pane fade p-4" id="tesoreria-pane" role="tabpanel" tabindex="0">
-                        <div class="row g-4">
-                            <div class="col-md-6 border-end pe-md-4">
-                                <h5 class="fw-bold mb-3"><i class="bi bi-file-earmark-arrow-down text-primary me-2"></i>Layouts Bancarios</h5>
-                                <p class="text-muted small mb-4">Descarga el archivo estructurado para subirlo al portal de tu banco y pagar a todos los empleados en una sola operación.</p>
+                        <?php if ($estadoLote === 'BORRADOR'): ?>
+                            <div class="alert alert-secondary border-0 shadow-sm small text-center p-4">
+                                <i class="bi bi-info-circle fs-2 d-block mb-2 text-muted"></i>
+                                Debes <strong>Aprobar el Lote</strong> en la pestaña anterior antes de poder configurar y registrar la dispersión de pagos.
+                            </div>
+                        <?php elseif ($estadoLote === 'APROBADO'): ?>
+                            <form method="post" action="<?php echo e(route_url('planillas/pagar_lote_mixto')); ?>" id="formDispersionMasiva">
+                                <input type="hidden" name="id_lote" value="<?php echo (int)($loteActual['id'] ?? 0); ?>">
                                 
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-outline-secondary fw-semibold d-flex justify-content-between align-items-center" <?php echo $estadoLote === 'BORRADOR' ? 'disabled' : ''; ?>>
-                                        <span><i class="bi bi-bank me-2"></i>Formato BCP (TXT)</span>
-                                        <i class="bi bi-download"></i>
-                                    </button>
-                                    <button class="btn btn-outline-secondary fw-semibold d-flex justify-content-between align-items-center" <?php echo $estadoLote === 'BORRADOR' ? 'disabled' : ''; ?>>
-                                        <span><i class="bi bi-bank me-2"></i>Formato BBVA (CSV)</span>
-                                        <i class="bi bi-download"></i>
-                                    </button>
+                                <div class="card bg-light border border-secondary-subtle shadow-sm mb-4">
+                                    <div class="card-body">
+                                        <div class="row align-items-end g-3">
+                                            <div class="col-md-5">
+                                                <label class="form-label small fw-bold text-muted mb-1">Cuenta de la empresa por defecto</label>
+                                                <select id="cuentaGlobal" class="form-select shadow-sm border-secondary-subtle">
+                                                    <option value="" selected>Seleccione una cuenta general...</option>
+                                                    <?php foreach ($cuentas as $c): ?>
+                                                        <option value="<?php echo (int)$c['id']; ?>"><?php echo htmlspecialchars($c['nombre'] . ' (' . $c['moneda'] . ')'); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="button" class="btn btn-secondary shadow-sm w-100 fw-semibold" id="btnAplicarCuentaGlobal">
+                                                    <i class="bi bi-arrow-down me-2"></i>Aplicar a todos
+                                                </button>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                <button type="submit" class="btn btn-success shadow-sm w-100 fw-bold fs-6">
+                                                    <i class="bi bi-check2-all me-2"></i>Ejecutar Pagos
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <div class="table-responsive border rounded-3 shadow-sm">
+                                    <table class="table align-middle table-hover mb-0 bg-white">
+                                        <thead class="table-light border-bottom">
+                                            <tr>
+                                                <th class="ps-4 text-secondary fw-semibold">Empleado</th>
+                                                <th class="text-end text-secondary fw-semibold">Neto a Pagar</th>
+                                                <th class="text-secondary fw-semibold ps-4" style="width: 30%">Método de Pago (Destino)</th>
+                                                <th class="text-secondary fw-semibold pe-4" style="width: 30%">Cuenta Empresa (Origen)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($detallesNomina as $det): 
+                                                if ($det['neto_a_pagar'] <= 0) continue;
+                                                $cuentasBanco = $det['cuentas_bancarias'] ?? [];
+                                            ?>
+                                                <tr>
+                                                    <td class="ps-4 fw-bold text-dark">
+                                                        <?php echo htmlspecialchars($det['nombre_completo']); ?>
+                                                        <input type="hidden" name="pagos[<?php echo $det['id']; ?>][monto]" value="<?php echo $det['neto_a_pagar']; ?>">
+                                                    </td>
+                                                    <td class="text-end fw-bold text-primary fs-6">
+                                                        S/ <?php echo number_format($det['neto_a_pagar'], 2); ?>
+                                                    </td>
+                                                    <td class="ps-4">
+                                                        <select name="pagos[<?php echo $det['id']; ?>][metodo]" class="form-select form-select-sm shadow-none border-secondary-subtle fw-medium" required>
+                                                            <option value="EFECTIVO" class="fw-bold">💵 Efectivo (Caja)</option>
+                                                            <?php if (!empty($cuentasBanco)): ?>
+                                                                <optgroup label="Cuentas Bancarias Registradas">
+                                                                    <?php foreach($cuentasBanco as $cb): ?>
+                                                                        <option value="BANCO_<?php echo $cb['id']; ?>">
+                                                                            🏦 <?php echo htmlspecialchars($cb['entidad'] . ' - ' . $cb['numero_cuenta']); ?>
+                                                                        </option>
+                                                                    <?php endforeach; ?>
+                                                                </optgroup>
+                                                            <?php endif; ?>
+                                                        </select>
+                                                    </td>
+                                                    <td class="pe-4">
+                                                        <select name="pagos[<?php echo $det['id']; ?>][id_cuenta_origen]" class="form-select form-select-sm shadow-none border-secondary-subtle select-origen-row" required>
+                                                            <option value="" selected disabled>Seleccione origen...</option>
+                                                            <?php foreach ($cuentas as $c): ?>
+                                                                <option value="<?php echo (int)$c['id']; ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </form>
+                        <?php else: ?>
+                            <div class="alert alert-success border-0 shadow-sm text-center p-5">
+                                <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-3"></i>
+                                <h4 class="fw-bold mb-1">¡Pagos Dispersados Correctamente!</h4>
+                                <p class="text-muted mb-0">Los saldos se han descontado de las cuentas respectivas en el módulo de Tesorería.</p>
                             </div>
-                            <div class="col-md-6 ps-md-4">
-                                <h5 class="fw-bold mb-3"><i class="bi bi-cash-coin text-success me-2"></i>Salida de Dinero</h5>
-                                
-                                <?php if ($estadoLote === 'BORRADOR'): ?>
-                                    <div class="alert alert-secondary border-0 shadow-sm small">
-                                        <i class="bi bi-info-circle me-1"></i> Debes <strong>Aprobar el Lote</strong> (botón superior) antes de poder registrar el pago.
-                                    </div>
-                                <?php elseif ($estadoLote === 'APROBADO'): ?>
-                                    <div class="alert alert-warning border-0 shadow-sm small">
-                                        <i class="bi bi-exclamation-triangle me-1"></i> El lote está aprobado. Falta registrar la salida del dinero.
-                                    </div>
-                                    <button class="btn btn-success fw-bold shadow-sm w-100" type="button" data-bs-toggle="modal" data-bs-target="#modalPagarLote">
-                                        <i class="bi bi-check2-all me-2"></i>Registrar Dispersión
-                                    </button>
-                                <?php else: ?>
-                                    <div class="alert alert-success border-0 shadow-sm small">
-                                        <h6 class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-1"></i>Pago Registrado</h6>
-                                        Pagado el <?php echo htmlspecialchars($loteActual['fecha_pago'] ?? '-'); ?> desde la cuenta bancaria. 
-                                        Ref: <?php echo htmlspecialchars($loteActual['referencia_pago'] ?? '-'); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?php endif; ?>
                     </div>
 
                     <div class="tab-pane fade p-5 text-center text-muted" id="contabilidad-pane" role="tabpanel" tabindex="0">
@@ -603,4 +657,4 @@ if (!empty($detallesNomina)) {
     </div>
 </div>
 
-<script src="assets/js/rrhh/planillas.js"></script>
+

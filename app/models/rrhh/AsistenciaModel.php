@@ -650,8 +650,7 @@ class AsistenciaModel extends Modelo
 
             $estadoGeneralUpper = strtoupper((string) $estadoGeneral);
             $esJustificada = strpos($estadoGeneralUpper, 'JUSTIFICADA') !== false
-                || strpos($estadoGeneralUpper, 'PERMISO') !== false
-                || strpos($estadoGeneralUpper, 'OLVIDO') !== false;
+               || strpos($estadoGeneralUpper, 'PERMISO') !== false;
 
             $ingresosCalc = [];
             foreach ($ingresos as $ing) {
@@ -968,7 +967,7 @@ class AsistenciaModel extends Modelo
         if (!empty($data['aplicar_justificacion']) || !empty($_POST['aplicar_justificacion'])) {
             $estadoFinal = $_POST['nuevo_estado'] ?? $data['nuevo_estado'] ?? 'JUSTIFICADA';
             
-            if (in_array($estadoFinal, ['TARDANZA JUSTIFICADA', 'FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'OLVIDO MARCACION'])) {
+            if (in_array($estadoFinal, ['TARDANZA JUSTIFICADA', 'FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO'])) {
                 $minutosTardanza = 0; 
             }
             if (in_array($estadoFinal, ['FALTA JUSTIFICADA', 'VACACIONES', 'DESCANSO MEDICO'])) {

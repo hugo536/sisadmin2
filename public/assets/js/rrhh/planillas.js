@@ -129,7 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnAgregarMovimiento) {
-        btnAgregarMovimiento.addEventListener('click', () => agregarMovimientoInicial());
+        btnAgregarMovimiento.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            agregarMovimientoInicial();
+        });
     }
 
     if (contenedorMovimientos) {
@@ -383,6 +387,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
+        });
+    }
+
+    // Aplicar cuenta global a todos los empleados en la dispersión
+    const btnAplicarGlobal = document.getElementById('btnAplicarCuentaGlobal');
+    if (btnAplicarGlobal) {
+        btnAplicarGlobal.addEventListener('click', () => {
+            const cuentaGlobal = document.getElementById('cuentaGlobal').value;
+            
+            if (!cuentaGlobal) {
+                alert('⚠️ Por favor, seleccione una cuenta general en el desplegable primero.');
+                return;
+            }
+
+            document.querySelectorAll('.select-origen-row').forEach(select => {
+                select.value = cuentaGlobal;
+            });
         });
     }
 

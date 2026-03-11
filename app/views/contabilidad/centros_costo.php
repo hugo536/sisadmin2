@@ -130,4 +130,4 @@ $centros = $centros ?? [];
         </div>
     </div>
 </div>
-<script src="<?php echo e(asset_url('js/centros_costo.js')); ?>"></script>
+<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/centros_costo.js"></script>

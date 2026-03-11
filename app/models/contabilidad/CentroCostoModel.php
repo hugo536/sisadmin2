@@ -27,8 +27,17 @@ class CentroCostoModel extends Modelo
             return $id;
         }
 
-        $stmt = $this->db()->prepare('INSERT INTO conta_centros_costo (codigo, nombre, estado, created_by, updated_by, created_at, updated_at) VALUES (:codigo, :nombre, :estado, :user, :user, NOW(), NOW())');
-        $stmt->execute(['codigo' => $codigo, 'nombre' => $nombre, 'estado' => $estado, 'user' => $userId]);
+        // 👇 ESTA ES LA PARTE QUE CORREGIMOS 👇
+        $stmt = $this->db()->prepare('INSERT INTO conta_centros_costo (codigo, nombre, estado, created_by, updated_by, created_at, updated_at) VALUES (:codigo, :nombre, :estado, :user_created, :user_updated, NOW(), NOW())');
+        
+        $stmt->execute([
+            'codigo' => $codigo, 
+            'nombre' => $nombre, 
+            'estado' => $estado, 
+            'user_created' => $userId, // Pasamos el valor para created_by
+            'user_updated' => $userId  // Pasamos el valor para updated_by
+        ]);
+        
         return (int)$this->db()->lastInsertId();
     }
 }
