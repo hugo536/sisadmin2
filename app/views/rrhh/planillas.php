@@ -6,7 +6,7 @@ $detallesNomina = $detalles_nomina ?? [];
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? [];
 
-$estadoLote = $loteActual['estado'] ?? 'BORRADOR';
+$estadoLote = strtoupper((string)($loteActual['estado'] ?? 'BORRADOR'));
 
 // Extraemos totales para los KPIs sumando dinámicamente los detalles
 $nominaTotal = 0.0;
@@ -656,5 +656,4 @@ if (!empty($detallesNomina)) {
         </div>
     </div>
 </div>
-
 
