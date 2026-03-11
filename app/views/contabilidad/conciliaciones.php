@@ -229,4 +229,4 @@ $idConciliacionActiva = (int)($idConciliacionActiva ?? 0);
     </div>
 </div>
 
-<script src="<?php echo e(asset_url('js/conciliacion.js')); ?>"></script>
+<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/conciliaciones.js?v=<?php echo time(); ?>"></script>

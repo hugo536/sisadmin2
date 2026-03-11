@@ -56,25 +56,45 @@ class ConciliacionBancariaModel extends Modelo
         fgetcsv($fh);
         $ins = $this->db()->prepare('INSERT INTO tesoreria_conciliaciones_detalle (id_conciliacion,fecha,descripcion,monto,referencia,created_by,updated_by,created_at,updated_at) VALUES (:id_conciliacion,:fecha,:descripcion,:monto,:referencia,:user,:user,NOW(),NOW())');
         while (($row = fgetcsv($fh)) !== false) {
-            if (count($row) < 3) continue;
-            $ins->execute([
-                'id_conciliacion' => $idConciliacion,
-                'fecha' => $row[0],
-                'descripcion' => $row[1],
-                'monto' => round((float)$row[2], 4),
-                'referencia' => $row[3] ?? null,
-                'user' => $userId,
-            ]);
-            $n++;
-        }
+                if (count($row) < 3) continue;
+                
+                // MAGIA DE FECHAS: Convertir DD/MM/YYYY a YYYY-MM-DD
+                $fechaRaw = trim($row[0]);
+                $fechaFormat = DateTime::createFromFormat('d/m/Y', $fechaRaw);
+                $fechaSql = $fechaFormat ? $fechaFormat->format('Y-m-d') : $fechaRaw; // Fallback si ya viene bien
+
+                $ins->execute([
+                    'id_conciliacion' => $idConciliacion,
+                    'fecha' => $fechaSql,
+                    'descripcion' => trim($row[1]),
+                    'monto' => round((float)$row[2], 4),
+                    'referencia' => trim($row[3] ?? ''),
+                    'user' => $userId,
+                ]);
+                $n++;
+            }
         fclose($fh);
         return $n;
     }
 
     public function marcarDetalle(int $idDetalle, bool $conciliado, int $userId): void
     {
+        // 1. Actualiza el detalle
         $stmt = $this->db()->prepare('UPDATE tesoreria_conciliaciones_detalle SET conciliado=:conciliado, updated_by=:user, updated_at=NOW() WHERE id=:id');
         $stmt->execute(['conciliado' => $conciliado ? 1 : 0, 'user' => $userId, 'id' => $idDetalle]);
+
+        // 2. Busca a qué conciliación pertenece este detalle
+        $idConc = $this->db()->query("SELECT id_conciliacion FROM tesoreria_conciliaciones_detalle WHERE id=$idDetalle")->fetchColumn();
+        
+        // 3. OBTENEMOS LOS DATOS Y RECALCULAMOS
+        if ($idConc) {
+            $conc = $this->db()->query("SELECT id_cuenta_bancaria, periodo, saldo_estado_cuenta FROM tesoreria_conciliaciones WHERE id=$idConc")->fetch(PDO::FETCH_ASSOC);
+            $nuevoSaldoSis = $this->calcularSaldoSistema((int)$conc['id_cuenta_bancaria'], $conc['periodo']);
+            $nuevaDif = round((float)$conc['saldo_estado_cuenta'] - $nuevoSaldoSis, 4);
+            
+            $upd = $this->db()->prepare("UPDATE tesoreria_conciliaciones SET saldo_sistema=:sis, diferencia=:dif WHERE id=:id");
+            $upd->execute(['sis' => $nuevoSaldoSis, 'dif' => $nuevaDif, 'id' => $idConc]);
+        }
     }
 
     public function obtenerDetalle(int $idConciliacion): array
