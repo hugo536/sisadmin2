@@ -851,7 +851,9 @@
                 return 'El tipo de sangre seleccionado no es válido.';
             }
 
-            const cuentas = form.querySelectorAll('#' + form.id.replace('form', '').replace('Tercero','').toLowerCase() + 'CuentasList .card');
+            const formId = typeof form.getAttribute === 'function' ? (form.getAttribute('id') || '') : '';
+            const cuentasListId = formId === 'formEditarTercero' ? 'editCuentasBancariasList' : 'crearCuentasBancariasList';
+            const cuentas = form.querySelectorAll(`#${cuentasListId} .card`);
             for (let i = 0; i < cuentas.length; i++) {
                 const row = cuentas[i];
                 const entidadId = (row.querySelector('input[name="cuenta_config_banco_id[]"]')?.value || '').trim();
