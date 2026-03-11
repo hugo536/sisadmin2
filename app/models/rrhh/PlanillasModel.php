@@ -93,14 +93,46 @@ class PlanillasModel extends Modelo
         $sqlCuentas = "SELECT id, tercero_id, entidad, tipo_cuenta, numero_cuenta, cci, billetera_digital 
                        FROM terceros_cuentas_bancarias 
                        WHERE tercero_id IN ($placeholders) AND estado = 1";
-        
+
         $stmtCuentas = $this->db()->prepare($sqlCuentas);
         $stmtCuentas->execute(array_values($idsTerceros));
         $cuentas = $stmtCuentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        
+
         $mapaCuentas = [];
+        $cuentasVistas = [];
         foreach ($cuentas as $cta) {
-            $mapaCuentas[$cta['tercero_id']][] = $cta;
+            $terceroId = (int) ($cta['tercero_id'] ?? 0);
+            if ($terceroId <= 0) {
+                continue;
+            }
+
+            $entidad = trim((string) ($cta['entidad'] ?? ''));
+            $numeroCuenta = trim((string) ($cta['numero_cuenta'] ?? ''));
+            $cci = trim((string) ($cta['cci'] ?? ''));
+
+            if ($numeroCuenta === '-') {
+                $numeroCuenta = '';
+            }
+            if ($cci === '-') {
+                $cci = '';
+            }
+
+            if ($entidad === '' || ($numeroCuenta === '' && $cci === '')) {
+                continue;
+            }
+
+            $dedupeKey = mb_strtolower($entidad . '|' . $numeroCuenta . '|' . $cci . '|' . (string)($cta['tipo_cuenta'] ?? '') . '|' . (string)($cta['billetera_digital'] ?? 0));
+            if (isset($cuentasVistas[$terceroId][$dedupeKey])) {
+                continue;
+            }
+            $cuentasVistas[$terceroId][$dedupeKey] = true;
+
+            $cta['entidad'] = $entidad;
+            $cta['numero_cuenta'] = $numeroCuenta;
+            $cta['cci'] = $cci;
+            $cta['numero_mostrar'] = $numeroCuenta !== '' ? $numeroCuenta : $cci;
+
+            $mapaCuentas[$terceroId][] = $cta;
         }
 
         foreach ($detalles as &$det) {
