@@ -9,10 +9,12 @@ class ActivoFijoModel extends Modelo
 {
     public function listar(): array
     {
-        $sql = 'SELECT a.*, c1.codigo AS cuenta_activo_codigo, c2.codigo AS cuenta_dep_codigo
+        // Añadimos LEFT JOIN para poder mostrar el código del centro de costo en la tabla de la vista
+        $sql = 'SELECT a.*, c1.codigo AS cuenta_activo_codigo, c2.codigo AS cuenta_dep_codigo, cc.codigo AS centro_costo_codigo
                 FROM activos_fijos a
                 INNER JOIN conta_cuentas c1 ON c1.id = a.id_cuenta_activo
                 INNER JOIN conta_cuentas c2 ON c2.id = a.id_cuenta_depreciacion
+                LEFT JOIN conta_centros_costo cc ON cc.id = a.id_centro_costo
                 WHERE a.deleted_at IS NULL
                 ORDER BY a.fecha_adquisicion DESC, a.id DESC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -30,6 +32,7 @@ class ActivoFijoModel extends Modelo
             'valor_residual' => round((float)($data['valor_residual'] ?? 0), 4),
             'id_cuenta_activo' => (int)($data['id_cuenta_activo'] ?? 0),
             'id_cuenta_depreciacion' => (int)($data['id_cuenta_depreciacion'] ?? 0),
+            'id_centro_costo' => empty($data['id_centro_costo']) ? null : (int)$data['id_centro_costo'], // Capturamos el centro de costo
             'estado' => (string)($data['estado'] ?? 'ACTIVO'),
         ];
 
@@ -40,17 +43,19 @@ class ActivoFijoModel extends Modelo
         $valorLibros = max(0, $payload['costo_adquisicion'] - $payload['valor_residual']);
 
         if ($id > 0) {
+            // Se añade id_centro_costo a la actualización
             $stmt = $this->db()->prepare('UPDATE activos_fijos SET codigo_activo=:codigo_activo, nombre=:nombre, fecha_adquisicion=:fecha_adquisicion,
                 costo_adquisicion=:costo_adquisicion, vida_util_meses=:vida_util_meses, valor_residual=:valor_residual,
-                id_cuenta_activo=:id_cuenta_activo, id_cuenta_depreciacion=:id_cuenta_depreciacion, estado=:estado,
+                id_cuenta_activo=:id_cuenta_activo, id_cuenta_depreciacion=:id_cuenta_depreciacion, id_centro_costo=:id_centro_costo, estado=:estado,
                 valor_libros = GREATEST(:valor_libros, valor_libros), updated_by=:user, updated_at=NOW() WHERE id=:id');
             $stmt->execute($payload + ['valor_libros' => $valorLibros, 'user' => $userId, 'id' => $id]);
             return $id;
         }
 
+        // Se añade id_centro_costo a la inserción
         $stmt = $this->db()->prepare('INSERT INTO activos_fijos
-            (codigo_activo,nombre,fecha_adquisicion,costo_adquisicion,vida_util_meses,valor_residual,valor_libros,id_cuenta_activo,id_cuenta_depreciacion,estado,created_by,updated_by,created_at,updated_at)
-            VALUES (:codigo_activo,:nombre,:fecha_adquisicion,:costo_adquisicion,:vida_util_meses,:valor_residual,:valor_libros,:id_cuenta_activo,:id_cuenta_depreciacion,:estado,:user,:user,NOW(),NOW())');
+            (codigo_activo,nombre,fecha_adquisicion,costo_adquisicion,vida_util_meses,valor_residual,valor_libros,id_cuenta_activo,id_cuenta_depreciacion,id_centro_costo,estado,created_by,updated_by,created_at,updated_at)
+            VALUES (:codigo_activo,:nombre,:fecha_adquisicion,:costo_adquisicion,:vida_util_meses,:valor_residual,:valor_libros,:id_cuenta_activo,:id_cuenta_depreciacion,:id_centro_costo,:estado,:user,:user,NOW(),NOW())');
         $stmt->execute($payload + ['valor_libros' => $valorLibros, 'user' => $userId]);
         return (int)$this->db()->lastInsertId();
     }
@@ -83,6 +88,9 @@ class ActivoFijoModel extends Modelo
                     continue;
                 }
 
+                // Aquí enviamos el Centro de Costo al asiento automático
+                $ccId = !empty($a['id_centro_costo']) ? (int)$a['id_centro_costo'] : 0;
+
                 $idAsiento = $asientoModel->crearManual([
                     'fecha' => sprintf('%04d-%02d-28', $anio, $mes),
                     'id_periodo' => (int)$periodoConta['id'],
@@ -90,8 +98,11 @@ class ActivoFijoModel extends Modelo
                     'origen_modulo' => 'MANUAL',
                     'estado' => 'REGISTRADO',
                 ], [
-                    ['id_cuenta' => (int)$a['id_cuenta_depreciacion'], 'debe' => $monto, 'haber' => 0, 'referencia' => 'DEP-' . $a['codigo_activo']],
-                    ['id_cuenta' => (int)$a['id_cuenta_activo'], 'debe' => 0, 'haber' => $monto, 'referencia' => 'DEP-' . $a['codigo_activo']],
+                    // El Gasto (Debe) asume el Centro de Costo (Ej. Planta de Producción)
+                    ['id_cuenta' => (int)$a['id_cuenta_depreciacion'], 'debe' => $monto, 'haber' => 0, 'referencia' => 'DEP-' . $a['codigo_activo'], 'id_centro_costo' => $ccId],
+                    
+                    // La cuenta de activo (Haber)
+                    ['id_cuenta' => (int)$a['id_cuenta_activo'], 'debe' => 0, 'haber' => $monto, 'referencia' => 'DEP-' . $a['codigo_activo'], 'id_centro_costo' => 0],
                 ], $userId);
 
                 $ins = $db->prepare('INSERT INTO conta_depreciaciones (id_activo_fijo,periodo,monto,id_asiento,created_by,updated_by,created_at,updated_at) VALUES (:id,:periodo,:monto,:id_asiento,:user,:user,NOW(),NOW())');

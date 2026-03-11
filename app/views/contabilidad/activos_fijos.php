@@ -1,6 +1,7 @@
 <?php
 $activos = $activos ?? [];
 $cuentas = $cuentas ?? [];
+$centrosCosto = $centrosCosto ?? [];
 ?>
 <div class="container-fluid p-4">
     
@@ -13,8 +14,8 @@ $cuentas = $cuentas ?? [];
         </div>
 
         <div class="d-flex gap-2">
-            <?php if (tiene_permiso('activos.gestionar')): // Asumiendo que usas tu control de permisos ?>
-                <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalActivoFijo">
+            <?php if (tiene_permiso('activos.gestionar')): ?>
+                <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalActivoFijo" id="btnNuevoActivo">
                     <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Activo
                 </button>
             <?php endif; ?>
@@ -45,7 +46,8 @@ $cuentas = $cuentas ?? [];
                             <th class="text-end text-secondary fw-semibold">Costo Adquisición</th>
                             <th class="text-end text-secondary fw-semibold">Dep. Acumulada</th>
                             <th class="text-end text-secondary fw-semibold">Valor en Libros</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Estado</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -53,24 +55,50 @@ $cuentas = $cuentas ?? [];
                             <?php foreach ($activos as $a): ?>
                                 <tr class="border-bottom">
                                     <td class="ps-4 fw-semibold text-primary pt-3"><?php echo e($a['codigo_activo']); ?></td>
-                                    <td class="fw-semibold text-dark pt-3"><?php echo e($a['nombre']); ?></td>
+                                    <td class="pt-3">
+                                        <span class="fw-semibold text-dark d-block"><?php echo e($a['nombre']); ?></span>
+                                        <?php if(!empty($a['centro_costo_codigo'])): ?>
+                                            <span class="badge bg-light text-secondary border mt-1"><i class="bi bi-diagram-3 me-1"></i><?php echo e($a['centro_costo_codigo']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-end pt-3"><?php echo number_format((float)$a['costo_adquisicion'], 4); ?></td>
                                     <td class="text-end text-danger opacity-75 pt-3"><?php echo number_format((float)$a['depreciacion_acumulada'], 4); ?></td>
                                     <td class="text-end fw-bold text-success pt-3"><?php echo number_format((float)$a['valor_libros'], 4); ?></td>
-                                    <td class="text-center pe-4 pt-3">
+                                    <td class="text-center pt-3">
                                         <?php 
-                                        $estadoLimpio = strtolower(trim($a['estado']));
-                                        $esActivo = ($estadoLimpio === 'activo');
+                                        $estadoLimpio = strtoupper(trim($a['estado']));
+                                        $claseEstado = match($estadoLimpio) {
+                                            'ACTIVO' => 'bg-success-subtle text-success border border-success-subtle',
+                                            'DEPRECIADO' => 'bg-warning-subtle text-warning border border-warning-subtle',
+                                            default => 'bg-secondary-subtle text-secondary border border-secondary-subtle'
+                                        };
                                         ?>
-                                        <span class="badge px-3 py-2 rounded-pill <?php echo $esActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>">
-                                            <?php echo e(ucfirst($a['estado'])); ?>
+                                        <span class="badge px-3 py-2 rounded-pill <?php echo $claseEstado; ?>">
+                                            <?php echo e($estadoLimpio); ?>
                                         </span>
+                                    </td>
+                                    <td class="text-end pe-4 pt-3">
+                                        <button type="button" class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle btn-editar-activo"
+                                                data-id="<?php echo (int)$a['id']; ?>"
+                                                data-codigo="<?php echo e($a['codigo_activo']); ?>"
+                                                data-nombre="<?php echo e($a['nombre']); ?>"
+                                                data-fecha="<?php echo e($a['fecha_adquisicion']); ?>"
+                                                data-costo="<?php echo (float)$a['costo_adquisicion']; ?>"
+                                                data-residual="<?php echo (float)$a['valor_residual']; ?>"
+                                                data-vida="<?php echo (int)$a['vida_util_meses']; ?>"
+                                                data-cta-activo="<?php echo (int)$a['id_cuenta_activo']; ?>"
+                                                data-cta-dep="<?php echo (int)$a['id_cuenta_depreciacion']; ?>"
+                                                data-centro="<?php echo (int)$a['id_centro_costo']; ?>"
+                                                data-estado="<?php echo e($a['estado']); ?>"
+                                                title="Editar Activo">
+                                            <i class="bi bi-pencil-square fs-5"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-5">
+                                <td colspan="7" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     No hay registros de activos fijos.
                                 </td>
@@ -88,7 +116,7 @@ $cuentas = $cuentas ?? [];
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-building-add me-2"></i>Registrar Activo Fijo</h5>
+                <h5 class="modal-title fw-bold" id="tituloModalActivo"><i class="bi bi-building-add me-2"></i>Registrar Activo Fijo</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
@@ -102,11 +130,28 @@ $cuentas = $cuentas ?? [];
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Código del Activo <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="codigo_activo" id="af_codigo" placeholder="Ej. MAQ-001" required>
+                                    <input type="text" class="form-control shadow-none" name="codigo_activo" id="af_codigo" placeholder="Ej. MAQ-001" required>
                                 </div>
                                 <div class="col-md-8">
                                     <label class="form-label small text-muted fw-bold">Nombre / Descripción <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="nombre" id="af_nombre" placeholder="Ej. Computadora HP ProBook" required>
+                                    <input type="text" class="form-control shadow-none" name="nombre" id="af_nombre" placeholder="Ej. Computadora HP ProBook" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted fw-bold">Centro de Costo (Depreciación)</label>
+                                    <select class="form-select shadow-none" name="id_centro_costo" id="af_centro">
+                                        <option value="0">Sin centro de costo asignado</option>
+                                        <?php foreach ($centrosCosto as $cc): ?>
+                                            <option value="<?php echo (int)$cc['id']; ?>"><?php echo e($cc['codigo'] . ' - ' . $cc['nombre']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted fw-bold">Estado</label>
+                                    <select class="form-select shadow-none" name="estado" id="af_estado">
+                                        <option value="ACTIVO">ACTIVO</option>
+                                        <option value="DEPRECIADO">DEPRECIADO</option>
+                                        <option value="INACTIVO">INACTIVO / DE BAJA</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -118,30 +163,30 @@ $cuentas = $cuentas ?? [];
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Fecha de Adquisición <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control shadow-none" name="fecha_adquisicion" required>
+                                    <input type="date" class="form-control shadow-none" name="fecha_adquisicion" id="af_fecha" required>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Costo Adquisición <span class="text-danger">*</span></label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">$</span>
-                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="costo_adquisicion" placeholder="0.00" required>
+                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="costo_adquisicion" id="af_costo" placeholder="0.00" required>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Valor Residual</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">$</span>
-                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="valor_residual" placeholder="0.00" value="0">
+                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="valor_residual" id="af_residual" placeholder="0.00" value="0">
                                     </div>
                                 </div>
                                 
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Vida Útil (Meses) <span class="text-danger">*</span></label>
-                                    <input type="number" min="1" class="form-control shadow-none" name="vida_util_meses" placeholder="Ej. 60" required>
+                                    <input type="number" min="1" class="form-control shadow-none" name="vida_util_meses" id="af_vida" placeholder="Ej. 60" required>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted fw-bold">Cuenta de Activo <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none" name="id_cuenta_activo" required>
+                                    <select class="form-select shadow-none" name="id_cuenta_activo" id="af_cta_activo" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($cuentas as $c): ?>
                                             <option value="<?php echo (int)$c['id']; ?>"><?php echo e($c['codigo'] . ' - ' . $c['nombre']); ?></option>
@@ -149,8 +194,8 @@ $cuentas = $cuentas ?? [];
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small text-muted fw-bold">Cuenta Depreciación <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none" name="id_cuenta_depreciacion" required>
+                                    <label class="form-label small text-muted fw-bold">Cuenta Gasto/Depreciación <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none" name="id_cuenta_depreciacion" id="af_cta_dep" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($cuentas as $c): ?>
                                             <option value="<?php echo (int)$c['id']; ?>"><?php echo e($c['codigo'] . ' - ' . $c['nombre']); ?></option>
@@ -170,3 +215,5 @@ $cuentas = $cuentas ?? [];
         </div>
     </div>
 </div>
+
+<script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/activos_fijos.js"></script>

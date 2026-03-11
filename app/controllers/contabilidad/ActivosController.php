@@ -5,17 +5,20 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/contabilidad/ActivoFijoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 
 class ActivosController extends Controlador
 {
     private ActivoFijoModel $model;
     private ContaCuentaModel $cuentas;
+    private CentroCostoModel $centrosCosto;
 
     public function __construct()
     {
         parent::__construct();
         $this->model = new ActivoFijoModel();
         $this->cuentas = new ContaCuentaModel();
+        $this->centrosCosto = new CentroCostoModel();
     }
 
     public function index(): void
@@ -27,6 +30,7 @@ class ActivosController extends Controlador
             'ruta_actual' => 'activos/index',
             'activos' => $this->model->listar(),
             'cuentas' => $this->cuentas->listarMovimientoActivas(),
+            'centrosCosto' => $this->centrosCosto->listar(), // Enviamos los centros a la vista
         ]);
     }
 
