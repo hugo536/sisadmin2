@@ -40,7 +40,17 @@ class ActivoFijoModel extends Modelo
                 LEFT JOIN conta_centros_costo cc ON cc.id = a.id_centro_costo
                 WHERE a.deleted_at IS NULL
                 ORDER BY a.fecha_adquisicion DESC, a.id DESC';
-        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $activos = $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($activos as &$activo) {
+            $depGuardada = round((float)($activo['depreciacion_acumulada'] ?? 0), 4);
+            if ($depGuardada <= 0) {
+                $activo['depreciacion_acumulada'] = $this->calcularDepreciacionHistorica($activo);
+            }
+        }
+        unset($activo);
+
+        return $activos;
     }
 
     public function guardar(array $data, int $userId): int
