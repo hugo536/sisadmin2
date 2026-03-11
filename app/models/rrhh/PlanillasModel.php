@@ -726,7 +726,21 @@ class PlanillasModel extends Modelo
                 throw new Exception("El lote no existe o no está en estado APROBADO.");
             }
 
-            $stmtCuenta = $db->prepare("SELECT saldo_actual FROM tesoreria_cuentas WHERE id = :id_cuenta FOR UPDATE");
+            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
+                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
+                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                WHERE c.id = :id_cuenta
+                  AND c.deleted_at IS NULL
+                FOR UPDATE");
             $stmtCuenta->execute(['id_cuenta' => $datos['id_cuenta']]);
             $cuenta = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
 
@@ -736,22 +750,17 @@ class PlanillasModel extends Modelo
 
             $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
                 (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, referencia, observaciones, estado, created_by) 
-                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, 'PEN', :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by)");
+                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by)");
             
             $stmtMov->execute([
                 'id_lote' => $idLote,
                 'id_cuenta' => $datos['id_cuenta'],
                 'fecha' => $datos['fecha_pago'],
+                'moneda' => $cuenta['moneda'] ?? 'PEN',
                 'monto' => $lote['total_neto'],
                 'referencia' => $datos['referencia'] ?? null,
                 'observaciones' => "Pago de Lote de Nómina: " . $lote['nombre'],
                 'created_by' => $userId
-            ]);
-
-            $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
-            $stmtUpdateCuenta->execute([
-                'monto' => $lote['total_neto'],
-                'id_cuenta' => $datos['id_cuenta']
             ]);
 
             $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
@@ -822,7 +831,7 @@ class PlanillasModel extends Modelo
         $idLote = (int) $datos['id_lote'];
         $pagos = $datos['pagos'] ?? [];
         $fechaPago = date('Y-m-d');
-        
+
         try {
             $db->beginTransaction();
 
@@ -834,90 +843,120 @@ class PlanillasModel extends Modelo
                 throw new Exception("El lote no existe o no está en estado APROBADO.");
             }
 
-            // Preparar consultas que usaremos en el bucle
-            $stmtCuenta = $db->prepare("SELECT saldo_actual, nombre, moneda FROM tesoreria_cuentas WHERE id = :id_cuenta FOR UPDATE");
-            $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
-            
-            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
-                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, observaciones, estado, created_by) 
-                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by)");
+            $stmtDetalle = $db->prepare("SELECT id FROM rrhh_nominas_detalles WHERE id = :id_detalle AND id_nomina = :id_lote LIMIT 1");
+            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
+                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
+                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                WHERE c.id = :id_cuenta
+                  AND c.deleted_at IS NULL
+                FOR UPDATE");
 
+            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos
+                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, observaciones, estado, created_by)
+                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by)");
             $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
 
-            $cuentasUsadas = [];
+            $pagosProcesables = [];
+            $totalesPorCuenta = [];
 
-            // Recorremos empleado por empleado
             foreach ($pagos as $idDetalle => $pago) {
-                $monto = (float)($pago['monto'] ?? 0);
-                if ($monto <= 0) continue;
+                $idDetalle = (int) $idDetalle;
+                $monto = (float) ($pago['monto'] ?? 0);
+                if ($monto <= 0) {
+                    continue;
+                }
 
-                $idCuenta = (int)($pago['id_cuenta_origen'] ?? 0);
-                $metodo = (string)($pago['metodo'] ?? 'EFECTIVO');
+                $idCuenta = (int) ($pago['id_cuenta_origen'] ?? 0);
+                $metodo = strtoupper(trim((string) ($pago['metodo'] ?? 'EFECTIVO')));
 
                 if ($idCuenta <= 0) {
                     throw new Exception("Por favor seleccione la cuenta origen para todos los empleados.");
                 }
 
-                // 1. Verificamos que tu cuenta bancaria / caja tenga saldo
+                $stmtDetalle->execute([
+                    'id_detalle' => $idDetalle,
+                    'id_lote' => $idLote,
+                ]);
+                if (!$stmtDetalle->fetch(PDO::FETCH_ASSOC)) {
+                    throw new Exception("El detalle #{$idDetalle} no pertenece al lote seleccionado.");
+                }
+
+                $pagosProcesables[] = [
+                    'id_detalle' => $idDetalle,
+                    'id_cuenta' => $idCuenta,
+                    'metodo' => $metodo,
+                    'monto' => $monto,
+                ];
+                $totalesPorCuenta[$idCuenta] = ($totalesPorCuenta[$idCuenta] ?? 0.0) + $monto;
+            }
+
+            if (empty($pagosProcesables)) {
+                throw new Exception('No hay pagos válidos para procesar en este lote.');
+            }
+
+            $cuentasInfo = [];
+            foreach ($totalesPorCuenta as $idCuenta => $montoCuenta) {
                 $stmtCuenta->execute(['id_cuenta' => $idCuenta]);
                 $cuentaBD = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
 
-                if (!$cuentaBD || (float)$cuentaBD['saldo_actual'] < $monto) {
+                if (!$cuentaBD || (float) $cuentaBD['saldo_actual'] < (float) $montoCuenta) {
                     throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'.");
                 }
 
-                // 2. Descontamos el dinero de esa cuenta
-                $stmtUpdateCuenta->execute([
-                    'monto' => $monto,
-                    'id_cuenta' => $idCuenta
-                ]);
-
-                // 3. Registramos el movimiento individual en Tesorería
-                $metodoLimpio = str_replace('BANCO_', 'Transferencia Bancaria ', $metodo);
-                $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$idDetalle} | Vía: {$metodoLimpio}";
-                
-                $stmtMov->execute([
-                    'id_lote' => $idLote,
-                    'id_cuenta' => $idCuenta,
-                    'fecha' => $fechaPago,
-                    'moneda' => $cuentaBD['moneda'],
-                    'monto' => $monto,
-                    'observaciones' => $observacion,
-                    'created_by' => $userId
-                ]);
-
-                // 4. Guardamos en el recibo del empleado cómo se le pagó (el "sello" interno)
-                $metodoJson = json_encode([
-                    'metodo' => $metodo,
-                    'id_cuenta_origen' => $idCuenta,
-                    'monto' => $monto
-                ], JSON_UNESCAPED_UNICODE);
-                
-                $stmtUpdateDetalle->execute([
-                    'json' => $metodoJson,
-                    'id_detalle' => $idDetalle
-                ]);
-
-                $cuentasUsadas[$idCuenta] = true;
+                $cuentasInfo[$idCuenta] = $cuentaBD;
             }
 
-            // Tomamos una cuenta de referencia para marcar el lote principal (la primera usada)
-            $idCuentaRef = !empty($cuentasUsadas) ? array_key_first($cuentasUsadas) : null;
+            foreach ($pagosProcesables as $item) {
+                $metodoLimpio = str_starts_with($item['metodo'], 'BANCO_')
+                    ? 'Transferencia Bancaria'
+                    : 'Efectivo';
 
-            // 5. Finalizamos marcando el lote general como PAGADO
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
-                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta 
+                $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$item['id_detalle']} | Vía: {$metodoLimpio}";
+
+                $stmtMov->execute([
+                    'id_lote' => $idLote,
+                    'id_cuenta' => $item['id_cuenta'],
+                    'fecha' => $fechaPago,
+                    'moneda' => $cuentasInfo[$item['id_cuenta']]['moneda'],
+                    'monto' => $item['monto'],
+                    'observaciones' => $observacion,
+                    'created_by' => $userId,
+                ]);
+
+                $metodoJson = json_encode([
+                    'metodo' => $item['metodo'],
+                    'id_cuenta_origen' => $item['id_cuenta'],
+                    'monto' => $item['monto'],
+                ], JSON_UNESCAPED_UNICODE);
+
+                $stmtUpdateDetalle->execute([
+                    'json' => $metodoJson,
+                    'id_detalle' => $item['id_detalle'],
+                ]);
+            }
+
+            $idCuentaRef = (int) $pagosProcesables[0]['id_cuenta'];
+
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas
+                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta
                 WHERE id = :id_lote");
-            
             $stmtUpdateLote->execute([
                 'fecha' => $fechaPago,
                 'id_cuenta' => $idCuentaRef,
-                'id_lote' => $idLote
+                'id_lote' => $idLote,
             ]);
 
             $db->commit();
             return true;
-
         } catch (Exception $e) {
             $db->rollBack();
             error_log("Error en pagarLoteNominaMixto: " . $e->getMessage());
