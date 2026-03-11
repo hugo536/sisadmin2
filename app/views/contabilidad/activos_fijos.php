@@ -75,6 +75,7 @@ $centrosCosto = $centrosCosto ?? [];
                                                 data-fecha="<?php echo e($a['fecha_adquisicion']); ?>"
                                                 data-costo="<?php echo (float)$a['costo_adquisicion']; ?>"
                                                 data-residual="<?php echo (float)$a['valor_residual']; ?>"
+                                                data-depacum="<?php echo (float)$a['depreciacion_acumulada']; ?>" 
                                                 data-vida="<?php echo (int)$a['vida_util_meses']; ?>"
                                                 data-cta-activo="<?php echo (int)$a['id_cuenta_activo']; ?>"
                                                 data-cta-dep="<?php echo (int)$a['id_cuenta_depreciacion']; ?>"
@@ -142,24 +143,37 @@ $centrosCosto = $centrosCosto ?? [];
 
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Depreciación y Cuentas Contables</h6>
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Datos Financieros y Depreciación</h6>
                             <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted fw-bold">Adquisición <span class="text-danger">*</span></label>
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold">Fecha Adquisición <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control shadow-none" name="fecha_adquisicion" id="af_fecha" required>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label small text-muted fw-bold">Costo Adquisición <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="costo_adquisicion" id="af_costo" required>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">$</span>
+                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="costo_adquisicion" id="af_costo" required>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted fw-bold">Valor Residual</label>
-                                    <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="valor_residual" id="af_residual" value="0">
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold text-primary">Dep. Acumulada Previa</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">$</span>
+                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none border-primary" name="depreciacion_acumulada" id="af_dep_acumulada" value="0">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold">Vida Útil (Meses) <span class="text-danger">*</span></label>
+                                    <input type="number" min="1" class="form-control shadow-none" name="vida_util_meses" id="af_vida" required>
                                 </div>
                                 
                                 <div class="col-md-4">
-                                    <label class="form-label small text-muted fw-bold">Vida Útil (Meses) <span class="text-danger">*</span></label>
-                                    <input type="number" min="1" class="form-control shadow-none" name="vida_util_meses" id="af_vida" required>
+                                    <label class="form-label small text-muted fw-bold">Valor Residual</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">$</span>
+                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none" name="valor_residual" id="af_residual" value="0">
+                                    </div>
                                 </div>
                                 
                                 <div class="col-md-8">

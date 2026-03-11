@@ -23,6 +23,10 @@ class ActivoFijoModel extends Modelo
     public function guardar(array $data, int $userId): int
     {
         $id = (int)($data['id'] ?? 0);
+        
+        // Capturamos la depreciación que el usuario haya escrito (si es nuevo o viejo)
+        $dep_acumulada = round((float)($data['depreciacion_acumulada'] ?? 0), 4);
+        
         $payload = [
             'codigo_activo' => strtoupper(trim((string)($data['codigo_activo'] ?? ''))),
             'nombre' => trim((string)($data['nombre'] ?? '')),
@@ -41,23 +45,40 @@ class ActivoFijoModel extends Modelo
             throw new RuntimeException('Complete los campos obligatorios y las cuentas del activo.');
         }
 
-        $valorLibros = max(0, $payload['costo_adquisicion'] - $payload['valor_residual']);
+        // EL NUEVO CÁLCULO: El Valor en Libros ahora es el Costo Original MENOS la Depreciación Inicial
+        // (Asegurándonos de que nunca baje más allá del Valor Residual)
+        $valorLibros = max((float)$payload['valor_residual'], $payload['costo_adquisicion'] - $dep_acumulada);
+
+        // Si la máquina ya ingresó totalmente depreciada, el sistema la marca automáticamente
+        if ($valorLibros <= $payload['valor_residual'] && $payload['estado'] === 'ACTIVO') {
+            $payload['estado'] = 'DEPRECIADO';
+        }
 
         if ($id > 0) {
-            $stmt = $this->db()->prepare('UPDATE activos_fijos SET codigo_activo=:codigo_activo, nombre=:nombre, fecha_adquisicion=:fecha_adquisicion,
+            $stmt = $this->db()->prepare('UPDATE activos_fijos SET 
+                codigo_activo=:codigo_activo, nombre=:nombre, fecha_adquisicion=:fecha_adquisicion,
                 costo_adquisicion=:costo_adquisicion, vida_util_meses=:vida_util_meses, valor_residual=:valor_residual,
-                id_cuenta_activo=:id_cuenta_activo, id_cuenta_depreciacion=:id_cuenta_depreciacion, id_cuenta_gasto=:id_cuenta_gasto, id_centro_costo=:id_centro_costo, estado=:estado,
-                valor_libros = GREATEST(:valor_libros, valor_libros), updated_by=:user, updated_at=NOW() WHERE id=:id');
-            $stmt->execute($payload + ['valor_libros' => $valorLibros, 'user' => $userId, 'id' => $id]);
+                id_cuenta_activo=:id_cuenta_activo, id_cuenta_depreciacion=:id_cuenta_depreciacion, id_cuenta_gasto=:id_cuenta_gasto, 
+                id_centro_costo=:id_centro_costo, estado=:estado, depreciacion_acumulada=:depreciacion_acumulada,
+                valor_libros = :valor_libros, updated_by=:user_updated, updated_at=NOW() WHERE id=:id');
+            
+            $stmt->execute($payload + [
+                'depreciacion_acumulada' => $dep_acumulada,
+                'valor_libros' => $valorLibros, 
+                'user_updated' => $userId, 
+                'id' => $id
+            ]);
             return $id;
         }
 
-        // CORRECCIÓN: Separamos :user en :user_created y :user_updated
         $stmt = $this->db()->prepare('INSERT INTO activos_fijos
-            (codigo_activo,nombre,fecha_adquisicion,costo_adquisicion,vida_util_meses,valor_residual,valor_libros,id_cuenta_activo,id_cuenta_depreciacion,id_cuenta_gasto,id_centro_costo,estado,created_by,updated_by,created_at,updated_at)
-            VALUES (:codigo_activo,:nombre,:fecha_adquisicion,:costo_adquisicion,:vida_util_meses,:valor_residual,:valor_libros,:id_cuenta_activo,:id_cuenta_depreciacion,:id_cuenta_gasto,:id_centro_costo,:estado,:user_created,:user_updated,NOW(),NOW())');
+            (codigo_activo,nombre,fecha_adquisicion,costo_adquisicion,vida_util_meses,valor_residual, depreciacion_acumulada, valor_libros,
+            id_cuenta_activo,id_cuenta_depreciacion,id_cuenta_gasto,id_centro_costo,estado,created_by,updated_by,created_at,updated_at)
+            VALUES (:codigo_activo,:nombre,:fecha_adquisicion,:costo_adquisicion,:vida_util_meses,:valor_residual, :depreciacion_acumulada, :valor_libros,
+            :id_cuenta_activo,:id_cuenta_depreciacion,:id_cuenta_gasto,:id_centro_costo,:estado,:user_created,:user_updated,NOW(),NOW())');
         
         $stmt->execute($payload + [
+            'depreciacion_acumulada' => $dep_acumulada,
             'valor_libros' => $valorLibros, 
             'user_created' => $userId, 
             'user_updated' => $userId
@@ -65,6 +86,7 @@ class ActivoFijoModel extends Modelo
         
         return (int)$this->db()->lastInsertId();
     }
+    
     public function depreciarMensual(string $periodoYYYYMM, int $userId): int
     {
         $db = $this->db();

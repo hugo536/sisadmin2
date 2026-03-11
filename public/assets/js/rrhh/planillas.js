@@ -425,4 +425,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==============================================================
+    // 5. EFECTOS VISUALES PARA LAS PESTAÑAS (TABS)
+    // ==============================================================
+    const tabElements = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabElements.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (event) {
+            // event.target es la pestaña seleccionada ahora
+            // event.relatedTarget es la pestaña que acabamos de abandonar
+
+            if (event.relatedTarget) {
+                // Le quitamos el azul y la línea a la pestaña anterior y la ponemos gris
+                event.relatedTarget.classList.remove('text-primary', 'border-bottom', 'border-primary', 'border-3');
+                event.relatedTarget.classList.add('text-muted');
+            }
+
+            // Le quitamos lo gris a la nueva pestaña y le ponemos el azul y la línea
+            event.target.classList.remove('text-muted');
+            event.target.classList.add('text-primary', 'border-bottom', 'border-primary', 'border-3');
+        });
+    });
+
 });

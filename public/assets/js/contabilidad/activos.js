@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btnNuevo.addEventListener('click', function() {
             const form = document.getElementById('formActivoFijo');
             if(form) form.reset();
-            
+            document.getElementById('af_dep_acumulada').value = '0';
             document.getElementById('af_id').value = '0';
             document.getElementById('tituloModalActivo').innerHTML = '<i class="bi bi-building-add me-2"></i>Registrar Activo Fijo';
             
@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.btn-editar-activo').forEach(btn => {
         btn.addEventListener('click', function() {
             // Llenar inputs de texto y fecha
+            document.getElementById('af_dep_acumulada').value = this.dataset.depacum || '0';
             document.getElementById('af_id').value = this.dataset.id || '0';
             document.getElementById('af_codigo').value = this.dataset.codigo || '';
             document.getElementById('af_nombre').value = this.dataset.nombre || '';
