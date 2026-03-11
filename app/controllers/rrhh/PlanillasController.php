@@ -326,7 +326,12 @@ class PlanillasController extends Controlador
 
         // Aquí llamas a tu librería PDF (DOMPDF, mPDF, etc)
         // Ejemplo usando solo HTML para imprimir con el navegador:
-        // Ruta directa basada en la ubicación del controlador
-        require_once __DIR__ . '/../../views/rrhh/boletas_masivas_pdf.php';
+        $vistaBoletas = BASE_PATH . '/app/views/rrhh/planillas_boleta_pdf.php';
+
+        if (!file_exists($vistaBoletas)) {
+            throw new RuntimeException('No se encontró la vista de impresión masiva de boletas.');
+        }
+
+        require_once $vistaBoletas;
     }
 }
