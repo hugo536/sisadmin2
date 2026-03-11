@@ -158,7 +158,10 @@ class ContaAsientoModel extends Modelo
         }
 
         // 2. Identificar Cuenta de Contrapartida (CXC o CXP)
-        $claveContra = ((string)$movimiento['tipo'] === 'COBRO') ? 'CTA_CXC' : 'CTA_CXP';
+        $claveContra = trim((string)($movimiento['clave_contra'] ?? ''));
+        if ($claveContra === '') {
+            $claveContra = ((string)$movimiento['tipo'] === 'COBRO') ? 'CTA_CXC' : 'CTA_CXP';
+        }
         $idCuentaContra = (int)($mapa[$claveContra] ?? 0);
 
         if ($idCuentaContra <= 0) {
@@ -212,6 +215,10 @@ class ContaAsientoModel extends Modelo
             ],
             'CTA_CXP' => [
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PROVEEDOR%" OR c.codigo LIKE "42%")',
+                'tipo_fallback' => 'PASIVO',
+            ],
+            'CTA_NOMINA_POR_PAGAR' => [
+                'where' => '(UPPER(c.nombre) LIKE "%REMUNERACIONES POR PAGAR%" OR UPPER(c.nombre) LIKE "%SUELDOS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PLANILLA POR PAGAR%" OR c.codigo LIKE "41%" OR c.codigo LIKE "46%")',
                 'tipo_fallback' => 'PASIVO',
             ],
             default => null,

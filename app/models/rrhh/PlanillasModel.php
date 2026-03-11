@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
+
 class PlanillasModel extends Modelo
 {
     private function resolverPagoDiario(float $sueldoBasico, string $tipoPago): float
@@ -763,6 +765,19 @@ class PlanillasModel extends Modelo
                 'created_by' => $userId
             ]);
 
+            $idMovimiento = (int) $db->lastInsertId();
+
+            $contaModel = new ContaAsientoModel();
+            $contaModel->registrarAutomaticoTesoreria($db, [
+                'id_movimiento' => $idMovimiento,
+                'tipo' => 'PAGO',
+                'fecha' => (string) $datos['fecha_pago'],
+                'monto' => (float) $lote['total_neto'],
+                'id_cuenta_tesoreria' => (int) $datos['id_cuenta'],
+                'id_tercero' => 0,
+                'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
+            ], $userId);
+
             $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
                 SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta, referencia_pago = :ref 
                 WHERE id = :id_lote");
@@ -936,6 +951,19 @@ class PlanillasModel extends Modelo
                     'observaciones' => $observacion,
                     'created_by' => $userId,
                 ]);
+
+                $idMovimiento = (int) $db->lastInsertId();
+
+                $contaModel = new ContaAsientoModel();
+                $contaModel->registrarAutomaticoTesoreria($db, [
+                    'id_movimiento' => $idMovimiento,
+                    'tipo' => 'PAGO',
+                    'fecha' => (string) $fechaPago,
+                    'monto' => (float) $item['monto'],
+                    'id_cuenta_tesoreria' => (int) $item['id_cuenta'],
+                    'id_tercero' => 0,
+                    'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
+                ], $userId);
 
                 $metodoJson = json_encode([
                     'metodo' => $item['metodo'],
