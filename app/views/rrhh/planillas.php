@@ -423,7 +423,7 @@ if (!empty($detallesNomina)) {
                                                                 <optgroup label="Cuentas Bancarias Registradas">
                                                                     <?php foreach($cuentasBanco as $cb): ?>
                                                                         <option value="BANCO_<?php echo $cb['id']; ?>">
-                                                                            🏦 <?php echo htmlspecialchars($cb['entidad'] . ' - ' . $cb['numero_cuenta']); ?>
+                                                                            🏦 <?php echo htmlspecialchars($cb['entidad'] . ' - ' . ($cb['numero_mostrar'] ?? $cb['numero_cuenta'])); ?>
                                                                         </option>
                                                                     <?php endforeach; ?>
                                                                 </optgroup>
