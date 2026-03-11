@@ -160,7 +160,7 @@ $centrosCosto = $centrosCosto ?? [];
                                     <label class="form-label small text-muted fw-bold text-primary">Dep. Acumulada Previa</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">$</span>
-                                        <input type="number" step="0.0001" min="0" class="form-control shadow-none border-primary" name="depreciacion_acumulada" id="af_dep_acumulada" value="0">
+                                        <input type="number" step="0.0001" min="0" class="form-control bg-light border-primary" name="depreciacion_acumulada" id="af_dep_acumulada" value="0" readonly tabindex="-1">
                                     </div>
                                 </div>
                                 <div class="col-md-3">

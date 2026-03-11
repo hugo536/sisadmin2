@@ -24,8 +24,28 @@ class ActivoFijoModel extends Modelo
     {
         $id = (int)($data['id'] ?? 0);
         
-        // Capturamos la depreciación que el usuario haya escrito (si es nuevo o viejo)
-        $dep_acumulada = round((float)($data['depreciacion_acumulada'] ?? 0), 4);
+        if ($id === 0) {
+            // BACKEND AL RESCATE: Si es nuevo, PHP calcula la depreciación exacta histórica
+            $fechaAdq = new DateTime($data['fecha_adquisicion'] ?? date('Y-m-d'));
+            $hoy = new DateTime();
+            $mesesPasados = 0;
+            $vida_util = max(1, (int)($data['vida_util_meses'] ?? 1));
+            
+            if ($fechaAdq < $hoy) {
+                $diff = $fechaAdq->diff($hoy);
+                $mesesPasados = ($diff->y * 12) + $diff->m;
+            }
+            if ($mesesPasados > $vida_util) $mesesPasados = $vida_util;
+            
+            $costo = round((float)($data['costo_adquisicion'] ?? 0), 4);
+            $residual = round((float)($data['valor_residual'] ?? 0), 4);
+            $base = max(0, $costo - $residual);
+            
+            $dep_acumulada = round(($base / $vida_util) * $mesesPasados, 4);
+        } else {
+            // Si es edición, mantenemos la que ya tiene en la base de datos
+            $dep_acumulada = round((float)($data['depreciacion_acumulada'] ?? 0), 4);
+        }
         
         $payload = [
             'codigo_activo' => strtoupper(trim((string)($data['codigo_activo'] ?? ''))),
@@ -86,7 +106,7 @@ class ActivoFijoModel extends Modelo
         
         return (int)$this->db()->lastInsertId();
     }
-    
+
     public function depreciarMensual(string $periodoYYYYMM, int $userId): int
     {
         $db = $this->db();

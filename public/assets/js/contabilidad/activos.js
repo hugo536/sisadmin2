@@ -74,4 +74,48 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // 6. AUTO-CÁLCULO DE DEPRECIACIÓN INICIAL (Solo para activos nuevos)
+    function autoCalcularDepreciacion() {
+        const id = parseInt(document.getElementById('af_id').value) || 0;
+        
+        // Si estamos editando un activo viejo, respetamos la base de datos y no recalculamos
+        if (id > 0) return; 
+
+        const fechaStr = document.getElementById('af_fecha').value;
+        const costo = parseFloat(document.getElementById('af_costo').value) || 0;
+        const residual = parseFloat(document.getElementById('af_residual').value) || 0;
+        const vida = parseInt(document.getElementById('af_vida').value) || 0;
+        const inputDep = document.getElementById('af_dep_acumulada');
+
+        if (!fechaStr || costo <= 0 || vida <= 0) {
+            inputDep.value = '0.0000';
+            return;
+        }
+
+        const fechaAdq = new Date(fechaStr + 'T00:00:00'); // Evita desfase de zona horaria
+        const hoy = new Date();
+        
+        // Calcular cuántos meses han pasado desde la compra hasta hoy
+        let mesesPasados = (hoy.getFullYear() - fechaAdq.getFullYear()) * 12 + (hoy.getMonth() - fechaAdq.getMonth());
+        
+        if (mesesPasados < 0) mesesPasados = 0;
+        if (mesesPasados > vida) mesesPasados = vida; // No se puede depreciar más de su vida útil
+
+        const baseDepreciable = costo - residual;
+        let depAcumulada = 0;
+        
+        if (baseDepreciable > 0) {
+            const depMensual = baseDepreciable / vida;
+            depAcumulada = depMensual * mesesPasados;
+        }
+
+        inputDep.value = depAcumulada.toFixed(4);
+    }
+
+    // Escuchar cada vez que el usuario escriba o cambie estos campos
+    ['af_fecha', 'af_costo', 'af_residual', 'af_vida'].forEach(idCaja => {
+        const caja = document.getElementById(idCaja);
+        if(caja) caja.addEventListener('input', autoCalcularDepreciacion);
+    });
 });
