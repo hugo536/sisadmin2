@@ -181,12 +181,22 @@
   display: flex;
   align-items: center;
   gap: .65rem;
+  width: 100%;
   padding: .55rem 1.25rem;
   color: var(--sidebar-text);
   font-size: .86rem;
   text-decoration: none;
+  text-align: left;
   border-left: 3px solid transparent;
   transition: background .15s ease, color .15s ease, transform .15s ease;
+}
+
+button.sidebar-link{
+  background: transparent;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  cursor: pointer;
 }
 
 .sidebar-link i{

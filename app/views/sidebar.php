@@ -64,6 +64,11 @@ function renderSidebarInner(
     callable $grupoActivo,
     callable $linkGrupoActivo
 ): void {
+    $menuRRHHId = 'menuRRHH_' . $navId;
+    $menuComercialId = 'menuComercial_' . $navId;
+    $menuTesoreriaId = 'menuTesoreria_' . $navId;
+    $menuContabilidadId = 'menuContabilidad_' . $navId;
+    $menuConfiguracionId = 'menuConfiguracion_' . $navId;
 ?>
     <div class="sidebar-header">
 
@@ -142,17 +147,17 @@ function renderSidebarInner(
             </a>
 
             <?php if ($puedeVerRRHH): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>"
+            <button class="sidebar-link<?php echo $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>"
+               type="button"
                data-bs-toggle="collapse"
-               href="#menuRRHH"
-               role="button"
+               data-bs-target="#<?php echo htmlspecialchars($menuRRHHId); ?>"
                aria-expanded="<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']) ? 'true' : 'false'; ?>"
-               aria-controls="menuRRHH">
+               aria-controls="<?php echo htmlspecialchars($menuRRHHId); ?>">
                 <i class="bi bi-people-fill"></i> <span>RRHH</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-            </a>
+            </button>
 
-            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>" id="menuRRHH">
+            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>" id="<?php echo htmlspecialchars($menuRRHHId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
@@ -197,17 +202,17 @@ function renderSidebarInner(
         <?php if ($puedeVerComercial): ?>
 
             <div class="nav-label mt-3">Estrategia</div>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
+            <button class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
+               type="button"
                data-bs-toggle="collapse"
-               href="#menuComercial"
-               role="button"
+               data-bs-target="#<?php echo htmlspecialchars($menuComercialId); ?>"
                aria-expanded="<?php echo $grupoActivo(['comercial']) ? 'true' : 'false'; ?>"
-               aria-controls="menuComercial">
+               aria-controls="<?php echo htmlspecialchars($menuComercialId); ?>">
                 <i class="bi bi-tags"></i> <span>Gestión Comercial</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-            </a>
+            </button>
 
-            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="menuComercial">
+            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="<?php echo htmlspecialchars($menuComercialId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('comercial/listas'); ?>" href="<?php echo e(route_url('comercial/listas')); ?>">
@@ -231,16 +236,16 @@ function renderSidebarInner(
 
 
             <?php if (tiene_permiso('tesoreria.ver') || tiene_permiso('tesoreria.cxc.ver') || tiene_permiso('tesoreria.cxp.ver')): ?>
-                <a class="sidebar-link<?php echo $linkGrupoActivo(['tesoreria']); ?>"
+                <button class="sidebar-link<?php echo $linkGrupoActivo(['tesoreria']); ?>"
+                   type="button"
                    data-bs-toggle="collapse"
-                   href="#menuTesoreria"
-                   role="button"
+                   data-bs-target="#<?php echo htmlspecialchars($menuTesoreriaId); ?>"
                    aria-expanded="<?php echo $grupoActivo(['tesoreria']) ? 'true' : 'false'; ?>"
-                   aria-controls="menuTesoreria">
+                   aria-controls="<?php echo htmlspecialchars($menuTesoreriaId); ?>">
                     <i class="bi bi-cash-coin"></i> <span>Tesorería</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-                </a>
-                <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="menuTesoreria">
+                </button>
+                <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="<?php echo htmlspecialchars($menuTesoreriaId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <?php if (tiene_permiso('tesoreria.ver')): ?>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cuentas'); ?>" href="<?php echo e(route_url('tesoreria/cuentas')); ?>"><span>Cuentas</span></a></li>
@@ -257,16 +262,16 @@ function renderSidebarInner(
             <?php endif; ?>
 
             <?php if (tiene_permiso('conta.ver')): ?>
-                <a class="sidebar-link<?php echo $linkGrupoActivo(['contabilidad']); ?>"
+                <button class="sidebar-link<?php echo $linkGrupoActivo(['contabilidad']); ?>"
+                   type="button"
                    data-bs-toggle="collapse"
-                   href="#menuContabilidad"
-                   role="button"
+                   data-bs-target="#<?php echo htmlspecialchars($menuContabilidadId); ?>"
                    aria-expanded="<?php echo $grupoActivo(['contabilidad']) ? 'true' : 'false'; ?>"
-                   aria-controls="menuContabilidad">
+                   aria-controls="<?php echo htmlspecialchars($menuContabilidadId); ?>">
                     <i class="bi bi-journal-bookmark"></i> <span>Contabilidad</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-                </a>
-                <div class="collapse<?php echo $grupoActivo(['contabilidad']); ?>" id="menuContabilidad">
+                </button>
+                <div class="collapse<?php echo $grupoActivo(['contabilidad']); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><span>Plan Contable</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
@@ -304,17 +309,17 @@ function renderSidebarInner(
         <?php endif; ?>
 
         <?php if (tiene_permiso('config.ver')): ?>
-            <a class="sidebar-link<?php echo $linkGrupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>"
+            <button class="sidebar-link<?php echo $linkGrupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>"
+               type="button"
                data-bs-toggle="collapse"
-               href="#menuConfiguracion"
-               role="button"
+               data-bs-target="#<?php echo htmlspecialchars($menuConfiguracionId); ?>"
                aria-expanded="<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']) ? 'true' : 'false'; ?>"
-               aria-controls="menuConfiguracion">
+               aria-controls="<?php echo htmlspecialchars($menuConfiguracionId); ?>">
                 <i class="bi bi-gear"></i> <span>Configuración</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
-            </a>
+            </button>
 
-            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>" id="menuConfiguracion">
+            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>" id="<?php echo htmlspecialchars($menuConfiguracionId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
