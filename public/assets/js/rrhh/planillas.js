@@ -317,6 +317,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Bloqueo y envío para el nuevo formulario de Dispersión Mixta (Tesorería)
+    const formDispersion = document.getElementById('formDispersionMasiva');
+    if (formDispersion) {
+        formDispersion.addEventListener('submit', function (e) {
+            // El navegador revisará que todas las cuentas origen estén seleccionadas
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Mostramos un mensaje nativo en caso de faltar un select
+                this.reportValidity(); 
+                return;
+            }
+            
+            // Si todo está bien, cambiamos el botón a "Ejecutando..." y evitamos doble clic
+            bloquearBotonSubmit(this, "Ejecutando Pagos...");
+        });
+    }
+
     const formAjustar = document.querySelector('#modalAjustarNomina form');
     if (formAjustar) {
         formAjustar.addEventListener('submit', function (e) {

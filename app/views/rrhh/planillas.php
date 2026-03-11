@@ -74,6 +74,27 @@ if (!empty($detallesNomina)) {
         </div>
     </div>
 
+    <?php if (!empty($_GET['error'])): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Error al pagar', text: '<?php echo addslashes($_GET['error']); ?>', confirmButtonText: 'Revisar' });
+                } else {
+                    alert('Error: <?php echo addslashes($_GET['error']); ?>');
+                }
+            });
+        </script>
+    <?php endif; ?>
+    <?php if (!empty($_GET['ok'])): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: '¡Éxito!', text: '<?php echo addslashes($_GET['ok']); ?>', confirmButtonText: 'Genial' });
+                }
+            });
+        </script>
+    <?php endif; ?>
+
     <?php if (!$loteActual): ?>
         <div class="card border-0 shadow-sm">
             <div class="card-body p-5 text-center">

@@ -863,7 +863,11 @@ class PlanillasModel extends Modelo
             $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos
                 (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, observaciones, estado, created_by)
                 VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by)");
+            
             $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
+            
+            // FALTABA ESTA CONSULTA PARA DESCONTAR EL SALDO
+            $stmtUpdateCuenta = $db->prepare("UPDATE tesoreria_cuentas SET saldo_actual = saldo_actual - :monto WHERE id = :id_cuenta");
 
             $pagosProcesables = [];
             $totalesPorCuenta = [];
@@ -909,7 +913,8 @@ class PlanillasModel extends Modelo
                 $cuentaBD = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
 
                 if (!$cuentaBD || (float) $cuentaBD['saldo_actual'] < (float) $montoCuenta) {
-                    throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'.");
+                    // MEJORAMOS EL MENSAJE PARA QUE VEAS POR QUÉ FALLA
+                    throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'. Se necesitan S/ " . number_format($montoCuenta, 2) . " pero solo hay S/ " . number_format((float)$cuentaBD['saldo_actual'], 2));
                 }
 
                 $cuentasInfo[$idCuenta] = $cuentaBD;
@@ -941,6 +946,12 @@ class PlanillasModel extends Modelo
                 $stmtUpdateDetalle->execute([
                     'json' => $metodoJson,
                     'id_detalle' => $item['id_detalle'],
+                ]);
+                
+                // AQUÍ SE APLICA EL DESCUENTO REAL A LA TABLA DE CUENTAS
+                $stmtUpdateCuenta->execute([
+                    'monto' => $item['monto'],
+                    'id_cuenta' => $item['id_cuenta']
                 ]);
             }
 
