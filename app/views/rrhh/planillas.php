@@ -168,9 +168,6 @@ if (!empty($detallesNomina)) {
                     <li class="nav-item" role="presentation">
                         <button class="nav-link text-muted border-0 bg-transparent pb-3" id="tesoreria-tab" data-bs-toggle="tab" data-bs-target="#tesoreria-pane" type="button" role="tab"><i class="bi bi-bank me-2"></i>Tesorería (Dispersión)</button>
                     </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link text-muted border-0 bg-transparent pb-3" id="contabilidad-tab" data-bs-toggle="tab" data-bs-target="#contabilidad-pane" type="button" role="tab"><i class="bi bi-journal-text me-2"></i>Póliza Contable</button>
-                    </li>
                 </ul>
             </div>
             
@@ -473,16 +470,6 @@ if (!empty($detallesNomina)) {
                             </div>
                         <?php endif; ?>
                     </div>
-
-                    <div class="tab-pane fade p-5 text-center text-muted" id="contabilidad-pane" role="tabpanel" tabindex="0">
-                        <i class="bi bi-journal-check opacity-50 d-block mb-3" style="font-size: 3rem;"></i>
-                        <h6 class="fw-bold text-dark">Póliza de Nómina</h6>
-                        <p class="small">El asiento contable se generará automáticamente en el módulo de Contabilidad una vez que el lote sea aprobado y pagado.</p>
-                        <button class="btn btn-light border text-secondary fw-semibold shadow-sm mt-2" <?php echo $estadoLote !== 'PAGADO' ? 'disabled' : ''; ?>>
-                            Ver Asiento Contable
-                        </button>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -677,4 +664,3 @@ if (!empty($detallesNomina)) {
         </div>
     </div>
 </div>
-
