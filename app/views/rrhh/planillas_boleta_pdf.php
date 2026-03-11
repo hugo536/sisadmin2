@@ -2,16 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Impresión Masiva - Lote #<?php echo $boletas[0]['id_nomina'] ?? ''; ?></title>
+    <title>Boletas de pago</title>
     <style>
         :root {
-            --brand-primary: #1d4ed8;
-            --brand-secondary: #0f766e;
-            --ink-main: #1f2937;
+            --brand-primary: #0b57d0;
+            --ink-main: #111827;
             --ink-soft: #6b7280;
-            --line-soft: #dbe3ef;
-            --surface: #f8fbff;
-            --surface-strong: #eef5ff;
+            --line-soft: #b7c9e8;
+            --surface: #eef4ff;
+            --surface-strong: #dbe8ff;
         }
         body {
             font-family: 'Inter', 'Segoe UI', 'Helvetica', 'Arial', sans-serif;
@@ -19,32 +18,20 @@
             color: var(--ink-main);
             margin: 0;
             padding: 12px;
-            background:
-                radial-gradient(circle at 5% 5%, #f0f7ff 0%, transparent 38%),
-                radial-gradient(circle at 95% 0%, #f3fffb 0%, transparent 32%),
-                #f3f6fb;
+            background: #f3f6fb;
         }
         .boleta-ticket {
             width: 47%;
             float: left;
             margin: 1%;
-            border: 1px dashed #8da5c5;
+            border: 1px solid var(--line-soft);
             border-radius: 10px;
             background: #fff;
             padding: 12px;
             box-sizing: border-box;
             page-break-inside: avoid;
             position: relative;
-            box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
-        }
-        .boleta-ticket::before {
-            content: "✂";
-            position: absolute;
-            top: -10px;
-            left: -5px;
-            background: white;
-            font-size: 14px;
-            color: #64748b;
+            box-shadow: 0 4px 12px rgba(16, 24, 40, 0.06);
         }
 
         .mini-header {
@@ -54,22 +41,15 @@
         }
         .mini-header table { width: 100%; border-collapse: collapse; }
         .mini-header td { vertical-align: top; }
-        h1 {
-            font-size: 12px;
-            margin: 0 0 2px 0;
-            color: var(--brand-primary);
-            text-align: right;
-            letter-spacing: 0.4px;
-        }
-
         .chip-periodo {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 8.5px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8px;
             background: var(--surface-strong);
-            color: #1e3a8a;
-            border: 1px solid #c9dafc;
+            color: var(--brand-primary);
+            border: 1px solid #b9cdf3;
+            white-space: nowrap;
         }
 
         table { width: 100%; border-collapse: collapse; }
@@ -78,9 +58,9 @@
 
         .details-table { margin-top: 5px; margin-bottom: 5px; }
         .details-table th {
-            background: linear-gradient(180deg, #f6fbff 0%, #ebf3ff 100%);
+            background: #e6efff;
             border: 1px solid #cfdced;
-            color: #1e3a8a;
+            color: var(--brand-primary);
             padding: 4px;
             text-align: left;
         }
@@ -89,9 +69,9 @@
 
         .hours-table { margin-top: 8px; margin-bottom: 5px; }
         .hours-table th {
-            background: linear-gradient(180deg, #eff6ff 0%, #e1ecff 100%);
+            background: #e6efff;
             border: 1px solid #c9d9ee;
-            color: #0f2f6f;
+            color: var(--brand-primary);
             padding: 4px;
             text-align: center;
         }
@@ -101,13 +81,13 @@
         .hours-table .total-row td {
             font-weight: bold;
             background: #f2f8ff;
-            color: #0f3b8f;
+            color: var(--brand-primary);
         }
 
         .totals-table { width: 60%; float: right; margin-top: 5px; }
         .totals-table td { padding: 4px 5px; border: 1px solid #c6d6ea; text-align: right; }
         .neto-row td {
-            background: linear-gradient(90deg, #1e3a8a 0%, #0f766e 100%);
+            background: var(--brand-primary);
             color: white;
             font-weight: bold;
             font-size: 11px;
@@ -129,7 +109,7 @@
         }
         .btn {
             border: 1px solid #1e3a8a;
-            background: linear-gradient(90deg, #1d4ed8 0%, #0f766e 100%);
+            background: var(--brand-primary);
             color: #fff;
             font-size: 11px;
             font-weight: bold;
@@ -163,9 +143,8 @@
                 <tr>
                     <td style="width: 55%; font-size: 9px;"></td>
                     <td style="text-align: right; font-size: 9px;">
-                        <h1>TIRA DE PAGO</h1>
                         <span class="chip-periodo">
-                            <strong>Periodo:</strong> <?php echo htmlspecialchars($boleta['fecha_inicio'] ?? ''); ?> al <?php echo htmlspecialchars($boleta['fecha_fin'] ?? ''); ?>
+                            <?php echo htmlspecialchars($boleta['fecha_inicio'] ?? ''); ?> al <?php echo htmlspecialchars($boleta['fecha_fin'] ?? ''); ?>
                         </span>
                     </td>
                 </tr>
