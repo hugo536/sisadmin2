@@ -176,12 +176,19 @@ if (!empty($detallesNomina)) {
                     
                     <div class="tab-pane fade show active" id="recibos-pane" role="tabpanel" tabindex="0">
                         <div class="p-3 border-bottom bg-light">
-                            <div class="row g-2 align-items-center">
+                            <div class="row g-2 align-items-center justify-content-between">
                                 <div class="col-12 col-md-4">
                                     <div class="input-group input-group-sm shadow-sm">
                                         <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
                                         <input type="search" class="form-control bg-white border-secondary-subtle border-start-0 ps-0" id="searchDetalles" placeholder="Buscar empleado...">
                                     </div>
+                                </div>
+                                <div class="col-12 col-md-auto text-end">
+                                    <?php if ($estadoLote !== 'BORRADOR' && !empty($detallesNomina)): ?>
+                                        <a href="?ruta=planillas/imprimir_masivo&id_lote=<?php echo (int)($loteActual['id']); ?>" target="_blank" class="btn btn-sm btn-outline-danger fw-bold shadow-sm">
+                                            <i class="bi bi-printer-fill me-2"></i>Imprimir Tiras (Masivo)
+                                        </a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -361,7 +368,7 @@ if (!empty($detallesNomina)) {
                                                         <?php endif; ?>
 
                                                         <?php if (empty($row['tiene_conflicto']) && $estadoLote !== 'BORRADOR'): ?>
-                                                            <a href="?ruta=planillas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta">
+                                                            <a href="?ruta=planillas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Boleta Individual">
                                                                 <i class="bi bi-file-earmark-pdf fs-5"></i>
                                                             </a>
                                                         <?php endif; ?>
@@ -463,10 +470,64 @@ if (!empty($detallesNomina)) {
                                 </div>
                             </form>
                         <?php else: ?>
-                            <div class="alert alert-success border-0 shadow-sm text-center p-5">
-                                <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-3"></i>
-                                <h4 class="fw-bold mb-1">¡Pagos Dispersados Correctamente!</h4>
-                                <p class="text-muted mb-0">Los saldos se han descontado de las cuentas respectivas en el módulo de Tesorería.</p>
+                            <div class="alert alert-success border-0 shadow-sm mb-4 p-4 d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success fs-1 me-4"></i>
+                                <div>
+                                    <h5 class="fw-bold mb-1">¡Lote Pagado y Dispersado!</h5>
+                                    <p class="text-muted mb-0 small">Los saldos se han descontado correctamente en Tesorería. A continuación, el detalle de la operación:</p>
+                                </div>
+                            </div>
+
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-white border-bottom pt-3 pb-2 ps-4 pe-4">
+                                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-receipt text-secondary me-2"></i>Comprobante de Dispersión</h6>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table align-middle table-hover mb-0 bg-white">
+                                        <thead class="table-light border-bottom">
+                                            <tr>
+                                                <th class="ps-4 text-secondary fw-semibold">Empleado</th>
+                                                <th class="text-end text-secondary fw-semibold">Monto Pagado</th>
+                                                <th class="text-secondary fw-semibold ps-4">Método (Destino)</th>
+                                                <th class="text-secondary fw-semibold pe-4">Cuenta Empresa (Origen)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php 
+                                            // Mapa para buscar el nombre de la cuenta rápidamente
+                                            $mapaCuentasNombres = [];
+                                            foreach ($cuentas as $c) {
+                                                $mapaCuentasNombres[$c['id']] = $c['nombre'] . ' (' . $c['moneda'] . ')';
+                                            }
+
+                                            foreach ($detallesNomina as $det): 
+                                                if ($det['neto_a_pagar'] <= 0) continue;
+                                                
+                                                // Decodificamos el JSON histórico que guardamos
+                                                $pagoInfo = json_decode($det['metodos_pago_json'] ?? '{}', true);
+                                                $metodo = $pagoInfo['metodo'] ?? 'EFECTIVO';
+                                                $idCuentaOrigen = $pagoInfo['id_cuenta_origen'] ?? 0;
+                                                $monto = $pagoInfo['monto'] ?? $det['neto_a_pagar'];
+                                                
+                                                $nombreCuentaOrigen = $mapaCuentasNombres[$idCuentaOrigen] ?? 'Cuenta no encontrada';
+                                                
+                                                // Diseño del Badge
+                                                if ($metodo === 'EFECTIVO') {
+                                                    $badgeMetodo = '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-cash me-1"></i> Efectivo (Caja)</span>';
+                                                } else {
+                                                    $badgeMetodo = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-bank me-1"></i> Transf. Bancaria</span>';
+                                                }
+                                            ?>
+                                                <tr>
+                                                    <td class="ps-4 fw-bold text-dark"><?php echo htmlspecialchars($det['nombre_completo']); ?></td>
+                                                    <td class="text-end fw-bold text-success fs-6">S/ <?php echo number_format((float)$monto, 2); ?></td>
+                                                    <td class="ps-4"><?php echo $badgeMetodo; ?></td>
+                                                    <td class="pe-4 text-muted fw-medium"><?php echo htmlspecialchars($nombreCuentaOrigen); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -612,55 +673,3 @@ if (!empty($detallesNomina)) {
         </div>
     </div>
 </template>
-
-<div class="modal fade" id="modalPagarLote" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white border-bottom-0 pb-3">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-bank me-2"></i>Registrar Dispersión de Nómina
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <form method="post" action="<?php echo e(route_url('planillas/pagar_lote')); ?>">
-                <input type="hidden" name="id_lote" value="<?php echo (int)($loteActual['id'] ?? 0); ?>">
-                
-                <div class="modal-body p-4 bg-light">
-                    <div class="alert alert-success border-0 shadow-sm mb-4">
-                        <h6 class="fw-bold mb-1">Monto Total a Desembolsar:</h6>
-                        <h3 class="mb-0 fw-bold">S/ <?php echo number_format($netoPagar ?? 0, 2); ?></h3>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small text-muted fw-bold mb-1">Cuenta de Origen (Caja/Banco) <span class="text-danger">*</span></label>
-                        <select name="id_cuenta" class="form-select shadow-sm" required>
-                            <option value="">Seleccione una cuenta...</option>
-                            <?php foreach ($cuentas as $c): ?>
-                                <option value="<?php echo (int)$c['id']; ?>">
-                                    <?php echo htmlspecialchars($c['nombre'] . ' - Saldo: S/' . number_format((float)$c['saldo_actual'], 2)); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha_pago" class="form-control shadow-sm" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Referencia / Operación</label>
-                            <input type="text" name="referencia" class="form-control shadow-sm" placeholder="Ej. OP-901234">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer bg-white border-top-0">
-                    <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
-                        <i class="bi bi-check2-all me-2"></i>Confirmar Pago
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>

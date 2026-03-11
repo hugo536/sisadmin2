@@ -1027,4 +1027,50 @@ class PlanillasModel extends Modelo
             throw new Exception($e->getMessage());
         }
     }
+
+    public function obtenerBoletasMasivasPdf(int $idLote): array
+    {
+        // 1. Obtenemos a todos los empleados del lote que tengan algo que cobrar
+        $sqlCabecera = "SELECT 
+                            nd.*,
+                            t.nombre_completo, t.numero_documento, te.cargo, te.sueldo_basico,
+                            n.referencia AS referencia_lote, n.nombre AS nombre_lote, 
+                            n.fecha_inicio, n.fecha_fin, n.fecha_pago, n.estado AS estado_lote
+                        FROM rrhh_nominas_detalles nd
+                        INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                        INNER JOIN terceros t ON t.id = nd.id_tercero
+                        INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                        WHERE nd.id_nomina = :id_lote AND nd.neto_a_pagar > 0
+                        ORDER BY t.nombre_completo ASC";
+        
+        $stmtC = $this->db()->prepare($sqlCabecera);
+        $stmtC->execute(['id_lote' => $idLote]);
+        $boletas = $stmtC->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (empty($boletas)) return [];
+
+        // 2. Obtenemos TODOS los conceptos de este lote de un solo golpe
+        $sqlConceptos = "SELECT nc.* FROM rrhh_nominas_conceptos nc
+                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                         WHERE nd.id_nomina = :id_lote 
+                         ORDER BY nc.tipo DESC, nc.id ASC";
+                         
+        $stmtConc = $this->db()->prepare($sqlConceptos);
+        $stmtConc->execute(['id_lote' => $idLote]);
+        $conceptos = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 3. Agrupamos los conceptos por el ID del detalle
+        $conceptosAgrupados = [];
+        foreach ($conceptos as $c) {
+            $conceptosAgrupados[$c['id_detalle_nomina']][] = $c;
+        }
+
+        // 4. Armamos el arreglo final
+        foreach ($boletas as &$b) {
+            $b['conceptos'] = $conceptosAgrupados[$b['id']] ?? [];
+        }
+        unset($b);
+
+        return $boletas;
+    }
 }

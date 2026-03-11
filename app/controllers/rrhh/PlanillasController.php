@@ -302,4 +302,31 @@ class PlanillasController extends Controlador
             }
         }
     }
+
+    public function imprimir_masivo()
+    {
+        $idLote = (int) ($_GET['id_lote'] ?? 0);
+        if ($idLote <= 0) {
+            die("ID de lote inválido.");
+        }
+
+        $modelo = new PlanillasModel();
+        $boletas = $modelo->obtenerBoletasMasivasPdf($idLote);
+
+        if (empty($boletas)) {
+            die("No hay recibos con montos a pagar en este lote.");
+        }
+
+        // Datos genéricos de la empresa (Puedes reemplazarlos por los de tu BD)
+        $empresa = [
+            'nombre' => 'MI EMPRESA S.A.C.',
+            'ruc' => '20123456789',
+            'direccion' => 'Av. Principal 123, Ciudad'
+        ];
+
+        // Aquí llamas a tu librería PDF (DOMPDF, mPDF, etc)
+        // Ejemplo usando solo HTML para imprimir con el navegador:
+        // Ruta directa basada en la ubicación del controlador
+        require_once __DIR__ . '/../../views/rrhh/boletas_masivas_pdf.php';
+    }
 }
