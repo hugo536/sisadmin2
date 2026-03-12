@@ -24,11 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (params.get('ok') === '1') {
             const action = (params.get('action') || '').toLowerCase();
             const isUpdate = action === 'updated';
+            const isDelete = action === 'deleted';
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
-                    title: isUpdate ? 'Cuenta actualizada' : 'Cuenta guardada',
-                    text: isUpdate ? 'La cuenta se actualizó correctamente.' : 'La cuenta se guardó correctamente.',
+                    title: isDelete ? 'Cuenta eliminada' : (isUpdate ? 'Cuenta actualizada' : 'Cuenta guardada'),
+                    text: isDelete
+                        ? 'La cuenta se eliminó correctamente.'
+                        : (isUpdate ? 'La cuenta se actualizó correctamente.' : 'La cuenta se guardó correctamente.'),
                     confirmButtonText: 'Aceptar'
                 });
             }
@@ -122,6 +125,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.submit();
                 }
             });
+        });
+    });
+
+    document.querySelectorAll('.js-form-delete-cuenta').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            Swal.fire({
+                title: '¿Eliminar cuenta?',
+                text: 'Esta cuenta no tiene movimientos. La eliminación no se podrá deshacer.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const btn = this.querySelector('button[type="submit"]');
+                    if (btn) {
+                        btn.disabled = true;
+                    }
+                    this.submit();
+                }
+            });
+        });
+    });
+
+    document.querySelectorAll('.js-switch-estado-cuenta').forEach(sw => {
+        sw.addEventListener('change', function () {
+            const form = this.closest('form');
+            if (form) {
+                form.submit();
+            }
         });
     });
 

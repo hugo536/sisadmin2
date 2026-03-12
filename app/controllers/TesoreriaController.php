@@ -77,8 +77,6 @@ class TesoreriaController extends Controlador
                 'permite_pagos' => isset($_POST['permite_pagos']) ? 1 : 0,
                 'saldo_inicial' => (float) ($_POST['saldo_inicial'] ?? 0),
                 'fecha_saldo_inicial' => trim((string) ($_POST['fecha_saldo_inicial'] ?? '')),
-                'principal' => isset($_POST['principal']) ? 1 : 0,
-                'estado' => isset($_POST['estado']) ? 1 : 0,
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
             ];
 
@@ -92,6 +90,43 @@ class TesoreriaController extends Controlador
                 $errorUrl .= '&id=' . (int) $_POST['id'];
             }
             redirect($errorUrl);
+        }
+    }
+
+    public function eliminar_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $this->cuentaModel->eliminar($idCuenta, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1&action=deleted');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function cambiar_estado_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $estado = isset($_POST['estado']) ? 1 : 0;
+            $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1&action=updated');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
         }
     }
 
@@ -111,7 +146,9 @@ class TesoreriaController extends Controlador
 
         // FILTRO: Solo cuentas con vinculación contable (sin advertencia amarilla)
         $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function($cta) {
-            return !empty($cta['id_cuenta_contable']) && (int)$cta['id_cuenta_contable'] > 0;
+            return !empty($cta['id_cuenta_contable'])
+                && (int)$cta['id_cuenta_contable'] > 0
+                && (int)($cta['permite_cobros'] ?? 0) === 1;
         });
 
         $this->render('tesoreria/tesoreria_cxc', [
@@ -162,7 +199,9 @@ class TesoreriaController extends Controlador
 
         // FILTRO: Solo cuentas con vinculación contable (sin advertencia amarilla)
         $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function($cta) {
-            return !empty($cta['id_cuenta_contable']) && (int)$cta['id_cuenta_contable'] > 0;
+            return !empty($cta['id_cuenta_contable'])
+                && (int)$cta['id_cuenta_contable'] > 0
+                && (int)($cta['permite_pagos'] ?? 0) === 1;
         });
 
         $this->render('tesoreria/tesoreria_cxp', [
@@ -282,6 +321,8 @@ class TesoreriaController extends Controlador
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
             ];
 
+            $this->validarPermisoOperacionCuenta((int) $payload['id_cuenta'], $origen);
+
             $userId = $this->obtenerUsuarioId();
             $this->movModel->registrar($payload, $userId);
             
@@ -319,11 +360,14 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('No hay documentos pendientes en la moneda indicada.');
             }
 
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $this->validarPermisoOperacionCuenta($idCuenta, $origen);
+
             $this->movModel->registrarDistribuido([
                 'tipo'           => $tipo,
                 'origen'         => $origen,
                 'id_tercero'     => $idTercero,
-                'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
+                'id_cuenta'      => $idCuenta,
                 'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
                 'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'moneda'         => $moneda,
@@ -375,5 +419,25 @@ class TesoreriaController extends Controlador
             <hr>
             <p style='font-size: 14px; color:#555;'><em>Copia este mensaje para solucionarlo.</em></p>
         </div>");
+    }
+
+    private function validarPermisoOperacionCuenta(int $idCuenta, string $origen): void
+    {
+        if ($idCuenta <= 0) {
+            throw new RuntimeException('Debe seleccionar una cuenta de tesorería válida.');
+        }
+
+        $cuenta = $this->cuentaModel->obtenerPorId($idCuenta);
+        if (!$cuenta || (int) ($cuenta['estado'] ?? 0) !== 1) {
+            throw new RuntimeException('La cuenta de tesorería seleccionada está inactiva o no existe.');
+        }
+
+        if ($origen === 'CXC' && (int) ($cuenta['permite_cobros'] ?? 0) !== 1) {
+            throw new RuntimeException('La cuenta seleccionada no está habilitada para cobros.');
+        }
+
+        if ($origen === 'CXP' && (int) ($cuenta['permite_pagos'] ?? 0) !== 1) {
+            throw new RuntimeException('La cuenta seleccionada no está habilitada para pagos.');
+        }
     }
 }
