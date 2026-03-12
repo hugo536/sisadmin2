@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const modalOrden = new bootstrap.Modal(document.getElementById('modalOrdenCompra'));
+    const modalOrdenElement = document.getElementById('modalOrdenCompra');
+    const modalOrden = new bootstrap.Modal(modalOrdenElement);
     const modalRecepcion = new bootstrap.Modal(document.getElementById('modalRecepcionCompra'));
 
     const tablaCompras = document.getElementById('tablaCompras');
@@ -517,6 +518,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         const deshabilitar = Boolean(esSoloLectura);
+
+        if (modalOrdenElement) {
+            modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
+        }
 
         if (tituloModalOrden) {
             if (deshabilitar && Number(estado) === 3) {
