@@ -231,14 +231,23 @@ $estadoLabels = [
                 
                 <input type="hidden" id="recepcionOrdenId" value="0">
                 
-                <div class="form-floating mb-2 shadow-sm rounded">
-                    <select id="recepcionAlmacen" class="form-select border-0" required>
+                <div class="mb-2 shadow-sm rounded p-3 bg-white border" id="bloqueDistribucionRecepcion">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="fw-semibold text-muted mb-0">Distribución por almacén <span class="text-danger">*</span></label>
+                        <small class="text-muted">Total comprado: <strong id="recepcionTotalCantidad">0</strong></small>
+                    </div>
+                    <select id="recepcionAlmacenTemplate" class="d-none">
                         <option value="">Seleccione el almacén...</option>
                         <?php foreach ($almacenes as $almacen): ?>
                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <label for="recepcionAlmacen" class="fw-semibold text-muted">Almacén de Ingreso (Origen en Kardex) <span class="text-danger">*</span></label>
+                    <div id="recepcionDistribucionRows"></div>
+                    <div class="mt-2 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-info" id="btnAgregarAlmacenRecepcion">
+                            <i class="bi bi-plus-circle me-1"></i>Agregar otro almacén
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer bg-white border-top-0">
