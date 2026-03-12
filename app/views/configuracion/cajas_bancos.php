@@ -5,12 +5,21 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 $swalFlashIcon = ($flash['tipo'] ?? '') === 'error' ? 'error' : 'success';
 
 $badgeTipo = static function (string $tipo): string {
-    return match (strtoupper($tipo)) {
-        'CAJA' => '<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Caja</span>',
-        'BILLETERA' => '<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">Billetera</span>',
-        'OTROS' => '<span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">Otros</span>',
-        default => '<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">Banco</span>',
-    };
+    $tipo = strtoupper($tipo);
+
+    if ($tipo === 'CAJA') {
+        return '<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Caja</span>';
+    }
+
+    if ($tipo === 'BILLETERA') {
+        return '<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">Billetera</span>';
+    }
+
+    if ($tipo === 'OTROS') {
+        return '<span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">Otros</span>';
+    }
+
+    return '<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">Banco</span>';
 };
 ?>
 

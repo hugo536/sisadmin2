@@ -204,25 +204,28 @@ class ContaAsientoModel extends Modelo
 
     private function resolverCuentaParametroFaltante(PDO $db, string $clave): ?int
     {
-        $condiciones = match ($clave) {
-            'CTA_CAJA_DEFECTO' => [
+        $condiciones = null;
+        if ($clave === 'CTA_CAJA_DEFECTO') {
+            $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%CAJA%" OR UPPER(c.nombre) LIKE "%EFECTIVO%" OR UPPER(c.nombre) LIKE "%BANCO%" OR c.codigo LIKE "10%")',
                 'tipo_fallback' => 'ACTIVO',
-            ],
-            'CTA_CXC' => [
+            ];
+        } elseif ($clave === 'CTA_CXC') {
+            $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR COBRAR%" OR UPPER(c.nombre) LIKE "%CLIENT%" OR c.codigo LIKE "12%")',
                 'tipo_fallback' => 'ACTIVO',
-            ],
-            'CTA_CXP' => [
+            ];
+        } elseif ($clave === 'CTA_CXP') {
+            $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%CUENTAS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PROVEEDOR%" OR c.codigo LIKE "42%")',
                 'tipo_fallback' => 'PASIVO',
-            ],
-            'CTA_NOMINA_POR_PAGAR' => [
+            ];
+        } elseif ($clave === 'CTA_NOMINA_POR_PAGAR') {
+            $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%REMUNERACIONES POR PAGAR%" OR UPPER(c.nombre) LIKE "%SUELDOS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PLANILLA POR PAGAR%" OR c.codigo LIKE "41%" OR c.codigo LIKE "46%")',
                 'tipo_fallback' => 'PASIVO',
-            ],
-            default => null,
-        };
+            ];
+        }
 
         if (!$condiciones) return null;
 
