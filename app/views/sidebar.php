@@ -69,6 +69,7 @@ function renderSidebarInner(
     $menuTesoreriaId = 'menuTesoreria_' . $navId;
     $menuContabilidadId = 'menuContabilidad_' . $navId;
     $menuConfiguracionId = 'menuConfiguracion_' . $navId;
+    $menuCostosId = 'menuCostos_' . $navId;
     $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
 ?>
     <div class="sidebar-header">
@@ -128,6 +129,44 @@ function renderSidebarInner(
             <a class="sidebar-link<?php echo $activo('inventario'); ?>" href="<?php echo e(route_url('inventario')); ?>">
                 <i class="bi bi-clipboard-data"></i> <span>Inventario</span>
             </a>
+        <?php endif; ?>
+
+
+        <?php if (tiene_permiso('reportes.produccion.ver')): ?>
+            <button class="sidebar-link<?php echo $linkGrupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>"
+               type="button"
+               data-bs-toggle="collapse"
+               data-bs-target="#<?php echo htmlspecialchars($menuCostosId); ?>"
+               aria-expanded="<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']) ? 'true' : 'false'; ?>"
+               aria-controls="<?php echo htmlspecialchars($menuCostosId); ?>">
+                <i class="bi bi-calculator"></i> <span>Costos</span>
+                <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
+            </button>
+
+            <div class="collapse<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>" id="<?php echo htmlspecialchars($menuCostosId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+                <ul class="nav flex-column ps-3">
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('reportes/costos_produccion'); ?>" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
+                            <i class="bi bi-graph-up-arrow"></i> <span>Análisis de costos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('reportes/costos_configuracion'); ?>" href="<?php echo e(route_url('reportes/costos_configuracion')); ?>">
+                            <i class="bi bi-sliders"></i> <span>Configuración</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('reportes/costos_cierres'); ?>" href="<?php echo e(route_url('reportes/costos_cierres')); ?>">
+                            <i class="bi bi-calendar-check"></i> <span>Cierres de costos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="sidebar-link<?php echo $activo('reportes/costos_alertas'); ?>" href="<?php echo e(route_url('reportes/costos_alertas')); ?>">
+                            <i class="bi bi-bell"></i> <span>Alertas y variaciones</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
         <?php endif; ?>
 
         <?php if (tiene_permiso('inventario.ver')): ?>
