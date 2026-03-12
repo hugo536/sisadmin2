@@ -152,6 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('.js-switch-estado-cuenta').forEach(sw => {
+        sw.addEventListener('change', function () {
+            const form = this.closest('form');
+            if (form) {
+                form.submit();
+            }
+        });
+    });
+
     // ========================================================================
     // 3. LIMPIEZA AL CERRAR MODALES DE CUENTA
     // ========================================================================

@@ -112,6 +112,25 @@ class TesoreriaController extends Controlador
         }
     }
 
+    public function cambiar_estado_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $estado = isset($_POST['estado']) ? 1 : 0;
+            $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1&action=updated');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     // ========================================================================
     // MÓDULO: CUENTAS POR COBRAR (CXC)
     // ========================================================================
