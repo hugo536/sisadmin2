@@ -27,7 +27,6 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
 
 $puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
 $puedeVerRRHH = tiene_permiso('terceros.ver');
-$menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
 
 // -----------------------------
 // Usuario
@@ -70,6 +69,7 @@ function renderSidebarInner(
     $menuTesoreriaId = 'menuTesoreria_' . $navId;
     $menuContabilidadId = 'menuContabilidad_' . $navId;
     $menuConfiguracionId = 'menuConfiguracion_' . $navId;
+    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
 ?>
     <div class="sidebar-header">
 
@@ -268,17 +268,11 @@ function renderSidebarInner(
                    data-bs-toggle="collapse"
                    data-bs-target="#<?php echo htmlspecialchars($menuContabilidadId); ?>"
                    aria-expanded="<?php echo $grupoActivo($menuRutasContabilidad) ? 'true' : 'false'; ?>"
-                <button class="sidebar-link<?php echo $linkGrupoActivo(['contabilidad']); ?>"
-                   type="button"
-                   data-bs-toggle="collapse"
-                   data-bs-target="#<?php echo htmlspecialchars($menuContabilidadId); ?>"
-                   aria-expanded="<?php echo $grupoActivo(['contabilidad']) ? 'true' : 'false'; ?>"
                    aria-controls="<?php echo htmlspecialchars($menuContabilidadId); ?>">
                     <i class="bi bi-journal-bookmark"></i> <span>Contabilidad</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
                 </button>
                 <div class="collapse<?php echo $grupoActivo($menuRutasContabilidad); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
-                <div class="collapse<?php echo $grupoActivo(['contabilidad']); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><span>Plan Contable</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
