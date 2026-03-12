@@ -186,6 +186,17 @@ document.addEventListener('DOMContentLoaded', () => {
         fila.className = 'recepcion-distribucion-row row g-2 align-items-center mb-2';
         fila.dataset.index = String(index);
         fila.innerHTML = `
+            <div class="col-6">
+                <select class="form-select recepcion-almacen" required></select>
+            </div>
+            <div class="col-4">
+                <input type="number" class="form-control text-end recepcion-cantidad" min="0" step="0.0001" value="${formatearCantidad(cantidad)}" ${editable ? '' : 'readonly'}>
+            </div>
+            <div class="col-2 text-end">
+                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-almacen-recepcion ${index === 1 ? 'd-none' : ''}" title="Quitar almacén" style="width:32px;height:32px;">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
             <div class="col-7">
                 <select class="form-select recepcion-almacen" required></select>
             </div>
@@ -196,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const select = fila.querySelector('.recepcion-almacen');
         const inputCantidad = fila.querySelector('.recepcion-cantidad');
+        const btnQuitar = fila.querySelector('.btn-quitar-almacen-recepcion');
         if (recepcionAlmacenTemplate) {
             select.innerHTML = recepcionAlmacenTemplate.innerHTML;
         }
@@ -211,6 +223,22 @@ document.addEventListener('DOMContentLoaded', () => {
         inputCantidad.addEventListener('input', () => {
             sincronizarCantidadesDistribucion(fila);
         });
+
+        if (btnQuitar) {
+            btnQuitar.addEventListener('click', () => {
+                fila.remove();
+                const rows = obtenerRowsDistribucion();
+                if (rows.length === 1) {
+                    const input = rows[0].querySelector('.recepcion-cantidad');
+                    const boton = rows[0].querySelector('.btn-quitar-almacen-recepcion');
+                    input.value = formatearCantidad(totalRecepcionCompra);
+                    input.readOnly = true;
+                    input.classList.add('bg-light');
+                    if (boton) boton.classList.add('d-none');
+                    btnAgregarAlmacenRecepcion.disabled = false;
+                }
+            });
+        }
 
         return fila;
     }
