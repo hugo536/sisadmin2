@@ -3,15 +3,18 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
+require_once BASE_PATH . '/app/models/InventarioModel.php';
 
 class AlmacenesController extends Controlador
 {
     private AlmacenModel $almacenModel;
+    private InventarioModel $inventarioModel;
 
     public function __construct()
     {
         parent::__construct();
         $this->almacenModel = new AlmacenModel();
+        $this->inventarioModel = new InventarioModel();
     }
 
     public function index(): void
@@ -151,4 +154,39 @@ class AlmacenesController extends Controlador
 
         redirect('almacenes/index?tipo=success&msg=Almacén restaurado correctamente.');
     }
+
+    public function devolverSobrantesPlanta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('inventario.movimiento.crear');
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        try {
+            $resultado = $this->inventarioModel->registrarDevolucionSobrantePlantaPorPeso([
+                'id_item' => (int) ($_POST['id_item'] ?? 0),
+                'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
+                'id_almacen_general' => (int) ($_POST['id_almacen_general'] ?? 0),
+                'peso_devolucion' => (float) ($_POST['peso_devolucion'] ?? 0),
+                'stock_teorico_planta' => (float) ($_POST['stock_teorico_planta'] ?? 0),
+                'costo_unitario' => (float) ($_POST['costo_unitario'] ?? 0),
+                'referencia' => (string) ($_POST['referencia'] ?? ''),
+                'lote' => (string) ($_POST['lote'] ?? ''),
+                'fecha_vencimiento' => (string) ($_POST['fecha_vencimiento'] ?? ''),
+                'created_by' => (int) ($_SESSION['id'] ?? 0),
+            ]);
+
+            json_response([
+                'ok' => true,
+                'mensaje' => 'Devolución y merma conciliadas correctamente.',
+                'data' => $resultado,
+            ]);
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+        }
+    }
+
 }

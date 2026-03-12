@@ -403,7 +403,7 @@ class InventarioModel extends Modelo
     {
         // 1. SANEAMIENTO Y ASIGNACIÓN BÁSICA
         $tipo = (string) ($datos['tipo_movimiento'] ?? '');
-        $tiposValidos = ['INI', 'AJ+', 'AJ-', 'TRF', 'CON', 'COM', 'VEN', 'PROD'];
+        $tiposValidos = ['INI', 'AJ+', 'AJ-', 'TRF', 'CON', 'COM', 'VEN', 'PROD', 'SALIDA_MERMA_PLANTA'];
 
         if (!in_array($tipo, $tiposValidos, true)) {
             throw new InvalidArgumentException('Tipo de movimiento inválido.');
@@ -435,7 +435,7 @@ class InventarioModel extends Modelo
 
         // Definir el sentido del movimiento para simplificar validaciones
         $esEntrada = in_array($tipo, ['INI', 'AJ+', 'COM', 'PROD'], true); // Agregué COM y PROD como ejemplos de entrada
-        $esSalida = in_array($tipo, ['AJ-', 'CON', 'VEN'], true);         // Agregué VEN como ejemplo de salida
+        $esSalida = in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true);         // Agregué VEN como ejemplo de salida
         $esTransferencia = $tipo === 'TRF';
 
         if ($esEntrada) {
@@ -667,7 +667,7 @@ class InventarioModel extends Modelo
                 if ($tipo === 'TRF') {
                     $datos['id_almacen_origen'] = $idAlmacen;
                     $datos['id_almacen_destino'] = $idAlmacenDestino;
-                } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN'], true)) {
+                } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true)) {
                     $datos['id_almacen_origen'] = $idAlmacen;
                     $datos['id_almacen_destino'] = 0;
                 } else {
@@ -743,7 +743,7 @@ class InventarioModel extends Modelo
                     SUM(
                         CASE 
                             WHEN m.tipo_movimiento IN ('INI', 'AJ+', 'COM', 'PROD') THEN m.cantidad
-                            WHEN m.tipo_movimiento IN ('AJ-', 'CON', 'VEN') THEN -m.cantidad
+                            WHEN m.tipo_movimiento IN ('AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA') THEN -m.cantidad
                             WHEN m.tipo_movimiento = 'TRF' THEN {$calcTrf}
                             ELSE 0 
                         END
@@ -1165,7 +1165,7 @@ class InventarioModel extends Modelo
                     SUM(
                         CASE 
                             WHEN m.tipo_movimiento IN ('INI', 'AJ+', 'COM', 'PROD') THEN m.cantidad
-                            WHEN m.tipo_movimiento IN ('AJ-', 'CON', 'VEN') THEN -m.cantidad
+                            WHEN m.tipo_movimiento IN ('AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA') THEN -m.cantidad
                             WHEN m.tipo_movimiento = 'TRF' THEN {$calcTrf}
                             ELSE 0 
                         END
@@ -1245,4 +1245,91 @@ class InventarioModel extends Modelo
         $stmt->execute(['id_item' => $idItem]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+
+    public function registrarDevolucionSobrantePlantaPorPeso(array $datos): array
+    {
+        $idItem = (int) ($datos['id_item'] ?? 0);
+        $idAlmacenPlanta = (int) ($datos['id_almacen_planta'] ?? 0);
+        $idAlmacenGeneral = (int) ($datos['id_almacen_general'] ?? 0);
+        $pesoDevolucion = (float) ($datos['peso_devolucion'] ?? 0);
+        $stockTeoricoPlanta = (float) ($datos['stock_teorico_planta'] ?? 0);
+        $costoUnitario = (float) ($datos['costo_unitario'] ?? 0);
+        $createdBy = (int) ($datos['created_by'] ?? 0);
+        $referencia = trim((string) ($datos['referencia'] ?? ''));
+        $lote = trim((string) ($datos['lote'] ?? ''));
+        $fechaVencimiento = trim((string) ($datos['fecha_vencimiento'] ?? ''));
+
+        if ($idItem <= 0 || $idAlmacenPlanta <= 0 || $idAlmacenGeneral <= 0 || $createdBy <= 0) {
+            throw new InvalidArgumentException('Datos incompletos para devolver sobrantes de planta.');
+        }
+        if ($idAlmacenPlanta === $idAlmacenGeneral) {
+            throw new InvalidArgumentException('El almacén planta y general deben ser distintos.');
+        }
+        if ($pesoDevolucion <= 0 || $stockTeoricoPlanta < 0) {
+            throw new InvalidArgumentException('Peso de devolución o stock teórico inválido.');
+        }
+        if ($pesoDevolucion > $stockTeoricoPlanta) {
+            throw new InvalidArgumentException('La devolución no puede ser mayor al stock teórico de planta.');
+        }
+
+        $merma = max(0.0, $stockTeoricoPlanta - $pesoDevolucion);
+        $uuid = bin2hex(random_bytes(16));
+        $refBase = $referencia !== '' ? $referencia : 'Devolución por peso de sobrantes de planta';
+
+        $db = $this->db();
+        $iniciaTransaccion = !$db->inTransaction();
+        if ($iniciaTransaccion) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $idMovDevolucion = $this->registrarMovimiento([
+                'tipo_movimiento' => 'TRF',
+                'id_item' => $idItem,
+                'id_almacen_origen' => $idAlmacenPlanta,
+                'id_almacen_destino' => $idAlmacenGeneral,
+                'cantidad' => $pesoDevolucion,
+                'lote' => $lote,
+                'fecha_vencimiento' => $fechaVencimiento !== '' ? $fechaVencimiento : null,
+                'costo_unitario' => $costoUnitario,
+                'referencia' => $refBase . ' | Tipo: Devolución sobrante planta',
+                'created_by' => $createdBy,
+                'operacion_uuid' => $uuid,
+            ]);
+
+            $idMovMerma = null;
+            if ($merma > 0) {
+                $idMovMerma = $this->registrarMovimiento([
+                    'tipo_movimiento' => 'SALIDA_MERMA_PLANTA',
+                    'id_item' => $idItem,
+                    'id_almacen_origen' => $idAlmacenPlanta,
+                    'id_almacen_destino' => 0,
+                    'cantidad' => $merma,
+                    'lote' => $lote,
+                    'costo_unitario' => $costoUnitario,
+                    'referencia' => $refBase . ' | Conciliación diferida: merma planta',
+                    'created_by' => $createdBy,
+                    'operacion_uuid' => $uuid,
+                ]);
+            }
+
+            if ($iniciaTransaccion) {
+                $db->commit();
+            }
+
+            return [
+                'id_mov_devolucion' => $idMovDevolucion,
+                'id_mov_merma' => $idMovMerma,
+                'cantidad_devolucion' => round($pesoDevolucion, 4),
+                'cantidad_merma' => round($merma, 4),
+                'operacion_uuid' => $uuid,
+            ];
+        } catch (Throwable $e) {
+            if ($iniciaTransaccion && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
 }

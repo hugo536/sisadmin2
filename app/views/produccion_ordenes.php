@@ -239,7 +239,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                             <div class="d-inline-flex align-items-center gap-1 acciones-op-wrap">
                                                 <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-semibold js-abrir-ejecucion"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
-                                                        data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                        data-id="<?php echo (int) $orden['id']; ?>"
+                                                    data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                         data-receta="<?php echo (int) $orden['id_receta']; ?>"
                                                         data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                         data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
@@ -288,6 +289,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php elseif (in_array($estado, [2, 9], true)): ?>
                                             <button type="button"
                                                     class="btn btn-sm btn-light border js-ver-detalle"
+                                                    data-id="<?php echo (int) $orden['id']; ?>"
                                                     data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                     data-estado="<?php echo $estado === 2 ? 'Ejecutada' : 'Anulada'; ?>"
                                                     data-producto="<?php echo e((string) $orden['producto_nombre']); ?>"
@@ -297,6 +299,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-mod-real="<?php echo number_format((float) ($orden['costo_mod_real'] ?? 0), 4); ?>"
                                                     data-cif-real="<?php echo number_format((float) ($orden['costo_cif_real'] ?? 0), 4); ?>"
                                                     data-total-real="<?php echo number_format((float) ($orden['costo_real_total'] ?? 0), 4); ?>"
+                                                    data-md-teorico="<?php echo number_format(((float) ($orden['costo_md_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
+                                                    data-mod-teorico="<?php echo number_format(((float) ($orden['costo_mod_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
+                                                    data-cif-teorico="<?php echo number_format(((float) ($orden['costo_cif_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
                                                     title="Ver detalle">
                                                 <i class="bi bi-search text-secondary"></i>
                                             </button>
@@ -466,35 +471,49 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 </div>
 
 <div class="modal fade" id="modalDetalleOP" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title"><i class="bi bi-search me-2"></i>Detalle OP</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="small text-muted mb-2">Código</div>
-                <div id="detalleCodigo" class="fw-bold mb-3">-</div>
-                <div class="small text-muted mb-2">Producto</div>
-                <div id="detalleProducto" class="fw-bold mb-3">-</div>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="small text-muted">Planificado</div>
-                        <div id="detallePlan" class="fw-bold">0.0000</div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4"><div class="small text-muted">Código</div><div id="detalleCodigo" class="fw-bold">-</div></div>
+                    <div class="col-md-4"><div class="small text-muted">Producto</div><div id="detalleProducto" class="fw-bold">-</div></div>
+                    <div class="col-md-2"><div class="small text-muted">Planificado</div><div id="detallePlan" class="fw-bold">0.0000</div></div>
+                    <div class="col-md-2"><div class="small text-muted">Producido</div><div id="detalleReal" class="fw-bold">0.0000</div></div>
+                </div>
+
+                <ul class="nav nav-pills nav-fill mb-3" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabDetalleMd" type="button">Materiales (MD)</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDetalleMod" type="button">Mano de Obra (MOD)</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDetalleCif" type="button">Gastos Indirectos (CIF)</button></li>
+                </ul>
+
+                <div class="tab-content border rounded p-2 bg-light-subtle" style="min-height:220px;">
+                    <div class="tab-pane fade show active" id="tabDetalleMd" role="tabpanel">
+                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Insumo</th><th class="text-end">Cant. Teórica</th><th class="text-end">Costo Unit.</th><th class="text-end">Costo Total</th></tr></thead><tbody id="detalleTablaMd"><tr><td colspan="4" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
                     </div>
-                    <div class="col-6">
-                        <div class="small text-muted">Producido</div>
-                        <div id="detalleReal" class="fw-bold">0.0000</div>
+                    <div class="tab-pane fade" id="tabDetalleMod" role="tabpanel">
+                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Operario</th><th class="text-end">Horas</th><th class="text-end">Costo/H</th><th class="text-end">Costo Total</th></tr></thead><tbody id="detalleTablaMod"><tr><td colspan="4" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalleCif" role="tabpanel">
+                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Concepto</th><th>Base</th><th class="text-end">Costo Aplicado</th></tr></thead><tbody id="detalleTablaCif"><tr><td colspan="3" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
                     </div>
                 </div>
-                <div class="mt-3">
+            </div>
+            <div class="modal-footer bg-light d-block">
+                <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center">
                     <span id="detalleEstado" class="badge bg-secondary">-</span>
+                    <div class="small">
+                        <strong>MD</strong> <span id="detalleMdReal" class="fw-semibold">0.0000</span>
+                        + <strong>MOD</strong> <span id="detalleModReal" class="fw-semibold">0.0000</span>
+                        + <strong>CIF</strong> <span id="detalleCifReal" class="fw-semibold">0.0000</span>
+                        = <strong>Total</strong> <span id="detalleTotalReal" class="fw-bold">0.0000</span>
+                        → <strong>Unitario</strong> <span id="detalleUnitarioReal" class="fw-bold">0.0000</span>
+                    </div>
                 </div>
-                <hr>
-                <div class="small text-muted">MD Real: <span id="detalleMdReal" class="fw-semibold text-dark">0.0000</span></div>
-                <div class="small text-muted">MOD Real: <span id="detalleModReal" class="fw-semibold text-dark">0.0000</span></div>
-                <div class="small text-muted">CIF Real: <span id="detalleCifReal" class="fw-semibold text-dark">0.0000</span></div>
-                <div class="small text-muted">Costo total real: <span id="detalleTotalReal" class="fw-semibold text-dark">0.0000</span></div>
             </div>
         </div>
     </div>

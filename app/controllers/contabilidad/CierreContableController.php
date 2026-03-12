@@ -69,6 +69,8 @@ class CierreContableController extends Controlador
             $this->validarDepreciacionesEjecutadas($periodoYm);
             $this->validarAsientosBalanceados($idPeriodo);
 
+            $this->recalcularCifRealProduccion($periodoYm, (int)($_SESSION['id'] ?? 0));
+
             $this->periodoModel->cambiarEstado($idPeriodo, 'CERRADO', (int)($_SESSION['id'] ?? 0));
             $this->logEvento('cierre_contable_mensual', 'Cierre mensual ejecutado para periodo ' . $periodoYm);
             redirect('cierre_contable/index?ok=1&msg=' . urlencode('Cierre mensual completado: ' . $periodoYm));
@@ -240,6 +242,143 @@ class CierreContableController extends Controlador
             'origen_modulo' => 'MANUAL',
             'estado' => 'REGISTRADO',
         ], $lineas, (int)($_SESSION['id'] ?? 0));
+    }
+
+
+    private function recalcularCifRealProduccion(string $periodoYm, int $userId): void
+    {
+        [$anio, $mes] = array_map('intval', explode('-', $periodoYm));
+        if ($anio <= 0 || $mes <= 0) {
+            return;
+        }
+
+        $fechaInicio = sprintf('%04d-%02d-01', $anio, $mes);
+        $fechaFin = date('Y-m-t', strtotime($fechaInicio));
+
+        $db = Conexion::get();
+        $iniciaTx = !$db->inTransaction();
+        if ($iniciaTx) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $stmtEnergia = $db->prepare('SELECT COALESCE(SUM(d.debe - d.haber), 0) AS energia_real
+                                         FROM conta_asientos a
+                                         INNER JOIN conta_asientos_detalle d ON d.id_asiento = a.id AND d.deleted_at IS NULL
+                                         INNER JOIN conta_cuentas c ON c.id = d.id_cuenta
+                                         WHERE a.deleted_at IS NULL
+                                           AND a.estado = "REGISTRADO"
+                                           AND a.fecha >= :desde
+                                           AND a.fecha <= :hasta
+                                           AND c.tipo = "GASTO"
+                                           AND (
+                                             UPPER(c.nombre) LIKE "%LUZ%"
+                                             OR UPPER(c.nombre) LIKE "%ENERG%"
+                                             OR UPPER(a.glosa) LIKE "%LUZ%"
+                                             OR UPPER(a.glosa) LIKE "%ENERG%"
+                                             OR UPPER(COALESCE(d.referencia, "")) LIKE "%LUZ%"
+                                             OR UPPER(COALESCE(d.referencia, "")) LIKE "%ENERG%"
+                                           )');
+            $stmtEnergia->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin]);
+            $energiaReal = (float) ($stmtEnergia->fetchColumn() ?: 0);
+            if ($energiaReal <= 0) {
+                if ($iniciaTx) {
+                    $db->commit();
+                }
+                return;
+            }
+
+            $stmtOps = $db->prepare('SELECT id,
+                                            COALESCE(NULLIF(cantidad_producida, 0), cantidad_planificada, 0) AS unidades,
+                                            COALESCE(total_md_real, costo_md_real, 0) AS md_real,
+                                            COALESCE(total_mod_real, costo_mod_real, 0) AS mod_real
+                                     FROM produccion_ordenes
+                                     WHERE deleted_at IS NULL
+                                       AND estado = 2
+                                       AND fecha_fin >= :desde
+                                       AND fecha_fin <= :hasta');
+            $stmtOps->execute(['desde' => $fechaInicio . ' 00:00:00', 'hasta' => $fechaFin . ' 23:59:59']);
+            $ordenes = $stmtOps->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if ($ordenes === []) {
+                if ($iniciaTx) {
+                    $db->commit();
+                }
+                return;
+            }
+
+            $totalUnidades = 0.0;
+            foreach ($ordenes as $o) {
+                $totalUnidades += max(0.0, (float) ($o['unidades'] ?? 0));
+            }
+            if ($totalUnidades <= 0) {
+                if ($iniciaTx) {
+                    $db->commit();
+                }
+                return;
+            }
+
+            $stmtDelete = $db->prepare('DELETE FROM produccion_ordenes_cif
+                                        WHERE id_orden = :id_orden
+                                          AND (
+                                                UPPER(concepto) LIKE "CIF ESTIMADO%"
+                                             OR UPPER(concepto) LIKE "CUOTA CIF PREDETERMINADA%"
+                                             OR UPPER(concepto) LIKE "CIF REAL RECLASIFICADO%"
+                                          )');
+
+            $stmtInsert = $db->prepare('INSERT INTO produccion_ordenes_cif
+                                            (id_orden, concepto, id_activo, base_distribucion, costo_aplicado)
+                                        VALUES
+                                            (:id_orden, :concepto, NULL, :base_distribucion, :costo_aplicado)');
+
+            $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
+                                        SET costo_cif_real = :cif_real,
+                                            total_cif_real = :cif_real,
+                                            costo_real_total = (:md_real + :mod_real + :cif_real),
+                                            costo_real_unitario = CASE WHEN :unidades > 0 THEN ((:md_real + :mod_real + :cif_real) / :unidades) ELSE costo_real_unitario END,
+                                            costo_unitario_real = CASE WHEN :unidades > 0 THEN ((:md_real + :mod_real + :cif_real) / :unidades) ELSE costo_unitario_real END,
+                                            updated_at = NOW(),
+                                            updated_by = :updated_by
+                                        WHERE id = :id_orden
+                                          AND deleted_at IS NULL');
+
+            foreach ($ordenes as $o) {
+                $idOrden = (int) ($o['id'] ?? 0);
+                $unidades = max(0.0, (float) ($o['unidades'] ?? 0));
+                $mdReal = (float) ($o['md_real'] ?? 0);
+                $modReal = (float) ($o['mod_real'] ?? 0);
+                if ($idOrden <= 0 || $unidades <= 0) {
+                    continue;
+                }
+
+                $cifRealOrden = $energiaReal * ($unidades / $totalUnidades);
+
+                $stmtDelete->execute(['id_orden' => $idOrden]);
+                $stmtInsert->execute([
+                    'id_orden' => $idOrden,
+                    'concepto' => 'CIF real reclasificado cierre ' . $periodoYm,
+                    'base_distribucion' => 'Unidades',
+                    'costo_aplicado' => number_format($cifRealOrden, 4, '.', ''),
+                ]);
+
+                $stmtUpdate->execute([
+                    'cif_real' => number_format($cifRealOrden, 4, '.', ''),
+                    'md_real' => number_format($mdReal, 4, '.', ''),
+                    'mod_real' => number_format($modReal, 4, '.', ''),
+                    'unidades' => number_format($unidades, 4, '.', ''),
+                    'updated_by' => $userId,
+                    'id_orden' => $idOrden,
+                ]);
+            }
+
+            if ($iniciaTx) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($iniciaTx && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
     }
 
     private function logEvento(string $evento, string $descripcion): void

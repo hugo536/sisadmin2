@@ -172,7 +172,7 @@ class InventarioController extends Controlador
             $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
             $idItemUnidad = (int) ($_POST['id_item_unidad'] ?? 0);
 
-            if (in_array($tipo, ['AJ+', 'AJ-', 'CON'], true) && $motivo === '') {
+            if (in_array($tipo, ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'], true) && $motivo === '') {
                 throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
             }
 
@@ -201,7 +201,7 @@ class InventarioController extends Controlador
             if ($tipo === 'TRF') {
                 $datos['id_almacen_origen'] = $idAlmacen;
                 $datos['id_almacen_destino'] = (int) ($_POST['id_almacen_destino'] ?? 0);
-            } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN'], true)) {
+            } elseif (in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true)) {
                 // Las SALIDAS solo tienen origen
                 $datos['id_almacen_origen'] = $idAlmacen;
                 $datos['id_almacen_destino'] = 0;

@@ -32,6 +32,9 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
             </div>
 
             <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
+                <button type="button" class="btn btn-outline-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRetornoPlanta">
+                    <i class="bi bi-arrow-repeat me-2"></i>Retorno Planta
+                </button>
                 <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
                     <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Movimiento
                 </button>
@@ -221,6 +224,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                         <option value="AJ-">AJ- - Ajuste negativo</option>
                                         <option value="TRF">TRF - Transferencia</option>
                                         <option value="CON">CON - Consumo</option>
+                                        <option value="SALIDA_MERMA_PLANTA">SALIDA_MERMA_PLANTA - Merma de planta</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -370,7 +374,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
                     <div class="form-floating mb-2 shadow-sm rounded">
                         <textarea class="form-control border-0" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+ y AJ-)</small></label>
+                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+, AJ-, CON y SALIDA_MERMA_PLANTA)</small></label>
                     </div>
 
                     <div class="d-flex justify-content-end pt-3 border-top mt-4">
@@ -379,6 +383,81 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalRetornoPlanta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Retorno de Planta a Almacén</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formRetornoPlanta" class="modal-body bg-light p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted fw-bold">Ítem</label>
+                        <select class="form-select" name="id_item" id="retornoItem" required>
+                            <option value="">Seleccione...</option>
+                            <?php
+                            $itemsRet = [];
+                            foreach (($stockActual ?? []) as $sRow) {
+                                $idIt = (int) ($sRow['id_item'] ?? 0);
+                                $nIt = (string) ($sRow['item_nombre'] ?? '');
+                                if ($idIt > 0 && $nIt !== '') {
+                                    $itemsRet[$idIt] = $nIt;
+                                }
+                            }
+                            asort($itemsRet);
+                            foreach ($itemsRet as $idIt => $nIt): ?>
+                                <option value="<?php echo (int) $idIt; ?>"><?php echo e($nIt); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted fw-bold">Almacén Planta</label>
+                        <select class="form-select" name="id_almacen_planta" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach ($almacenes as $almacen): ?>
+                                <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted fw-bold">Almacén General</label>
+                        <select class="form-select" name="id_almacen_general" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach ($almacenes as $almacen): ?>
+                                <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold">Stock Teórico en Planta</label>
+                        <input type="number" class="form-control" step="0.0001" min="0" name="stock_teorico_planta" id="retornoStockTeorico" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold">Peso Total Devuelto</label>
+                        <input type="number" class="form-control" step="0.0001" min="0" name="peso_devolucion" id="retornoPesoDevuelto" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold">Costo Unitario (S/)</label>
+                        <input type="number" class="form-control" step="0.0001" min="0" name="costo_unitario" value="0">
+                    </div>
+                    <div class="col-12">
+                        <div id="retornoMermaBadge" class="alert alert-secondary py-2 mb-0 small">Merma calculada: 0.0000</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-muted fw-bold">Referencia</label>
+                        <input type="text" class="form-control" name="referencia" maxlength="255" placeholder="Ej. Caja devuelta turno noche">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Registrar retorno</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

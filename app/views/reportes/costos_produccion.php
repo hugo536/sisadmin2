@@ -133,8 +133,9 @@ $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 1
                             <th class="text-secondary fw-semibold" style="min-width: 200px;">Producto</th>
                             <th class="text-end text-secondary fw-semibold">Planificada</th>
                             <th class="text-end text-secondary fw-semibold">Producida</th>
-                            <th class="text-end text-secondary fw-semibold">Teórico Unit.</th>
-                            <th class="text-end text-secondary fw-semibold">Real Unit.</th>
+                            <th class="text-end text-secondary fw-semibold">MD (T vs R)</th>
+                            <th class="text-end text-secondary fw-semibold">MOD (T vs R)</th>
+                            <th class="text-end text-secondary fw-semibold">CIF (T vs R)</th>
                             <th class="text-end text-secondary fw-semibold">Teórico Total</th>
                             <th class="text-end text-secondary fw-semibold">Real Total</th>
                             <th class="text-end text-secondary fw-semibold">Variación</th>
@@ -143,7 +144,7 @@ $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 1
                     </thead>
                     <tbody>
                         <?php if ($rows === []): ?>
-                            <tr class="empty-msg-row"><td colspan="10" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes para el rango seleccionado.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="11" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes para el rango seleccionado.</td></tr>
                         <?php else: ?>
                             <?php foreach ($rows as $row): ?>
                                 <?php
@@ -159,8 +160,18 @@ $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 1
                                     </td>
                                     <td class="text-end"><?php echo number_format((float) ($row['cantidad_planificada'] ?? 0), 2); ?></td>
                                     <td class="text-end fw-semibold"><?php echo number_format((float) ($row['cantidad_producida'] ?? 0), 2); ?></td>
-                                    <td class="text-end text-muted">S/ <?php echo number_format((float) ($row['costo_teorico_unitario_snapshot'] ?? 0), 2); ?></td>
-                                    <td class="text-end text-muted">S/ <?php echo number_format((float) ($row['costo_real_unitario'] ?? 0), 2); ?></td>
+                                    <td class="text-end small">
+                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['md_teorico_total'] ?? 0), 2); ?></div>
+                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['md_real_total'] ?? 0), 2); ?></div>
+                                    </td>
+                                    <td class="text-end small">
+                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['mod_teorico_total'] ?? 0), 2); ?></div>
+                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['mod_real_total'] ?? 0), 2); ?></div>
+                                    </td>
+                                    <td class="text-end small">
+                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['cif_teorico_total'] ?? 0), 2); ?></div>
+                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['cif_real_total'] ?? 0), 2); ?></div>
+                                    </td>
                                     <td class="text-end">S/ <?php echo number_format((float) ($row['costo_teorico_total_snapshot'] ?? 0), 2); ?></td>
                                     <td class="text-end fw-bold text-dark">S/ <?php echo number_format((float) ($row['costo_real_total'] ?? 0), 2); ?></td>
                                     <td class="text-end">

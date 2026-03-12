@@ -83,8 +83,16 @@ class ReporteProduccionModel extends Modelo
         $sql = "SELECT o.id, o.codigo, o.fecha_programada, o.estado,
                        i.nombre AS producto,
                        o.cantidad_planificada, o.cantidad_producida,
-                       o.costo_teorico_unitario_snapshot, o.costo_teorico_total_snapshot,
-                       o.costo_real_unitario, o.costo_real_total,
+                       COALESCE(o.costo_teorico_unitario_snapshot, 0) AS costo_teorico_unitario_snapshot,
+                       COALESCE(o.costo_teorico_total_snapshot, 0) AS costo_teorico_total_snapshot,
+                       COALESCE(o.costo_real_unitario, o.costo_unitario_real, 0) AS costo_real_unitario,
+                       COALESCE(o.costo_real_total, 0) AS costo_real_total,
+                       (COALESCE(r.costo_md_teorico, 0) * COALESCE(o.cantidad_planificada, 0)) AS md_teorico_total,
+                       (COALESCE(r.costo_mod_teorico, 0) * COALESCE(o.cantidad_planificada, 0)) AS mod_teorico_total,
+                       (COALESCE(r.costo_cif_teorico, 0) * COALESCE(o.cantidad_planificada, 0)) AS cif_teorico_total,
+                       COALESCE(o.total_md_real, o.costo_md_real, 0) AS md_real_total,
+                       COALESCE(o.total_mod_real, o.costo_mod_real, 0) AS mod_real_total,
+                       COALESCE(o.total_cif_real, o.costo_cif_real, 0) AS cif_real_total,
                        ROUND(COALESCE(o.costo_real_total, 0) - COALESCE(o.costo_teorico_total_snapshot, 0), 4) AS variacion_total,
                        ROUND(
                            CASE
@@ -94,6 +102,7 @@ class ReporteProduccionModel extends Modelo
                        , 2) AS variacion_pct
                 FROM produccion_ordenes o
                 LEFT JOIN items i ON i.id = o.id_producto_snapshot
+                LEFT JOIN produccion_recetas r ON r.id = o.id_receta
                 WHERE o.deleted_at IS NULL
                   AND o.estado = 2
                   AND DATE(COALESCE(o.fecha_fin, o.updated_at, o.created_at)) BETWEEN :fd AND :fh

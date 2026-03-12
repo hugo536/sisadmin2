@@ -57,6 +57,10 @@ CREATE TABLE `produccion_ordenes` (
   `costo_teorico_total_snapshot` DECIMAL(14,4) DEFAULT NULL,
   `costo_real_unitario` DECIMAL(14,4) DEFAULT NULL,
   `costo_real_total` DECIMAL(14,4) DEFAULT NULL,
+  `total_md_real` DECIMAL(14,4) DEFAULT NULL,
+  `total_mod_real` DECIMAL(14,4) DEFAULT NULL,
+  `total_cif_real` DECIMAL(14,4) DEFAULT NULL,
+  `costo_unitario_real` DECIMAL(14,4) DEFAULT NULL,
   `id_almacen_planta` INT(11) DEFAULT NULL,
   `cantidad_planificada` DECIMAL(14,4) NOT NULL,
   `cantidad_producida` DECIMAL(14,4) DEFAULT 0.0000,
@@ -132,4 +136,37 @@ CREATE TABLE `produccion_ingresos` (
   CONSTRAINT `fk_ing_op` FOREIGN KEY (`id_orden_produccion`) REFERENCES `produccion_ordenes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_ing_item` FOREIGN KEY (`id_item`) REFERENCES `items` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_ing_almacen` FOREIGN KEY (`id_almacen`) REFERENCES `almacenes` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE `produccion_ordenes_mod` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `id_orden` INT(11) NOT NULL,
+  `id_empleado` INT(11) NOT NULL,
+  `horas_reales` DECIMAL(14,4) NOT NULL DEFAULT 0.0000,
+  `costo_hora_real` DECIMAL(14,4) NOT NULL DEFAULT 0.0000,
+  `costo_total_mod` DECIMAL(14,4) NOT NULL DEFAULT 0.0000,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_prod_mod_orden` (`id_orden`),
+  KEY `idx_prod_mod_empleado` (`id_empleado`),
+  CONSTRAINT `fk_prod_mod_orden` FOREIGN KEY (`id_orden`) REFERENCES `produccion_ordenes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_prod_mod_empleado` FOREIGN KEY (`id_empleado`) REFERENCES `terceros` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `produccion_ordenes_cif` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `id_orden` INT(11) NOT NULL,
+  `concepto` VARCHAR(120) NOT NULL,
+  `id_activo` INT(11) DEFAULT NULL,
+  `base_distribucion` VARCHAR(80) DEFAULT NULL,
+  `costo_aplicado` DECIMAL(14,4) NOT NULL DEFAULT 0.0000,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_prod_cif_orden` (`id_orden`),
+  KEY `idx_prod_cif_activo` (`id_activo`),
+  CONSTRAINT `fk_prod_cif_orden` FOREIGN KEY (`id_orden`) REFERENCES `produccion_ordenes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_prod_cif_activo` FOREIGN KEY (`id_activo`) REFERENCES `activos_fijos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

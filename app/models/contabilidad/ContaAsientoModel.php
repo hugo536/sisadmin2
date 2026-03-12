@@ -202,6 +202,114 @@ class ContaAsientoModel extends Modelo
         ], $lineas, $userId);
     }
 
+
+    public function registrarAutomaticoProduccion(PDO $db, array $movimiento, int $userId): int
+    {
+        $idOrden = (int) ($movimiento['id_orden'] ?? 0);
+        $fecha = (string) ($movimiento['fecha'] ?? date('Y-m-d'));
+        $codigoOrden = trim((string) ($movimiento['codigo_orden'] ?? ''));
+        $costoMd = round((float) ($movimiento['costo_md'] ?? 0), 4);
+        $costoMod = round((float) ($movimiento['costo_mod'] ?? 0), 4);
+        $costoCif = round((float) ($movimiento['costo_cif'] ?? 0), 4);
+        $costoTotal = round((float) ($movimiento['costo_total'] ?? ($costoMd + $costoMod + $costoCif)), 4);
+
+        if ($idOrden <= 0 || $fecha === '' || $costoTotal <= 0) {
+            throw new RuntimeException('Datos insuficientes para registrar asiento automático de producción.');
+        }
+
+        $stmtExiste = $db->prepare('SELECT id FROM conta_asientos
+                                    WHERE origen_modulo = "PRODUCCION"
+                                      AND id_origen = :id_origen
+                                      AND deleted_at IS NULL
+                                    LIMIT 1');
+        $stmtExiste->execute(['id_origen' => $idOrden]);
+        $idExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
+        if ($idExistente > 0) {
+            return $idExistente;
+        }
+
+        $periodo = (new ContaPeriodoModel())->obtenerPeriodoPorFecha($fecha);
+        if (!$periodo || (string) ($periodo['estado'] ?? '') !== 'ABIERTO') {
+            throw new RuntimeException('Periodo contable cerrado o inexistente para la fecha de cierre de producción.');
+        }
+
+        $paramModel = new ContaParametrosModel();
+        $mapa = $paramModel->obtenerMapa();
+
+        $idCtaInvPT = (int) ($mapa['CTA_INV_PRODUCTO_TERMINADO'] ?? 0);
+        if ($idCtaInvPT <= 0) {
+            $idCtaInvPT = $this->resolverCuentaParametroFaltante($db, 'CTA_INV_PRODUCTO_TERMINADO') ?? 0;
+            if ($idCtaInvPT > 0) {
+                $paramModel->guardar('CTA_INV_PRODUCTO_TERMINADO', $idCtaInvPT, $userId);
+            }
+        }
+
+        $idCtaInvMP = (int) ($mapa['CTA_INV_MATERIA_PRIMA'] ?? 0);
+        if ($idCtaInvMP <= 0) {
+            $idCtaInvMP = $this->resolverCuentaParametroFaltante($db, 'CTA_INV_MATERIA_PRIMA') ?? 0;
+            if ($idCtaInvMP > 0) {
+                $paramModel->guardar('CTA_INV_MATERIA_PRIMA', $idCtaInvMP, $userId);
+            }
+        }
+
+        $idCtaNomina = (int) ($mapa['CTA_NOMINA_POR_PAGAR'] ?? 0);
+        if ($idCtaNomina <= 0) {
+            $idCtaNomina = $this->resolverCuentaParametroFaltante($db, 'CTA_NOMINA_POR_PAGAR') ?? 0;
+            if ($idCtaNomina > 0) {
+                $paramModel->guardar('CTA_NOMINA_POR_PAGAR', $idCtaNomina, $userId);
+            }
+        }
+
+        $idCtaCif = (int) ($mapa['CTA_CIF_POR_APLICAR'] ?? 0);
+        if ($idCtaCif <= 0) {
+            $idCtaCif = $this->resolverCuentaParametroFaltante($db, 'CTA_CIF_POR_APLICAR') ?? 0;
+            if ($idCtaCif > 0) {
+                $paramModel->guardar('CTA_CIF_POR_APLICAR', $idCtaCif, $userId);
+            }
+        }
+
+        if ($idCtaInvPT <= 0 || $idCtaInvMP <= 0 || ($costoMod > 0 && $idCtaNomina <= 0) || ($costoCif > 0 && $idCtaCif <= 0)) {
+            throw new RuntimeException('Falta parametrización contable para producción (inventarios/MOD/CIF).');
+        }
+
+        $lineas = [];
+        $lineas[] = ['id_cuenta' => $idCtaInvPT, 'debe' => $costoTotal, 'haber' => 0];
+
+        if ($costoMd > 0) {
+            $lineas[] = ['id_cuenta' => $idCtaInvMP, 'debe' => 0, 'haber' => $costoMd];
+        }
+        if ($costoMod > 0) {
+            $lineas[] = ['id_cuenta' => $idCtaNomina, 'debe' => 0, 'haber' => $costoMod];
+        }
+        if ($costoCif > 0) {
+            $lineas[] = ['id_cuenta' => $idCtaCif, 'debe' => 0, 'haber' => $costoCif];
+        }
+
+        $sumaHaber = 0.0;
+        foreach ($lineas as $ln) {
+            $sumaHaber += (float) ($ln['haber'] ?? 0);
+        }
+        $delta = round($costoTotal - $sumaHaber, 4);
+        if (abs($delta) > 0.0001) {
+            for ($i = count($lineas) - 1; $i >= 0; $i--) {
+                if ((float) ($lineas[$i]['haber'] ?? 0) > 0) {
+                    $lineas[$i]['haber'] = round((float) $lineas[$i]['haber'] + $delta, 4);
+                    break;
+                }
+            }
+        }
+
+        return $this->crearAsiento($db, [
+            'codigo' => $this->siguienteCodigo($db, 'PRD'),
+            'fecha' => $fecha,
+            'id_periodo' => (int) $periodo['id'],
+            'glosa' => 'Cierre automático OP ' . ($codigoOrden !== '' ? $codigoOrden : ('#' . $idOrden)),
+            'origen_modulo' => 'PRODUCCION',
+            'id_origen' => $idOrden,
+            'estado' => 'REGISTRADO',
+        ], $lineas, $userId);
+    }
+
     private function resolverCuentaParametroFaltante(PDO $db, string $clave): ?int
     {
         $condiciones = null;
@@ -223,6 +331,21 @@ class ContaAsientoModel extends Modelo
         } elseif ($clave === 'CTA_NOMINA_POR_PAGAR') {
             $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%REMUNERACIONES POR PAGAR%" OR UPPER(c.nombre) LIKE "%SUELDOS POR PAGAR%" OR UPPER(c.nombre) LIKE "%PLANILLA POR PAGAR%" OR c.codigo LIKE "41%" OR c.codigo LIKE "46%")',
+                'tipo_fallback' => 'PASIVO',
+            ];
+        } elseif ($clave === 'CTA_INV_PRODUCTO_TERMINADO') {
+            $condiciones = [
+                'where' => '(UPPER(c.nombre) LIKE "%PRODUCTO TERMINADO%" OR UPPER(c.nombre) LIKE "%INVENTARIO PRODUCTO%" OR c.codigo LIKE "20%")',
+                'tipo_fallback' => 'ACTIVO',
+            ];
+        } elseif ($clave === 'CTA_INV_MATERIA_PRIMA') {
+            $condiciones = [
+                'where' => '(UPPER(c.nombre) LIKE "%MATERIA PRIMA%" OR UPPER(c.nombre) LIKE "%INVENTARIO MATERIA%" OR UPPER(c.nombre) LIKE "%INSUMO%" OR c.codigo LIKE "20%")',
+                'tipo_fallback' => 'ACTIVO',
+            ];
+        } elseif ($clave === 'CTA_CIF_POR_APLICAR') {
+            $condiciones = [
+                'where' => '(UPPER(c.nombre) LIKE "%CIF%" OR UPPER(c.nombre) LIKE "%COSTO INDIRECTO%" OR UPPER(c.nombre) LIKE "%COSTOS INDIRECTOS%")',
                 'tipo_fallback' => 'PASIVO',
             ];
         }
