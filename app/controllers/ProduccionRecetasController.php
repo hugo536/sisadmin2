@@ -144,6 +144,41 @@ class ProduccionRecetasController extends Controlador
                         }
                     }
 
+                    $manoObra = [];
+                    $modPerfiles = $_POST['mod_perfil_puesto'] ?? [];
+                    $modHoras = $_POST['mod_horas_estimadas'] ?? [];
+                    $modCostoHora = $_POST['mod_costo_hora_estimado'] ?? [];
+                    foreach ((array) $modPerfiles as $idx => $perfil) {
+                        $perfilTexto = trim((string) $perfil);
+                        $horas = $this->parseDecimal($modHoras[$idx] ?? 0);
+                        $costoHora = $this->parseDecimal($modCostoHora[$idx] ?? 0);
+                        if ($perfilTexto === '' || $horas <= 0 || $costoHora <= 0) {
+                            continue;
+                        }
+                        $manoObra[] = [
+                            'perfil_puesto' => $perfilTexto,
+                            'horas_estimadas' => $horas,
+                            'costo_hora_estimado' => $costoHora,
+                        ];
+                    }
+
+                    $cif = [];
+                    $cifActivos = $_POST['cif_id_activo'] ?? [];
+                    $cifConceptos = $_POST['cif_concepto'] ?? [];
+                    $cifCostos = $_POST['cif_costo_estimado'] ?? [];
+                    foreach ((array) $cifConceptos as $idx => $concepto) {
+                        $conceptoTexto = trim((string) $concepto);
+                        $costo = $this->parseDecimal($cifCostos[$idx] ?? 0);
+                        if ($conceptoTexto === '' || $costo <= 0) {
+                            continue;
+                        }
+                        $cif[] = [
+                            'id_activo' => (int) ($cifActivos[$idx] ?? 0),
+                            'concepto' => $conceptoTexto,
+                            'costo_estimado' => $costo,
+                        ];
+                    }
+
                     $codigoIngresado = trim((string) ($_POST['codigo'] ?? ''));
                     $idProd = (int) ($_POST['id_producto'] ?? 0);
                     if ($codigoIngresado === '') {
@@ -159,6 +194,8 @@ class ProduccionRecetasController extends Controlador
                         'unidad_rendimiento' => 'UND',
                         'detalles' => $detalles,
                         'parametros' => $parametros,
+                        'mano_obra' => $manoObra,
+                        'cif' => $cif,
                     ];
 
                     $idRecetaBase = (int) ($_POST['id_receta_base'] ?? 0);
@@ -234,6 +271,7 @@ class ProduccionRecetasController extends Controlador
             'recetas' => $this->produccionRecetasModel->listarRecetas(),
             'items_stockeables' => [],
             'parametros_catalogo' => $this->produccionRecetasModel->listarParametrosCatalogo(),
+            'activos_fijos_cif' => $this->produccionRecetasModel->listarActivosFijosParaCif(),
             'ruta_actual' => 'produccion/recetas',
         ]);
     }

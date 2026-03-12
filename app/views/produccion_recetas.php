@@ -1,6 +1,7 @@
 <?php
 $recetas = $recetas ?? [];
 $parametrosCatalogo = $parametros_catalogo ?? [];
+$activosFijosCif = $activos_fijos_cif ?? [];
 ?>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -212,13 +213,52 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM)</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarInsumo">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar insumo
-                                </button>
+                            <ul class="nav nav-tabs mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaBom" type="button" role="tab">BOM / Insumos</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaMod" type="button" role="tab">Mano de Obra (MOD)</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaCif" type="button" role="tab">Costos Indirectos (CIF)</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="tabRecetaBom" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM)</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarInsumo">
+                                            <i class="bi bi-plus-lg me-1"></i>Agregar insumo
+                                        </button>
+                                    </div>
+                                    <div id="listaInsumosReceta" class="lista-insumos-etapa"></div>
+                                </div>
+
+                                <div class="tab-pane fade" id="tabRecetaMod" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-people me-2"></i>Mano de Obra Directa (MOD)</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarMod">
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir operario
+                                        </button>
+                                    </div>
+                                    <div id="contenedorMod"></div>
+                                </div>
+
+                                <div class="tab-pane fade" id="tabRecetaCif" role="tabpanel">
+                                    <div class="alert alert-light border small mb-3">
+                                        Vincula un activo fijo para estimar desgaste por hora (depreciación mensual / 240 horas).
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-lightning-charge me-2"></i>Costos Indirectos (CIF)</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarCif">
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir CIF
+                                        </button>
+                                    </div>
+                                    <div id="contenedorCif"></div>
+                                </div>
                             </div>
-                            <div id="listaInsumosReceta" class="lista-insumos-etapa"></div>
                         </div>
                     </div>
 
@@ -299,6 +339,29 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
+                        </div>
+                    </template>
+
+                    <template id="modTemplate">
+                        <div class="row g-2 align-items-center mb-2 mod-row">
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" name="mod_perfil_puesto[]" placeholder="Perfil / Puesto"></div>
+                            <div class="col-md-3"><input type="number" class="form-control form-control-sm mod-horas" name="mod_horas_estimadas[]" step="0.0001" placeholder="Horas"></div>
+                            <div class="col-md-3"><input type="number" class="form-control form-control-sm mod-costo" name="mod_costo_hora_estimado[]" step="0.0001" placeholder="Costo/Hora"></div>
+                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-mod"><i class="bi bi-trash"></i></button></div>
+                        </div>
+                    </template>
+
+                    <template id="cifTemplate">
+                        <div class="row g-2 align-items-center mb-2 cif-row">
+                            <div class="col-md-3">
+                                <select class="form-select form-select-sm cif-id-activo" name="cif_id_activo[]">
+                                    <option value="">Activo fijo (opcional)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" name="cif_concepto[]" placeholder="Concepto CIF"></div>
+                            <div class="col-md-2"><input type="number" class="form-control form-control-sm cif-horas" step="0.0001" placeholder="Horas uso"></div>
+                            <div class="col-md-1"><input type="number" class="form-control form-control-sm cif-costo" name="cif_costo_estimado[]" step="0.0001" placeholder="Costo"></div>
+                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-cif"><i class="bi bi-trash"></i></button></div>
                         </div>
                     </template>
 
@@ -391,5 +454,14 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
     </div>
 </div>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.3"></script>
-
+<script>
+window.ACTIVOS_FIJOS_CIF = <?php echo json_encode(array_map(static function(array $af): array {
+    return [
+        'id' => (int) ($af['id'] ?? 0),
+        'codigo' => (string) ($af['codigo_activo'] ?? ''),
+        'nombre' => (string) ($af['nombre'] ?? ''),
+        'tasa_depreciacion_hora' => (float) ($af['tasa_depreciacion_hora'] ?? 0),
+    ];
+}, $activosFijosCif), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+</script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.4"></script>

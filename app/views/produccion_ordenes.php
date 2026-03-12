@@ -293,6 +293,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-producto="<?php echo e((string) $orden['producto_nombre']); ?>"
                                                     data-plan="<?php echo number_format((float) $orden['cantidad_planificada'], 4); ?>"
                                                     data-real="<?php echo number_format((float) $orden['cantidad_producida'], 4); ?>"
+                                                    data-md-real="<?php echo number_format((float) ($orden['costo_md_real'] ?? 0), 4); ?>"
+                                                    data-mod-real="<?php echo number_format((float) ($orden['costo_mod_real'] ?? 0), 4); ?>"
+                                                    data-cif-real="<?php echo number_format((float) ($orden['costo_cif_real'] ?? 0), 4); ?>"
+                                                    data-total-real="<?php echo number_format((float) ($orden['costo_real_total'] ?? 0), 4); ?>"
                                                     title="Ver detalle">
                                                 <i class="bi bi-search text-secondary"></i>
                                             </button>
@@ -486,6 +490,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <div class="mt-3">
                     <span id="detalleEstado" class="badge bg-secondary">-</span>
                 </div>
+                <hr>
+                <div class="small text-muted">MD Real: <span id="detalleMdReal" class="fw-semibold text-dark">0.0000</span></div>
+                <div class="small text-muted">MOD Real: <span id="detalleModReal" class="fw-semibold text-dark">0.0000</span></div>
+                <div class="small text-muted">CIF Real: <span id="detalleCifReal" class="fw-semibold text-dark">0.0000</span></div>
+                <div class="small text-muted">Costo total real: <span id="detalleTotalReal" class="fw-semibold text-dark">0.0000</span></div>
             </div>
         </div>
     </div>
@@ -602,6 +611,28 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             </div>
                         </div>
 
+                        <hr class="my-4">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold text-muted mb-0">MOD Real</h6>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-info" id="btnGuardarTiemposModAjax"><i class="bi bi-clock-history"></i> Guardar tiempos</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarOrdenMod"><i class="bi bi-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div id="contenedorOrdenMod"></div>
+                                <div class="small text-muted mt-1" id="estadoGuardadoMod"></div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold text-muted mb-0">CIF Aplicado</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarOrdenCif"><i class="bi bi-plus"></i></button>
+                                </div>
+                                <div id="contenedorOrdenCif"></div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -669,6 +700,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-warning-subtle border border-warning me-2" style="width: 14px; height: 14px;"></span> Turno Extendido (Excepción)</div>
                             <div class="d-flex align-items-center"><span class="badge bg-dark ms-2 me-1 border px-1">OP</span> Órdenes Asignadas al día</div>
                         </div>
+
                     </div>
                 </div>
 
@@ -676,6 +708,23 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         </div>
     </div>
 </div>
+
+<template id="tplOrdenModRow">
+    <div class="row g-2 align-items-center mb-2 orden-mod-row">
+        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_mod_id_empleado[]" placeholder="ID empleado"></div>
+        <div class="col-3"><input type="number" class="form-control form-control-sm" name="orden_mod_horas_reales[]" step="0.0001" placeholder="Horas"></div>
+        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_mod_costo_hora_real[]" step="0.0001" placeholder="Costo/h"></div>
+        <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-orden-mod"><i class="bi bi-trash"></i></button></div>
+    </div>
+</template>
+
+<template id="tplOrdenCifRow">
+    <div class="row g-2 align-items-center mb-2 orden-cif-row">
+        <div class="col-7"><input type="text" class="form-control form-control-sm" name="orden_cif_concepto[]" placeholder="Concepto"></div>
+        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_cif_costo_aplicado[]" step="0.0001" placeholder="Costo"></div>
+        <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-orden-cif"><i class="bi bi-trash"></i></button></div>
+    </div>
+</template>
 
 <template id="tplSelectAlmacenes">
     <?php foreach ($almacenes as $a): ?>

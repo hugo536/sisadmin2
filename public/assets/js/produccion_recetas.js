@@ -54,6 +54,14 @@ function initFormularioRecetas() {
     const contenedorParametros = document.getElementById('contenedorParametros');
     const templateParametro = document.getElementById('parametroTemplate');
     const emptyParametros = document.getElementById('emptyParametros');
+    const btnAgregarMod = document.getElementById('btnAgregarMod');
+    const contenedorMod = document.getElementById('contenedorMod');
+    const templateMod = document.getElementById('modTemplate');
+    const btnAgregarCif = document.getElementById('btnAgregarCif');
+    const contenedorCif = document.getElementById('contenedorCif');
+    const templateCif = document.getElementById('cifTemplate');
+    const activosFijosCif = Array.isArray(window.ACTIVOS_FIJOS_CIF) ? window.ACTIVOS_FIJOS_CIF : [];
+    const mapaActivosFijosCif = new Map(activosFijosCif.map(a => [String(a.id), a]));
 
     function initTomSelectAjax(selectEl, placeholderText, onChangeCallback = null) {
         if (!selectEl || typeof TomSelect === 'undefined') return null;
@@ -106,6 +114,8 @@ function initFormularioRecetas() {
 
         listaInsumos.innerHTML = '';
         contenedorParametros.innerHTML = '';
+        if (contenedorMod) contenedorMod.innerHTML = '';
+        if (contenedorCif) contenedorCif.innerHTML = '';
         if (emptyParametros) emptyParametros.style.display = 'block';
         if (resumenItems) resumenItems.textContent = '0 insumos agregados.';
         if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
@@ -170,7 +180,17 @@ function initFormularioRecetas() {
         });
 
         if (resumenItems) resumenItems.textContent = `${totalItems} insumos agregados.`;
-        if (costoTotalEl) costoTotalEl.textContent = `S/ ${costoTotal.toFixed(4)}`;
+        let costoMod = 0;
+        document.querySelectorAll('.mod-row').forEach(row => {
+            const horas = parseNumero(row.querySelector('.mod-horas')?.value);
+            const costoHora = parseNumero(row.querySelector('.mod-costo')?.value);
+            costoMod += horas * costoHora;
+        });
+        let costoCif = 0;
+        document.querySelectorAll('.cif-row').forEach(row => {
+            costoCif += parseNumero(row.querySelector('.cif-costo')?.value);
+        });
+        if (costoTotalEl) costoTotalEl.textContent = `S/ ${(costoTotal + costoMod + costoCif).toFixed(4)}`;
     };
 
     const validarInsumoSeleccionado = (valorSeleccionado, tomInstance) => {
@@ -283,6 +303,55 @@ function initFormularioRecetas() {
 
     if (btnAgregarParametro) btnAgregarParametro.addEventListener('click', () => crearFilaParametro());
 
+    if (btnAgregarMod) btnAgregarMod.addEventListener('click', () => {
+        if (!templateMod || !contenedorMod) return;
+        const fragment = templateMod.content.cloneNode(true);
+        fragment.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcularResumenYCostos));
+        contenedorMod.appendChild(fragment);
+        calcularResumenYCostos();
+    });
+
+    if (btnAgregarCif) btnAgregarCif.addEventListener('click', () => {
+        if (!templateCif || !contenedorCif) return;
+        const fragment = templateCif.content.cloneNode(true);
+        fragment.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcularResumenYCostos));
+        contenedorCif.appendChild(fragment);
+
+        const row = contenedorCif.querySelector('.cif-row:last-child');
+        const inputActivo = row?.querySelector('.cif-id-activo');
+        const inputHoras = row?.querySelector('.cif-horas');
+        const inputCosto = row?.querySelector('.cif-costo');
+        const inputConcepto = row?.querySelector('input[name="cif_concepto[]"]');
+
+        if (inputActivo) {
+            inputActivo.innerHTML = '<option value="">Activo fijo (opcional)</option>';
+            activosFijosCif.forEach((af) => {
+                const op = document.createElement('option');
+                op.value = String(af.id || '');
+                op.textContent = `${af.codigo || ''} - ${af.nombre || ''}`.trim();
+                inputActivo.appendChild(op);
+            });
+        }
+
+        const recalcularDesdeActivo = () => {
+            if (!inputActivo || !inputCosto) return;
+            const activo = mapaActivosFijosCif.get(String(inputActivo.value || ''));
+            if (!activo) return;
+            const horas = parseNumero(inputHoras?.value || 0);
+            if (horas > 0 && Number(activo.tasa_depreciacion_hora || 0) > 0) {
+                inputCosto.value = (horas * Number(activo.tasa_depreciacion_hora || 0)).toFixed(4);
+            }
+            if (inputConcepto && !inputConcepto.value) {
+                inputConcepto.value = `Depreciación ${activo.codigo || ''} ${activo.nombre || ''}`.trim();
+            }
+            calcularResumenYCostos();
+        };
+
+        inputActivo?.addEventListener('change', recalcularDesdeActivo);
+        inputHoras?.addEventListener('input', recalcularDesdeActivo);
+        calcularResumenYCostos();
+    });
+
     document.addEventListener('click', e => {
         const btn = e.target.closest('.js-remove-param');
         if (btn) {
@@ -291,6 +360,18 @@ function initFormularioRecetas() {
                 row.remove();
                 if (emptyParametros) emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
             }
+        }
+
+        const btnRemoveMod = e.target.closest('.js-remove-mod');
+        if (btnRemoveMod) {
+            btnRemoveMod.closest('.mod-row')?.remove();
+            calcularResumenYCostos();
+        }
+
+        const btnRemoveCif = e.target.closest('.js-remove-cif');
+        if (btnRemoveCif) {
+            btnRemoveCif.closest('.cif-row')?.remove();
+            calcularResumenYCostos();
         }
     });
 
@@ -413,6 +494,33 @@ function initFormularioRecetas() {
             contenedorParametros.innerHTML = '';
             (parametros || []).forEach(p => crearFilaParametro(p));
             if (emptyParametros) emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
+        },
+        cargarMod(mod) {
+            if (!contenedorMod) return;
+            contenedorMod.innerHTML = '';
+            (mod || []).forEach((fila) => {
+                btnAgregarMod?.click();
+                const row = contenedorMod.querySelector('.mod-row:last-child');
+                if (!row) return;
+                row.querySelector('input[name="mod_perfil_puesto[]"]').value = fila.perfil_puesto || '';
+                row.querySelector('input[name="mod_horas_estimadas[]"]').value = parseNumero(fila.horas_estimadas).toFixed(4);
+                row.querySelector('input[name="mod_costo_hora_estimado[]"]').value = parseNumero(fila.costo_hora_estimado).toFixed(4);
+            });
+        },
+        cargarCif(cif) {
+            if (!contenedorCif) return;
+            contenedorCif.innerHTML = '';
+            (cif || []).forEach((fila) => {
+                btnAgregarCif?.click();
+                const row = contenedorCif.querySelector('.cif-row:last-child');
+                if (!row) return;
+                const selectActivo = row.querySelector('select[name="cif_id_activo[]"]');
+                if (selectActivo) {
+                    selectActivo.value = fila.id_activo || '';
+                }
+                row.querySelector('input[name="cif_concepto[]"]').value = fila.concepto || '';
+                row.querySelector('input[name="cif_costo_estimado[]"]').value = parseNumero(fila.costo_estimado).toFixed(4);
+            });
         }
     };
 }
@@ -459,6 +567,8 @@ function initAccionesRecetaPendiente() {
         api.setIdRecetaBase(idReceta);
         api.cargarDetalles(dataReceta.detalles || []);
         api.cargarParametros(dataReceta.parametros || []);
+        api.cargarMod(dataReceta.mano_obra || []);
+        api.cargarCif(dataReceta.cif || []);
     };
 
     modalEl.addEventListener('hidden.bs.modal', function () {
@@ -534,6 +644,8 @@ function initAccionesRecetaPendiente() {
                 // Solo limpiamos los detalles y parámetros, ya que el código lo acabamos de poner
                 api.cargarDetalles([]);
                 api.cargarParametros([]);
+                api.cargarMod([]);
+                api.cargarCif([]);
                 api.setIdRecetaBase(0);
                 
                 // Aseguramos que el producto destino esté vacío
@@ -559,6 +671,8 @@ function initAccionesRecetaPendiente() {
             api.setIdRecetaBase(idRecetaBase);
             api.cargarDetalles(datosNuevaVersion.detalles || []);
             api.cargarParametros(datosNuevaVersion.parametros || []);
+            api.cargarMod(datosNuevaVersion.mano_obra || []);
+            api.cargarCif(datosNuevaVersion.cif || []);
 
             const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
             if (selectVersionBase) {

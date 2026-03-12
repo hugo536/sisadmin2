@@ -108,6 +108,14 @@ if (!window.produccionJsInitialized) {
                     document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
                     document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
                     document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
+                    const mdReal = document.getElementById('detalleMdReal');
+                    const modReal = document.getElementById('detalleModReal');
+                    const cifReal = document.getElementById('detalleCifReal');
+                    const totalReal = document.getElementById('detalleTotalReal');
+                    if (mdReal) mdReal.textContent = btnDetalle.getAttribute('data-md-real') || '0.0000';
+                    if (modReal) modReal.textContent = btnDetalle.getAttribute('data-mod-real') || '0.0000';
+                    if (cifReal) cifReal.textContent = btnDetalle.getAttribute('data-cif-real') || '0.0000';
+                    if (totalReal) totalReal.textContent = btnDetalle.getAttribute('data-total-real') || '0.0000';
                     
                     const badge = document.getElementById('detalleEstado');
                     if (badge) {
@@ -185,9 +193,15 @@ if (!window.produccionJsInitialized) {
 
                 const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
                 const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
+                const contenedorOrdenMod = document.getElementById('contenedorOrdenMod');
+                const contenedorOrdenCif = document.getElementById('contenedorOrdenCif');
                 
                 tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><div class="spinner-border spinner-border-sm me-2"></div>Buscando stock...</td></tr>';
                 tbodyIngresos.innerHTML = '';
+                if (contenedorOrdenMod) contenedorOrdenMod.innerHTML = '';
+                if (contenedorOrdenCif) contenedorOrdenCif.innerHTML = '';
+                const estadoGuardadoMod = document.getElementById('estadoGuardadoMod');
+                if (estadoGuardadoMod) estadoGuardadoMod.textContent = '';
 
                 const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
 
@@ -253,6 +267,47 @@ if (!window.produccionJsInitialized) {
 
             if (e.target.closest('#btnAgregarConsumo')) { addConsumoRow(null); return; }
             if (e.target.closest('#btnAgregarIngreso')) { addIngresoRow(); return; }
+            if (e.target.closest('#btnGuardarTiemposModAjax')) {
+                const idOrden = document.getElementById('execIdOrden')?.value || '';
+                if (!idOrden) return;
+
+                const formData = new FormData();
+                formData.append('accion', 'guardar_tiempos_mod_ajax');
+                formData.append('id_orden', idOrden);
+
+                document.querySelectorAll('#contenedorOrdenMod .orden-mod-row').forEach((row) => {
+                    formData.append('orden_mod_id_empleado[]', row.querySelector('input[name="orden_mod_id_empleado[]"]')?.value || '');
+                    formData.append('orden_mod_horas_reales[]', row.querySelector('input[name="orden_mod_horas_reales[]"]')?.value || '');
+                    formData.append('orden_mod_costo_hora_real[]', row.querySelector('input[name="orden_mod_costo_hora_real[]"]')?.value || '');
+                });
+
+                try {
+                    const resp = await fetch(window.location.href, { method: 'POST', body: formData });
+                    const data = await resp.json();
+                    const estado = document.getElementById('estadoGuardadoMod');
+                    if (data.success) {
+                        if (estado) estado.textContent = `MOD guardada: ${data.data?.filas || 0} filas | Total S/ ${Number(data.data?.total_mod || 0).toFixed(4)}`;
+                    } else if (estado) {
+                        estado.textContent = data.message || 'No se pudo guardar MOD.';
+                    }
+                } catch (err) {
+                    const estado = document.getElementById('estadoGuardadoMod');
+                    if (estado) estado.textContent = 'Error de conexión al guardar tiempos MOD.';
+                }
+                return;
+            }
+            if (e.target.closest('#btnAgregarOrdenMod')) {
+                const tpl = document.getElementById('tplOrdenModRow');
+                const box = document.getElementById('contenedorOrdenMod');
+                if (tpl && box) box.appendChild(tpl.content.cloneNode(true));
+                return;
+            }
+            if (e.target.closest('#btnAgregarOrdenCif')) {
+                const tpl = document.getElementById('tplOrdenCifRow');
+                const box = document.getElementById('contenedorOrdenCif');
+                if (tpl && box) box.appendChild(tpl.content.cloneNode(true));
+                return;
+            }
 
             const btnRemove = e.target.closest('.js-remove-row');
             if (btnRemove) {
@@ -280,6 +335,16 @@ if (!window.produccionJsInitialized) {
 
                 trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
                 recalcularSemaforos();
+                return;
+            }
+
+            if (e.target.closest('.js-remove-orden-mod')) {
+                e.target.closest('.orden-mod-row')?.remove();
+                return;
+            }
+
+            if (e.target.closest('.js-remove-orden-cif')) {
+                e.target.closest('.orden-cif-row')?.remove();
                 return;
             }
         });
@@ -321,6 +386,8 @@ if (!window.produccionJsInitialized) {
             
             const boxJustificacion = document.getElementById('boxJustificacionFaltante');
             if (boxJustificacion) boxJustificacion.style.display = 'none';
+            const estadoGuardadoMod = document.getElementById('estadoGuardadoMod');
+            if (estadoGuardadoMod) estadoGuardadoMod.textContent = '';
         });
     }
 

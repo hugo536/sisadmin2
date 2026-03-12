@@ -220,6 +220,25 @@ class ItemModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
+    public function actualizarCostoReferencial(int $idItem, float $costo, int $userId): void
+    {
+        if ($idItem <= 0) {
+            throw new RuntimeException('Item inválido para actualizar costo referencial.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE items
+                                      SET costo_referencial = :costo,
+                                          updated_at = NOW(),
+                                          updated_by = :user
+                                      WHERE id = :id
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'costo' => number_format(max(0, $costo), 4, '.', ''),
+            'user' => $userId,
+            'id' => $idItem,
+        ]);
+    }
+
     public function listarCategoriasActivas(): array
     {
         $sql = 'SELECT id, nombre
