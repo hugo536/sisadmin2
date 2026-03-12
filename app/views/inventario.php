@@ -1,11 +1,10 @@
 <?php
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
-// NUEVO: Asegurarnos de recibir la variable proveedores (debemos enviarla desde el controlador)
 $proveedores = $proveedores ?? []; 
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 ?>
-<div class="container-fluid p-4">
+<div class="container-fluid p-4" id="inventarioApp">
     
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in inventario-sticky-header">
         <div>
@@ -25,17 +24,14 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     <i class="bi bi-file-earmark-arrow-down me-2 text-info"></i>Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=csv&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-filetype-csv me-2"></i>CSV</a></li>
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=excel&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
-                    <li><a class="dropdown-item" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=pdf&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-pdf me-2"></i>PDF</a></li>
+                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=csv&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-filetype-csv me-2 text-muted"></i>CSV</a></li>
+                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=excel&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=pdf&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-pdf me-2 text-danger"></i>PDF</a></li>
                 </ul>
             </div>
 
             <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
-                <button type="button" class="btn btn-outline-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRetornoPlanta">
-                    <i class="bi bi-arrow-repeat me-2"></i>Retorno Planta
-                </button>
-                <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
+                <button type="button" class="btn btn-primary shadow-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
                     <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Movimiento
                 </button>
             <?php endif; ?>
@@ -48,12 +44,12 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                 <div class="col-12 col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="inventarioSearch" placeholder="Buscar SKU o nombre...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0 shadow-none" id="inventarioSearch" placeholder="Buscar SKU o nombre...">
                     </div>
                 </div>
                 
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="inventarioFiltroTipoRegistro">
+                    <select class="form-select bg-light shadow-none" id="inventarioFiltroTipoRegistro">
                         <option value="">Todos los Tipos</option>
                         <option value="item">Productos Base / Insumos</option>
                         <option value="pack">Presentaciones Comerciales (Packs)</option>
@@ -61,7 +57,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                 </div>
 
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light" id="inventarioFiltroAlmacen">
+                    <select class="form-select bg-light shadow-none" id="inventarioFiltroAlmacen">
                         <option value="" <?php echo $idAlmacenFiltro === 0 ? 'selected' : ''; ?>>Todos los almacenes</option>
                         <?php foreach ($almacenes as $almacen): ?>
                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>" <?php echo $idAlmacenFiltro === (int) ($almacen['id'] ?? 0) ? 'selected' : ''; ?>>
@@ -71,7 +67,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="inventarioFiltroEstado">
+                    <select class="form-select bg-light shadow-none" id="inventarioFiltroEstado">
                         <option value="">Situación / Alertas</option>
                         <option value="disponible">Disponible (Verde)</option>
                         <option value="próximo_a_vencer">Próximo a Vencer (Amarillo)</option>
@@ -88,7 +84,16 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock">
+                <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
+                       data-erp-table="true"
+                       data-search-input="#inventarioSearch"
+                       data-pagination-controls="#inventarioPaginationControls"
+                       data-pagination-info="#inventarioPaginationInfo"
+                       data-erp-filters='[
+                           {"el":"#inventarioFiltroAlmacen","attr":"data-almacen","match":"equals"},
+                           {"el":"#inventarioFiltroTipoRegistro","attr":"data-tipo-registro","match":"equals"},
+                           {"el":"#inventarioFiltroEstado","attr":"data-estado","match":"equals"}
+                       ]'>
                     <thead class="inventario-sticky-thead table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">SKU</th>
@@ -126,22 +131,22 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
                                     data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
                                     
-                                    <td class="ps-4 fw-semibold text-primary align-top pt-3"><?php echo e($sku); ?></td>
+                                    <td class="ps-4 fw-bold text-primary align-top pt-3"><?php echo e($sku); ?></td>
                                     <td class="fw-semibold text-dark align-top pt-3">
                                         <?php echo e($itemNombreCompleto); ?>
                                         <?php if($tipoRegistro === 'pack'): ?>
-                                            <span class="badge bg-info text-dark ms-1" style="font-size: 0.65rem;">PACK</span>
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-muted small align-top pt-3"><?php echo e($almacenNombre); ?></td>
-                                    <td class="align-top pt-3"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
+                                    <td class="align-top pt-3 text-muted"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
                                     <td class="text-end pe-4 align-top pt-3">
-                                        <div class="fw-bold fs-6 text-primary"><?php echo $stockFormateado; ?></div>
+                                        <div class="fw-bold fs-6 text-dark"><?php echo $stockFormateado; ?></div>
                                         <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
                                             <div class="d-flex flex-column align-items-end mt-1 pb-1" style="gap: 3px;">
                                                 <?php foreach ($stock['desglose'] as $d): ?>
-                                                    <div class="badge bg-white text-secondary border border-secondary-subtle shadow-sm px-2 py-1 fw-medium" style="font-size: 0.7rem;">
+                                                    <div class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">
                                                         <?php echo e($d['texto']); ?>
                                                     </div>
                                                 <?php endforeach; ?>
@@ -180,21 +185,19 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
+        <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-4">
+            <small class="text-muted fw-semibold" id="inventarioPaginationInfo">Cargando...</small>
+            <nav aria-label="Paginación de inventario">
+                <ul class="pagination mb-0 justify-content-end" id="inventarioPaginationControls"></ul>
+            </nav>
+        </div>
     </div>
-
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-1">
-        <div class="small text-muted fw-medium" id="inventarioPaginationInfo">Mostrando 0-0 de 0 resultados</div>
-        <nav aria-label="Paginación de inventario">
-            <ul class="pagination pagination-sm mb-0 shadow-sm" id="inventarioPaginationControls"></ul>
-        </nav>
-    </div>
-
 </div>
 
 <div class="modal fade" id="modalMovimientoInventario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
@@ -217,19 +220,18 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="tipoMovimiento" class="form-label small text-muted fw-bold">Tipo de Movimiento <span class="text-danger">*</span></label>
-                                    <select id="tipoMovimiento" name="tipo_movimiento" class="form-select" required>
+                                    <select id="tipoMovimiento" name="tipo_movimiento" class="form-select shadow-none border-secondary-subtle" required>
                                         <option value="">Seleccione...</option>
                                         <option value="INI">INI - Inicial</option>
                                         <option value="AJ+">AJ+ - Ajuste positivo</option>
                                         <option value="AJ-">AJ- - Ajuste negativo</option>
                                         <option value="TRF">TRF - Transferencia</option>
                                         <option value="CON">CON - Consumo</option>
-                                        <option value="SALIDA_MERMA_PLANTA">SALIDA_MERMA_PLANTA - Merma de planta</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="almacenMovimiento" class="form-label small text-muted fw-bold">Almacén Origen <span class="text-danger">*</span></label>
-                                    <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
+                                    <select id="almacenMovimiento" name="id_almacen" class="form-select shadow-none border-secondary-subtle" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
@@ -240,7 +242,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
                                     <label for="proveedorMovimiento" class="form-label small text-muted fw-bold">Proveedor (Opcional / Para compras)</label>
-                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
+                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select shadow-none border-secondary-subtle">
                                         <option value="">Seleccione proveedor...</option>
                                         <?php foreach (($proveedores ?? []) as $proveedor): ?>
                                             <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>"><?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?></option>
@@ -249,8 +251,8 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
 
                                 <div class="col-md-12 d-none mt-2" id="grupoAlmacenDestino">
-                                    <label for="almacenDestinoMovimiento" class="form-label small text-muted fw-bold">Almacén Destino (Solo Transferencias)</label>
-                                    <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select">
+                                    <label for="almacenDestinoMovimiento" class="form-label small text-muted fw-bold text-primary">Almacén Destino (Solo Transferencias)</label>
+                                    <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select border-primary-subtle shadow-none">
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
@@ -260,7 +262,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
                                 <div class="col-md-12 d-none mt-2" id="grupoMotivoMovimiento">
                                     <label for="motivoMovimiento" class="form-label small text-muted fw-bold">Motivo del Movimiento</label>
-                                    <select id="motivoMovimiento" name="motivo" class="form-select">
+                                    <select id="motivoMovimiento" name="motivo" class="form-select shadow-none border-secondary-subtle">
                                         <option value="">Seleccione motivo...</option>
                                         <option value="Merma recuperada">Merma recuperada</option>
                                         <option value="Conteo físico">Conteo físico</option>
@@ -290,7 +292,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 
                                 <div class="col-12 mb-2">
                                     <label class="form-label small text-muted fw-bold mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger">*</span></label>
-                                    <select id="itemMovimiento" class="form-select shadow-none" placeholder="Escriba para buscar...">
+                                    <select id="itemMovimiento" class="form-select shadow-none border-secondary-subtle" placeholder="Escriba para buscar...">
                                         <option value="">Escriba para buscar...</option>
                                     </select>
                                 </div>
@@ -373,8 +375,8 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </div>
 
                     <div class="form-floating mb-2 shadow-sm rounded">
-                        <textarea class="form-control border-0" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+, AJ-, CON y SALIDA_MERMA_PLANTA)</small></label>
+                        <textarea class="form-control shadow-none border-secondary-subtle" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
+                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+ y AJ-)</small></label>
                     </div>
 
                     <div class="d-flex justify-content-end pt-3 border-top mt-4">
@@ -383,81 +385,6 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </div>
                 </form>
             </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalRetornoPlanta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Retorno de Planta a Almacén</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="formRetornoPlanta" class="modal-body bg-light p-4">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label small text-muted fw-bold">Ítem</label>
-                        <select class="form-select" name="id_item" id="retornoItem" required>
-                            <option value="">Seleccione...</option>
-                            <?php
-                            $itemsRet = [];
-                            foreach (($stockActual ?? []) as $sRow) {
-                                $idIt = (int) ($sRow['id_item'] ?? 0);
-                                $nIt = (string) ($sRow['item_nombre'] ?? '');
-                                if ($idIt > 0 && $nIt !== '') {
-                                    $itemsRet[$idIt] = $nIt;
-                                }
-                            }
-                            asort($itemsRet);
-                            foreach ($itemsRet as $idIt => $nIt): ?>
-                                <option value="<?php echo (int) $idIt; ?>"><?php echo e($nIt); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted fw-bold">Almacén Planta</label>
-                        <select class="form-select" name="id_almacen_planta" required>
-                            <option value="">Seleccione...</option>
-                            <?php foreach ($almacenes as $almacen): ?>
-                                <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted fw-bold">Almacén General</label>
-                        <select class="form-select" name="id_almacen_general" required>
-                            <option value="">Seleccione...</option>
-                            <?php foreach ($almacenes as $almacen): ?>
-                                <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small text-muted fw-bold">Stock Teórico en Planta</label>
-                        <input type="number" class="form-control" step="0.0001" min="0" name="stock_teorico_planta" id="retornoStockTeorico" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small text-muted fw-bold">Peso Total Devuelto</label>
-                        <input type="number" class="form-control" step="0.0001" min="0" name="peso_devolucion" id="retornoPesoDevuelto" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small text-muted fw-bold">Costo Unitario (S/)</label>
-                        <input type="number" class="form-control" step="0.0001" min="0" name="costo_unitario" value="0">
-                    </div>
-                    <div class="col-12">
-                        <div id="retornoMermaBadge" class="alert alert-secondary py-2 mb-0 small">Merma calculada: 0.0000</div>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small text-muted fw-bold">Referencia</label>
-                        <input type="text" class="form-control" name="referencia" maxlength="255" placeholder="Ej. Caja devuelta turno noche">
-                    </div>
-                </div>
-                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Registrar retorno</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
