@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/models/InventarioModel.php';
 require_once BASE_PATH . '/app/models/items/ItemModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 
 class ProduccionOrdenesModel extends Modelo
 {
@@ -111,9 +112,15 @@ class ProduccionOrdenesModel extends Modelo
                        o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
                        o.id_producto_snapshot, o.receta_codigo_snapshot, o.receta_version_snapshot,
                        o.costo_teorico_unitario_snapshot, o.costo_teorico_total_snapshot,
-                       o.costo_md_real, o.costo_mod_real, o.costo_cif_real,
-                       o.costo_real_unitario, o.costo_real_total,
+                       COALESCE(o.total_md_real, o.costo_md_real, 0) AS costo_md_real,
+                       COALESCE(o.total_mod_real, o.costo_mod_real, 0) AS costo_mod_real,
+                       COALESCE(o.total_cif_real, o.costo_cif_real, 0) AS costo_cif_real,
+                       COALESCE(o.costo_unitario_real, o.costo_real_unitario, 0) AS costo_real_unitario,
+                       o.costo_real_total,
                        r.codigo AS receta_codigo,
+                       COALESCE(r.costo_md_teorico, 0) AS costo_md_teorico_unit,
+                       COALESCE(r.costo_mod_teorico, 0) AS costo_mod_teorico_unit,
+                       COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico_unit,
                        p.nombre AS producto_nombre,
                        p.requiere_lote, p.requiere_vencimiento, p.unidad_base 
                 FROM produccion_ordenes o
@@ -658,7 +665,11 @@ class ProduccionOrdenesModel extends Modelo
                                             costo_md_real = :costo_md_real,
                                             costo_mod_real = :costo_mod_real,
                                             costo_cif_real = :costo_cif_real,
+                                            total_md_real = :costo_md_real,
+                                            total_mod_real = :costo_mod_real,
+                                            total_cif_real = :costo_cif_real,
                                             costo_real_unitario = :costo_real_unitario,
+                                            costo_unitario_real = :costo_real_unitario,
                                             costo_real_total = :costo_real_total,
                                             estado = 2,
                                             fecha_inicio = COALESCE(:fecha_inicio, fecha_inicio, NOW()),
@@ -685,6 +696,17 @@ class ProduccionOrdenesModel extends Modelo
             $itemModel = new ItemModel();
             $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
+            $asientoModel = new ContaAsientoModel();
+            $asientoModel->registrarAutomaticoProduccion($db, [
+                'id_orden' => $idOrden,
+                'codigo_orden' => (string) ($orden['codigo'] ?? ''),
+                'fecha' => substr((string) ($fechaFin ?? date('Y-m-d H:i:s')), 0, 10),
+                'costo_md' => $costoTotalConsumo,
+                'costo_mod' => $costoModReal,
+                'costo_cif' => $costoCifReal,
+                'costo_total' => $costoRealTotal,
+            ], $userId);
+
             $db->commit();
 
         } catch (Throwable $e) {
@@ -693,6 +715,199 @@ class ProduccionOrdenesModel extends Modelo
             }
             throw $e;
         }
+    }
+
+
+    public function reportarAvanceDiario(int $idOrden, float $cantidadAvance, int $userId, ?string $fechaOperacion = null, string $nota = ''): array
+    {
+        if ($idOrden <= 0 || $cantidadAvance <= 0 || $userId <= 0) {
+            throw new RuntimeException('Datos inválidos para reportar avance diario.');
+        }
+
+        $orden = $this->obtenerOrdenPorId($idOrden);
+        if ($orden === []) {
+            throw new RuntimeException('La orden no existe.');
+        }
+        if (!in_array((int) ($orden['estado'] ?? -1), [1, 2], true)) {
+            throw new RuntimeException('Solo se puede reportar avance para órdenes en proceso o ejecutadas.');
+        }
+
+        $idAlmacenPlanta = (int) ($orden['id_almacen_planta'] ?? 0);
+        if ($idAlmacenPlanta <= 0) {
+            throw new RuntimeException('La orden no tiene almacén planta configurado.');
+        }
+
+        $fecha = trim((string) ($fechaOperacion ?? ''));
+        if ($fecha === '') {
+            $fecha = date('Y-m-d');
+        }
+
+        $detalles = $this->obtenerDetalleReceta((int) ($orden['id_receta'] ?? 0));
+        if ($detalles === []) {
+            throw new RuntimeException('La receta no tiene detalle de insumos para consumo teórico.');
+        }
+
+        $inventarioModel = new InventarioModel();
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
+                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
+                                         VALUES
+                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+
+            $totalMd = 0.0;
+            $lineas = 0;
+
+            foreach ($detalles as $d) {
+                $idInsumo = (int) ($d['id_insumo'] ?? 0);
+                $qtyBase = (float) ($d['cantidad_por_unidad'] ?? 0);
+                $merma = (float) ($d['merma_porcentaje'] ?? 0);
+                if ($idInsumo <= 0 || $qtyBase <= 0) {
+                    continue;
+                }
+
+                $cantidadTeorica = $qtyBase * $cantidadAvance * (1 + ($merma / 100));
+                if ($cantidadTeorica <= 0) {
+                    continue;
+                }
+
+                $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
+                $stmtConsumo->execute([
+                    'id_orden_produccion' => $idOrden,
+                    'id_item' => $idInsumo,
+                    'id_almacen' => $idAlmacenPlanta,
+                    'id_lote' => null,
+                    'cantidad' => number_format($cantidadTeorica, 4, '.', ''),
+                    'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                $idItemUnidad = $this->obtenerUnidadPorDefecto($idInsumo);
+                $inventarioModel->registrarMovimiento([
+                    'tipo_movimiento' => 'CON',
+                    'id_item' => $idInsumo,
+                    'id_item_unidad' => $idItemUnidad,
+                    'id_almacen_origen' => $idAlmacenPlanta,
+                    'id_almacen_destino' => null,
+                    'cantidad' => $cantidadTeorica,
+                    'referencia' => 'OP ' . $orden['codigo'] . ' avance teórico ' . $fecha . ($nota !== '' ? (' | ' . $nota) : ''),
+                    'costo_unitario' => $costoUnitario,
+                    'created_by' => $userId,
+                ]);
+
+                $lineas++;
+                $totalMd += $cantidadTeorica * $costoUnitario;
+            }
+
+            if ($lineas <= 0) {
+                throw new RuntimeException('No se pudo generar consumo teórico para el avance reportado.');
+            }
+
+            $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
+                                        SET cantidad_producida = COALESCE(cantidad_producida, 0) + :avance,
+                                            updated_at = NOW(),
+                                            updated_by = :updated_by
+                                        WHERE id = :id
+                                          AND deleted_at IS NULL');
+            $stmtUpdate->execute([
+                'avance' => number_format($cantidadAvance, 4, '.', ''),
+                'updated_by' => $userId,
+                'id' => $idOrden,
+            ]);
+
+            $db->commit();
+
+            return [
+                'lineas_consumidas' => $lineas,
+                'cantidad_reportada' => round($cantidadAvance, 4),
+                'costo_md_teorico' => round($totalMd, 4),
+            ];
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public function sincronizarModDesdeAsistencia(int $idOrden, int $userId): array
+    {
+        if ($idOrden <= 0 || $userId <= 0) {
+            throw new RuntimeException('Datos inválidos para sincronizar MOD.');
+        }
+
+        $stmtOrden = $this->db()->prepare('SELECT id, estado,
+                                                  DATE(COALESCE(fecha_inicio, fecha_programada)) AS fecha_inicio_ref,
+                                                  DATE(COALESCE(fecha_fin, CURDATE())) AS fecha_fin_ref
+                                           FROM produccion_ordenes
+                                           WHERE id = :id_orden
+                                             AND deleted_at IS NULL
+                                           LIMIT 1');
+        $stmtOrden->execute(['id_orden' => $idOrden]);
+        $orden = $stmtOrden->fetch(PDO::FETCH_ASSOC) ?: [];
+        if ($orden === []) {
+            throw new RuntimeException('Orden no encontrada para sincronizar MOD.');
+        }
+
+        $fechaInicio = (string) ($orden['fecha_inicio_ref'] ?? '');
+        $fechaFin = (string) ($orden['fecha_fin_ref'] ?? '');
+        if ($fechaInicio === '' || $fechaFin === '') {
+            throw new RuntimeException('La orden no tiene rango de fechas válido para asistencia.');
+        }
+
+        $stmt = $this->db()->prepare('SELECT ar.id_tercero AS id_empleado,
+                                             COALESCE(SUM(COALESCE(ar.horas_trabajadas, 0) + COALESCE(ar.horas_extras, 0)), 0) AS horas_totales
+                                      FROM asistencia_registros ar
+                                      WHERE ar.fecha >= :fecha_inicio
+                                        AND ar.fecha <= :fecha_fin
+                                        AND ar.id_tercero IS NOT NULL
+                                      GROUP BY ar.id_tercero
+                                      HAVING horas_totales > 0');
+        $stmt->execute([
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+        ]);
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $tiempos = [];
+        foreach ($rows as $r) {
+            $idEmpleado = (int) ($r['id_empleado'] ?? 0);
+            $horas = (float) ($r['horas_totales'] ?? 0);
+            if ($idEmpleado <= 0 || $horas <= 0) {
+                continue;
+            }
+
+            $costoHora = $this->obtenerCostoHoraEmpleado($idEmpleado);
+            if ($costoHora <= 0) {
+                continue;
+            }
+
+            $tiempos[] = [
+                'id_empleado' => $idEmpleado,
+                'horas_reales' => $horas,
+                'costo_hora_real' => $costoHora,
+            ];
+        }
+
+        $resultado = $this->guardarTiemposModOrden($idOrden, $tiempos);
+
+        $stmtUpdate = $this->db()->prepare('UPDATE produccion_ordenes
+                                            SET costo_mod_real = :costo_mod_real,
+                                                total_mod_real = :costo_mod_real,
+                                                updated_at = NOW(),
+                                                updated_by = :updated_by
+                                            WHERE id = :id_orden
+                                              AND deleted_at IS NULL');
+        $stmtUpdate->execute([
+            'costo_mod_real' => number_format((float) ($resultado['total_mod'] ?? 0), 4, '.', ''),
+            'updated_by' => $userId,
+            'id_orden' => $idOrden,
+        ]);
+
+        return $resultado;
     }
 
     public function anularOrden(int $idOrden, int $userId): void
@@ -723,6 +938,60 @@ class ProduccionOrdenesModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_receta' => $idReceta]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerDesgloseCostosOrden(int $idOrden): array
+    {
+        if ($idOrden <= 0) {
+            return [
+                'materiales' => [],
+                'mod' => [],
+                'cif' => [],
+            ];
+        }
+
+        $stmtMd = $this->db()->prepare('SELECT d.id_insumo AS id_item,
+                                               i.nombre AS item_nombre,
+                                               (d.cantidad_por_unidad * COALESCE(NULLIF(o.cantidad_producida, 0), o.cantidad_planificada, 0) * (1 + (d.merma_porcentaje / 100))) AS cantidad,
+                                               COALESCE(SUM(c.cantidad), 0) AS cantidad_real,
+                                               COALESCE(AVG(c.costo_unitario), 0) AS costo_unitario,
+                                               COALESCE(SUM(c.cantidad * c.costo_unitario), 0) AS costo_total
+                                        FROM produccion_ordenes o
+                                        INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
+                                        INNER JOIN items i ON i.id = d.id_insumo
+                                        LEFT JOIN produccion_consumos c ON c.id_orden_produccion = o.id
+                                                                      AND c.id_item = d.id_insumo
+                                                                      AND c.deleted_at IS NULL
+                                        WHERE o.id = :id_orden
+                                          AND o.deleted_at IS NULL
+                                        GROUP BY d.id_insumo, i.nombre, d.cantidad_por_unidad, d.merma_porcentaje, o.cantidad_producida, o.cantidad_planificada
+                                        ORDER BY i.nombre ASC');
+        $stmtMd->execute(['id_orden' => $idOrden]);
+
+        $stmtMod = $this->db()->prepare('SELECT m.id_empleado,
+                                                t.nombre_completo AS empleado,
+                                                m.horas_reales,
+                                                m.costo_hora_real,
+                                                COALESCE(m.costo_total_mod, (m.horas_reales * m.costo_hora_real)) AS costo_total_mod
+                                         FROM produccion_ordenes_mod m
+                                         LEFT JOIN terceros t ON t.id = m.id_empleado
+                                         WHERE m.id_orden = :id_orden
+                                         ORDER BY m.id ASC');
+        $stmtMod->execute(['id_orden' => $idOrden]);
+
+        $stmtCif = $this->db()->prepare('SELECT concepto,
+                                                base_distribucion,
+                                                costo_aplicado
+                                         FROM produccion_ordenes_cif
+                                         WHERE id_orden = :id_orden
+                                         ORDER BY id ASC');
+        $stmtCif->execute(['id_orden' => $idOrden]);
+
+        return [
+            'materiales' => $stmtMd->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'mod' => $stmtMod->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'cif' => $stmtCif->fetchAll(PDO::FETCH_ASSOC) ?: [],
+        ];
     }
 
     public function obtenerStockTotalItem(int $idItem): float
@@ -826,9 +1095,9 @@ class ProduccionOrdenesModel extends Modelo
         $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
 
         $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
-                                (id_orden, id_empleado, horas_reales, costo_hora_real)
+                                (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod)
                               VALUES
-                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real)');
+                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real, :costo_total_mod)');
 
         $total = 0.0;
         $filas = 0;
@@ -857,6 +1126,7 @@ class ProduccionOrdenesModel extends Modelo
                 'id_empleado' => $idEmpleado,
                 'horas_reales' => number_format($horasReales, 4, '.', ''),
                 'costo_hora_real' => number_format($costoHoraReal, 4, '.', ''),
+                'costo_total_mod' => number_format($horasReales * $costoHoraReal, 4, '.', ''),
             ]);
 
             $filas++;
@@ -954,9 +1224,9 @@ class ProduccionOrdenesModel extends Modelo
         }
 
         $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
-                                (id_orden, id_empleado, horas_reales, costo_hora_real)
+                                (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod)
                               VALUES
-                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real)');
+                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real, :costo_total_mod)');
 
         $total = 0.0;
         foreach ($manoObra as $fila) {
@@ -972,6 +1242,7 @@ class ProduccionOrdenesModel extends Modelo
                 'id_empleado' => $idEmpleado,
                 'horas_reales' => number_format($horas, 4, '.', ''),
                 'costo_hora_real' => number_format($costoHora, 4, '.', ''),
+                'costo_total_mod' => number_format($horas * $costoHora, 4, '.', ''),
             ]);
             $total += $horas * $costoHora;
         }
@@ -986,9 +1257,9 @@ class ProduccionOrdenesModel extends Modelo
         }
 
         $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
-                                (id_orden, concepto, costo_aplicado)
+                                (id_orden, concepto, id_activo, base_distribucion, costo_aplicado)
                               VALUES
-                                (:id_orden, :concepto, :costo_aplicado)');
+                                (:id_orden, :concepto, :id_activo, :base_distribucion, :costo_aplicado)');
 
         $total = 0.0;
         foreach ($cif as $fila) {
@@ -1001,6 +1272,8 @@ class ProduccionOrdenesModel extends Modelo
             $stmt->execute([
                 'id_orden' => $idOrden,
                 'concepto' => $concepto,
+                'id_activo' => !empty($fila['id_activo']) ? (int) $fila['id_activo'] : null,
+                'base_distribucion' => trim((string) ($fila['base_distribucion'] ?? '')) !== '' ? trim((string) ($fila['base_distribucion'] ?? '')) : null,
                 'costo_aplicado' => number_format($costoAplicado, 4, '.', ''),
             ]);
             $total += $costoAplicado;
@@ -1022,12 +1295,14 @@ class ProduccionOrdenesModel extends Modelo
 
         $monto = $cuotaUnidad * $cantidadProducida;
         $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
-                                (id_orden, concepto, costo_aplicado)
+                                (id_orden, concepto, id_activo, base_distribucion, costo_aplicado)
                               VALUES
-                                (:id_orden, :concepto, :costo_aplicado)');
+                                (:id_orden, :concepto, :id_activo, :base_distribucion, :costo_aplicado)');
         $stmt->execute([
             'id_orden' => $idOrden,
-            'concepto' => 'Cuota CIF predeterminada por unidad',
+            'concepto' => 'CIF estimado por unidad',
+            'id_activo' => null,
+            'base_distribucion' => 'Unidades',
             'costo_aplicado' => number_format($monto, 4, '.', ''),
         ]);
 
@@ -1036,6 +1311,6 @@ class ProduccionOrdenesModel extends Modelo
 
     private function obtenerCuotaCifPredeterminada(): float
     {
-        return 5.0;
+        return 0.05;
     }
 }

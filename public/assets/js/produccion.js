@@ -104,6 +104,9 @@ if (!window.produccionJsInitialized) {
                     }
 
                     const estado = btnDetalle.getAttribute('data-estado') || '-';
+                    const idOrden = Number(btnDetalle.getAttribute('data-id') || 0);
+                    const real = parseFloat(btnDetalle.getAttribute('data-real') || '0') || 0;
+                    const totalRealVal = parseFloat(btnDetalle.getAttribute('data-total-real') || '0') || 0;
                     document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
                     document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
                     document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
@@ -112,16 +115,46 @@ if (!window.produccionJsInitialized) {
                     const modReal = document.getElementById('detalleModReal');
                     const cifReal = document.getElementById('detalleCifReal');
                     const totalReal = document.getElementById('detalleTotalReal');
+                    const unitarioReal = document.getElementById('detalleUnitarioReal');
                     if (mdReal) mdReal.textContent = btnDetalle.getAttribute('data-md-real') || '0.0000';
                     if (modReal) modReal.textContent = btnDetalle.getAttribute('data-mod-real') || '0.0000';
                     if (cifReal) cifReal.textContent = btnDetalle.getAttribute('data-cif-real') || '0.0000';
                     if (totalReal) totalReal.textContent = btnDetalle.getAttribute('data-total-real') || '0.0000';
-                    
+                    if (unitarioReal) unitarioReal.textContent = (real > 0 ? (totalRealVal / real) : 0).toFixed(4);
+
                     const badge = document.getElementById('detalleEstado');
                     if (badge) {
                         badge.textContent = estado;
                         badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'}`;
                     }
+
+                    const fillTable = (id, rows, emptyCols, mapper) => {
+                        const tbody = document.getElementById(id);
+                        if (!tbody) return;
+                        if (!Array.isArray(rows) || rows.length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="${emptyCols}" class="text-center text-muted">Sin datos</td></tr>`;
+                            return;
+                        }
+                        tbody.innerHTML = rows.map(mapper).join('');
+                    };
+
+                    const fd = new FormData();
+                    fd.append('accion', 'obtener_detalle_costos_ajax');
+                    fd.append('id_orden', String(idOrden));
+
+                    fetch(window.location.href, { method: 'POST', body: fd })
+                        .then((r) => r.json())
+                        .then((resp) => {
+                            const data = (resp && resp.success && resp.data) ? resp.data : { materiales: [], mod: [], cif: [] };
+                            fillTable('detalleTablaMd', data.materiales, 4, (r) => `<tr><td>${r.item_nombre || '-'}</td><td class="text-end"><div>${Number(r.cantidad || 0).toFixed(4)}</div><div class="text-muted small">Real: ${Number(r.cantidad_real || 0).toFixed(4)}</div></td><td class="text-end">S/ ${Number(r.costo_unitario || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_total || 0).toFixed(4)}</td></tr>`);
+                            fillTable('detalleTablaMod', data.mod, 4, (r) => `<tr><td>${r.empleado || ('ID ' + (r.id_empleado || '-'))}</td><td class="text-end">${Number(r.horas_reales || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_hora_real || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_total_mod || 0).toFixed(4)}</td></tr>`);
+                            fillTable('detalleTablaCif', data.cif, 3, (r) => `<tr><td>${r.concepto || '-'}</td><td>${r.base_distribucion || '-'}</td><td class="text-end">S/ ${Number(r.costo_aplicado || 0).toFixed(4)}</td></tr>`);
+                        })
+                        .catch(() => {
+                            fillTable('detalleTablaMd', [], 4, () => '');
+                            fillTable('detalleTablaMod', [], 4, () => '');
+                            fillTable('detalleTablaCif', [], 3, () => '');
+                        });
 
                     modalDetalle.show();
                 } else {

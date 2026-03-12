@@ -65,7 +65,7 @@
   };
 
   function esTipoSalida(tipoVal) {
-    return ['AJ-', 'CON', 'TRF'].includes(tipoVal);
+    return ['AJ-', 'CON', 'TRF', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
   }
 
   function actualizarBloqueoCabecera() {
@@ -288,7 +288,7 @@
     }
 
     const esEntrada = ['INI', 'AJ+'].includes(tipoVal);
-    const esSalida = ['AJ-', 'CON', 'TRF'].includes(tipoVal);
+    const esSalida = ['AJ-', 'CON', 'TRF', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
     const requiereLote = itemData ? itemData.requiereLote : false;
     const requiereVenc = itemData ? itemData.requiereVencimiento : false;
 
@@ -322,8 +322,8 @@
     }
 
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
-    if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON'].includes(tipoVal));
-    if (motivo) motivo.required = ['AJ+', 'AJ-', 'CON'].includes(tipoVal);
+    if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal));
+    if (motivo) motivo.required = ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
 
     if (cantidadInput) {
       cantidadInput.min = tipoVal === 'INI' ? '0' : '0.0001';
@@ -787,7 +787,7 @@
         return;
       }
 
-      if (['AJ+', 'AJ-', 'CON'].includes(tipoVal) && motivoVal === '') {
+      if (['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal) && motivoVal === '') {
         Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
         return;
       }
@@ -862,5 +862,64 @@
         Swal.fire({ icon: 'error', title: 'Error', text: error.message });
       }
     });
+
+    const formRetorno = document.getElementById('formRetornoPlanta');
+    if (formRetorno) {
+      const inputTeorico = document.getElementById('retornoStockTeorico');
+      const inputDevuelto = document.getElementById('retornoPesoDevuelto');
+      const badgeMerma = document.getElementById('retornoMermaBadge');
+      const modalRetornoEl = document.getElementById('modalRetornoPlanta');
+
+      const pintarMerma = () => {
+        const teorico = Number((inputTeorico && inputTeorico.value) || 0);
+        const devuelto = Number((inputDevuelto && inputDevuelto.value) || 0);
+        const merma = Math.max(0, teorico - devuelto);
+        if (!badgeMerma) return;
+        badgeMerma.textContent = `Merma calculada automáticamente: ${merma.toFixed(4)}`;
+        badgeMerma.className = `alert py-2 mb-0 small ${merma > 0 ? 'alert-danger' : 'alert-success'}`;
+      };
+
+      if (inputTeorico) inputTeorico.addEventListener('input', pintarMerma);
+      if (inputDevuelto) inputDevuelto.addEventListener('input', pintarMerma);
+
+      formRetorno.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fd = new FormData(formRetorno);
+
+        try {
+          const resp = await fetch(`${window.BASE_URL}?ruta=almacenes/devolverSobrantesPlanta`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+          });
+          const json = await resp.json();
+          if (!resp.ok || !json || !json.ok) {
+            throw new Error((json && json.mensaje) || 'No se pudo registrar el retorno de planta.');
+          }
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'Retorno registrado',
+            text: `Devolución: ${Number(json?.data?.cantidad_devolucion || 0).toFixed(4)} | Merma: ${Number(json?.data?.cantidad_merma || 0).toFixed(4)}`
+          });
+
+          const inst = modalRetornoEl && bootstrap.Modal.getInstance(modalRetornoEl);
+          if (inst) inst.hide();
+          window.location.reload();
+        } catch (error) {
+          Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error de conexión.' });
+        }
+      });
+
+      if (modalRetornoEl) {
+        modalRetornoEl.addEventListener('hidden.bs.modal', () => {
+          formRetorno.reset();
+          pintarMerma();
+        });
+      }
+
+      pintarMerma();
+    }
+
   }
 })();

@@ -39,7 +39,10 @@ class ProduccionOrdenesController extends Controlador
                 'iniciar_ejecucion_ajax', 
                 'obtener_planificador_ajax',
                 'crear_orden_ajax',
-                'guardar_tiempos_mod_ajax'
+                'guardar_tiempos_mod_ajax',
+                'reportar_avance_diario_ajax',
+                'sincronizar_mod_asistencia_ajax',
+                'obtener_detalle_costos_ajax'
             ], true);
             
             $userId = (int) ($_SESSION['id'] ?? 0);
@@ -127,6 +130,71 @@ class ProduccionOrdenesController extends Controlador
 
                     $this->produccionOrdenesModel->marcarOrdenEnProceso($idOrden, $userId);
                     echo json_encode(['success' => true]);
+                    exit;
+                }
+
+
+                if ($accion === 'obtener_detalle_costos_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    if ($idOrden <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
+                        exit;
+                    }
+
+                    $data = $this->produccionOrdenesModel->obtenerDesgloseCostosOrden($idOrden);
+                    echo json_encode(['success' => true, 'data' => $data]);
+                    exit;
+                }
+
+                if ($accion === 'sincronizar_mod_asistencia_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    if ($idOrden <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
+                        exit;
+                    }
+
+                    $resultado = $this->produccionOrdenesModel->sincronizarModDesdeAsistencia($idOrden, $userId);
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'MOD sincronizada desde asistencia.',
+                        'data' => $resultado,
+                    ]);
+                    exit;
+                }
+
+                if ($accion === 'reportar_avance_diario_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    $cantidadAvance = $this->parseDecimal($_POST['cantidad_avance'] ?? 0);
+                    $fechaOperacion = trim((string) ($_POST['fecha_operacion'] ?? ''));
+                    $nota = trim((string) ($_POST['nota'] ?? ''));
+
+                    if ($idOrden <= 0 || $cantidadAvance <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Parámetros inválidos para reportar avance.']);
+                        exit;
+                    }
+
+                    $resultado = $this->produccionOrdenesModel->reportarAvanceDiario(
+                        $idOrden,
+                        $cantidadAvance,
+                        $userId,
+                        $fechaOperacion !== '' ? $fechaOperacion : null,
+                        $nota
+                    );
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Avance diario registrado con consumo teórico.',
+                        'data' => $resultado,
+                    ]);
                     exit;
                 }
 
