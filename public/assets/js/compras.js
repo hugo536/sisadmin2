@@ -151,6 +151,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function actualizarOpcionesAlmacen() {
+        const selects = document.querySelectorAll('.recepcion-almacen');
+        // Obtener todos los IDs de almacenes que ya tienen una selección válida
+        const valoresSeleccionados = Array.from(selects)
+            .map(s => s.value)
+            .filter(v => v !== "");
+
+        selects.forEach(select => {
+            const valorActual = select.value;
+            Array.from(select.options).forEach(option => {
+                if (!option.value) return; // Ignoramos la opción por defecto ("Seleccione...")
+                
+                // Si el valor ya está seleccionado en OTRO select, lo deshabilitamos y ocultamos
+                if (valoresSeleccionados.includes(option.value) && option.value !== valorActual) {
+                    option.style.display = 'none';
+                    option.disabled = true;
+                } else {
+                    option.style.display = '';
+                    option.disabled = false;
+                }
+            });
+        });
+    }
+
     function setFilasEditablesDistribucion(editable) {
         obtenerRowsDistribucion().forEach((row) => {
             const inputCantidad = row.querySelector('.recepcion-cantidad');
@@ -162,22 +186,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function sincronizarCantidadesDistribucion(rowOrigen = null) {
         const rows = obtenerRowsDistribucion();
-        if (rows.length !== 2) return;
+        
+        // Si hay exactamente 2 filas, mantenemos el auto-completado automático por comodidad
+        if (rows.length === 2 && rowOrigen) {
+            const rowA = rows[0];
+            const rowB = rows[1];
+            const inputA = rowA.querySelector('.recepcion-cantidad');
+            const inputB = rowB.querySelector('.recepcion-cantidad');
 
-        const rowA = rows[0];
-        const rowB = rows[1];
-        const inputA = rowA.querySelector('.recepcion-cantidad');
-        const inputB = rowB.querySelector('.recepcion-cantidad');
-
-        const origenEsA = rowOrigen ? rowOrigen.dataset.index === rowA.dataset.index : true;
-        if (origenEsA) {
-            const valorA = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputA.value)));
-            inputA.value = formatearCantidad(valorA);
-            inputB.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorA));
-        } else {
-            const valorB = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputB.value)));
-            inputB.value = formatearCantidad(valorB);
-            inputA.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorB));
+            const origenEsA = rowOrigen.dataset.index === rowA.dataset.index;
+            if (origenEsA) {
+                const valorA = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputA.value)));
+                inputA.value = formatearCantidad(valorA);
+                inputB.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorA));
+            } else {
+                const valorB = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputB.value)));
+                inputB.value = formatearCantidad(valorB);
+                inputA.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorB));
+            }
+        } else if (rowOrigen) {
+            // Para 3 o más filas, solo evitamos que una sola fila sea mayor al total comprado
+            const input = rowOrigen.querySelector('.recepcion-cantidad');
+            const valor = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(input.value)));
+            input.value = formatearCantidad(valor);
         }
     }
 
@@ -185,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fila = document.createElement('div');
         fila.className = 'recepcion-distribucion-row row g-2 align-items-center mb-2';
         fila.dataset.index = String(index);
+        
         fila.innerHTML = `
             <div class="col-6">
                 <select class="form-select recepcion-almacen" required></select>
@@ -197,17 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
-            <div class="col-7">
-                <select class="form-select recepcion-almacen" required></select>
-            </div>
-            <div class="col-5">
-                <input type="number" class="form-control text-end recepcion-cantidad" min="0" step="0.0001" value="${formatearCantidad(cantidad)}" ${editable ? '' : 'readonly'}>
-            </div>
         `;
 
         const select = fila.querySelector('.recepcion-almacen');
         const inputCantidad = fila.querySelector('.recepcion-cantidad');
         const btnQuitar = fila.querySelector('.btn-quitar-almacen-recepcion');
+        
         if (recepcionAlmacenTemplate) {
             select.innerHTML = recepcionAlmacenTemplate.innerHTML;
         }
@@ -216,8 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
             inputCantidad.classList.add('bg-light');
         }
 
+        // CAMBIO 1: Actualiza las opciones visualmente para ocultar almacenes ya seleccionados
         select.addEventListener('change', () => {
-            validarAlmacenesDuplicados();
+            actualizarOpcionesAlmacen();
         });
 
         inputCantidad.addEventListener('input', () => {
@@ -227,10 +255,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnQuitar) {
             btnQuitar.addEventListener('click', () => {
                 fila.remove();
+                
+                // CAMBIO 2: Liberar el almacén que acabamos de borrar para que vuelva a estar disponible
+                actualizarOpcionesAlmacen(); 
+                
                 const rows = obtenerRowsDistribucion();
                 if (rows.length === 1) {
                     const input = rows[0].querySelector('.recepcion-cantidad');
                     const boton = rows[0].querySelector('.btn-quitar-almacen-recepcion');
+                    
+                    // Si solo queda 1 fila, le asignamos el total restante
                     input.value = formatearCantidad(totalRecepcionCompra);
                     input.readOnly = true;
                     input.classList.add('bg-light');
@@ -605,18 +639,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnAgregarAlmacenRecepcion) {
         btnAgregarAlmacenRecepcion.addEventListener('click', () => {
             const rows = obtenerRowsDistribucion();
-            if (rows.length >= 2) {
-                Swal.fire('Límite alcanzado', 'Por ahora solo puede distribuir en 2 almacenes.', 'info');
-                return;
-            }
+            
+            // 1. Calcular cuánto stock ya hemos distribuido en las filas actuales
+            let cantidadDistribuida = 0;
+            rows.forEach(row => {
+                cantidadDistribuida += parseCantidad(row.querySelector('.recepcion-cantidad')?.value || 0);
+            });
+            
+            // 2. Calcular lo que falta distribuir
+            const cantidadRestante = Math.max(0, totalRecepcionCompra - cantidadDistribuida);
 
             setFilasEditablesDistribucion(true);
-            const cantidadPrimera = parseCantidad(rows[0]?.querySelector('.recepcion-cantidad')?.value || 0);
-            const cantidadSegunda = Math.max(0, totalRecepcionCompra - cantidadPrimera);
-            const filaNueva = crearFilaDistribucion(2, cantidadSegunda, true);
+            
+            // 3. Crear la nueva fila con el index dinámico y la cantidad restante
+            const nuevoIndex = rows.length + 1; 
+            const filaNueva = crearFilaDistribucion(nuevoIndex, cantidadRestante, true);
             recepcionDistribucionRows.appendChild(filaNueva);
-            sincronizarCantidadesDistribucion(rows[0] || null);
-            btnAgregarAlmacenRecepcion.disabled = true;
+            
+            // 4. Actualizar visualmente los selects
+            actualizarOpcionesAlmacen();
         });
     }
 

@@ -482,3 +482,29 @@ body {
     border-bottom: 3px solid #0d6efd;
     background-color: transparent;
 }
+
+/* =========================================================
+   FIX: TOMSELECT Y NATIVOS EN MODO SOLO LECTURA / DISABLED
+   ========================================================= */
+/* 1. Quitar la transparencia fantasma de TomSelect */
+.ts-wrapper.disabled {
+    opacity: 1 !important;
+}
+
+/* 2. Darle el color gris de fondo y texto oscuro a TomSelect bloqueado */
+.ts-wrapper.disabled .ts-control {
+    background-color: var(--bg-body, #f1f5f9) !important;
+    color: var(--text-main, #1e293b) !important;
+    border-color: #dee2e6 !important;
+    cursor: not-allowed !important;
+}
+
+/* 3. Asegurar que los inputs y selects nativos bloqueados sean idénticos al TomSelect */
+.form-control:disabled, 
+.form-control[readonly], 
+.form-select:disabled {
+    background-color: var(--bg-body, #f1f5f9) !important;
+    color: var(--text-main, #1e293b) !important;
+    border-color: #dee2e6 !important;
+    opacity: 1 !important;
+}
