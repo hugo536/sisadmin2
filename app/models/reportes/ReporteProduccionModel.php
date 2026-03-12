@@ -22,7 +22,7 @@ class ReporteProduccionModel extends Modelo
 
         $sql = "SELECT i.nombre AS producto,
                        ROUND(SUM(pi.cantidad),2) AS cantidad_producida,
-                       ROUND(AVG(pi.costo_unitario_calculado),4) AS costo_unitario_promedio,
+                       ROUND(COALESCE(SUM(pi.cantidad * pi.costo_unitario_calculado) / NULLIF(SUM(pi.cantidad), 0), 0),4) AS costo_unitario_promedio,
                        MIN(DATE(pi.created_at)) AS primer_registro,
                        MAX(DATE(pi.created_at)) AS ultimo_registro
                 FROM produccion_ingresos pi
@@ -68,4 +68,46 @@ class ReporteProduccionModel extends Modelo
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
+    public function costosPorOrden(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+
+        $count = $this->db()->prepare('SELECT COUNT(*)
+                                      FROM produccion_ordenes o
+                                      WHERE o.deleted_at IS NULL
+                                        AND o.estado = 2
+                                        AND DATE(COALESCE(o.fecha_fin, o.updated_at, o.created_at)) BETWEEN :fd AND :fh');
+        $count->execute($params);
+
+        $sql = "SELECT o.id, o.codigo, o.fecha_programada, o.estado,
+                       i.nombre AS producto,
+                       o.cantidad_planificada, o.cantidad_producida,
+                       o.costo_teorico_unitario_snapshot, o.costo_teorico_total_snapshot,
+                       o.costo_real_unitario, o.costo_real_total,
+                       ROUND(COALESCE(o.costo_real_total, 0) - COALESCE(o.costo_teorico_total_snapshot, 0), 4) AS variacion_total,
+                       ROUND(
+                           CASE
+                               WHEN COALESCE(o.costo_teorico_total_snapshot, 0) <= 0 THEN 0
+                               ELSE ((COALESCE(o.costo_real_total, 0) - o.costo_teorico_total_snapshot) / o.costo_teorico_total_snapshot) * 100
+                           END
+                       , 2) AS variacion_pct
+                FROM produccion_ordenes o
+                LEFT JOIN items i ON i.id = o.id_producto_snapshot
+                WHERE o.deleted_at IS NULL
+                  AND o.estado = 2
+                  AND DATE(COALESCE(o.fecha_fin, o.updated_at, o.created_at)) BETWEEN :fd AND :fh
+                ORDER BY o.id DESC
+                LIMIT :limite OFFSET :offset";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':fd', $params['fd']);
+        $stmt->bindValue(':fh', $params['fh']);
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
+    }
+
 }

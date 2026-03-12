@@ -108,6 +108,9 @@ class ProduccionOrdenesModel extends Modelo
                        o.estado, o.fecha_programada,
                        o.fecha_inicio, o.fecha_fin, o.observaciones, o.justificacion_ajuste, o.created_at,
                        o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
+                       o.id_producto_snapshot, o.receta_codigo_snapshot, o.receta_version_snapshot,
+                       o.costo_teorico_unitario_snapshot, o.costo_teorico_total_snapshot,
+                       o.costo_real_unitario, o.costo_real_total,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre,
                        p.requiere_lote, p.requiere_vencimiento, p.unidad_base 
@@ -168,10 +171,17 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('El almacén de planta seleccionado no es válido.');
         }
 
+        $snapshot = $this->obtenerSnapshotReceta((int) ($orden['id_receta'] ?? 0), $cantidadPlanificada);
+
         $stmt = $this->db()->prepare('UPDATE produccion_ordenes
                                       SET cantidad_planificada = :cantidad_planificada,
                                           fecha_programada = :fecha_programada,
                                           id_almacen_planta = :id_almacen_planta,
+                                          id_producto_snapshot = :id_producto_snapshot,
+                                          receta_codigo_snapshot = :receta_codigo_snapshot,
+                                          receta_version_snapshot = :receta_version_snapshot,
+                                          costo_teorico_unitario_snapshot = :costo_teorico_unitario_snapshot,
+                                          costo_teorico_total_snapshot = :costo_teorico_total_snapshot,
                                           observaciones = :observaciones,
                                           updated_at = NOW(),
                                           updated_by = :updated_by
@@ -182,6 +192,11 @@ class ProduccionOrdenesModel extends Modelo
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada,
             'id_almacen_planta' => $idAlmacenPlanta,
+            'id_producto_snapshot' => $snapshot['id_producto_snapshot'],
+            'receta_codigo_snapshot' => $snapshot['receta_codigo_snapshot'],
+            'receta_version_snapshot' => $snapshot['receta_version_snapshot'],
+            'costo_teorico_unitario_snapshot' => number_format($snapshot['costo_teorico_unitario_snapshot'], 4, '.', ''),
+            'costo_teorico_total_snapshot' => number_format($snapshot['costo_teorico_total_snapshot'], 4, '.', ''),
             'observaciones' => $observaciones !== '' ? $observaciones : null,
             'updated_by' => $userId,
             'id' => $idOrden,
@@ -419,15 +434,26 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('El almacén de planta seleccionado no es válido.');
         }
 
+        $snapshot = $this->obtenerSnapshotReceta($idReceta, $cantidadPlanificada);
+
         $sql = 'INSERT INTO produccion_ordenes
-                    (codigo, id_receta, id_almacen_planta, cantidad_planificada, fecha_programada, estado, created_by, updated_by, observaciones)
+                    (codigo, id_receta, id_producto_snapshot, receta_codigo_snapshot, receta_version_snapshot,
+                     costo_teorico_unitario_snapshot, costo_teorico_total_snapshot,
+                     id_almacen_planta, cantidad_planificada, fecha_programada, estado, created_by, updated_by, observaciones)
                 VALUES
-                    (:codigo, :id_receta, :id_almacen_planta, :cantidad_planificada, :fecha_programada, 0, :created_by, :updated_by, :observaciones)';
+                    (:codigo, :id_receta, :id_producto_snapshot, :receta_codigo_snapshot, :receta_version_snapshot,
+                     :costo_teorico_unitario_snapshot, :costo_teorico_total_snapshot,
+                     :id_almacen_planta, :cantidad_planificada, :fecha_programada, 0, :created_by, :updated_by, :observaciones)';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
             'codigo' => $codigo,
             'id_receta' => $idReceta,
+            'id_producto_snapshot' => $snapshot['id_producto_snapshot'],
+            'receta_codigo_snapshot' => $snapshot['receta_codigo_snapshot'],
+            'receta_version_snapshot' => $snapshot['receta_version_snapshot'],
+            'costo_teorico_unitario_snapshot' => number_format($snapshot['costo_teorico_unitario_snapshot'], 4, '.', ''),
+            'costo_teorico_total_snapshot' => number_format($snapshot['costo_teorico_total_snapshot'], 4, '.', ''),
             'id_almacen_planta' => $idAlmacenPlanta,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada !== '' ? $fechaProgramada : null,
@@ -437,6 +463,31 @@ class ProduccionOrdenesModel extends Modelo
         ]);
 
         return (int) $this->db()->lastInsertId();
+    }
+
+    private function obtenerSnapshotReceta(int $idReceta, float $cantidadPlanificada): array
+    {
+        $stmt = $this->db()->prepare('SELECT id_producto, codigo, version, costo_teorico_unitario
+                                      FROM produccion_recetas
+                                      WHERE id = :id
+                                        AND deleted_at IS NULL
+                                      LIMIT 1');
+        $stmt->execute(['id' => $idReceta]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        if ($row === []) {
+            throw new RuntimeException('La receta de producción no existe o fue eliminada.');
+        }
+
+        $costoTeoricoUnitario = (float) ($row['costo_teorico_unitario'] ?? 0);
+
+        return [
+            'id_producto_snapshot' => (int) ($row['id_producto'] ?? 0),
+            'receta_codigo_snapshot' => (string) ($row['codigo'] ?? ''),
+            'receta_version_snapshot' => (int) ($row['version'] ?? 1),
+            'costo_teorico_unitario_snapshot' => $costoTeoricoUnitario,
+            'costo_teorico_total_snapshot' => $costoTeoricoUnitario * max(0, $cantidadPlanificada),
+        ];
     }
 
     public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = '', ?string $fechaInicio = null, ?string $fechaFin = null): void
@@ -585,6 +636,8 @@ class ProduccionOrdenesModel extends Modelo
 
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
+                                            costo_real_unitario = :costo_real_unitario,
+                                            costo_real_total = :costo_real_total,
                                             estado = 2,
                                             fecha_inicio = COALESCE(:fecha_inicio, fecha_inicio, NOW()),
                                             fecha_fin = COALESCE(:fecha_fin, NOW()),
@@ -595,6 +648,8 @@ class ProduccionOrdenesModel extends Modelo
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
+                'costo_real_unitario' => number_format($costoUnitarioIngreso, 4, '.', ''),
+                'costo_real_total' => number_format($costoTotalConsumo, 4, '.', ''),
                 'fecha_inicio' => $fechaInicio, 
                 'fecha_fin' => $fechaFin,       
                 'justificacion' => $justificacion !== '' ? $justificacion : null,
