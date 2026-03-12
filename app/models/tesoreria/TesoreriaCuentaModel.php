@@ -40,11 +40,13 @@ class TesoreriaCuentaModel extends Modelo
     public function listarGestion(): array
     {
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
+                       COALESCE(mov.total_movimientos, 0) AS total_movimientos,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
                 LEFT JOIN configuracion_cajas_bancos cb ON cb.id = c.config_banco_id
                 LEFT JOIN (
                     SELECT id_cuenta,
+                           COUNT(*) AS total_movimientos,
                            SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
                                     WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
                                     ELSE 0 END) AS saldo_delta
@@ -53,7 +55,7 @@ class TesoreriaCuentaModel extends Modelo
                     GROUP BY id_cuenta
                 ) mov ON mov.id_cuenta = c.id
                 WHERE c.deleted_at IS NULL
-                ORDER BY c.principal DESC, c.estado DESC, c.nombre ASC';
+                ORDER BY c.estado DESC, c.nombre ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -90,7 +92,6 @@ class TesoreriaCuentaModel extends Modelo
             'permite_pagos' => (int) ($payload['permite_pagos'] ?? 0),
             'saldo_inicial' => round((float) ($payload['saldo_inicial'] ?? 0), 4),
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
-            'principal' => (int) ($payload['principal'] ?? 0),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
             'estado' => (int) ($payload['estado'] ?? 1),
         ];
@@ -100,8 +101,24 @@ class TesoreriaCuentaModel extends Modelo
         if (!in_array($data['tipo'], ['CAJA', 'BANCO', 'BILLETERA'], true)) throw new RuntimeException('Tipo de cuenta inválido.');
         if (!in_array($data['moneda'], ['PEN', 'USD'], true)) throw new RuntimeException('Moneda inválida.');
 
-        // Autogenerar código si es necesario
-        if ($data['codigo'] === '') {
+        $cuentaActual = null;
+        if ($id > 0) {
+            $cuentaActual = $this->obtenerPorId($id);
+            if (!$cuentaActual) {
+                throw new RuntimeException('La cuenta de tesorería no existe o fue eliminada.');
+            }
+
+            // Campos bloqueados en edición
+            $data['codigo'] = (string) ($cuentaActual['codigo'] ?? '');
+            $data['config_banco_id'] = (int) ($cuentaActual['config_banco_id'] ?? 0);
+            $data['titular'] = (string) ($cuentaActual['titular'] ?? '');
+            $data['tipo_cuenta'] = (string) ($cuentaActual['tipo_cuenta'] ?? '');
+            $data['numero_cuenta'] = (string) ($cuentaActual['numero_cuenta'] ?? '');
+            $data['cci'] = (string) ($cuentaActual['cci'] ?? '');
+            $data['saldo_inicial'] = round((float) ($cuentaActual['saldo_inicial'] ?? 0), 4);
+            $data['fecha_saldo_inicial'] = trim((string) ($cuentaActual['fecha_saldo_inicial'] ?? ''));
+        } elseif ($data['codigo'] === '') {
+            // Autogenerar código si es necesario
             $data['codigo'] = $this->generarCodigoDisponible($data['tipo']);
         }
 
@@ -137,7 +154,7 @@ class TesoreriaCuentaModel extends Modelo
                         titular = :titular, tipo_cuenta = :tipo_cuenta, numero_cuenta = :numero_cuenta,
                         cci = :cci, permite_cobros = :permite_cobros, permite_pagos = :permite_pagos,
                         saldo_inicial = :saldo_inicial, fecha_saldo_inicial = :fecha_saldo_inicial,
-                        principal = :principal, observaciones = :observaciones, estado = :estado,
+                        observaciones = :observaciones, estado = :estado,
                         updated_by = :user, updated_at = NOW()
                     WHERE id = :id AND deleted_at IS NULL';
 
@@ -150,11 +167,11 @@ class TesoreriaCuentaModel extends Modelo
             // --- INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
-                     permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, principal, observaciones,
+                     permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, observaciones,
                      estado, created_by, updated_by, created_at, updated_at)
                 VALUES
                     (:codigo, :nombre, :tipo, :moneda, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
-                     :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :principal, :observaciones,
+                     :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :observaciones,
                      :estado, :created_by, :updated_by, NOW(), NOW())';
 
             $stmt = $db->prepare($sql);
@@ -229,6 +246,38 @@ class TesoreriaCuentaModel extends Modelo
             'id_cuenta_contable' => $idCuentaContable,
             'user' => $userId,
             'id' => $idCuentaTesoreria,
+        ]);
+    }
+
+    public function eliminar(int $id, int $userId): void
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Cuenta inválida para eliminar.');
+        }
+
+        $stmtExiste = $this->db()->prepare('SELECT id FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmtExiste->execute(['id' => $id]);
+        if (!$stmtExiste->fetch(PDO::FETCH_ASSOC)) {
+            throw new RuntimeException('La cuenta no existe o ya fue eliminada.');
+        }
+
+        $stmtMov = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_movimientos WHERE id_cuenta = :id_cuenta AND deleted_at IS NULL');
+        $stmtMov->execute(['id_cuenta' => $id]);
+        $totalMov = (int) $stmtMov->fetchColumn();
+
+        if ($totalMov > 0) {
+            throw new RuntimeException('No se puede eliminar la cuenta porque ya tiene movimientos registrados.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE tesoreria_cuentas
+                                      SET deleted_at = NOW(),
+                                          deleted_by = :user,
+                                          updated_at = NOW(),
+                                          updated_by = :user
+                                      WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'user' => $userId,
         ]);
     }
 }
