@@ -4,6 +4,7 @@ $bancos = $bancos ?? [];
 $cuentaEditar = $cuentaEditar ?? null;
 $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
 $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
+$camposBloqueadosEdicion = $esEdicion;
 ?>
 
 <div class="container-fluid p-4" id="tesoreriaCuentasApp" data-es-edicion="<?php echo $esEdicion ? 'true' : 'false'; ?>">
@@ -94,7 +95,10 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                                             style="cursor: help;"></i>
                                         <?php endif; ?>
                                         
-                                        <div class="small text-muted mt-1"><?php echo e((string) ($c['banco_nombre'] ?? '-')); ?></div>
+                                        <?php $bancoNombre = trim((string) ($c['banco_nombre'] ?? '')); ?>
+                                        <?php if ($bancoNombre !== ''): ?>
+                                            <div class="small text-muted mt-1"><?php echo e($bancoNombre); ?></div>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="text-muted pt-3"><?php echo e((string) ($c['tipo'] ?? '')); ?></td>
                                     <td class="text-muted pt-3 fw-bold"><?php echo e((string) ($c['moneda'] ?? '')); ?></td>
@@ -111,11 +115,26 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                                         </span>
                                     </td>
                                     <td class="text-end pe-4 pt-3">
-                                        <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&id=<?php echo (int) ($c['id'] ?? 0); ?>" 
-                                           class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
-                                           data-bs-toggle="tooltip" data-bs-placement="top" title="Editar cuenta">
-                                            <i class="bi bi-pencil-square fs-5"></i>
-                                        </a>
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&id=<?php echo (int) ($c['id'] ?? 0); ?>" 
+                                               class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
+                                               data-bs-toggle="tooltip" data-bs-placement="top" title="Editar cuenta">
+                                                <i class="bi bi-pencil-square fs-5"></i>
+                                            </a>
+                                            <?php $puedeEliminar = ((int) ($c['total_movimientos'] ?? 0) === 0); ?>
+                                            <?php if ($puedeEliminar): ?>
+                                                <form method="post" action="<?php echo e(route_url('tesoreria/eliminar_cuenta')); ?>" class="d-inline js-form-delete-cuenta">
+                                                    <input type="hidden" name="id_cuenta" value="<?php echo (int) ($c['id'] ?? 0); ?>">
+                                                    <button type="submit" class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Eliminar cuenta">
+                                                        <i class="bi bi-trash fs-5"></i>
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <button type="button" class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-secondary" disabled data-bs-toggle="tooltip" data-bs-placement="top" title="No se puede eliminar: tiene movimientos registrados">
+                                                    <i class="bi bi-trash fs-5"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -161,7 +180,7 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                             <div class="row g-3">
                                 <div class="col-12 col-md-3">
                                     <label class="form-label small text-muted fw-bold mb-1">Código</label>
-                                    <input type="text" maxlength="30" id="cuentaCodigo" name="codigo" class="form-control shadow-none font-monospace fw-bold" value="<?php echo e((string) ($cuentaEditar['codigo'] ?? '')); ?>" placeholder="Se genera automáticamente si se deja vacío">
+                                    <input type="text" maxlength="30" id="cuentaCodigo" name="codigo" class="form-control shadow-none font-monospace fw-bold" value="<?php echo e((string) ($cuentaEditar['codigo'] ?? '')); ?>" placeholder="Se genera automáticamente" readonly disabled aria-disabled="true">
                                 </div>
                                 <div class="col-12 col-md-5">
                                     <label class="form-label small text-muted fw-bold mb-1">Nombre <span class="text-danger">*</span></label>
@@ -194,7 +213,7 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                             <div class="row g-3">
                                 <div class="col-12 col-md-4 js-bank-field" id="cuentaEntidadWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Entidad (Banco/Caja)</label>
-                                    <select name="config_banco_id" id="cuentaEntidad" class="form-select shadow-none">
+                                    <select name="config_banco_id" id="cuentaEntidad" class="form-select shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" <?php echo $camposBloqueadosEdicion ? 'disabled aria-disabled="true"' : ''; ?>>
                                         <option value="">Seleccionar...</option>
                                         <?php $configBancoActual = (int) ($cuentaEditar['config_banco_id'] ?? 0); ?>
                                         <?php foreach ($bancos as $b): ?>
@@ -207,33 +226,33 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
                                 <div class="col-12 col-md-4 js-bank-field" id="cuentaTipoCuentaWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Tipo de cuenta</label>
                                     <?php $tipoCuentaActual = (string) ($cuentaEditar['tipo_cuenta'] ?? ''); ?>
-                                    <select name="tipo_cuenta" id="cuentaTipoCuenta" class="form-select shadow-none" data-selected="<?php echo e($tipoCuentaActual); ?>">
+                                    <select name="tipo_cuenta" id="cuentaTipoCuenta" class="form-select shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" data-selected="<?php echo e($tipoCuentaActual); ?>" <?php echo $camposBloqueadosEdicion ? 'disabled aria-disabled="true"' : ''; ?>>
                                         <option value="">Seleccionar...</option>
                                     </select>
                                 </div>
                                 <div class="col-12 col-md-4 js-bank-field" id="cuentaNumeroWrap">
                                     <label class="form-label small text-muted fw-bold mb-1" id="cuentaNumeroLabel">N° de cuenta</label>
-                                    <input type="text" maxlength="80" name="numero_cuenta" id="cuentaNumero" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['numero_cuenta'] ?? '')); ?>" placeholder="000-0000000">
+                                    <input type="text" maxlength="80" name="numero_cuenta" id="cuentaNumero" class="form-control shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" value="<?php echo e((string) ($cuentaEditar['numero_cuenta'] ?? '')); ?>" placeholder="000-0000000" <?php echo $camposBloqueadosEdicion ? 'readonly disabled aria-disabled="true"' : ''; ?>>
                                 </div>
                                 <div class="col-12 col-md-6 js-bank-field" id="cuentaTitularWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">Titular</label>
-                                    <input type="text" maxlength="150" name="titular" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['titular'] ?? '')); ?>">
+                                    <input type="text" maxlength="150" name="titular" class="form-control shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" value="<?php echo e((string) ($cuentaEditar['titular'] ?? '')); ?>" <?php echo $camposBloqueadosEdicion ? 'readonly disabled aria-disabled="true"' : ''; ?>>
                                 </div>
                                 <div class="col-12 col-md-6 js-bank-field" id="cuentaCciWrap">
                                     <label class="form-label small text-muted fw-bold mb-1">CCI (Código de Cuenta Interbancario)</label>
-                                    <input type="text" maxlength="80" name="cci" id="cuentaCci" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['cci'] ?? '')); ?>">
+                                    <input type="text" maxlength="80" name="cci" id="cuentaCci" class="form-control shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" value="<?php echo e((string) ($cuentaEditar['cci'] ?? '')); ?>" <?php echo $camposBloqueadosEdicion ? 'readonly disabled aria-disabled="true"' : ''; ?>>
                                 </div>
                                 
                                 <div class="col-12 col-md-6 mt-4">
                                     <label class="form-label small text-muted fw-bold mb-1">Saldo inicial</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light">$</span>
-                                        <input type="number" step="0.0001" min="0" name="saldo_inicial" class="form-control shadow-none fw-bold" value="<?php echo e((string) ($cuentaEditar['saldo_inicial'] ?? '0.0000')); ?>">
+                                        <input type="number" step="0.0001" min="0" name="saldo_inicial" class="form-control shadow-none fw-bold <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" value="<?php echo e((string) ($cuentaEditar['saldo_inicial'] ?? '0.0000')); ?>" <?php echo $camposBloqueadosEdicion ? 'readonly disabled aria-disabled="true"' : ''; ?>>
                                     </div>
                                 </div>
                                 <div class="col-12 col-md-6 mt-4">
                                     <label class="form-label small text-muted fw-bold mb-1">Fecha saldo inicial</label>
-                                    <input type="date" name="fecha_saldo_inicial" class="form-control shadow-none" value="<?php echo e((string) ($cuentaEditar['fecha_saldo_inicial'] ?? '')); ?>">
+                                    <input type="date" name="fecha_saldo_inicial" class="form-control shadow-none <?php echo $camposBloqueadosEdicion ? 'bg-light text-muted' : ''; ?>" value="<?php echo e((string) ($cuentaEditar['fecha_saldo_inicial'] ?? '')); ?>" <?php echo $camposBloqueadosEdicion ? 'readonly disabled aria-disabled="true"' : ''; ?>>
                                 </div>
                                 <div class="col-12 col-md-12">
                                     <div class="alert alert-info small mb-0">
