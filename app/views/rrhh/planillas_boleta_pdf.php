@@ -3,98 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <title>Boletas de pago</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
-            --brand-primary: #0b57d0;
-            --ink-main: #111827;
-            --ink-soft: #6b7280;
-            --line-soft: #b7c9e8;
-            --surface: #eef4ff;
-            --surface-strong: #dbe8ff;
+            --brand-primary: #0d6efd;
+            --brand-success: #198754;
+            --brand-danger: #dc3545;
+            --ink-main: #212529;
+            --ink-soft: #6c757d;
+            --border-soft: #dee2e6;
+            --bg-light: #f8f9fa;
+            --surface: #ffffff;
+            --surface-primary-subtle: #cfe2ff;
         }
+
         body {
-            font-family: 'Inter', 'Segoe UI', 'Helvetica', 'Arial', sans-serif;
-            font-size: 10px;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 10px; /* Letra un poco más pequeña */
             color: var(--ink-main);
             margin: 0;
-            padding: 12px;
+            padding: 10px; /* Padding reducido en pantalla */
             background: #f3f6fb;
-        }
-        .boleta-ticket {
-            width: 47%;
-            float: left;
-            margin: 1%;
-            border: 1px solid var(--line-soft);
-            border-radius: 10px;
-            background: #fff;
-            padding: 12px;
-            box-sizing: border-box;
-            page-break-inside: avoid;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(16, 24, 40, 0.06);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
-        .mini-header {
-            border-bottom: 1px solid #cdd8e6;
-            padding-bottom: 7px;
-            margin-bottom: 7px;
+        /* --- CONFIGURACIÓN ESTRICTA PARA IMPRESIÓN --- */
+        @media print {
+            @page {
+                /* Esto elimina la URL, fecha y título que pone el navegador automáticamente */
+                margin: 5mm; /* Margen físico de la hoja muy pequeño */
+            }
+            body {
+                background: #fff !important;
+                padding: 0 !important;
+            }
+            .actions { display: none !important; }
+            .boleta-ticket {
+                box-shadow: none !important;
+                border: 1px solid var(--border-soft) !important;
+                /* Márgenes muy ajustados para que entren varias filas */
+                margin: 0 1% 1% 0 !important; 
+                width: 49% !important; /* Aprovechar más el ancho */
+            }
+            .boleta-ticket:nth-child(even) {
+                margin-right: 0 !important;
+            }
         }
-        .mini-header table { width: 100%; border-collapse: collapse; }
-        .mini-header td { vertical-align: top; }
-        .chip-periodo {
-            display: inline-block;
-            padding: 2px 6px;
+
+        /* --- DISEÑO DE LA BOLETA COMPACTA --- */
+        .boleta-ticket {
+            width: 48%;
+            float: left;
+            margin: 0 2% 2% 0;
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            background: var(--surface);
+            padding: 8px 10px; /* PADDING INTERNO REDUCIDO DRASTICAMENTE */
+            box-sizing: border-box;
+            page-break-inside: avoid; /* Intenta no cortar una boleta por la mitad */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        /* Cabecera compacta */
+        .header-boleta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-soft); /* Borde más fino */
+            padding-bottom: 4px; /* Menos espacio abajo */
+            margin-bottom: 6px; /* Menos espacio de separación */
+        }
+        .empresa-title {
+            font-size: 11px; /* Título más pequeño */
+            font-weight: bold;
+            margin: 0;
+        }
+        .badge-periodo {
+            background-color: var(--surface-primary-subtle);
+            color: var(--brand-primary);
+            padding: 2px 6px; /* Badge más delgado */
             border-radius: 4px;
             font-size: 8px;
-            background: var(--surface-strong);
-            color: var(--brand-primary);
-            border: 1px solid #b9cdf3;
-            white-space: nowrap;
+            font-weight: bold;
         }
 
-        table { width: 100%; border-collapse: collapse; }
-        .info-box td { padding: 4px 5px; border: 1px solid #dee8f5; }
-        .info-label { font-weight: bold; background-color: var(--surface); width: 25%; color: #475569; }
+        /* Info del trabajador compacta */
+        .info-trabajador {
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            padding: 4px 8px; /* Padding muy reducido */
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-trabajador p {
+            margin: 0;
+            font-size: 8px;
+            color: var(--ink-soft);
+        }
+        .info-trabajador strong {
+            color: var(--ink-main);
+            font-size: 10px;
+        }
 
-        .details-table { margin-top: 5px; margin-bottom: 5px; }
-        .details-table th {
-            background: #e6efff;
-            border: 1px solid #cfdced;
-            color: var(--brand-primary);
-            padding: 4px;
+        /* Tablas ultra compactas */
+        table.table-modern {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px; /* Menos margen entre tablas */
+        }
+        table.table-modern th {
+            background-color: var(--bg-light);
+            color: var(--ink-soft);
+            font-weight: bold;
+            font-size: 8px; /* Letra de cabecera pequeña */
+            padding: 2px 4px; /* Celdas de cabecera delgadas */
             text-align: left;
+            border-bottom: 1px solid var(--border-soft);
         }
-        .details-table td { border: 1px solid #d7e3f2; padding: 3px 4px; }
-        .amount-col { text-align: right; width: 25%; }
-
-        .hours-table { margin-top: 8px; margin-bottom: 5px; }
-        .hours-table th {
-            background: #e6efff;
-            border: 1px solid #c9d9ee;
-            color: var(--brand-primary);
-            padding: 4px;
-            text-align: center;
+        table.table-modern td {
+            padding: 2px 4px; /* Celdas de datos muy delgadas */
+            border-bottom: 1px solid #f0f0f0; /* Borde sutil */
+            font-size: 9px;
         }
-        .hours-table td { border: 1px solid #d6e1f0; padding: 3px 4px; }
-        .hours-table .day-col { font-weight: bold; width: 45%; }
-        .hours-table .num-col { text-align: right; width: 27.5%; }
-        .hours-table .total-row td {
+        .text-end { text-align: right !important; }
+        .text-center { text-align: center !important; }
+        .fw-bold { font-weight: bold; }
+        .text-success { color: var(--brand-success); }
+        .text-danger { color: var(--brand-danger); }
+        
+        .total-row td {
+            background-color: var(--bg-light);
             font-weight: bold;
-            background: #f2f8ff;
-            color: var(--brand-primary);
+            border-bottom: 1px solid var(--border-soft);
+            border-top: 1px solid var(--border-soft);
         }
 
-        .totals-table { width: 60%; float: right; margin-top: 5px; }
-        .totals-table td { padding: 4px 5px; border: 1px solid #c6d6ea; text-align: right; }
-        .neto-row td {
-            background: var(--brand-primary);
+        /* Resumen Final Compacto */
+        .resumen-pago {
+            float: right;
+            width: 60%; /* Un poco más ancho para que entre bien en una línea */
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+        .resumen-pago table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .resumen-pago td {
+            padding: 4px 6px; /* Celdas del total compactas */
+            text-align: right;
+        }
+        .neto-row {
+            background-color: var(--brand-primary);
             color: white;
+        }
+        .neto-row td {
+            font-size: 11px; /* Letra un poco más pequeña que antes pero destacada */
             font-weight: bold;
-            font-size: 11px;
+            color: white !important;
         }
 
         .clear { clear: both; }
 
+        /* Botonera superior */
         .actions {
             position: sticky;
             top: 0;
@@ -104,68 +180,58 @@
             padding: 8px 10px;
             display: flex;
             justify-content: flex-end;
-            gap: 8px;
             z-index: 10;
         }
         .btn {
-            border: 1px solid #1e3a8a;
             background: var(--brand-primary);
             color: #fff;
             font-size: 11px;
             font-weight: bold;
-            border-radius: 6px;
-            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
             cursor: pointer;
-        }
-
-        @media print {
-            .actions { display: none !important; }
-            body {
-                padding: 0;
-                background: #fff;
-            }
-            .boleta-ticket {
-                box-shadow: none;
-            }
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
     </style>
 </head>
 <body>
+
     <div class="actions">
-        <button type="button" class="btn" onclick="window.print()">Imprimir PDF</button>
+        <button type="button" class="btn" onclick="window.print()">
+            <i class="bi bi-printer-fill"></i> Imprimir Boletas
+        </button>
     </div>
 
     <?php foreach ($boletas as $boleta): ?>
     <div class="boleta-ticket">
 
-        <div class="mini-header">
-            <table>
-                <tr>
-                    <td style="width: 55%; font-size: 9px;"></td>
-                    <td style="text-align: right; font-size: 9px;">
-                        <span class="chip-periodo">
-                            <?php echo htmlspecialchars($boleta['fecha_inicio'] ?? ''); ?> al <?php echo htmlspecialchars($boleta['fecha_fin'] ?? ''); ?>
-                        </span>
-                    </td>
-                </tr>
-            </table>
+        <div class="header-boleta">
+            <h2 class="empresa-title">Boleta de Pago</h2>
+            <span class="badge-periodo">
+                <?php echo htmlspecialchars($boleta['fecha_inicio'] ?? ''); ?> al <?php echo htmlspecialchars($boleta['fecha_fin'] ?? ''); ?>
+            </span>
         </div>
 
-        <table class="info-box">
-            <tr>
-                <td class="info-label">Trabajador:</td>
-                <td><strong><?php echo htmlspecialchars($boleta['nombre_completo'] ?? ''); ?></strong></td>
-                <td class="info-label">Días trabajados:</td>
-                <td><?php echo (int)($boleta['dias_pagados'] ?? 0); ?></td>
-            </tr>
-        </table>
+        <div class="info-trabajador">
+            <div>
+                <p>Trabajador:</p>
+                <strong><?php echo htmlspecialchars($boleta['nombre_completo'] ?? ''); ?></strong>
+            </div>
+            <div style="text-align: right;">
+                <p>Días pagados:</p>
+                <strong><?php echo (int)($boleta['dias_pagados'] ?? 0); ?> D</strong>
+            </div>
+        </div>
 
-        <table class="hours-table">
+        <table class="table-modern">
             <thead>
                 <tr>
                     <th>Día</th>
-                    <th>Horas normales</th>
-                    <th>Horas extras</th>
+                    <th class="text-end">H. Norm.</th>
+                    <th class="text-end">H. Ext.</th>
                 </tr>
             </thead>
             <tbody>
@@ -180,25 +246,25 @@
                     $totalExtras += $he;
                 ?>
                 <tr>
-                    <td class="day-col"><?php echo htmlspecialchars($diaRow['dia'] ?? ''); ?></td>
-                    <td class="num-col"><?php echo $hn > 0 ? number_format($hn, 2) : '-'; ?></td>
-                    <td class="num-col"><?php echo $he > 0 ? number_format($he, 2) : '-'; ?></td>
+                    <td class="fw-bold"><?php echo htmlspecialchars($diaRow['dia'] ?? ''); ?></td>
+                    <td class="text-end"><?php echo $hn > 0 ? number_format($hn, 2) : '-'; ?></td>
+                    <td class="text-end text-success"><?php echo $he > 0 ? number_format($he, 2) : '-'; ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <tr class="total-row">
-                    <td>TOTAL HORAS</td>
-                    <td class="num-col"><?php echo number_format($totalNormales, 2); ?></td>
-                    <td class="num-col"><?php echo number_format($totalExtras, 2); ?></td>
+                    <td>TOTAL</td>
+                    <td class="text-end"><?php echo number_format($totalNormales, 2); ?></td>
+                    <td class="text-end text-success"><?php echo number_format($totalExtras, 2); ?></td>
                 </tr>
             </tbody>
         </table>
 
-        <table class="details-table">
+        <table class="table-modern">
             <thead>
                 <tr>
                     <th>Concepto</th>
-                    <th class="amount-col">Ing. (S/)</th>
-                    <th class="amount-col">Des. (S/)</th>
+                    <th class="text-end">Ing. (S/)</th>
+                    <th class="text-end">Desc. (S/)</th>
                 </tr>
             </thead>
             <tbody>
@@ -209,24 +275,30 @@
                         $esIngreso = ($c['tipo'] === 'PERCEPCION');
                 ?>
                 <tr>
-                    <td><strong><?php echo htmlspecialchars($c['categoria'] ?? ''); ?></strong></td>
-                    <td class="amount-col"><?php echo $esIngreso ? number_format((float)$c['monto'], 2) : ''; ?></td>
-                    <td class="amount-col"><?php echo !$esIngreso ? number_format((float)$c['monto'], 2) : ''; ?></td>
+                    <td><?php echo htmlspecialchars($c['categoria'] ?? ''); ?></td>
+                    <td class="text-end fw-bold text-success">
+                        <?php echo $esIngreso ? number_format((float)$c['monto'], 2) : ''; ?>
+                    </td>
+                    <td class="text-end fw-bold text-danger">
+                        <?php echo !$esIngreso ? number_format((float)$c['monto'], 2) : ''; ?>
+                    </td>
                 </tr>
                 <?php endforeach; else: ?>
                 <tr>
-                    <td colspan="3" style="text-align: center; color: #999;">Sin conceptos</td>
+                    <td colspan="3" class="text-center" style="color: #999;">Sin conceptos</td>
                 </tr>
                 <?php endif; ?>
             </tbody>
         </table>
 
-        <table class="totals-table">
-            <tr class="neto-row">
-                <td style="background-color: transparent; color: white;">NETO:</td>
-                <td>S/ <?php echo number_format((float)($boleta['neto_a_pagar'] ?? 0), 2); ?></td>
-            </tr>
-        </table>
+        <div class="resumen-pago">
+            <table>
+                <tr class="neto-row">
+                    <td style="text-align: left;">NETO:</td>
+                    <td>S/ <?php echo number_format((float)($boleta['neto_a_pagar'] ?? 0), 2); ?></td>
+                </tr>
+            </table>
+        </div>
         <div class="clear"></div>
 
     </div>
