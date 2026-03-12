@@ -232,22 +232,26 @@ class ComprasController extends Controlador
             $payload = $this->leerJson();
             $idOrden = (int) ($payload['id_orden'] ?? 0);
             $idAlmacen = (int) ($payload['id_almacen'] ?? 0);
+            $distribucion = is_array($payload['distribucion'] ?? null) ? $payload['distribucion'] : [];
             $userId = $this->obtenerUsuarioId();
 
-            if ($idOrden <= 0 || $idAlmacen <= 0) {
-                throw new RuntimeException('Debe seleccionar una orden y un almacén de destino.');
+            if ($idOrden <= 0) {
+                throw new RuntimeException('Debe seleccionar una orden válida.');
             }
 
-            /**
-             * NOTA IMPORTANTE:
-             * Esta lógica asume una "Recepción Total" automática basada en lo que dice la Orden de Compra.
-             * Si tu sistema requiere recepciones parciales (ej. llegaron 5 de 10),
-             * deberías enviar el array 'detalle' desde el frontend y modificar
-             * ComprasRecepcionModel::registrarRecepcion para usar ese array en vez de leer la orden.
-             */
+            if (empty($distribucion)) {
+                if ($idAlmacen <= 0) {
+                    throw new RuntimeException('Debe seleccionar un almacén de destino.');
+                }
+                $distribucion = [[
+                    'id_almacen' => $idAlmacen,
+                    'cantidad' => 0,
+                ]];
+            }
+
             $idRecepcion = $this->recepcionModel->registrarRecepcion(
                 $idOrden,
-                $idAlmacen,
+                $distribucion,
                 $userId
             );
 
