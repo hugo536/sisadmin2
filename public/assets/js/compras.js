@@ -46,10 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAgregarFila = document.getElementById('btnAgregarFila');
 
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
-    const recepcionAlmacen = document.getElementById('recepcionAlmacen');
+    const recepcionDistribucionRows = document.getElementById('recepcionDistribucionRows');
+    const recepcionAlmacenTemplate = document.getElementById('recepcionAlmacenTemplate');
+    const recepcionTotalCantidad = document.getElementById('recepcionTotalCantidad');
+    const btnAgregarAlmacenRecepcion = document.getElementById('btnAgregarAlmacenRecepcion');
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
 
     let ordenEnEdicionId = 0;
+    let totalRecepcionCompra = 0;
 
     function setOrdenEnEdicion(id = 0) {
         const parsedId = Number(id || 0);
@@ -113,6 +117,141 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnElement.innerHTML = originalText;
             }
         }
+    }
+
+
+    function formatearCantidad(valor) {
+        const numero = Number.parseFloat(valor || 0);
+        if (!Number.isFinite(numero)) return '0';
+        return numero.toFixed(4).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+    }
+
+    function parseCantidad(valor) {
+        const numero = Number.parseFloat(valor || 0);
+        return Number.isFinite(numero) ? numero : 0;
+    }
+
+    function obtenerRowsDistribucion() {
+        return Array.from(recepcionDistribucionRows.querySelectorAll('.recepcion-distribucion-row'));
+    }
+
+    function validarAlmacenesDuplicados() {
+        const seleccionados = new Map();
+        for (const row of obtenerRowsDistribucion()) {
+            const select = row.querySelector('.recepcion-almacen');
+            const idAlmacen = Number(select?.value || 0);
+            if (idAlmacen <= 0) continue;
+            if (seleccionados.has(idAlmacen)) {
+                Swal.fire('Almacén duplicado', 'No puede seleccionar el mismo almacén en ambas líneas.', 'warning');
+                select.value = '';
+                return false;
+            }
+            seleccionados.set(idAlmacen, true);
+        }
+        return true;
+    }
+
+    function setFilasEditablesDistribucion(editable) {
+        obtenerRowsDistribucion().forEach((row) => {
+            const inputCantidad = row.querySelector('.recepcion-cantidad');
+            if (!inputCantidad) return;
+            inputCantidad.readOnly = !editable;
+            inputCantidad.classList.toggle('bg-light', !editable);
+        });
+    }
+
+    function sincronizarCantidadesDistribucion(rowOrigen = null) {
+        const rows = obtenerRowsDistribucion();
+        if (rows.length !== 2) return;
+
+        const rowA = rows[0];
+        const rowB = rows[1];
+        const inputA = rowA.querySelector('.recepcion-cantidad');
+        const inputB = rowB.querySelector('.recepcion-cantidad');
+
+        const origenEsA = rowOrigen ? rowOrigen.dataset.index === rowA.dataset.index : true;
+        if (origenEsA) {
+            const valorA = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputA.value)));
+            inputA.value = formatearCantidad(valorA);
+            inputB.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorA));
+        } else {
+            const valorB = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputB.value)));
+            inputB.value = formatearCantidad(valorB);
+            inputA.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorB));
+        }
+    }
+
+    function crearFilaDistribucion(index, cantidad, editable) {
+        const fila = document.createElement('div');
+        fila.className = 'recepcion-distribucion-row row g-2 align-items-center mb-2';
+        fila.dataset.index = String(index);
+        fila.innerHTML = `
+            <div class="col-6">
+                <select class="form-select recepcion-almacen" required></select>
+            </div>
+            <div class="col-4">
+                <input type="number" class="form-control text-end recepcion-cantidad" min="0" step="0.0001" value="${formatearCantidad(cantidad)}" ${editable ? '' : 'readonly'}>
+            </div>
+            <div class="col-2 text-end">
+                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-almacen-recepcion ${index === 1 ? 'd-none' : ''}" title="Quitar almacén" style="width:32px;height:32px;">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+
+        const select = fila.querySelector('.recepcion-almacen');
+        const inputCantidad = fila.querySelector('.recepcion-cantidad');
+        const btnQuitar = fila.querySelector('.btn-quitar-almacen-recepcion');
+        if (recepcionAlmacenTemplate) {
+            select.innerHTML = recepcionAlmacenTemplate.innerHTML;
+        }
+
+        if (!editable) {
+            inputCantidad.classList.add('bg-light');
+        }
+
+        select.addEventListener('change', () => {
+            validarAlmacenesDuplicados();
+        });
+
+        inputCantidad.addEventListener('input', () => {
+            sincronizarCantidadesDistribucion(fila);
+        });
+
+        if (btnQuitar) {
+            btnQuitar.addEventListener('click', () => {
+                fila.remove();
+                const rows = obtenerRowsDistribucion();
+                if (rows.length === 1) {
+                    const input = rows[0].querySelector('.recepcion-cantidad');
+                    const boton = rows[0].querySelector('.btn-quitar-almacen-recepcion');
+                    input.value = formatearCantidad(totalRecepcionCompra);
+                    input.readOnly = true;
+                    input.classList.add('bg-light');
+                    if (boton) boton.classList.add('d-none');
+                    btnAgregarAlmacenRecepcion.disabled = false;
+                }
+            });
+        }
+
+        return fila;
+    }
+
+    function obtenerDistribucionRecepcion() {
+        return obtenerRowsDistribucion().map((row) => ({
+            id_almacen: Number(row.querySelector('.recepcion-almacen')?.value || 0),
+            cantidad: parseCantidad(row.querySelector('.recepcion-cantidad')?.value || 0),
+        }));
+    }
+
+    function inicializarDistribucionRecepcion(totalCantidad) {
+        totalRecepcionCompra = Math.max(0, parseCantidad(totalCantidad));
+        recepcionTotalCantidad.textContent = formatearCantidad(totalRecepcionCompra);
+        recepcionDistribucionRows.innerHTML = '';
+
+        const filaPrincipal = crearFilaDistribucion(1, totalRecepcionCompra, false);
+        recepcionDistribucionRows.appendChild(filaPrincipal);
+        btnAgregarAlmacenRecepcion.disabled = false;
     }
 
     async function obtenerUnidadesItem(idItem) {
@@ -457,13 +596,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    if (btnAgregarAlmacenRecepcion) {
+        btnAgregarAlmacenRecepcion.addEventListener('click', () => {
+            const rows = obtenerRowsDistribucion();
+            if (rows.length >= 2) {
+                Swal.fire('Límite alcanzado', 'Por ahora solo puede distribuir en 2 almacenes.', 'info');
+                return;
+            }
+
+            setFilasEditablesDistribucion(true);
+            const cantidadPrimera = parseCantidad(rows[0]?.querySelector('.recepcion-cantidad')?.value || 0);
+            const cantidadSegunda = Math.max(0, totalRecepcionCompra - cantidadPrimera);
+            const filaNueva = crearFilaDistribucion(2, cantidadSegunda, true);
+            recepcionDistribucionRows.appendChild(filaNueva);
+            sincronizarCantidadesDistribucion(rows[0] || null);
+            btnAgregarAlmacenRecepcion.disabled = true;
+        });
+    }
+
     btnConfirmarRecepcion.addEventListener('click', async () => {
-        const almacenId = Number(recepcionAlmacen.value);
-        if (almacenId <= 0) return Swal.fire('Atención', 'Seleccione un almacén de destino.', 'warning');
+        if (!validarAlmacenesDuplicados()) return;
+
+        const distribucion = obtenerDistribucionRecepcion();
+        if (distribucion.length === 0) {
+            return Swal.fire('Atención', 'Debe definir al menos un almacén de destino.', 'warning');
+        }
+
+        if (distribucion.some((row) => row.id_almacen <= 0)) {
+            return Swal.fire('Atención', 'Seleccione un almacén en cada línea.', 'warning');
+        }
+
+        const totalIngresado = distribucion.reduce((acc, row) => acc + row.cantidad, 0);
+        if (Math.abs(totalIngresado - totalRecepcionCompra) > 0.0001) {
+            return Swal.fire(
+                'Distribución inválida',
+                `La suma por almacenes (${formatearCantidad(totalIngresado)}) debe ser exacta al total comprado (${formatearCantidad(totalRecepcionCompra)}).`,
+                'warning',
+            );
+        }
 
         const confirm = await Swal.fire({
             title: '¿Confirmar ingreso?',
-            text: 'Se actualizará el stock físico del almacén seleccionado.',
+            text: 'Se actualizará el stock físico según la distribución por almacenes.',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí, recepcionar',
@@ -474,7 +648,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await postJson(urls.recepcionar, {
                 id_orden: Number(recepcionOrdenId.value),
-                id_almacen: almacenId,
+                id_almacen: distribucion[0].id_almacen,
+                distribucion,
             }, btnConfirmarRecepcion);
 
             await Swal.fire('Éxito', res.mensaje, 'success');
@@ -573,8 +748,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.classList.contains('btn-recepcionar')) {
             recepcionOrdenId.value = id;
-            recepcionAlmacen.value = '';
-            modalRecepcion.show();
+            try {
+                const separador = urls.index.includes('?') ? '&' : '?';
+                const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const json = await parseJsonSafe(res);
+                if (!res.ok || !json.ok || !json.data) {
+                    throw new Error(json.mensaje || 'No se pudo preparar la recepción.');
+                }
+
+                const detalle = Array.isArray(json.data.detalle) ? json.data.detalle : [];
+                const totalCantidad = detalle.reduce((acc, item) => acc + parseCantidad(item.cantidad_base || item.cantidad || 0), 0);
+                inicializarDistribucionRecepcion(totalCantidad);
+                modalRecepcion.show();
+            } catch (error) {
+                Swal.fire('Error', error.message || 'No se pudo preparar la recepción.', 'error');
+            }
         }
     });
 

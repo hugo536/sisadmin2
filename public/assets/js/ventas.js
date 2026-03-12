@@ -384,7 +384,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Función para agregar filas al despacho (Soporta inserción adyacente)
     function agregarFilaDespacho(linea, filaReferencia = null) {
-        // --- NUEVO: CONSTRUIR SELECT DINÁMICO SOLO CON STOCK ---
         let opcionesHTML = '<option value="">Seleccione...</option>';
         let disabledState = '';
         const almacenesDisp = linea.almacenes_disponibles || [];
@@ -401,10 +400,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tr = document.createElement('tr');
         tr.dataset.idDetalle = linea.id;
         tr.dataset.idItem = linea.id_item;
-        tr.dataset.sku = linea.sku || ''; 
-        tr.dataset.pendienteTotal = linea.cantidad_pendiente; 
+        tr.dataset.sku = linea.sku || '';
+        tr.dataset.pendienteTotal = linea.cantidad_pendiente;
 
-        // Si no hay stock en ningún almacén, pintamos la fila de un color diferente
         if (almacenesDisp.length === 0) {
             tr.classList.add('table-danger', 'opacity-75');
         }
@@ -424,20 +422,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             </td>
             <td class="text-center fw-bold despacho-stock text-muted">-</td>
             <td>
-                <div class="despacho-acciones-row">
-                <input type="number" class="form-control form-control-sm text-end despacho-cantidad" 
+                <input type="number" class="form-control form-control-sm text-end despacho-cantidad"
                        min="0" step="1" value="0" title="Solo números enteros (paquetes)" ${disabledState}>
-
-                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-despacho d-none" title="Quitar fila">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-despacho d-none" title="Quitar fila" style="width:32px;height:32px;">
                     <i class="bi bi-trash"></i>
                 </button>
-                </div>
             </td>
         `;
 
         if (filaReferencia) {
             filaReferencia.insertAdjacentElement('afterend', tr);
-            tr.querySelector('.btn-quitar-despacho').classList.remove('d-none');
         } else {
             tbodyDespacho.appendChild(tr);
         }
@@ -448,7 +444,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btnSplit = tr.querySelector('.btn-split');
         const btnQuitar = tr.querySelector('.btn-quitar-despacho');
 
-        // --- 1. LÓGICA DE ALMACÉN Y STOCK ---
+        const obtenerFilasGrupo = () => [...tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${linea.id}"]`)];
+
+        const actualizarModoGrupo = () => {
+            const filas = obtenerFilasGrupo();
+            const multiple = filas.length > 1;
+            filas.forEach((fila, idx) => {
+                const input = fila.querySelector('.despacho-cantidad');
+                const btn = fila.querySelector('.btn-quitar-despacho');
+                input.readOnly = !multiple;
+                input.classList.toggle('bg-light', !multiple);
+                if (btn) btn.classList.toggle('d-none', !multiple || idx === 0);
+            });
+        };
+
+        const sincronizarGrupo = (filaOrigen = null) => {
+            const filas = obtenerFilasGrupo();
+            if (filas.length !== 2) return;
+
+            const [filaA, filaB] = filas;
+            const inputA = filaA.querySelector('.despacho-cantidad');
+            const inputB = filaB.querySelector('.despacho-cantidad');
+            const stockA = parseInt(filaA.querySelector('.despacho-stock').textContent || 0, 10) || 0;
+            const stockB = parseInt(filaB.querySelector('.despacho-stock').textContent || 0, 10) || 0;
+            const pendiente = parseInt(linea.cantidad_pendiente || 0, 10) || 0;
+
+            const origenEsA = !filaOrigen || filaOrigen === filaA;
+            if (origenEsA) {
+                const valorA = Math.max(0, Math.min(pendiente, parseInt(inputA.value || 0, 10) || 0));
+                inputA.value = valorA;
+                inputB.value = Math.max(0, pendiente - valorA);
+                if (stockB > 0 && Number(inputB.value) > stockB) {
+                    inputB.value = stockB;
+                    inputA.value = Math.max(0, pendiente - stockB);
+                }
+            } else {
+                const valorB = Math.max(0, Math.min(pendiente, parseInt(inputB.value || 0, 10) || 0));
+                inputB.value = valorB;
+                inputA.value = Math.max(0, pendiente - valorB);
+                if (stockA > 0 && Number(inputA.value) > stockA) {
+                    inputA.value = stockA;
+                    inputB.value = Math.max(0, pendiente - stockA);
+                }
+            }
+        };
+
         selectAlmacen.addEventListener('change', async () => {
             const idAlmacen = selectAlmacen.value;
             if (!idAlmacen) {
@@ -458,61 +498,79 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // Evitar duplicados de Almacén para el mismo ítem
-            const yaExiste = [...tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${linea.id}"]`)]
-                .some(f => f !== tr && f.querySelector('.fila-almacen').value === idAlmacen);
-
+            const yaExiste = obtenerFilasGrupo().some(f => f !== tr && f.querySelector('.fila-almacen').value === idAlmacen);
             if (yaExiste) {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: 'Almacén ya seleccionado', showConfirmButton: false, timer: 2000 });
+                Swal.fire('Almacén duplicado', 'No puede seleccionar el mismo almacén para este producto.', 'warning');
                 selectAlmacen.value = '';
                 spanStock.textContent = '-';
+                inputCant.value = 0;
+                validarGrupoItem(linea.id);
                 return;
             }
 
-            // Refrescamos en tiempo real con el servidor (por seguridad en caso de movimientos concurrentes)
             spanStock.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary"></div>';
-            
             try {
                 const res = await getJson(`${urls.index}&accion=buscar_items&q=${encodeURIComponent(linea.sku)}&id_almacen=${idAlmacen}`);
                 const itemData = (res.data || []).find(i => i.id == linea.id_item);
-                const stock = itemData ? Math.floor(parseFloat(itemData.stock_actual)) : 0; // Forzamos entero en stock
+                const stock = itemData ? Math.floor(parseFloat(itemData.stock_actual)) : 0;
 
                 spanStock.textContent = stock;
                 spanStock.className = `text-center fw-bold despacho-stock ${stock <= 0 ? 'text-danger' : 'text-success'}`;
 
-                // --- LÓGICA DE AUTO-COMPLETADO (CASCADA) ---
                 let despachadoEnOtros = 0;
-                tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${linea.id}"]`).forEach(f => {
-                    if (f !== tr) despachadoEnOtros += parseInt(f.querySelector('.despacho-cantidad').value || 0);
+                obtenerFilasGrupo().forEach(f => {
+                    if (f !== tr) despachadoEnOtros += parseInt(f.querySelector('.despacho-cantidad').value || 0, 10) || 0;
                 });
 
-                const faltaPorAsignar = parseInt(linea.cantidad_pendiente) - despachadoEnOtros;
-                
-                // El sistema sugiere lo que falta, pero NUNCA más de lo que hay en stock
+                const faltaPorAsignar = parseInt(linea.cantidad_pendiente, 10) - despachadoEnOtros;
                 const sugerido = Math.max(0, Math.min(faltaPorAsignar, stock));
                 inputCant.value = sugerido;
-                
-                validarGrupoItem(linea.id); // Validar todo el grupo de este producto
 
-            } catch (e) { spanStock.textContent = '0'; }
+                sincronizarGrupo(tr);
+                validarGrupoItem(linea.id);
+            } catch (e) {
+                spanStock.textContent = '0';
+                spanStock.className = 'text-center fw-bold despacho-stock text-danger';
+                inputCant.value = 0;
+                validarGrupoItem(linea.id);
+            }
         });
 
-        // --- 2. LÓGICA DE VALIDACIÓN GRUPAL E ENTEROS ---
         inputCant.addEventListener('input', () => {
-            // A. Forzar Enteros al escribir
             if (inputCant.value.includes('.')) {
-                inputCant.value = Math.floor(parseFloat(inputCant.value));
+                inputCant.value = Math.floor(parseFloat(inputCant.value || 0));
+            }
+            sincronizarGrupo(tr);
+            validarGrupoItem(linea.id);
+        });
+
+        btnSplit.addEventListener('click', () => {
+            const filas = obtenerFilasGrupo();
+            if (filas.length >= 2) {
+                Swal.fire('Límite alcanzado', 'Por ahora solo puede despachar este producto desde 2 almacenes.', 'info');
+                return;
+            }
+
+            agregarFilaDespacho(linea, tr);
+            actualizarModoGrupo();
+            sincronizarGrupo(tr);
+            validarGrupoItem(linea.id);
+        });
+
+        btnQuitar.addEventListener('click', () => {
+            tr.remove();
+            actualizarModoGrupo();
+            const filas = obtenerFilasGrupo();
+            if (filas.length === 1) {
+                const unica = filas[0];
+                const stockUnico = parseInt(unica.querySelector('.despacho-stock').textContent || 0, 10) || 0;
+                const pendiente = parseInt(unica.dataset.pendienteTotal || 0, 10) || 0;
+                unica.querySelector('.despacho-cantidad').value = Math.max(0, Math.min(stockUnico, pendiente));
             }
             validarGrupoItem(linea.id);
         });
 
-        btnSplit.addEventListener('click', () => agregarFilaDespacho(linea, tr));
-        
-        btnQuitar.addEventListener('click', () => {
-            const idDetalle = tr.dataset.idDetalle;
-            tr.remove();
-            validarGrupoItem(idDetalle);
-        });
+        actualizarModoGrupo();
     }
 
     // Función auxiliar para validar todas las filas de un mismo producto

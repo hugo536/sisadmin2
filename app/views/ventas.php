@@ -251,6 +251,7 @@ $estadoLabels = [
                                         <th class="text-center text-secondary col-w-200">Almacén Origen</th>
                                         <th class="text-center text-secondary col-w-100">Stock</th>
                                         <th class="text-end pe-3 text-secondary col-w-160">A Despachar</th>
+                                        <th class="text-center text-secondary col-w-80">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>
