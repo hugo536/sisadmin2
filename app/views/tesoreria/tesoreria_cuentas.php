@@ -83,9 +83,6 @@ $camposBloqueadosEdicion = $esEdicion;
                                     <td class="fw-semibold text-dark pt-3">
                                         <?php echo e((string) ($c['nombre'] ?? '')); ?>
                                         
-                                        <?php if ((int) ($c['principal'] ?? 0) === 1): ?> 
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.65rem;">Principal</span>
-                                        <?php endif; ?>
 
                                         <?php if (empty($c['id_cuenta_contable'])): ?>
                                             <i class="bi bi-exclamation-triangle-fill text-warning ms-1 fs-6" 
@@ -280,10 +277,6 @@ $camposBloqueadosEdicion = $esEdicion;
                                     <div class="form-check form-switch">
                                         <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_pagos" id="permitePagos" <?php echo ((int) ($cuentaEditar['permite_pagos'] ?? 1) === 1) ? 'checked' : ''; ?>>
                                         <label class="form-check-label fw-medium text-dark" for="permitePagos">Permite Pagos</label>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="principal" id="cuentaPrincipal" <?php echo ((int) ($cuentaEditar['principal'] ?? 0) === 1) ? 'checked' : ''; ?>>
-                                        <label class="form-check-label fw-medium text-dark" for="cuentaPrincipal">Cuenta Principal</label>
                                     </div>
                                     <div class="form-check form-switch">
                                         <input class="form-check-input border-secondary-subtle" type="checkbox" name="estado" id="cuentaEstado" <?php echo ((int) ($cuentaEditar['estado'] ?? 1) === 1) ? 'checked' : ''; ?>>

@@ -55,7 +55,7 @@ class TesoreriaCuentaModel extends Modelo
                     GROUP BY id_cuenta
                 ) mov ON mov.id_cuenta = c.id
                 WHERE c.deleted_at IS NULL
-                ORDER BY c.principal DESC, c.estado DESC, c.nombre ASC';
+                ORDER BY c.estado DESC, c.nombre ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -92,7 +92,6 @@ class TesoreriaCuentaModel extends Modelo
             'permite_pagos' => (int) ($payload['permite_pagos'] ?? 0),
             'saldo_inicial' => round((float) ($payload['saldo_inicial'] ?? 0), 4),
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
-            'principal' => (int) ($payload['principal'] ?? 0),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
             'estado' => (int) ($payload['estado'] ?? 1),
         ];
@@ -155,7 +154,7 @@ class TesoreriaCuentaModel extends Modelo
                         titular = :titular, tipo_cuenta = :tipo_cuenta, numero_cuenta = :numero_cuenta,
                         cci = :cci, permite_cobros = :permite_cobros, permite_pagos = :permite_pagos,
                         saldo_inicial = :saldo_inicial, fecha_saldo_inicial = :fecha_saldo_inicial,
-                        principal = :principal, observaciones = :observaciones, estado = :estado,
+                        observaciones = :observaciones, estado = :estado,
                         updated_by = :user, updated_at = NOW()
                     WHERE id = :id AND deleted_at IS NULL';
 
@@ -168,11 +167,11 @@ class TesoreriaCuentaModel extends Modelo
             // --- INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
-                     permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, principal, observaciones,
+                     permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, observaciones,
                      estado, created_by, updated_by, created_at, updated_at)
                 VALUES
                     (:codigo, :nombre, :tipo, :moneda, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
-                     :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :principal, :observaciones,
+                     :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :observaciones,
                      :estado, :created_by, :updated_by, NOW(), NOW())';
 
             $stmt = $db->prepare($sql);

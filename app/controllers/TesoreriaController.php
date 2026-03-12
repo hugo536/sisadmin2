@@ -77,7 +77,6 @@ class TesoreriaController extends Controlador
                 'permite_pagos' => isset($_POST['permite_pagos']) ? 1 : 0,
                 'saldo_inicial' => (float) ($_POST['saldo_inicial'] ?? 0),
                 'fecha_saldo_inicial' => trim((string) ($_POST['fecha_saldo_inicial'] ?? '')),
-                'principal' => isset($_POST['principal']) ? 1 : 0,
                 'estado' => isset($_POST['estado']) ? 1 : 0,
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
             ];
