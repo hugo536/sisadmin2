@@ -67,7 +67,8 @@ $idConciliacionActiva = (int)($idConciliacionActiva ?? 0);
                                                 <span class="<?php echo $colorDiff; ?> fw-bold"><?php echo number_format($diferencia, 4); ?></span>
                                             </td>
                                             <td class="text-center pe-4 pt-3">
-                                                <a class="btn btn-sm <?php echo $esActiva ? 'btn-primary' : 'btn-light text-primary border'; ?> rounded-pill px-3" href="<?php echo e(route_url('conciliacion/index?id='.(int)$c['id'])); ?>">
+                                                <a class="btn btn-sm <?php echo $esActiva ? 'btn-primary' : 'btn-light text-primary border'; ?> rounded-pill px-3" 
+                                                href="<?php echo e(route_url('conciliacion/index')); ?>&id=<?php echo (int)$c['id']; ?>">
                                                     <?php echo $esActiva ? '<i class="bi bi-eye-fill me-1"></i>Viendo' : 'Ver'; ?>
                                                 </a>
                                             </td>
