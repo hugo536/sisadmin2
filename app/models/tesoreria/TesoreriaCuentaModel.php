@@ -93,7 +93,7 @@ class TesoreriaCuentaModel extends Modelo
             'saldo_inicial' => round((float) ($payload['saldo_inicial'] ?? 0), 4),
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
-            'estado' => (int) ($payload['estado'] ?? 1),
+            'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : null,
         ];
 
         // --- VALIDACIONES ---
@@ -117,7 +117,9 @@ class TesoreriaCuentaModel extends Modelo
             $data['cci'] = (string) ($cuentaActual['cci'] ?? '');
             $data['saldo_inicial'] = round((float) ($cuentaActual['saldo_inicial'] ?? 0), 4);
             $data['fecha_saldo_inicial'] = trim((string) ($cuentaActual['fecha_saldo_inicial'] ?? ''));
-            $data['estado'] = (int) ($cuentaActual['estado'] ?? 1);
+            if ($data['estado'] === null) {
+                $data['estado'] = (int) ($cuentaActual['estado'] ?? 1);
+            }
 
         } elseif ($data['codigo'] === '') {
             // Autogenerar código si es necesario
@@ -273,13 +275,14 @@ class TesoreriaCuentaModel extends Modelo
 
         $stmt = $this->db()->prepare('UPDATE tesoreria_cuentas
                                       SET deleted_at = NOW(),
-                                          deleted_by = :user,
+                                          deleted_by = :deleted_by,
                                           updated_at = NOW(),
-                                          updated_by = :user
+                                          updated_by = :updated_by
                                       WHERE id = :id AND deleted_at IS NULL');
         $stmt->execute([
             'id' => $id,
-            'user' => $userId,
+            'deleted_by' => $userId,
+            'updated_by' => $userId,
         ]);
     }
 

@@ -264,7 +264,7 @@ $estadoLabels = [
     <tr class="border-bottom">
         <td class="ps-3 py-3 align-top">
             <div class="mb-2">
-                <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required>
+                <select class="form-select detalle-item shadow-none" required>
                     <option value="">Buscar ítem o producto...</option>
                     <?php foreach ($items as $item): ?>
                         <option value="<?php echo (int) ($item['id'] ?? 0); ?>"
@@ -277,8 +277,8 @@ $estadoLabels = [
                 </select>
             </div>
             
-            <div class="d-flex flex-column gap-1 bg-light p-2 rounded border">
-                <select class="form-select form-select-sm detalle-unidad-compra d-none border-primary-subtle shadow-none" disabled>
+            <div class="d-flex flex-column gap-1">
+                <select class="form-select detalle-unidad-compra d-none shadow-none" disabled>
                     <option value="">Unidad de compra...</option>
                 </select>
                 <div class="detalle-conversion-info text-end"></div> 

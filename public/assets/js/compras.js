@@ -543,6 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
             modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
         }
 
+        if (modalOrdenElement) {
+            modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
+        }
+
         if (tituloModalOrden) {
             if (deshabilitar && Number(estado) === 3) {
                 tituloModalOrden.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Compra finalizada (solo lectura)';
