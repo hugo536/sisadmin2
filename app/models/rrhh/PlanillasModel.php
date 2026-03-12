@@ -9,11 +9,15 @@ class PlanillasModel extends Modelo
     {
         $tipoPagoEmpleado = strtoupper(trim($tipoPago));
 
-        return match ($tipoPagoEmpleado) {
-            'SEMANAL' => $sueldoBasico,
-            'QUINCENAL' => $sueldoBasico / 15,
-            default => $sueldoBasico / 30,
-        };
+        if ($tipoPagoEmpleado === 'SEMANAL') {
+            return $sueldoBasico;
+        }
+
+        if ($tipoPagoEmpleado === 'QUINCENAL') {
+            return $sueldoBasico / 15;
+        }
+
+        return $sueldoBasico / 30;
     }
 
     public function obtenerLotesRecientes(int $limite = 10): array

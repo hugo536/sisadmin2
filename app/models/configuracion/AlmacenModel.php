@@ -56,14 +56,19 @@ class AlmacenModel extends Modelo
         }
 
         $orden = (string) ($filtros['orden'] ?? 'fecha_desc');
-        $orderBy = match ($orden) {
-            'codigo_asc' => 'codigo ASC',
-            'codigo_desc' => 'codigo DESC',
-            'fecha_asc' => 'created_at ASC',
-            'fecha_desc' => 'created_at DESC',
-            'nombre_desc' => 'nombre DESC',
-            default => 'nombre ASC',
-        };
+        if ($orden === 'codigo_asc') {
+            $orderBy = 'codigo ASC';
+        } elseif ($orden === 'codigo_desc') {
+            $orderBy = 'codigo DESC';
+        } elseif ($orden === 'fecha_asc') {
+            $orderBy = 'created_at ASC';
+        } elseif ($orden === 'fecha_desc') {
+            $orderBy = 'created_at DESC';
+        } elseif ($orden === 'nombre_desc') {
+            $orderBy = 'nombre DESC';
+        } else {
+            $orderBy = 'nombre ASC';
+        }
 
         $sql = 'SELECT * FROM almacenes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $orderBy;
         $stmt = $this->db()->prepare($sql);
