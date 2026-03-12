@@ -138,6 +138,84 @@ class ReportesController extends Controlador
         ]);
     }
 
+
+    public function costos_produccion(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.produccion.ver');
+        $this->registrarAuditoria('costos_produccion');
+        [$pagina, $tamano] = $this->paginacion();
+        $f = $this->filtrosPeriodo();
+
+        $costosPorOrden = $this->produccion->costosPorOrden($f, $pagina, $tamano);
+
+        $rows = $costosPorOrden['rows'] ?? [];
+        $resumen = [
+            'ordenes' => (int) ($costosPorOrden['total'] ?? 0),
+            'teorico_total' => 0.0,
+            'real_total' => 0.0,
+            'variacion_total' => 0.0,
+            'desviadas' => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $teorico = (float) ($row['costo_teorico_total_snapshot'] ?? 0);
+            $real = (float) ($row['costo_real_total'] ?? 0);
+            $variacion = (float) ($row['variacion_total'] ?? 0);
+
+            $resumen['teorico_total'] += $teorico;
+            $resumen['real_total'] += $real;
+            $resumen['variacion_total'] += $variacion;
+
+            if (abs($variacion) > 0.0001) {
+                $resumen['desviadas']++;
+            }
+        }
+
+        $this->render('reportes/costos_produccion', [
+            'ruta_actual' => 'reportes/costos_produccion',
+            'filtros' => $f,
+            'costosPorOrden' => $costosPorOrden,
+            'resumenCostos' => $resumen,
+            'pagina' => $pagina,
+            'tamano' => $tamano,
+        ]);
+    }
+
+
+    public function costos_configuracion(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.produccion.ver');
+        $this->registrarAuditoria('costos_configuracion');
+
+        $this->render('reportes/costos_configuracion', [
+            'ruta_actual' => 'reportes/costos_configuracion',
+        ]);
+    }
+
+    public function costos_cierres(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.produccion.ver');
+        $this->registrarAuditoria('costos_cierres');
+
+        $this->render('reportes/costos_cierres', [
+            'ruta_actual' => 'reportes/costos_cierres',
+        ]);
+    }
+
+    public function costos_alertas(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.produccion.ver');
+        $this->registrarAuditoria('costos_alertas');
+
+        $this->render('reportes/costos_alertas', [
+            'ruta_actual' => 'reportes/costos_alertas',
+        ]);
+    }
+
     public function tesoreria(): void
     {
         AuthMiddleware::handle();

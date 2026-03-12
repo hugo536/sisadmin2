@@ -1,4 +1,9 @@
-<h1 class="h4 mb-3">Reportes de Producción</h1>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Reportes de Producción</h1>
+  <a class="btn btn-outline-primary btn-sm" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
+    <i class="bi bi-graph-up-arrow me-1"></i>Costos de producción
+  </a>
+</div>
 <form class="row g-2 mb-3" method="get" action="<?php echo e(route_url('reportes/produccion')); ?>">
   <div class="col-md-2"><input type="date" name="fecha_desde" class="form-control" value="<?php echo e($filtros['fecha_desde']); ?>" required></div>
   <div class="col-md-2"><input type="date" name="fecha_hasta" class="form-control" value="<?php echo e($filtros['fecha_hasta']); ?>" required></div>
