@@ -24,21 +24,38 @@ foreach ($categoriasGestion as $categoriaGestion) {
 
 // Helpers para UI
 $tipoItemValueForUi = static function (string $tipo): string {
-    return match ($tipo) {
-        'producto' => 'producto_terminado',
-        default => $tipo,
-    };
+    if ($tipo === 'producto') {
+        return 'producto_terminado';
+    }
+
+    return $tipo;
 };
 $tipoItemLabel = static function (string $tipo): string {
-    return match ($tipo) {
-        'producto', 'producto_terminado' => 'Producto terminado',
-        'materia_prima' => 'Materia prima',
-        'material_empaque' => 'Material de empaque',
-        'servicio' => 'Servicio',
-        'semielaborado' => 'Semielaborado',
-        'insumo' => 'Insumo',
-        default => $tipo,
-    };
+    if ($tipo === 'producto' || $tipo === 'producto_terminado') {
+        return 'Producto terminado';
+    }
+
+    if ($tipo === 'materia_prima') {
+        return 'Materia prima';
+    }
+
+    if ($tipo === 'material_empaque') {
+        return 'Material de empaque';
+    }
+
+    if ($tipo === 'servicio') {
+        return 'Servicio';
+    }
+
+    if ($tipo === 'semielaborado') {
+        return 'Semielaborado';
+    }
+
+    if ($tipo === 'insumo') {
+        return 'Insumo';
+    }
+
+    return $tipo;
 };
 ?>
 
@@ -166,4 +183,3 @@ $tipoItemLabel = static function (string $tipo): string {
 <?php require BASE_PATH . '/app/views/items/partials/_modal_editar.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_unidades.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_categorias.php'; ?>
-

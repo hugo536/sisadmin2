@@ -6,14 +6,23 @@ $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
 
 $badge = static function (string $estado): string {
-    return match ($estado) {
-        'PAGADA' => 'bg-success-subtle text-success border border-success-subtle',
-        'PARCIAL' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
-        'VENCIDA' => 'bg-danger-subtle text-danger border border-danger-subtle',
-        'ANULADA' => 'bg-secondary-subtle text-secondary border border-secondary-subtle',
-        'PENDIENTE', 'ABIERTA' => 'bg-primary-subtle text-primary border border-primary-subtle',
-        default => 'bg-primary-subtle text-primary border border-primary-subtle',
-    };
+    if ($estado === 'PAGADA') {
+        return 'bg-success-subtle text-success border border-success-subtle';
+    }
+
+    if ($estado === 'PARCIAL') {
+        return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+    }
+
+    if ($estado === 'VENCIDA') {
+        return 'bg-danger-subtle text-danger border border-danger-subtle';
+    }
+
+    if ($estado === 'ANULADA') {
+        return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+    }
+
+    return 'bg-primary-subtle text-primary border border-primary-subtle';
 };
 ?>
 <?php
