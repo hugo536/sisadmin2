@@ -3,8 +3,9 @@ $recetas = $recetas ?? [];
 $parametrosCatalogo = $parametros_catalogo ?? [];
 $activosFijosCif = $activos_fijos_cif ?? [];
 ?>
-<div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+<div class="container-fluid p-4" id="recetasApp">
+    
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-journal-check me-2 text-primary"></i> Recetas (BOM)
@@ -12,26 +13,26 @@ $activosFijosCif = $activos_fijos_cif ?? [];
             <p class="text-muted small mb-0 ms-1">Administra el catálogo de fórmulas y semielaborados.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionParametrosCatalogo">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionParametrosCatalogo">
                 <i class="bi bi-sliders me-2 text-info"></i>Parámetros
             </button>
-            <button class="btn btn-primary shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta" id="btnNuevaReceta">
+            <button class="btn btn-primary shadow-sm fw-bold px-3 transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearReceta" id="btnNuevaReceta">
                 <i class="bi bi-plus-circle me-2"></i>Nueva receta
             </button>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="recetaSearch" placeholder="Buscar por código, producto...">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" id="recetaSearch" placeholder="Buscar por código, producto...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="recetaFiltroEstado">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="recetaFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activas</option>
                         <option value="0">Inactivas</option>
@@ -45,7 +46,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table id="tablaRecetas" class="table align-middle mb-0 table-pro"
+                <table id="tablaRecetas" class="table align-middle mb-0 table-pro table-hover"
                        data-erp-table="true"
                        data-rows-selector="#recetasTableBody tr:not(.empty-msg-row)"
                        data-search-input="#recetaSearch"
@@ -53,14 +54,15 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                        data-info-text-template="Mostrando {start} a {end} de {total} recetas"
                        data-erp-filters='[{"el":"#recetaFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#recetasPaginationControls"
-                       data-pagination-info="#recetasPaginationInfo">
-                    <thead>
+                       data-pagination-info="#recetasPaginationInfo"
+                       data-rows-per-page="15">
+                    <thead class="table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Producto Terminado</th>
-                            <th class="text-secondary fw-semibold">Versión</th>
-                            <th class="text-secondary fw-semibold">N° Insumos</th>
-                            <th class="text-secondary fw-semibold">Costo Teórico</th>
+                            <th class="text-center text-secondary fw-semibold">Versión</th>
+                            <th class="text-center text-secondary fw-semibold">N° Insumos</th>
+                            <th class="text-end text-secondary fw-semibold">Costo Teórico</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
@@ -79,20 +81,24 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
                                     data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
                                     
-                                    <td class="ps-4 fw-semibold text-primary align-top pt-3">
+                                    <td class="ps-4 fw-bold text-primary align-top pt-3">
                                         <?php echo e((string) $receta['codigo']); ?>
                                     </td>
                                     <td class="align-top pt-3">
                                         <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
-                                        <div class="small text-muted"><?php echo e((string) ($receta['descripcion'] ?? '')); ?></div>
+                                        <?php if (!empty($receta['descripcion'])): ?>
+                                            <div class="small text-muted text-truncate" style="max-width: 250px;" title="<?php echo e((string) $receta['descripcion']); ?>">
+                                                <?php echo e((string) $receta['descripcion']); ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
-                                    <td class="align-top pt-3">
-                                        <span class="badge bg-light text-dark border shadow-sm">v.<?php echo (int) $receta['version']; ?></span>
+                                    <td class="text-center align-top pt-3">
+                                        <span class="badge bg-light text-secondary border shadow-sm">v.<?php echo (int) $receta['version']; ?></span>
                                     </td>
-                                    <td class="align-top pt-3">
-                                        <span class="fw-medium text-secondary"><?php echo (int) $receta['total_insumos']; ?> ítems</span>
+                                    <td class="text-center align-top pt-3">
+                                        <span class="fw-medium text-dark"><?php echo (int) $receta['total_insumos']; ?> ítems</span>
                                     </td>
-                                    <td class="align-top pt-3 text-success fw-medium">
+                                    <td class="text-end align-top pt-3 fw-bold text-success">
                                         S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?>
                                     </td>
                                     <td class="text-center align-top pt-3">
@@ -107,7 +113,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <td class="text-end pe-4 align-top pt-3">
                                         <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-warning fw-semibold js-agregar-receta"
+                                                    class="btn btn-sm btn-outline-warning fw-semibold js-agregar-receta shadow-sm"
                                                     data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
                                                     data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
                                                     data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
@@ -115,11 +121,11 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                                     data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
                                                     data-bs-toggle="tooltip"
                                                     title="Agregar receta inicial">
-                                                <i class="bi bi-journal-plus me-1"></i>Agregar receta
+                                                <i class="bi bi-journal-plus me-1"></i>Crear Receta
                                             </button>
                                         <?php else: ?>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-primary fw-semibold js-nueva-version"
+                                                    class="btn btn-sm btn-outline-primary fw-semibold js-nueva-version shadow-sm"
                                                     data-id-receta="<?php echo (int) $receta['id']; ?>"
                                                     data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
                                                     data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
@@ -137,8 +143,8 @@ $activosFijosCif = $activos_fijos_cif ?? [];
             </div>
             
             <?php if (!empty($recetas)): ?>
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
-                <div class="small text-muted fw-medium" id="recetasPaginationInfo">Procesando...</div>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-4">
+                <small class="text-muted fw-semibold" id="recetasPaginationInfo">Procesando...</small>
                 <nav aria-label="Paginación de Recetas">
                     <ul class="pagination mb-0 shadow-sm" id="recetasPaginationControls"></ul>
                 </nav>
@@ -152,222 +158,260 @@ $activosFijosCif = $activos_fijos_cif ?? [];
 <div class="modal fade" id="modalCrearReceta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold" id="modalCrearRecetaTitle">
                     <i class="bi bi-plus-circle me-2"></i><span id="modalTitleText">Nueva receta</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <form method="post" id="formCrearReceta">
                     <input type="hidden" name="accion" value="crear_receta">
                     <input type="hidden" name="id_receta_base" id="newIdRecetaBase" value="0">
 
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
-                            <h6 class="fw-bold text-muted mb-3">Información General</h6>
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
                             <div class="row g-3">
                                 <div class="col-md-3">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newCodigo">Código</label>
-                                    <input type="text" class="form-control fw-semibold" id="newCodigo" name="codigo" required>
+                                    <input type="text" class="form-control fw-bold shadow-none border-secondary-subtle text-primary" id="newCodigo" name="codigo" required>
                                 </div>
 
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newVersion">Versión</label>
-                                    <input type="number" class="form-control bg-light fw-bold text-center border" id="newVersion" name="version" value="1" readonly>
+                                    <input type="number" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none text-secondary" id="newVersion" name="version" value="1" readonly>
                                 </div>
 
                                 <div class="col-md-4" id="productoSelectContainer">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newProducto">Producto Terminado</label>
-                                    <select class="form-select" id="newProducto" name="id_producto" required>
+                                    <select class="form-select shadow-none border-secondary-subtle" id="newProducto" name="id_producto" required>
                                         <option value="" selected>Seleccionar producto...</option>
                                     </select>
                                 </div>
 
                                 <div class="col-md-4" id="productoDisplayContainer" style="display: none;">
                                     <label class="form-label small text-muted fw-bold mb-1">Producto Terminado</label>
-                                    <div id="newProductoNombreDisplay" class="form-control bg-light fw-bold"></div>
+                                    <div id="newProductoNombreDisplay" class="form-control bg-light fw-bold border-secondary-subtle text-dark"></div>
                                     <input type="hidden" id="newIdProductoHidden" name="id_producto">
                                 </div>
 
                                 <div class="col-md-3">
                                     <label class="form-label small text-muted fw-bold mb-1">Unidad rendimiento</label>
-                                    <input type="text" class="form-control bg-light fw-bold" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
+                                    <input type="text" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
                                 </div>
 
                                 <div class="col-12">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newDescripcion">Descripción / Observaciones</label>
-                                    <input type="text" class="form-control" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial...">
+                                    <input type="text" class="form-control shadow-none border-secondary-subtle" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial de producción...">
                                 </div>
 
                                 <div class="col-12" id="contenedorVersionesPrevias" style="display:none;">
-                                    <label for="newVersionBase" class="form-label small text-muted fw-bold mb-1">Versiones anteriores</label>
-                                    <select class="form-select" id="newVersionBase">
-                                        <option value="">Seleccione versión para cargar...</option>
-                                    </select>
-                                    <small class="text-muted">Seleccione una versión para precargar sus datos.</small>
+                                    <div class="p-3 bg-warning-subtle rounded-3 border border-warning-subtle mt-2">
+                                        <label for="newVersionBase" class="form-label small text-dark fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Precargar desde versión anterior</label>
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newVersionBase">
+                                            <option value="">Seleccione versión para cargar datos...</option>
+                                        </select>
+                                        <small class="text-muted mt-1 d-block">Seleccione una versión para copiar sus insumos, MOD y CIF y ahorrar tiempo.</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-body">
-                            <ul class="nav nav-tabs mb-3" role="tablist">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body p-0">
+                            <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaBom" type="button" role="tab">BOM / Insumos</button>
+                                    <button class="nav-link active fw-bold text-primary px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabRecetaBom" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>BOM / Insumos</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaMod" type="button" role="tab">Mano de Obra (MOD)</button>
+                                    <button class="nav-link fw-bold text-secondary px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabRecetaMod" type="button" role="tab"><i class="bi bi-people me-2"></i>Mano de Obra (MOD)</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tabRecetaCif" type="button" role="tab">Costos Indirectos (CIF)</button>
+                                    <button class="nav-link fw-bold text-secondary px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabRecetaCif" type="button" role="tab"><i class="bi bi-lightning-charge me-2"></i>Costos Indirectos (CIF)</button>
                                 </li>
                             </ul>
 
-                            <div class="tab-content">
+                            <div class="tab-content p-4">
                                 <div class="tab-pane fade show active" id="tabRecetaBom" role="tabpanel">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-diagram-3 me-2"></i>Composición (BOM)</h6>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarInsumo">
-                                            <i class="bi bi-plus-lg me-1"></i>Agregar insumo
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Composición de Materiales</h6>
+                                            <small class="text-muted">Insumos requeridos para producir 1 Unidad de Rendimiento.</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="btnAgregarInsumo">
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir insumo
                                         </button>
                                     </div>
-                                    <div id="listaInsumosReceta" class="lista-insumos-etapa"></div>
+                                    <div id="listaInsumosReceta" class="lista-insumos-etapa d-flex flex-column gap-2"></div>
                                 </div>
 
                                 <div class="tab-pane fade" id="tabRecetaMod" role="tabpanel">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-people me-2"></i>Mano de Obra Directa (MOD)</h6>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarMod">
-                                            <i class="bi bi-plus-lg me-1"></i>Añadir operario
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Mano de Obra Directa</h6>
+                                            <small class="text-muted">Estima el costo de personal necesario por unidad.</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 shadow-sm" id="btnAgregarMod">
+                                            <i class="bi bi-person-plus me-1"></i>Añadir operario
                                         </button>
                                     </div>
-                                    <div id="contenedorMod"></div>
+                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
+                                        <div class="col-md-5">Perfil / Puesto</div>
+                                        <div class="col-md-3">Horas Est.</div>
+                                        <div class="col-md-3">Costo/Hora (S/)</div>
+                                        <div class="col-md-1 text-end">Acción</div>
+                                    </div>
+                                    <div id="contenedorMod" class="d-flex flex-column gap-2"></div>
                                 </div>
 
                                 <div class="tab-pane fade" id="tabRecetaCif" role="tabpanel">
-                                    <div class="alert alert-light border small mb-3">
-                                        Vincula un activo fijo para estimar desgaste por hora (depreciación mensual / 240 horas).
+                                    <div class="alert alert-info d-flex align-items-center border-0 shadow-sm rounded-3 mb-4">
+                                        <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
+                                        <div>Vincula un activo fijo (maquinaria) para estimar desgaste por hora (Depreciación mensual / 240 horas de uso estándar).</div>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="fw-bold text-muted mb-0"><i class="bi bi-lightning-charge me-2"></i>Costos Indirectos (CIF)</h6>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarCif">
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <h6 class="fw-bold text-dark mb-0">Costos Indirectos de Fabricación</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 shadow-sm" id="btnAgregarCif">
                                             <i class="bi bi-plus-lg me-1"></i>Añadir CIF
                                         </button>
                                     </div>
-                                    <div id="contenedorCif"></div>
+                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
+                                        <div class="col-md-3">Activo Fijo</div>
+                                        <div class="col-md-5">Concepto Adicional</div>
+                                        <div class="col-md-2">Horas Uso</div>
+                                        <div class="col-md-1">Costo (S/)</div>
+                                        <div class="col-md-1 text-end">Acción</div>
+                                    </div>
+                                    <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-muted mb-0"><i class="bi bi-sliders me-2"></i>Parámetros de Control (IPC)</h6>
-                                <button type="button" class="btn btn-sm btn-outline-info" id="btnAgregarParametro">
-                                    <i class="bi bi-plus-lg me-1"></i>Añadir parámetro
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-sliders me-2 text-info"></i>Parámetros de Calidad (IPC)</h6>
+                                    <small class="text-muted">Métricas a medir durante la producción (Ej. Brix, pH, Temperatura).</small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-info fw-bold px-3 shadow-sm" id="btnAgregarParametro">
+                                    <i class="bi bi-plus-lg me-1"></i>Añadir Parámetro
                                 </button>
                             </div>
-                            <div id="contenedorParametros"></div>
+                            <div id="contenedorParametros" class="d-flex flex-column gap-2 mt-3"></div>
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm bg-primary-subtle bg-opacity-10">
-                        <div class="card-body d-flex justify-content-between align-items-center">
+                    <div class="card border border-primary-subtle shadow-sm bg-primary-subtle bg-opacity-10 mb-2">
+                        <div class="card-body d-flex justify-content-between align-items-center p-4">
                             <div>
-                                <h6 class="fw-bold text-dark mb-1">Resumen de la Receta</h6>
-                                <div id="bomResumen" class="small text-muted">0 insumos agregados.</div>
+                                <h5 class="fw-bold text-dark mb-1">Resumen Teórico</h5>
+                                <div id="bomResumen" class="small text-muted fw-semibold">0 insumos agregados.</div>
                             </div>
                             <div class="text-end">
-                                <h5 class="fw-bold text-primary mb-0" id="costoTotalCalculado">S/ 0.0000</h5>
-                                <small class="text-muted fw-semibold">Costo teórico total</small>
+                                <h3 class="fw-bold text-primary mb-0" id="costoTotalCalculado">S/ 0.0000</h3>
+                                <span class="badge bg-primary text-white mt-1">Costo Total por Unidad</span>
                             </div>
                         </div>
                     </div>
 
                     <template id="parametroTemplate">
-                        <div class="row g-2 align-items-center mb-2 parametro-row">
+                        <div class="row g-2 align-items-center parametro-row bg-white p-2 border rounded shadow-sm">
                             <div class="col-md-5">
-                                <select class="form-select form-select-sm" name="parametro_id[]" required>
-                                    <option value="">Seleccione parámetro...</option>
+                                <select class="form-select form-select-sm shadow-none border-secondary-subtle" name="parametro_id[]" required>
+                                    <option value="">Seleccione parámetro del catálogo...</option>
                                 </select>
                             </div>
                             <div class="col-md-5">
-                                <input type="number" class="form-control form-control-sm" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo" required>
+                                <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo (Numérico)" required>
                             </div>
                             <div class="col-md-2 text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-param" title="Eliminar parámetro">
-                                    <i class="bi bi-trash"></i>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-param border-0" title="Eliminar parámetro">
+                                    <i class="bi bi-trash fs-6"></i>
                                 </button>
                             </div>
                         </div>
                     </template>
 
                     <template id="detalleRecetaTemplate">
-                        <div class="row g-2 align-items-center mb-2 detalle-row pb-2 border-bottom">
+                        <div class="row g-2 align-items-center detalle-row bg-white p-2 border rounded shadow-sm mb-2">
                             <div class="col-md-4">
-                                <select class="form-select form-select-sm select-insumo" name="insumo_id[]" required></select>
+                                <select class="form-select form-select-sm select-insumo shadow-none border-secondary-subtle" name="insumo_id[]" required></select>
                                 <input type="hidden" class="input-etapa-hidden" name="insumo_etapa[]" value="General">
                             </div>
                             <div class="col-md-2">
                                 <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-light text-muted" title="Cantidad">Cant.</span>
-                                    <input type="number" class="form-control input-cantidad" name="insumo_cantidad[]" step="0.0001" value="1" required>
+                                    <span class="input-group-text bg-light text-muted fw-bold border-secondary-subtle" title="Cantidad requerida">Q</span>
+                                    <input type="number" class="form-control input-cantidad shadow-none border-secondary-subtle fw-semibold" name="insumo_cantidad[]" step="0.0001" value="1" required>
                                 </div>
                             </div>
                             <div class="col-md-2">
                                 <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-light text-muted" title="% de Merma">% M.</span>
-                                    <input type="number" class="form-control input-merma" name="insumo_merma[]" step="0.01" value="0">
+                                    <span class="input-group-text bg-light text-muted fw-bold border-secondary-subtle" title="% de Merma">% M.</span>
+                                    <input type="number" class="form-control input-merma shadow-none border-secondary-subtle" name="insumo_merma[]" step="0.01" value="0">
                                 </div>
                             </div>
                             <div class="col-md-2">
                                 <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-light text-muted" title="Costo Unitario">C.U. S/</span>
-                                    <input type="number" class="form-control bg-light input-costo-unitario" name="insumo_costo[]" step="0.0001" value="0" readonly>
+                                    <span class="input-group-text bg-light text-muted border-secondary-subtle" title="Costo Unitario">S/</span>
+                                    <input type="number" class="form-control bg-light input-costo-unitario border-secondary-subtle text-muted" name="insumo_costo[]" step="0.0001" value="0" readonly>
                                 </div>
                             </div>
                             <div class="col-md-1">
-                                <div class="input-group input-group-sm">
-                                    <input type="text" class="form-control bg-light input-costo-item text-primary fw-bold px-1 text-center" value="0.0000" readonly>
-                                </div>
+                                <input type="text" class="form-control form-control-sm bg-light input-costo-item text-primary fw-bold px-1 text-center border-secondary-subtle" value="0.0000" readonly>
                             </div>
                             <div class="col-md-1 text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Eliminar insumo">
-                                    <i class="bi bi-trash"></i>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row border-0" title="Eliminar insumo">
+                                    <i class="bi bi-trash fs-6"></i>
                                 </button>
                             </div>
                         </div>
                     </template>
 
                     <template id="modTemplate">
-                        <div class="row g-2 align-items-center mb-2 mod-row">
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" name="mod_perfil_puesto[]" placeholder="Perfil / Puesto"></div>
-                            <div class="col-md-3"><input type="number" class="form-control form-control-sm mod-horas" name="mod_horas_estimadas[]" step="0.0001" placeholder="Horas"></div>
-                            <div class="col-md-3"><input type="number" class="form-control form-control-sm mod-costo" name="mod_costo_hora_estimado[]" step="0.0001" placeholder="Costo/Hora"></div>
-                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-mod"><i class="bi bi-trash"></i></button></div>
+                        <div class="row g-2 align-items-center mod-row bg-white p-2 border rounded shadow-sm mb-2">
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle fw-semibold" name="mod_perfil_puesto[]" placeholder="Ej: Operador de Máquina A"></div>
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted border-secondary-subtle"><i class="bi bi-clock"></i></span>
+                                    <input type="number" class="form-control form-control-sm mod-horas shadow-none border-secondary-subtle" name="mod_horas_estimadas[]" step="0.0001" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted border-secondary-subtle">S/</span>
+                                    <input type="number" class="form-control form-control-sm mod-costo shadow-none border-secondary-subtle" name="mod_costo_hora_estimado[]" step="0.0001" placeholder="Costo Base">
+                                </div>
+                            </div>
+                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-mod border-0"><i class="bi bi-trash fs-6"></i></button></div>
                         </div>
                     </template>
 
                     <template id="cifTemplate">
-                        <div class="row g-2 align-items-center mb-2 cif-row">
+                        <div class="row g-2 align-items-center cif-row bg-white p-2 border rounded shadow-sm mb-2">
                             <div class="col-md-3">
-                                <select class="form-select form-select-sm cif-id-activo" name="cif_id_activo[]">
-                                    <option value="">Activo fijo (opcional)</option>
+                                <select class="form-select form-select-sm cif-id-activo shadow-none border-secondary-subtle" name="cif_id_activo[]">
+                                    <option value="">Vincular Activo Fijo...</option>
                                 </select>
                             </div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm" name="cif_concepto[]" placeholder="Concepto CIF"></div>
-                            <div class="col-md-2"><input type="number" class="form-control form-control-sm cif-horas" step="0.0001" placeholder="Horas uso"></div>
-                            <div class="col-md-1"><input type="number" class="form-control form-control-sm cif-costo" name="cif_costo_estimado[]" step="0.0001" placeholder="Costo"></div>
-                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-cif"><i class="bi bi-trash"></i></button></div>
+                            <div class="col-md-5"><input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle" name="cif_concepto[]" placeholder="Concepto / Gasto Adicional"></div>
+                            <div class="col-md-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted border-secondary-subtle"><i class="bi bi-clock"></i></span>
+                                    <input type="number" class="form-control form-control-sm cif-horas shadow-none border-secondary-subtle" step="0.0001" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-1"><input type="number" class="form-control form-control-sm cif-costo bg-light border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="S/ 0.00" readonly></div>
+                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-cif border-0"><i class="bi bi-trash fs-6"></i></button></div>
                         </div>
                     </template>
 
-                    <div class="d-flex justify-content-end pt-3 pb-2">
-                        <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Receta</button>
+                    <div class="d-flex justify-content-end pt-4 mt-2">
+                        <button type="button" class="btn btn-light text-secondary me-2 border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Receta BOM</button>
                     </div>
                 </form>
             </div>
@@ -375,79 +419,88 @@ $activosFijosCif = $activos_fijos_cif ?? [];
     </div>
 </div>
 
-<div class="modal fade" id="modalGestionParametrosCatalogo" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+<div class="modal fade" id="modalGestionParametrosCatalogo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders me-2 text-info"></i>Gestión de Parámetros</h5>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders me-2 text-info"></i>Catálogo de Parámetros (IPC)</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <form method="post" id="formGestionParametroCatalogo" class="row g-2 mb-3 border rounded-3 p-3 bg-light">
-                    <input type="hidden" name="accion" id="accionParametroCatalogo" value="crear_parametro_catalogo">
-                    <input type="hidden" name="id_parametro_catalogo" id="idParametroCatalogo" value="">
-                    <div class="col-12 col-md-5">
-                        <label class="form-label small text-muted fw-bold mb-1">Nombre <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombreParametroCatalogo" name="nombre" maxlength="50" required>
+            <div class="modal-body bg-light pt-0">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <form method="post" id="formGestionParametroCatalogo" class="row g-2">
+                            <input type="hidden" name="accion" id="accionParametroCatalogo" value="crear_parametro_catalogo">
+                            <input type="hidden" name="id_parametro_catalogo" id="idParametroCatalogo" value="">
+                            
+                            <div class="col-12 col-md-5">
+                                <label class="form-label small text-muted fw-bold mb-1">Nombre de la Métrica <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control shadow-none border-secondary-subtle fw-semibold" id="nombreParametroCatalogo" name="nombre" maxlength="50" required placeholder="Ej: Temperatura Horneado">
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label class="form-label small text-muted fw-bold mb-1">Unidad de Medida</label>
+                                <input type="text" class="form-control shadow-none border-secondary-subtle" id="unidadParametroCatalogo" name="unidad_medida" maxlength="20" placeholder="Ej: °C, °Bx, pH">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small text-muted fw-bold mb-1">Descripción Breve</label>
+                                <input type="text" class="form-control shadow-none border-secondary-subtle" id="descripcionParametroCatalogo" name="descripcion" placeholder="Opcional">
+                            </div>
+                            <div class="col-12 d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+                                <button type="button" class="btn btn-sm btn-light border px-3" id="btnResetParametroCatalogo">Limpiar campos</button>
+                                <button type="submit" class="btn btn-sm btn-info text-white fw-bold px-4" id="btnGuardarParametroCatalogo">Registrar Parámetro</button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small text-muted fw-bold mb-1">Unidad</label>
-                        <input type="text" class="form-control" id="unidadParametroCatalogo" name="unidad_medida" maxlength="20" placeholder="Ej: °Bx">
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small text-muted fw-bold mb-1">Descripción</label>
-                        <input type="text" class="form-control" id="descripcionParametroCatalogo" name="descripcion" placeholder="Opcional">
-                    </div>
-                    <div class="col-12 d-flex justify-content-end gap-2 mt-2">
-                        <button type="button" class="btn btn-light" id="btnResetParametroCatalogo">Limpiar</button>
-                        <button type="submit" class="btn btn-primary" id="btnGuardarParametroCatalogo">Guardar</button>
-                    </div>
-                </form>
+                </div>
 
-                <div class="table-responsive">
-                    <table class="table align-middle table-sm mb-0 table-pro">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Unidad</th>
-                                <th>Descripción</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($parametrosCatalogo)): ?>
-                                <?php foreach ($parametrosCatalogo as $param): ?>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-sm mb-0 table-pro">
+                                <thead class="table-light">
                                     <tr>
-                                        <td class="fw-semibold text-dark"><?php echo e((string) ($param['nombre'] ?? '')); ?></td>
-                                        <td><span class="badge bg-secondary-subtle text-secondary border"><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></span></td>
-                                        <td class="text-muted small"><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
-                                        <td class="text-end">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-light text-primary rounded-circle border-0 js-editar-param-catalogo"
-                                                    data-bs-toggle="tooltip" title="Editar"
-                                                    data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
-                                                    data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
-                                                    data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
-                                                    data-descripcion="<?php echo e((string) ($param['descripcion'] ?? '')); ?>">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </button>
-                                            <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este parámetro?');">
-                                                <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
-                                                <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
-                                                <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0" data-bs-toggle="tooltip" title="Eliminar">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
+                                        <th class="ps-3 text-secondary fw-semibold">Nombre de Métrica</th>
+                                        <th class="text-secondary fw-semibold">Unidad</th>
+                                        <th class="text-secondary fw-semibold">Descripción</th>
+                                        <th class="text-end pe-3 text-secondary fw-semibold">Acciones</th>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-3">No hay parámetros registrados.</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                                </thead>
+                                <tbody>
+                                    <?php if (!empty($parametrosCatalogo)): ?>
+                                        <?php foreach ($parametrosCatalogo as $param): ?>
+                                            <tr class="border-bottom">
+                                                <td class="ps-3 fw-bold text-dark"><?php echo e((string) ($param['nombre'] ?? '')); ?></td>
+                                                <td><span class="badge bg-secondary-subtle text-secondary border px-2"><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></span></td>
+                                                <td class="text-muted small"><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
+                                                <td class="text-end pe-3">
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-light text-primary rounded-circle border-0 js-editar-param-catalogo"
+                                                            data-bs-toggle="tooltip" title="Editar este parámetro"
+                                                            data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
+                                                            data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
+                                                            data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
+                                                            data-descripcion="<?php echo e((string) ($param['descripcion'] ?? '')); ?>">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </button>
+                                                    <form method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar este parámetro permanentemente?');">
+                                                        <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
+                                                        <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
+                                                        <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0" data-bs-toggle="tooltip" title="Eliminar definitivamente">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox d-block fs-3 text-light mb-1"></i>No hay parámetros registrados.</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -118,6 +118,7 @@ class TesoreriaCuentaModel extends Modelo
             $data['saldo_inicial'] = round((float) ($cuentaActual['saldo_inicial'] ?? 0), 4);
             $data['fecha_saldo_inicial'] = trim((string) ($cuentaActual['fecha_saldo_inicial'] ?? ''));
             $data['estado'] = (int) ($cuentaActual['estado'] ?? 1);
+
         } elseif ($data['codigo'] === '') {
             // Autogenerar código si es necesario
             $data['codigo'] = $this->generarCodigoDisponible($data['tipo']);

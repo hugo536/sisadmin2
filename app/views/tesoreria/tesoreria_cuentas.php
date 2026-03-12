@@ -119,6 +119,8 @@ $camposBloqueadosEdicion = $esEdicion;
                                                     <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" <?php echo $esActiva ? 'checked' : ''; ?>>
                                                 </div>
                                             </form>
+                                        <div class="d-inline-flex align-items-center gap-1">
+
                                             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&id=<?php echo (int) ($c['id'] ?? 0); ?>" 
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
                                                data-bs-toggle="tooltip" data-bs-placement="top" title="Editar cuenta">
@@ -283,6 +285,10 @@ $camposBloqueadosEdicion = $esEdicion;
                                     <div class="form-check form-switch">
                                         <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_pagos" id="permitePagos" <?php echo ((int) ($cuentaEditar['permite_pagos'] ?? 1) === 1) ? 'checked' : ''; ?>>
                                         <label class="form-check-label fw-medium text-dark" for="permitePagos">Permite Pagos</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="estado" id="cuentaEstado" <?php echo ((int) ($cuentaEditar['estado'] ?? 1) === 1) ? 'checked' : ''; ?>>
+                                        <label class="form-check-label fw-medium text-dark" for="cuentaEstado">Cuenta Activa</label>
                                     </div>
                                 </div>
                             </div>
