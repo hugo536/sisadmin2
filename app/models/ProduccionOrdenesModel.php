@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/models/InventarioModel.php';
+require_once BASE_PATH . '/app/models/items/ItemModel.php';
 
 class ProduccionOrdenesModel extends Modelo
 {
@@ -110,6 +111,7 @@ class ProduccionOrdenesModel extends Modelo
                        o.id_almacen_planta, ap.nombre AS almacen_planta_nombre,
                        o.id_producto_snapshot, o.receta_codigo_snapshot, o.receta_version_snapshot,
                        o.costo_teorico_unitario_snapshot, o.costo_teorico_total_snapshot,
+                       o.costo_md_real, o.costo_mod_real, o.costo_cif_real,
                        o.costo_real_unitario, o.costo_real_total,
                        r.codigo AS receta_codigo,
                        p.nombre AS producto_nombre,
@@ -490,7 +492,7 @@ class ProduccionOrdenesModel extends Modelo
         ];
     }
 
-    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = '', ?string $fechaInicio = null, ?string $fechaFin = null): void
+    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = '', ?string $fechaInicio = null, ?string $fechaFin = null, array $manoObra = [], array $cif = []): void
     {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
@@ -577,7 +579,24 @@ class ProduccionOrdenesModel extends Modelo
                 throw new RuntimeException('La cantidad total producida debe ser mayor a cero.');
             }
 
-            $costoUnitarioIngreso = $costoTotalConsumo / $cantidadTotalProducida;
+            $stmtMdReal = $db->prepare('SELECT COALESCE(SUM(cantidad * costo_unitario), 0)
+                                        FROM produccion_consumos
+                                        WHERE id_orden_produccion = :id_orden');
+            $stmtMdReal->execute(['id_orden' => $idOrden]);
+            $costoTotalConsumo = (float) ($stmtMdReal->fetchColumn() ?: $costoTotalConsumo);
+
+            $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
+            $db->prepare('DELETE FROM produccion_ordenes_cif WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
+
+            $costoModReal = $this->guardarCostoModOrden($db, $idOrden, $manoObra);
+            $costoCifReal = $this->guardarCostoCifOrden($db, $idOrden, $cif);
+
+            if ($costoCifReal <= 0) {
+                $costoCifReal = $this->guardarCostoCifCuotaPredeterminada($db, $idOrden, $cantidadTotalProducida);
+            }
+
+            $costoRealTotal = $costoTotalConsumo + $costoModReal + $costoCifReal;
+            $costoUnitarioIngreso = $costoRealTotal / $cantidadTotalProducida;
 
             $stmtInfoItem->execute(['id' => (int) $orden['id_producto']]);
             $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
@@ -636,6 +655,9 @@ class ProduccionOrdenesModel extends Modelo
 
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
+                                            costo_md_real = :costo_md_real,
+                                            costo_mod_real = :costo_mod_real,
+                                            costo_cif_real = :costo_cif_real,
                                             costo_real_unitario = :costo_real_unitario,
                                             costo_real_total = :costo_real_total,
                                             estado = 2,
@@ -648,14 +670,20 @@ class ProduccionOrdenesModel extends Modelo
                                           AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
+                'costo_md_real' => number_format($costoTotalConsumo, 4, '.', ''),
+                'costo_mod_real' => number_format($costoModReal, 4, '.', ''),
+                'costo_cif_real' => number_format($costoCifReal, 4, '.', ''),
                 'costo_real_unitario' => number_format($costoUnitarioIngreso, 4, '.', ''),
-                'costo_real_total' => number_format($costoTotalConsumo, 4, '.', ''),
+                'costo_real_total' => number_format($costoRealTotal, 4, '.', ''),
                 'fecha_inicio' => $fechaInicio, 
                 'fecha_fin' => $fechaFin,       
                 'justificacion' => $justificacion !== '' ? $justificacion : null,
                 'updated_by' => $userId,
                 'id' => $idOrden,
             ]);
+
+            $itemModel = new ItemModel();
+            $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
             $db->commit();
 
@@ -786,5 +814,228 @@ class ProduccionOrdenesModel extends Modelo
         $val = $stmt->fetchColumn();
         
         return $val ? (int) $val : null;
+    }
+
+    public function guardarTiemposModOrden(int $idOrden, array $tiempos): array
+    {
+        if ($idOrden <= 0) {
+            throw new RuntimeException('Orden inválida para registrar tiempos MOD.');
+        }
+
+        $db = $this->db();
+        $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
+
+        $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
+                                (id_orden, id_empleado, horas_reales, costo_hora_real)
+                              VALUES
+                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real)');
+
+        $total = 0.0;
+        $filas = 0;
+        foreach ($tiempos as $fila) {
+            $idEmpleado = (int) ($fila['id_empleado'] ?? 0);
+            if ($idEmpleado <= 0) {
+                continue;
+            }
+
+            $horasReales = (float) ($fila['horas_reales'] ?? 0);
+            if ($horasReales <= 0) {
+                $horasReales = $this->estimarHorasDesdeAsistencia($idEmpleado, $idOrden);
+            }
+
+            $costoHoraReal = (float) ($fila['costo_hora_real'] ?? 0);
+            if ($costoHoraReal <= 0) {
+                $costoHoraReal = $this->obtenerCostoHoraEmpleado($idEmpleado);
+            }
+
+            if ($horasReales <= 0 || $costoHoraReal <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_orden' => $idOrden,
+                'id_empleado' => $idEmpleado,
+                'horas_reales' => number_format($horasReales, 4, '.', ''),
+                'costo_hora_real' => number_format($costoHoraReal, 4, '.', ''),
+            ]);
+
+            $filas++;
+            $total += $horasReales * $costoHoraReal;
+        }
+
+        return [
+            'filas' => $filas,
+            'total_mod' => $total,
+        ];
+    }
+
+    public function obtenerTasaDepreciacionHoraActivo(int $idActivo): float
+    {
+        if ($idActivo <= 0) {
+            return 0.0;
+        }
+
+        $stmt = $this->db()->prepare('SELECT depreciacion_acumulada
+                                      FROM activos_fijos
+                                      WHERE id = :id
+                                        AND deleted_at IS NULL
+                                      LIMIT 1');
+        $stmt->execute(['id' => $idActivo]);
+        $depreciacionMensual = (float) ($stmt->fetchColumn() ?: 0);
+
+        if ($depreciacionMensual <= 0) {
+            return 0.0;
+        }
+
+        return $depreciacionMensual / 240;
+    }
+
+    private function obtenerCostoHoraEmpleado(int $idEmpleado): float
+    {
+        if ($idEmpleado <= 0) {
+            return 0.0;
+        }
+
+        $stmt = $this->db()->prepare('SELECT COALESCE(sueldo_basico, 0)
+                                      FROM terceros_empleados
+                                      WHERE id_tercero = :id_empleado
+                                      LIMIT 1');
+        $stmt->execute(['id_empleado' => $idEmpleado]);
+        $sueldoBasico = (float) ($stmt->fetchColumn() ?: 0);
+
+        if ($sueldoBasico <= 0) {
+            return 0.0;
+        }
+
+        return $sueldoBasico / 240;
+    }
+
+    private function estimarHorasDesdeAsistencia(int $idEmpleado, int $idOrden): float
+    {
+        try {
+            $stmtOrden = $this->db()->prepare('SELECT DATE(COALESCE(fecha_inicio, fecha_programada)) AS fecha_ini,
+                                                      DATE(COALESCE(fecha_fin, fecha_programada)) AS fecha_fin
+                                               FROM produccion_ordenes
+                                               WHERE id = :id_orden
+                                               LIMIT 1');
+            $stmtOrden->execute(['id_orden' => $idOrden]);
+            $orden = $stmtOrden->fetch(PDO::FETCH_ASSOC) ?: [];
+            if ($orden === []) {
+                return 0.0;
+            }
+
+            $fechaIni = (string) ($orden['fecha_ini'] ?? '');
+            $fechaFin = (string) ($orden['fecha_fin'] ?? '');
+            if ($fechaIni === '' || $fechaFin === '') {
+                return 0.0;
+            }
+
+            $stmt = $this->db()->prepare('SELECT COALESCE(SUM(horas_trabajadas), 0)
+                                          FROM asistencia_empleado_horario
+                                          WHERE id_empleado = :id_empleado
+                                            AND fecha >= :fecha_ini
+                                            AND fecha <= :fecha_fin');
+            $stmt->execute([
+                'id_empleado' => $idEmpleado,
+                'fecha_ini' => $fechaIni,
+                'fecha_fin' => $fechaFin,
+            ]);
+
+            return (float) ($stmt->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            return 0.0;
+        }
+    }
+
+    private function guardarCostoModOrden(PDO $db, int $idOrden, array $manoObra): float
+    {
+        if ($manoObra === []) {
+            return 0.0;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
+                                (id_orden, id_empleado, horas_reales, costo_hora_real)
+                              VALUES
+                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real)');
+
+        $total = 0.0;
+        foreach ($manoObra as $fila) {
+            $idEmpleado = (int) ($fila['id_empleado'] ?? 0);
+            $horas = (float) ($fila['horas_reales'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_real'] ?? 0);
+            if ($idEmpleado <= 0 || $horas <= 0 || $costoHora <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_orden' => $idOrden,
+                'id_empleado' => $idEmpleado,
+                'horas_reales' => number_format($horas, 4, '.', ''),
+                'costo_hora_real' => number_format($costoHora, 4, '.', ''),
+            ]);
+            $total += $horas * $costoHora;
+        }
+
+        return $total;
+    }
+
+    private function guardarCostoCifOrden(PDO $db, int $idOrden, array $cif): float
+    {
+        if ($cif === []) {
+            return 0.0;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
+                                (id_orden, concepto, costo_aplicado)
+                              VALUES
+                                (:id_orden, :concepto, :costo_aplicado)');
+
+        $total = 0.0;
+        foreach ($cif as $fila) {
+            $concepto = trim((string) ($fila['concepto'] ?? ''));
+            $costoAplicado = (float) ($fila['costo_aplicado'] ?? 0);
+            if ($concepto === '' || $costoAplicado <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_orden' => $idOrden,
+                'concepto' => $concepto,
+                'costo_aplicado' => number_format($costoAplicado, 4, '.', ''),
+            ]);
+            $total += $costoAplicado;
+        }
+
+        return $total;
+    }
+
+    private function guardarCostoCifCuotaPredeterminada(PDO $db, int $idOrden, float $cantidadProducida): float
+    {
+        if ($cantidadProducida <= 0) {
+            return 0.0;
+        }
+
+        $cuotaUnidad = $this->obtenerCuotaCifPredeterminada();
+        if ($cuotaUnidad <= 0) {
+            return 0.0;
+        }
+
+        $monto = $cuotaUnidad * $cantidadProducida;
+        $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
+                                (id_orden, concepto, costo_aplicado)
+                              VALUES
+                                (:id_orden, :concepto, :costo_aplicado)');
+        $stmt->execute([
+            'id_orden' => $idOrden,
+            'concepto' => 'Cuota CIF predeterminada por unidad',
+            'costo_aplicado' => number_format($monto, 4, '.', ''),
+        ]);
+
+        return $monto;
+    }
+
+    private function obtenerCuotaCifPredeterminada(): float
+    {
+        return 5.0;
     }
 }

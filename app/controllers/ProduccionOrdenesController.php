@@ -38,7 +38,8 @@ class ProduccionOrdenesController extends Controlador
                 'obtener_receta_ajax', 
                 'iniciar_ejecucion_ajax', 
                 'obtener_planificador_ajax',
-                'crear_orden_ajax'
+                'crear_orden_ajax',
+                'guardar_tiempos_mod_ajax'
             ], true);
             
             $userId = (int) ($_SESSION['id'] ?? 0);
@@ -126,6 +127,41 @@ class ProduccionOrdenesController extends Controlador
 
                     $this->produccionOrdenesModel->marcarOrdenEnProceso($idOrden, $userId);
                     echo json_encode(['success' => true]);
+                    exit;
+                }
+
+                if ($accion === 'guardar_tiempos_mod_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    if ($idOrden <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
+                        exit;
+                    }
+
+                    $modEmpleados = $_POST['orden_mod_id_empleado'] ?? [];
+                    $modHoras = $_POST['orden_mod_horas_reales'] ?? [];
+                    $modCostoHora = $_POST['orden_mod_costo_hora_real'] ?? [];
+                    $tiempos = [];
+                    foreach ((array) $modEmpleados as $idx => $idEmpleado) {
+                        $idEmpleadoInt = (int) $idEmpleado;
+                        if ($idEmpleadoInt <= 0) {
+                            continue;
+                        }
+                        $tiempos[] = [
+                            'id_empleado' => $idEmpleadoInt,
+                            'horas_reales' => $this->parseDecimal($modHoras[$idx] ?? 0),
+                            'costo_hora_real' => $this->parseDecimal($modCostoHora[$idx] ?? 0),
+                        ];
+                    }
+
+                    $resultado = $this->produccionOrdenesModel->guardarTiemposModOrden($idOrden, $tiempos);
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Tiempos MOD guardados correctamente.',
+                        'data' => $resultado,
+                    ]);
                     exit;
                 }
 
@@ -226,6 +262,39 @@ class ProduccionOrdenesController extends Controlador
                         throw new Exception('Debe registrar al menos un ingreso de producto terminado.');
                     }
 
+                    $manoObra = [];
+                    $modEmpleados = $_POST['orden_mod_id_empleado'] ?? [];
+                    $modHoras = $_POST['orden_mod_horas_reales'] ?? [];
+                    $modCostoHora = $_POST['orden_mod_costo_hora_real'] ?? [];
+                    foreach ((array) $modEmpleados as $idx => $idEmpleado) {
+                        $idEmpleadoInt = (int) $idEmpleado;
+                        $horas = $this->parseDecimal($modHoras[$idx] ?? 0);
+                        $costoHora = $this->parseDecimal($modCostoHora[$idx] ?? 0);
+                        if ($idEmpleadoInt <= 0 || $horas <= 0 || $costoHora <= 0) {
+                            continue;
+                        }
+                        $manoObra[] = [
+                            'id_empleado' => $idEmpleadoInt,
+                            'horas_reales' => $horas,
+                            'costo_hora_real' => $costoHora,
+                        ];
+                    }
+
+                    $cif = [];
+                    $cifConceptos = $_POST['orden_cif_concepto'] ?? [];
+                    $cifCostos = $_POST['orden_cif_costo_aplicado'] ?? [];
+                    foreach ((array) $cifConceptos as $idx => $concepto) {
+                        $conceptoTexto = trim((string) $concepto);
+                        $costoAplicado = $this->parseDecimal($cifCostos[$idx] ?? 0);
+                        if ($conceptoTexto === '' || $costoAplicado <= 0) {
+                            continue;
+                        }
+                        $cif[] = [
+                            'concepto' => $conceptoTexto,
+                            'costo_aplicado' => $costoAplicado,
+                        ];
+                    }
+
                     $this->produccionOrdenesModel->ejecutarOrden(
                         $idOrden,
                         $consumos,
@@ -233,7 +302,9 @@ class ProduccionOrdenesController extends Controlador
                         $userId,
                         $justificacion,
                         $fechaInicio,
-                        $fechaFin
+                        $fechaFin,
+                        $manoObra,
+                        $cif
                     );
 
                     $this->setFlash('success', 'Orden ejecutada y existencias actualizadas correctamente.');

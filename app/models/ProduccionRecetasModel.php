@@ -7,6 +7,7 @@ class ProduccionRecetasModel extends Modelo
     {
         $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
                     r.rendimiento_base, r.unidad_rendimiento,
+                    r.costo_md_teorico, r.costo_mod_teorico, r.costo_cif_teorico,
                     r.costo_teorico_unitario AS costo_teorico,
                     i.id AS id_producto, 
                     i.sku AS producto_sku, 
@@ -143,6 +144,25 @@ class ProduccionRecetasModel extends Modelo
 
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarActivosFijosParaCif(): array
+    {
+        try {
+            $stmt = $this->db()->query('SELECT id,
+                                               codigo_activo,
+                                               nombre,
+                                               depreciacion_acumulada,
+                                               (COALESCE(depreciacion_acumulada, 0) / 240) AS tasa_depreciacion_hora
+                                        FROM activos_fijos
+                                        WHERE deleted_at IS NULL
+                                          AND estado = "ACTIVO"
+                                        ORDER BY nombre ASC');
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 
     public function crearParametroCatalogo(array $data): int
@@ -282,6 +302,8 @@ class ProduccionRecetasModel extends Modelo
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
             'detalles' => $this->obtenerDetalleRecetaVersion($idReceta),
             'parametros' => $this->obtenerParametrosReceta($idReceta),
+            'mano_obra' => $this->obtenerModReceta($idReceta),
+            'cif' => $this->obtenerCifReceta($idReceta),
         ];
     }
 
@@ -293,9 +315,11 @@ class ProduccionRecetasModel extends Modelo
         $descripcion = trim((string) ($payload['descripcion'] ?? ''));
         $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
         $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
-        
+
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
         $parametros = is_array($payload['parametros'] ?? null) ? $payload['parametros'] : [];
+        $manoObra = is_array($payload['mano_obra'] ?? null) ? $payload['mano_obra'] : [];
+        $cif = is_array($payload['cif'] ?? null) ? $payload['cif'] : [];
 
         if ($idProducto <= 0 || $codigo === '' || $detalles === [] || $rendimientoBase <= 0) {
             throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle de insumos.');
@@ -305,15 +329,12 @@ class ProduccionRecetasModel extends Modelo
         foreach ($detalles as $detalle) {
             $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
             if ($idInsumo <= 0) continue;
-
             if ($idInsumo === $idProducto) {
                 throw new RuntimeException('No se puede usar el mismo producto destino como insumo de su propia receta.');
             }
-
             if (isset($insumosUtilizados[$idInsumo])) {
                 throw new RuntimeException('No se permiten insumos repetidos en la misma receta.');
             }
-
             $insumosUtilizados[$idInsumo] = true;
         }
 
@@ -321,21 +342,7 @@ class ProduccionRecetasModel extends Modelo
         $db->beginTransaction();
 
         try {
-            $costoTotalReceta = 0.0;
-            foreach ($detalles as $detalle) {
-                $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
-                $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
-                $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
-
-                if ($idInsumo > 0 && $cantidad > 0) {
-                    $costoCapturado = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : 0.0;
-                    $costoInsumo = $costoCapturado > 0 ? $costoCapturado : $this->obtenerCostoReferencial($idInsumo);
-                    $cantidadReal = $cantidad * (1 + ($merma / 100));
-                    $costoTotalReceta += ($costoInsumo * $cantidadReal);
-                }
-            }
-
-            $costoUnitarioTeorico = $costoTotalReceta;
+            $costoUnitarioTeorico = 0.0;
 
             $stmtPendiente = $db->prepare('SELECT r.id
                                            FROM produccion_recetas r
@@ -346,10 +353,7 @@ class ProduccionRecetasModel extends Modelo
                                            GROUP BY r.id
                                            HAVING COUNT(d.id) = 0
                                            LIMIT 1');
-            $stmtPendiente->execute([
-                'codigo' => $codigo,
-                'id_producto' => $idProducto,
-            ]);
+            $stmtPendiente->execute(['codigo' => $codigo, 'id_producto' => $idProducto]);
             $idRecetaPendiente = (int) ($stmtPendiente->fetchColumn() ?: 0);
 
             if ($idRecetaPendiente > 0) {
@@ -358,7 +362,6 @@ class ProduccionRecetasModel extends Modelo
                                           descripcion = :descripcion,
                                           rendimiento_base = :rendimiento_base,
                                           unidad_rendimiento = :unidad_rendimiento,
-                                          costo_teorico_unitario = :costo_unitario,
                                           estado = 1,
                                           updated_at = NOW(),
                                           updated_by = :updated_by
@@ -368,7 +371,6 @@ class ProduccionRecetasModel extends Modelo
                     'descripcion' => $descripcion !== '' ? $descripcion : null,
                     'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                     'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
-                    'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
                     'updated_by' => $userId,
                     'id_receta' => $idRecetaPendiente,
                 ]);
@@ -404,6 +406,11 @@ class ProduccionRecetasModel extends Modelo
                 $idReceta = (int) $db->lastInsertId();
             }
 
+            $db->prepare('DELETE FROM produccion_recetas_detalle WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_parametros WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_mod WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_cif WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+
             $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
                                             SET estado = 0,
                                                 updated_at = NOW(),
@@ -421,18 +428,15 @@ class ProduccionRecetasModel extends Modelo
                                         (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, costo_unitario, created_by, updated_by)
                                      VALUES
                                         (:id_receta, :id_insumo, :etapa, :cantidad_por_unidad, :merma_porcentaje, :costo_unitario, :created_by, :updated_by)');
-
             foreach ($detalles as $detalle) {
                 $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
                 $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
                 $etapa = trim((string) ($detalle['etapa'] ?? 'General'));
                 $costoUnitario = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : $this->obtenerCostoReferencial($idInsumo);
-
                 if ($idInsumo <= 0 || $cantidad <= 0) {
                     throw new RuntimeException('Detalle de receta inválido.');
                 }
-
                 $stmtDet->execute([
                     'id_receta' => $idReceta,
                     'id_insumo' => $idInsumo,
@@ -446,26 +450,31 @@ class ProduccionRecetasModel extends Modelo
             }
 
             if (!empty($parametros)) {
-                $stmtParam = $db->prepare('INSERT INTO produccion_recetas_parametros 
-                                            (id_receta, id_parametro, valor_objetivo) 
-                                           VALUES 
-                                            (:id_receta, :id_parametro, :valor_objetivo)');
-
+                $stmtParam = $db->prepare('INSERT INTO produccion_recetas_parametros (id_receta, id_parametro, valor_objetivo)
+                                           VALUES (:id_receta, :id_parametro, :valor_objetivo)');
                 foreach ($parametros as $param) {
                     $idParametro = (int) ($param['id_parametro'] ?? 0);
                     $valorObjetivo = $param['valor_objetivo'] ?? '';
-
                     if ($idParametro > 0 && $valorObjetivo !== '') {
                         $stmtParam->execute([
                             'id_receta' => $idReceta,
                             'id_parametro' => $idParametro,
-                            'valor_objetivo' => number_format((float) $valorObjetivo, 4, '.', '')
+                            'valor_objetivo' => number_format((float) $valorObjetivo, 4, '.', ''),
                         ]);
                     }
                 }
             }
 
-            $stmtUpdateItem = $db->prepare('UPDATE items 
+            $this->guardarModReceta($db, $idReceta, $manoObra);
+            $this->guardarCifReceta($db, $idReceta, $cif);
+
+            $this->calcularCostoTeorico($idReceta);
+
+            $stmtCostoReceta = $db->prepare('SELECT costo_teorico_unitario FROM produccion_recetas WHERE id = :id LIMIT 1');
+            $stmtCostoReceta->execute(['id' => $idReceta]);
+            $costoUnitarioTeorico = (float) ($stmtCostoReceta->fetchColumn() ?: 0);
+
+            $stmtUpdateItem = $db->prepare('UPDATE items
                                             SET costo_referencial = :costo,
                                                 updated_at = NOW(),
                                                 updated_by = :user
@@ -473,7 +482,7 @@ class ProduccionRecetasModel extends Modelo
             $stmtUpdateItem->execute([
                 'costo' => number_format($costoUnitarioTeorico, 4, '.', ''),
                 'user' => $userId,
-                'id' => $idProducto
+                'id' => $idProducto,
             ]);
 
             $db->commit();
@@ -486,6 +495,166 @@ class ProduccionRecetasModel extends Modelo
         }
     }
 
+    public function calcularCostoTeorico(int $idReceta): void
+    {
+        if ($idReceta <= 0) {
+            throw new RuntimeException('Receta inválida para cálculo de costo teórico.');
+        }
+
+        $db = $this->db();
+
+        $stmtMd = $db->prepare('SELECT COALESCE(SUM((cantidad_por_unidad * (1 + (merma_porcentaje / 100))) * costo_unitario), 0)
+                                FROM produccion_recetas_detalle
+                                WHERE id_receta = :id_receta
+                                  AND deleted_at IS NULL');
+        $stmtMd->execute(['id_receta' => $idReceta]);
+        $costoMD = (float) ($stmtMd->fetchColumn() ?: 0);
+
+        $stmtMod = $db->prepare('SELECT COALESCE(SUM(horas_estimadas * costo_hora_estimado), 0)
+                                 FROM produccion_recetas_mod
+                                 WHERE id_receta = :id_receta');
+        $stmtMod->execute(['id_receta' => $idReceta]);
+        $costoMOD = (float) ($stmtMod->fetchColumn() ?: 0);
+
+        $stmtCif = $db->prepare('SELECT COALESCE(SUM(costo_estimado), 0)
+                                 FROM produccion_recetas_cif
+                                 WHERE id_receta = :id_receta');
+        $stmtCif->execute(['id_receta' => $idReceta]);
+        $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
+
+        $stmtRec = $db->prepare('SELECT rendimiento_base
+                                 FROM produccion_recetas
+                                 WHERE id = :id_receta
+                                   AND deleted_at IS NULL
+                                 LIMIT 1');
+        $stmtRec->execute(['id_receta' => $idReceta]);
+        $rendimientoBase = (float) ($stmtRec->fetchColumn() ?: 0);
+        if ($rendimientoBase <= 0) {
+            throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
+        }
+
+        $costoTotal = $costoMD + $costoMOD + $costoCIF;
+        $costoUnitario = $costoTotal / $rendimientoBase;
+
+        $stmtUpd = $db->prepare('UPDATE produccion_recetas
+                                 SET costo_md_teorico = :costo_md,
+                                     costo_mod_teorico = :costo_mod,
+                                     costo_cif_teorico = :costo_cif,
+                                     costo_teorico_unitario = :costo_unitario,
+                                     updated_at = NOW()
+                                 WHERE id = :id_receta');
+        $stmtUpd->execute([
+            'costo_md' => number_format($costoMD, 4, '.', ''),
+            'costo_mod' => number_format($costoMOD, 4, '.', ''),
+            'costo_cif' => number_format($costoCIF, 4, '.', ''),
+            'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
+            'id_receta' => $idReceta,
+        ]);
+    }
+
+
+    private function obtenerModReceta(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT perfil_puesto, horas_estimadas, costo_hora_estimado
+                                      FROM produccion_recetas_mod
+                                      WHERE id_receta = :id_receta
+                                      ORDER BY id ASC');
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function obtenerCifReceta(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT id_activo, concepto, costo_estimado
+                                      FROM produccion_recetas_cif
+                                      WHERE id_receta = :id_receta
+                                      ORDER BY id ASC');
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function calcularCostoModTeorico(array $manoObra): float
+    {
+        $total = 0.0;
+        foreach ($manoObra as $fila) {
+            $horas = (float) ($fila['horas_estimadas'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($horas > 0 && $costoHora > 0) {
+                $total += $horas * $costoHora;
+            }
+        }
+
+        return $total;
+    }
+
+    private function calcularCostoCifTeorico(array $cif): float
+    {
+        $total = 0.0;
+        foreach ($cif as $fila) {
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($costo > 0) {
+                $total += $costo;
+            }
+        }
+
+        return $total;
+    }
+
+    private function guardarModReceta(PDO $db, int $idReceta, array $manoObra): void
+    {
+        if ($manoObra === []) {
+            return;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_recetas_mod
+                                (id_receta, perfil_puesto, horas_estimadas, costo_hora_estimado)
+                              VALUES
+                                (:id_receta, :perfil_puesto, :horas_estimadas, :costo_hora_estimado)');
+
+        foreach ($manoObra as $fila) {
+            $perfil = trim((string) ($fila['perfil_puesto'] ?? ''));
+            $horas = (float) ($fila['horas_estimadas'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($perfil === '' || $horas <= 0 || $costoHora <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_receta' => $idReceta,
+                'perfil_puesto' => $perfil,
+                'horas_estimadas' => number_format($horas, 4, '.', ''),
+                'costo_hora_estimado' => number_format($costoHora, 4, '.', ''),
+            ]);
+        }
+    }
+
+    private function guardarCifReceta(PDO $db, int $idReceta, array $cif): void
+    {
+        if ($cif === []) {
+            return;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_recetas_cif
+                                (id_receta, id_activo, concepto, costo_estimado)
+                              VALUES
+                                (:id_receta, :id_activo, :concepto, :costo_estimado)');
+
+        foreach ($cif as $fila) {
+            $concepto = trim((string) ($fila['concepto'] ?? ''));
+            $idActivo = (int) ($fila['id_activo'] ?? 0);
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($concepto === '' || $costo <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_receta' => $idReceta,
+                'id_activo' => $idActivo > 0 ? $idActivo : null,
+                'concepto' => $concepto,
+                'costo_estimado' => number_format($costo, 4, '.', ''),
+            ]);
+        }
+    }
 
     private function obtenerCostoReferencial(int $idItem): float
     {
@@ -582,6 +751,8 @@ class ProduccionRecetasModel extends Modelo
             'unidad_rendimiento' => trim((string) ($recetaActivaFila['unidad_rendimiento'] ?? '')),
             'detalles' => $this->normalizarDetallesComparacion($detallesActiva),
             'parametros' => $this->normalizarParametrosComparacion($parametrosActiva),
+            'mano_obra' => $this->normalizarModComparacion($this->obtenerModReceta($idRecetaActiva)),
+            'cif' => $this->normalizarCifComparacion($this->obtenerCifReceta($idRecetaActiva)),
         ];
 
         $normalizadoPayload = [
@@ -590,6 +761,8 @@ class ProduccionRecetasModel extends Modelo
             'unidad_rendimiento' => trim((string) ($payload['unidad_rendimiento'] ?? '')),
             'detalles' => $this->normalizarDetallesComparacion((array) ($payload['detalles'] ?? [])),
             'parametros' => $this->normalizarParametrosComparacion((array) ($payload['parametros'] ?? [])),
+            'mano_obra' => $this->normalizarModComparacion((array) ($payload['mano_obra'] ?? [])),
+            'cif' => $this->normalizarCifComparacion((array) ($payload['cif'] ?? [])),
         ];
 
         if ($normalizadoActiva === $normalizadoPayload) {
@@ -607,6 +780,8 @@ class ProduccionRecetasModel extends Modelo
             'unidad_rendimiento' => $normalizadoPayload['unidad_rendimiento'],
             'detalles' => (array) ($payload['detalles'] ?? []),
             'parametros' => (array) ($payload['parametros'] ?? []),
+            'mano_obra' => (array) ($payload['mano_obra'] ?? []),
+            'cif' => (array) ($payload['cif'] ?? []),
         ], $userId);
     }
 
@@ -672,6 +847,50 @@ class ProduccionRecetasModel extends Modelo
         return $normalizados;
     }
 
+
+    private function normalizarModComparacion(array $manoObra): array
+    {
+        $normalizados = [];
+        foreach ($manoObra as $fila) {
+            $perfil = trim((string) ($fila['perfil_puesto'] ?? ''));
+            $horas = (float) ($fila['horas_estimadas'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($perfil === '' || $horas <= 0 || $costoHora <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'perfil_puesto' => mb_strtolower($perfil),
+                'horas_estimadas' => number_format($horas, 4, '.', ''),
+                'costo_hora_estimado' => number_format($costoHora, 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => $a['perfil_puesto'] <=> $b['perfil_puesto']);
+        return $normalizados;
+    }
+
+    private function normalizarCifComparacion(array $cif): array
+    {
+        $normalizados = [];
+        foreach ($cif as $fila) {
+            $concepto = trim((string) ($fila['concepto'] ?? ''));
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($concepto === '' || $costo <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_activo' => (int) ($fila['id_activo'] ?? 0),
+                'concepto' => mb_strtolower($concepto),
+                'costo_estimado' => number_format($costo, 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => [$a['concepto'], $a['id_activo']] <=> [$b['concepto'], $b['id_activo']]);
+        return $normalizados;
+    }
+
     private function limpiarCodigoVersion(string $codigo): string
     {
         return (string) preg_replace('/-V\d+$/', '', trim($codigo));
@@ -728,6 +947,8 @@ class ProduccionRecetasModel extends Modelo
             'descripcion'         => $receta['descripcion'],
             'detalles'            => $receta['detalles'],
             'parametros'          => $receta['parametros'],
+            'mano_obra'           => $receta['mano_obra'],
+            'cif'                 => $receta['cif'],
             'es_nueva_version'    => true,
         ];
     }
