@@ -77,9 +77,12 @@ class TesoreriaController extends Controlador
                 'permite_pagos' => isset($_POST['permite_pagos']) ? 1 : 0,
                 'saldo_inicial' => (float) ($_POST['saldo_inicial'] ?? 0),
                 'fecha_saldo_inicial' => trim((string) ($_POST['fecha_saldo_inicial'] ?? '')),
-                'estado' => isset($_POST['estado']) ? 1 : 0,
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
             ];
+
+            if (array_key_exists('estado', $_POST)) {
+                $payload['estado'] = ((int) $_POST['estado'] === 1) ? 1 : 0;
+            }
 
             $this->cuentaModel->guardar($payload, $this->obtenerUsuarioId());
             $action = ((int) $payload['id'] > 0) ? 'updated' : 'created';

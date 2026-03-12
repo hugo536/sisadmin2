@@ -116,16 +116,13 @@ $camposBloqueadosEdicion = $esEdicion;
                                             <form method="post" action="<?php echo e(route_url('tesoreria/cambiar_estado_cuenta')); ?>" class="d-inline">
                                                 <input type="hidden" name="id_cuenta" value="<?php echo (int) ($c['id'] ?? 0); ?>">
                                                 <div class="form-check form-switch m-0" data-bs-toggle="tooltip" data-bs-placement="top" title="Activar/Inactivar cuenta">
-                                                    <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" <?php echo $esActiva ? 'checked' : ''; ?>>
+                                                    <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" value="1" <?php echo $esActiva ? 'checked' : ''; ?>>
                                                 </div>
                                             </form>
-                                        <div class="d-inline-flex align-items-center gap-1">
 
-                                            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&id=<?php echo (int) ($c['id'] ?? 0); ?>" 
-                                               class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
-                                               data-bs-toggle="tooltip" data-bs-placement="top" title="Editar cuenta">
-                                                <i class="bi bi-pencil-square fs-5"></i>
-                                            </a>
+                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                            <div class="d-inline-flex align-items-center gap-1">
                                             <?php $puedeEliminar = ((int) ($c['total_movimientos'] ?? 0) === 0); ?>
                                             <?php if ($puedeEliminar): ?>
                                                 <form method="post" action="<?php echo e(route_url('tesoreria/eliminar_cuenta')); ?>" class="d-inline js-form-delete-cuenta">
@@ -139,6 +136,7 @@ $camposBloqueadosEdicion = $esEdicion;
                                                     <i class="bi bi-trash fs-5"></i>
                                                 </button>
                                             <?php endif; ?>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -285,10 +283,6 @@ $camposBloqueadosEdicion = $esEdicion;
                                     <div class="form-check form-switch">
                                         <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_pagos" id="permitePagos" <?php echo ((int) ($cuentaEditar['permite_pagos'] ?? 1) === 1) ? 'checked' : ''; ?>>
                                         <label class="form-check-label fw-medium text-dark" for="permitePagos">Permite Pagos</label>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="estado" id="cuentaEstado" <?php echo ((int) ($cuentaEditar['estado'] ?? 1) === 1) ? 'checked' : ''; ?>>
-                                        <label class="form-check-label fw-medium text-dark" for="cuentaEstado">Cuenta Activa</label>
                                     </div>
                                 </div>
                             </div>
