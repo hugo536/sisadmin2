@@ -86,9 +86,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         line-height: 1.2;
     }
 </style>
-<div class="container-fluid p-4">
 
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+<div class="container-fluid p-4" id="ordenesProduccionApp">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-gear-wide-connected me-2 text-primary"></i> Órdenes de Producción
@@ -96,26 +97,26 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             <p class="text-muted small mb-0 ms-1">Planificación, ejecución y control de fabricación.</p>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-dark shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalPlanificadorProduccion">
+            <button class="btn btn-dark shadow-sm fw-bold px-3 transition-hover" data-bs-toggle="modal" data-bs-target="#modalPlanificadorProduccion">
                 <i class="bi bi-calendar3-week me-2"></i>Ver Planificador
             </button>
-            <button class="btn btn-primary shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalPlanificarOP">
+            <button class="btn btn-primary shadow-sm fw-bold px-3 transition-hover" data-bs-toggle="modal" data-bs-target="#modalPlanificarOP">
                 <i class="bi bi-plus-circle me-2"></i>Nueva OP
             </button>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
                     <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="opSearch" placeholder="Buscar OP, producto, receta...">
+                        <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" id="opSearch" placeholder="Buscar OP, producto, receta...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light" id="opFiltroEstado">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="opFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="0">Borrador</option>
                         <option value="1">En Proceso</option>
@@ -131,7 +132,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         <div class="card-body p-0">
             <div class="table-responsive">
                 
-                <table id="tablaOrdenes" class="table align-middle mb-0 table-pro"
+                <table id="tablaOrdenes" class="table align-middle mb-0 table-pro table-hover"
                        data-erp-table="true"
                        data-rows-selector="#opTableBody tr.op-main-row"
                        data-search-input="#opSearch"
@@ -140,8 +141,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                        data-erp-filters='[{"el":"#opFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-erp-nested-rows="true"
                        data-pagination-controls="#opPaginationControls"
-                       data-pagination-info="#opPaginationInfo">
-                    <thead>
+                       data-pagination-info="#opPaginationInfo"
+                       data-rows-per-page="15">
+                    <thead class="table-light border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código OP</th>
                             <th class="text-secondary fw-semibold">Producto / Receta</th>
@@ -182,21 +184,21 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <div class="fw-bold text-dark <?php echo $estado === 9 ? "text-decoration-line-through text-muted" : ""; ?>"><?php echo e((string) $orden['producto_nombre']); ?></div>
                                         <div class="small text-muted"><i class="bi bi-receipt me-1"></i><?php echo e((string) $orden['receta_codigo']); ?></div>
                                         <?php if (!empty($orden['justificacion_ajuste'])): ?>
-                                            <div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Con ajuste de stock</div>
+                                            <div class="small text-warning mt-1 fw-medium"><i class="bi bi-exclamation-triangle-fill me-1"></i>Con ajuste de stock</div>
                                         <?php endif; ?>
                                     </td>
                                     
                                     <td class="align-top pt-3">
-                                        <div class="d-flex flex-column align-items-start">
-                                            <span class="badge bg-light text-dark border mb-1">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="badge bg-light text-secondary border border-secondary-subtle shadow-sm px-2">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
                                             <?php if (!empty($orden['fecha_programada'])): ?>
-                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle mb-1"><i class="bi bi-calendar3 me-1"></i><?php echo e((string) $orden['fecha_programada']); ?></span>
+                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2"><i class="bi bi-calendar3 me-1"></i><?php echo e((string) $orden['fecha_programada']); ?></span>
                                             <?php endif; ?>
                                             <?php if (!empty($orden['almacen_planta_nombre'])): ?>
-                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mb-1"><i class="bi bi-building me-1"></i><?php echo e((string) $orden['almacen_planta_nombre']); ?></span>
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2"><i class="bi bi-building me-1"></i><?php echo e((string) $orden['almacen_planta_nombre']); ?></span>
                                             <?php endif; ?>
                                             <?php if ((float) $orden['cantidad_producida'] > 0): ?>
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check2-all me-1"></i>Real: <?php echo number_format((float) $orden['cantidad_producida'], 4); ?></span>
+                                                <span class="badge bg-success text-white px-2 shadow-sm"><i class="bi bi-check2-all me-1"></i>Real: <?php echo number_format((float) $orden['cantidad_producida'], 4); ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -204,15 +206,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <td class="text-center align-top pt-3">
                                         <?php if ($estado === 0): // Solo evaluamos stock visualmente en Borrador ?>
                                             <?php if ($precheckOk): ?>
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
                                                     <i class="bi bi-check-circle-fill me-1"></i> Completo
                                                 </span>
                                             <?php else: ?>
                                                 <div class="d-inline-flex align-items-center">
-                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill">
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill">
                                                         <i class="bi bi-exclamation-triangle-fill me-1"></i> Faltantes
                                                     </span>
-                                                    <button class="btn btn-sm btn-light rounded-circle border ms-2 text-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#faltantes-<?php echo $orden['id']; ?>" aria-expanded="false" title="Ver detalles">
+                                                    <button class="btn btn-sm btn-light rounded-circle border ms-2 text-secondary shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#faltantes-<?php echo $orden['id']; ?>" aria-expanded="false" title="Ver detalles de faltantes">
                                                         <i class="bi bi-chevron-down"></i>
                                                     </button>
                                                 </div>
@@ -224,23 +226,22 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                                     <td class="text-center align-top pt-3">
                                         <?php if ($estado === 0): ?>
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">Borrador</span>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2 rounded-pill">Borrador</span>
                                         <?php elseif ($estado === 1): ?>
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill">En proceso</span>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">En proceso</span>
                                         <?php elseif ($estado === 2): ?>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">Ejecutada</span>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">Ejecutada</span>
                                         <?php elseif ($estado === 9): ?>
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 rounded-pill">Anulada</span>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill">Anulada</span>
                                         <?php endif; ?>
                                     </td>
                                     
                                     <td class="text-end pe-4 align-top pt-3">
                                         <?php if (in_array($estado, [0, 1], true)): ?>
-                                            <div class="d-inline-flex align-items-center gap-1 acciones-op-wrap">
-                                                <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-semibold js-abrir-ejecucion"
+                                            <div class="d-inline-flex align-items-center gap-2 acciones-op-wrap">
+                                                <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-bold px-3 shadow-sm js-abrir-ejecucion"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
-                                                        data-id="<?php echo (int) $orden['id']; ?>"
-                                                    data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                        data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                         data-receta="<?php echo (int) $orden['id_receta']; ?>"
                                                         data-planificada="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                         data-precheck-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
@@ -253,12 +254,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
                                                 </button>
 
-                                                <div class="btn-group btn-group-sm" role="group">
+                                                <div class="btn-group btn-group-sm shadow-sm" role="group">
                                                     <a href="<?php echo e((string) route_url('inventario')); ?>"
                                                        class="btn btn-dark text-white <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
                                                        title="Aprovisionar Planta"
-                                                       data-bs-toggle="tooltip"
-                                                       data-bs-placement="top">
+                                                       data-bs-toggle="tooltip">
                                                         <i class="bi bi-arrow-left-right"></i>
                                                     </a>
 
@@ -270,6 +270,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                             data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
                                                             data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
                                                             data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
+                                                            data-bs-toggle="tooltip"
                                                             title="Editar borrador">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
@@ -280,15 +281,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                 <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden.">
                                                     <input type="hidden" name="accion" value="eliminar_borrador">
                                                     <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
-                                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar borrador">
-                                                        <i class="bi bi-trash"></i>
+                                                    <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0 shadow-sm" data-bs-toggle="tooltip" title="Eliminar borrador">
+                                                        <i class="bi bi-trash fs-6"></i>
                                                     </button>
                                                 </form>
                                                 <?php endif; ?>
                                             </div>
                                         <?php elseif (in_array($estado, [2, 9], true)): ?>
                                             <button type="button"
-                                                    class="btn btn-sm btn-light border js-ver-detalle"
+                                                    class="btn btn-sm btn-light border text-primary rounded-circle shadow-sm js-ver-detalle"
                                                     data-id="<?php echo (int) $orden['id']; ?>"
                                                     data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                     data-estado="<?php echo $estado === 2 ? 'Ejecutada' : 'Anulada'; ?>"
@@ -302,8 +303,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-md-teorico="<?php echo number_format(((float) ($orden['costo_md_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
                                                     data-mod-teorico="<?php echo number_format(((float) ($orden['costo_mod_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
                                                     data-cif-teorico="<?php echo number_format(((float) ($orden['costo_cif_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
-                                                    title="Ver detalle">
-                                                <i class="bi bi-search text-secondary"></i>
+                                                    data-bs-toggle="tooltip"
+                                                    title="Ver detalle de costos y consumos">
+                                                <i class="bi bi-search fs-6"></i>
                                             </button>
                                         <?php endif; ?>
                                     </td>
@@ -312,31 +314,35 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <?php if ($estado === 0 && !$precheckOk): ?>
                                 <tr class="collapse collapse-faltantes bg-light" id="faltantes-<?php echo $orden['id']; ?>" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td colspan="6" class="p-0 border-bottom">
-                                        <div class="p-3 border-start border-4 border-warning m-2 bg-white shadow-sm rounded">
-                                            <div class="d-flex align-items-start">
-                                                <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-3 mt-1"></i>
-                                                <div class="w-100">
-                                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 border-bottom pb-2">
-                                                        <strong class="text-dark fs-6">Insumos a aprovisionar</strong>
-                                                        <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6 fw-normal">
-                                                            <i class="bi bi-building me-1"></i> Destino: <strong><?php echo e((string) ($orden['almacen_planta_nombre'] ?? 'Planta no asignada')); ?></strong>
-                                                        </span>
-                                                    </div>
-                                                    <div class="small text-muted">
-                                                        <?php 
-                                                            $textoLimpio = str_replace('Faltantes: ', '', $precheckResumen);
-                                                            $listaFaltantes = explode(';', $textoLimpio);
-                                                        ?>
-                                                        <ul class="list-unstyled mb-0 ms-1 row">
-                                                            <?php foreach ($listaFaltantes as $itemFaltante): ?>
-                                                                <?php if (trim($itemFaltante) !== ''): ?>
-                                                                    <li class="col-md-6 mb-1 py-1 border-bottom border-light">
-                                                                        <i class="bi bi-box-seam text-secondary me-2"></i>
-                                                                        <span class="text-dark fw-medium"><?php echo e(trim($itemFaltante)); ?></span>
-                                                                    </li>
-                                                                <?php endif; ?>
-                                                            <?php endforeach; ?>
-                                                        </ul>
+                                        <div class="card border-0 border-start border-4 border-warning m-3 shadow-sm bg-white">
+                                            <div class="card-body p-3">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-3 me-3 mt-1"></i>
+                                                    <div class="w-100">
+                                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                                            <strong class="text-dark fs-6">Insumos a aprovisionar para ejecución</strong>
+                                                            <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6 fw-normal px-3 border border-secondary-subtle">
+                                                                <i class="bi bi-building me-1"></i> Destino: <strong><?php echo e((string) ($orden['almacen_planta_nombre'] ?? 'Planta no asignada')); ?></strong>
+                                                            </span>
+                                                        </div>
+                                                        <div class="small text-muted">
+                                                            <?php 
+                                                                $textoLimpio = str_replace('Faltantes: ', '', $precheckResumen);
+                                                                $listaFaltantes = explode(';', $textoLimpio);
+                                                            ?>
+                                                            <ul class="list-unstyled mb-0 row g-2">
+                                                                <?php foreach ($listaFaltantes as $itemFaltante): ?>
+                                                                    <?php if (trim($itemFaltante) !== ''): ?>
+                                                                        <li class="col-md-6 col-lg-4">
+                                                                            <div class="d-flex align-items-center bg-light p-2 rounded border border-light-subtle">
+                                                                                <i class="bi bi-box-seam text-secondary me-2"></i>
+                                                                                <span class="text-dark fw-medium"><?php echo e(trim($itemFaltante)); ?></span>
+                                                                            </div>
+                                                                        </li>
+                                                                    <?php endif; ?>
+                                                                <?php endforeach; ?>
+                                                            </ul>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -352,8 +358,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             </div>
             
             <?php if (!empty($ordenes)): ?>
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
-                <div class="small text-muted fw-medium" id="opPaginationInfo">Procesando...</div>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-4">
+                <small class="text-muted fw-semibold" id="opPaginationInfo">Procesando...</small>
                 <nav aria-label="Paginación de OP">
                     <ul class="pagination mb-0 shadow-sm" id="opPaginationControls"></ul>
                 </nav>
@@ -367,61 +373,63 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 <div class="modal fade" id="modalPlanificarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Planificar Producción</h5>
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Planificar Nueva Producción</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" class="modal-body p-4 bg-light">
-                <input type="hidden" name="accion" value="crear_orden">
-                
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label for="newCodigoOP" class="form-label small text-muted fw-bold mb-1">Código OP <span class="text-danger fs-6">*</span></label>
-                                <input type="text" required name="codigo" id="newCodigoOP" class="form-control bg-light fw-bold text-primary" placeholder="Generando..." readonly>
-                            </div>
-                            <div class="col-md-8">
-                                <label for="newRecetaOP" class="form-label small text-muted fw-bold mb-1">Receta / Producto Terminado <span class="text-danger fs-6">*</span></label>
-                                <select name="id_receta" id="newRecetaOP" required class="form-select">
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($recetasActivas as $r): ?>
-                                        <option value="<?php echo (int) $r['id']; ?>">
-                                            <?php echo e((string) $r['codigo']); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="newCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad Planificada <span class="text-danger fs-6">*</span></label>
-                                <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control border-primary" placeholder="Ej: 100">
-                            </div>
-                            <div class="col-md-4">
-                                <label for="newFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger fs-6">*</span></label>
-                                <input type="date" name="fecha_programada" id="newFechaProgramada" class="form-control" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="newAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Almacén Planta <span class="text-danger fs-6">*</span></label>
-                                <select name="id_almacen_planta" id="newAlmacenPlanta" class="form-select" required>
-                                    <option value="">Seleccione...</option>
-                                    <?php foreach ($almacenesPlanta as $a): ?>
-                                        <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-8">
-                                <label for="newObsOP" class="form-label small text-muted fw-bold mb-1">Observaciones / Lote Estimado</label>
-                                <input name="observaciones" id="newObsOP" class="form-control" placeholder="Opcional">
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form method="post" id="formCrearOP">
+                    <input type="hidden" name="accion" value="crear_orden">
+                    
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="newCodigoOP" class="form-label small text-muted fw-bold mb-1">Código OP <span class="text-danger">*</span></label>
+                                    <input type="text" required name="codigo" id="newCodigoOP" class="form-control shadow-none border-secondary-subtle bg-light fw-bold text-primary" placeholder="Generando auto..." readonly>
+                                </div>
+                                <div class="col-md-8">
+                                    <label for="newRecetaOP" class="form-label small text-muted fw-bold mb-1">Receta / Producto Terminado <span class="text-danger">*</span></label>
+                                    <select name="id_receta" id="newRecetaOP" required class="form-select shadow-none border-secondary-subtle">
+                                        <option value="">Seleccione fórmula...</option>
+                                        <?php foreach ($recetasActivas as $r): ?>
+                                            <option value="<?php echo (int) $r['id']; ?>">
+                                                <?php echo e((string) $r['codigo']); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="newCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad a Producir <span class="text-danger">*</span></label>
+                                    <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control shadow-none border-primary fw-bold" placeholder="Ej: 100">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="newFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger">*</span></label>
+                                    <input type="date" name="fecha_programada" id="newFechaProgramada" class="form-control shadow-none border-secondary-subtle" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="newAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Planta de Trabajo <span class="text-danger">*</span></label>
+                                    <select name="id_almacen_planta" id="newAlmacenPlanta" class="form-select shadow-none border-secondary-subtle" required>
+                                        <option value="">Seleccione planta...</option>
+                                        <?php foreach ($almacenesPlanta as $a): ?>
+                                            <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label for="newObsOP" class="form-label small text-muted fw-bold mb-1">Observaciones / Lote Estimado</label>
+                                    <input name="observaciones" id="newObsOP" class="form-control shadow-none border-secondary-subtle" placeholder="Notas adicionales o pre-asignación de lote...">
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="d-flex justify-content-end pt-2">
-                    <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Borrador</button>
-                </div>
-            </form>
+                    <div class="d-flex justify-content-end pt-2 mt-2">
+                        <button type="button" class="btn btn-light text-secondary me-2 border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Borrador OP</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -429,102 +437,199 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 <div class="modal fade" id="modalEditarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-secondary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Borrador OP</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Borrador de Producción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" class="modal-body p-4 bg-light" id="formEditarOP">
-                <input type="hidden" name="accion" value="editar_orden">
-                <input type="hidden" name="id_orden" id="editIdOrden">
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form method="post" id="formEditarOP">
+                    <input type="hidden" name="accion" value="editar_orden">
+                    <input type="hidden" name="id_orden" id="editIdOrden">
 
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="editCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad Planificada <span class="text-danger fs-6">*</span></label>
-                        <input name="cantidad_planificada" id="editCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control border-primary">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="editCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad a Producir <span class="text-danger">*</span></label>
+                                    <input name="cantidad_planificada" id="editCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control shadow-none border-warning fw-bold">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="editFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger">*</span></label>
+                                    <input type="date" name="fecha_programada" id="editFechaProgramada" class="form-control shadow-none border-secondary-subtle" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="editAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Planta de Trabajo <span class="text-danger">*</span></label>
+                                    <select name="id_almacen_planta" id="editAlmacenPlanta" class="form-select shadow-none border-secondary-subtle" required>
+                                        <option value="">Seleccione planta...</option>
+                                        <?php foreach ($almacenesPlanta as $a): ?>
+                                            <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label for="editObsOP" class="form-label small text-muted fw-bold mb-1">Observaciones / Lote Estimado</label>
+                                    <input name="observaciones" id="editObsOP" class="form-control shadow-none border-secondary-subtle" placeholder="Opcional">
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label for="editFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger fs-6">*</span></label>
-                        <input type="date" name="fecha_programada" id="editFechaProgramada" class="form-control" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="editAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Almacén Planta <span class="text-danger fs-6">*</span></label>
-                        <select name="id_almacen_planta" id="editAlmacenPlanta" class="form-select" required>
-                            <option value="">Seleccione...</option>
-                            <?php foreach ($almacenesPlanta as $a): ?>
-                                <option value="<?php echo (int) ($a['id'] ?? 0); ?>"><?php echo e((string) ($a['nombre'] ?? '')); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-8">
-                        <label for="editObsOP" class="form-label small text-muted fw-bold mb-1">Observaciones / Lote Estimado</label>
-                        <input name="observaciones" id="editObsOP" class="form-control" placeholder="Opcional">
-                    </div>
-                </div>
 
-                <div class="d-flex justify-content-end pt-4">
-                    <button type="button" class="btn btn-light text-secondary me-2 border" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Cambios</button>
-                </div>
-            </form>
+                    <div class="d-flex justify-content-end pt-2 mt-2">
+                        <button type="button" class="btn btn-light text-secondary me-2 border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="modalDetalleOP" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title"><i class="bi bi-search me-2"></i>Detalle OP</h5>
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-clipboard2-data me-2"></i>Análisis Financiero de OP</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="row g-2 mb-3">
-                    <div class="col-md-4"><div class="small text-muted">Código</div><div id="detalleCodigo" class="fw-bold">-</div></div>
-                    <div class="col-md-4"><div class="small text-muted">Producto</div><div id="detalleProducto" class="fw-bold">-</div></div>
-                    <div class="col-md-2"><div class="small text-muted">Planificado</div><div id="detallePlan" class="fw-bold">0.0000</div></div>
-                    <div class="col-md-2"><div class="small text-muted">Producido</div><div id="detalleReal" class="fw-bold">0.0000</div></div>
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-3">
+                        <div class="row g-2 align-items-center text-center text-md-start">
+                            <div class="col-6 col-md-3 border-end">
+                                <div class="small text-muted fw-bold text-uppercase">Código</div>
+                                <div id="detalleCodigo" class="fw-bold fs-5 text-primary">-</div>
+                            </div>
+                            <div class="col-6 col-md-5 border-end">
+                                <div class="small text-muted fw-bold text-uppercase">Producto Final</div>
+                                <div id="detalleProducto" class="fw-bold fs-6 text-dark text-truncate">-</div>
+                            </div>
+                            <div class="col-6 col-md-2 border-end">
+                                <div class="small text-muted fw-bold text-uppercase">Planificado</div>
+                                <div id="detallePlan" class="fw-bold fs-5 text-secondary">0.0000</div>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <div class="small text-muted fw-bold text-uppercase">Producido Real</div>
+                                <div id="detalleReal" class="fw-bold fs-5 text-success">0.0000</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <ul class="nav nav-pills nav-fill mb-3" role="tablist">
-                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabDetalleMd" type="button">Materiales (MD)</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDetalleMod" type="button">Mano de Obra (MOD)</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDetalleCif" type="button">Gastos Indirectos (CIF)</button></li>
-                </ul>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-0">
+                        <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold px-4 py-3 text-primary" data-bs-toggle="tab" data-bs-target="#tabDetalleMd" type="button"><i class="bi bi-box-seam me-2"></i>Materiales (MD)</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold px-4 py-3 text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleMod" type="button"><i class="bi bi-people me-2"></i>Mano de Obra (MOD)</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold px-4 py-3 text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleCif" type="button"><i class="bi bi-lightning-charge me-2"></i>Gastos Indirectos (CIF)</button>
+                            </li>
+                        </ul>
 
-                <div class="tab-content border rounded p-2 bg-light-subtle" style="min-height:220px;">
-                    <div class="tab-pane fade show active" id="tabDetalleMd" role="tabpanel">
-                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Insumo</th><th class="text-end">Cant. Teórica</th><th class="text-end">Costo Unit.</th><th class="text-end">Costo Total</th></tr></thead><tbody id="detalleTablaMd"><tr><td colspan="4" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
-                    </div>
-                    <div class="tab-pane fade" id="tabDetalleMod" role="tabpanel">
-                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Operario</th><th class="text-end">Horas</th><th class="text-end">Costo/H</th><th class="text-end">Costo Total</th></tr></thead><tbody id="detalleTablaMod"><tr><td colspan="4" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
-                    </div>
-                    <div class="tab-pane fade" id="tabDetalleCif" role="tabpanel">
-                        <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Concepto</th><th>Base</th><th class="text-end">Costo Aplicado</th></tr></thead><tbody id="detalleTablaCif"><tr><td colspan="3" class="text-center text-muted">Sin datos</td></tr></tbody></table></div>
+                        <div class="tab-content p-0" style="min-height:260px;">
+                            <div class="tab-pane fade show active" id="tabDetalleMd" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-4">Insumo Utilizado</th>
+                                                <th class="text-end">Cant. Teórica / Real</th>
+                                                <th class="text-end">Costo Unitario</th>
+                                                <th class="text-end pe-4">Costo Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="detalleTablaMd">
+                                            <tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="tabDetalleMod" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-4">Operario / Perfil</th>
+                                                <th class="text-end">Horas Registradas</th>
+                                                <th class="text-end">Costo por Hora</th>
+                                                <th class="text-end pe-4">Costo Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="detalleTablaMod">
+                                            <tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="tabDetalleCif" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-4">Concepto / Activo</th>
+                                                <th>Base (Horas)</th>
+                                                <th class="text-end pe-4">Costo Aplicado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="detalleTablaCif">
+                                            <tr><td colspan="3" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer bg-light d-block">
-                <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center">
-                    <span id="detalleEstado" class="badge bg-secondary">-</span>
-                    <div class="small">
-                        <strong>MD</strong> <span id="detalleMdReal" class="fw-semibold">0.0000</span>
-                        + <strong>MOD</strong> <span id="detalleModReal" class="fw-semibold">0.0000</span>
-                        + <strong>CIF</strong> <span id="detalleCifReal" class="fw-semibold">0.0000</span>
-                        = <strong>Total</strong> <span id="detalleTotalReal" class="fw-bold">0.0000</span>
-                        → <strong>Unitario</strong> <span id="detalleUnitarioReal" class="fw-bold">0.0000</span>
+
+                <div class="card border border-primary-subtle shadow-sm bg-primary-subtle bg-opacity-10">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted fw-bold text-uppercase small">Estado OP:</span>
+                                <span id="detalleEstado" class="badge bg-secondary px-3 py-2 fs-6 rounded-pill">-</span>
+                            </div>
+                            
+                            <div class="d-flex align-items-center flex-wrap gap-3 fs-5">
+                                <div class="text-center px-3 border-end">
+                                    <span class="d-block text-muted small fw-bold mb-1">Materiales (MD)</span>
+                                    <span class="fw-semibold text-dark">S/ <span id="detalleMdReal">0.00</span></span>
+                                </div>
+                                <div class="text-center px-3 border-end">
+                                    <span class="d-block text-muted small fw-bold mb-1">Mano Obra (MOD)</span>
+                                    <span class="fw-semibold text-dark">S/ <span id="detalleModReal">0.00</span></span>
+                                </div>
+                                <div class="text-center px-3 border-end">
+                                    <span class="d-block text-muted small fw-bold mb-1">Indirectos (CIF)</span>
+                                    <span class="fw-semibold text-dark">S/ <span id="detalleCifReal">0.00</span></span>
+                                </div>
+                                <div class="text-center px-3">
+                                    <span class="d-block text-primary small fw-bold mb-1">Costo Total</span>
+                                    <span class="fw-bold text-primary fs-4">S/ <span id="detalleTotalReal">0.00</span></span>
+                                </div>
+                                <div class="text-center ps-3 border-start">
+                                    <span class="d-block text-success small fw-bold mb-1">Costo Unitario</span>
+                                    <span class="fw-bold text-success fs-4">S/ <span id="detalleUnitarioReal">0.00</span></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-success text-white">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción <span id="lblExecCodigo" class="badge bg-light text-dark ms-2"></span>
+                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción <span id="lblExecCodigo" class="badge bg-light text-success ms-2 shadow-sm"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -537,127 +642,169 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <input type="hidden" id="execReqVenc" value="0">
                 <input type="hidden" id="execUnidad" value="UND">
                 
-                <div class="modal-body p-0">
+                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                     
-                    <div class="px-4 pt-3 pb-2 bg-white border-bottom">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
-                                <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control form-control-sm border-primary" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-check2-all me-1"></i>Fin del Trabajo <span class="text-danger">*</span></label>
-                                <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control form-control-sm border-primary" required>
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Bitácora de Tiempos Globales</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control shadow-none border-secondary-subtle" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-check2-all me-1 text-success"></i>Fin del Trabajo <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control shadow-none border-success-subtle bg-success-subtle bg-opacity-10 fw-bold" required>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <ul class="nav nav-tabs nav-fill bg-light pt-2 px-2 border-bottom-0" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-bold border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
-                                <i class="bi bi-box-seam me-1 text-danger"></i> 1. Consumos (Materia Prima)
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
-                                <i class="bi bi-box-arrow-in-down me-1 text-success"></i> 2. Ingresos (Producto Final)
-                            </button>
-                        </li>
-                    </ul>
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body p-0">
+                            <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-bold text-danger px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
+                                        <i class="bi bi-box-arrow-up-right me-2"></i>1. Consumos (Salidas)
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-bold text-success px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
+                                        <i class="bi bi-box-arrow-in-down me-2"></i>2. Ingresos (Producto Final)
+                                    </button>
+                                </li>
+                            </ul>
 
-                    <div class="tab-content p-4 bg-white">
-                        
-                        <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
-                            <div class="d-flex justify-content-between mb-2">
-                                <h6 class="fw-bold text-muted">Registro de Insumos Utilizados</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarConsumo">
-                                    <i class="bi bi-plus"></i> Fila Extra
-                                </button>
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-sm" id="tablaConsumosDynamic">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Insumo (ID/Nombre)</th>
-                                            <th>Almacén Origen (De donde sale)</th>
-                                            <th style="width: 140px;">Cantidad</th>
-                                            <th>Lote (Opcional)</th>
-                                            <th style="width: 50px;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        </tbody>
-                                </table>
-                            </div>
+                            <div class="tab-content p-4">
+                                <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Insumos Utilizados</h6>
+                                            <small class="text-muted">Material que se descontará del almacén.</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-3 shadow-sm" id="btnAgregarConsumo">
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir Fila
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="table-responsive border rounded bg-white">
+                                        <table class="table align-middle mb-0 table-sm" id="tablaConsumosDynamic">
+                                            <thead class="table-light text-muted small text-uppercase fw-bold">
+                                                <tr>
+                                                    <th class="ps-3 py-2">Insumo (ID / Nombre)</th>
+                                                    <th class="py-2">Almacén Origen</th>
+                                                    <th style="width: 140px;" class="py-2">Cantidad</th>
+                                                    <th class="py-2">Lote (Opcional)</th>
+                                                    <th style="width: 60px;" class="text-center py-2">Quitar</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                </tbody>
+                                        </table>
+                                    </div>
 
-                            <div id="boxJustificacionFaltante" class="alert alert-warning mt-3 mb-0" style="display: none;">
-                                <div class="d-flex align-items-start">
-                                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3 mt-1"></i>
-                                    <div class="w-100">
-                                        <h6 class="fw-bold mb-1">¡Advertencia! Consumo Incompleto o Faltante de Stock</h6>
-                                        <p class="small mb-2">Has indicado que usarás menos material del que la receta exige, o estás forzando el stock. Por favor, justifica el motivo para poder cerrar esta orden.</p>
-                                        <input type="text" name="justificacion" id="inputJustificacionFaltante" class="form-control form-control-sm" placeholder="Ej. El camión descargó directo en planta y aún no ingresa al sistema...">
+                                    <div id="boxJustificacionFaltante" class="alert alert-warning border-warning-subtle shadow-sm mt-3 mb-0" style="display: none;">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-exclamation-triangle-fill fs-3 text-warning me-3 mt-1"></i>
+                                            <div class="w-100">
+                                                <h6 class="fw-bold mb-1 text-dark">Variación en Consumos Detectada</h6>
+                                                <p class="small text-muted mb-2">Has indicado que usarás menos material del planificado o has forzado un stock. Justifica el motivo para poder cerrar esta orden.</p>
+                                                <input type="text" name="justificacion" id="inputJustificacionFaltante" class="form-control shadow-none border-warning-subtle" placeholder="Ej. El material de la receta fue reemplazado por equivalencia...">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Distribución de Producto Final</h6>
+                                            <small class="text-muted">A qué almacenes ingresa lo fabricado.</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-success fw-bold px-3 shadow-sm" id="btnAgregarIngreso">
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir Destino
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="alert alert-success bg-success-subtle bg-opacity-50 border-success-subtle d-flex align-items-center py-2 px-3 small shadow-sm mb-3">
+                                        <i class="bi bi-info-circle-fill text-success fs-5 me-2"></i> La cantidad total de producción será la suma de las cantidades ingresadas aquí.
+                                    </div>
+
+                                    <div class="table-responsive border rounded bg-white">
+                                        <table class="table align-middle mb-0 table-sm" id="tablaIngresosDynamic">
+                                            <thead class="table-light text-muted small text-uppercase fw-bold">
+                                                <tr>
+                                                    <th class="ps-3 py-2">Almacén Destino</th>
+                                                    <th style="width: 170px;" class="py-2">Cant. Ingresada</th>
+                                                    <th class="py-2">Lote</th>
+                                                    <th style="width: 160px;" class="py-2">Fecha Venc.</th> 
+                                                    <th style="width: 60px;" class="text-center py-2">Quitar</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
-                            <div class="d-flex justify-content-between mb-2">
-                                <h6 class="fw-bold text-muted">Distribución de Producto Final</h6>
-                                <button type="button" class="btn btn-sm btn-outline-success" id="btnAgregarIngreso">
-                                    <i class="bi bi-plus"></i> Agregar Destino
-                                </button>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-sm" id="tablaIngresosDynamic">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Almacén Destino (A dónde entra)</th>
-                                            <th style="width: 170px;">Cant. Ingresada</th>
-                                            <th>Lote</th>
-                                            <th style="width: 140px;">Fecha Venc.</th> 
-                                            <th style="width: 50px;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        </tbody>
-                                </table>
-                            </div>
-                            <div class="alert alert-info mt-3 py-2 small">
-                                <i class="bi bi-info-circle me-1"></i> La cantidad total de producción será la suma de las cantidades ingresadas aquí.
-                            </div>
-                        </div>
-
-                        <hr class="my-4">
-                        <div class="row g-3">
-                            <div class="col-12 col-lg-6">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fw-bold text-muted mb-0">MOD Real</h6>
-                                    <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-sm btn-outline-info" id="btnGuardarTiemposModAjax"><i class="bi bi-clock-history"></i> Guardar tiempos</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarOrdenMod"><i class="bi bi-plus"></i></button>
-                                    </div>
-                                </div>
-                                <div id="contenedorOrdenMod"></div>
-                                <div class="small text-muted mt-1" id="estadoGuardadoMod"></div>
-                            </div>
-                            <div class="col-12 col-lg-6">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fw-bold text-muted mb-0">CIF Aplicado</h6>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAgregarOrdenCif"><i class="bi bi-plus"></i></button>
-                                </div>
-                                <div id="contenedorOrdenCif"></div>
-                            </div>
-                        </div>
-
                     </div>
+
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people me-2 text-secondary"></i>MOD Real</h6>
+                                            <div class="small text-muted mt-1" id="estadoGuardadoMod">Tiempos de mano de obra</div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-light border text-info shadow-sm" id="btnGuardarTiemposModAjax" title="Guardar tiempos parciales">
+                                                <i class="bi bi-cloud-arrow-up"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" id="btnAgregarOrdenMod">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase">
+                                        <div class="col-4">Empleado ID</div>
+                                        <div class="col-3">Horas</div>
+                                        <div class="col-4">Costo/H</div>
+                                    </div>
+                                    <div id="contenedorOrdenMod" class="d-flex flex-column gap-2"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-lightning-charge me-2 text-warning"></i>CIF Aplicado</h6>
+                                            <div class="small text-muted mt-1">Gastos indirectos adicionales</div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" id="btnAgregarOrdenCif">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase">
+                                        <div class="col-7">Concepto</div>
+                                        <div class="col-4">Costo (S/)</div>
+                                    </div>
+                                    <div id="contenedorOrdenCif" class="d-flex flex-column gap-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-4 fw-bold"><i class="bi bi-check2-circle me-2"></i>Guardar Ejecución</button>
+                <div class="modal-footer bg-white border-top shadow-sm">
+                    <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-5 fw-bold"><i class="bi bi-check2-circle me-2"></i>Finalizar y Cerrar OP</button>
                 </div>
             </form>
         </div>
@@ -666,45 +813,47 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 <div class="modal fade" id="modalPlanificadorProduccion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered"> 
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-range me-2"></i>Planificador de Operaciones</h5>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-range me-2 text-info"></i>Planificador de Operaciones</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 
-                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                    <div class="d-flex align-items-center bg-white border rounded shadow-sm p-1">
-                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnPlanAnterior"><i class="bi bi-chevron-left"></i></button>
-                        <span class="mx-3 fw-bold text-dark text-uppercase text-center" id="lblPlanActual" style="min-width: 150px;">Cargando...</span>
-                        <button type="button" class="btn btn-sm btn-light text-secondary border-0" id="btnPlanSiguiente"><i class="bi bi-chevron-right"></i></button>
-                    </div>
-                    
-                    <div class="btn-group shadow-sm" role="group">
-                        <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaMes" value="mes" checked autocomplete="off">
-                        <label class="btn btn-outline-primary fw-semibold" for="vistaMes"><i class="bi bi-calendar-month me-1"></i> Mes</label>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="d-flex align-items-center bg-white border rounded shadow-sm p-1">
+                            <button type="button" class="btn btn-sm btn-light text-secondary border-0 px-3 transition-hover" id="btnPlanAnterior"><i class="bi bi-chevron-left"></i></button>
+                            <span class="mx-3 fw-bold text-primary fs-5 text-uppercase text-center" id="lblPlanActual" style="min-width: 180px;">Cargando...</span>
+                            <button type="button" class="btn btn-sm btn-light text-secondary border-0 px-3 transition-hover" id="btnPlanSiguiente"><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                        
+                        <div class="btn-group shadow-sm" role="group">
+                            <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaMes" value="mes" checked autocomplete="off">
+                            <label class="btn btn-outline-primary fw-semibold px-4" for="vistaMes"><i class="bi bi-calendar-month me-1"></i> Mes</label>
 
-                        <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaSemana" value="semana" autocomplete="off">
-                        <label class="btn btn-outline-primary fw-semibold" for="vistaSemana"><i class="bi bi-calendar-week me-1"></i> Semana</label>
+                            <input type="radio" class="btn-check" name="vistaPlanificador" id="vistaSemana" value="semana" autocomplete="off">
+                            <label class="btn btn-outline-primary fw-semibold px-4" for="vistaSemana"><i class="bi bi-calendar-week me-1"></i> Semana</label>
+                        </div>
                     </div>
                 </div>
 
                 <div class="bg-white p-3 rounded shadow-sm border text-center min-vh-50 position-relative overflow-hidden">
                     <div id="planLoader" class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex justify-content-center align-items-center d-none" style="z-index: 10;">
-                        <div class="spinner-border text-primary" role="status"></div>
+                        <div class="spinner-border text-primary shadow-sm" role="status" style="width: 3rem; height: 3rem;"></div>
                     </div>
 
-                    <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
-                        <div class="fw-bold text-muted small">Lun</div>
-                        <div class="fw-bold text-muted small">Mar</div>
-                        <div class="fw-bold text-muted small">Mié</div>
-                        <div class="fw-bold text-muted small">Jue</div>
-                        <div class="fw-bold text-muted small">Vie</div>
-                        <div class="fw-bold text-muted small">Sáb</div>
-                        <div class="fw-bold text-danger small">Dom</div>
+                    <div class="d-grid mb-2 border-bottom pb-2" style="grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                        <div class="fw-bold text-secondary text-uppercase small">Lunes</div>
+                        <div class="fw-bold text-secondary text-uppercase small">Martes</div>
+                        <div class="fw-bold text-secondary text-uppercase small">Miércoles</div>
+                        <div class="fw-bold text-secondary text-uppercase small">Jueves</div>
+                        <div class="fw-bold text-secondary text-uppercase small">Viernes</div>
+                        <div class="fw-bold text-secondary text-uppercase small">Sábado</div>
+                        <div class="fw-bold text-danger text-uppercase small">Domingo</div>
                     </div>
                     
-                    <div class="planificador-scroll-area">
+                    <div class="planificador-scroll-area mt-3">
                         <div id="planificadorGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 400px;">
                             </div>
                     </div>
@@ -712,14 +861,13 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                 <div class="card mt-4 border-0 shadow-sm bg-white">
                     <div class="card-body p-3">
-                        <h6 class="small fw-bold text-muted text-uppercase mb-2">Leyenda de Planificación</h6>
-                        <div class="d-flex flex-wrap gap-3 small fw-medium">
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-white border border-secondary border-dashed me-2" style="width: 14px; height: 14px;"></span> Día Libre / Sin Actividad</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-primary-subtle border border-primary me-2" style="width: 14px; height: 14px;"></span> Turno Normal</div>
-                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-warning-subtle border border-warning me-2" style="width: 14px; height: 14px;"></span> Turno Extendido (Excepción)</div>
-                            <div class="d-flex align-items-center"><span class="badge bg-dark ms-2 me-1 border px-1">OP</span> Órdenes Asignadas al día</div>
+                        <h6 class="small fw-bold text-muted text-uppercase mb-3"><i class="bi bi-info-circle-fill me-2 text-info"></i>Leyenda de Planificación</h6>
+                        <div class="d-flex flex-wrap gap-4 small fw-semibold text-dark">
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-light border border-secondary border-dashed me-2 shadow-sm" style="width: 16px; height: 16px;"></span> Día Libre / Sin Actividad</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-primary-subtle border border-primary me-2 shadow-sm" style="width: 16px; height: 16px;"></span> Turno Normal</div>
+                            <div class="d-flex align-items-center"><span class="d-inline-block rounded bg-warning-subtle border border-warning me-2 shadow-sm" style="width: 16px; height: 16px;"></span> Turno Extendido (Excepción)</div>
+                            <div class="d-flex align-items-center"><span class="badge bg-dark ms-2 me-2 border px-2 py-1 shadow-sm">OP</span> Órdenes Asignadas al día</div>
                         </div>
-
                     </div>
                 </div>
 
@@ -729,19 +877,33 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 </div>
 
 <template id="tplOrdenModRow">
-    <div class="row g-2 align-items-center mb-2 orden-mod-row">
-        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_mod_id_empleado[]" placeholder="ID empleado"></div>
-        <div class="col-3"><input type="number" class="form-control form-control-sm" name="orden_mod_horas_reales[]" step="0.0001" placeholder="Horas"></div>
-        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_mod_costo_hora_real[]" step="0.0001" placeholder="Costo/h"></div>
-        <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-orden-mod"><i class="bi bi-trash"></i></button></div>
+    <div class="row g-2 align-items-center mb-2 orden-mod-row bg-white p-2 border rounded shadow-sm">
+        <div class="col-4">
+            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_id_empleado[]" placeholder="ID empleado">
+        </div>
+        <div class="col-3">
+            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_horas_reales[]" step="0.0001" placeholder="Horas">
+        </div>
+        <div class="col-4">
+            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_costo_hora_real[]" step="0.0001" placeholder="S/ Hora">
+        </div>
+        <div class="col-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove-orden-mod" title="Quitar empleado"><i class="bi bi-trash fs-6"></i></button>
+        </div>
     </div>
 </template>
 
 <template id="tplOrdenCifRow">
-    <div class="row g-2 align-items-center mb-2 orden-cif-row">
-        <div class="col-7"><input type="text" class="form-control form-control-sm" name="orden_cif_concepto[]" placeholder="Concepto"></div>
-        <div class="col-4"><input type="number" class="form-control form-control-sm" name="orden_cif_costo_aplicado[]" step="0.0001" placeholder="Costo"></div>
-        <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-orden-cif"><i class="bi bi-trash"></i></button></div>
+    <div class="row g-2 align-items-center mb-2 orden-cif-row bg-white p-2 border rounded shadow-sm">
+        <div class="col-7">
+            <input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_cif_concepto[]" placeholder="Ej: Energía, Depreciación...">
+        </div>
+        <div class="col-4">
+            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle fw-semibold text-primary" name="orden_cif_costo_aplicado[]" step="0.0001" placeholder="S/ Total">
+        </div>
+        <div class="col-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove-orden-cif" title="Quitar concepto"><i class="bi bi-trash fs-6"></i></button>
+        </div>
     </div>
 </template>
 
@@ -750,7 +912,5 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
 </template>
-
-
 
 <script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.7"></script>

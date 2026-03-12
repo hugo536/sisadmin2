@@ -197,6 +197,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
+            <div class="col-7">
+                <select class="form-select recepcion-almacen" required></select>
+            </div>
+            <div class="col-5">
+                <input type="number" class="form-control text-end recepcion-cantidad" min="0" step="0.0001" value="${formatearCantidad(cantidad)}" ${editable ? '' : 'readonly'}>
+            </div>
         `;
 
         const select = fila.querySelector('.recepcion-almacen');

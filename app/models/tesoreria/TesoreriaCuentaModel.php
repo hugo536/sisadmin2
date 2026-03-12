@@ -117,6 +117,8 @@ class TesoreriaCuentaModel extends Modelo
             $data['cci'] = (string) ($cuentaActual['cci'] ?? '');
             $data['saldo_inicial'] = round((float) ($cuentaActual['saldo_inicial'] ?? 0), 4);
             $data['fecha_saldo_inicial'] = trim((string) ($cuentaActual['fecha_saldo_inicial'] ?? ''));
+            $data['estado'] = (int) ($cuentaActual['estado'] ?? 1);
+
         } elseif ($data['codigo'] === '') {
             // Autogenerar código si es necesario
             $data['codigo'] = $this->generarCodigoDisponible($data['tipo']);
@@ -277,6 +279,24 @@ class TesoreriaCuentaModel extends Modelo
                                       WHERE id = :id AND deleted_at IS NULL');
         $stmt->execute([
             'id' => $id,
+            'user' => $userId,
+        ]);
+    }
+
+    public function cambiarEstado(int $id, int $estado, int $userId): void
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Cuenta inválida para cambiar estado.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE tesoreria_cuentas
+                                      SET estado = :estado,
+                                          updated_by = :user,
+                                          updated_at = NOW()
+                                      WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'estado' => $estado === 1 ? 1 : 0,
             'user' => $userId,
         ]);
     }

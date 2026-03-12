@@ -112,7 +112,15 @@ $camposBloqueadosEdicion = $esEdicion;
                                         </span>
                                     </td>
                                     <td class="text-end pe-4 pt-3">
+                                        <div class="d-inline-flex align-items-center gap-2">
+                                            <form method="post" action="<?php echo e(route_url('tesoreria/cambiar_estado_cuenta')); ?>" class="d-inline">
+                                                <input type="hidden" name="id_cuenta" value="<?php echo (int) ($c['id'] ?? 0); ?>">
+                                                <div class="form-check form-switch m-0" data-bs-toggle="tooltip" data-bs-placement="top" title="Activar/Inactivar cuenta">
+                                                    <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" <?php echo $esActiva ? 'checked' : ''; ?>>
+                                                </div>
+                                            </form>
                                         <div class="d-inline-flex align-items-center gap-1">
+
                                             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&id=<?php echo (int) ($c['id'] ?? 0); ?>" 
                                                class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
                                                data-bs-toggle="tooltip" data-bs-placement="top" title="Editar cuenta">
