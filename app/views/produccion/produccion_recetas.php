@@ -182,7 +182,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <input type="text" class="form-control fw-bold shadow-none border-secondary-subtle text-primary" id="newCodigo" name="codigo" required>
                                 </div>
 
-                                <div class="col-md-2">
+                                <div class="col-md-1">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newVersion">Versión</label>
                                     <input type="number" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none text-secondary" id="newVersion" name="version" value="1" readonly>
                                 </div>
@@ -201,36 +201,30 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 </div>
 
                                 <div class="col-md-2">
-                                    <label class="form-label small text-muted fw-bold mb-1">Unidad rendimiento</label>
-                                    <input type="text" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
-                                </div>
-
-                                <div class="col-md-3">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newRendimientoBase">Cantidad diseñada (lote)</label>
                                     <input type="number" class="form-control shadow-none border-secondary-subtle fw-semibold text-end" id="newRendimientoBase" name="rendimiento_base" step="0.0001" value="1" min="0.0001" required>
                                 </div>
 
-                                <div class="col-md-3">
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted fw-bold mb-1">Unidad rendimiento</label>
+                                    <input type="text" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
+                                </div>
+
+                                <div class="col-md-2">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newTiempoProduccionHoras">Tiempo producción (horas)</label>
                                     <input type="number" class="form-control shadow-none border-secondary-subtle fw-semibold text-end" id="newTiempoProduccionHoras" name="tiempo_produccion_horas" step="0.0001" value="1" min="0.0001" required>
                                 </div>
 
-                                <div class="col-md-3" id="contenedorVersionesPrevias" style="display:none;">
-                                    <label for="newVersionBase" class="form-label small text-dark fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Precargar versión</label>
-                                    <select class="form-select form-select-sm shadow-none border-secondary-subtle" id="newVersionBase">
+                                <div class="col-md-4" id="contenedorVersionesPrevias" style="display:none;">
+                                    <label for="newVersionBase" class="form-label small text-muted fw-bold mb-1"></i>Precargar versión</label>
+                                    <select class="form-select form-select shadow-none border-secondary-subtle" id="newVersionBase">
                                         <option value="">Seleccione versión...</option>
                                     </select>
                                 </div>
 
-                                <div class="col-12">
+                                <div class="col-3">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newDescripcion">Descripción / Observaciones</label>
                                     <input type="text" class="form-control shadow-none border-secondary-subtle" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial de producción...">
-                                </div>
-
-                                <div class="col-12" id="ayudaVersionesPrevias" style="display:none;">
-                                    <div class="px-3 py-2 bg-secondary-subtle rounded-2 border border-secondary-subtle">
-                                        <small class="text-muted">Puede copiar BOM, MOD y CIF desde una versión anterior para ahorrar tiempo.</small>
-                                    </div>
                                 </div>
                             </div>
                         </div>
