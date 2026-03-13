@@ -300,6 +300,7 @@ class ProduccionRecetasModel extends Modelo
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
             'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
+            'tiempo_produccion_horas' => (float) ($receta['tiempo_produccion_horas'] ?? 1),
             'detalles' => $this->obtenerDetalleRecetaVersion($idReceta),
             'parametros' => $this->obtenerParametrosReceta($idReceta),
             'mano_obra' => $this->obtenerModReceta($idReceta),
@@ -315,6 +316,7 @@ class ProduccionRecetasModel extends Modelo
         $descripcion = trim((string) ($payload['descripcion'] ?? ''));
         $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
         $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
+        $tiempoProduccionHoras = (float) ($payload['tiempo_produccion_horas'] ?? 1);
 
         $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
         $parametros = is_array($payload['parametros'] ?? null) ? $payload['parametros'] : [];
@@ -362,6 +364,7 @@ class ProduccionRecetasModel extends Modelo
                                           descripcion = :descripcion,
                                           rendimiento_base = :rendimiento_base,
                                           unidad_rendimiento = :unidad_rendimiento,
+                                          tiempo_produccion_horas = :tiempo_produccion_horas,
                                           estado = 1,
                                           updated_at = NOW(),
                                           updated_by = :updated_by
@@ -371,6 +374,7 @@ class ProduccionRecetasModel extends Modelo
                     'descripcion' => $descripcion !== '' ? $descripcion : null,
                     'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                     'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'tiempo_produccion_horas' => number_format(max(0.0001, $tiempoProduccionHoras), 4, '.', ''),
                     'updated_by' => $userId,
                     'id_receta' => $idRecetaPendiente,
                 ]);
@@ -384,11 +388,11 @@ class ProduccionRecetasModel extends Modelo
 
                 $stmt = $db->prepare('INSERT INTO produccion_recetas
                                         (id_producto, codigo, version, descripcion,
-                                         rendimiento_base, unidad_rendimiento,
+                                         rendimiento_base, unidad_rendimiento, tiempo_produccion_horas,
                                          costo_teorico_unitario, estado, created_by, updated_by)
                                       VALUES
                                         (:id_producto, :codigo, :version, :descripcion,
-                                         :rendimiento_base, :unidad_rendimiento,
+                                         :rendimiento_base, :unidad_rendimiento, :tiempo_produccion_horas,
                                          :costo_unitario, 1, :created_by, :updated_by)');
 
                 $stmt->execute([
@@ -398,6 +402,7 @@ class ProduccionRecetasModel extends Modelo
                     'descripcion' => $descripcion !== '' ? $descripcion : null,
                     'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                     'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'tiempo_produccion_horas' => number_format(max(0.0001, $tiempoProduccionHoras), 4, '.', ''),
                     'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
                     'created_by' => $userId,
                     'updated_by' => $userId,
@@ -510,11 +515,11 @@ class ProduccionRecetasModel extends Modelo
         $stmtMd->execute(['id_receta' => $idReceta]);
         $costoMD = (float) ($stmtMd->fetchColumn() ?: 0);
 
-        $stmtMod = $db->prepare('SELECT COALESCE(SUM(horas_estimadas * costo_hora_estimado), 0)
+        $stmtMod = $db->prepare('SELECT COALESCE(SUM(costo_hora_estimado), 0)
                                  FROM produccion_recetas_mod
                                  WHERE id_receta = :id_receta');
         $stmtMod->execute(['id_receta' => $idReceta]);
-        $costoMOD = (float) ($stmtMod->fetchColumn() ?: 0);
+        $sumaCostoHoraMod = (float) ($stmtMod->fetchColumn() ?: 0);
 
         $stmtCif = $db->prepare('SELECT COALESCE(SUM(costo_estimado), 0)
                                  FROM produccion_recetas_cif
@@ -522,17 +527,20 @@ class ProduccionRecetasModel extends Modelo
         $stmtCif->execute(['id_receta' => $idReceta]);
         $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
 
-        $stmtRec = $db->prepare('SELECT rendimiento_base
+        $stmtRec = $db->prepare('SELECT rendimiento_base, tiempo_produccion_horas
                                  FROM produccion_recetas
                                  WHERE id = :id_receta
                                    AND deleted_at IS NULL
                                  LIMIT 1');
         $stmtRec->execute(['id_receta' => $idReceta]);
-        $rendimientoBase = (float) ($stmtRec->fetchColumn() ?: 0);
+        $filaRec = $stmtRec->fetch(PDO::FETCH_ASSOC) ?: [];
+        $rendimientoBase = (float) ($filaRec['rendimiento_base'] ?? 0);
+        $tiempoProduccionHoras = (float) ($filaRec['tiempo_produccion_horas'] ?? 1);
         if ($rendimientoBase <= 0) {
             throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
         }
 
+        $costoMOD = $sumaCostoHoraMod * max($tiempoProduccionHoras, 0);
         $costoTotal = $costoMD + $costoMOD + $costoCIF;
         $costoUnitario = $costoTotal / $rendimientoBase;
 
@@ -705,7 +713,7 @@ class ProduccionRecetasModel extends Modelo
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
             'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
-            
+            'tiempo_produccion_horas' => (float) ($receta['tiempo_produccion_horas'] ?? 1),
             'detalles' => array_map(static fn (array $d): array => [
                 'id_insumo' => (int) $d['id_insumo'],
                 'etapa' => (string) ($d['etapa'] ?? ''),
@@ -749,6 +757,7 @@ class ProduccionRecetasModel extends Modelo
             'descripcion' => trim((string) ($recetaActivaFila['descripcion'] ?? '')),
             'rendimiento_base' => number_format((float) ($recetaActivaFila['rendimiento_base'] ?? 0), 4, '.', ''),
             'unidad_rendimiento' => trim((string) ($recetaActivaFila['unidad_rendimiento'] ?? '')),
+            'tiempo_produccion_horas' => number_format((float) ($recetaActivaFila['tiempo_produccion_horas'] ?? 1), 4, '.', ''),
             'detalles' => $this->normalizarDetallesComparacion($detallesActiva),
             'parametros' => $this->normalizarParametrosComparacion($parametrosActiva),
             'mano_obra' => $this->normalizarModComparacion($this->obtenerModReceta($idRecetaActiva)),
@@ -759,6 +768,7 @@ class ProduccionRecetasModel extends Modelo
             'descripcion' => trim((string) ($payload['descripcion'] ?? '')),
             'rendimiento_base' => number_format((float) ($payload['rendimiento_base'] ?? 0), 4, '.', ''),
             'unidad_rendimiento' => trim((string) ($payload['unidad_rendimiento'] ?? '')),
+            'tiempo_produccion_horas' => number_format((float) ($payload['tiempo_produccion_horas'] ?? 1), 4, '.', ''),
             'detalles' => $this->normalizarDetallesComparacion((array) ($payload['detalles'] ?? [])),
             'parametros' => $this->normalizarParametrosComparacion((array) ($payload['parametros'] ?? [])),
             'mano_obra' => $this->normalizarModComparacion((array) ($payload['mano_obra'] ?? [])),
@@ -778,6 +788,7 @@ class ProduccionRecetasModel extends Modelo
             'descripcion' => $normalizadoPayload['descripcion'],
             'rendimiento_base' => (float) $normalizadoPayload['rendimiento_base'],
             'unidad_rendimiento' => $normalizadoPayload['unidad_rendimiento'],
+            'tiempo_produccion_horas' => (float) $normalizadoPayload['tiempo_produccion_horas'],
             'detalles' => (array) ($payload['detalles'] ?? []),
             'parametros' => (array) ($payload['parametros'] ?? []),
             'mano_obra' => (array) ($payload['mano_obra'] ?? []),
@@ -945,6 +956,9 @@ class ProduccionRecetasModel extends Modelo
             'version'             => $siguienteVersion,
             'codigo'              => $this->generarCodigoVersion($receta['codigo'], $siguienteVersion),
             'descripcion'         => $receta['descripcion'],
+            'rendimiento_base'    => $receta['rendimiento_base'],
+            'unidad_rendimiento'  => $receta['unidad_rendimiento'],
+            'tiempo_produccion_horas' => $receta['tiempo_produccion_horas'] ?? 1,
             'detalles'            => $receta['detalles'],
             'parametros'          => $receta['parametros'],
             'mano_obra'           => $receta['mano_obra'],

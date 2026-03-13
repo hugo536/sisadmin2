@@ -146,18 +146,17 @@ class ProduccionRecetasController extends Controlador
 
                     $manoObra = [];
                     $modPerfiles = $_POST['mod_perfil_puesto'] ?? [];
-                    $modHoras = $_POST['mod_horas_estimadas'] ?? [];
                     $modCostoHora = $_POST['mod_costo_hora_estimado'] ?? [];
+                    $tiempoProduccionHoras = $this->parseDecimal($_POST['tiempo_produccion_horas'] ?? 0);
                     foreach ((array) $modPerfiles as $idx => $perfil) {
                         $perfilTexto = trim((string) $perfil);
-                        $horas = $this->parseDecimal($modHoras[$idx] ?? 0);
                         $costoHora = $this->parseDecimal($modCostoHora[$idx] ?? 0);
-                        if ($perfilTexto === '' || $horas <= 0 || $costoHora <= 0) {
+                        if ($perfilTexto === '' || $tiempoProduccionHoras <= 0 || $costoHora <= 0) {
                             continue;
                         }
                         $manoObra[] = [
                             'perfil_puesto' => $perfilTexto,
-                            'horas_estimadas' => $horas,
+                            'horas_estimadas' => $tiempoProduccionHoras,
                             'costo_hora_estimado' => $costoHora,
                         ];
                     }
@@ -190,8 +189,9 @@ class ProduccionRecetasController extends Controlador
                         'codigo' => $codigoIngresado,
                         'version' => (int) ($_POST['version'] ?? 1),
                         'descripcion' => (string) ($_POST['descripcion'] ?? ''),
-                        'rendimiento_base' => 1.0,
-                        'unidad_rendimiento' => 'UND',
+                        'rendimiento_base' => $this->parseDecimal($_POST['rendimiento_base'] ?? 1),
+                        'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? 'UND'),
+                        'tiempo_produccion_horas' => $tiempoProduccionHoras > 0 ? $tiempoProduccionHoras : 1,
                         'detalles' => $detalles,
                         'parametros' => $parametros,
                         'mano_obra' => $manoObra,
