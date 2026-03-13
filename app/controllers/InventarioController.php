@@ -184,10 +184,6 @@ class InventarioController extends Controlador
                 throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
             }
 
-            if (in_array($tipo, ['AJ+', 'AJ-'], true) && $referencia === '') {
-                throw new InvalidArgumentException('La referencia es obligatoria para este tipo de movimiento.');
-            }
-
             if ($motivo !== '') {
                 $referencia = $referencia !== '' ? ('Motivo: ' . $motivo . ' | ' . $referencia) : ('Motivo: ' . $motivo);
             }

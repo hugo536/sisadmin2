@@ -313,7 +313,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small text-muted fw-bold mb-1">Stock Actual</label>
+                                    <label class="form-label small text-muted fw-bold mb-1">Stock en Almacén</label>
                                     <input type="text" class="form-control shadow-none bg-light text-primary fw-bold" id="stockActualItemSeleccionado" value="0.0000" readonly>
                                 </div>
                             </div>
@@ -330,7 +330,10 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     <select id="unidadMovimiento" class="form-select shadow-none border-secondary-subtle bg-light" disabled>
                                         <option value="">Unidad base</option>
                                     </select>
-                                    <div class="form-text small text-muted" id="unidadMovimientoInfo"></div>
+                                </div>
+
+                                <div class="col-md-4 d-flex align-items-end" id="grupoUnidadInfoMovimiento">
+                                    <div class="form-text small text-muted mt-0" id="unidadMovimientoInfo"></div>
                                 </div>
 
                                 <div class="col-md-4 d-none" id="grupoCostoUnitarioMovimiento">
@@ -392,7 +395,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
                     <div class="form-floating mb-2 shadow-sm rounded">
                         <textarea class="form-control shadow-none border-secondary-subtle" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-danger">(obligatorio para AJ+ y AJ-)</small></label>
+                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-muted">(opcional)</small></label>
                     </div>
 
                     <div class="d-flex justify-content-end pt-3 border-top mt-4">
