@@ -112,27 +112,31 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     </td>
                                     <td class="text-end pe-4 align-top pt-3">
                                         <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-warning fw-semibold js-agregar-receta shadow-sm"
-                                                    data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
-                                                    data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
-                                                    data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
-                                                    data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
-                                                    data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
-                                                    data-bs-toggle="tooltip"
-                                                    title="Agregar receta inicial">
-                                                <i class="bi bi-journal-plus me-1"></i>Crear Receta
-                                            </button>
+                                            <div class="d-inline-flex gap-1">
+                                                <button type="button"
+                                                        class="btn-icon btn-icon-warning js-agregar-receta"
+                                                        data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                        data-producto="<?php echo e((string) ($receta['producto_nombre'] ?? '')); ?>"
+                                                        data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                        data-version="<?php echo (int) ($receta['version'] ?? 1); ?>"
+                                                        data-unidad="<?php echo e((string) ($receta['unidad_base'] ?? 'UND')); ?>"
+                                                        data-bs-toggle="tooltip"
+                                                        title="Crear Receta">
+                                                    <i class="bi bi-journal-plus"></i>
+                                                </button>
+                                            </div>
                                         <?php else: ?>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-primary fw-semibold js-nueva-version shadow-sm"
-                                                    data-id-receta="<?php echo (int) $receta['id']; ?>"
-                                                    data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
-                                                    data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
-                                                    data-bs-toggle="tooltip"
-                                                    title="Editar y crear nueva versión">
-                                                <i class="bi bi-files me-1"></i>Nueva Versión
-                                            </button>
+                                            <div class="d-inline-flex gap-1">
+                                                <button type="button"
+                                                        class="btn-icon btn-icon-primary js-nueva-version"
+                                                        data-id-receta="<?php echo (int) $receta['id']; ?>"
+                                                        data-id-producto="<?php echo (int) ($receta['id_producto'] ?? 0); ?>"
+                                                        data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                        data-bs-toggle="tooltip"
+                                                        title="Nueva Versión">
+                                                    <i class="bi bi-files"></i>
+                                                </button>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -158,18 +162,18 @@ $activosFijosCif = $activos_fijos_cif ?? [];
 <div class="modal fade" id="modalCrearReceta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+            <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold" id="modalCrearRecetaTitle">
                     <i class="bi bi-plus-circle me-2"></i><span id="modalTitleText">Nueva receta</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+            <div class="modal-body bg-light p-3 p-md-4">
                 <form method="post" id="formCrearReceta">
                     <input type="hidden" name="accion" value="crear_receta">
                     <input type="hidden" name="id_receta_base" id="newIdRecetaBase" value="0">
 
-                    <div class="card border-0 shadow-sm mb-4">
+                    <div class="card modal-pastel-card mb-4">
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
                             <div class="row g-3">
@@ -219,7 +223,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-4">
+                    <div class="card modal-pastel-card mb-4">
                         <div class="card-body p-0">
                             <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -261,7 +265,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         <div class="col-md-5">Perfil / Puesto</div>
                                         <div class="col-md-3">Horas Est.</div>
                                         <div class="col-md-3">Costo/Hora (S/)</div>
-                                        <div class="col-md-1 text-end">Acción</div>
+                                        <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorMod" class="d-flex flex-column gap-2"></div>
                                 </div>
@@ -282,7 +286,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         <div class="col-md-5">Concepto Adicional</div>
                                         <div class="col-md-2">Horas Uso</div>
                                         <div class="col-md-1">Costo (S/)</div>
-                                        <div class="col-md-1 text-end">Acción</div>
+                                        <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
                                 </div>
@@ -290,7 +294,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-4">
+                    <div class="card modal-pastel-card mb-4">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                                 <div>
@@ -328,9 +332,9 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                             <div class="col-md-5">
                                 <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="parametro_valor[]" step="0.0001" placeholder="Valor objetivo (Numérico)" required>
                             </div>
-                            <div class="col-md-2 text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-param border-0" title="Eliminar parámetro">
-                                    <i class="bi bi-trash fs-6"></i>
+                            <div class="col-md-2 text-center">
+                                <button type="button" class="btn-icon btn-icon-danger js-remove-param" title="Eliminar parámetro">
+                                    <i class="bi bi-trash3"></i>
                                 </button>
                             </div>
                         </div>
@@ -363,9 +367,9 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                             <div class="col-md-1">
                                 <input type="text" class="form-control form-control-sm bg-light input-costo-item text-primary fw-bold px-1 text-center border-secondary-subtle" value="0.0000" readonly>
                             </div>
-                            <div class="col-md-1 text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row border-0" title="Eliminar insumo">
-                                    <i class="bi bi-trash fs-6"></i>
+                            <div class="col-md-1 text-center">
+                                <button type="button" class="btn-icon btn-icon-danger js-remove-row" title="Eliminar insumo">
+                                    <i class="bi bi-trash3"></i>
                                 </button>
                             </div>
                         </div>
@@ -386,7 +390,11 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <input type="number" class="form-control form-control-sm mod-costo shadow-none border-secondary-subtle" name="mod_costo_hora_estimado[]" step="0.0001" placeholder="Costo Base">
                                 </div>
                             </div>
-                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-mod border-0"><i class="bi bi-trash fs-6"></i></button></div>
+                            <div class="col-md-1 text-center">
+                                <button type="button" class="btn-icon btn-icon-danger js-remove-mod" title="Eliminar operario">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
                         </div>
                     </template>
 
@@ -405,7 +413,11 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 </div>
                             </div>
                             <div class="col-md-1"><input type="number" class="form-control form-control-sm cif-costo bg-light border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="S/ 0.00" readonly></div>
-                            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger js-remove-cif border-0"><i class="bi bi-trash fs-6"></i></button></div>
+                            <div class="col-md-1 text-center">
+                                <button type="button" class="btn-icon btn-icon-danger js-remove-cif" title="Eliminar CIF">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
                         </div>
                     </template>
 
@@ -427,7 +439,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body bg-light pt-0">
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card modal-pastel-card mb-4">
                     <div class="card-body">
                         <form method="post" id="formGestionParametroCatalogo" class="row g-2">
                             <input type="hidden" name="accion" id="accionParametroCatalogo" value="crear_parametro_catalogo">
@@ -453,10 +465,10 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                     </div>
                 </div>
 
-                <div class="card border-0 shadow-sm">
+                <div class="card modal-pastel-card">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table align-middle table-sm mb-0 table-pro">
+                            <table class="table align-middle table-sm mb-0 table-pastel">
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-3 text-secondary fw-semibold">Nombre de Métrica</th>
@@ -473,22 +485,24 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                                 <td><span class="badge bg-secondary-subtle text-secondary border px-2"><?php echo e((string) ($param['unidad_medida'] ?? '-')); ?></span></td>
                                                 <td class="text-muted small"><?php echo e((string) ($param['descripcion'] ?? '-')); ?></td>
                                                 <td class="text-end pe-3">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-light text-primary rounded-circle border-0 js-editar-param-catalogo"
-                                                            data-bs-toggle="tooltip" title="Editar este parámetro"
-                                                            data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
-                                                            data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
-                                                            data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
-                                                            data-descripcion="<?php echo e((string) ($param['descripcion'] ?? '')); ?>">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </button>
-                                                    <form method="post" class="d-inline" onsubmit="return confirm('¿Está seguro de eliminar este parámetro permanentemente?');">
-                                                        <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
-                                                        <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
-                                                        <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0" data-bs-toggle="tooltip" title="Eliminar definitivamente">
-                                                            <i class="bi bi-trash"></i>
+                                                    <div class="d-inline-flex gap-1">
+                                                        <button type="button"
+                                                                class="btn-icon btn-icon-info js-editar-param-catalogo"
+                                                                data-bs-toggle="tooltip" title="Editar este parámetro"
+                                                                data-id="<?php echo (int) ($param['id'] ?? 0); ?>"
+                                                                data-nombre="<?php echo e((string) ($param['nombre'] ?? '')); ?>"
+                                                                data-unidad="<?php echo e((string) ($param['unidad_medida'] ?? '')); ?>"
+                                                                data-descripcion="<?php echo e((string) ($param['descripcion'] ?? '')); ?>">
+                                                            <i class="bi bi-pencil-square"></i>
                                                         </button>
-                                                    </form>
+                                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('¿Está seguro de eliminar este parámetro permanentemente?');">
+                                                            <input type="hidden" name="accion" value="eliminar_parametro_catalogo">
+                                                            <input type="hidden" name="id_parametro_catalogo" value="<?php echo (int) ($param['id'] ?? 0); ?>">
+                                                            <button type="submit" class="btn-icon btn-icon-danger" data-bs-toggle="tooltip" title="Eliminar definitivamente">
+                                                                <i class="bi bi-trash3"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -517,4 +531,5 @@ window.ACTIVOS_FIJOS_CIF = <?php echo json_encode(array_map(static function(arra
     ];
 }, $activosFijosCif), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 </script>
+<script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
 <script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.4"></script>

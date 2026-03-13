@@ -204,12 +204,12 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 <div class="modal fade" id="modalMovimientoInventario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+            <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold"><i class="bi bi-arrow-left-right me-2"></i>Registrar Movimiento</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <form id="formMovimientoInventario" autocomplete="off" novalidate>
+            <div class="modal-body bg-light p-3 p-md-4">
+                <form id="formMovimientoInventario" autocomplete="off" novalidate class="m-0">
                     <input type="hidden" id="idItemMovimiento" name="id_item" value="0">
                     <input type="hidden" id="idPackMovimiento" name="id_pack" value="0">
                     <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
@@ -398,8 +398,8 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </div>
 
                     <div class="d-flex justify-content-end pt-3 border-top mt-4">
-                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar Movimiento</button>
+                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Movimiento</button>
                     </div>
                 </form>
             </div>
