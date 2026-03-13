@@ -232,7 +232,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
 
                     <div class="card modal-pastel-card mb-4">
                         <div class="card-body p-0">
-                            <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
+                            <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" id="tabsRecetaCostos" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link active fw-bold text-primary px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabRecetaBom" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>BOM / Insumos</button>
                                 </li>
@@ -270,10 +270,15 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     </div>
                                     <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
                                         <div class="col-md-5">Perfil / Puesto</div>
-                                        <div class="col-md-6">Costo/Hora (S/)</div>
+                                        <div class="col-md-6">Costo base (S/)</div>
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorMod" class="d-flex flex-column gap-2"></div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <div class="badge text-bg-secondary fs-6 px-3 py-2">
+                                            Total MOD: <span id="totalModCalculado">S/ 0.0000</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="tab-pane fade" id="tabRecetaCif" role="tabpanel">
@@ -294,8 +299,19 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <div class="badge text-bg-secondary fs-6 px-3 py-2">
+                                            Total CIF: <span id="totalCifCalculado">S/ 0.0000</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mb-4">
+                        <div class="badge text-bg-secondary fs-6 px-3 py-2">
+                            Total BOM: <span id="totalBomCalculado">S/ 0.0000</span>
                         </div>
                     </div>
 
@@ -317,7 +333,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                     <div class="card border border-primary-subtle shadow-sm bg-primary-subtle bg-opacity-10 mb-2">
                         <div class="card-body d-flex justify-content-between align-items-center p-4">
                             <div>
-                                <h5 class="fw-bold text-dark mb-1">Resumen Teórico</h5>
+                                <h5 class="fw-bold text-dark mb-1">Costo teórico</h5>
                                 <div id="bomResumen" class="small text-muted fw-semibold">0 insumos agregados.</div>
                             </div>
                             <div class="text-end">
