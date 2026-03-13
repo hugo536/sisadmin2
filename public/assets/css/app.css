@@ -517,11 +517,13 @@ body {
 #modalOrdenCompra.modal-orden-solo-lectura .form-select:disabled {
     color: #212529 !important;
     -webkit-text-fill-color: #212529 !important;
+
     cursor: default !important;
 }
 
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control {
     cursor: default !important;
+
 }
 
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
@@ -530,4 +532,5 @@ body {
     color: #212529 !important;
     -webkit-text-fill-color: #212529 !important;
     opacity: 1 !important;
+
 }

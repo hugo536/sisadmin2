@@ -408,26 +408,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         tr.innerHTML = `
-            <td>
-                <div class="fw-bold text-dark">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
-                <div class="small text-muted">Pendiente Global: <span class="badge bg-warning text-dark badge-pendiente">${Number(linea.cantidad_pendiente)}</span></div>
-                <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split" title="Añadir otro almacén" ${disabledState}>
-                    <i class="bi bi-plus-circle me-1"></i>Agregar otro almacén
+            <td class="align-middle py-3">
+                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                <div class="small text-muted d-flex align-items-center gap-2">
+                    <span>Pendiente Global:</span> 
+                    <span class="badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm">${Number(linea.cantidad_pendiente)}</span>
+                </div>
+                <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split" title="Fraccionar en otro almacén" ${disabledState}>
+                    <i class="bi bi-diagram-2 me-1"></i>Agregar otro almacén
                 </button>
             </td>
-            <td>
-                <select class="form-select form-select-sm fila-almacen" ${disabledState}>
+            <td class="align-middle">
+                <select class="form-select form-select-sm fila-almacen shadow-none border-secondary-subtle fw-semibold text-secondary" ${disabledState}>
                     ${opcionesHTML}
                 </select>
             </td>
-            <td class="text-center fw-bold despacho-stock text-muted">-</td>
-            <td>
-                <input type="number" class="form-control form-control-sm text-end despacho-cantidad"
-                       min="0" step="1" value="0" title="Solo números enteros (paquetes)" ${disabledState}>
+            <td class="text-center align-middle">
+                <span class="fw-bold despacho-stock text-secondary fs-6">-</span>
             </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-despacho d-none" title="Quitar fila" style="width:32px;height:32px;">
-                    <i class="bi bi-trash"></i>
+            <td class="align-middle px-2">
+                <input type="number" class="form-control form-control-sm text-center despacho-cantidad fw-bold text-primary shadow-none border-secondary-subtle mx-auto"
+                       min="0" step="1" value="0" title="Solo números enteros" ${disabledState} style="max-width: 90px;">
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-despacho d-none d-inline-flex align-items-center justify-content-center transition-all hover-lift p-0" title="Quitar almacén" style="width: 34px; height: 34px;">
+                    <i class="bi bi-trash-fill fs-6"></i>
                 </button>
             </td>
         `;
