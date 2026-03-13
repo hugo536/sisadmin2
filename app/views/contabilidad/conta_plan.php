@@ -5,6 +5,7 @@ $cuentas = $cuentas ?? [];
 $cuentasMovimiento = $cuentasMovimiento ?? [];
 $parametros = $parametros ?? [];
 $cuentasTesoreria = $cuentasTesoreria ?? [];
+$conceptosGasto = $conceptosGasto ?? [];
 
 $paramLabels = [];
 
@@ -299,6 +300,19 @@ if ($err !== '') {
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <option value="" disabled>No hay parámetros configurables disponibles</option>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($conceptosGasto)): ?>
+                                            <optgroup label="Conceptos de Gasto">
+                                                <?php foreach ($conceptosGasto as $cg):
+                                                    $clave = 'GASTO_CONCEPTO_' . (int)($cg['id'] ?? 0);
+                                                    $esVinculado = in_array($clave, $clavesVinculadas, true) ? 'true' : 'false';
+                                                ?>
+                                                    <option value="<?php echo e($clave); ?>" data-vinculado="<?php echo $esVinculado; ?>">
+                                                        <?php echo e((string)($cg['codigo'] ?? '') . ' - ' . (string)($cg['nombre'] ?? '')); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
                                         <?php endif; ?>
                                     </select>
                                 </div>

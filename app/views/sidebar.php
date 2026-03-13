@@ -275,6 +275,25 @@ function renderSidebarInner(
             <?php endif; ?>
 
 
+            <?php if (tiene_permiso('compras.ver')): ?>
+                <button class="sidebar-link<?php echo $linkGrupoActivo(['gastos']); ?>"
+                   type="button"
+                   data-bs-toggle="collapse"
+                   data-bs-target="#menuGastos"
+                   aria-expanded="<?php echo $grupoActivo(['gastos']) ? 'true' : 'false'; ?>"
+                   aria-controls="menuGastos">
+                    <i class="bi bi-wallet2"></i> <span>Gastos</span>
+                    <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
+                </button>
+                <div class="collapse<?php echo $grupoActivo(['gastos']); ?>" id="menuGastos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+                    <ul class="nav flex-column ps-3">
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/conceptos'); ?>" href="<?php echo e(route_url('gastos/conceptos')); ?>"><span>Conceptos de Gasto</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/registros'); ?>" href="<?php echo e(route_url('gastos/registros')); ?>"><span>Registro de Gastos</span></a></li>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+
             <?php if (tiene_permiso('tesoreria.ver') || tiene_permiso('tesoreria.cxc.ver') || tiene_permiso('tesoreria.cxp.ver')): ?>
                 <button class="sidebar-link<?php echo $linkGrupoActivo(['tesoreria']); ?>"
                    type="button"
