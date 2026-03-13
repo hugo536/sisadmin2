@@ -162,6 +162,12 @@ class InventarioModel extends Modelo
         $busqueda = '%' . $termino . '%';
         $tablaPacksDisponible = $this->tablaExiste('precios_presentaciones');
 
+        $filtroStockItems = '';
+        $filtroStockPacks = '';
+        if ($soloConStock && $idAlmacen > 0) {
+            $filtroStockItems = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_item = i.id AND st.id_almacen = :id_almacen_item AND st.stock_actual > 0)';
+            $filtroStockPacks = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_pack = p.id AND st.id_almacen = :id_almacen_pack AND st.stock_actual > 0)';
+        }
 
         $filtroControlaStock = '';
         if ($controlaStock !== null) {
@@ -169,7 +175,6 @@ class InventarioModel extends Modelo
             $filtroControlaStock = " AND i.controla_stock = {$valControla}";
         }
 
-        // 1. Consulta para los ítems
         $sql = "SELECT i.id,
                        i.sku,
                        i.nombre,
@@ -187,33 +192,8 @@ class InventarioModel extends Modelo
                   AND i.deleted_at IS NULL
                   AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)
                   {$filtroStockItems}
-                  {$filtroControlaStock}"; // <-- NUEVO FILTRO APLICADO
-        $filtroStockPacks = '';
-        if ($soloConStock && $idAlmacen > 0) {
-            $filtroStockItems = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_item = i.id AND st.id_almacen = :id_almacen_item AND st.stock_actual > 0)';
-            $filtroStockPacks = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_pack = p.id AND st.id_almacen = :id_almacen_pack AND st.stock_actual > 0)';
-        }
+                  {$filtroControlaStock}";
 
-        // 1. Consulta para los ítems
-        $sql = "SELECT i.id,
-                       i.sku,
-                       i.nombre,
-                       i.tipo_item AS tipo,
-                       'item' AS tipo_registro,
-                       i.requiere_lote,
-                       i.requiere_vencimiento,
-                       i.nombre AS nombre_full,
-                       '' AS nota,
-                       CONCAT('item:', i.id) AS value
-                FROM items i
-                LEFT JOIN item_sabores s ON s.id = i.id_sabor
-                LEFT JOIN item_presentaciones p ON p.id = i.id_presentacion
-                WHERE i.estado = 1
-                  AND i.deleted_at IS NULL
-                  AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)
-                  {$filtroStockItems}";
-
-        // 2. Si hay packs, los unimos con UNION ALL
         if ($tablaPacksDisponible) {
             $sql .= " UNION ALL
                       SELECT p.id,
@@ -244,7 +224,6 @@ class InventarioModel extends Modelo
                         )";
         }
 
-        // 3. Dejamos que el motor de Base de Datos ordene y limite
         $sql .= " ORDER BY nombre_full ASC LIMIT {$limite}";
 
         $stmt = $this->db()->prepare($sql);
@@ -266,7 +245,32 @@ class InventarioModel extends Modelo
         }
 
         $stmt->execute();
-        
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarUnidadesConversionItem(int $idItem): array
+    {
+        if ($idItem <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT u.id,
+                    u.nombre,
+                    u.nombre AS text,
+                    u.factor_conversion,
+                    i.unidad_base
+                FROM items_unidades u
+                INNER JOIN items i ON i.id = u.id_item
+                WHERE u.id_item = :id_item
+                  AND i.deleted_at IS NULL
+                  AND i.requiere_factor_conversion = 1
+                  AND u.estado = 1
+                  AND u.deleted_at IS NULL
+                ORDER BY u.nombre ASC, u.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -685,6 +689,7 @@ class InventarioModel extends Modelo
                     'tipo_registro' => $tipoRegistro,
                     'id_item' => $idItem,
                     'id_pack' => $idPack,
+                    'id_item_unidad' => (int) ($linea['id_item_unidad'] ?? 0),
                     'cantidad' => $cantidad,
                     'referencia' => $referencia,
                     'lote' => $lote,

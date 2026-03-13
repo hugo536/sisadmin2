@@ -316,6 +316,30 @@ class InventarioController extends Controlador
         json_response(['ok' => true, 'items' => $items]);
     }
 
+    public function unidadesItem(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('inventario.movimiento.crear');
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        try {
+            $idItem = (int) ($_GET['id_item'] ?? 0);
+            json_response([
+                'ok' => true,
+                'items' => $this->inventarioModel->listarUnidadesConversionItem($idItem),
+            ]);
+        } catch (Throwable $e) {
+            json_response([
+                'ok' => false,
+                'mensaje' => 'No se pudieron cargar unidades de conversión.',
+            ], 500);
+        }
+    }
+
     public function buscarLotes(): void 
     {
         AuthMiddleware::handle();

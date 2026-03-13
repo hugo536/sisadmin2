@@ -42,12 +42,85 @@
   const cantidadInput = document.getElementById('cantidadMovimiento');
   const stockHint = document.getElementById('stockDisponibleHint');
   const costoUnitarioInput = document.getElementById('costoUnitarioMovimiento');
-  const costoPromedioActualLabel = document.getElementById('costoPromedioActual');
+  const grupoCostoUnitario = document.getElementById('grupoCostoUnitarioMovimiento');
   const stockActualItemLabel = document.getElementById('stockActualItemSeleccionado');
+  const grupoUnidadMovimiento = document.getElementById('grupoUnidadMovimiento');
+  const unidadMovimiento = document.getElementById('unidadMovimiento');
+  const unidadMovimientoInfo = document.getElementById('unidadMovimientoInfo');
   const btnAgregarLinea = document.getElementById('btnAgregarLineaMovimiento');
   const movimientosDetalleBody = document.getElementById('movimientosDetalleBody');
 
   const lineasMovimiento = [];
+  const cacheUnidadesItem = new Map();
+
+  function limpiarUnidadesTransferencia() {
+    if (unidadMovimiento) {
+      unidadMovimiento.innerHTML = '<option value="">Unidad base</option>';
+      unidadMovimiento.value = '';
+      unidadMovimiento.disabled = true;
+    }
+    if (unidadMovimientoInfo) unidadMovimientoInfo.textContent = '';
+  }
+
+  function obtenerFactorUnidadSeleccionada() {
+    if (!unidadMovimiento || !unidadMovimiento.value) return 1;
+    const opt = unidadMovimiento.options[unidadMovimiento.selectedIndex];
+    const factor = Number((opt && opt.dataset && opt.dataset.factor) || 1);
+    return Number.isFinite(factor) && factor > 0 ? factor : 1;
+  }
+
+  async function obtenerUnidadesItem(idItem) {
+    if (idItem <= 0) return [];
+    if (cacheUnidadesItem.has(idItem)) return cacheUnidadesItem.get(idItem);
+
+    const response = await fetch(`${window.BASE_URL}?ruta=inventario/unidadesItem&id_item=${idItem}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const data = await response.json();
+    if (!response.ok || !data || data.ok !== true) {
+      throw new Error((data && data.mensaje) || 'No se pudieron cargar unidades.');
+    }
+
+    const unidades = Array.isArray(data.items) ? data.items : [];
+    cacheUnidadesItem.set(idItem, unidades);
+    return unidades;
+  }
+
+  async function cargarUnidadesTransferencia() {
+    const tipoVal = (tipo && tipo.value) || '';
+    const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
+    const idItem = Number((itemIdInput && itemIdInput.value) || 0);
+
+    if (tipoVal !== 'TRF' || tipoRegistro !== 'item' || idItem <= 0) {
+      limpiarUnidadesTransferencia();
+      return;
+    }
+
+    if (!unidadMovimiento) return;
+    unidadMovimiento.disabled = true;
+    unidadMovimiento.innerHTML = '<option value="">Cargando unidades...</option>';
+
+    try {
+      const unidades = await obtenerUnidadesItem(idItem);
+      unidadMovimiento.innerHTML = '<option value="">Unidad base</option>';
+      unidades.forEach((unidad) => {
+        const factor = Number(unidad.factor_conversion || 1);
+        const option = document.createElement('option');
+        option.value = String(unidad.id || '');
+        option.textContent = `${unidad.nombre || 'Unidad'} (x${factor})`;
+        option.dataset.factor = String(factor > 0 ? factor : 1);
+        unidadMovimiento.appendChild(option);
+      });
+      unidadMovimiento.disabled = false;
+      if (unidadMovimientoInfo) {
+        unidadMovimientoInfo.textContent = unidades.length > 0
+          ? 'Si elige una unidad, la cantidad se convertirá automáticamente a unidad base.'
+          : 'Este ítem no tiene unidades adicionales; se usará la unidad base.';
+      }
+    } catch (error) {
+      limpiarUnidadesTransferencia();
+    }
+  }
 
   // --- FILTROS DE LA TABLA PRINCIPAL ---
   const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro');
@@ -139,7 +212,7 @@
             placeholder: 'Escriba para buscar...',
             dropdownParent: 'body',
             load: function(query, callback) {
-                if (!query.length) return callback();
+                if (query.length < 1) return callback();
                 const idAlmacen = Number((almacen && almacen.value) || 0);
                 if (idAlmacen <= 0) {
                     callback();
@@ -224,6 +297,7 @@
                 filtrarAlmacenesPorTipo();
                 actualizarStockHint();
                 cargarResumenItem();
+                cargarUnidadesTransferencia();
             }
         });
     }
@@ -328,13 +402,16 @@
         }
     }
 
+    if (grupoCostoUnitario) grupoCostoUnitario.classList.toggle('d-none', tipoVal !== 'INI');
     if (costoUnitarioInput) {
       const habilitarCostoManual = tipoVal === 'INI';
       costoUnitarioInput.readOnly = !habilitarCostoManual;
       costoUnitarioInput.classList.toggle('bg-light', !habilitarCostoManual);
       costoUnitarioInput.classList.toggle('text-muted', !habilitarCostoManual);
-      if (tipoVal === 'INI') costoUnitarioInput.value = '0.0000';
+      if (tipoVal !== 'INI') costoUnitarioInput.value = '0.0000';
     }
+
+    if (grupoUnidadMovimiento) grupoUnidadMovimiento.classList.toggle('d-none', tipoVal !== 'TRF');
 
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
     if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal));
@@ -425,36 +502,24 @@
   }
 
   async function cargarResumenItem() {
-    if (!itemIdInput) return;
+    if (!itemIdInput || !stockActualItemLabel) return;
     const idItem = Number(itemIdInput.value || '0');
     const idPack = Number((packIdInput && packIdInput.value) || '0');
     const idRegistro = idPack > 0 ? idPack : idItem;
     const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
-    if (!costoPromedioActualLabel || !stockActualItemLabel) return;
 
     if (idRegistro <= 0) {
-      costoPromedioActualLabel.textContent = '$0.0000';
       stockActualItemLabel.textContent = '0.0000';
       return;
     }
 
-    costoPromedioActualLabel.textContent = 'Consultando...';
     stockActualItemLabel.textContent = 'Consultando...';
 
     try {
       const resumen = await obtenerResumenItemReal(idRegistro, tipoRegistro);
-      const costoPromedio = Number(resumen.costo_promedio_actual || 0);
       const stock = Number(resumen.stock_actual || 0);
-
-      costoPromedioActualLabel.textContent = `$${costoPromedio.toFixed(4)}`;
       stockActualItemLabel.textContent = stock.toFixed(4);
-
-      if (costoUnitarioInput) {
-        if (tipo && tipo.value === 'INI') costoUnitarioInput.value = '0.0000';
-        else costoUnitarioInput.value = costoPromedio.toFixed(4);
-      }
     } catch (error) {
-      costoPromedioActualLabel.textContent = '$0.0000';
       stockActualItemLabel.textContent = '0.0000';
     }
   }
@@ -538,6 +603,7 @@
             actualizarUIModal();
             actualizarStockHint();
             if (Number((itemIdInput && itemIdInput.value) || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0) cargarResumenItem();
+            cargarUnidadesTransferencia();
         });
     }
 
@@ -573,6 +639,17 @@
       });
     }
 
+    if (unidadMovimiento) {
+      unidadMovimiento.addEventListener('change', () => {
+        const factor = obtenerFactorUnidadSeleccionada();
+        if (unidadMovimientoInfo) {
+          unidadMovimientoInfo.textContent = factor > 1
+            ? `La cantidad se convertirá a base con factor x${factor}.`
+            : 'Se registrará en unidad base.';
+        }
+      });
+    }
+
     function limpiarEditorLinea() {
       if (tomSelectItem) {
         tomSelectItem.clear(true);
@@ -586,8 +663,8 @@
       if (inputVencimiento) inputVencimiento.value = '';
       if (costoUnitarioInput) costoUnitarioInput.value = '0';
       if (stockHint) stockHint.textContent = '';
-      if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = 'S/ 0.00';
       if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+      limpiarUnidadesTransferencia();
       actualizarUIModal();
     }
 
@@ -595,7 +672,7 @@
       if (!movimientosDetalleBody) return;
 
       if (lineasMovimiento.length === 0) {
-        movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="6" class="text-center text-muted py-3">Aún no hay ítems agregados.</td></tr>';
+        movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="7" class="text-center text-muted py-3">Aún no hay ítems agregados.</td></tr>';
         return;
       }
 
@@ -604,7 +681,8 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${linea.etiqueta}</td>
-          <td class="text-end">${Number(linea.cantidad || 0).toFixed(4)}</td>
+          <td class="text-end">${Number(linea.cantidad_mostrada || linea.cantidad || 0).toFixed(4)}</td>
+          <td>${linea.unidad_nombre || 'Base'}</td>
           <td>${linea.lote || '-'}</td>
           <td>${linea.fecha_vencimiento || '-'}</td>
           <td class="text-end">${Number(linea.costo_unitario || 0).toFixed(4)}</td>
@@ -616,8 +694,8 @@
       });
     }
 
-    function construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal) {
-      return [tipoRegistroVal, idRegistroVal, (loteVal || '').trim().toLowerCase()].join('|');
+    function construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal, idUnidadVal = 0) {
+      return [tipoRegistroVal, idRegistroVal, (loteVal || '').trim().toLowerCase(), Number(idUnidadVal || 0)].join('|');
     }
 
     async function agregarLineaMovimiento() {
@@ -627,6 +705,13 @@
       const idRegistroVal = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
       const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
       const tipoVal = (tipo && tipo.value) || '';
+      const aplicaUnidadTransferencia = tipoVal === 'TRF' && tipoRegistroVal === 'item';
+      const factorUnidad = aplicaUnidadTransferencia ? obtenerFactorUnidadSeleccionada() : 1;
+      const idItemUnidadVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value ? Number(unidadMovimiento.value) : 0;
+      const unidadNombreVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value
+        ? (unidadMovimiento.options[unidadMovimiento.selectedIndex]?.textContent || 'Unidad')
+        : 'Base';
+      const cantidadBaseVal = cantidadVal * factorUnidad;
 
       if (!tipoVal) {
         Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento antes de agregar líneas.' });
@@ -674,10 +759,10 @@
       }
 
       const loteVal = (loteFinalEnviar.value || '').trim();
-      const claveLinea = construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal);
+      const claveLinea = construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal, idItemUnidadVal);
       const existeDuplicado = lineasMovimiento.some((linea) => {
         const idRegistroLinea = linea.tipo_registro === 'pack' ? Number(linea.id_pack || 0) : Number(linea.id_item || 0);
-        return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote) === claveLinea;
+        return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote, linea.id_item_unidad) === claveLinea;
       });
 
       if (existeDuplicado) {
@@ -693,13 +778,13 @@
         const cantidadAcumulada = lineasMovimiento
           .filter((linea) => {
             const idRegistroLinea = linea.tipo_registro === 'pack' ? Number(linea.id_pack || 0) : Number(linea.id_item || 0);
-            return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote) === claveLinea;
+            return construirClaveLinea(linea.tipo_registro, idRegistroLinea, linea.lote, linea.id_item_unidad) === claveLinea;
           })
           .reduce((total, linea) => total + Number(linea.cantidad || 0), 0);
 
         const idConsulta = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
         const stockDisponible = await obtenerStockActual(idConsulta, idAlmacenVal, tipoRegistroVal);
-        const cantidadSolicitada = cantidadAcumulada + cantidadVal;
+        const cantidadSolicitada = cantidadAcumulada + cantidadBaseVal;
 
         if (cantidadSolicitada > stockDisponible) {
           Swal.fire({
@@ -719,7 +804,10 @@
         tipo_registro: tipoRegistroVal,
         id_item: tipoRegistroVal === 'item' ? idItemVal : 0,
         id_pack: tipoRegistroVal === 'pack' ? idPackVal : 0,
-        cantidad: cantidadVal,
+        cantidad: cantidadBaseVal,
+        cantidad_mostrada: cantidadVal,
+        id_item_unidad: idItemUnidadVal > 0 ? idItemUnidadVal : null,
+        unidad_nombre: unidadNombreVal,
         lote: loteVal,
         fecha_vencimiento: (inputVencimiento && inputVencimiento.value) ? inputVencimiento.value : '',
         costo_unitario: Number((costoUnitarioInput && costoUnitarioInput.value) || 0),
@@ -767,8 +855,8 @@
             if (packIdInput) packIdInput.value = '0';
             if (tipoRegistroInput) tipoRegistroInput.value = 'item';
             if (stockHint) stockHint.textContent = '';
-            if (costoPromedioActualLabel) costoPromedioActualLabel.textContent = '$0.0000';
             if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+            limpiarUnidadesTransferencia();
             actualizarBloqueoCabecera();
             
             if(grupoLoteInput) grupoLoteInput.classList.add('d-none');
@@ -871,6 +959,7 @@
               tipo_registro: linea.tipo_registro,
               id_item: linea.id_item,
               id_pack: linea.id_pack,
+              id_item_unidad: linea.id_item_unidad,
               cantidad: linea.cantidad,
               lote: linea.lote,
               fecha_vencimiento: linea.fecha_vencimiento,
