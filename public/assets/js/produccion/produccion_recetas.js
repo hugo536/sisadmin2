@@ -184,7 +184,10 @@ function initFormularioRecetas() {
 
         // ---> NUEVA LÍNEA: Habilitar el select para que vuelva a validar
         const selectProducto = document.getElementById('newProducto');
-        if (selectProducto) selectProducto.disabled = false;
+        if (selectProducto) {
+            selectProducto.disabled = false;
+            selectProducto.required = true;
+        }
     };
 
     const calcularResumenYCostos = () => {
@@ -506,10 +509,13 @@ function initFormularioRecetas() {
             if (containerSelect) containerSelect.style.display = 'none';
             if (containerDisplay) containerDisplay.style.display = 'block';
             if (displayNombre) displayNombre.textContent = data.producto_nombre || 'Producto';
-            
-            // ---> NUEVA LÍNEA: Deshabilitar el select oculto para que no exija "required"
+
+            // Deshabilitar el select oculto evita la validación nativa sobre un campo no enfocable
             const selectProducto = document.getElementById('newProducto');
-            if (selectProducto) selectProducto.disabled = true;
+            if (selectProducto) {
+                selectProducto.disabled = true;
+                selectProducto.required = false;
+            }
         },
         setCabeceraNuevaVersion(data) {
             if (!data) return;
@@ -544,6 +550,12 @@ function initFormularioRecetas() {
             if (containerSelect) containerSelect.style.display = 'none';
             if (containerDisplay) containerDisplay.style.display = 'block';
             if (displayNombre) displayNombre.textContent = data.producto_nombre || 'Producto';
+
+            const selectProducto = document.getElementById('newProducto');
+            if (selectProducto) {
+                selectProducto.disabled = true;
+                selectProducto.required = false;
+            }
         },
         setIdRecetaBase(idReceta) {
             const hiddenBase = document.getElementById('newIdRecetaBase');
