@@ -633,18 +633,13 @@
     if (almacen) {
         almacen.addEventListener('change', () => {
             if (tomSelectItem) {
-              tomSelectItem.clearOptions();
-              tomSelectItem.clear(true);
-              
-              // REGLA: Si hay almacén, habilita; si no, deshabilita.
+              // Mantener ítem seleccionado al cambiar almacén.
               if (almacen.value) {
                   tomSelectItem.enable();
               } else {
                   tomSelectItem.disable();
               }
             }
-            if (itemIdInput) itemIdInput.value = '0';
-            if (packIdInput) packIdInput.value = '0';
             if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
             actualizarOpcionesDestino();
             actualizarStockHint();

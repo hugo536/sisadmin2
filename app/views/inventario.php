@@ -330,7 +330,10 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     <select id="unidadMovimiento" class="form-select shadow-none border-secondary-subtle bg-light" disabled>
                                         <option value="">Unidad base</option>
                                     </select>
-                                    <div class="form-text small text-muted" id="unidadMovimientoInfo"></div>
+                                </div>
+
+                                <div class="col-md-4 d-flex align-items-end" id="grupoUnidadInfoMovimiento">
+                                    <div class="form-text small text-muted mt-0" id="unidadMovimientoInfo"></div>
                                 </div>
 
                                 <div class="col-md-4 d-none" id="grupoCostoUnitarioMovimiento">
