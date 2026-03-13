@@ -43,13 +43,20 @@
     transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
     border-radius: 50% !important;
     background-color: transparent !important; /* CRÍTICO: Fuerza a que no tenga fondo blanco */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23dc3545' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    background-size: 0.95rem;
+    filter: none !important;
     box-shadow: none !important; /* Evita aros blancos al hacerle clic */
 }
 
 .modal-header .btn-close:hover {
     opacity: 1;
-    background-color: #dc3545 !important; /* Fondo rojo al pasar el cursor */
+    background-color: rgba(220, 53, 69, 0.12) !important; /* Halo rojo suave al pasar el cursor */
     transform: rotate(90deg); /* El giro elegante */
+}
+
+.modal-header .btn-close:focus {
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
 }
 
 /* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES --- */
