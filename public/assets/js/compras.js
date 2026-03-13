@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const modalOrden = new bootstrap.Modal(document.getElementById('modalOrdenCompra'));
+    const modalOrdenElement = document.getElementById('modalOrdenCompra');
+    const modalOrden = new bootstrap.Modal(modalOrdenElement);
     const modalRecepcion = new bootstrap.Modal(document.getElementById('modalRecepcionCompra'));
 
     const tablaCompras = document.getElementById('tablaCompras');
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let ordenEnEdicionId = 0;
     let totalRecepcionCompra = 0;
+    let modalSoloLecturaActiva = false;
 
     function setOrdenEnEdicion(id = 0) {
         const parsedId = Number(id || 0);
@@ -437,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire('Atención', 'No se pudieron cargar las unidades de este ítem.', 'warning');
         }
 
+        sincronizarBloqueoFilaDetalle(fila);
         recalcularFila(fila);
     }
 
@@ -512,11 +515,33 @@ document.addEventListener('DOMContentLoaded', () => {
             actualizarUnidadPorItem(fila, null);
         }
 
+        sincronizarBloqueoFilaDetalle(fila);
         recalcularFila(fila);
+    }
+
+    function sincronizarBloqueoFilaDetalle(fila) {
+        if (!fila) return;
+
+        const inputItem = fila.querySelector('.detalle-item');
+        const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+
+        if (inputUnidad) {
+            inputUnidad.disabled = modalSoloLecturaActiva;
+        }
+
+        if (inputItem?.tomselect) {
+            if (modalSoloLecturaActiva) inputItem.tomselect.disable();
+            else inputItem.tomselect.enable();
+        }
     }
 
     function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         const deshabilitar = Boolean(esSoloLectura);
+        modalSoloLecturaActiva = deshabilitar;
+
+        if (modalOrdenElement) {
+            modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
+        }
 
         if (tituloModalOrden) {
             if (deshabilitar && Number(estado) === 3) {
@@ -534,6 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
             el.readOnly = deshabilitar;
         });
 
+        if (tomSelectProveedor) {
+            if (deshabilitar) {
+                tomSelectProveedor.disable();
+                tomSelectProveedor.close();
+                tomSelectProveedor.blur();
+            } else {
+                tomSelectProveedor.enable();
+            }
+        }
+
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             fila.querySelectorAll('input, select, button').forEach((control) => {
                 if (control.classList.contains('btn-quitar-fila')) {
@@ -550,11 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            const selectItem = fila.querySelector('.detalle-item');
-            if (selectItem?.tomselect) {
-                if (deshabilitar) selectItem.tomselect.disable();
-                else selectItem.tomselect.enable();
-            }
+            sincronizarBloqueoFilaDetalle(fila);
         });
 
         if (btnAgregarFila) {

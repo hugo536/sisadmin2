@@ -508,3 +508,26 @@ body {
     border-color: #dee2e6 !important;
     opacity: 1 !important;
 }
+/* Compras: en solo lectura mantener texto en negro (no plomo tenue) */
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .single,
+#modalOrdenCompra.modal-orden-solo-lectura .form-control:disabled,
+#modalOrdenCompra.modal-orden-solo-lectura .form-control[readonly],
+#modalOrdenCompra.modal-orden-solo-lectura .form-select:disabled {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    cursor: default !important;
+}
+
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control {
+    cursor: default !important;
+}
+
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > input {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    opacity: 1 !important;
+}
