@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/rrhh/PlanillasModel.php';
-require_once BASE_PATH . '/app/models/TercerosModel.php'; 
+require_once BASE_PATH . '/app/models/terceros/TercerosModel.php'; 
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 
 // Cargar librerías de Composer (DomPDF) si existe el archivo
