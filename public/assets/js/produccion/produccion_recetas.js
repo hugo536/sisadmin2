@@ -219,10 +219,9 @@ function initFormularioRecetas() {
 
         if (resumenItems) resumenItems.textContent = `${totalItems} insumos agregados.`;
         let costoMod = 0;
-        const horasProduccion = getTiempoProduccionHoras();
         document.querySelectorAll('.mod-row').forEach(row => {
-            const costoHora = parseNumero(row.querySelector('.mod-costo')?.value);
-            costoMod += horasProduccion * costoHora;
+            const costoBase = parseNumero(row.querySelector('.mod-costo')?.value);
+            costoMod += costoBase;
         });
         let costoCif = 0;
         document.querySelectorAll('.cif-row').forEach(row => {
