@@ -543,9 +543,11 @@ document.addEventListener('DOMContentLoaded', () => {
             modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
         }
 
+
         if (modalOrdenElement) {
             modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
         }
+
 
         if (tituloModalOrden) {
             if (deshabilitar && Number(estado) === 3) {
@@ -562,6 +564,16 @@ document.addEventListener('DOMContentLoaded', () => {
             el.disabled = deshabilitar;
             el.readOnly = deshabilitar;
         });
+
+        if (tomSelectProveedor) {
+            if (deshabilitar) {
+                tomSelectProveedor.disable();
+                tomSelectProveedor.close();
+                tomSelectProveedor.blur();
+            } else {
+                tomSelectProveedor.enable();
+            }
+        }
 
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             fila.querySelectorAll('input, select, button').forEach((control) => {

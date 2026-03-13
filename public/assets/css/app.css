@@ -525,3 +525,12 @@ body {
     cursor: default !important;
 
 }
+
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > input {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    opacity: 1 !important;
+
+}
