@@ -173,3 +173,5 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
         </div>
     </div>
 </div>
+<script src="<?php echo e(asset_url('js/inventario/inventario_kardex.js')); ?>"></script>
+
