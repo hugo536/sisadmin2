@@ -256,6 +256,11 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         </button>
                                     </div>
                                     <div id="listaInsumosReceta" class="lista-insumos-etapa d-flex flex-column gap-2"></div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <div class="badge text-bg-secondary fs-6 px-3 py-2">
+                                          Total BOM: <span id="totalBomCalculado">S/ 0.0000</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="tab-pane fade" id="tabRecetaMod" role="tabpanel">
@@ -306,12 +311,6 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end mb-4">
-                        <div class="badge text-bg-secondary fs-6 px-3 py-2">
-                            Total BOM: <span id="totalBomCalculado">S/ 0.0000</span>
                         </div>
                     </div>
 
