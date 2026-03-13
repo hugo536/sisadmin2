@@ -13,6 +13,11 @@
   const grupoMotivo = document.getElementById('grupoMotivoMovimiento');
   const motivo = document.getElementById('motivoMovimiento');
   
+  // --- NUEVO: Referencias al Centro de Costos ---
+  const grupoCentroCosto = document.getElementById('grupoCentroCostoMovimiento');
+  const centroCosto = document.getElementById('centroCostoMovimiento');
+  let tomSelectCentroCosto = null; // Para la instancia
+  
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
   const almacenDestino = document.getElementById('almacenDestinoMovimiento');
@@ -102,6 +107,13 @@
         placeholder: 'Seleccione motivo...'
       });
     }
+    
+    if (centroCosto) {
+      tomSelectCentroCosto = new TomSelect('#centroCostoMovimiento', {
+        ...tsConfig,
+        placeholder: 'Seleccione centro de costos...'
+      });
+    }
 
     if (almacen) {
       almacenesBase.origen = Array.from(almacen.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
@@ -135,10 +147,13 @@
                 }
                 const tipoVal = (tipo && tipo.value) || '';
                 const soloConStock = esTipoSalida(tipoVal) ? '1' : '0';
+                // --- NUEVO: Si es TRF (Transferencia), forzamos controla_stock=1 (solo ítems físicos)
+                const controlaStock = tipoVal === 'TRF' ? '&controla_stock=1' : '';
 
                 const tstamp = new Date().getTime();
-                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}&_t=${tstamp}`, {
-                    headers: { 
+                // Actualiza la URL para incluir controlaStock:
+                fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}${controlaStock}&_t=${tstamp}`, {
+                   headers: { 
                         'X-Requested-With': 'XMLHttpRequest',
                         'Cache-Control': 'no-cache',
                         'Pragma': 'no-cache'
@@ -324,6 +339,18 @@
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
     if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal));
     if (motivo) motivo.required = ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
+
+    // --- NUEVO: Lógica visual del Centro de Costos ---
+    const requiereCentroCosto = tipoVal === 'CON';
+    if (grupoCentroCosto) {
+        grupoCentroCosto.classList.toggle('d-none', !requiereCentroCosto);
+    }
+    if (centroCosto) {
+        centroCosto.required = requiereCentroCosto;
+        if (!requiereCentroCosto && tomSelectCentroCosto) {
+            tomSelectCentroCosto.clear(true); // Limpiar si se oculta
+        }
+    }
 
     if (cantidadInput) {
       cantidadInput.min = tipoVal === 'INI' ? '0' : '0.0001';
@@ -730,6 +757,7 @@
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
             if (tomSelectProveedor) tomSelectProveedor.clear();
             if (tomSelectMotivo) tomSelectMotivo.clear();
+            if (tomSelectCentroCosto) tomSelectCentroCosto.clear(); // <-- NUEVO
             if (tomSelectItem) {
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
@@ -747,6 +775,7 @@
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
             if(grupoDestino) grupoDestino.classList.add('d-none');
             if(grupoMotivo) grupoMotivo.classList.add('d-none');
+            if(grupoCentroCosto) grupoCentroCosto.classList.add('d-none'); // <-- NUEVO
             if(grupoVencimiento) grupoVencimiento.classList.add('d-none');
             if(costoUnitarioInput) {
               costoUnitarioInput.readOnly = false;
@@ -766,6 +795,8 @@
       const referenciaVal = ((document.getElementById('referenciaMovimiento') || {}).value || '').trim();
       const motivoVal = ((motivo || {}).value || '').trim();
       const idAlmacenDestinoVal = Number((almacenDestino && almacenDestino.value) || '0');
+      // --- NUEVO: Capturar Centro de Costo ---
+      const idCentroCostoVal = Number((centroCosto && centroCosto.value) || '0');
 
       if (!tipoVal) {
         Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento.' });
@@ -789,6 +820,11 @@
 
       if (['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal) && motivoVal === '') {
         Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
+        return;
+      }
+
+      if (tipoVal === 'CON' && idCentroCostoVal <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá este gasto.' });
         return;
       }
 
@@ -828,7 +864,8 @@
               id_almacen: idAlmacenVal,
               id_almacen_destino: idAlmacenDestinoVal,
               referencia: referenciaVal,
-              motivo: motivoVal
+              motivo: motivoVal,
+              id_centro_costo: idCentroCostoVal // <-- NUEVO AQUÍ
             },
             items: lineasMovimiento.map((linea) => ({
               tipo_registro: linea.tipo_registro,

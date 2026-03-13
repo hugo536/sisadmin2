@@ -21,6 +21,24 @@ class CentroCostoModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    // --- NUEVO MÉTODO AÑADIDO ---
+    /**
+     * Obtiene la lista de todos los centros de costo activos
+     * para usarlos en selects (como en el Inventario o Compras).
+     */
+    public function listarActivos(): array
+    {
+        $sql = "SELECT id, codigo, nombre 
+                FROM conta_centros_costo 
+                WHERE estado = 1 
+                  AND deleted_at IS NULL 
+                ORDER BY codigo ASC, nombre ASC";
+                
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+    // ----------------------------
+
     public function guardar(array $data, int $userId): int
     {
         $id = (int)($data['id'] ?? 0);

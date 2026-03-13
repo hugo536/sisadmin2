@@ -2,6 +2,7 @@
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
 $proveedores = $proveedores ?? []; 
+$centros_costo = $centros_costo ?? []; // <-- NUEVO: Recibir centros de costo
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 ?>
 <div class="container-fluid p-4" id="inventarioApp">
@@ -279,7 +280,22 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                         <option value="Otro">Otro</option>
                                     </select>
                                 </div>
-                            </div>
+                                
+                                <div class="col-md-12 d-none mt-2" id="grupoCentroCostoMovimiento">
+                                    <label for="centroCostoMovimiento" class="form-label small fw-bold text-warning-emphasis">
+                                        Centro de Costos <span class="text-danger">*</span>
+                                    </label>
+                                    <select id="centroCostoMovimiento" name="id_centro_costo" class="form-select border-warning-subtle shadow-none bg-warning-subtle text-dark">
+                                        <option value="">Seleccione centro de costos...</option>
+                                        <?php foreach ($centros_costo as $cc): ?>
+                                            <option value="<?php echo (int) ($cc['id'] ?? 0); ?>">
+                                                <?php echo e((string) ($cc['codigo'] ?? '') . ' - ' . (string) ($cc['nombre'] ?? '')); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <small class="text-muted d-block mt-1">Obligatorio para salidas por consumo interno (Ej. Suministros, Repuestos).</small>
+                                </div>
+                                </div>
                         </div>
                     </div>
 

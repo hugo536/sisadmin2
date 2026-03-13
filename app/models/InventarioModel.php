@@ -156,14 +156,38 @@ class InventarioModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function buscarItems(string $termino, int $limite = 20, int $idAlmacen = 0, bool $soloConStock = false): array
+    public function buscarItems(string $termino, int $limite = 20, int $idAlmacen = 0, bool $soloConStock = false, ?bool $controlaStock = null): array
     {
         $limite = max(1, (int) $limite);
         $busqueda = '%' . $termino . '%';
         $tablaPacksDisponible = $this->tablaExiste('precios_presentaciones');
 
 
-        $filtroStockItems = '';
+        $filtroControlaStock = '';
+        if ($controlaStock !== null) {
+            $valControla = $controlaStock ? 1 : 0;
+            $filtroControlaStock = " AND i.controla_stock = {$valControla}";
+        }
+
+        // 1. Consulta para los ítems
+        $sql = "SELECT i.id,
+                       i.sku,
+                       i.nombre,
+                       i.tipo_item AS tipo,
+                       'item' AS tipo_registro,
+                       i.requiere_lote,
+                       i.requiere_vencimiento,
+                       i.nombre AS nombre_full,
+                       '' AS nota,
+                       CONCAT('item:', i.id) AS value
+                FROM items i
+                LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                LEFT JOIN item_presentaciones p ON p.id = i.id_presentacion
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL
+                  AND (i.sku LIKE :termino_sku_item OR i.nombre LIKE :termino_nombre_item)
+                  {$filtroStockItems}
+                  {$filtroControlaStock}"; // <-- NUEVO FILTRO APLICADO
         $filtroStockPacks = '';
         if ($soloConStock && $idAlmacen > 0) {
             $filtroStockItems = ' AND EXISTS (SELECT 1 FROM inventario_stock st WHERE st.id_item = i.id AND st.id_almacen = :id_almacen_item AND st.stock_actual > 0)';
@@ -420,6 +444,7 @@ class InventarioModel extends Modelo
         $costoUnitario = (float) ($datos['costo_unitario'] ?? 0.0);
         $idItemUnidad = (int) ($datos['id_item_unidad'] ?? 0);
         $createdBy = (int) ($datos['created_by'] ?? 0);
+        $idCentroCosto = isset($datos['id_centro_costo']) && $datos['id_centro_costo'] > 0 ? (int) $datos['id_centro_costo'] : null;
 
         // 2. VALIDACIONES DE REGLAS DE NEGOCIO
         if ($idRegistro <= 0 || $createdBy <= 0 || $cantidad <= 0) {
@@ -443,6 +468,10 @@ class InventarioModel extends Modelo
             if ($idAlmacenDestino <= 0) throw new InvalidArgumentException('Debe seleccionar almacén de destino para entradas.');
         } elseif ($esSalida) {
             if ($idAlmacenOrigen <= 0) throw new InvalidArgumentException('Debe seleccionar almacén de origen para salidas.');
+        // --- NUEVO: Validar Centro de Costos para Consumos Internos ---
+            if ($tipo === 'CON' && $idCentroCosto === null) {
+                throw new InvalidArgumentException('Para registrar un consumo interno (Ej. Jabón, Repuestos) debe asignar un Centro de Costos.');
+            }
         } elseif ($esTransferencia) {
             if ($idAlmacenOrigen <= 0 || $idAlmacenDestino <= 0 || $idAlmacenOrigen === $idAlmacenDestino) {
                 throw new InvalidArgumentException('Debe seleccionar almacenes origen y destino distintos para transferencias.');
@@ -491,15 +520,16 @@ class InventarioModel extends Modelo
         try {
             // A. Registrar el movimiento
             $sqlMovimiento = 'INSERT INTO inventario_movimientos 
-                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
+                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
                               VALUES 
-                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
+                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :id_centro_costo, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItemMovimiento,
                 'id_item_unidad' => $idItemUnidad > 0 ? $idItemUnidad : null,
                 'id_almacen_origen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null,
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
+                'id_centro_costo' => $idCentroCosto, // <-- NUEVO
                 'tipo_movimiento' => $tipo,
                 'cantidad' => $cantidad,
                 'costo_unitario' => $costoUnitario > 0 ? number_format($costoUnitario, 4, '.', '') : null,

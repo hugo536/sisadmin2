@@ -4,17 +4,20 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/InventarioModel.php';
 require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
+require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 
 class InventarioController extends Controlador
 {
     private InventarioModel $inventarioModel;
     private AlmacenModel $almacenModel;
+    private CentroCostoModel $centroCostoModel; // <-- NUEVA PROPIEDAD
 
     public function __construct()
     {
         $this->inventarioModel = new InventarioModel();
         $this->almacenModel = new AlmacenModel();
+        $this->centroCostoModel = new CentroCostoModel(); // <-- INICIALIZAR
     }
 
     public function index(): void
@@ -31,14 +34,16 @@ class InventarioController extends Controlador
         $stockProcesado = $this->procesarEstadosStock($stockActualRaw);
 
         $datos = [
-            'ruta_actual' => 'inventario',
-            'stockActual' => $stockProcesado,
-            'almacenes' => $this->almacenModel->listarActivos(),
-            'proveedores' => $this->inventarioModel->listarProveedoresActivos(),
-            'items' => $this->inventarioModel->listarItems(),
-            'flash' => ['tipo' => '', 'texto' => ''],
-            'id_almacen_filtro' => $idAlmacenFiltro,
-        ];
+                'ruta_actual' => 'inventario',
+                'stockActual' => $stockProcesado,
+                'almacenes' => $this->almacenModel->listarActivos(),
+                'proveedores' => $this->inventarioModel->listarProveedoresActivos(),
+                'items' => $this->inventarioModel->listarItems(),
+                // --- NUEVO: Pasar los centros de costo activos ---
+                'centros_costo' => $this->centroCostoModel->listarActivos(), 
+                'flash' => ['tipo' => '', 'texto' => ''],
+                'id_almacen_filtro' => $idAlmacenFiltro,
+            ];
 
         $this->vista('inventario', $datos);
     }
@@ -171,6 +176,9 @@ class InventarioController extends Controlador
             
             $costoUnitario = (float) ($_POST['costo_unitario'] ?? 0);
             $idItemUnidad = (int) ($_POST['id_item_unidad'] ?? 0);
+            
+            // --- NUEVO: Capturar Centro de Costo ---
+            $idCentroCosto = (int) ($_POST['id_centro_costo'] ?? 0);
 
             if (in_array($tipo, ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'], true) && $motivo === '') {
                 throw new InvalidArgumentException('Debe seleccionar un motivo para este tipo de movimiento.');
@@ -196,6 +204,7 @@ class InventarioController extends Controlador
                 'fecha_vencimiento' => $fechaVencimiento,
                 'costo_unitario' => $costoUnitario,
                 'created_by' => (int) ($_SESSION['id'] ?? 0),
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null, // <-- NUEVO
             ];
 
             if ($tipo === 'TRF') {
@@ -296,8 +305,14 @@ class InventarioController extends Controlador
 
         $idAlmacen = (int) ($_GET['id_almacen'] ?? 0);
         $soloConStock = (string) ($_GET['solo_con_stock'] ?? '0') === '1';
+        
+        // --- NUEVO: Leer si frontend pide filtrar por controla_stock ---
+        // Si el frontend envía '1', filtramos solo items físicos. Si envía vacío, busca todos.
+        $paramControlaStock = $_GET['controla_stock'] ?? null;
+        $controlaStock = $paramControlaStock !== null ? (bool) $paramControlaStock : null;
 
-        $items = $this->inventarioModel->buscarItems($q, 25, $idAlmacen, $soloConStock);
+        // Pasamos el nuevo parámetro al modelo
+        $items = $this->inventarioModel->buscarItems($q, 25, $idAlmacen, $soloConStock, $controlaStock);
         json_response(['ok' => true, 'items' => $items]);
     }
 

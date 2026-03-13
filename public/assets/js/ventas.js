@@ -410,10 +410,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         tr.innerHTML = `
             <td class="align-middle py-3">
                 <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
-                <div class="small text-muted d-flex align-items-center gap-2">
-                    <span>Pendiente Global:</span> 
+                
+                <div class="small text-muted d-flex align-items-center gap-2 mt-1">
+                    <span>Pedido Original: <strong class="text-dark">${Number(linea.cantidad)}</strong></span>
+                    <span class="text-secondary opacity-50">|</span>
+                    <span>Pendiente:</span> 
                     <span class="badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm">${Number(linea.cantidad_pendiente)}</span>
                 </div>
+
                 <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split" title="Fraccionar en otro almacén" ${disabledState}>
                     <i class="bi bi-diagram-2 me-1"></i>Agregar otro almacén
                 </button>
@@ -454,11 +458,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const actualizarModoGrupo = () => {
             const filas = obtenerFilasGrupo();
             const multiple = filas.length > 1;
+            
             filas.forEach((fila, idx) => {
-                const input = fila.querySelector('.despacho-cantidad');
                 const btn = fila.querySelector('.btn-quitar-despacho');
-                input.readOnly = !multiple;
-                input.classList.toggle('bg-light', !multiple);
+                
+                // ELIMINAMOS las líneas que ponían el input como readOnly
+                // Ahora el input SIEMPRE será editable por el usuario.
+
+                // Solo controlamos si se muestra o no el botón de basurero
                 if (btn) btn.classList.toggle('d-none', !multiple || idx === 0);
             });
         };
@@ -551,8 +558,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         btnSplit.addEventListener('click', () => {
             const filas = obtenerFilasGrupo();
-            if (filas.length >= 2) {
-                Swal.fire('Límite alcanzado', 'Por ahora solo puede despachar este producto desde 2 almacenes.', 'info');
+            
+            // 1. Contamos cuántos almacenes realmente tienen stock (> 0)
+            const almacenesConStock = (linea.almacenes_disponibles || []).filter(alm => parseFloat(alm.stock_actual) > 0).length;
+
+            // 2. Validamos si hay almacenes disponibles para seguir fraccionando
+            if (almacenesConStock <= 1 || filas.length >= almacenesConStock) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin stock adicional',
+                    text: 'Este producto no tiene stock disponible en otros almacenes para seguir fraccionando.'
+                });
+                return;
+            }
+
+            // 3. (Opcional) Límite técnico máximo de filas si lo deseas
+            if (filas.length >= 3) {
+                Swal.fire('Límite alcanzado', 'Solo se permite despachar desde un máximo de 3 almacenes a la vez.', 'info');
                 return;
             }
 
