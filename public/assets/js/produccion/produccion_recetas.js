@@ -219,10 +219,9 @@ function initFormularioRecetas() {
 
         if (resumenItems) resumenItems.textContent = `${totalItems} insumos agregados.`;
         let costoMod = 0;
-        const horasProduccion = getTiempoProduccionHoras();
         document.querySelectorAll('.mod-row').forEach(row => {
-            const costoHora = parseNumero(row.querySelector('.mod-costo')?.value);
-            costoMod += horasProduccion * costoHora;
+            const costoBase = parseNumero(row.querySelector('.mod-costo')?.value);
+            costoMod += costoBase;
         });
         let costoCif = 0;
         document.querySelectorAll('.cif-row').forEach(row => {
@@ -230,9 +229,11 @@ function initFormularioRecetas() {
         });
 
         const rendimientoBase = Math.max(parseNumero(inputRendimientoBase?.value || 1), 0);
+        const horasProduccion = getTiempoProduccionHoras();
         const divisorUnidad = rendimientoBase > 0 ? rendimientoBase : 1;
+        const divisorModUnidad = horasProduccion > 0 ? horasProduccion : 1;
         const costoBomUnit = costoTotal / divisorUnidad;
-        const costoModUnit = costoMod / divisorUnidad;
+        const costoModUnit = costoMod / divisorModUnidad;
         const costoCifUnit = costoCif / divisorUnidad;
         const costoTotalReceta = costoTotal + costoMod + costoCif;
         const costoTotalUnitario = costoBomUnit + costoModUnit + costoCifUnit;

@@ -527,7 +527,7 @@ class ProduccionRecetasModel extends Modelo
         $stmtCif->execute(['id_receta' => $idReceta]);
         $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
 
-        $stmtRec = $db->prepare('SELECT rendimiento_base, tiempo_produccion_horas
+        $stmtRec = $db->prepare('SELECT rendimiento_base
                                  FROM produccion_recetas
                                  WHERE id = :id_receta
                                    AND deleted_at IS NULL
@@ -535,12 +535,11 @@ class ProduccionRecetasModel extends Modelo
         $stmtRec->execute(['id_receta' => $idReceta]);
         $filaRec = $stmtRec->fetch(PDO::FETCH_ASSOC) ?: [];
         $rendimientoBase = (float) ($filaRec['rendimiento_base'] ?? 0);
-        $tiempoProduccionHoras = (float) ($filaRec['tiempo_produccion_horas'] ?? 1);
         if ($rendimientoBase <= 0) {
             throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
         }
 
-        $costoMOD = $sumaCostoHoraMod * max($tiempoProduccionHoras, 0);
+        $costoMOD = $sumaCostoHoraMod;
         $costoTotal = $costoMD + $costoMOD + $costoCIF;
         $costoUnitario = $costoTotal / $rendimientoBase;
 
@@ -585,10 +584,9 @@ class ProduccionRecetasModel extends Modelo
     {
         $total = 0.0;
         foreach ($manoObra as $fila) {
-            $horas = (float) ($fila['horas_estimadas'] ?? 0);
-            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
-            if ($horas > 0 && $costoHora > 0) {
-                $total += $horas * $costoHora;
+            $costoBase = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($costoBase > 0) {
+                $total += $costoBase;
             }
         }
 
