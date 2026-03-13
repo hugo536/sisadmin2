@@ -534,3 +534,14 @@ body {
     opacity: 1 !important;
 
 }
+
+/* Quitar el cursor de prohibido en los Tom Select bloqueados */
+.ts-wrapper.disabled .ts-control, 
+.ts-wrapper.disabled {
+    cursor: default !important; 
+}
+
+/* Quitar el cursor de prohibido en los inputs normales bloqueados (como la Cantidad) */
+input[disabled], select[disabled] {
+    cursor: default !important;
+}

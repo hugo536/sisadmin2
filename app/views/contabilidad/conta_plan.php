@@ -30,6 +30,7 @@ if ($err !== '') {
     $swalMessage = 'Operación realizada correctamente.';
 }
 ?>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 <div class="container-fluid p-4">
 
     <?php if ($swalMessage !== null): ?>
@@ -269,25 +270,43 @@ if ($err !== '') {
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
                             <div class="row g-3">
+                                
+                                <?php
+                                // Generar un array simple con las claves que ya están vinculadas en la BD
+                                $clavesVinculadas = [];
+                                if (!empty($parametros)) {
+                                    foreach ($parametros as $p) {
+                                        $clavesVinculadas[] = (string)($p['clave'] ?? '');
+                                    }
+                                }
+                                ?>
                                 <div class="col-12">
-                                    <label class="form-label small text-muted fw-bold">Parámetro del Sistema / Tesorería <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none font-monospace text-primary fw-bold" name="clave" id="parametroClave" required>
-                                        <option value="">Seleccione cuenta de tesorería...</option>
+                                    <label class="form-label small text-muted fw-bold">Parámetro del Sistema <span class="text-danger">*</span></label>
+                                    
+                                    <select class="form-select shadow-none font-monospace text-dark fw-semibold" name="clave" id="parametroClave" required>
+                                        
+                                        <option value="" selected disabled hidden>Seleccione un parámetro...</option>
+                                        
                                         <?php if (!empty($cuentasTesoreria)): ?>
-                                            <?php foreach ($cuentasTesoreria as $ct): ?>
-                                                <option value="<?php echo e((string)($ct['codigo'] ?? '')); ?>">
-                                                    <?php echo e((string)($ct['codigo'] ?? '') . ' - ' . (string)($ct['nombre'] ?? '')); ?>
+                                            <?php foreach ($cuentasTesoreria as $ct): 
+                                                $codigo = (string)($ct['codigo'] ?? '');
+                                                // Marcamos la opción si ya existe en la lista de parámetros
+                                                $esVinculado = in_array($codigo, $clavesVinculadas, true) ? 'true' : 'false';
+                                            ?>
+                                                <option value="<?php echo e($codigo); ?>" data-vinculado="<?php echo $esVinculado; ?>">
+                                                    <?php echo e($codigo . ' - ' . (string)($ct['nombre'] ?? '')); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <option value="" disabled>No hay cuentas de tesorería registradas</option>
+                                            <option value="" disabled>No hay parámetros configurables disponibles</option>
                                         <?php endif; ?>
                                     </select>
                                 </div>
+
                                 <div class="col-12">
                                     <label class="form-label small text-muted fw-bold">Cuenta Contable a Asignar <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none" name="id_cuenta" id="parametroCuenta" required>
-                                        <option value="">Seleccione cuenta transaccional...</option>
+                                    <select name="id_cuenta" id="parametroCuenta" required placeholder="Buscar cuenta transaccional...">
+                                        <option value="">Buscar cuenta transaccional...</option>
                                         <?php foreach ($cuentasMovimiento as $c): ?>
                                             <option value="<?php echo (int)$c['id']; ?>"><?php echo e($c['codigo'].' - '.$c['nombre']); ?></option>
                                         <?php endforeach; ?>
@@ -366,9 +385,9 @@ if ($err !== '') {
                                                                 title="Editar parámetro">
                                                             <i class="bi bi-pencil-square"></i>
                                                         </button>
-                                                        <form method="post" action="<?php echo e(route_url('contabilidad/eliminar_parametro')); ?>" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este parámetro contable?');">
+                                                        <form method="post" action="<?php echo e(route_url('contabilidad/eliminar_parametro')); ?>" class="d-inline m-0 form-eliminar-parametro">
                                                             <input type="hidden" name="id_parametro" value="<?php echo (int)($p['id'] ?? 0); ?>">
-                                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" title="Eliminar parámetro">
+                                                            <button type="button" class="btn btn-sm btn-light text-danger border-0 bg-transparent btn-delete-param" title="Eliminar parámetro">
                                                                 <i class="bi bi-trash3"></i>
                                                             </button>
                                                         </form>
@@ -460,4 +479,5 @@ if ($err !== '') {
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script src="<?php echo e(asset_url('js/contabilidad/plan_contable.js')); ?>?v=<?php echo time(); ?>"></script>

@@ -9,20 +9,20 @@
   const tipo = document.getElementById('tipoMovimiento');
   const almacen = document.getElementById('almacenMovimiento');
   const grupoProveedor = document.getElementById('grupoProveedorMovimiento');
-  const proveedor = document.getElementById('proveedorMovimiento'); // NUEVO: Select de Proveedor
+  const proveedor = document.getElementById('proveedorMovimiento'); 
   const grupoMotivo = document.getElementById('grupoMotivoMovimiento');
   const motivo = document.getElementById('motivoMovimiento');
   
-  // --- NUEVO: Referencias al Centro de Costos ---
+  // Centro de Costos
   const grupoCentroCosto = document.getElementById('grupoCentroCostoMovimiento');
   const centroCosto = document.getElementById('centroCostoMovimiento');
-  let tomSelectCentroCosto = null; // Para la instancia
+  let tomSelectCentroCosto = null; 
   
   // Destino (Solo TRF)
   const grupoDestino = document.getElementById('grupoAlmacenDestino');
   const almacenDestino = document.getElementById('almacenDestinoMovimiento');
   
-  // Ítem (AHORA ES UN SELECT)
+  // Ítem 
   const selectItem = document.getElementById('itemMovimiento');
   const itemIdInput = document.getElementById('idItemMovimiento');
   const packIdInput = document.getElementById('idPackMovimiento');
@@ -58,6 +58,7 @@
       unidadMovimiento.innerHTML = '<option value="">Unidad base</option>';
       unidadMovimiento.value = '';
       unidadMovimiento.disabled = true;
+      unidadMovimiento.classList.add('bg-light'); // Mantiene fondo gris
     }
     if (unidadMovimientoInfo) unidadMovimientoInfo.textContent = '';
   }
@@ -91,13 +92,14 @@
     const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
     const idItem = Number((itemIdInput && itemIdInput.value) || 0);
 
-    if (tipoVal !== 'TRF' || tipoRegistro !== 'item' || idItem <= 0) {
+    if (tipoRegistro !== 'item' || idItem <= 0 || !tipoVal) {
       limpiarUnidadesTransferencia();
       return;
     }
 
     if (!unidadMovimiento) return;
     unidadMovimiento.disabled = true;
+    unidadMovimiento.classList.add('bg-light');
     unidadMovimiento.innerHTML = '<option value="">Cargando unidades...</option>';
 
     try {
@@ -111,7 +113,16 @@
         option.dataset.factor = String(factor > 0 ? factor : 1);
         unidadMovimiento.appendChild(option);
       });
-      unidadMovimiento.disabled = false;
+      
+      // Si tiene más unidades, habilitar y quitar fondo gris
+      if (unidades.length > 0) {
+          unidadMovimiento.disabled = false;
+          unidadMovimiento.classList.remove('bg-light');
+      } else {
+          unidadMovimiento.disabled = true;
+          unidadMovimiento.classList.add('bg-light');
+      }
+
       if (unidadMovimientoInfo) {
         unidadMovimientoInfo.textContent = unidades.length > 0
           ? 'Si elige una unidad, la cantidad se convertirá automáticamente a unidad base.'
@@ -136,7 +147,7 @@
   let tomSelectProveedor = null;
   let tomSelectMotivo = null;
   let tomSelectAlmacenDestino = null;
-  let tomSelectItem = null;      // Instancia Ítem
+  let tomSelectItem = null;
   const almacenesBase = {
     origen: [],
     destino: []
@@ -163,7 +174,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Configuración base para TomSelects estáticos
     const tsConfig = {
         create: false,
         sortField: { field: 'text', direction: 'asc' },
@@ -175,17 +185,10 @@
     if (almacen) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
     if (almacenDestino) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
     if (motivo) {
-      tomSelectMotivo = new TomSelect('#motivoMovimiento', {
-        ...tsConfig,
-        placeholder: 'Seleccione motivo...'
-      });
+      tomSelectMotivo = new TomSelect('#motivoMovimiento', { ...tsConfig, placeholder: 'Seleccione motivo...' });
     }
-    
     if (centroCosto) {
-      tomSelectCentroCosto = new TomSelect('#centroCostoMovimiento', {
-        ...tsConfig,
-        placeholder: 'Seleccione centro de costos...'
-      });
+      tomSelectCentroCosto = new TomSelect('#centroCostoMovimiento', { ...tsConfig, placeholder: 'Seleccione centro de costos...' });
     }
 
     if (almacen) {
@@ -194,16 +197,10 @@
     if (almacenDestino) {
       almacenesBase.destino = Array.from(almacenDestino.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
     }
-    
-    // Inicializar Tom Select Proveedor
     if (proveedor) {
-        tomSelectProveedor = new TomSelect('#proveedorMovimiento', {
-            ...tsConfig,
-            placeholder: 'Buscar proveedor...'
-        });
+        tomSelectProveedor = new TomSelect('#proveedorMovimiento', { ...tsConfig, placeholder: 'Buscar proveedor...' });
     }
 
-    // Inicializar Tom Select para Buscar Ítem (Carga Remota)
     if (selectItem) {
         tomSelectItem = new TomSelect('#itemMovimiento', {
             valueField: 'value',
@@ -214,58 +211,30 @@
             load: function(query, callback) {
                 if (query.length < 1) return callback();
                 const idAlmacen = Number((almacen && almacen.value) || 0);
-                if (idAlmacen <= 0) {
-                    callback();
-                    return;
-                }
+                if (idAlmacen <= 0) return callback();
+                
                 const tipoVal = (tipo && tipo.value) || '';
                 const soloConStock = esTipoSalida(tipoVal) ? '1' : '0';
-                // --- NUEVO: Si es TRF (Transferencia), forzamos controla_stock=1 (solo ítems físicos)
                 const controlaStock = tipoVal === 'TRF' ? '&controla_stock=1' : '';
 
                 const tstamp = new Date().getTime();
-                // Actualiza la URL para incluir controlaStock:
                 fetch(`${window.BASE_URL}?ruta=inventario/buscarItems&q=${encodeURIComponent(query)}&id_almacen=${idAlmacen}&solo_con_stock=${soloConStock}&tipo_movimiento=${encodeURIComponent(tipoVal)}${controlaStock}&_t=${tstamp}`, {
-                   headers: { 
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
+                   headers: { 'X-Requested-With': 'XMLHttpRequest', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
                 })
                 .then(async (response) => {
-                    if (!response.ok) {
-                        const body = await response.text();
-                        throw new Error(`Error HTTP ${response.status} al buscar ítems: ${body.slice(0, 180)}`);
-                    }
-
-                    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-                    if (!contentType.includes('application/json')) {
-                        const body = await response.text();
-                        throw new Error(`Respuesta no JSON al buscar ítems: ${body.slice(0, 180)}`);
-                    }
-
+                    if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
                     return response.json();
                 })
                 .then(data => {
-                    if (!data || data.ok !== true) {
-                        throw new Error('Respuesta inválida del endpoint inventario/buscarItems.');
-                    }
-
-                    const items = Array.isArray(data.items) ? data.items : [];
-                    callback(items);
+                    if (!data || data.ok !== true) throw new Error('Respuesta inválida.');
+                    callback(Array.isArray(data.items) ? data.items : []);
                 })
-                .catch((error) => {
-                    // Evita silencios que terminan en "No results found" sin contexto.
-                    console.error('[Inventario] Error al cargar ítems para el selector:', error);
-                    callback();
-                });
+                .catch(() => callback());
             },
             render: {
                 option: function(item, escape) {
                     const nota = (item.nota || '').trim();
-                    const etiquetaTipo = item.tipo_registro === 'pack'
-                        ? '<span class="badge bg-primary-subtle text-primary ms-1">Pack</span>'
-                        : '<span class="badge bg-secondary-subtle text-secondary ms-1">Ítem</span>';
+                    const etiquetaTipo = item.tipo_registro === 'pack' ? '<span class="badge bg-primary-subtle text-primary ms-1">Pack</span>' : '<span class="badge bg-secondary-subtle text-secondary ms-1">Ítem</span>';
                     return `<div class="py-1">
                                 <span class="fw-bold d-block">${escape(item.sku || '')}${etiquetaTipo}</span>
                                 <span class="text-muted small d-block">${escape(item.nombre_full || item.nombre || '')}</span>
@@ -300,9 +269,13 @@
                 cargarUnidadesTransferencia();
             }
         });
+
+        // REGLA: Bloquear buscador de ítems si no hay almacén inicial seleccionado
+        if (!almacen || !almacen.value) {
+            tomSelectItem.disable();
+        }
     }
 
-    // ACCIÓN 2: Tooltips inicializados desde la vista, pero nos aseguramos aquí
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
   });
@@ -314,7 +287,6 @@
 
   function initTablaStock() {
     if (!tablaStock || typeof ERPTable === 'undefined' || !ERPTable.createTableManager) return;
-
     stockTableManager = ERPTable.createTableManager({
       tableSelector: tablaStock,
       rowsSelector: 'tbody tr[data-search]',
@@ -348,8 +320,6 @@
     if (!val) return null;
     
     const itemData = tomSelectItem.options[val];
-    
-    // Parseo robusto (Asegura que "0", 0 o false no activen el lote)
     const reqLote = String(itemData.requiere_lote) === '1' || String(itemData.requiere_lote).toLowerCase() === 'true';
     const reqVenc = String(itemData.requiere_vencimiento) === '1' || String(itemData.requiere_vencimiento).toLowerCase() === 'true';
 
@@ -360,6 +330,36 @@
         requiereVencimiento: reqVenc
     };
   }
+
+  const motivosPorTipo = {
+    'AJ+': [
+      { value: 'Conteo físico', text: 'Conteo físico' },
+      { value: 'Error anterior', text: 'Error anterior' },
+      { value: 'Devolución interna', text: 'Devolución interna' },
+      { value: 'Merma recuperada', text: 'Merma recuperada' },
+      { value: 'Muestras', text: 'Muestras' },
+      { value: 'Otro', text: 'Otro' }
+    ],
+    'AJ-': [
+      { value: 'Conteo físico', text: 'Conteo físico' },
+      { value: 'Error anterior', text: 'Error anterior' },
+      { value: 'Robo', text: 'Robo' },
+      { value: 'Caducado', text: 'Caducado' },
+      { value: 'Desperdicio', text: 'Desperdicio' },
+      { value: 'Otro', text: 'Otro' }
+    ],
+    'CON': [
+      { value: 'Consumo administrativo', text: 'Consumo administrativo' },
+      { value: 'Pruebas laboratorio', text: 'Pruebas laboratorio' },
+      { value: 'Producción', text: 'Producción' },
+      { value: 'Mantenimiento', text: 'Mantenimiento' },
+      { value: 'Otro', text: 'Otro' }
+    ],
+    'SALIDA_MERMA_PLANTA': [
+      { value: 'Merma de producción', text: 'Merma de producción' },
+      { value: 'Desperdicio', text: 'Desperdicio' }
+    ]
+  };
 
   function actualizarUIModal() {
     if (!tipo) return;
@@ -411,13 +411,27 @@
       if (tipoVal !== 'INI') costoUnitarioInput.value = '0.0000';
     }
 
-    if (grupoUnidadMovimiento) grupoUnidadMovimiento.classList.toggle('d-none', tipoVal !== 'TRF');
-
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
-    if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal));
-    if (motivo) motivo.required = ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
+    
+    const requiereMotivo = ['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
+    if (grupoMotivo) grupoMotivo.classList.toggle('d-none', !requiereMotivo);
+    if (motivo) {
+        motivo.required = requiereMotivo;
+        if (requiereMotivo && tomSelectMotivo) {
+            const opciones = motivosPorTipo[tipoVal] || [];
+            const valorPrevio = tomSelectMotivo.getValue();
+            tomSelectMotivo.clearOptions();
+            opciones.forEach(opt => tomSelectMotivo.addOption(opt));
+            if (opciones.some(o => o.value === valorPrevio)) {
+                tomSelectMotivo.setValue(valorPrevio);
+            } else {
+                tomSelectMotivo.clear(true);
+            }
+        } else if (!requiereMotivo && tomSelectMotivo) {
+             tomSelectMotivo.clear(true);
+        }
+    }
 
-    // --- NUEVO: Lógica visual del Centro de Costos ---
     const requiereCentroCosto = tipoVal === 'CON';
     if (grupoCentroCosto) {
         grupoCentroCosto.classList.toggle('d-none', !requiereCentroCosto);
@@ -425,12 +439,21 @@
     if (centroCosto) {
         centroCosto.required = requiereCentroCosto;
         if (!requiereCentroCosto && tomSelectCentroCosto) {
-            tomSelectCentroCosto.clear(true); // Limpiar si se oculta
+            tomSelectCentroCosto.clear(true);
         }
     }
 
+    // REGLA: Bloqueo de "Cantidad a Mover"
+    const tieneItemSeleccionado = itemData && itemData.id > 0;
     if (cantidadInput) {
-      cantidadInput.min = tipoVal === 'INI' ? '0' : '0.0001';
+        cantidadInput.disabled = !tieneItemSeleccionado;
+        if (!tieneItemSeleccionado) {
+            cantidadInput.classList.add('bg-light');
+            cantidadInput.value = '';
+        } else {
+            cantidadInput.classList.remove('bg-light');
+        }
+        cantidadInput.min = tipoVal === 'INI' ? '0' : '0.0001';
     }
 
     if (inputVencimiento && tipoVal === 'INI') {
@@ -509,18 +532,18 @@
     const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
 
     if (idRegistro <= 0) {
-      stockActualItemLabel.textContent = '0.0000';
+      stockActualItemLabel.value = '0.0000';
       return;
     }
 
-    stockActualItemLabel.textContent = 'Consultando...';
+    stockActualItemLabel.value = 'Consultando...';
 
     try {
       const resumen = await obtenerResumenItemReal(idRegistro, tipoRegistro);
       const stock = Number(resumen.stock_actual || 0);
-      stockActualItemLabel.textContent = stock.toFixed(4);
+      stockActualItemLabel.value = stock.toFixed(4);
     } catch (error) {
-      stockActualItemLabel.textContent = '0.0000';
+      stockActualItemLabel.value = '0.0000';
     }
   }
 
@@ -612,6 +635,13 @@
             if (tomSelectItem) {
               tomSelectItem.clearOptions();
               tomSelectItem.clear(true);
+              
+              // REGLA: Si hay almacén, habilita; si no, deshabilita.
+              if (almacen.value) {
+                  tomSelectItem.enable();
+              } else {
+                  tomSelectItem.disable();
+              }
             }
             if (itemIdInput) itemIdInput.value = '0';
             if (packIdInput) packIdInput.value = '0';
@@ -657,13 +687,17 @@
       if (itemIdInput) itemIdInput.value = '0';
       if (packIdInput) packIdInput.value = '0';
       if (tipoRegistroInput) tipoRegistroInput.value = 'item';
-      if (cantidadInput) cantidadInput.value = '';
+      if (cantidadInput) {
+          cantidadInput.value = '';
+          cantidadInput.disabled = true;
+          cantidadInput.classList.add('bg-light');
+      }
       if (inputLoteNuevo) inputLoteNuevo.value = '';
       if (selectLoteExistente) selectLoteExistente.value = '';
       if (inputVencimiento) inputVencimiento.value = '';
       if (costoUnitarioInput) costoUnitarioInput.value = '0';
       if (stockHint) stockHint.textContent = '';
-      if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+      if (stockActualItemLabel) stockActualItemLabel.value = '0.0000';
       limpiarUnidadesTransferencia();
       actualizarUIModal();
     }
@@ -705,7 +739,7 @@
       const idRegistroVal = tipoRegistroVal === 'pack' ? idPackVal : idItemVal;
       const cantidadVal = Number((cantidadInput && cantidadInput.value) || 0);
       const tipoVal = (tipo && tipo.value) || '';
-      const aplicaUnidadTransferencia = tipoVal === 'TRF' && tipoRegistroVal === 'item';
+      const aplicaUnidadTransferencia = tipoRegistroVal === 'item'; 
       const factorUnidad = aplicaUnidadTransferencia ? obtenerFactorUnidadSeleccionada() : 1;
       const idItemUnidadVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value ? Number(unidadMovimiento.value) : 0;
       const unidadNombreVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value
@@ -836,7 +870,6 @@
       });
     }
 
-
     if (modalEl) {
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
@@ -845,17 +878,18 @@
             if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
             if (tomSelectProveedor) tomSelectProveedor.clear();
             if (tomSelectMotivo) tomSelectMotivo.clear();
-            if (tomSelectCentroCosto) tomSelectCentroCosto.clear(); // <-- NUEVO
+            if (tomSelectCentroCosto) tomSelectCentroCosto.clear(); 
             if (tomSelectItem) {
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
+                tomSelectItem.disable(); // Lo bloquea al limpiar el modal
             }
             
             if (itemIdInput) itemIdInput.value = '0';
             if (packIdInput) packIdInput.value = '0';
             if (tipoRegistroInput) tipoRegistroInput.value = 'item';
             if (stockHint) stockHint.textContent = '';
-            if (stockActualItemLabel) stockActualItemLabel.textContent = '0.0000';
+            if (stockActualItemLabel) stockActualItemLabel.value = '0.0000';
             limpiarUnidadesTransferencia();
             actualizarBloqueoCabecera();
             
@@ -863,11 +897,15 @@
             if(grupoLoteSelect) grupoLoteSelect.classList.add('d-none');
             if(grupoDestino) grupoDestino.classList.add('d-none');
             if(grupoMotivo) grupoMotivo.classList.add('d-none');
-            if(grupoCentroCosto) grupoCentroCosto.classList.add('d-none'); // <-- NUEVO
+            if(grupoCentroCosto) grupoCentroCosto.classList.add('d-none'); 
             if(grupoVencimiento) grupoVencimiento.classList.add('d-none');
             if(costoUnitarioInput) {
               costoUnitarioInput.readOnly = false;
               costoUnitarioInput.classList.remove('bg-light', 'text-muted');
+            }
+            if(cantidadInput) {
+                cantidadInput.disabled = true;
+                cantidadInput.classList.add('bg-light');
             }
             lineasMovimiento.length = 0;
             renderLineasMovimiento();
@@ -883,7 +921,6 @@
       const referenciaVal = ((document.getElementById('referenciaMovimiento') || {}).value || '').trim();
       const motivoVal = ((motivo || {}).value || '').trim();
       const idAlmacenDestinoVal = Number((almacenDestino && almacenDestino.value) || '0');
-      // --- NUEVO: Capturar Centro de Costo ---
       const idCentroCostoVal = Number((centroCosto && centroCosto.value) || '0');
 
       if (!tipoVal) {
@@ -953,7 +990,7 @@
               id_almacen_destino: idAlmacenDestinoVal,
               referencia: referenciaVal,
               motivo: motivoVal,
-              id_centro_costo: idCentroCostoVal // <-- NUEVO AQUÍ
+              id_centro_costo: idCentroCostoVal 
             },
             items: lineasMovimiento.map((linea) => ({
               tipo_registro: linea.tipo_registro,

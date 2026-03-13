@@ -238,7 +238,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <small class="text-muted d-block mt-1">Seleccione primero el almacén origen para filtrar los ítems con stock disponible.</small>
+                                    
                                 </div>
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
@@ -304,74 +304,71 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                                 <h6 class="fw-bold text-dark mb-0">Detalle del Producto</h6>
                             </div>
-                            <div class="row g-3">
-                                
-                                <div class="col-12 mb-2">
+                            
+                            <div class="row g-3 align-items-end mb-3">
+                                <div class="col-md-8">
                                     <label class="form-label small text-muted fw-bold mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger">*</span></label>
                                     <select id="itemMovimiento" class="form-select shadow-none border-secondary-subtle" placeholder="Escriba para buscar...">
                                         <option value="">Escriba para buscar...</option>
                                     </select>
                                 </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold mb-1">Stock Actual</label>
+                                    <input type="text" class="form-control shadow-none bg-light text-primary fw-bold" id="stockActualItemSeleccionado" value="0.0000" readonly>
+                                </div>
+                            </div>
 
-                                <div class="col-md-12">
-                                    <div class="p-3 border rounded-3 bg-white text-center shadow-sm">
-                                        <small class="text-muted d-block fw-semibold mb-1">Stock Actual</small>
-                                        <span class="fw-bold text-primary fs-4" id="stockActualItemSeleccionado">0.00</span>
-                                    </div>
+                            <div class="row g-3 align-items-start">
+                                <div class="col-md-4">
+                                    <label for="cantidadMovimiento" class="form-label small text-muted fw-bold">Cantidad a Mover <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.0001" min="0.0001" class="form-control shadow-none border-secondary-subtle bg-light" id="cantidadMovimiento" name="cantidad" disabled>
+                                    <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
                                 </div>
 
-                                <div class="col-md-6 d-none mt-2" id="grupoUnidadMovimiento">
-                                    <label for="unidadMovimiento" class="form-label small text-muted fw-bold">Unidad para la transferencia</label>
-                                    <select id="unidadMovimiento" class="form-select shadow-none border-secondary-subtle">
+                                <div class="col-md-4" id="grupoUnidadMovimiento">
+                                    <label for="unidadMovimiento" class="form-label small text-muted fw-bold">Unidad transaccional</label>
+                                    <select id="unidadMovimiento" class="form-select shadow-none border-secondary-subtle bg-light" disabled>
                                         <option value="">Unidad base</option>
                                     </select>
                                     <div class="form-text small text-muted" id="unidadMovimientoInfo"></div>
                                 </div>
 
-                                <div class="col-md-6 form-floating mt-3">
-                                    <input type="number" step="0.0001" min="0.0001" class="form-control fw-bold fs-5 shadow-none border-secondary-subtle" id="cantidadMovimiento" name="cantidad">
-                                    <label for="cantidadMovimiento">Cantidad a Mover <span class="text-danger fw-bold">*</span></label>
-                                    <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
-                                </div>
-                                <div class="col-md-6 form-floating mt-3 d-none" id="grupoCostoUnitarioMovimiento">
+                                <div class="col-md-4 d-none" id="grupoCostoUnitarioMovimiento">
+                                    <label for="costoUnitarioMovimiento" class="form-label small text-muted fw-bold">Costo Unitario (S/)</label>
                                     <input type="number" step="0.0001" min="0" class="form-control shadow-none border-secondary-subtle" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
-                                    <label for="costoUnitarioMovimiento">Costo Unitario (S/)</label>
                                 </div>
 
-                                <div class="col-md-6 d-none mt-2" id="grupoLoteInput">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control shadow-none border-secondary-subtle" id="loteMovimientoInput" maxlength="100" placeholder="Lote">
-                                        <label>Nuevo Lote</label>
-                                    </div>
+                                <div class="col-md-4 d-none" id="grupoLoteInput">
+                                    <label for="loteMovimientoInput" class="form-label small text-muted fw-bold">Nuevo Lote</label>
+                                    <input type="text" class="form-control shadow-none border-secondary-subtle" id="loteMovimientoInput" maxlength="100" placeholder="Ej. LOTE-001">
                                 </div>
-                                <div class="col-md-6 d-none mt-2" id="grupoLoteSelect">
-                                    <div class="form-floating">
-                                        <select class="form-select shadow-none border-secondary-subtle" id="loteMovimientoSelect">
-                                            <option value="">Seleccione lote...</option>
-                                        </select>
-                                        <label>Lote Existente</label>
-                                    </div>
+
+                                <div class="col-md-4 d-none" id="grupoLoteSelect">
+                                    <label for="loteMovimientoSelect" class="form-label small text-muted fw-bold">Lote Existente</label>
+                                    <select class="form-select shadow-none border-secondary-subtle" id="loteMovimientoSelect">
+                                        <option value="">Seleccione lote...</option>
+                                    </select>
                                     <div class="form-text small text-danger d-none mt-1" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes disponibles.</div>
                                 </div>
-                                <div class="col-md-6 d-none mt-2" id="grupoVencimientoMovimiento">
-                                    <div class="form-floating">
-                                        <input type="date" class="form-control shadow-none border-secondary-subtle" id="vencimientoMovimiento" name="fecha_vencimiento">
-                                        <label>Fecha Vencimiento</label>
-                                    </div>
-                                </div>
 
-                                <div class="col-12 mt-3">
-                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="btnAgregarLineaMovimiento">
+                                <div class="col-md-4 d-none" id="grupoVencimientoMovimiento">
+                                    <label for="vencimientoMovimiento" class="form-label small text-muted fw-bold">Fecha Vencimiento</label>
+                                    <input type="date" class="form-control shadow-none border-secondary-subtle" id="vencimientoMovimiento" name="fecha_vencimiento">
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-12 text-end mb-2">
+                                    <button type="button" class="btn btn-outline-primary fw-semibold btn-sm" id="btnAgregarLineaMovimiento">
                                         <i class="bi bi-plus-circle me-1"></i>Agregar ítem a la operación
                                     </button>
                                 </div>
-
-                                <div class="col-12 mt-3">
+                                <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
                                         <table class="table table-sm align-middle mb-0" id="tablaLineasMovimiento">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th>Ítem</th>
+                                                    <th class="ps-2">Ítem</th>
                                                     <th class="text-end">Cantidad</th>
                                                     <th>Unidad</th>
                                                     <th>Lote</th>
