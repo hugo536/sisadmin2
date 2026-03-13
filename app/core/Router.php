@@ -48,6 +48,11 @@ class Router
             $accion = $accion === 'index' ? 'dashboard' : $accion;
         }
 
+        if ($modulo === 'inventario' && $accion === 'kardex') {
+            $controlador_clase = 'InventarioKardexController';
+            $accion = 'index';
+        }
+
         if ($modulo === 'produccion') {
             if ($accion === 'ordenes') {
                 $controlador_clase = 'ProduccionOrdenesController';
@@ -154,6 +159,7 @@ class Router
         // Rutas posibles (inglés/español por si acaso)
         $rutas_posibles = [
             BASE_PATH . '/app/controllers/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/inventario/' . $clase . '.php',
             BASE_PATH . '/app/controllers/items/' . $clase . '.php',
             BASE_PATH . '/app/controllers/configuracion/' . $clase . '.php',
             BASE_PATH . '/app/controllers/rrhh/' . $clase . '.php',

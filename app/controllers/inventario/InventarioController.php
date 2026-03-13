@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/InventarioModel.php';
+require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
 require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
@@ -45,7 +45,7 @@ class InventarioController extends Controlador
                 'id_almacen_filtro' => $idAlmacenFiltro,
             ];
 
-        $this->vista('inventario', $datos);
+        $this->vista('inventario/inventario', $datos);
     }
 
     // --- LÓGICA DE ESTADOS Y FORMATOS ---
@@ -429,29 +429,6 @@ class InventarioController extends Controlador
         json_response(['ok' => true, 'items' => $desglose]);
     }
 
-    public function kardex(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('inventario.ver');
-
-        $idItemFiltro = (int) ($_GET['id_item'] ?? ($_GET['item_id'] ?? 0));
-        $filtros = [
-            'id_item' => $idItemFiltro,
-            'lote' => trim((string) ($_GET['lote'] ?? '')),
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
-        ];
-
-        $movimientos = $this->inventarioModel->obtenerKardex($filtros);
-        $items = $this->inventarioModel->listarItems();
-
-        $this->vista('inventario_kardex', [
-            'ruta_actual' => 'inventario',
-            'movimientos' => $movimientos,
-            'items' => $items,
-            'filtros' => $filtros,
-        ]);
-    }
 
     public function exportar(): void
     {

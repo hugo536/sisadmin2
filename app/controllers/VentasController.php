@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
-require_once BASE_PATH . '/app/models/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
+require_once BASE_PATH . '/app/models/inventario/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 
