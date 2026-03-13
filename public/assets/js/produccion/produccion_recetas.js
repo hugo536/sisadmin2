@@ -65,8 +65,12 @@ function initFormularioRecetas() {
     const inputRendimientoBase = document.getElementById('newRendimientoBase');
     const inputTiempoProduccionHoras = document.getElementById('newTiempoProduccionHoras');
     const totalBomEl = document.getElementById('totalBomCalculado');
+    const totalBomUnitEl = document.getElementById('totalBomUnitCalculado');
     const totalModEl = document.getElementById('totalModCalculado');
+    const totalModUnitEl = document.getElementById('totalModUnitCalculado');
     const totalCifEl = document.getElementById('totalCifCalculado');
+    const totalCifUnitEl = document.getElementById('totalCifUnitCalculado');
+    const costoTotalUnitarioEl = document.getElementById('costoTotalUnitarioCalculado');
     const tabsRecetaCostos = document.getElementById('tabsRecetaCostos');
 
     function initTomSelectAjax(selectEl, placeholderText, onChangeCallback = null) {
@@ -221,10 +225,23 @@ function initFormularioRecetas() {
         document.querySelectorAll('.cif-row').forEach(row => {
             costoCif += parseNumero(row.querySelector('.cif-costo')?.value);
         });
+
+        const rendimientoBase = Math.max(parseNumero(inputRendimientoBase?.value || 1), 0);
+        const divisorUnidad = rendimientoBase > 0 ? rendimientoBase : 1;
+        const costoBomUnit = costoTotal / divisorUnidad;
+        const costoModUnit = costoMod / divisorUnidad;
+        const costoCifUnit = costoCif / divisorUnidad;
+        const costoTotalReceta = costoTotal + costoMod + costoCif;
+        const costoTotalUnitario = costoBomUnit + costoModUnit + costoCifUnit;
+
         if (totalBomEl) totalBomEl.textContent = `S/ ${costoTotal.toFixed(4)}`;
+        if (totalBomUnitEl) totalBomUnitEl.textContent = `S/ ${costoBomUnit.toFixed(4)}`;
         if (totalModEl) totalModEl.textContent = `S/ ${costoMod.toFixed(4)}`;
+        if (totalModUnitEl) totalModUnitEl.textContent = `S/ ${costoModUnit.toFixed(4)}`;
         if (totalCifEl) totalCifEl.textContent = `S/ ${costoCif.toFixed(4)}`;
-        if (costoTotalEl) costoTotalEl.textContent = `S/ ${(costoTotal + costoMod + costoCif).toFixed(4)}`;
+        if (totalCifUnitEl) totalCifUnitEl.textContent = `S/ ${costoCifUnit.toFixed(4)}`;
+        if (costoTotalEl) costoTotalEl.textContent = `S/ ${costoTotalReceta.toFixed(4)}`;
+        if (costoTotalUnitarioEl) costoTotalUnitarioEl.textContent = `S/ ${costoTotalUnitario.toFixed(4)}`;
     };
 
     const validarInsumoSeleccionado = (valorSeleccionado, tomInstance) => {
