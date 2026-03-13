@@ -9,6 +9,7 @@ require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaParametrosModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
+require_once BASE_PATH . '/app/models/gastos/GastoConceptoModel.php';
 
 class ContabilidadController extends Controlador
 {
@@ -18,6 +19,7 @@ class ContabilidadController extends Controlador
     private ContaParametrosModel $paramModel;
     private CentroCostoModel $centroCostoModel;
     private TesoreriaCuentaModel $tesoreriaCuentaModel;
+    private GastoConceptoModel $gastoConceptoModel;
 
     public function __construct()
     {
@@ -28,6 +30,7 @@ class ContabilidadController extends Controlador
         $this->paramModel = new ContaParametrosModel();
         $this->centroCostoModel = new CentroCostoModel();
         $this->tesoreriaCuentaModel = new TesoreriaCuentaModel();
+        $this->gastoConceptoModel = new GastoConceptoModel();
     }
 
     public function index(): void
@@ -48,6 +51,7 @@ class ContabilidadController extends Controlador
             'parametros' => $this->paramModel->listar(),
             'cuentasMovimiento' => $this->cuentaModel->listarMovimientoActivas(),
             'cuentasTesoreria' => $this->tesoreriaCuentaModel->listarGestion(),
+            'conceptosGasto' => $this->gastoConceptoModel->listarActivos(),
         ]);
     }
 
@@ -130,6 +134,9 @@ class ContabilidadController extends Controlador
                     break; // Salimos del bucle, ya lo encontramos
                 }
             }
+
+            // 3. Sincronización de Gastos: vincula el concepto si es una clave dinámica.
+            $this->gastoConceptoModel->vincularCuentaContablePorClave($clave, $idCuentaContable, $userId);
 
             redirect('contabilidad/plan?ok=1');
         } catch (Throwable $e) {

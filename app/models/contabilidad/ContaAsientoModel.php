@@ -310,6 +310,53 @@ class ContaAsientoModel extends Modelo
         ], $lineas, $userId);
     }
 
+    public function registrarAutomaticoGasto(PDO $db, array $movimiento, int $userId): int
+    {
+        $idGasto = (int) ($movimiento['id_gasto'] ?? 0);
+        $fecha = (string) ($movimiento['fecha'] ?? date('Y-m-d'));
+        $idProveedor = (int) ($movimiento['id_proveedor'] ?? 0);
+        $total = round((float) ($movimiento['total'] ?? 0), 4);
+        $idCuentaGasto = (int) ($movimiento['id_cuenta_gasto'] ?? 0);
+
+        if ($idGasto <= 0 || $idProveedor <= 0 || $total <= 0 || $idCuentaGasto <= 0) {
+            throw new RuntimeException('Datos insuficientes para registrar asiento automático de gasto.');
+        }
+
+        $stmtExiste = $db->prepare('SELECT id FROM conta_asientos WHERE origen_modulo = "GASTOS" AND id_origen = :id_origen AND deleted_at IS NULL LIMIT 1');
+        $stmtExiste->execute(['id_origen' => $idGasto]);
+        $idExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
+        if ($idExistente > 0) {
+            return $idExistente;
+        }
+
+        $periodo = (new ContaPeriodoModel())->obtenerPeriodoPorFecha($fecha);
+        if (!$periodo || (string) ($periodo['estado'] ?? '') !== 'ABIERTO') {
+            throw new RuntimeException('Periodo contable cerrado o inexistente para el registro de gasto.');
+        }
+
+        $mapa = (new ContaParametrosModel())->obtenerMapa();
+        $idCuentaCxp = (int) ($mapa['CTA_CXP'] ?? 0);
+        if ($idCuentaCxp <= 0) {
+            $idCuentaCxp = $this->resolverCuentaParametroFaltante($db, 'CTA_CXP') ?? 0;
+        }
+        if ($idCuentaCxp <= 0) {
+            throw new RuntimeException('Falta parametrización contable de CTA_CXP para registrar el gasto.');
+        }
+
+        return $this->crearAsiento($db, [
+            'codigo' => $this->siguienteCodigo($db, 'AS'),
+            'fecha' => $fecha,
+            'id_periodo' => (int) $periodo['id'],
+            'glosa' => (string) ($movimiento['glosa'] ?? ('Gasto #' . $idGasto)),
+            'origen_modulo' => 'GASTOS',
+            'id_origen' => $idGasto,
+            'estado' => 'REGISTRADO',
+        ], [
+            ['id_cuenta' => $idCuentaGasto, 'debe' => $total, 'haber' => 0, 'id_tercero' => $idProveedor],
+            ['id_cuenta' => $idCuentaCxp, 'debe' => 0, 'haber' => $total, 'id_tercero' => $idProveedor],
+        ], $userId);
+    }
+
     private function resolverCuentaParametroFaltante(PDO $db, string $clave): ?int
     {
         $condiciones = null;

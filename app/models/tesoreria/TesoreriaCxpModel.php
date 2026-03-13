@@ -133,6 +133,51 @@ class TesoreriaCxpModel extends Modelo
         $stmt->execute(['id' => $id, 'user' => $userId]);
     }
 
+    public function crearDesdeGasto(int $idGasto, int $userId): int
+    {
+        $db = $this->db();
+
+        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxp WHERE id_gasto = :id LIMIT 1');
+        $stmtExiste->execute(['id' => $idGasto]);
+        $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
+        if ($existe > 0) {
+            return $existe;
+        }
+
+        $stmtGasto = $db->prepare('SELECT id, fecha, id_proveedor, total
+                                   FROM gastos_registros
+                                   WHERE id = :id AND deleted_at IS NULL
+                                   LIMIT 1');
+        $stmtGasto->execute(['id' => $idGasto]);
+        $gasto = $stmtGasto->fetch(PDO::FETCH_ASSOC);
+        if (!$gasto) {
+            throw new RuntimeException('No se encontró el gasto para generar CxP.');
+        }
+
+        $fecha = substr((string) ($gasto['fecha'] ?? date('Y-m-d')), 0, 10);
+        $total = round((float) ($gasto['total'] ?? 0), 4);
+
+        $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
+            (id_proveedor, id_gasto, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
+            VALUES
+            (:id_proveedor, :id_gasto, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+
+        $stmtInsert->execute([
+            'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
+            'id_gasto' => $idGasto,
+            'fecha_emision' => $fecha,
+            'fecha_vencimiento' => $fecha,
+            'moneda' => 'PEN',
+            'monto_total' => $total,
+            'saldo' => $total,
+            'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
     public function listarPendientesPorAntiguedad(int $idProveedor, string $moneda): array
     {
         $stmt = $this->db()->prepare('SELECT id
