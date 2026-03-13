@@ -313,17 +313,19 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     </select>
                                 </div>
 
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <div class="p-3 border rounded-3 bg-white text-center shadow-sm">
                                         <small class="text-muted d-block fw-semibold mb-1">Stock Actual</small>
                                         <span class="fw-bold text-primary fs-4" id="stockActualItemSeleccionado">0.00</span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="p-3 border rounded-3 bg-white text-center shadow-sm">
-                                        <small class="text-muted d-block fw-semibold mb-1">Costo Promedio</small>
-                                        <span class="fw-bold text-success fs-4" id="costoPromedioActual">S/ 0.00</span>
-                                    </div>
+
+                                <div class="col-md-6 d-none mt-2" id="grupoUnidadMovimiento">
+                                    <label for="unidadMovimiento" class="form-label small text-muted fw-bold">Unidad para la transferencia</label>
+                                    <select id="unidadMovimiento" class="form-select shadow-none border-secondary-subtle">
+                                        <option value="">Unidad base</option>
+                                    </select>
+                                    <div class="form-text small text-muted" id="unidadMovimientoInfo"></div>
                                 </div>
 
                                 <div class="col-md-6 form-floating mt-3">
@@ -331,7 +333,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     <label for="cantidadMovimiento">Cantidad a Mover <span class="text-danger fw-bold">*</span></label>
                                     <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
                                 </div>
-                                <div class="col-md-6 form-floating mt-3">
+                                <div class="col-md-6 form-floating mt-3 d-none" id="grupoCostoUnitarioMovimiento">
                                     <input type="number" step="0.0001" min="0" class="form-control shadow-none border-secondary-subtle" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                                     <label for="costoUnitarioMovimiento">Costo Unitario (S/)</label>
                                 </div>
@@ -371,6 +373,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                                 <tr>
                                                     <th>Ítem</th>
                                                     <th class="text-end">Cantidad</th>
+                                                    <th>Unidad</th>
                                                     <th>Lote</th>
                                                     <th>Vencimiento</th>
                                                     <th class="text-end">Costo Unit.</th>
@@ -379,7 +382,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             </thead>
                                             <tbody id="movimientosDetalleBody">
                                                 <tr data-empty="1">
-                                                    <td colspan="6" class="text-center text-muted py-3">Aún no hay ítems agregados.</td>
+                                                    <td colspan="7" class="text-center text-muted py-3">Aún no hay ítems agregados.</td>
                                                 </tr>
                                             </tbody>
                                         </table>
