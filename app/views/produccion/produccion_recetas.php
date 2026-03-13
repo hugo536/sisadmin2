@@ -256,9 +256,12 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         </button>
                                     </div>
                                     <div id="listaInsumosReceta" class="lista-insumos-etapa d-flex flex-column gap-2"></div>
-                                    <div class="d-flex justify-content-end mt-3">
+                                    <div class="d-flex justify-content-end gap-2 flex-wrap mt-3">
                                         <div class="badge text-bg-secondary fs-6 px-3 py-2">
-                                          Total BOM: <span id="totalBomCalculado">S/ 0.0000</span>
+                                          Total BOM (Receta): <span id="totalBomCalculado">S/ 0.0000</span>
+                                        </div>
+                                        <div class="badge text-bg-info fs-6 px-3 py-2">
+                                          Total BOM (Unidad): <span id="totalBomUnitCalculado">S/ 0.0000</span>
                                         </div>
                                     </div>
                                 </div>
@@ -279,9 +282,12 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorMod" class="d-flex flex-column gap-2"></div>
-                                    <div class="d-flex justify-content-end mt-3">
+                                    <div class="d-flex justify-content-end gap-2 flex-wrap mt-3">
                                         <div class="badge text-bg-secondary fs-6 px-3 py-2">
-                                            Total MOD: <span id="totalModCalculado">S/ 0.0000</span>
+                                            Total MOD (Receta): <span id="totalModCalculado">S/ 0.0000</span>
+                                        </div>
+                                        <div class="badge text-bg-info fs-6 px-3 py-2">
+                                            Total MOD (Unidad): <span id="totalModUnitCalculado">S/ 0.0000</span>
                                         </div>
                                     </div>
                                 </div>
@@ -304,9 +310,12 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
-                                    <div class="d-flex justify-content-end mt-3">
+                                    <div class="d-flex justify-content-end gap-2 flex-wrap mt-3">
                                         <div class="badge text-bg-secondary fs-6 px-3 py-2">
-                                            Total CIF: <span id="totalCifCalculado">S/ 0.0000</span>
+                                            Total CIF (Receta): <span id="totalCifCalculado">S/ 0.0000</span>
+                                        </div>
+                                        <div class="badge text-bg-info fs-6 px-3 py-2">
+                                            Total CIF (Unidad): <span id="totalCifUnitCalculado">S/ 0.0000</span>
                                         </div>
                                     </div>
                                 </div>
@@ -336,8 +345,14 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 <div id="bomResumen" class="small text-muted fw-semibold">0 insumos agregados.</div>
                             </div>
                             <div class="text-end">
-                                <h3 class="fw-bold text-primary mb-0" id="costoTotalCalculado">S/ 0.0000</h3>
-                                <span class="badge bg-primary text-white mt-1">Costo Total por Unidad</span>
+                                <div class="mb-2">
+                                    <h3 class="fw-bold text-primary mb-0" id="costoTotalCalculado">S/ 0.0000</h3>
+                                    <span class="badge bg-secondary text-white mt-1">Costo Total Receta</span>
+                                </div>
+                                <div>
+                                    <h4 class="fw-bold text-primary mb-0" id="costoTotalUnitarioCalculado">S/ 0.0000</h4>
+                                    <span class="badge bg-primary text-white mt-1">Costo Total por Unidad</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -362,7 +377,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
 
                     <template id="detalleRecetaTemplate">
                         <div class="row g-2 align-items-center detalle-row bg-white p-2 border rounded shadow-sm mb-2">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <select class="form-select form-select-sm select-insumo shadow-none border-secondary-subtle" name="insumo_id[]" required></select>
                                 <input type="hidden" class="input-etapa-hidden" name="insumo_etapa[]" value="General">
                             </div>
@@ -384,7 +399,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <input type="number" class="form-control bg-light input-costo-unitario border-secondary-subtle text-muted" name="insumo_costo[]" step="0.0001" value="0" readonly>
                                 </div>
                             </div>
-                            <div class="col-md-1">
+                            <div class="col-md-2">
                                 <input type="text" class="form-control form-control-sm bg-light input-costo-item text-primary fw-bold px-1 text-center border-secondary-subtle" value="0.0000" readonly>
                             </div>
                             <div class="col-md-1 text-center">
