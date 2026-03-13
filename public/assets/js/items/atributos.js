@@ -1,4 +1,6 @@
 (function () {
+    "use strict";
+
     function initGestionItemsModal() {
         const { postAction, showError, confirmAction, refreshAtributosSelectores } = window.ItemsShared || {};
         if (!postAction || !showError || !confirmAction || !refreshAtributosSelectores) return;
@@ -42,9 +44,9 @@
         document.querySelectorAll('.js-editar-atributo').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const configByTarget = {
-                    marca: { accion: 'editar_marca', titulo: 'Editar marca' },
-                    sabor: { accion: 'editar_sabor', titulo: 'Editar sabor' },
-                    presentacion: { accion: 'editar_presentacion', titulo: 'Editar presentación' }
+                    marca: { accion: 'editar_marca', titulo: '<i class="bi bi-pencil-square me-2 text-primary"></i>Editar Marca' },
+                    sabor: { accion: 'editar_sabor', titulo: '<i class="bi bi-pencil-square me-2 text-primary"></i>Editar Sabor' },
+                    presentacion: { accion: 'editar_presentacion', titulo: '<i class="bi bi-pencil-square me-2 text-primary"></i>Editar Presentación' }
                 };
                 const targetConfig = configByTarget[btn.dataset.target || ''] || configByTarget.presentacion;
 
@@ -52,7 +54,11 @@
                 document.getElementById('editarAtributoId').value = btn.dataset.id || '';
                 document.getElementById('editarAtributoNombre').value = btn.dataset.nombre || '';
                 document.getElementById('editarAtributoEstado').checked = (btn.dataset.estado || '1') === '1';
-                document.getElementById('tituloEditarAtributo').textContent = targetConfig.titulo;
+                
+                // Usamos innerHTML para soportar el ícono en el título del modal
+                const tituloEl = document.getElementById('tituloEditarAtributo');
+                if (tituloEl) tituloEl.innerHTML = targetConfig.titulo;
+                
                 editModal?.show();
             });
         });

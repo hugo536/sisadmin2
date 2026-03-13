@@ -19,7 +19,14 @@ window.IconosAccion = window.IconosAccion || {};
             background-color: transparent; border-radius: 6px;
             transition: all 0.2s ease-in-out; cursor: pointer;
         }
-        .btn-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-icon i {
+            font-size: 18px; /* tamaño del icono */
+        }
+        .btn-icon:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
         
         /* Colores persistentes y efectos Hover sutiles */
         .btn-icon-primary { color: #0d6efd; }

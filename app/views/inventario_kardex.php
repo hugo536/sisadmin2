@@ -173,4 +173,3 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
         </div>
     </div>
 </div>
-

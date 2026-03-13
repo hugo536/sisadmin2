@@ -45,7 +45,6 @@
     }
 
     async function postAction(payload) {
-        // Leer el token de la meta etiqueta e inyectarlo en el payload AJAX
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         payload.csrf_token = csrfToken; 
 
@@ -184,7 +183,6 @@
         applyVisibility();
     }
 
-    // --- FUNCIONES DE AUTOGENERACIÓN ---
     function normalizarTextoSku(value = '') {
         return String(value || '')
             .normalize('NFD')
@@ -553,7 +551,6 @@
         let skuDebounceTimer = null;
 
         skuInput.addEventListener('input', function () {
-            // Si está readonly (autogenerando), ignoramos
             if (this.readOnly) {
                 this.classList.remove('is-valid', 'is-invalid');
                 return;
@@ -565,7 +562,6 @@
 
             if (!skuVal) return;
 
-            // Esperamos 500ms a que termine de escribir para no saturar el servidor
             skuDebounceTimer = setTimeout(async () => {
                 try {
                     const response = await fetch(getItemsEndpoint({ accion: 'validar_sku', sku: skuVal }), {
@@ -574,9 +570,9 @@
                     const data = await response.json();
                     if (data.ok) {
                         if (data.existe) {
-                            skuInput.classList.add('is-invalid'); // Pone el borde rojo y muestra el error
+                            skuInput.classList.add('is-invalid');
                         } else {
-                            skuInput.classList.add('is-valid'); // Pone el borde verde
+                            skuInput.classList.add('is-valid');
                         }
                     }
                 } catch (error) {
@@ -784,7 +780,6 @@
                 return;
             }
 
-            // SE AGREGÓ ESTA LÍNEA PARA LEER EL TOKEN Y PONERLO EN EL BOTON DE ELIMINAR DINAMICO
             const csrfMetaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
             tableBody.innerHTML = items.map(item => {
@@ -799,12 +794,14 @@
                     ? `<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Falta agregar una receta"></i>` 
                     : '';
 
-const imgHtml = item.imagen_principal
-    ? `<img src="/${escapeHtml(item.imagen_principal)}" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">`
-    : `<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>`;
+                const imgHtml = item.imagen_principal
+                    ? `<img src="/${escapeHtml(item.imagen_principal)}" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">`
+                    : `<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>`;
+                
+                // AQUÍ ESTÁN LOS BOTONES CORREGIDOS CON LAS CLASES BTN-ICON
                 const btnEliminar = item.puede_eliminar === 1
-                    ? `<button type="submit" class="btn btn-sm border-0 bg-transparent btn-light text-danger" title="Eliminar"><i class="bi bi-trash fs-5"></i></button>`
-                    : `<button type="button" class="btn btn-sm border-0 bg-transparent btn-light text-muted opacity-50" title="${escapeHtml(item.motivo_no_eliminar)}" disabled aria-disabled="true"><i class="bi bi-trash fs-5"></i></button>`;
+                    ? `<button type="submit" class="btn-icon btn-icon-danger" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+                    : `<button type="button" class="btn-icon text-muted opacity-50" title="${escapeHtml(item.motivo_no_eliminar)}" disabled aria-disabled="true"><i class="bi bi-trash3"></i></button>`;
 
                 return `
                     <tr data-id="${item.id}">
@@ -822,51 +819,53 @@ const imgHtml = item.imagen_principal
                         <td class="text-center">${estadoBadge}</td>
                         <td class="text-end pe-4">
                             <div class="d-flex align-items-center justify-content-end gap-2">
-                                <div class="form-check form-switch pt-1" title="Cambiar estado">
+                                <div class="form-check form-switch pt-1 m-0" title="Cambiar estado">
                                     <input class="form-check-input switch-estado-item-dynamic" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" data-id="${item.id}" ${isActivo ? 'checked' : ''}>
                                 </div>
                                 <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
                                 
-                                <a href="?ruta=items/perfil&id=${item.id}" class="btn btn-sm btn-light text-info border-0 bg-transparent" title="Ver perfil y documentos">
-                                    <i class="bi bi-person-badge fs-5"></i>
-                                </a>
+                                <div class="d-inline-flex gap-1">
+                                    <a href="?ruta=items/perfil&id=${item.id}" class="btn-icon text-info" title="Ver perfil y documentos">
+                                        <i class="bi bi-person-badge"></i>
+                                    </a>
 
-                                <button class="btn btn-sm btn-light text-primary border-0 bg-transparent" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
-                                    data-id="${item.id}"
-                                    data-sku="${escapeHtml(item.sku)}"
-                                    data-nombre="${escapeHtml(item.nombre)}"
-                                    data-descripcion="${escapeHtml(item.descripcion)}"
-                                    data-tipo="${escapeHtml(item.tipo_item)}"
-                                    data-marca="${item.id_marca || ''}"
-                                    data-unidad="${escapeHtml(item.unidad_base)}"
-                                    data-moneda="${escapeHtml(item.moneda)}"
-                                    data-impuesto="${item.impuesto}"
-                                    data-precio="${item.precio_venta}"
-                                    data-stock-minimo="${item.stock_minimo}"
-                                    data-costo="${item.costo_referencial}"
-                                    data-peso-kg="${item.peso_kg}"
-                                    data-controla-stock="${item.controla_stock}"
-                                    data-permite-decimales="${item.permite_decimales}"
-                                    data-requiere-lote="${item.requiere_lote}"
-                                    data-requiere-vencimiento="${item.requiere_vencimiento}"
-                                    data-requiere-formula-bom="${item.requiere_formula_bom}"
-                                    data-requiere-factor-conversion="${item.requiere_factor_conversion}"
-                                    data-es-envase-retornable="${item.es_envase_retornable}"
-                                    data-dias-alerta-vencimiento="${item.dias_alerta_vencimiento || ''}"
-                                    data-rubro="${item.id_rubro || ''}"
-                                    data-categoria="${item.id_categoria || ''}"
-                                    data-sabor="${item.id_sabor || ''}"
-                                    data-presentacion="${item.id_presentacion || ''}"
-                                    data-estado="${item.estado}">
-                                    <i class="bi bi-pencil-square fs-5"></i>
-                                </button>
+                                    <button class="btn-icon btn-icon-primary" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
+                                        data-id="${item.id}"
+                                        data-sku="${escapeHtml(item.sku)}"
+                                        data-nombre="${escapeHtml(item.nombre)}"
+                                        data-descripcion="${escapeHtml(item.descripcion)}"
+                                        data-tipo="${escapeHtml(item.tipo_item)}"
+                                        data-marca="${item.id_marca || ''}"
+                                        data-unidad="${escapeHtml(item.unidad_base)}"
+                                        data-moneda="${escapeHtml(item.moneda)}"
+                                        data-impuesto="${item.impuesto}"
+                                        data-precio="${item.precio_venta}"
+                                        data-stock-minimo="${item.stock_minimo}"
+                                        data-costo="${item.costo_referencial}"
+                                        data-peso-kg="${item.peso_kg}"
+                                        data-controla-stock="${item.controla_stock}"
+                                        data-permite-decimales="${item.permite_decimales}"
+                                        data-requiere-lote="${item.requiere_lote}"
+                                        data-requiere-vencimiento="${item.requiere_vencimiento}"
+                                        data-requiere-formula-bom="${item.requiere_formula_bom}"
+                                        data-requiere-factor-conversion="${item.requiere_factor_conversion}"
+                                        data-es-envase-retornable="${item.es_envase_retornable}"
+                                        data-dias-alerta-vencimiento="${item.dias_alerta_vencimiento || ''}"
+                                        data-rubro="${item.id_rubro || ''}"
+                                        data-categoria="${item.id_categoria || ''}"
+                                        data-sabor="${item.id_sabor || ''}"
+                                        data-presentacion="${item.id_presentacion || ''}"
+                                        data-estado="${item.estado}" title="Editar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
 
-                                <form method="post" class="d-inline m-0 form-eliminar-dinamico">
-                                    <input type="hidden" name="accion" value="eliminar">
-                                    <input type="hidden" name="id" value="${item.id}">
-                                    <input type="hidden" name="csrf_token" value="${csrfMetaToken}">
-                                    ${btnEliminar}
-                                </form>
+                                    <form method="post" class="d-inline m-0 p-0 form-eliminar-dinamico">
+                                        <input type="hidden" name="accion" value="eliminar">
+                                        <input type="hidden" name="id" value="${item.id}">
+                                        <input type="hidden" name="csrf_token" value="${csrfMetaToken}">
+                                        ${btnEliminar}
+                                    </form>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -1025,7 +1024,6 @@ const imgHtml = item.imagen_principal
         });
     }
 
-
     window.ItemsShared = window.ItemsShared || {};
     window.ItemsShared.getItemsEndpoint = getItemsEndpoint;
     window.ItemsShared.showError = showError;
@@ -1034,7 +1032,6 @@ const imgHtml = item.imagen_principal
     window.ItemsShared.refreshAtributosSelectores = refreshAtributosSelectores;
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- SE AGREGÓ ESTE BLOQUE PARA PROTEGER LOS FORMULARIOS ESTÁTICOS ---
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (token) {
             document.querySelectorAll('form[method="post"]').forEach(form => {
@@ -1045,7 +1042,6 @@ const imgHtml = item.imagen_principal
                 form.appendChild(input);
             });
         }
-        // ---------------------------------------------------------------------
 
         initCreateModal();
         initEditModal();

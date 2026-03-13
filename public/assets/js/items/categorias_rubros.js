@@ -1,4 +1,6 @@
 (function () {
+    "use strict";
+
     function initRubrosModal() {
         const form = document.getElementById('formGestionRubro');
         if (!form) return;
@@ -17,7 +19,8 @@
             if (nombre) nombre.value = '';
             if (descripcion) descripcion.value = '';
             if (estado) estado.value = '1';
-            if (btnGuardar) btnGuardar.textContent = 'Guardar rubro';
+            // Usamos innerHTML por si decides agregarle iconos al botón de enviar en el futuro
+            if (btnGuardar) btnGuardar.innerHTML = 'Guardar Rubro';
         };
 
         document.querySelectorAll('.btn-editar-rubro').forEach((btn) => {
@@ -27,7 +30,7 @@
                 if (nombre) nombre.value = btn.getAttribute('data-nombre') || '';
                 if (descripcion) descripcion.value = btn.getAttribute('data-descripcion') || '';
                 if (estado) estado.value = btn.getAttribute('data-estado') || '1';
-                if (btnGuardar) btnGuardar.textContent = 'Actualizar rubro';
+                if (btnGuardar) btnGuardar.innerHTML = 'Actualizar Rubro';
                 nombre?.focus();
             });
         });
@@ -54,7 +57,8 @@
             if (nombre) nombre.value = '';
             if (descripcion) descripcion.value = '';
             if (estado) estado.value = '1';
-            if (btnGuardar) btnGuardar.textContent = 'Guardar categoría';
+            // Usamos innerHTML aquí también
+            if (btnGuardar) btnGuardar.innerHTML = 'Guardar Categoría';
         };
 
         document.querySelectorAll('.btn-editar-categoria').forEach((btn) => {
@@ -64,7 +68,7 @@
                 if (nombre) nombre.value = btn.getAttribute('data-nombre') || '';
                 if (descripcion) descripcion.value = btn.getAttribute('data-descripcion') || '';
                 if (estado) estado.value = btn.getAttribute('data-estado') || '1';
-                if (btnGuardar) btnGuardar.textContent = 'Actualizar categoría';
+                if (btnGuardar) btnGuardar.innerHTML = 'Actualizar Categoría';
                 nombre?.focus();
             });
         });

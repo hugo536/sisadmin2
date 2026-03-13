@@ -62,31 +62,31 @@ $tipoItemLabel = static function (string $tipo): string {
 <meta name="csrf-token" content="<?php echo e((string) ($csrf_token ?? '')); ?>">
 
 <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in inventario-sticky-header">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 fade-in inventario-sticky-header">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-box-seam me-2 text-primary"></i> Ítems y Servicios
             </h1>
             <p class="text-muted small mb-0 ms-1">Administra el catálogo maestro de ítems.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalUnidadesConversion">
+        <div class="d-flex gap-2 flex-wrap justify-content-md-end">
+            <button class="btn btn-light border border-secondary-subtle shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalUnidadesConversion">
                 <i class="bi bi-arrow-left-right me-2 text-warning"></i>Unidades y Conversiones
                 <?php if (count($pendientesConversion) > 0): ?>
                     <span class="badge rounded-pill bg-warning text-dark ms-2" id="ucPendientesBadge"><?php echo count($pendientesConversion); ?></span>
                 <?php endif; ?>
             </button>
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionRubros">
+            <button class="btn btn-light border border-secondary-subtle shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionRubros">
                 <i class="bi bi-diagram-3 me-2 text-info"></i>Rubros
             </button>
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
+            <button class="btn btn-light border border-secondary-subtle shadow-sm text-secondary fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCategorias">
                 <i class="bi bi-tags me-2 text-info"></i>Categorías
             </button>
-            <button class="btn btn-white border shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores">
-                <i class="bi bi-sliders me-2 text-info"></i>Configuración de ítems
+            <button class="btn btn-light border border-secondary-subtle shadow-sm text-secondary fw-semibold js-open-gestion-items" type="button" id="btnGestionItemsHeader" data-tab="sabores">
+                <i class="bi bi-sliders me-2 text-primary"></i>Configuración
             </button>
-            <button class="btn btn-primary shadow-sm fw-semibold" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo ítem
+            <button class="btn btn-primary shadow-sm fw-bold px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearItem">
+                <i class="bi bi-plus-circle-fill me-2"></i>Nuevo ítem
             </button>
         </div>
     </div>
@@ -95,13 +95,13 @@ $tipoItemLabel = static function (string $tipo): string {
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-5">
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="itemSearch" placeholder="Buscar por código, nombre o SKU...">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" id="itemSearch" placeholder="Buscar por código, nombre o SKU...">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroCategoria">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="itemFiltroCategoria">
                         <option value="">Todas las categorías</option>
                         <?php foreach ($categoriasGestion as $categoria): ?>
                             <option value="<?php echo (int) ($categoria['id'] ?? 0); ?>">
@@ -111,7 +111,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroTipo">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="itemFiltroTipo">
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado">Producto terminado</option>
                         <option value="materia_prima">Materia prima</option>
@@ -122,7 +122,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="itemFiltroEstado">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="itemFiltroEstado">
                         <option value="">Todos los estados</option>
                         <option value="1">Activo</option>
                         <option value="0">Inactivo</option>
@@ -135,7 +135,7 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro" id="itemsTable"
+                <table class="table align-middle mb-0 table-pro table-hover" id="itemsTable"
                        data-erp-table="true"
                        data-rows-selector="#itemsTableBody tr:not(.empty-msg-row)"
                        data-search-input="#itemSearch"
@@ -168,10 +168,10 @@ $tipoItemLabel = static function (string $tipo): string {
                 </table>
             </div>
             
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-0 px-4 py-3 border-top bg-white rounded-bottom">
                 <div class="small text-muted fw-medium" id="itemsPaginationInfo">Cargando información...</div>
                 <nav aria-label="Paginación de ítems">
-                    <ul class="pagination mb-0 shadow-sm" id="itemsPaginationControls"></ul>
+                    <ul class="pagination pagination-sm mb-0 shadow-sm" id="itemsPaginationControls"></ul>
                 </nav>
             </div>
 

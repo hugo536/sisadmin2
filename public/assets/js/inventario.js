@@ -697,6 +697,7 @@
       actualizarUIModal();
     }
 
+    // --- APLICADO: USO DE LA LIBRERÍA DE ICONOS AQUÍ ---
     function renderLineasMovimiento() {
       if (!movimientosDetalleBody) return;
 
@@ -708,6 +709,12 @@
       movimientosDetalleBody.innerHTML = '';
       lineasMovimiento.forEach((linea, idx) => {
         const tr = document.createElement('tr');
+        
+        // Usamos IconosAccion.crear pasándole la clase eliminar, el ID (que en este caso es el índice), clases extra, y el data-remove-index necesario para tu script
+        const botonEliminarHTML = window.IconosAccion ? 
+            window.IconosAccion.crear('eliminar', idx, '', `data-remove-index="${idx}"`) : 
+            `<button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}"><i class="bi bi-trash"></i></button>`;
+
         tr.innerHTML = `
           <td>${linea.etiqueta}</td>
           <td class="text-end">${Number(linea.cantidad_mostrada || linea.cantidad || 0).toFixed(4)}</td>
@@ -716,7 +723,7 @@
           <td>${linea.fecha_vencimiento || '-'}</td>
           <td class="text-end">${Number(linea.costo_unitario || 0).toFixed(4)}</td>
           <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}"><i class="bi bi-trash"></i></button>
+            ${botonEliminarHTML}
           </td>
         `;
         movimientosDetalleBody.appendChild(tr);

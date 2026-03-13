@@ -85,7 +85,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
+               <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
                        data-erp-table="true"
                        data-search-input="#inventarioSearch"
                        data-pagination-controls="#inventarioPaginationControls"
@@ -174,9 +174,9 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             <div class="vr bg-secondary opacity-25" style="height:20px;"></div>
                                             <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
                                                 <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                                   class="btn btn-sm btn-light text-primary border-0 bg-transparent rounded-circle"
+                                                   class="btn-icon btn-icon-info text-decoration-none"
                                                    data-bs-toggle="tooltip" data-bs-placement="top" title="Ver Kardex">
-                                                    <i class="bi bi-eye fs-5"></i>
+                                                    <i class="bi bi-eye"></i>
                                                 </a>
                                             <?php else: ?>
                                                 <span class="text-muted small" data-bs-toggle="tooltip" data-bs-placement="top" title="Kardex disponible para ítems base">-</span>
@@ -215,7 +215,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     <input type="hidden" id="tipoRegistroMovimiento" name="tipo_registro" value="item">
                     <input type="hidden" name="lote" id="loteFinalEnviar">
 
-                    <div class="card border-0 shadow-sm mb-4">
+                    <div class="card modal-pastel-card mb-4">
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Datos del Movimiento</h6>
                             <div class="row g-3">
@@ -238,7 +238,6 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    
                                 </div>
 
                                 <div class="col-md-12 mt-2 d-none" id="grupoProveedorMovimiento">
@@ -295,11 +294,11 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                     </select>
                                     <small class="text-muted d-block mt-1">Obligatorio para salidas por consumo interno (Ej. Suministros, Repuestos).</small>
                                 </div>
-                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-4">
+                    <div class="card modal-pastel-card mb-4">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                                 <h6 class="fw-bold text-dark mb-0">Detalle del Producto</h6>
@@ -368,7 +367,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
                                 <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
-                                        <table class="table table-sm align-middle mb-0" id="tablaLineasMovimiento">
+                                        <table class="table table-pastel table-sm align-middle mb-0" id="tablaLineasMovimiento">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th class="ps-2">Ítem</th>
@@ -417,4 +416,6 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
         })
     });
 </script>
+
+<script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/inventario.js')); ?>"></script>

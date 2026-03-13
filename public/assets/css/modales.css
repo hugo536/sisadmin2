@@ -37,26 +37,40 @@
     align-items: center;
 }
 
-/* Botón de Cerrar (X) */
-.modal-header .btn-close {
+/* Botón de Cerrar (X) para encabezados de color o clase btn-close-white */
+.modal-header.bg-primary .btn-close,
+.modal-header.bg-secondary .btn-close,
+.modal-header.bg-dark .btn-close,
+.modal-header .btn-close-white {
     opacity: 0.8;
     transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
     border-radius: 50% !important;
-    background-color: transparent !important; /* CRÍTICO: Fuerza a que no tenga fondo blanco */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23dc3545' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    background-color: transparent !important; 
+    
+    /* CRÍTICO: La 'X' (stroke) ahora es BLANCA (%23ffffff) para un contraste perfecto */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    
     background-size: 0.95rem;
     filter: none !important;
-    box-shadow: none !important; /* Evita aros blancos al hacerle clic */
+    box-shadow: none !important;
 }
 
-.modal-header .btn-close:hover {
+/* Efecto Hover: Fondo rojo y opacidad al 100% */
+.modal-header.bg-primary .btn-close:hover,
+.modal-header.bg-secondary .btn-close:hover,
+.modal-header.bg-dark .btn-close:hover,
+.modal-header .btn-close-white:hover {
     opacity: 1;
-    background-color: rgba(220, 53, 69, 0.12) !important; /* Halo rojo suave al pasar el cursor */
+    background-color: #dc3545 !important; /* Rojo sólido moderno */
     transform: rotate(90deg); /* El giro elegante */
 }
 
-.modal-header .btn-close:focus {
-    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+/* Efecto Focus: Anillo blanco sutil en lugar del negro por defecto */
+.modal-header.bg-primary .btn-close:focus,
+.modal-header.bg-secondary .btn-close:focus,
+.modal-header.bg-dark .btn-close:focus,
+.modal-header .btn-close-white:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
 }
 
 /* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES --- */

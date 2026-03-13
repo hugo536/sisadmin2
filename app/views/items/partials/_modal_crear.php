@@ -1,43 +1,18 @@
-<style>
-    /* Estilos sutiles para tarjetas dentro de modales (Estilo Pastel) */
-    .modal-pastel-card {
-        border: 1px solid #e9ecef !important;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.02) !important;
-    }
-    
-    .modal-pastel-card .card-header {
-        background-color: #f8f9fa !important; /* Gris pastel muy claro */
-        border-bottom: 1px solid #e9ecef !important;
-        font-size: 0.95rem;
-    }
-    
-    /* Colores sutiles para los iconos de las cabeceras */
-    .modal-pastel-card .header-icon-primary { color: #6ea8fe; } /* Azul claro */
-    .modal-pastel-card .header-icon-success { color: #75b798; } /* Verde claro */
-    .modal-pastel-card .header-icon-secondary { color: #adb5bd; } /* Gris claro */
-    
-    /* Contenedores interiores gris muy tenue */
-    .bg-pastel-light {
-        background-color: #f8f9fa !important;
-        border-color: #e9ecef !important;
-    }
-</style>
-
 <div class="modal fade" id="modalCrearItem" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white pb-3 border-bottom-0">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar ítem</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             
-            <div class="modal-body bg-white p-4">
-                <form method="post" class="row g-4" id="formCrearItem">
+            <div class="modal-body bg-light p-3 p-md-4">
+                <form method="post" class="row g-4 m-0" id="formCrearItem">
                     <input type="hidden" name="accion" value="crear">
                     <input type="hidden" name="nombre_manual_override" id="newNombreManualOverride" value="0">
                     
-                    <div class="col-12">
-                        <div class="card modal-pastel-card rounded-3">
+                    <div class="col-12 px-0">
+                        <div class="card modal-pastel-card rounded-3 bg-white">
                             <div class="card-header fw-bold text-dark py-2">
                                 <i class="bi bi-tag header-icon-primary me-2"></i>Identidad
                             </div>
@@ -45,7 +20,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label small text-muted fw-semibold mb-1">Rubro <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newRubro" name="id_rubro" required>
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newRubro" name="id_rubro" required>
                                             <option value="" selected disabled hidden>Seleccionar...</option>
                                             <?php foreach ($rubros as $rubro): ?>
                                                 <option value="<?php echo (int) $rubro['id']; ?>"><?php echo e((string) $rubro['nombre']); ?></option>
@@ -55,7 +30,7 @@
 
                                     <div class="col-md-6">
                                         <label class="form-label small text-muted fw-semibold mb-1">Categoría <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newCategoria" name="id_categoria" required>
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newCategoria" name="id_categoria" required>
                                             <option value="" selected disabled hidden>Seleccionar...</option>
                                             <?php foreach ($categorias as $categoria): ?>
                                                 <option value="<?php echo (int) $categoria['id']; ?>"><?php echo e((string) $categoria['nombre']); ?></option>
@@ -65,7 +40,7 @@
 
                                     <div class="col-md-6">
                                         <label for="newTipo" class="form-label small text-muted fw-semibold mb-1">Tipo de ítem <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newTipo" name="tipo_item" required>
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newTipo" name="tipo_item" required>
                                             <option value="" selected disabled hidden>Seleccionar tipo</option>
                                             <option value="producto_terminado">Producto terminado</option>
                                             <option value="materia_prima">Materia Prima</option>
@@ -77,7 +52,7 @@
                                     </div>
                                     
                                     <div class="col-md-6 d-flex align-items-end pb-1" id="newAutoIdentidadWrap">
-                                        <div class="form-check form-switch mb-0 bg-pastel-light border rounded px-3 py-2 w-100 d-flex align-items-center">
+                                        <div class="form-check form-switch mb-0 bg-pastel-light border border-secondary-subtle rounded px-3 py-2 w-100 d-flex align-items-center">
                                             <input class="form-check-input mt-0 me-3" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked>
                                             <label class="form-check-label small fw-medium text-dark" for="newAutoIdentidad" style="padding-top: 1px;">Generar SKU automáticamente</label>
                                         </div>
@@ -85,7 +60,7 @@
 
                                     <div class="col-md-9">
                                         <label for="newNombre" class="form-label small text-muted fw-semibold mb-1">Nombre del producto <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" id="newNombre" name="nombre" required>
+                                        <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" id="newNombre" name="nombre" required placeholder="Ej. Botella PET 500ml">
                                     </div>
                                     
                                     <div class="col-md-3">
@@ -97,7 +72,7 @@
 
                                     <div class="col-md-4">
                                         <label for="newUnidad" class="form-label small text-muted fw-semibold mb-1">Unidad base <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newUnidad" name="unidad_base" required>
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newUnidad" name="unidad_base" required>
                                             <option value="UND" selected>UND</option>
                                             <option value="KG">KG</option>
                                             <option value="LT">LT</option>
@@ -109,7 +84,7 @@
 
                                     <div class="col-md-4" id="newSaborContainer">
                                         <label class="form-label small text-muted fw-semibold mb-1">Sabor / Variante <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newSabor" name="id_sabor">
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newSabor" name="id_sabor">
                                             <option value="" selected>Ninguno...</option>
                                             <?php foreach ($sabores as $sabor): ?>
                                                 <option value="<?php echo (int) $sabor['id']; ?>"><?php echo e((string) $sabor['nombre']); ?></option>
@@ -119,7 +94,7 @@
 
                                     <div class="col-md-4" id="newMarcaContainer">
                                         <label class="form-label small text-muted fw-semibold mb-1">Marca <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newMarca" name="id_marca">
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newMarca" name="id_marca">
                                             <option value="" selected>Ninguna...</option>
                                             <?php foreach ($marcas as $marca): ?>
                                                 <option value="<?php echo (int) ($marca['id'] ?? 0); ?>"><?php echo e((string) $marca['nombre']); ?></option>
@@ -129,7 +104,7 @@
 
                                     <div class="col-md-12" id="newPresentacionContainer">
                                         <label class="form-label small text-muted fw-semibold mb-1">Presentación / Envase <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none bg-light border-secondary-subtle" id="newPresentacion" name="id_presentacion">
+                                        <select class="form-select shadow-none border-secondary-subtle" id="newPresentacion" name="id_presentacion">
                                             <option value="" selected>Ninguna...</option>
                                             <?php foreach ($presentaciones as $presentacion): ?>
                                                 <option value="<?php echo (int) $presentacion['id']; ?>"><?php echo e((string) $presentacion['nombre']); ?></option>
@@ -145,8 +120,8 @@
                     <input type="hidden" id="newPrecio" name="precio_venta" value="0.0000">
                     <input type="hidden" id="newMoneda" name="moneda" value="PEN">
 
-                    <div class="col-12" id="newComercialCard">
-                        <div class="card modal-pastel-card rounded-3">
+                    <div class="col-12 px-0" id="newComercialCard">
+                        <div class="card modal-pastel-card rounded-3 bg-white">
                             <div class="card-header fw-bold text-dark py-2">
                                 <i class="bi bi-currency-dollar header-icon-success me-2"></i>Comercial
                             </div>
@@ -169,15 +144,15 @@
                                     </div>
 
                                     <div class="col-12">
-                                        <input type="text" class="form-control form-control-sm shadow-none bg-pastel-light" id="newDescripcion" name="descripcion" placeholder="Añadir descripción o especificaciones adicionales (Opcional)">
+                                        <input type="text" class="form-control form-control-sm shadow-none bg-pastel-light border-secondary-subtle" id="newDescripcion" name="descripcion" placeholder="Añadir descripción o especificaciones adicionales (Opcional)">
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-12">
-                        <div class="card modal-pastel-card rounded-3">
+                    <div class="col-12 px-0">
+                        <div class="card modal-pastel-card rounded-3 bg-white">
                             <div class="card-header fw-bold text-dark py-2">
                                 <i class="bi bi-sliders2 header-icon-secondary me-2"></i>Configuración Avanzada
                             </div>
@@ -185,7 +160,7 @@
                                 <div class="row g-3">
                                     
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-pastel-light h-100">
+                                        <div class="p-3 border border-secondary-subtle rounded-3 bg-pastel-light h-100">
                                             <small class="text-uppercase text-secondary fw-bold d-block mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">Inventario y Medidas</small>
                                             
                                             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -194,7 +169,7 @@
                                                     <label class="form-check-label fw-medium text-dark small" for="newControlaStock">Controlar Stock Mínimo</label>
                                                 </div>
                                                 <div id="newStockMinContainer" style="width: 80px;">
-                                                    <input type="number" class="form-control form-control-sm text-end shadow-none" id="newStockMin" name="stock_minimo" placeholder="Mín." value="0" disabled>
+                                                    <input type="number" class="form-control form-control-sm text-end shadow-none border-secondary-subtle" id="newStockMin" name="stock_minimo" placeholder="Mín." value="0" disabled>
                                                 </div>
                                             </div>
 
@@ -209,7 +184,7 @@
                                     </div>
 
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-pastel-light h-100">
+                                        <div class="p-3 border border-secondary-subtle rounded-3 bg-pastel-light h-100">
                                             <small class="text-uppercase text-secondary fw-bold d-block mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">Trazabilidad y Calidad</small>
                                             
                                             <div class="d-flex align-items-center mb-3" id="newRequiereLoteContainer">
@@ -226,14 +201,14 @@
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2" id="newDiasAlertaContainer">
                                                     <span class="small text-muted" style="font-size: 0.75rem;">Alerta (días):</span>
-                                                    <input type="number" min="0" class="form-control form-control-sm text-center shadow-none" id="newDiasAlerta" name="dias_alerta_vencimiento" style="width: 60px;" value="0" disabled>
+                                                    <input type="number" min="0" class="form-control form-control-sm text-center shadow-none border-secondary-subtle" id="newDiasAlerta" name="dias_alerta_vencimiento" style="width: 60px;" value="0" disabled>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="col-12">
-                                        <div class="p-3 border rounded-3 bg-pastel-light">
+                                        <div class="p-3 border border-secondary-subtle rounded-3 bg-pastel-light">
                                             <small class="text-uppercase text-secondary fw-bold d-block mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">Operaciones de Producción</small>
                                             
                                             <div class="row g-2">
@@ -268,8 +243,8 @@
 
                     <input type="hidden" id="newEstado" name="estado" value="1">
                     
-                    <div class="col-12 modal-footer bg-white border-top mt-4 pb-0 px-0 d-flex justify-content-end">
-                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="col-12 mt-4 pt-3 pb-0 px-0 d-flex justify-content-end border-top">
+                        <button type="button" class="btn btn-light text-secondary me-2 fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
                         <button class="btn btn-primary px-4 fw-bold shadow-sm" type="submit"><i class="bi bi-save me-2"></i>Guardar Ítem</button>
                     </div>
                 </form>
