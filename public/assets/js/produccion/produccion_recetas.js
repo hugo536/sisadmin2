@@ -64,6 +64,10 @@ function initFormularioRecetas() {
     const mapaActivosFijosCif = new Map(activosFijosCif.map(a => [String(a.id), a]));
     const inputRendimientoBase = document.getElementById('newRendimientoBase');
     const inputTiempoProduccionHoras = document.getElementById('newTiempoProduccionHoras');
+    const totalBomEl = document.getElementById('totalBomCalculado');
+    const totalModEl = document.getElementById('totalModCalculado');
+    const totalCifEl = document.getElementById('totalCifCalculado');
+    const tabsRecetaCostos = document.getElementById('tabsRecetaCostos');
 
     function initTomSelectAjax(selectEl, placeholderText, onChangeCallback = null) {
         if (!selectEl || typeof TomSelect === 'undefined') return null;
@@ -115,6 +119,20 @@ function initFormularioRecetas() {
     };
 
 
+    const actualizarEstadoTabsCostos = () => {
+        if (!tabsRecetaCostos) return;
+        tabsRecetaCostos.querySelectorAll('.nav-link').forEach((tabBtn) => {
+            const activo = tabBtn.classList.contains('active');
+            tabBtn.classList.toggle('text-primary', activo);
+            tabBtn.classList.toggle('text-secondary', !activo);
+        });
+    };
+
+    tabsRecetaCostos?.querySelectorAll('[data-bs-toggle="tab"]').forEach((tabBtn) => {
+        tabBtn.addEventListener('shown.bs.tab', actualizarEstadoTabsCostos);
+    });
+    actualizarEstadoTabsCostos();
+
     const limpiarFormularioReceta = () => {
         const form = document.getElementById('formCrearReceta');
         if (form) form.reset();
@@ -126,6 +144,10 @@ function initFormularioRecetas() {
         if (emptyParametros) emptyParametros.style.display = 'block';
         if (resumenItems) resumenItems.textContent = '0 insumos agregados.';
         if (costoTotalEl) costoTotalEl.textContent = 'S/ 0.0000';
+        if (totalBomEl) totalBomEl.textContent = 'S/ 0.0000';
+        if (totalModEl) totalModEl.textContent = 'S/ 0.0000';
+        if (totalCifEl) totalCifEl.textContent = 'S/ 0.0000';
+        actualizarEstadoTabsCostos();
 
         // DESBLOQUEAR TODO (Para cuando hacen clic en "Nueva receta" principal)
         const inputCodigo = document.getElementById('newCodigo');
@@ -199,6 +221,9 @@ function initFormularioRecetas() {
         document.querySelectorAll('.cif-row').forEach(row => {
             costoCif += parseNumero(row.querySelector('.cif-costo')?.value);
         });
+        if (totalBomEl) totalBomEl.textContent = `S/ ${costoTotal.toFixed(4)}`;
+        if (totalModEl) totalModEl.textContent = `S/ ${costoMod.toFixed(4)}`;
+        if (totalCifEl) totalCifEl.textContent = `S/ ${costoCif.toFixed(4)}`;
         if (costoTotalEl) costoTotalEl.textContent = `S/ ${(costoTotal + costoMod + costoCif).toFixed(4)}`;
     };
 
@@ -794,6 +819,26 @@ function initGuardadoReceta() {
         if (!filasValidas) {
             Swal.fire({ icon: 'warning', title: 'Revisa los insumos', text: mensajeError });
             return;
+        }
+
+        const filasMod = document.querySelectorAll('.mod-row');
+        for (let i = 0; i < filasMod.length; i++) {
+            const perfil = filasMod[i].querySelector('input[name="mod_perfil_puesto[]"]')?.value?.trim() || '';
+            const costoBase = parseFloat(filasMod[i].querySelector('input[name="mod_costo_hora_estimado[]"]')?.value || '0');
+            if (!perfil || !Number.isFinite(costoBase) || costoBase <= 0) {
+                Swal.fire({ icon: 'warning', title: 'Revisa Mano de Obra (MOD)', text: `Completa perfil y costo base válido en la fila ${i + 1} de MOD.` });
+                return;
+            }
+        }
+
+        const filasCif = document.querySelectorAll('.cif-row');
+        for (let i = 0; i < filasCif.length; i++) {
+            const concepto = filasCif[i].querySelector('input[name="cif_concepto[]"]')?.value?.trim() || '';
+            const costo = parseFloat(filasCif[i].querySelector('input[name="cif_costo_estimado[]"]')?.value || '0');
+            if (!concepto || !Number.isFinite(costo) || costo <= 0) {
+                Swal.fire({ icon: 'warning', title: 'Revisa Costos Indirectos (CIF)', text: `Completa concepto y costo válido en la fila ${i + 1} de CIF.` });
+                return;
+            }
         }
 
         try {
