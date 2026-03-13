@@ -176,7 +176,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                     <div class="card modal-pastel-card mb-4">
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
-                            <div class="row g-3">
+                            <div class="row g-3 align-items-end">
                                 <div class="col-md-3">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newCodigo">Código</label>
                                     <input type="text" class="form-control fw-bold shadow-none border-secondary-subtle text-primary" id="newCodigo" name="codigo" required>
@@ -200,9 +200,26 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <input type="hidden" id="newIdProductoHidden" name="id_producto">
                                 </div>
 
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label small text-muted fw-bold mb-1">Unidad rendimiento</label>
                                     <input type="text" class="form-control bg-light fw-bold text-center border-secondary-subtle shadow-none" id="newUnidadRendimiento" name="unidad_rendimiento" value="UND" readonly>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newRendimientoBase">Cantidad diseñada (lote)</label>
+                                    <input type="number" class="form-control shadow-none border-secondary-subtle fw-semibold text-end" id="newRendimientoBase" name="rendimiento_base" step="0.0001" value="1" min="0.0001" required>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newTiempoProduccionHoras">Tiempo producción (horas)</label>
+                                    <input type="number" class="form-control shadow-none border-secondary-subtle fw-semibold text-end" id="newTiempoProduccionHoras" name="tiempo_produccion_horas" step="0.0001" value="1" min="0.0001" required>
+                                </div>
+
+                                <div class="col-md-3" id="contenedorVersionesPrevias" style="display:none;">
+                                    <label for="newVersionBase" class="form-label small text-dark fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Precargar versión</label>
+                                    <select class="form-select form-select-sm shadow-none border-secondary-subtle" id="newVersionBase">
+                                        <option value="">Seleccione versión...</option>
+                                    </select>
                                 </div>
 
                                 <div class="col-12">
@@ -210,13 +227,9 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <input type="text" class="form-control shadow-none border-secondary-subtle" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial de producción...">
                                 </div>
 
-                                <div class="col-12" id="contenedorVersionesPrevias" style="display:none;">
-                                    <div class="p-3 bg-warning-subtle rounded-3 border border-warning-subtle mt-2">
-                                        <label for="newVersionBase" class="form-label small text-dark fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Precargar desde versión anterior</label>
-                                        <select class="form-select shadow-none border-secondary-subtle" id="newVersionBase">
-                                            <option value="">Seleccione versión para cargar datos...</option>
-                                        </select>
-                                        <small class="text-muted mt-1 d-block">Seleccione una versión para copiar sus insumos, MOD y CIF y ahorrar tiempo.</small>
+                                <div class="col-12" id="ayudaVersionesPrevias" style="display:none;">
+                                    <div class="px-3 py-2 bg-secondary-subtle rounded-2 border border-secondary-subtle">
+                                        <small class="text-muted">Puede copiar BOM, MOD y CIF desde una versión anterior para ahorrar tiempo.</small>
                                     </div>
                                 </div>
                             </div>
@@ -242,7 +255,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <div>
                                             <h6 class="fw-bold text-dark mb-0">Composición de Materiales</h6>
-                                            <small class="text-muted">Insumos requeridos para producir 1 Unidad de Rendimiento.</small>
+                                            <small class="text-muted">Insumos requeridos para la cantidad diseñada de esta receta.</small>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="btnAgregarInsumo">
                                             <i class="bi bi-plus-lg me-1"></i>Añadir insumo
@@ -255,7 +268,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <div>
                                             <h6 class="fw-bold text-dark mb-0">Mano de Obra Directa</h6>
-                                            <small class="text-muted">Estima el costo de personal necesario por unidad.</small>
+                                            <small class="text-muted">El tiempo se toma desde Información General y se aplica a cada perfil.</small>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 shadow-sm" id="btnAgregarMod">
                                             <i class="bi bi-person-plus me-1"></i>Añadir operario
@@ -263,8 +276,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     </div>
                                     <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
                                         <div class="col-md-5">Perfil / Puesto</div>
-                                        <div class="col-md-3">Horas Est.</div>
-                                        <div class="col-md-3">Costo/Hora (S/)</div>
+                                        <div class="col-md-6">Costo/Hora (S/)</div>
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorMod" class="d-flex flex-column gap-2"></div>
@@ -273,7 +285,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 <div class="tab-pane fade" id="tabRecetaCif" role="tabpanel">
                                     <div class="alert alert-info d-flex align-items-center border-0 shadow-sm rounded-3 mb-4">
                                         <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
-                                        <div>Vincula un activo fijo (maquinaria) para estimar desgaste por hora (Depreciación mensual / 240 horas de uso estándar).</div>
+                                        <div>Si vincula un activo fijo, el costo se calcula automáticamente usando las horas de Información General.</div>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <h6 class="fw-bold text-dark mb-0">Costos Indirectos de Fabricación</h6>
@@ -284,8 +296,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
                                         <div class="col-md-3">Activo Fijo</div>
                                         <div class="col-md-5">Concepto Adicional</div>
-                                        <div class="col-md-2">Horas Uso</div>
-                                        <div class="col-md-1">Costo (S/)</div>
+                                        <div class="col-md-3">Costo (S/)</div>
                                         <div class="col-md-1 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
@@ -378,13 +389,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                     <template id="modTemplate">
                         <div class="row g-2 align-items-center mod-row bg-white p-2 border rounded shadow-sm mb-2">
                             <div class="col-md-5"><input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle fw-semibold" name="mod_perfil_puesto[]" placeholder="Ej: Operador de Máquina A"></div>
-                            <div class="col-md-3">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-light text-muted border-secondary-subtle"><i class="bi bi-clock"></i></span>
-                                    <input type="number" class="form-control form-control-sm mod-horas shadow-none border-secondary-subtle" name="mod_horas_estimadas[]" step="0.0001" placeholder="0.00">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-light text-muted border-secondary-subtle">S/</span>
                                     <input type="number" class="form-control form-control-sm mod-costo shadow-none border-secondary-subtle" name="mod_costo_hora_estimado[]" step="0.0001" placeholder="Costo Base">
@@ -406,13 +411,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 </select>
                             </div>
                             <div class="col-md-5"><input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle" name="cif_concepto[]" placeholder="Concepto / Gasto Adicional"></div>
-                            <div class="col-md-2">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-light text-muted border-secondary-subtle"><i class="bi bi-clock"></i></span>
-                                    <input type="number" class="form-control form-control-sm cif-horas shadow-none border-secondary-subtle" step="0.0001" placeholder="0.00">
-                                </div>
-                            </div>
-                            <div class="col-md-1"><input type="number" class="form-control form-control-sm cif-costo bg-light border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="S/ 0.00" readonly></div>
+                            <div class="col-md-3"><input type="number" class="form-control form-control-sm cif-costo border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="S/ 0.00"></div>
                             <div class="col-md-1 text-center">
                                 <button type="button" class="btn-icon btn-icon-danger js-remove-cif" title="Eliminar CIF">
                                     <i class="bi bi-trash3"></i>
