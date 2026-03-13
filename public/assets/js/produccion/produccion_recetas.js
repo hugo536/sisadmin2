@@ -229,9 +229,11 @@ function initFormularioRecetas() {
         });
 
         const rendimientoBase = Math.max(parseNumero(inputRendimientoBase?.value || 1), 0);
+        const horasProduccion = getTiempoProduccionHoras();
         const divisorUnidad = rendimientoBase > 0 ? rendimientoBase : 1;
+        const divisorModUnidad = horasProduccion > 0 ? horasProduccion : 1;
         const costoBomUnit = costoTotal / divisorUnidad;
-        const costoModUnit = costoMod / divisorUnidad;
+        const costoModUnit = costoMod / divisorModUnidad;
         const costoCifUnit = costoCif / divisorUnidad;
         const costoTotalReceta = costoTotal + costoMod + costoCif;
         const costoTotalUnitario = costoBomUnit + costoModUnit + costoCifUnit;

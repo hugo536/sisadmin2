@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/terceros/TercerosClientesModel.php';
-require_once __DIR__ . '/terceros/TercerosProveedoresModel.php';
-require_once __DIR__ . '/terceros/TercerosEmpleadosModel.php';
-require_once __DIR__ . '/terceros/DistribuidoresModel.php';
+require_once __DIR__ . '/TercerosClientesModel.php';
+require_once __DIR__ . '/TercerosProveedoresModel.php';
+require_once __DIR__ . '/TercerosEmpleadosModel.php';
+require_once __DIR__ . '/DistribuidoresModel.php';
 
 class TercerosModel extends Modelo
 {
