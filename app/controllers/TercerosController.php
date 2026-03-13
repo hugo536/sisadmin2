@@ -4,7 +4,7 @@
 
 // Usamos rutas relativas para evitar problemas con BASE_PATH
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
-require_once __DIR__ . '/../models/TercerosModel.php';
+require_once __DIR__ . '/../models/terceros/TercerosModel.php';
 require_once __DIR__ . '/../models/configuracion/CajasBancosModel.php';
 require_once __DIR__ . '/../models/contabilidad/CentroCostoModel.php';
 
@@ -423,7 +423,7 @@ class TercerosController extends Controlador
         $cargos = $this->tercerosModel->listarCargos();
         $areas = $this->tercerosModel->listarAreas();
 
-        $this->render('terceros', [
+        $this->render('terceros/terceros', [
             'terceros'       => $this->tercerosModel->listar(),
             'flash'          => $flash,
             'ruta_actual'    => 'tercero',
@@ -455,7 +455,7 @@ class TercerosController extends Controlador
         $departamentos = $this->tercerosModel->obtenerDepartamentos();
         $hijosEmpleado = !empty($tercero['es_empleado']) ? $this->tercerosModel->listarHijosEmpleado($id) : [];
 
-        $this->render('terceros_perfil', [
+        $this->render('terceros/terceros_perfil', [
             'tercero' => $tercero,
             'documentos' => $documentos,
             'hijos_empleado' => $hijosEmpleado,

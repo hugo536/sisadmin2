@@ -111,11 +111,11 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'terceros')): ?>
-    <script src="<?php echo e(asset_url('js/terceros.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/terceros/terceros.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'terceros/perfil'): ?>
-    <script src="<?php echo e(asset_url('js/terceros_perfil.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/terceros/terceros_perfil.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'compras')): ?>

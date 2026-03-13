@@ -439,4 +439,4 @@ function showVal($val, $suffix = '') {
         cliente: <?php echo $esCliente; ?>
     };
 </script>
-<script src="<?php echo asset_url('js/terceros_perfil.js'); ?>"></script>
+<script src="<?php echo asset_url('js/terceros/terceros_perfil.js'); ?>"></script>
