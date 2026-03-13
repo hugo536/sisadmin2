@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/app.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/tablas-custom.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
+    <link rel="stylesheet" href="<?php echo e(asset_url('css/modales.css')); ?>">
     
     <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">
@@ -62,6 +63,7 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 <script src="<?php echo e(asset_url('js/main.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/tablas/renderizadores.js')); ?>"></script>
 
+<script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
 <?php 
 // --- DETECCIÓN DE RUTA PARA SCRIPTS ESPECÍFICOS ---
 $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? ''; 

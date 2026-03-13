@@ -1,7 +1,13 @@
 (function () {
     function initUnidadesConversionModal() {
         const { getItemsEndpoint, postAction, showError, confirmAction } = window.ItemsShared || {};
-        if (!getItemsEndpoint || !postAction || !showError || !confirmAction) return;
+        // ASEGURATE de que la librería IconosAccion esté disponible
+        const { IconosAccion } = window; 
+
+        if (!getItemsEndpoint || !postAction || !showError || !confirmAction || !IconosAccion) {
+            console.warn('Faltan dependencias compartidas o la librería IconosAccion para inicializar el modal de conversiones.');
+            return;
+        }
 
         const modal = document.getElementById('modalUnidadesConversion');
         const tbodyResumen = document.querySelector('#tablaUnidadesConversion tbody');
@@ -88,17 +94,19 @@
                     ? '<span class="badge bg-success-subtle text-success">Activo</span>'
                     : '<span class="badge bg-secondary-subtle text-secondary">Inactivo</span>';
 
+                // --- USO DEL CATÁLOGO DE ICONOS ---
+                const btnEditar = IconosAccion.crear('editar', item.id, 'js-uc-editar');
+                const btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
+                const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
+
                 return `
                     <tr>
-                        <td class="fw-semibold">${item.nombre || ''}</td>
-                        <td>${item.codigo_unidad || ''}</td>
-                        <td class="text-end">${Number(item.factor_conversion || 0).toFixed(4)}</td>
-                        <td class="text-end">${Number(item.peso_kg || 0).toFixed(3)}</td>
+                        <td class="fw-semibold" style="max-width: 150px;"><div class="text-truncate" title="${item.nombre || ''}">${item.nombre || ''}</div></td>
+                        <td class="small">${item.codigo_unidad || '-'}</td>
+                        <td class="text-end fw-medium text-dark">${Number(item.factor_conversion || 0).toFixed(4)}</td>
+                        <td class="text-end small">${Number(item.peso_kg || 0).toFixed(3)}</td>
                         <td class="text-center">${badge}</td>
-                        <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-outline-primary me-1 js-uc-editar" data-id="${item.id}">Editar</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger js-uc-eliminar" data-id="${item.id}">Eliminar</button>
-                        </td>
+                        <td class="text-end pe-3">${accionesHTML}</td>
                     </tr>
                 `;
             }).join('');
@@ -170,16 +178,25 @@
             tbodyResumen.innerHTML = items.map((item) => {
                 const total = Number(item.total_unidades || 0);
                 const estado = total <= 0
-                    ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pendiente</span>'
-                    : '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill me-1"></i>Configurado</span>';
+                    ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-exclamation-triangle-fill"></i> Pn.</span>'
+                    : '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill"></i> OK</span>';
+
+                const esActivo = itemActivo && itemActivo.id === item.id ? 'table-active' : '';
+
+                // --- USO DEL CATÁLOGO DE ICONOS ---
+                const btnGestionar = IconosAccion.crear('gestionar', item.id, 'js-uc-seleccionar');
+                const accionesHTML = IconosAccion.agrupar(btnGestionar);
 
                 return `
-                    <tr>
-                        <td><div class="fw-semibold">${item.nombre || ''}</div><div class="small text-muted">${item.sku || ''}</div></td>
-                        <td>${item.unidad_base || 'UND'}</td>
-                        <td class="text-center">${total}</td>
-                        <td class="text-center">${estado}</td>
-                        <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary js-uc-seleccionar" data-id="${item.id}">Gestionar</button></td>
+                    <tr class="${esActivo}">
+                        <td class="ps-3 w-50" style="max-width: 180px;">
+                            <div class="fw-semibold text-dark text-truncate" title="${item.nombre || ''}">${item.nombre || ''}</div>
+                            <div class="small text-muted text-truncate" style="font-size: 0.75rem;">${item.sku || ''}</div>
+                        </td>
+                        <td class="text-center align-middle">${item.unidad_base || 'UND'}</td>
+                        <td class="text-center align-middle fw-medium">${total}</td>
+                        <td class="text-center align-middle">${estado}</td>
+                        <td class="text-end pe-3 align-middle">${accionesHTML}</td>
                     </tr>
                 `;
             }).join('');
@@ -195,6 +212,7 @@
                     btnAgregar.disabled = false;
                     resetFormulario();
                     cargarDetalle(item.id);
+                    renderResumen(itemsResumen); 
                 });
             });
         };
@@ -263,7 +281,7 @@
                 itemActivo = null;
                 btnAgregar.disabled = true;
                 tituloSeleccion.textContent = 'Selecciona un ítem para gestionar sus conversiones';
-                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
+                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
                 resetFormulario();
                 await cargarResumen();
             } catch (error) {

@@ -1,0 +1,114 @@
+/* =======================================================
+   ESTÁNDAR GLOBAL DE MODALES Y COMPONENTES INTERNOS
+   ======================================================= */
+
+/* --- 1. APARIENCIA GENERAL DEL MODAL Y ENCABEZADO --- */
+.modal-content {
+    border: none !important;
+    border-radius: 0.75rem; /* Bordes más redondeados (12px) */
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    overflow: hidden; /* CRÍTICO: Asegura que el encabezado azul no se salga de las esquinas redondeadas */
+}
+
+/* Estandarización del Encabezado (La zona que señalaste en rojo) */
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* Encabezados con fondo de color */
+.modal-header.bg-primary, 
+.modal-header.bg-dark, 
+.modal-header.bg-secondary {
+    border-bottom: none;
+}
+
+/* Forzamos al bg-primary a usar tu color de tema global */
+.modal-header.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+/* Título del modal */
+.modal-header .modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+}
+
+/* Botón de Cerrar (X) */
+.modal-header .btn-close {
+    opacity: 0.8;
+    transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+    border-radius: 50% !important;
+    background-color: transparent !important; /* CRÍTICO: Fuerza a que no tenga fondo blanco */
+    box-shadow: none !important; /* Evita aros blancos al hacerle clic */
+}
+
+.modal-header .btn-close:hover {
+    opacity: 1;
+    background-color: #dc3545 !important; /* Fondo rojo al pasar el cursor */
+    transform: rotate(90deg); /* El giro elegante */
+}
+
+/* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES --- */
+/* Uso: <table class="table table-pro table-pastel"> */
+.table-pastel thead th {
+    background-color: #f8f9fa !important; /* Gris pastel muy suave */
+    color: #495057 !important;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-bottom: 2px solid #e9ecef;
+    letter-spacing: 0.3px;
+}
+
+.table-pastel tbody tr {
+    border-bottom: 1px solid #e9ecef;
+    background-color: #ffffff;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.table-pastel tbody tr:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Fila activa (seleccionada) */
+.table-pastel tbody tr.table-active {
+    background-color: #eef2f6 !important;
+    border-left: 3px solid var(--primary-color); /* Indicador dinámico según el tema */
+}
+
+/* Fila protegida/bloqueada */
+.table-pastel tbody tr.table-protected {
+    background-color: #f1f3f5 !important;
+    opacity: 0.8;
+}
+
+
+/* --- 3. TARJETAS SUTILES PARA FORMULARIOS (.modal-pastel-card) --- */
+.modal-pastel-card {
+    border: 1px solid #e9ecef !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.02) !important;
+    border-radius: 0.5rem;
+}
+
+.modal-pastel-card .card-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #e9ecef !important;
+    font-size: 0.95rem;
+}
+
+/* Colores pastel para iconos de tarjetas */
+.modal-pastel-card .header-icon-primary { color: #6ea8fe; }
+.modal-pastel-card .header-icon-success { color: #75b798; }
+.modal-pastel-card .header-icon-secondary { color: #adb5bd; }
+.modal-pastel-card .header-icon-warning { color: #ffc107; }
+.modal-pastel-card .header-icon-danger { color: #ea868f; }
+
+
+/* --- 4. FONDOS Y UTILIDADES AUXILIARES --- */
+.bg-pastel-light {
+    background-color: #f8f9fa !important;
+    border-color: #e9ecef !important;
+}

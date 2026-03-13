@@ -59,7 +59,6 @@ body[data-theme="dark"] {
   --sidebar-active-bg: rgba(124, 58, 237, 0.25);
   --sidebar-active-color: #ddd6fe;
   --sidebar-footer-bg: rgba(3, 7, 18, 0.55);
-
 }
 
 body[data-theme="blue"] {
@@ -81,7 +80,6 @@ body[data-theme="blue"] {
   --sidebar-active-bg: rgba(147, 197, 253, 0.25);
   --sidebar-active-color: #eff6ff;
   --sidebar-footer-bg: rgba(30, 58, 138, 0.45);
-
 }
 
 /* =======================
@@ -117,7 +115,7 @@ body {
 }
 
 /* =======================
-   CARDS
+   CARDS GLOBALES
    ======================= */
 .card {
   border: none;
@@ -136,7 +134,7 @@ body {
 }
 
 /* =======================
-   BUTTONS
+   BUTTONS GLOBALES
    ======================= */
 .btn-primary {
   background-color: var(--primary-color);
@@ -160,7 +158,7 @@ body {
 }
 
 /* =======================
-   FORMS
+   FORMS GLOBALES
    ======================= */
 .form-control:focus,
 .form-select:focus {
@@ -168,13 +166,13 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
-.sku-lockable:disabled {
+.sku-lockable:disabled,
+.sku-lockable[readonly] {
   background-color: #eef2f6;
   color: #6c757d;
   cursor: not-allowed;
   opacity: 1;
 }
-
 
 .item-autoidentity-hint {
   background: #eff6ff;
@@ -187,7 +185,7 @@ body {
 }
 
 /* =======================
-   BADGES
+   BADGES GLOBALES
    ======================= */
 .badge-status {
   padding: 0.35em 0.8em;
@@ -210,7 +208,7 @@ body {
 }
 
 /* =======================
-   AVATAR
+   AVATAR / UI UTILS
    ======================= */
 .avatar-circle {
   width: 38px;
@@ -246,13 +244,8 @@ body {
 }
 
 @keyframes aprovisionarPulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(13, 202, 240, 0);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.35);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.35); }
 }
 
 .btn-new-user{
@@ -263,11 +256,8 @@ body {
 }
 
 @media (max-width: 575.98px){
-  .btn-new-user{
-    padding: .55rem .65rem;
-  }
+  .btn-new-user{ padding: .55rem .65rem; }
 }
-
 
 /* =======================
    DASHBOARD
@@ -302,20 +292,9 @@ body {
   font-size: 1.2rem;
 }
 
-.dashboard-stat-card.stat-items .dashboard-stat-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
-}
-
-.dashboard-stat-card.stat-terceros .dashboard-stat-icon {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
-}
-
-.dashboard-stat-card.stat-usuarios .dashboard-stat-icon {
-  background: rgba(245, 158, 11, 0.15);
-  color: #b45309;
-}
+.dashboard-stat-card.stat-items .dashboard-stat-icon { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+.dashboard-stat-card.stat-terceros .dashboard-stat-icon { background: rgba(16, 185, 129, 0.15); color: #047857; }
+.dashboard-stat-card.stat-usuarios .dashboard-stat-icon { background: rgba(245, 158, 11, 0.15); color: #b45309; }
 
 /* =======================
    EXPEDIENTE DIGITAL TERCEROS
@@ -391,105 +370,75 @@ body {
 }
 
 @media (max-width: 991.98px) {
-  .terceros-perfil-header {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.85rem;
-  }
-
-  .terceros-profile-card {
-    position: static !important;
-  }
+  .terceros-perfil-header { flex-direction: column; align-items: flex-start !important; gap: 0.85rem; }
+  .terceros-profile-card { position: static !important; }
 }
 
 /* =======================
-   CAJAS Y BANCOS
+   CAJAS Y BANCOS / NAVEGACIÓN
    ======================= */
-.cajas-bancos-page #cbFiltersForm .input-group-text {
-  border-right: 0;
-}
+.cajas-bancos-page #cbFiltersForm .input-group-text { border-right: 0; }
+.cajas-bancos-page #cbFiltersForm input.form-control { border-left: 0; }
 
-.cajas-bancos-page #cbFiltersForm input.form-control {
-  border-left: 0;
-}
-
-.ts-control input {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    height: auto !important;
-    line-height: normal !important;
-}
-
-.ts-control input::placeholder {
-    line-height: normal !important;
-}
-
-.ts-wrapper .ts-control {
-  display: flex !important;
-  align-items: center;
-  flex-wrap: nowrap !important;
-  overflow: hidden;
-}
-
-.ts-wrapper.single.full .ts-control > input {
-  display: inline-block !important;
-  min-width: 0.75rem;
-}
-
-.ts-wrapper.form-select,
-.ts-wrapper.form-control {
-  padding: 0 !important;
-  border: 1px solid var(--bs-border-color, #dee2e6) !important;
-  border-radius: 0.375rem !important;
-  background-color: var(--bs-body-bg, #fff);
-}
-
-.ts-wrapper.form-select .ts-control,
-.ts-wrapper.form-control .ts-control {
-  border: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-}
-
-.ts-wrapper.form-select.focus,
-.ts-wrapper.form-control.focus {
-  border-color: #86b7fe !important;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
-  border: none !important;
-}
-
-@media (min-width: 768px) {
-  .border-end-md {
-    border-right: 1px solid #dee2e6 !important;
-  }
-}
-.border-dashed { border-style: dashed !important; }
-.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
-.transition-all { transition: all 0.2s ease-in-out; }
-.cursor-pointer { cursor: pointer; }
-
-/* Pequeño ajuste visual para las pestañas activas */
+/* Navegación sutil */
 .nav-tabs-pro .nav-link {
     border: none;
     border-bottom: 3px solid transparent;
     color: #6c757d;
 }
-.nav-tabs-pro .nav-link:hover {
-    border-color: #e9ecef;
-}
+.nav-tabs-pro .nav-link:hover { border-color: #e9ecef; }
 .nav-tabs-pro .nav-link.active {
     color: #0d6efd !important;
     border-bottom: 3px solid #0d6efd;
     background-color: transparent;
 }
 
+/* Utilitarios */
+@media (min-width: 768px) { .border-end-md { border-right: 1px solid #dee2e6 !important; } }
+.border-dashed { border-style: dashed !important; }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+.transition-all { transition: all 0.2s ease-in-out; }
+.cursor-pointer { cursor: pointer; }
+
+
 /* =========================================================
-   FIX: TOMSELECT Y NATIVOS EN MODO SOLO LECTURA / DISABLED
+   FIX GLOBALES: TOMSELECT Y NATIVOS EN MODO SOLO LECTURA
    ========================================================= */
-/* 1. Quitar la transparencia fantasma de TomSelect */
-.ts-wrapper.disabled {
-    opacity: 1 !important;
+
+/* Ajustes TomSelect Base */
+.ts-control input {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: auto !important;
+    line-height: normal !important;
 }
+.ts-control input::placeholder { line-height: normal !important; }
+.ts-wrapper .ts-control {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: nowrap !important;
+  overflow: hidden;
+}
+.ts-wrapper.single.full .ts-control > input { display: inline-block !important; min-width: 0.75rem; }
+.ts-wrapper.form-select, .ts-wrapper.form-control {
+  padding: 0 !important;
+  border: 1px solid var(--bs-border-color, #dee2e6) !important;
+  border-radius: 0.375rem !important;
+  background-color: var(--bs-body-bg, #fff);
+}
+.ts-wrapper.form-select .ts-control, .ts-wrapper.form-control .ts-control {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ts-wrapper.form-select.focus, .ts-wrapper.form-control.focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  border: none !important;
+}
+
+/* 1. Quitar la transparencia fantasma de TomSelect */
+.ts-wrapper.disabled { opacity: 1 !important; }
 
 /* 2. Darle el color gris de fondo y texto oscuro a TomSelect bloqueado */
 .ts-wrapper.disabled .ts-control {
@@ -508,7 +457,8 @@ body {
     border-color: #dee2e6 !important;
     opacity: 1 !important;
 }
-/* Compras: en solo lectura mantener texto en negro (no plomo tenue) */
+
+/* Fix específico Compras: en solo lectura mantener texto en negro fuerte */
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control,
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .single,
@@ -517,13 +467,7 @@ body {
 #modalOrdenCompra.modal-orden-solo-lectura .form-select:disabled {
     color: #212529 !important;
     -webkit-text-fill-color: #212529 !important;
-
     cursor: default !important;
-}
-
-#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control {
-    cursor: default !important;
-
 }
 
 #modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
@@ -532,16 +476,11 @@ body {
     color: #212529 !important;
     -webkit-text-fill-color: #212529 !important;
     opacity: 1 !important;
-
 }
 
-/* Quitar el cursor de prohibido en los Tom Select bloqueados */
+/* Quitar el cursor de prohibido */
 .ts-wrapper.disabled .ts-control, 
-.ts-wrapper.disabled {
-    cursor: default !important; 
-}
-
-/* Quitar el cursor de prohibido en los inputs normales bloqueados (como la Cantidad) */
+.ts-wrapper.disabled,
 input[disabled], select[disabled] {
-    cursor: default !important;
+    cursor: default !important; 
 }
