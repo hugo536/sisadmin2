@@ -139,8 +139,12 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with($currentRoute, 'gastos')): ?>
-    <script src="<?php echo e(asset_url('js/gastos/gastos.js')); ?>"></script>
+<?php if ($currentRoute === 'gastos/conceptos'): ?>
+    <script src="<?php echo e(asset_url('js/gastos/conceptos_gasto.js')); ?>"></script>
+<?php endif; ?>
+
+<?php if ($currentRoute === 'gastos/registros'): ?>
+    <script src="<?php echo e(asset_url('js/gastos/registro_gastos.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'almacenes')): ?>
