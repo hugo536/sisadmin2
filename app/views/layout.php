@@ -127,7 +127,7 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'produccion')): ?>
-    <script src="<?php echo e(asset_url('js/produccion.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/produccion/produccion_ordenes.js')); ?>"></script>
 <?php endif; ?>
 
 

@@ -913,4 +913,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion.js?v=2.7"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_ordenes.js?v=2.7"></script>

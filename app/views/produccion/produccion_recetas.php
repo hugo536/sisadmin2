@@ -532,4 +532,4 @@ window.ACTIVOS_FIJOS_CIF = <?php echo json_encode(array_map(static function(arra
 }, $activosFijosCif), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 </script>
 <script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
-<script src="<?php echo base_url(); ?>/assets/js/produccion_recetas.js?v=2.4"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=2.4"></script>

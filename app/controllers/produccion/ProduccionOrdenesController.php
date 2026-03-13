@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/app/models/ProduccionOrdenesModel.php';
+require_once BASE_PATH . '/app/models/produccion/ProduccionOrdenesModel.php';
 
 class ProduccionOrdenesController extends Controlador
 {
@@ -397,7 +397,7 @@ class ProduccionOrdenesController extends Controlador
             }
         }
 
-        $this->render('produccion_ordenes', [
+        $this->render('produccion/produccion_ordenes', [
             'flash' => $flash,
             'ordenes' => $this->produccionOrdenesModel->listarOrdenes(),
             'recetas_activas' => $this->produccionOrdenesModel->listarRecetasActivas(),
