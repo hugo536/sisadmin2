@@ -525,13 +525,14 @@
   }
 
   async function cargarResumenItem() {
-    if (!itemIdInput || !stockActualItemLabel) return;
+    if (!itemIdInput || !stockActualItemLabel || !almacen) return;
     const idItem = Number(itemIdInput.value || '0');
     const idPack = Number((packIdInput && packIdInput.value) || '0');
-    const idRegistro = idPack > 0 ? idPack : idItem;
     const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
+    const idConsulta = tipoRegistro === 'pack' ? idPack : idItem;
+    const idAlmacen = Number(almacen.value || '0');
 
-    if (idRegistro <= 0) {
+    if (idConsulta <= 0 || idAlmacen <= 0) {
       stockActualItemLabel.value = '0.0000';
       return;
     }
@@ -539,9 +540,8 @@
     stockActualItemLabel.value = 'Consultando...';
 
     try {
-      const resumen = await obtenerResumenItemReal(idRegistro, tipoRegistro);
-      const stock = Number(resumen.stock_actual || 0);
-      stockActualItemLabel.value = stock.toFixed(4);
+      const stock = await obtenerStockActual(idConsulta, idAlmacen, tipoRegistro);
+      stockActualItemLabel.value = Number(stock || 0).toFixed(4);
     } catch (error) {
       stockActualItemLabel.value = '0.0000';
     }
@@ -950,11 +950,6 @@
 
       if (tipoVal === 'CON' && idCentroCostoVal <= 0) {
         Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá este gasto.' });
-        return;
-      }
-
-      if (['AJ+', 'AJ-'].includes(tipoVal) && referenciaVal === '') {
-        Swal.fire({ icon: 'warning', title: 'Referencia requerida', text: 'Debe ingresar una referencia para este tipo de movimiento.' });
         return;
       }
 
