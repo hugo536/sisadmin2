@@ -19,7 +19,8 @@ class GastoConceptoModel extends Modelo
             $params['q'] = '%' . trim((string) $filtros['q']) . '%';
         }
 
-        $sql = 'SELECT gc.*, cc.codigo AS centro_costo_codigo, cc.nombre AS centro_costo_nombre
+        $sql = 'SELECT gc.*, cc.codigo AS centro_costo_codigo, cc.nombre AS centro_costo_nombre,
+                       (SELECT COUNT(*) FROM gastos_registros gr WHERE gr.id_concepto = gc.id AND gr.deleted_at IS NULL) AS total_relaciones
                 FROM gastos_conceptos gc
                 LEFT JOIN conta_centros_costo cc ON cc.id = gc.id_centro_costo
                 WHERE ' . implode(' AND ', $where) . '
@@ -73,6 +74,89 @@ class GastoConceptoModel extends Modelo
         ]);
 
         return (int) $this->db()->lastInsertId();
+    }
+
+    public function obtenerPorId(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db()->prepare('SELECT * FROM gastos_conceptos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function actualizar(int $id, array $data, int $userId): void
+    {
+        $concepto = $this->obtenerPorId($id);
+        if (!$concepto) {
+            throw new RuntimeException('El concepto no existe o fue eliminado.');
+        }
+
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
+        $recurrente = (int) ($data['es_recurrente'] ?? 0) === 1 ? 1 : 0;
+        $diaVencimiento = $recurrente ? (int) ($data['dia_vencimiento'] ?? 0) : null;
+        $diasAnticipacion = $recurrente ? (int) ($data['dias_anticipacion'] ?? 0) : null;
+
+        if ($nombre === '' || $idCentroCosto <= 0) {
+            throw new RuntimeException('Nombre y centro de costo son obligatorios.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE gastos_conceptos
+            SET nombre = :nombre,
+                id_centro_costo = :id_centro_costo,
+                es_recurrente = :es_recurrente,
+                dia_vencimiento = :dia_vencimiento,
+                dias_anticipacion = :dias_anticipacion,
+                updated_by = :updated_by,
+                updated_at = NOW()
+            WHERE id = :id AND deleted_at IS NULL');
+
+        $stmt->execute([
+            'id' => $id,
+            'nombre' => $nombre,
+            'id_centro_costo' => $idCentroCosto,
+            'es_recurrente' => $recurrente,
+            'dia_vencimiento' => $diaVencimiento,
+            'dias_anticipacion' => $diasAnticipacion,
+            'updated_by' => $userId,
+        ]);
+    }
+
+    public function tieneRegistrosRelacionados(int $id): bool
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM gastos_registros WHERE id_concepto = :id AND deleted_at IS NULL');
+        $stmt->execute(['id' => $id]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    public function desactivar(int $id, int $userId): void
+    {
+        $stmt = $this->db()->prepare('UPDATE gastos_conceptos
+            SET estado = 0, updated_by = :user, updated_at = NOW()
+            WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'user' => $userId,
+        ]);
+    }
+
+    public function eliminar(int $id, int $userId): void
+    {
+        if ($this->tieneRegistrosRelacionados($id)) {
+            throw new RuntimeException('No se puede eliminar el concepto porque tiene datos relacionados.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE gastos_conceptos
+            SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
+            WHERE id = :id AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $id,
+            'user' => $userId,
+        ]);
     }
 
     public function vincularCuentaContablePorClave(string $clave, int $idCuenta, int $userId): void
