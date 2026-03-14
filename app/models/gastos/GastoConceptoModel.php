@@ -133,13 +133,18 @@ class GastoConceptoModel extends Modelo
         return (int) $stmt->fetchColumn() > 0;
     }
 
-    public function desactivar(int $id, int $userId): void
+    public function cambiarEstado(int $id, int $estado, int $userId): void
     {
+        if ($id <= 0) {
+            throw new RuntimeException('El concepto seleccionado no es válido.');
+        }
+
         $stmt = $this->db()->prepare('UPDATE gastos_conceptos
-            SET estado = 0, updated_by = :user, updated_at = NOW()
+            SET estado = :estado, updated_by = :user, updated_at = NOW()
             WHERE id = :id AND deleted_at IS NULL');
         $stmt->execute([
             'id' => $id,
+            'estado' => $estado === 1 ? 1 : 0,
             'user' => $userId,
         ]);
     }
