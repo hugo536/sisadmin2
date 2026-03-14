@@ -55,14 +55,16 @@ $filtros = $filtros ?? [];
                             <th class="text-secondary fw-semibold">Centro de costo</th>
                             <th class="text-center text-secondary fw-semibold">Recurrente</th>
                             <th class="text-secondary fw-semibold">Estado</th>
+                            <th class="text-end pe-3 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php foreach ($registros as $r): ?>
                         <?php 
-                            $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0; 
-                            // El texto de búsqueda ahora solo necesita el código y el nombre
+                            $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0;
                             $textoBusqueda = strtolower($r['codigo'] . ' ' . $r['nombre']);
+                            $tieneRelacion = (int)($r['total_relaciones'] ?? 0) > 0;
+                            $estaActivo = (int)($r['estado'] ?? 1) === 1;
                         ?>
                         <tr class="border-bottom" 
                             data-search="<?php echo e($textoBusqueda); ?>"
@@ -91,12 +93,49 @@ $filtros = $filtros ?? [];
                                     <span class="badge bg-light text-secondary border">Sin recordatorio</span>
                                 <?php endif; ?>
                             </td>
+                            <td class="text-end pe-3">
+                                <div class="d-inline-flex gap-1">
+                                    <button type="button"
+                                            class="btn btn-sm btn-light border-0 text-primary rounded-circle js-editar-concepto"
+                                            title="Editar"
+                                            data-id="<?php echo (int)$r['id']; ?>"
+                                            data-codigo="<?php echo e((string)$r['codigo']); ?>"
+                                            data-nombre="<?php echo e((string)$r['nombre']); ?>"
+                                            data-id-centro="<?php echo (int)($r['id_centro_costo'] ?? 0); ?>"
+                                            data-es-recurrente="<?php echo (int)($r['es_recurrente'] ?? 0); ?>"
+                                            data-dia-vencimiento="<?php echo (int)($r['dia_vencimiento'] ?? 0); ?>"
+                                            data-dias-anticipacion="<?php echo (int)($r['dias_anticipacion'] ?? 0); ?>"
+                                            <?php echo $estaActivo ? '' : 'disabled'; ?>>
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+
+                                    <form method="post" action="<?php echo e(route_url('gastos/desactivar_concepto')); ?>" class="d-inline m-0 p-0">
+                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+                                        <button type="submit"
+                                                class="btn btn-sm btn-light border-0 text-warning rounded-circle"
+                                                title="Desactivar"
+                                                <?php echo $estaActivo ? '' : 'disabled'; ?>>
+                                            <i class="bi bi-slash-circle"></i>
+                                        </button>
+                                    </form>
+
+                                    <form method="post" action="<?php echo e(route_url('gastos/eliminar_concepto')); ?>" class="d-inline m-0 p-0">
+                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+                                        <button type="submit"
+                                                class="btn btn-sm btn-light border-0 rounded-circle <?php echo $tieneRelacion ? 'text-secondary' : 'text-danger'; ?>"
+                                                title="<?php echo $tieneRelacion ? 'No se puede eliminar: tiene datos relacionados' : 'Eliminar'; ?>"
+                                                <?php echo $tieneRelacion ? 'disabled' : ''; ?>>
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     
                     <?php if(empty($registros)): ?>
                         <tr class="empty-msg-row border-bottom-0">
-                            <td colspan="5" class="text-center text-muted py-5">
+                            <td colspan="6" class="text-center text-muted py-5">
                                 <i class="bi bi-tags fs-1 d-block mb-2 text-light"></i>
                                 No hay conceptos registrados.
                             </td>
@@ -177,6 +216,65 @@ $filtros = $filtros ?? [];
             <div class="modal-footer bg-white border-top">
                 <button type="button" class="btn btn-light text-secondary me-2 fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Concepto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarConcepto" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="<?php echo e(route_url('gastos/actualizar_concepto')); ?>" class="modal-content border-0 shadow-lg" id="formEditarConcepto">
+            <input type="hidden" name="id" id="editarConceptoId" value="">
+            <div class="modal-header bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Editar Concepto de Gasto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-3 p-md-4">
+                <div class="card modal-pastel-card mb-0">
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-semibold mb-1">Código</label>
+                                <input readonly class="form-control bg-light border-secondary-subtle shadow-none fw-bold text-secondary" id="editarConceptoCodigo" value="">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-semibold mb-1">Nombre del Concepto <span class="text-danger">*</span></label>
+                                <input required class="form-control shadow-none border-secondary-subtle fw-medium" id="editarConceptoNombre" name="nombre">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-semibold mb-1">Centro de Costo <span class="text-danger">*</span></label>
+                                <select id="editar_id_centro_costo" required class="form-select shadow-none border-secondary-subtle" name="id_centro_costo">
+                                    <option value="" selected disabled hidden>Seleccionar...</option>
+                                    <?php foreach($centrosCosto as $cc): ?>
+                                        <option value="<?php echo (int)$cc['id']; ?>"><?php echo e($cc['codigo'].' - '.$cc['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-12 mt-4 border-top pt-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input mt-1" type="checkbox" name="es_recurrente" id="editarEsRecurrente">
+                                    <label class="form-check-label fw-medium text-dark small" for="editarEsRecurrente">Gasto Recurrente / Recordatorio</label>
+                                </div>
+                            </div>
+                            <div class="col-12 d-none" id="editarBloqueRecurrente">
+                                <div class="row g-2 p-3 border border-warning-subtle rounded-3 bg-warning-subtle bg-opacity-10">
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted fw-semibold mb-1">Día de vencimiento</label>
+                                        <input type="number" min="1" max="31" class="form-control form-control-sm shadow-none border-secondary-subtle text-center" name="dia_vencimiento" id="editarDiaVencimiento" placeholder="Ej: 15">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted fw-semibold mb-1">Días anticipación</label>
+                                        <input type="number" min="0" max="60" class="form-control form-control-sm shadow-none border-secondary-subtle text-center" name="dias_anticipacion" id="editarDiasAnticipacion" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top">
+                <button type="button" class="btn btn-light text-secondary me-2 fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Actualizar</button>
             </div>
         </form>
     </div>

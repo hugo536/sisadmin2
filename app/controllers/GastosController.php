@@ -50,6 +50,68 @@ class GastosController extends Controlador
         ]);
     }
 
+    public function actualizar_concepto(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('gastos/conceptos');
+        }
+
+        try {
+            $id = (int) ($_POST['id'] ?? 0);
+            $payload = [
+                'nombre' => trim((string) ($_POST['nombre'] ?? '')),
+                'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
+                'es_recurrente' => isset($_POST['es_recurrente']) ? 1 : 0,
+                'dia_vencimiento' => (int) ($_POST['dia_vencimiento'] ?? 0),
+                'dias_anticipacion' => (int) ($_POST['dias_anticipacion'] ?? 0),
+            ];
+
+            $this->conceptoModel->actualizar($id, $payload, $this->uid());
+            redirect('gastos/conceptos?ok=1');
+        } catch (Throwable $e) {
+            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function desactivar_concepto(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('gastos/conceptos');
+        }
+
+        try {
+            $id = (int) ($_POST['id'] ?? 0);
+            $this->conceptoModel->desactivar($id, $this->uid());
+            redirect('gastos/conceptos?ok=1');
+        } catch (Throwable $e) {
+            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function eliminar_concepto(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('gastos/conceptos');
+        }
+
+        try {
+            $id = (int) ($_POST['id'] ?? 0);
+            $this->conceptoModel->eliminar($id, $this->uid());
+            redirect('gastos/conceptos?ok=1');
+        } catch (Throwable $e) {
+            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     public function guardar_concepto(): void
     {
         AuthMiddleware::handle();
