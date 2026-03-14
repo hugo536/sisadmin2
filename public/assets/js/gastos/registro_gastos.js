@@ -1,12 +1,32 @@
 (function(){
   document.addEventListener('DOMContentLoaded', function(){
-    const conceptoSelect = document.getElementById('idConceptoGasto');
-    if (conceptoSelect && window.TomSelect) {
-      new TomSelect(conceptoSelect, {create:false, sortField:{field:'text',direction:'asc'}});
+    
+    // ==========================================
+    // 1. Inicialización de selectores avanzados (TomSelect)
+    // ==========================================
+    if (window.TomSelect) {
+      // Agregamos los IDs de todos los selects que queremos mejorar
+      const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor'];
+
+      selectoresAvanzados.forEach(function(id) {
+        const elemento = document.getElementById(id);
+        
+        // Si el elemento existe en esta vista, lo inicializamos
+        if (elemento) {
+          new TomSelect(elemento, {
+            create: false, 
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: elemento.getAttribute('placeholder') || 'Seleccione una opción...'
+          });
+        }
+      });
     }
 
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el)=>{
-      if (window.bootstrap) new bootstrap.Tooltip(el);
-    });
+    // ==========================================
+    // 2. Notas de estandarización global
+    // ==========================================
+    // Nota: Los tooltips y la inicialización de la tabla de registros
+    // (con su buscador) ya son manejados globalmente por renderizadores.js
+    
   });
 })();

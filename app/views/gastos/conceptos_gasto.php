@@ -16,17 +16,38 @@ $filtros = $filtros ?? [];
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-body">
-            <div class="row g-2 mb-3">
+        <div class="card-body p-0">
+            
+            <div class="row g-2 p-3 pb-0 mb-2">
                 <div class="col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
-                        <input id="buscarConcepto" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" placeholder="Buscar código / nombre / centro de costo">
+                        <input id="buscarConcepto" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" placeholder="Buscar código o nombre...">
                     </div>
                 </div>
+                <div class="col-md-3">
+                    <select id="filtroCentroCosto" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
+                        <option value="">Todos los Centros de Costo</option>
+                        <?php foreach($centrosCosto as $cc): ?>
+                            <option value="<?php echo e($cc['codigo']); ?>"><?php echo e($cc['codigo'].' - '.$cc['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="filtroRecurrente" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
+                        <option value="">Todos los tipos</option>
+                        <option value="1">Solo Recurrentes</option>
+                        <option value="0">No Recurrentes</option>
+                    </select>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle table-pro mb-0" data-erp-table="true" data-search-input="#buscarConcepto" data-rows-per-page="15">
+            
+            <div class="table-responsive px-3">
+                <table id="conceptosTable" class="table table-hover align-middle table-pro mb-0" 
+                       data-erp-table="true" 
+                       data-search-input="#buscarConcepto" 
+                       data-erp-filters='[{"el":"#filtroCentroCosto", "attr":"data-centro"}, {"el":"#filtroRecurrente", "attr":"data-recurrente"}]'
+                       data-rows-per-page="15">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-3 text-secondary fw-semibold">Código</th>
@@ -38,8 +59,16 @@ $filtros = $filtros ?? [];
                     </thead>
                     <tbody>
                     <?php foreach ($registros as $r): ?>
-                        <?php $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0; ?>
-                        <tr class="border-bottom">
+                        <?php 
+                            $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0; 
+                            // El texto de búsqueda ahora solo necesita el código y el nombre
+                            $textoBusqueda = strtolower($r['codigo'] . ' ' . $r['nombre']);
+                        ?>
+                        <tr class="border-bottom" 
+                            data-search="<?php echo e($textoBusqueda); ?>"
+                            data-centro="<?php echo e((string)($r['centro_costo_codigo'] ?? '')); ?>"
+                            data-recurrente="<?php echo (int)$r['es_recurrente']; ?>">
+                            
                             <td class="ps-3 fw-semibold text-primary"><?php echo e((string)$r['codigo']); ?></td>
                             <td class="fw-medium text-dark">
                                 <?php echo e((string)$r['nombre']); ?>
@@ -64,9 +93,27 @@ $filtros = $filtros ?? [];
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    
+                    <?php if(empty($registros)): ?>
+                        <tr class="empty-msg-row border-bottom-0">
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <i class="bi bi-tags fs-1 d-block mb-2 text-light"></i>
+                                No hay conceptos registrados.
+                            </td>
+                        </tr>
+                    <?php endif; ?>
                     </tbody>
                 </table>
             </div>
+
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white rounded-bottom">
+                <span id="conceptosPaginationInfo" class="text-muted small">Calculando resultados...</span>
+                <nav>
+                    <ul id="conceptosPaginationControls" class="pagination pagination-sm mb-0 shadow-sm">
+                        </ul>
+                </nav>
+            </div>
+
         </div>
     </div>
 </div>
@@ -80,7 +127,6 @@ $filtros = $filtros ?? [];
             </div>
             
             <div class="modal-body bg-light p-3 p-md-4">
-                
                 <div class="card modal-pastel-card mb-0">
                     <div class="card-body p-3">
                         <div class="row g-3">
@@ -96,7 +142,7 @@ $filtros = $filtros ?? [];
                             
                             <div class="col-12">
                                 <label class="form-label small text-muted fw-semibold mb-1">Centro de Costo <span class="text-danger">*</span></label>
-                                <select required class="form-select shadow-none border-secondary-subtle" name="id_centro_costo">
+                                <select id="id_centro_costo" required class="form-select shadow-none border-secondary-subtle" name="id_centro_costo">
                                     <option value="" selected disabled hidden>Seleccionar...</option>
                                     <?php foreach($centrosCosto as $cc): ?>
                                         <option value="<?php echo (int)$cc['id']; ?>"><?php echo e($cc['codigo'].' - '.$cc['nombre']); ?></option>
@@ -126,8 +172,8 @@ $filtros = $filtros ?? [];
                         </div>
                     </div>
                 </div>
-
             </div>
+            
             <div class="modal-footer bg-white border-top">
                 <button type="button" class="btn btn-light text-secondary me-2 fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Concepto</button>

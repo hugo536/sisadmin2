@@ -16,8 +16,38 @@ $conceptos = $conceptos ?? [];
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle table-pro mb-0" data-erp-table="true" data-rows-per-page="15">
+            
+            <div class="row g-2 p-3 pb-0 mb-2">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
+                        <input id="buscarRegistro" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" placeholder="Buscar por fecha, proveedor o concepto...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select id="filtroProveedor" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
+                        <option value="">Todos los Proveedores</option>
+                        <?php foreach($proveedores as $p): ?>
+                            <option value="<?php echo (int)$p['id']; ?>"><?php echo e((string)$p['nombre_completo']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="filtroEstado" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
+                        <option value="">Todos los Estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Pagado">Pagado</option>
+                        <option value="Anulado">Anulado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive px-3">
+                <table id="registrosTable" class="table table-hover align-middle table-pro mb-0" 
+                       data-erp-table="true" 
+                       data-search-input="#buscarRegistro" 
+                       data-erp-filters='[{"el":"#filtroProveedor", "attr":"data-proveedor"}, {"el":"#filtroEstado", "attr":"data-estado"}]'
+                       data-rows-per-page="15">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
@@ -31,18 +61,33 @@ $conceptos = $conceptos ?? [];
                     </thead>
                     <tbody>
                     <?php foreach($registros as $r): ?>
-                        <tr class="border-bottom">
+                        <?php $textoBusqueda = strtolower($r['fecha'] . ' ' . $r['proveedor'] . ' ' . $r['concepto']); ?>
+                        
+                        <tr class="border-bottom" 
+                            data-search="<?php echo e($textoBusqueda); ?>"
+                            data-proveedor="<?php echo (int)($r['id_proveedor'] ?? 0); ?>"
+                            data-estado="<?php echo e((string)$r['estado']); ?>">
+                            
                             <td class="ps-4 text-muted small"><i class="bi bi-calendar me-1 opacity-50"></i><?php echo e((string)$r['fecha']); ?></td>
                             <td class="fw-medium text-dark"><?php echo e((string)$r['proveedor']); ?></td>
                             <td class="text-muted"><?php echo e((string)$r['concepto']); ?></td>
-                            <td class="text-muted">S/ <?php echo number_format((float)$r['monto'],2); ?></td>
+                            <td class="text-muted">S/ <?php echo number_format((float)$r['monto'], 2); ?></td>
                             <td><span class="badge bg-light text-secondary border"><?php echo e((string)$r['impuesto_tipo']); ?></span></td>
-                            <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$r['total'],2); ?></td>
+                            <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$r['total'], 2); ?></td>
                             <td class="text-center pe-4">
-                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1 rounded-pill"><?php echo e((string)$r['estado']); ?></span>
+                                <?php 
+                                    // Pequeña mejora visual para los estados
+                                    $estado = (string)$r['estado'];
+                                    $badgeClass = 'bg-info-subtle text-info-emphasis border-info-subtle';
+                                    if(strtolower($estado) === 'pagado') $badgeClass = 'bg-success-subtle text-success border-success-subtle';
+                                    if(strtolower($estado) === 'anulado') $badgeClass = 'bg-danger-subtle text-danger border-danger-subtle';
+                                    if(strtolower($estado) === 'pendiente') $badgeClass = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                                ?>
+                                <span class="badge <?php echo $badgeClass; ?> border px-2 py-1 rounded-pill"><?php echo e($estado); ?></span>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    
                     <?php if(empty($registros)): ?>
                         <tr class="empty-msg-row border-bottom-0">
                             <td colspan="7" class="text-center text-muted py-5">
@@ -54,6 +99,15 @@ $conceptos = $conceptos ?? [];
                     </tbody>
                 </table>
             </div>
+            
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white rounded-bottom">
+                <span id="registrosPaginationInfo" class="text-muted small">Calculando resultados...</span>
+                <nav>
+                    <ul id="registrosPaginationControls" class="pagination pagination-sm mb-0 shadow-sm">
+                        </ul>
+                </nav>
+            </div>
+
         </div>
     </div>
 </div>
@@ -68,7 +122,6 @@ $conceptos = $conceptos ?? [];
             </div>
             
             <div class="modal-body bg-light p-3 p-md-4">
-                
                 <div class="card modal-pastel-card mb-0">
                     <div class="card-body p-3">
                         <div class="row g-3">
@@ -88,7 +141,7 @@ $conceptos = $conceptos ?? [];
 
                             <div class="col-12">
                                 <label class="form-label small text-muted fw-semibold mb-1">Proveedor <span class="text-danger">*</span></label>
-                                <select class="form-select shadow-none border-secondary-subtle" name="id_proveedor" required>
+                                <select id="id_proveedor" class="form-select shadow-none border-secondary-subtle" name="id_proveedor" required>
                                     <option value="" selected disabled hidden>Seleccione proveedor...</option>
                                     <?php foreach($proveedores as $p): ?>
                                         <option value="<?php echo (int)$p['id']; ?>"><?php echo e((string)$p['nombre_completo']); ?></option>
@@ -117,7 +170,6 @@ $conceptos = $conceptos ?? [];
                         </div>
                     </div>
                 </div>
-
             </div>
             
             <div class="modal-footer bg-white border-top">
