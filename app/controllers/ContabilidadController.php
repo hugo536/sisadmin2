@@ -249,6 +249,10 @@ class ContabilidadController extends Controlador
 
     private function uid(): int
     {
-        return (int)($_SESSION['id'] ?? 0);
+        $id = (int)($_SESSION['id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($id <= 0) {
+            throw new RuntimeException('Sesión expirada. Inicie sesión nuevamente.');
+        }
+        return $id;
     }
 }

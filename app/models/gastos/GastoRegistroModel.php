@@ -87,26 +87,32 @@ class GastoRegistroModel extends Modelo
 
             $idRegistro = (int) $db->lastInsertId();
 
-            $cxpModel = new TesoreriaCxpModel();
-            $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
+            $db->exec('SAVEPOINT gasto_integracion');
+            try {
+                $cxpModel = new TesoreriaCxpModel();
+                $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
 
-            $asientoModel = new ContaAsientoModel();
-            $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
-                'id_gasto' => $idRegistro,
-                'fecha' => $fecha,
-                'id_proveedor' => $idProveedor,
-                'total' => $total,
-                'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
-                'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
-            ], $userId);
+                $asientoModel = new ContaAsientoModel();
+                $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
+                    'id_gasto' => $idRegistro,
+                    'fecha' => $fecha,
+                    'id_proveedor' => $idProveedor,
+                    'total' => $total,
+                    'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
+                    'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
+                ], $userId);
 
-            $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
-            $stmtFin->execute([
-                'id_cxp' => $idCxp,
-                'id_asiento' => $idAsiento,
-                'user' => $userId,
-                'id' => $idRegistro,
-            ]);
+                $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
+                $stmtFin->execute([
+                    'id_cxp' => $idCxp,
+                    'id_asiento' => $idAsiento,
+                    'user' => $userId,
+                    'id' => $idRegistro,
+                ]);
+            } catch (Throwable $integracionError) {
+                $db->exec('ROLLBACK TO SAVEPOINT gasto_integracion');
+                error_log('[GastoRegistroModel] Registro guardado sin integración CxP/Asiento. Motivo: ' . $integracionError->getMessage());
+            }
 
             if ($localTx) {
                 $db->commit();
