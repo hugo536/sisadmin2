@@ -94,40 +94,48 @@ $filtros = $filtros ?? [];
                                 <?php endif; ?>
                             </td>
                             <td class="text-end pe-3">
-                                <div class="d-inline-flex gap-1">
-                                    <button type="button"
-                                            class="btn btn-sm btn-light border-0 text-primary rounded-circle js-editar-concepto"
-                                            title="Editar"
-                                            data-id="<?php echo (int)$r['id']; ?>"
-                                            data-codigo="<?php echo e((string)$r['codigo']); ?>"
-                                            data-nombre="<?php echo e((string)$r['nombre']); ?>"
-                                            data-id-centro="<?php echo (int)($r['id_centro_costo'] ?? 0); ?>"
-                                            data-es-recurrente="<?php echo (int)($r['es_recurrente'] ?? 0); ?>"
-                                            data-dia-vencimiento="<?php echo (int)($r['dia_vencimiento'] ?? 0); ?>"
-                                            data-dias-anticipacion="<?php echo (int)($r['dias_anticipacion'] ?? 0); ?>"
-                                            <?php echo $estaActivo ? '' : 'disabled'; ?>>
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-
-                                    <form method="post" action="<?php echo e(route_url('gastos/desactivar_concepto')); ?>" class="d-inline m-0 p-0">
+                                <?php
+                                    $puedeEliminar = !$tieneRelacion && $estaActivo;
+                                    $titleEliminar = $tieneRelacion
+                                        ? 'No se puede eliminar: tiene movimientos enlazados.'
+                                        : ($estaActivo ? 'Eliminar' : 'Activa el concepto para poder eliminarlo.');
+                                ?>
+                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <form method="post" action="<?php echo e(route_url('gastos/toggle_estado_concepto')); ?>" class="d-inline m-0 p-0">
                                         <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
-                                        <button type="submit"
-                                                class="btn btn-sm btn-light border-0 text-warning rounded-circle"
-                                                title="Desactivar"
-                                                <?php echo $estaActivo ? '' : 'disabled'; ?>>
-                                            <i class="bi bi-slash-circle"></i>
-                                        </button>
+                                        <input type="hidden" name="estado" value="<?php echo $estaActivo ? 0 : 1; ?>">
+                                        <div class="form-check form-switch pt-1 m-0" title="Cambiar estado">
+                                            <input class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" <?php echo $estaActivo ? 'checked' : ''; ?> onchange="this.form.submit()">
+                                        </div>
                                     </form>
 
-                                    <form method="post" action="<?php echo e(route_url('gastos/eliminar_concepto')); ?>" class="d-inline m-0 p-0">
-                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
-                                        <button type="submit"
-                                                class="btn btn-sm btn-light border-0 rounded-circle <?php echo $tieneRelacion ? 'text-secondary' : 'text-danger'; ?>"
-                                                title="<?php echo $tieneRelacion ? 'No se puede eliminar: tiene datos relacionados' : 'Eliminar'; ?>"
-                                                <?php echo $tieneRelacion ? 'disabled' : ''; ?>>
-                                            <i class="bi bi-trash3"></i>
+                                    <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                    <div class="d-inline-flex gap-1">
+                                        <button type="button"
+                                                class="btn-icon btn-icon-primary js-editar-concepto"
+                                                title="<?php echo $estaActivo ? 'Editar' : 'Activa el concepto para poder editarlo.'; ?>"
+                                                data-id="<?php echo (int)$r['id']; ?>"
+                                                data-codigo="<?php echo e((string)$r['codigo']); ?>"
+                                                data-nombre="<?php echo e((string)$r['nombre']); ?>"
+                                                data-id-centro="<?php echo (int)($r['id_centro_costo'] ?? 0); ?>"
+                                                data-es-recurrente="<?php echo (int)($r['es_recurrente'] ?? 0); ?>"
+                                                data-dia-vencimiento="<?php echo (int)($r['dia_vencimiento'] ?? 0); ?>"
+                                                data-dias-anticipacion="<?php echo (int)($r['dias_anticipacion'] ?? 0); ?>"
+                                                <?php echo $estaActivo ? '' : 'disabled aria-disabled="true"'; ?>>
+                                            <i class="bi bi-pencil-square"></i>
                                         </button>
-                                    </form>
+
+                                        <form method="post" action="<?php echo e(route_url('gastos/eliminar_concepto')); ?>" class="d-inline m-0 p-0">
+                                            <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+                                            <button type="submit"
+                                                    class="<?php echo $puedeEliminar ? 'btn-icon btn-icon-danger' : 'btn-icon text-muted opacity-50'; ?>"
+                                                    title="<?php echo e($titleEliminar); ?>"
+                                                    <?php echo $puedeEliminar ? '' : 'disabled aria-disabled="true"'; ?>>
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </td>
                         </tr>

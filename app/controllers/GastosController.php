@@ -76,7 +76,7 @@ class GastosController extends Controlador
         }
     }
 
-    public function desactivar_concepto(): void
+    public function toggle_estado_concepto(): void
     {
         AuthMiddleware::handle();
         require_permiso('compras.ver');
@@ -87,7 +87,8 @@ class GastosController extends Controlador
 
         try {
             $id = (int) ($_POST['id'] ?? 0);
-            $this->conceptoModel->desactivar($id, $this->uid());
+            $estado = (int) ($_POST['estado'] ?? 0) === 1 ? 1 : 0;
+            $this->conceptoModel->cambiarEstado($id, $estado, $this->uid());
             redirect('gastos/conceptos?ok=1');
         } catch (Throwable $e) {
             redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
