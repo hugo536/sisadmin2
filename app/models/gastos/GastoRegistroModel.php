@@ -90,20 +90,15 @@ class GastoRegistroModel extends Modelo
             $cxpModel = new TesoreriaCxpModel();
             $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
 
-            $idAsiento = null;
-            try {
-                $asientoModel = new ContaAsientoModel();
-                $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
-                    'id_gasto' => $idRegistro,
-                    'fecha' => $fecha,
-                    'id_proveedor' => $idProveedor,
-                    'total' => $total,
-                    'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
-                    'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
-                ], $userId);
-            } catch (Throwable $integracionError) {
-                error_log('[GastoRegistroModel] CxP generado sin asiento automático de gasto. Motivo: ' . $integracionError->getMessage());
-            }
+            $asientoModel = new ContaAsientoModel();
+            $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
+                'id_gasto' => $idRegistro,
+                'fecha' => $fecha,
+                'id_proveedor' => $idProveedor,
+                'total' => $total,
+                'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
+                'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
+            ], $userId);
 
             $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
             $stmtFin->execute([
