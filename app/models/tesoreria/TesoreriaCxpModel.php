@@ -131,6 +131,29 @@ class TesoreriaCxpModel extends Modelo
                 updated_at = NOW()
             WHERE id = :id');
         $stmt->execute(['id' => $id, 'user' => $userId]);
+
+        $stmtRel = $this->db()->prepare('SELECT id_gasto, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
+        $stmtRel->execute(['id' => $id]);
+        $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
+        $idGasto = (int) ($rel['id_gasto'] ?? 0);
+        if ($idGasto > 0) {
+            $estadoCxp = strtoupper((string) ($rel['estado'] ?? 'PENDIENTE'));
+            $estadoGasto = 'PENDIENTE';
+            if ($estadoCxp === 'PAGADA') {
+                $estadoGasto = 'PAGADO';
+            } elseif ($estadoCxp === 'ANULADA') {
+                $estadoGasto = 'ANULADO';
+            }
+
+            $stmtG = $this->db()->prepare('UPDATE gastos_registros
+                SET estado = :estado, updated_by = :user, updated_at = NOW()
+                WHERE id = :id_gasto AND deleted_at IS NULL');
+            $stmtG->execute([
+                'estado' => $estadoGasto,
+                'user' => $userId,
+                'id_gasto' => $idGasto,
+            ]);
+        }
     }
 
     public function crearDesdeGasto(int $idGasto, int $userId): int
