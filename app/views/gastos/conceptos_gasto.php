@@ -5,27 +5,31 @@ $codigoSugerido = $codigoSugerido ?? '';
 $filtros = $filtros ?? [];
 ?>
 <div class="container-fluid p-4" id="gastosConceptosApp">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 fade-in inventario-sticky-header">
         <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-tags-fill text-primary me-2"></i>Conceptos de Gasto</h4>
-            <small class="text-muted">Catálogo maestro de gastos.</small>
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-tags-fill me-2 text-primary"></i> Conceptos de Gasto
+            </h1>
+            <p class="text-muted small mb-0 ms-1">Catálogo maestro de gastos.</p>
         </div>
-        <button class="btn btn-primary shadow-sm fw-bold px-3 transition-hover" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
-            <i class="bi bi-plus-circle me-1"></i>Nuevo Concepto
-        </button>
+        <div class="d-flex gap-2 flex-wrap justify-content-md-end">
+            <button class="btn btn-primary shadow-sm fw-bold px-3" type="button" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
+                <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Concepto
+            </button>
+        </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            
-            <div class="row g-2 p-3 pb-0 mb-2">
-                <div class="col-md-4">
+    <div class="card border-0 shadow-sm mb-3 inventario-sticky-filters">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-6">
                     <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
-                        <input id="buscarConcepto" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" placeholder="Buscar código o nombre...">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="search" id="buscarConcepto" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" placeholder="Buscar código o nombre...">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-3">
                     <select id="filtroCentroCosto" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
                         <option value="">Todos los Centros de Costo</option>
                         <?php foreach($centrosCosto as $cc): ?>
@@ -33,7 +37,7 @@ $filtros = $filtros ?? [];
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-3">
                     <select id="filtroRecurrente" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
                         <option value="">Todos los tipos</option>
                         <option value="1">Solo Recurrentes</option>
@@ -41,115 +45,134 @@ $filtros = $filtros ?? [];
                     </select>
                 </div>
             </div>
-            
-            <div class="table-responsive px-3">
-                <table id="conceptosTable" class="table table-hover align-middle table-pro mb-0" 
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive inventario-table-wrapper">
+                
+                <table id="conceptosTable" class="table align-middle mb-0 table-pro table-hover" 
                        data-erp-table="true" 
+                       data-rows-selector="#conceptosTableBody tr:not(.empty-msg-row)"
                        data-search-input="#buscarConcepto" 
+                       data-empty-text="No hay conceptos registrados."
+                       data-info-text-template="Mostrando {start} a {end} de {total} conceptos"
                        data-erp-filters='[{"el":"#filtroCentroCosto", "attr":"data-centro"}, {"el":"#filtroRecurrente", "attr":"data-recurrente"}]'
-                       data-rows-per-page="15">
-                    <thead class="table-light">
+                       data-rows-per-page="15"
+                       data-pagination-controls="#conceptosPaginationControls"
+                       data-pagination-info="#conceptosPaginationInfo">
+                       
+                    <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-3 text-secondary fw-semibold">Código</th>
+                            <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Concepto</th>
                             <th class="text-secondary fw-semibold">Centro de costo</th>
                             <th class="text-center text-secondary fw-semibold">Recurrente</th>
                             <th class="text-secondary fw-semibold">Estado</th>
-                            <th class="text-end pe-3 text-secondary fw-semibold">Acciones</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                    <?php foreach ($registros as $r): ?>
-                        <?php 
-                            $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0;
-                            $textoBusqueda = strtolower($r['codigo'] . ' ' . $r['nombre']);
-                            $tieneRelacion = (int)($r['total_relaciones'] ?? 0) > 0;
-                            $estaActivo = (int)($r['estado'] ?? 1) === 1;
-                        ?>
-                        <tr class="border-bottom" 
-                            data-search="<?php echo e($textoBusqueda); ?>"
-                            data-centro="<?php echo e((string)($r['centro_costo_codigo'] ?? '')); ?>"
-                            data-recurrente="<?php echo (int)$r['es_recurrente']; ?>">
-                            
-                            <td class="ps-3 fw-semibold text-primary"><?php echo e((string)$r['codigo']); ?></td>
-                            <td class="fw-medium text-dark">
-                                <?php echo e((string)$r['nombre']); ?>
-                                <?php if ($sinCuenta): ?>
-                                    <i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="No vinculado a una cuenta contable. Vincúlelo en Contabilidad > Configurar Parámetros."></i>
-                                <?php endif; ?>
-                            </td>
-                            <td class="text-muted small"><?php echo e((string)($r['centro_costo_codigo'] . ' - ' . $r['centro_costo_nombre'])); ?></td>
-                            <td class="text-center">
-                                <?php if ((int)$r['es_recurrente'] === 1): ?>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Sí</span>
-                                <?php else: ?>
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">No</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ((int)$r['es_recurrente'] === 1): ?>
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Alerta <?php echo (int)($r['dias_anticipacion'] ?? 0); ?> días antes</span>
-                                <?php else: ?>
-                                    <span class="badge bg-light text-secondary border">Sin recordatorio</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="text-end pe-3">
-                                <div class="d-inline-flex gap-1">
-                                    <button type="button"
-                                            class="btn btn-sm btn-light border-0 text-primary rounded-circle js-editar-concepto"
-                                            title="Editar"
-                                            data-id="<?php echo (int)$r['id']; ?>"
-                                            data-codigo="<?php echo e((string)$r['codigo']); ?>"
-                                            data-nombre="<?php echo e((string)$r['nombre']); ?>"
-                                            data-id-centro="<?php echo (int)($r['id_centro_costo'] ?? 0); ?>"
-                                            data-es-recurrente="<?php echo (int)($r['es_recurrente'] ?? 0); ?>"
-                                            data-dia-vencimiento="<?php echo (int)($r['dia_vencimiento'] ?? 0); ?>"
-                                            data-dias-anticipacion="<?php echo (int)($r['dias_anticipacion'] ?? 0); ?>"
-                                            <?php echo $estaActivo ? '' : 'disabled'; ?>>
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
+                    <tbody id="conceptosTableBody">
+<?php foreach ($registros as $r): ?>
+    <?php 
+        $sinCuenta = (int)($r['id_cuenta_contable'] ?? 0) <= 0;
+        $textoBusqueda = strtolower($r['codigo'] . ' ' . $r['nombre']);
+        $tieneRelacion = (int)($r['total_relaciones'] ?? 0) > 0;
+        $estaActivo = (int)($r['estado'] ?? 1) === 1;
+    ?>
+    <tr class="border-bottom" 
+        data-search="<?php echo e($textoBusqueda); ?>"
+        data-centro="<?php echo e((string)($r['centro_costo_codigo'] ?? '')); ?>"
+        data-recurrente="<?php echo (int)$r['es_recurrente']; ?>">
+        
+        <td class="ps-4 fw-semibold text-primary"><?php echo e((string)$r['codigo']); ?></td>
+        <td class="fw-medium text-dark">
+            <?php echo e((string)$r['nombre']); ?>
+            <?php if ($sinCuenta): ?>
+                <i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="No vinculado a una cuenta contable. Vincúlelo en Contabilidad > Configurar Parámetros."></i>
+            <?php endif; ?>
+        </td>
+        
+        <td class="text-muted"><?php echo e((string)($r['centro_costo_codigo'] . ' - ' . $r['centro_costo_nombre'])); ?></td>
+        
+        <td class="text-center">
+            <?php if ((int)$r['es_recurrente'] === 1): ?>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Sí</span>
+            <?php else: ?>
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">No</span>
+            <?php endif; ?>
+        </td>
+        <td>
+            <?php if ((int)$r['es_recurrente'] === 1): ?>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">Alerta <?php echo (int)($r['dias_anticipacion'] ?? 0); ?> días antes</span>
+            <?php else: ?>
+                <span class="badge bg-light text-secondary border px-2 py-1">Sin recordatorio</span>
+            <?php endif; ?>
+        </td>
+        <td class="text-end pe-4">
+    <div class="d-inline-flex align-items-center justify-content-end">
+        
+        <form method="post" action="<?php echo e(route_url('gastos/desactivar_concepto')); ?>" class="d-inline m-0 p-0">
+            <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+            <button type="submit" 
+                    class="btn btn-link p-0 text-decoration-none shadow-none border-0" 
+                    title="<?php echo $estaActivo ? 'Desactivar' : 'Activar'; ?>">
+                <?php if($estaActivo): ?>
+                    <i class="bi bi-toggle-on text-primary" style="font-size: 1.6rem; line-height: 1;"></i>
+                <?php else: ?>
+                    <i class="bi bi-toggle-off text-secondary opacity-50" style="font-size: 1.6rem; line-height: 1;"></i>
+                <?php endif; ?>
+            </button>
+        </form>
 
-                                    <form method="post" action="<?php echo e(route_url('gastos/desactivar_concepto')); ?>" class="d-inline m-0 p-0">
-                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
-                                        <button type="submit"
-                                                class="btn btn-sm btn-light border-0 text-warning rounded-circle"
-                                                title="Desactivar"
-                                                <?php echo $estaActivo ? '' : 'disabled'; ?>>
-                                            <i class="bi bi-slash-circle"></i>
-                                        </button>
-                                    </form>
+        <div class="vr bg-secondary opacity-25 mx-2" style="width: 2px; height: 22px;"></div>
 
-                                    <form method="post" action="<?php echo e(route_url('gastos/eliminar_concepto')); ?>" class="d-inline m-0 p-0">
-                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
-                                        <button type="submit"
-                                                class="btn btn-sm btn-light border-0 rounded-circle <?php echo $tieneRelacion ? 'text-secondary' : 'text-danger'; ?>"
-                                                title="<?php echo $tieneRelacion ? 'No se puede eliminar: tiene datos relacionados' : 'Eliminar'; ?>"
-                                                <?php echo $tieneRelacion ? 'disabled' : ''; ?>>
-                                            <i class="bi bi-trash3"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    
-                    <?php if(empty($registros)): ?>
-                        <tr class="empty-msg-row border-bottom-0">
-                            <td colspan="6" class="text-center text-muted py-5">
-                                <i class="bi bi-tags fs-1 d-block mb-2 text-light"></i>
-                                No hay conceptos registrados.
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                    </tbody>
+        <button type="button"
+                class="btn-icon btn-icon-primary js-editar-concepto me-1"
+                title="Editar"
+                data-id="<?php echo (int)$r['id']; ?>"
+                data-codigo="<?php echo e((string)$r['codigo']); ?>"
+                data-nombre="<?php echo e((string)$r['nombre']); ?>"
+                data-id-centro="<?php echo (int)($r['id_centro_costo'] ?? 0); ?>"
+                data-es-recurrente="<?php echo (int)($r['es_recurrente'] ?? 0); ?>"
+                data-dia-vencimiento="<?php echo (int)($r['dia_vencimiento'] ?? 0); ?>"
+                data-dias-anticipacion="<?php echo (int)($r['dias_anticipacion'] ?? 0); ?>"
+                <?php echo $estaActivo ? '' : 'disabled'; ?>>
+            <i class="bi bi-pencil-square"></i>
+        </button>
+
+        <form method="post" action="<?php echo e(route_url('gastos/eliminar_concepto')); ?>" class="d-inline m-0 p-0">
+            <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+            <button type="submit"
+                    class="btn-icon <?php echo $tieneRelacion ? 'btn-icon-secondary' : 'btn-icon-danger'; ?>"
+                    title="<?php echo $tieneRelacion ? 'No se puede eliminar: tiene datos relacionados' : 'Eliminar'; ?>"
+                    <?php echo $tieneRelacion ? 'disabled' : ''; ?>>
+                <i class="bi bi-trash3"></i>
+            </button>
+        </form>
+        
+    </div>
+</td>
+    </tr>
+<?php endforeach; ?>
+
+<?php if(empty($registros)): ?>
+    <tr class="empty-msg-row border-bottom-0">
+        <td colspan="6" class="text-center text-muted py-5">
+            <i class="bi bi-tags fs-1 d-block mb-2 text-light"></i>
+            No hay conceptos registrados.
+        </td>
+    </tr>
+<?php endif; ?>
+</tbody>
                 </table>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white rounded-bottom">
-                <span id="conceptosPaginationInfo" class="text-muted small">Calculando resultados...</span>
-                <nav>
-                    <ul id="conceptosPaginationControls" class="pagination pagination-sm mb-0 shadow-sm">
-                        </ul>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-0 px-4 py-3 border-top bg-white rounded-bottom">
+                <div class="small text-muted fw-medium" id="conceptosPaginationInfo">Calculando resultados...</div>
+                <nav aria-label="Paginación de conceptos">
+                    <ul class="pagination pagination-sm mb-0 shadow-sm" id="conceptosPaginationControls"></ul>
                 </nav>
             </div>
 
