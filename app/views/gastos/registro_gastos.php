@@ -110,7 +110,16 @@ $conceptos = $conceptos ?? [];
                                     <button type="button"
                                             class="btn-icon btn-icon-info js-ver-gasto"
                                             title="Ver Detalle"
-                                            data-id="<?php echo (int)$r['id']; ?>">
+                                            data-id="<?php echo (int)$r['id']; ?>"
+                                            data-fecha="<?php echo e((string)$r['fecha']); ?>"
+                                            data-proveedor="<?php echo e((string)$r['proveedor']); ?>"
+                                            data-concepto="<?php echo e((string)$r['concepto']); ?>"
+                                            data-impuesto="<?php echo e((string)$r['impuesto_tipo']); ?>"
+                                            data-monto="<?php echo number_format((float)$r['monto'], 2); ?>"
+                                            data-total="<?php echo number_format((float)$r['total'], 2); ?>"
+                                            data-estado="<?php echo e($estado); ?>"
+                                            data-cxp="<?php echo (int)($r['id_cxp'] ?? 0); ?>"
+                                            data-asiento="<?php echo (int)($r['id_asiento'] ?? 0); ?>">
                                         <i class="bi bi-eye"></i>
                                     </button>
 
@@ -148,6 +157,31 @@ $conceptos = $conceptos ?? [];
                 </nav>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleGasto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white py-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-eye me-2"></i>Detalle del Gasto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-3 p-md-4">
+                <div class="list-group list-group-flush rounded-3 overflow-hidden border border-secondary-subtle">
+                    <div class="list-group-item d-flex justify-content-between"><strong>ID</strong><span id="detGastoId">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Fecha</strong><span id="detGastoFecha">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Proveedor</strong><span id="detGastoProveedor">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Concepto</strong><span id="detGastoConcepto">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Impuesto</strong><span id="detGastoImpuesto">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Monto</strong><span id="detGastoMonto">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Total</strong><span id="detGastoTotal">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Estado</strong><span id="detGastoEstado">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>ID CxP</strong><span id="detGastoCxp">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>ID Asiento</strong><span id="detGastoAsiento">-</span></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

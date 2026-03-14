@@ -87,11 +87,11 @@ class GastoRegistroModel extends Modelo
 
             $idRegistro = (int) $db->lastInsertId();
 
-            $db->exec('SAVEPOINT gasto_integracion');
-            try {
-                $cxpModel = new TesoreriaCxpModel();
-                $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
+            $cxpModel = new TesoreriaCxpModel();
+            $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
 
+            $idAsiento = null;
+            try {
                 $asientoModel = new ContaAsientoModel();
                 $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
                     'id_gasto' => $idRegistro,
@@ -101,23 +101,80 @@ class GastoRegistroModel extends Modelo
                     'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
                     'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
                 ], $userId);
-
-                $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
-                $stmtFin->execute([
-                    'id_cxp' => $idCxp,
-                    'id_asiento' => $idAsiento,
-                    'user' => $userId,
-                    'id' => $idRegistro,
-                ]);
             } catch (Throwable $integracionError) {
-                $db->exec('ROLLBACK TO SAVEPOINT gasto_integracion');
-                error_log('[GastoRegistroModel] Registro guardado sin integración CxP/Asiento. Motivo: ' . $integracionError->getMessage());
+                error_log('[GastoRegistroModel] CxP generado sin asiento automático de gasto. Motivo: ' . $integracionError->getMessage());
             }
+
+            $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
+            $stmtFin->execute([
+                'id_cxp' => $idCxp,
+                'id_asiento' => $idAsiento,
+                'user' => $userId,
+                'id' => $idRegistro,
+            ]);
 
             if ($localTx) {
                 $db->commit();
             }
             return $idRegistro;
+        } catch (Throwable $e) {
+            if ($localTx && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public function anular(int $id, int $userId): void
+    {
+        $this->asegurarTablaRegistros();
+
+        if ($id <= 0) {
+            throw new RuntimeException('Registro de gasto inválido.');
+        }
+
+        $db = $this->db();
+        $localTx = !$db->inTransaction();
+        if ($localTx) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $stmt = $db->prepare('SELECT id, estado, id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+            $stmt->execute(['id' => $id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                throw new RuntimeException('No se encontró el registro de gasto.');
+            }
+
+            $estadoActual = strtoupper((string) ($row['estado'] ?? ''));
+            if ($estadoActual === 'ANULADO') {
+                if ($localTx) {
+                    $db->commit();
+                }
+                return;
+            }
+
+            if ($estadoActual === 'PAGADO') {
+                throw new RuntimeException('No se puede anular un gasto que ya está pagado.');
+            }
+
+            $db->prepare('UPDATE gastos_registros
+                SET estado = "ANULADO", updated_by = :user, updated_at = NOW()
+                WHERE id = :id')
+                ->execute(['id' => $id, 'user' => $userId]);
+
+            $idCxp = (int) ($row['id_cxp'] ?? 0);
+            if ($idCxp > 0) {
+                $db->prepare('UPDATE tesoreria_cxp
+                    SET estado = "ANULADA", updated_by = :user, updated_at = NOW()
+                    WHERE id = :id')
+                    ->execute(['id' => $idCxp, 'user' => $userId]);
+            }
+
+            if ($localTx) {
+                $db->commit();
+            }
         } catch (Throwable $e) {
             if ($localTx && $db->inTransaction()) {
                 $db->rollBack();

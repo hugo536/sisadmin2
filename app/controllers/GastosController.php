@@ -182,6 +182,24 @@ class GastosController extends Controlador
         }
     }
 
+    public function anular_registro(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('gastos/registros');
+        }
+
+        try {
+            $id = (int) ($_POST['id'] ?? 0);
+            $this->registroModel->anular($id, $this->uid());
+            redirect('gastos/registros?ok=1');
+        } catch (Throwable $e) {
+            redirect('gastos/registros?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     private function uid(): int
     {
         return (int)($_SESSION['usuario_id'] ?? $_SESSION['id'] ?? 1);
