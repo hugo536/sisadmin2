@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 class TesoreriaCxpModel extends Modelo
 {
+    private ?bool $columnaIdGastoDisponible = null;
+
     public function listar(array $filtros = []): array
     {
         // MEJORA: Usamos LEFT JOIN para evitar perder el registro si el proveedor fue eliminado (soft-delete)
@@ -132,12 +134,27 @@ class TesoreriaCxpModel extends Modelo
             WHERE id = :id');
         $stmt->execute(['id' => $id, 'user' => $userId]);
 
-        $stmtRel = $this->db()->prepare('SELECT id_gasto, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
-        $stmtRel->execute(['id' => $id]);
-        $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
-        $idGasto = (int) ($rel['id_gasto'] ?? 0);
-        if ($idGasto > 0) {
+        $idGasto = 0;
+        $estadoCxp = 'PENDIENTE';
+
+        if ($this->tieneColumnaIdGasto()) {
+            $stmtRel = $this->db()->prepare('SELECT id_gasto, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
+            $stmtRel->execute(['id' => $id]);
+            $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
+            $idGasto = (int) ($rel['id_gasto'] ?? 0);
             $estadoCxp = strtoupper((string) ($rel['estado'] ?? 'PENDIENTE'));
+        } else {
+            $stmtRel = $this->db()->prepare('SELECT id, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
+            $stmtRel->execute(['id' => $id]);
+            $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
+            $estadoCxp = strtoupper((string) ($rel['estado'] ?? 'PENDIENTE'));
+
+            $stmtGasto = $this->db()->prepare('SELECT id FROM gastos_registros WHERE id_cxp = :id_cxp AND deleted_at IS NULL LIMIT 1');
+            $stmtGasto->execute(['id_cxp' => $id]);
+            $idGasto = (int) ($stmtGasto->fetchColumn() ?: 0);
+        }
+
+        if ($idGasto > 0) {
             $estadoGasto = 'PENDIENTE';
             if ($estadoCxp === 'PAGADA') {
                 $estadoGasto = 'PAGADO';
@@ -159,12 +176,22 @@ class TesoreriaCxpModel extends Modelo
     public function crearDesdeGasto(int $idGasto, int $userId): int
     {
         $db = $this->db();
+        $this->asegurarColumnaIdGasto();
 
-        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxp WHERE id_gasto = :id LIMIT 1');
-        $stmtExiste->execute(['id' => $idGasto]);
-        $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
-        if ($existe > 0) {
-            return $existe;
+        if ($this->tieneColumnaIdGasto()) {
+            $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxp WHERE id_gasto = :id LIMIT 1');
+            $stmtExiste->execute(['id' => $idGasto]);
+            $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
+            if ($existe > 0) {
+                return $existe;
+            }
+        } else {
+            $stmtExiste = $db->prepare('SELECT id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+            $stmtExiste->execute(['id' => $idGasto]);
+            $idCxpExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
+            if ($idCxpExistente > 0) {
+                return $idCxpExistente;
+            }
         }
 
         $stmtGasto = $db->prepare('SELECT id, fecha, id_proveedor, total
@@ -180,25 +207,85 @@ class TesoreriaCxpModel extends Modelo
         $fecha = substr((string) ($gasto['fecha'] ?? date('Y-m-d')), 0, 10);
         $total = round((float) ($gasto['total'] ?? 0), 4);
 
-        $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
-            (id_proveedor, id_gasto, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
-            VALUES
-            (:id_proveedor, :id_gasto, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+        if ($this->tieneColumnaIdGasto()) {
+            $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
+                (id_proveedor, id_gasto, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
+                VALUES
+                (:id_proveedor, :id_gasto, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
 
-        $stmtInsert->execute([
-            'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
-            'id_gasto' => $idGasto,
-            'fecha_emision' => $fecha,
-            'fecha_vencimiento' => $fecha,
-            'moneda' => 'PEN',
-            'monto_total' => $total,
-            'saldo' => $total,
-            'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
-            'created_by' => $userId,
-            'updated_by' => $userId,
-        ]);
+            $stmtInsert->execute([
+                'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
+                'id_gasto' => $idGasto,
+                'fecha_emision' => $fecha,
+                'fecha_vencimiento' => $fecha,
+                'moneda' => 'PEN',
+                'monto_total' => $total,
+                'saldo' => $total,
+                'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ]);
+        } else {
+            $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
+                (id_proveedor, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
+                VALUES
+                (:id_proveedor, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+
+            $stmtInsert->execute([
+                'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
+                'fecha_emision' => $fecha,
+                'fecha_vencimiento' => $fecha,
+                'moneda' => 'PEN',
+                'monto_total' => $total,
+                'saldo' => $total,
+                'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ]);
+        }
 
         return (int) $db->lastInsertId();
+    }
+
+    private function asegurarColumnaIdGasto(): void
+    {
+        if ($this->tieneColumnaIdGasto()) {
+            return;
+        }
+
+        try {
+            $this->db()->exec('ALTER TABLE tesoreria_cxp ADD COLUMN id_gasto INT NULL AFTER id_recepcion');
+            $this->db()->exec('ALTER TABLE tesoreria_cxp ADD KEY idx_tesoreria_cxp_id_gasto (id_gasto)');
+            $this->columnaIdGastoDisponible = true;
+        } catch (Throwable $e) {
+            // Si no se puede alterar la tabla, mantenemos compatibilidad usando el vínculo gastos_registros.id_cxp.
+            $this->columnaIdGastoDisponible = $this->consultarExistenciaColumna('id_gasto');
+        }
+    }
+
+    private function tieneColumnaIdGasto(): bool
+    {
+        if ($this->columnaIdGastoDisponible !== null) {
+            return $this->columnaIdGastoDisponible;
+        }
+
+        $this->columnaIdGastoDisponible = $this->consultarExistenciaColumna('id_gasto');
+        return $this->columnaIdGastoDisponible;
+    }
+
+    private function consultarExistenciaColumna(string $columna): bool
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = :tabla
+              AND column_name = :columna');
+        $stmt->execute([
+            'tabla' => 'tesoreria_cxp',
+            'columna' => $columna,
+        ]);
+
+        return (int) $stmt->fetchColumn() > 0;
     }
 
     public function listarPendientesPorAntiguedad(int $idProveedor, string $moneda): array
