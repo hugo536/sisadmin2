@@ -15,6 +15,8 @@ class TesoreriaCuentaModel extends Modelo
                        c.tipo,
                        c.moneda,
                        c.id_cuenta_contable,
+                       c.permite_cobros,
+                       c.permite_pagos,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
