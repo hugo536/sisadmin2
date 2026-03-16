@@ -630,7 +630,7 @@ function renderSidebarInner(
   setupSidebarSearch('sidebarNavScrollMobile');
 
   // =========================================================
-  // Protección modo colapsado: no forzar expandir al tocar grupos
+  // UX modo colapsado: al tocar un grupo, expandir sidebar y permitir desplegable
   // =========================================================
   function setupCollapsedModeGroupGuard(navId) {
     const nav = document.getElementById(navId);
@@ -641,9 +641,10 @@ function renderSidebarInner(
       if (!toggleGroup) return;
       if (!document.body.classList.contains('sidebar-collapsed')) return;
 
-      // Mantener sidebar colapsado y evitar que Bootstrap abra/cierre submenús
-      e.preventDefault();
-      e.stopPropagation();
+      // Si el usuario intenta abrir un grupo, expandimos el sidebar para
+      // que Bootstrap pueda abrir/cerrar el submenú normalmente.
+      document.body.classList.remove('sidebar-collapsed');
+      localStorage.setItem('erp.sidebar.collapsed', '0');
     });
   }
 
