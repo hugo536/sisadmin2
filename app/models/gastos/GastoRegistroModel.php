@@ -70,10 +70,11 @@ class GastoRegistroModel extends Modelo
             }
 
             // 1. Guardar Gasto
+            // Modifica la línea del INSERT para que quede así:
             $stmt = $db->prepare('INSERT INTO gastos_registros
                 (fecha, id_proveedor, id_concepto, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:fecha, :id_proveedor, :id_concepto, :monto, :impuesto_tipo, :impuesto_monto, :total, "PENDIENTE", :created_by, :updated_by, NOW(), NOW())');
+                (:fecha, :id_proveedor, :id_concepto, :monto, :impuesto_tipo, :impuesto_monto, :total, "REGISTRADO", :created_by, :updated_by, NOW(), NOW())');
             $stmt->execute([
                 'fecha' => $fecha,
                 'id_proveedor' => $idProveedor,

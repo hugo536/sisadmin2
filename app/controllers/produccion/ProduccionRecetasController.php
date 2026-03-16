@@ -271,7 +271,10 @@ class ProduccionRecetasController extends Controlador
             'recetas' => $this->produccionRecetasModel->listarRecetas(),
             'items_stockeables' => [],
             'parametros_catalogo' => $this->produccionRecetasModel->listarParametrosCatalogo(),
-            'activos_fijos_cif' => $this->produccionRecetasModel->listarActivosFijosParaCif(),
+            
+            // Reemplazamos los activos fijos por los nuevos Conceptos Operativos (MOD y CIF)
+            'conceptos_operativos' => $this->produccionRecetasModel->listarConceptosOperativos(),
+            
             'ruta_actual' => 'produccion/recetas',
         ]);
     }

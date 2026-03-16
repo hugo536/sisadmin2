@@ -588,7 +588,7 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 6. MODAL DE PLANIFICACIÓN Y GUARDADO AJAX (MEJORADO)
+    // 6. MODAL DE PLANIFICACIÓN Y GUARDADO AJAX (MOTOR MRP - MULTINIVEL)
     // =========================================================================
     function initModalPlanificacion() {
         const modalPlanificar = document.getElementById('modalPlanificarOP'); 
@@ -616,55 +616,170 @@ if (!window.produccionJsInitialized) {
             }
         });
         
-        // INTERCEPTAR EL FORMULARIO DE NUEVA OP (Auto-retorno)
+        // LÓGICA PARA AUTO-CALCULAR CANTIDAD VS HORAS
+        const radioModo = document.querySelectorAll('input[name="modo_planificacion"]');
+        const inputCant = document.getElementById('newCantPlan');
+        const inputHoras = document.getElementById('newHorasPlan');
+        const selectReceta = document.getElementById('newRecetaOP');
+
+        function calcularPlanificacion() {
+            if (!selectReceta || !selectReceta.value || !inputCant || !inputHoras) return;
+            
+            const option = selectReceta.options[selectReceta.selectedIndex];
+            const rendimiento = parseFloat(option.getAttribute('data-rendimiento')) || 1;
+            const tiempo = parseFloat(option.getAttribute('data-tiempo')) || 1;
+            
+            const modoSeleccionado = document.querySelector('input[name="modo_planificacion"]:checked');
+            if (!modoSeleccionado) return;
+            const modo = modoSeleccionado.value;
+            
+            if (modo === 'cantidad') {
+                const cant = parseFloat(inputCant.value) || 0;
+                const horasCalculadas = (cant / rendimiento) * tiempo;
+                inputHoras.value = horasCalculadas > 0 ? horasCalculadas.toFixed(4) : '';
+            } else {
+                const horas = parseFloat(inputHoras.value) || 0;
+                const cantCalculada = (horas / tiempo) * rendimiento;
+                inputCant.value = cantCalculada > 0 ? cantCalculada.toFixed(4) : '';
+            }
+        }
+
+        radioModo.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const modo = e.target.value;
+                if (modo === 'cantidad') {
+                    inputCant.readOnly = false;
+                    inputCant.classList.remove('bg-light');
+                    inputHoras.readOnly = true;
+                    inputHoras.classList.add('bg-light');
+                    inputCant.focus();
+                } else {
+                    inputHoras.readOnly = false;
+                    inputHoras.classList.remove('bg-light');
+                    inputCant.readOnly = true;
+                    inputCant.classList.add('bg-light');
+                    inputHoras.focus();
+                }
+                calcularPlanificacion();
+            });
+        });
+
+        if (inputCant) inputCant.addEventListener('input', calcularPlanificacion);
+        if (inputHoras) inputHoras.addEventListener('input', calcularPlanificacion);
+        if (selectReceta) selectReceta.addEventListener('change', calcularPlanificacion);
+
+
+        // INTERCEPTAR EL FORMULARIO DE NUEVA OP (Motor de Explosión MRP)
         const form = modalPlanificar.querySelector('form');
         if (form) {
-            form.addEventListener('submit', function (e) {
-                const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
-                
-                // Solo usamos AJAX si el Planificador (Calendario) está abierto de fondo
-                if (modalPlanificadorEl && modalPlanificadorEl.classList.contains('show')) {
-                    e.preventDefault(); 
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault(); // Siempre usamos AJAX ahora
 
+                const btnSubmit = form.querySelector('button[type="submit"]');
+                const originalText = btnSubmit.innerHTML;
+                btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando y analizando...';
+                btnSubmit.disabled = true;
+
+                try {
+                    // PASO 1: Guardar la Orden Principal (Padre)
                     const formData = new FormData(form);
-                    formData.set('accion', 'crear_orden_ajax'); 
+                    formData.set('accion', 'crear_orden_ajax'); // Forzamos acción AJAX
 
-                    const btnSubmit = form.querySelector('button[type="submit"]');
-                    const originalText = btnSubmit.innerHTML;
-                    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-                    btnSubmit.disabled = true;
-
-                    fetch(window.location.href, {
+                    const resCrear = await fetch(window.location.href, {
                         method: 'POST',
                         body: formData,
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    })
-                    .then(res => res.json())
-                    .then(res => {
-                        if (res.success) {
-                            // 1. Cerramos el formulario
-                            bootstrap.Modal.getInstance(modalPlanificar).hide();
-                            
-                            // 2. Recargamos los cuadritos del calendario para que aparezca la OP
-                            if (typeof window.cargarGridPlanificador === 'function') {
-                                window.cargarGridPlanificador(); 
-                            }
-                            
-                            // 3. El usuario puede seguir planificando directamente desde el calendario.
+                    }).then(r => r.json());
 
+                    if (!resCrear.success) {
+                        Swal.fire('Error', resCrear.message || 'No se pudo crear la orden.', 'error');
+                        return;
+                    }
+
+                    const idOrdenPadre = resCrear.id_orden;
+
+                    // PASO 2: Preguntar al backend si faltan semielaborados
+                    const formDataAnalisis = new FormData();
+                    formDataAnalisis.append('accion', 'analizar_subordenes_ajax');
+                    formDataAnalisis.append('id_orden', idOrdenPadre);
+
+                    const resAnalisis = await fetch(window.location.href, {
+                        method: 'POST',
+                        body: formDataAnalisis,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    }).then(r => r.json());
+
+                    // PASO 3: Evaluar la respuesta del Asistente
+                    if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
+                        // Hay faltantes, construimos la lista para el SweetAlert
+                        let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted" style="font-size: 0.9rem;">';
+                        resAnalisis.data.forEach(f => {
+                            listaHtml += `<li class="mb-1"><i class="bi bi-box-seam me-2"></i><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger fw-bold">${f.cantidad_faltante}</span></li>`;
+                        });
+                        listaHtml += '</ul>';
+
+                        const confirmacion = await Swal.fire({
+                            icon: 'info',
+                            title: 'Faltan Semielaborados',
+                            html: `<p class="mb-1">Para cumplir con esta orden, no hay stock suficiente de los siguientes productos intermedios:</p>
+                                   ${listaHtml}
+                                   <div class="mt-3 p-2 bg-light border rounded text-dark small fw-medium">¿Deseas que el sistema genere automáticamente los borradores de las sub-órdenes para estos faltantes?</div>`,
+                            showCancelButton: true,
+                            confirmButtonText: '<i class="bi bi-magic me-1"></i> Sí, generar sub-órdenes',
+                            cancelButtonText: 'No, lo haré manual',
+                            confirmButtonColor: '#0d6efd',
+                            cancelButtonColor: '#6c757d'
+                        });
+
+                        // PASO 4: Si el jefe dice SÍ, generamos las hijas
+                        if (confirmacion.isConfirmed) {
+                            Swal.fire({ title: 'Generando cadena de producción...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                            
+                            const fdGenerar = new FormData();
+                            fdGenerar.append('accion', 'generar_subordenes_ajax');
+                            fdGenerar.append('id_orden_padre', idOrdenPadre);
+
+                            const resGenerar = await fetch(window.location.href, {
+                                method: 'POST',
+                                body: fdGenerar,
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                            }).then(r => r.json());
+
+                            if (resGenerar.success) {
+                                await Swal.fire({ icon: 'success', title: '¡Éxito!', text: 'La orden y sus sub-órdenes se generaron correctamente.', timer: 2000, showConfirmButton: false });
+                            } else {
+                                await Swal.fire('Error', 'Se creó la OP principal, pero hubo un problema al generar las sub-órdenes.', 'error');
+                            }
                         } else {
-                            Swal.fire('Error', res.message || 'No se pudo crear la orden.', 'error');
+                            // Dijo que no, solo cerramos con éxito
+                            await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden principal planificada correctamente.', timer: 1500, showConfirmButton: false });
                         }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        Swal.fire('Error', 'Hubo un problema de conexión.', 'error');
-                    })
-                    .finally(() => {
-                        btnSubmit.innerHTML = originalText;
-                        btnSubmit.disabled = false;
-                        form.reset(); 
-                    });
+                    } else {
+                        // NO hay faltantes (Todo está en stock)
+                        await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden planificada. Stock de semielaborados suficiente.', timer: 1500, showConfirmButton: false });
+                    }
+
+                    // FINAL: Refrescar la vista
+                    bootstrap.Modal.getInstance(modalPlanificar).hide();
+                    
+                    const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
+                    if (modalPlanificadorEl && modalPlanificadorEl.classList.contains('show')) {
+                        // Si el calendario está abierto, solo actualizamos el calendario
+                        if (typeof window.cargarGridPlanificador === 'function') {
+                            window.cargarGridPlanificador(); 
+                        }
+                    } else {
+                        // Si estábamos en la tabla normal, recargamos la página entera para ver las nuevas órdenes
+                        window.location.reload();
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
+                } finally {
+                    btnSubmit.innerHTML = originalText;
+                    btnSubmit.disabled = false;
+                    form.reset(); 
                 }
             });
         }
@@ -674,7 +789,7 @@ if (!window.produccionJsInitialized) {
             if (form) form.reset();
         });
     }
-
+    
     // =========================================================================
     // 7. PLANIFICADOR DE OPERACIONES (CALENDARIO MES / SEMANA)
     // =========================================================================

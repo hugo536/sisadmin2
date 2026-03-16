@@ -29,7 +29,7 @@ class TesoreriaCxcModel extends Modelo
             $sql .= ' AND c.saldo > 0 AND DATE(c.fecha_vencimiento) < CURDATE()';
         }
 
-        $sql .= ' ORDER BY c.fecha_vencimiento ASC, c.id DESC';
+        $sql .= ' ORDER BY c.id DESC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);

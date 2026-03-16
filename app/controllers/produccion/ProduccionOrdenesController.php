@@ -55,7 +55,7 @@ class ProduccionOrdenesController extends Controlador
                     ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     
-                    $this->produccionOrdenesModel->crearOrden([
+                    $idNuevaOrden = $this->produccionOrdenesModel->crearOrden([
                         'codigo' => (string) ($_POST['codigo'] ?? ''),
                         'id_receta' => (int) ($_POST['id_receta'] ?? 0),
                         'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
@@ -64,9 +64,12 @@ class ProduccionOrdenesController extends Controlador
                         'observaciones' => (string) ($_POST['observaciones'] ?? ''),
                     ], $userId);
 
-                    echo json_encode(['success' => true, 'message' => 'Orden planificada correctamente.']);
+                    // Devolvemos el ID de la orden recién creada para poder analizarla en JS
+                    echo json_encode(['success' => true, 'message' => 'Orden planificada.', 'id_orden' => $idNuevaOrden]);
                     exit;
                 }
+
+
                 
                 if ($accion === 'obtener_planificador_ajax') {
                     ob_clean();
@@ -84,6 +87,37 @@ class ProduccionOrdenesController extends Controlador
                     echo json_encode(['success' => true, 'data' => $datos]);
                     exit;
                 }
+
+                // ==========================================================
+                // ENDPOINTS MOTOR MRP (EXPLOSIÓN DE MATERIALES)
+                // ==========================================================
+                if ($accion === 'analizar_subordenes_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
+                    
+                    $faltantes = $this->produccionOrdenesModel->analizarSemielaboradosFaltantes($idOrden);
+                    
+                    echo json_encode(['success' => true, 'data' => $faltantes]);
+                    exit;
+                }
+
+                if ($accion === 'generar_subordenes_ajax') {
+                    ob_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    $idOrdenPadre = (int) ($_POST['id_orden_padre'] ?? 0);
+                    
+                    // Re-analizamos por seguridad
+                    $faltantes = $this->produccionOrdenesModel->analizarSemielaboradosFaltantes($idOrdenPadre);
+                    
+                    if (count($faltantes) > 0) {
+                        $this->produccionOrdenesModel->generarSubOrdenesAutomatica($idOrdenPadre, $faltantes, $userId);
+                    }
+                    
+                    echo json_encode(['success' => true, 'message' => 'Sub-órdenes generadas correctamente.']);
+                    exit;
+                }
+                
                 // ==========================================================
                 // ENDPOINTS DE ÓRDENES DE PRODUCCIÓN
                 // ==========================================================
@@ -425,4 +459,6 @@ class ProduccionOrdenesController extends Controlador
 
         return $flash;
     }
+
+    
 }

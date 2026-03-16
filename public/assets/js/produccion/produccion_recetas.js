@@ -1,7 +1,7 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Recetas BOM)
  * Optimizado con Tom Select AJAX y SweetAlert2.
- * Versión FINAL CORREGIDA - Estructura Limpia
+ * Versión FINAL CORREGIDA - Costeo Operativo Estándar
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initFormularioRecetas();
     initAccionesRecetaPendiente();
     initGestionParametrosCatalogo();
-    initGuardadoReceta(); // Se inicializa el guardado correctamente
+    initGuardadoReceta(); 
 });
 
 function initFiltrosTablas() {
@@ -54,14 +54,15 @@ function initFormularioRecetas() {
     const contenedorParametros = document.getElementById('contenedorParametros');
     const templateParametro = document.getElementById('parametroTemplate');
     const emptyParametros = document.getElementById('emptyParametros');
+    
     const btnAgregarMod = document.getElementById('btnAgregarMod');
     const contenedorMod = document.getElementById('contenedorMod');
     const templateMod = document.getElementById('modTemplate');
+    
     const btnAgregarCif = document.getElementById('btnAgregarCif');
     const contenedorCif = document.getElementById('contenedorCif');
     const templateCif = document.getElementById('cifTemplate');
-    const activosFijosCif = Array.isArray(window.ACTIVOS_FIJOS_CIF) ? window.ACTIVOS_FIJOS_CIF : [];
-    const mapaActivosFijosCif = new Map(activosFijosCif.map(a => [String(a.id), a]));
+
     const inputRendimientoBase = document.getElementById('newRendimientoBase');
     const inputTiempoProduccionHoras = document.getElementById('newTiempoProduccionHoras');
     const totalBomEl = document.getElementById('totalBomCalculado');
@@ -122,7 +123,6 @@ function initFormularioRecetas() {
         return Math.max(parseNumero(inputTiempoProduccionHoras?.value || 0), 0);
     };
 
-
     const actualizarEstadoTabsCostos = () => {
         if (!tabsRecetaCostos) return;
         tabsRecetaCostos.querySelectorAll('.nav-link').forEach((tabBtn) => {
@@ -153,7 +153,6 @@ function initFormularioRecetas() {
         if (totalCifEl) totalCifEl.textContent = 'S/ 0.0000';
         actualizarEstadoTabsCostos();
 
-        // DESBLOQUEAR TODO (Para cuando hacen clic en "Nueva receta" principal)
         const inputCodigo = document.getElementById('newCodigo');
         if (inputCodigo) { inputCodigo.removeAttribute('readonly'); inputCodigo.classList.remove('bg-light'); }
 
@@ -177,12 +176,10 @@ function initFormularioRecetas() {
         const displayCont = document.getElementById('productoDisplayContainer');
         const displayNombre = document.getElementById('newProductoNombreDisplay');
 
-        // MOSTRAR SELECTOR, OCULTAR TEXTO
         if (selectCont) selectCont.style.display = '';
         if (displayCont) displayCont.style.display = 'none';
         if (displayNombre) displayNombre.textContent = '';
 
-        // ---> NUEVA LÍNEA: Habilitar el select para que vuelva a validar
         const selectProducto = document.getElementById('newProducto');
         if (selectProducto) {
             selectProducto.disabled = false;
@@ -228,12 +225,13 @@ function initFormularioRecetas() {
             costoCif += parseNumero(row.querySelector('.cif-costo')?.value);
         });
 
+        // NUEVO CÓDIGO CORREGIDO:
         const rendimientoBase = Math.max(parseNumero(inputRendimientoBase?.value || 1), 0);
-        const horasProduccion = getTiempoProduccionHoras();
         const divisorUnidad = rendimientoBase > 0 ? rendimientoBase : 1;
-        const divisorModUnidad = horasProduccion > 0 ? horasProduccion : 1;
+        
         const costoBomUnit = costoTotal / divisorUnidad;
-        const costoModUnit = costoMod / divisorModUnidad;
+        // Corrección: Ahora el MOD también se divide entre la cantidad del lote (Rendimiento Base)
+        const costoModUnit = costoMod / divisorUnidad; 
         const costoCifUnit = costoCif / divisorUnidad;
         const costoTotalReceta = costoTotal + costoMod + costoCif;
         const costoTotalUnitario = costoBomUnit + costoModUnit + costoCifUnit;
@@ -319,9 +317,21 @@ function initFormularioRecetas() {
 
     if (btnAgregarInsumo) btnAgregarInsumo.addEventListener('click', crearFilaInsumo);
     inputRendimientoBase?.addEventListener('input', calcularResumenYCostos);
-    inputTiempoProduccionHoras?.addEventListener('input', () => {
-        document.querySelectorAll('.cif-id-activo').forEach((sel) => sel.dispatchEvent(new Event('change')));
-        calcularResumenYCostos();
+    inputTiempoProduccionHoras?.addEventListener('input', calcularResumenYCostos);
+
+    // --- EL NUEVO EVENT LISTENER PARA EL CIF ---
+    document.addEventListener('change', e => {
+        if (e.target && e.target.classList.contains('cif-concepto-select')) {
+            const option = e.target.options[e.target.selectedIndex];
+            const nombre = option.getAttribute('data-nombre') || '';
+            const row = e.target.closest('.cif-row');
+            if (row) {
+                const hiddenInput = row.querySelector('.cif-concepto-nombre');
+                if (hiddenInput) {
+                    hiddenInput.value = nombre;
+                }
+            }
+        }
     });
 
     document.addEventListener('click', e => {
@@ -338,18 +348,13 @@ function initFormularioRecetas() {
         }
     });
 
-    // RESTAURADO: Función para parámetros
     const crearFilaParametro = (data = null) => {
         if (!templateParametro || !contenedorParametros) return;
         const fragment = templateParametro.content.cloneNode(true);
         
-        // Protección similar a insumos
         let row = fragment.querySelector('.parametro-row');
         if (!row) row = fragment.firstElementChild;
-        if (!row) {
-            console.error('El template de parámetros está vacío o es inválido en el HTML.');
-            return;
-        }
+        if (!row) return;
 
         const selectParametro = row.querySelector('select[name="parametro_id[]"]');
         const inputValor = row.querySelector('input[name="parametro_valor[]"]');
@@ -371,42 +376,12 @@ function initFormularioRecetas() {
         calcularResumenYCostos();
     });
 
+    // --- NUEVA LÓGICA DE AGREGAR CIF (Simplificada) ---
     if (btnAgregarCif) btnAgregarCif.addEventListener('click', () => {
         if (!templateCif || !contenedorCif) return;
         const fragment = templateCif.content.cloneNode(true);
         fragment.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcularResumenYCostos));
         contenedorCif.appendChild(fragment);
-
-        const row = contenedorCif.querySelector('.cif-row:last-child');
-        const inputActivo = row?.querySelector('.cif-id-activo');
-        const inputCosto = row?.querySelector('.cif-costo');
-        const inputConcepto = row?.querySelector('input[name="cif_concepto[]"]');
-
-        if (inputActivo) {
-            inputActivo.innerHTML = '<option value="">Activo fijo (opcional)</option>';
-            activosFijosCif.forEach((af) => {
-                const op = document.createElement('option');
-                op.value = String(af.id || '');
-                op.textContent = `${af.codigo || ''} - ${af.nombre || ''}`.trim();
-                inputActivo.appendChild(op);
-            });
-        }
-
-        const recalcularDesdeActivo = () => {
-            if (!inputActivo || !inputCosto) return;
-            const activo = mapaActivosFijosCif.get(String(inputActivo.value || ''));
-            if (!activo) return;
-            const horas = getTiempoProduccionHoras();
-            if (horas > 0 && Number(activo.tasa_depreciacion_hora || 0) > 0) {
-                inputCosto.value = (horas * Number(activo.tasa_depreciacion_hora || 0)).toFixed(4);
-            }
-            if (inputConcepto && !inputConcepto.value) {
-                inputConcepto.value = `Depreciación ${activo.codigo || ''} ${activo.nombre || ''}`.trim();
-            }
-            calcularResumenYCostos();
-        };
-
-        inputActivo?.addEventListener('change', recalcularDesdeActivo);
         calcularResumenYCostos();
     });
 
@@ -477,21 +452,16 @@ function initFormularioRecetas() {
             const inputRendimiento = document.getElementById('newRendimientoBase');
             const inputTiempo = document.getElementById('newTiempoProduccionHoras');
             
-            // 1. BLOQUEAR CÓDIGO
             if(inputCodigo) {
                 inputCodigo.value = data.codigo || '';
                 inputCodigo.setAttribute('readonly', 'true');
                 inputCodigo.classList.add('bg-light');
             }
-            
-            // 2. BLOQUEAR VERSIÓN
             if(inputVersion) {
                 inputVersion.value = data.version || '1';
                 inputVersion.setAttribute('readonly', 'true');
                 inputVersion.classList.add('bg-light');
             }
-
-            // 3. BLOQUEAR UNIDAD Y SETEARLA
             if(inputUnidad) {
                 inputUnidad.value = data.unidad || data.unidad_rendimiento || 'UND';
                 inputUnidad.setAttribute('readonly', 'true');
@@ -502,7 +472,6 @@ function initFormularioRecetas() {
 
             if(hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
-            // 4. BLOQUEAR PRODUCTO (Oculta select, muestra texto)
             const containerSelect = document.getElementById('productoSelectContainer');
             const containerDisplay = document.getElementById('productoDisplayContainer');
             const displayNombre = document.getElementById('newProductoNombreDisplay');
@@ -511,7 +480,6 @@ function initFormularioRecetas() {
             if (containerDisplay) containerDisplay.style.display = 'block';
             if (displayNombre) displayNombre.textContent = data.producto_nombre || 'Producto';
 
-            // Deshabilitar el select oculto evita la validación nativa sobre un campo no enfocable
             const selectProducto = document.getElementById('newProducto');
             if (selectProducto) {
                 selectProducto.disabled = true;
@@ -532,9 +500,7 @@ function initFormularioRecetas() {
                 inputCodigo.setAttribute('readonly', 'true');
                 inputCodigo.classList.add('bg-light');
             }
-            
             if (inputVersion) {
-                // Tu backend ya nos manda la versión correcta sumada, así que solo la asignamos
                 inputVersion.value = data.version || '';
                 inputVersion.setAttribute('readonly', 'true');
                 inputVersion.classList.add('bg-light');
@@ -590,12 +556,17 @@ function initFormularioRecetas() {
                 btnAgregarCif?.click();
                 const row = contenedorCif.querySelector('.cif-row:last-child');
                 if (!row) return;
-                const selectActivo = row.querySelector('select[name="cif_id_activo[]"]');
-                if (selectActivo) {
-                    selectActivo.value = fila.id_activo || '';
+                
+                // Actualizado para rellenar el select de conceptos
+                const selectConcepto = row.querySelector('select[name="cif_id_activo[]"]');
+                if (selectConcepto) {
+                    selectConcepto.value = fila.id_activo || ''; // Usamos id_activo que guarda el ID de tu nueva tabla
                 }
-                row.querySelector('input[name="cif_concepto[]"]').value = fila.concepto || '';
-                row.querySelector('input[name="cif_costo_estimado[]"]').value = parseNumero(fila.costo_estimado).toFixed(4);
+                const inputNombre = row.querySelector('input[name="cif_concepto[]"]');
+                if(inputNombre) inputNombre.value = fila.concepto || '';
+                
+                const inputCosto = row.querySelector('input[name="cif_costo_estimado[]"]');
+                if(inputCosto) inputCosto.value = parseNumero(fila.costo_estimado).toFixed(4);
             });
         }
     };
@@ -680,20 +651,17 @@ function initAccionesRecetaPendiente() {
         modal.show();
     });
 
-    // --- NUEVO: Autogenerar código al hacer clic en el botón principal "Nueva receta" ---
     const btnPrincipalNuevaReceta = document.getElementById('btnNuevaReceta');
     if (btnPrincipalNuevaReceta) {
         btnPrincipalNuevaReceta.addEventListener('click', async function () {
-            // Mostramos un indicador de carga temporal en el input de código
             const inputCodigo = document.getElementById('newCodigo');
             if (inputCodigo) {
                 inputCodigo.value = 'Generando...';
                 inputCodigo.setAttribute('readonly', 'true');
-                inputCodigo.classList.add('bg-light'); // Lo ponemos en modo lectura temporalmente
+                inputCodigo.classList.add('bg-light'); 
             }
             
             try {
-                // Hacemos la petición a la nueva ruta AJAX del controlador
                 const url = new URL(window.location.href);
                 url.searchParams.set('accion', 'obtener_siguiente_codigo_ajax');
                 
@@ -706,29 +674,21 @@ function initAccionesRecetaPendiente() {
                 if (data.success && data.codigo && inputCodigo) {
                     inputCodigo.value = data.codigo;
                 } else {
-                    if (inputCodigo) inputCodigo.value = 'REC-XXXX'; // Fallback en caso de error lógico
+                    if (inputCodigo) inputCodigo.value = 'REC-XXXX'; 
                 }
             } catch (error) {
                 console.error("Error al obtener el código autogenerado:", error);
-                if (inputCodigo) inputCodigo.value = 'REC-XXXX'; // Fallback de red
-            } finally {
-                // Opcional: Si quieres que el usuario NO pueda editar el código autogenerado, 
-                // comenta las siguientes dos líneas. Si quieres que pueda editarlo, déjalas.
-                // inputCodigo.removeAttribute('readonly'); 
-                // inputCodigo.classList.remove('bg-light');
+                if (inputCodigo) inputCodigo.value = 'REC-XXXX'; 
             }
             
-            // Si quieres asegurarte de limpiar otros campos, puedes llamar al API
             const api = window.produccionRecetaFormAPI;
             if (api) {
-                // Solo limpiamos los detalles y parámetros, ya que el código lo acabamos de poner
                 api.cargarDetalles([]);
                 api.cargarParametros([]);
                 api.cargarMod([]);
                 api.cargarCif([]);
                 api.setIdRecetaBase(0);
                 
-                // Aseguramos que el producto destino esté vacío
                 if (window.tomProductoDestino) window.tomProductoDestino.clear(true);
             }
         });
@@ -880,7 +840,6 @@ function initGuardadoReceta() {
 
             const formData = new FormData(form);
             formData.append('accion', 'guardar_receta_ajax');
-
             formData.set('id_producto', idProductoDestino);
 
             const response = await fetch(window.location.href, {
@@ -891,7 +850,14 @@ function initGuardadoReceta() {
 
             const data = await response.json();
             if (data.success) {
-                Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Receta guardada.', timer: 2000, showConfirmButton: false }).then(() => {
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: '¡Guardado!', 
+                    text: 'La receta se guardó correctamente.', 
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#0d6efd' // Color azul primary (puedes cambiarlo si usas otro)
+                }).then(() => {
                     bootstrap.Modal.getInstance(document.getElementById('modalCrearReceta'))?.hide();
                     window.location.reload(); 
                 });

@@ -15,6 +15,15 @@ if (!empty($_GET['error'])) {
     $swalMessage = 'El registro de gasto se guardó correctamente.';
 }
 // --- FIN BLOQUE DE ALERTAS ---
+
+// Configuración de Estados Operativos (Estilo Ventas)
+$estadoLabels = [
+    'REGISTRADO' => ['texto' => 'Registrado', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
+    'ANULADO'    => ['texto' => 'Anulado',    'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
+    // Dejamos estos por compatibilidad con los gastos viejos que ya tenías en la base de datos
+    'PENDIENTE'  => ['texto' => 'Migrando...', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
+    'PAGADO'     => ['texto' => 'Migrando...', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
+];
 ?>
 
 <div class="container-fluid p-4" id="gastosRegistroApp">
@@ -39,7 +48,7 @@ if (!empty($_GET['error'])) {
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-receipt-cutoff me-2 text-primary"></i> Registro de Gastos
             </h1>
-            <p class="text-muted small mb-0 ms-1">Registra gastos y genera CxP + asiento automático.</p>
+            <p class="text-muted small mb-0 ms-1">Gestión operativa de gastos (Los pagos se manejan en Tesorería).</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-md-end">
             <button class="btn btn-primary shadow-sm fw-bold px-3 transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalNuevoGasto">
@@ -68,9 +77,8 @@ if (!empty($_GET['error'])) {
                 <div class="col-6 col-md-3">
                     <select id="filtroEstado" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
                         <option value="">Todos los Estados</option>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Pagado">Pagado</option>
-                        <option value="Anulado">Anulado</option>
+                        <option value="REGISTRADO">Registrado</option>
+                        <option value="ANULADO">Anulado</option>
                     </select>
                 </div>
             </div>
@@ -97,9 +105,9 @@ if (!empty($_GET['error'])) {
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
                             <th class="text-secondary fw-semibold">Proveedor</th>
                             <th class="text-secondary fw-semibold">Concepto</th>
-                            <th class="text-secondary fw-semibold">Monto</th>
                             <th class="text-secondary fw-semibold text-center">Impuesto</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -107,8 +115,9 @@ if (!empty($_GET['error'])) {
                     <?php foreach($registros as $r): ?>
                         <?php 
                             $textoBusqueda = strtolower($r['fecha'] . ' ' . $r['proveedor'] . ' ' . $r['concepto']); 
-                            $estado = (string)$r['estado'];
-                            $estaActivo = strtolower($estado) !== 'anulado';
+                            $estado = strtoupper((string)$r['estado']);
+                            $badge = $estadoLabels[$estado] ?? $estadoLabels['REGISTRADO'];
+                            $estaActivo = $estado !== 'ANULADO';
                         ?>
                         
                         <tr class="border-bottom" 
@@ -119,26 +128,20 @@ if (!empty($_GET['error'])) {
                             <td class="ps-4 text-muted"><i class="bi bi-calendar me-1 opacity-50"></i><?php echo e((string)$r['fecha']); ?></td>
                             <td class="fw-medium text-dark"><?php echo e((string)$r['proveedor']); ?></td>
                             <td class="text-muted"><?php echo e((string)$r['concepto']); ?></td>
-                            <td class="text-muted">S/ <?php echo number_format((float)$r['monto'], 2); ?></td>
                             <td class="text-center"><span class="badge bg-light text-secondary border px-2 py-1"><?php echo e((string)$r['impuesto_tipo']); ?></span></td>
                             <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$r['total'], 2); ?></td>
                             
+                            <td class="text-center">
+                                <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo e($badge['clase']); ?>">
+                                    <?php echo e($badge['texto']); ?>
+                                </span>
+                            </td>
+
                             <td class="text-end pe-4">
                                 <div class="d-inline-flex align-items-center justify-content-end gap-1">
-                                    
-                                    <?php 
-                                        $badgeClass = 'bg-info-subtle text-info-emphasis border-info-subtle';
-                                        if(strtolower($estado) === 'pagado') $badgeClass = 'bg-success-subtle text-success border-success-subtle';
-                                        if(strtolower($estado) === 'anulado') $badgeClass = 'bg-danger-subtle text-danger border-danger-subtle';
-                                        if(strtolower($estado) === 'pendiente') $badgeClass = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
-                                    ?>
-                                    <span class="badge <?php echo $badgeClass; ?> border px-2 py-1 rounded-pill me-2"><?php echo e($estado); ?></span>
-
-                                    <div class="vr bg-secondary opacity-25 mx-1" style="width: 2px; height: 22px;"></div>
-
                                     <button type="button"
-                                            class="btn-icon btn-icon-info js-ver-gasto"
-                                            title="Ver Detalle"
+                                            class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle js-ver-gasto"
+                                            data-bs-toggle="tooltip" title="Ver Detalle"
                                             data-id="<?php echo (int)$r['id']; ?>"
                                             data-fecha="<?php echo e((string)$r['fecha']); ?>"
                                             data-proveedor="<?php echo e((string)$r['proveedor']); ?>"
@@ -149,19 +152,17 @@ if (!empty($_GET['error'])) {
                                             data-estado="<?php echo e($estado); ?>"
                                             data-cxp="<?php echo (int)($r['id_cxp'] ?? 0); ?>"
                                             data-asiento="<?php echo (int)($r['id_asiento'] ?? 0); ?>">
-                                        <i class="bi bi-eye"></i>
+                                        <i class="bi bi-eye fs-5"></i>
                                     </button>
 
-                                    <form method="post" action="<?php echo e(route_url('gastos/anular_registro')); ?>" class="d-inline m-0 p-0">
-                                        <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
-                                        <button type="submit"
-                                                class="btn-icon btn-icon-danger"
-                                                title="Anular Registro"
-                                                <?php echo $estaActivo ? '' : 'disabled'; ?>>
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </form>
-                                    
+                                    <?php if ($estaActivo): ?>
+                                        <form method="post" action="<?php echo e(route_url('gastos/anular_registro')); ?>" class="d-inline m-0 p-0 js-form-confirm">
+                                            <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Gasto">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -193,22 +194,21 @@ if (!empty($_GET['error'])) {
 <div class="modal fade" id="modalDetalleGasto" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-info text-white py-3">
+            <div class="modal-header bg-dark text-white py-3">
                 <h5 class="modal-title fw-bold"><i class="bi bi-eye me-2"></i>Detalle del Gasto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-3 p-md-4">
-                <div class="list-group list-group-flush rounded-3 overflow-hidden border border-secondary-subtle">
-                    <div class="list-group-item d-flex justify-content-between"><strong>ID</strong><span id="detGastoId">-</span></div>
+                <div class="list-group list-group-flush rounded-3 overflow-hidden border border-secondary-subtle shadow-sm">
+                    <div class="list-group-item d-flex justify-content-between"><strong>ID Sistema</strong><span id="detGastoId">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Fecha</strong><span id="detGastoFecha">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Proveedor</strong><span id="detGastoProveedor">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Concepto</strong><span id="detGastoConcepto">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Impuesto</strong><span id="detGastoImpuesto">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Monto</strong><span id="detGastoMonto">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Total</strong><span id="detGastoTotal">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Estado</strong><span id="detGastoEstado">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>ID CxP</strong><span id="detGastoCxp">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>ID Asiento</strong><span id="detGastoAsiento">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Monto Base</strong><span id="detGastoMonto" class="text-primary fw-medium">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between"><strong>Total Gasto</strong><span id="detGastoTotal" class="text-primary fw-bold">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between bg-light mt-2"><strong>ID CxP Tesorería</strong><span id="detGastoCxp" class="badge bg-warning text-dark border">-</span></div>
+                    <div class="list-group-item d-flex justify-content-between bg-light"><strong>ID Asiento Contable</strong><span id="detGastoAsiento" class="badge bg-info text-dark border">-</span></div>
                 </div>
             </div>
         </div>
@@ -228,7 +228,6 @@ if (!empty($_GET['error'])) {
                 <div class="card modal-pastel-card mb-0">
                     <div class="card-body p-3">
                         <div class="row g-3">
-                            
                             <div class="col-md-6">
                                 <label class="form-label small text-muted fw-semibold mb-1">Fecha <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control shadow-none border-secondary-subtle" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
@@ -269,7 +268,6 @@ if (!empty($_GET['error'])) {
                                     <input type="number" step="0.01" min="0.01" class="form-control shadow-none border-secondary-subtle text-primary fw-bold fs-5" name="monto" placeholder="0.00" required>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>

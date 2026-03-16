@@ -1004,4 +1004,9 @@ class ProduccionRecetasModel extends Modelo
         return sprintf('REC-%04d', $siguienteNumero);
     }
 
+    public function listarConceptosOperativos(): array
+    {
+        $sql = 'SELECT id, tipo, nombre FROM produccion_conceptos_cif WHERE estado = 1 ORDER BY tipo DESC, nombre ASC';
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

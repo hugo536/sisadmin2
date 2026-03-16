@@ -1,7 +1,8 @@
 <?php
 $recetas = $recetas ?? [];
 $parametrosCatalogo = $parametros_catalogo ?? [];
-$activosFijosCif = $activos_fijos_cif ?? [];
+// Recibimos la nueva variable del controlador
+$conceptosOperativos = $conceptos_operativos ?? [];
 ?>
 <div class="container-fluid p-4" id="recetasApp">
     
@@ -270,7 +271,7 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <div>
                                             <h6 class="fw-bold text-dark mb-0">Mano de Obra Directa</h6>
-                                            <small class="text-muted">El tiempo se toma desde Información General y se aplica a cada perfil.</small>
+                                            <small class="text-muted">Personal directo dedicado a la producción del lote.</small>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 shadow-sm" id="btnAgregarMod">
                                             <i class="bi bi-person-plus me-1"></i>Añadir operario
@@ -295,19 +296,18 @@ $activosFijosCif = $activos_fijos_cif ?? [];
                                 <div class="tab-pane fade" id="tabRecetaCif" role="tabpanel">
                                     <div class="alert alert-info d-flex align-items-center border-0 shadow-sm rounded-3 mb-4">
                                         <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
-                                        <div>Si vincula un activo fijo, el costo se calcula automáticamente usando las horas de Información General.</div>
+                                        <div>Ingrese el costo estimado por lote para cada concepto operativo (Servicios, Desgaste, Insumos Menores).</div>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <h6 class="fw-bold text-dark mb-0">Costos Indirectos de Fabricación</h6>
                                         <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 shadow-sm" id="btnAgregarCif">
-                                            <i class="bi bi-plus-lg me-1"></i>Añadir CIF
+                                            <i class="bi bi-plus-lg me-1"></i>Añadir Costo Operativo
                                         </button>
                                     </div>
                                     <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase border-bottom pb-2">
-                                        <div class="col-md-3">Activo Fijo</div>
-                                        <div class="col-md-5">Concepto Adicional</div>
-                                        <div class="col-md-3">Costo (S/)</div>
-                                        <div class="col-md-1 text-center">Acción</div>
+                                        <div class="col-md-7">Concepto Operativo (MOD / CIF)</div>
+                                        <div class="col-md-3">Costo Estimado (S/)</div>
+                                        <div class="col-md-2 text-center">Acción</div>
                                     </div>
                                     <div id="contenedorCif" class="d-flex flex-column gap-2"></div>
                                     <div class="d-flex justify-content-end gap-2 flex-wrap mt-3">
@@ -429,15 +429,27 @@ $activosFijosCif = $activos_fijos_cif ?? [];
 
                     <template id="cifTemplate">
                         <div class="row g-2 align-items-center cif-row bg-white p-2 border rounded shadow-sm mb-2">
-                            <div class="col-md-3">
-                                <select class="form-select form-select-sm cif-id-activo shadow-none border-secondary-subtle" name="cif_id_activo[]">
-                                    <option value="">Vincular Activo Fijo...</option>
+                            <div class="col-md-7">
+                                <select class="form-select form-select-sm cif-concepto-select shadow-none border-secondary-subtle" name="cif_id_activo[]" required>
+                                    <option value="" selected disabled>Seleccione Costo Indirecto (CIF)...</option>
+                                    
+                                    <?php foreach ($conceptosOperativos as $c): if ($c['tipo'] === 'CIF'): ?>
+                                        <option value="<?php echo $c['id']; ?>" data-nombre="<?php echo htmlspecialchars($c['nombre'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars($c['nombre'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endif; endforeach; ?>
+                                    
                                 </select>
+                                <input type="hidden" name="cif_concepto[]" class="cif-concepto-nombre">
                             </div>
-                            <div class="col-md-5"><input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle" name="cif_concepto[]" placeholder="Concepto / Gasto Adicional"></div>
-                            <div class="col-md-3"><input type="number" class="form-control form-control-sm cif-costo border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="S/ 0.00"></div>
-                            <div class="col-md-1 text-center">
-                                <button type="button" class="btn-icon btn-icon-danger js-remove-cif" title="Eliminar CIF">
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted border-secondary-subtle">S/</span>
+                                    <input type="number" class="form-control form-control-sm cif-costo border-secondary-subtle fw-semibold text-primary" name="cif_costo_estimado[]" step="0.0001" placeholder="0.00" required>
+                                </div>
+                            </div>
+                            <div class="col-md-2 text-center">
+                                <button type="button" class="btn-icon btn-icon-danger js-remove-cif" title="Eliminar Costo Operativo">
                                     <i class="bi bi-trash3"></i>
                                 </button>
                             </div>
@@ -544,14 +556,5 @@ $activosFijosCif = $activos_fijos_cif ?? [];
     </div>
 </div>
 
-<script>
-window.ACTIVOS_FIJOS_CIF = <?php echo json_encode(array_map(static function(array $af): array {
-    return [
-        'id' => (int) ($af['id'] ?? 0),
-        'codigo' => (string) ($af['codigo_activo'] ?? ''),
-        'nombre' => (string) ($af['nombre'] ?? ''),
-        'tasa_depreciacion_hora' => (float) ($af['tasa_depreciacion_hora'] ?? 0),
-    ];
-}, $activosFijosCif), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
-</script>
+<script>window.ACTIVOS_FIJOS_CIF = [];</script>
 <script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=2.5"></script>

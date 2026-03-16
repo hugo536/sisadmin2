@@ -154,28 +154,6 @@ class TesoreriaCxpModel extends Modelo
             $stmtGasto->execute(['id_cxp' => $id]);
             $idGasto = (int) ($stmtGasto->fetchColumn() ?: 0);
         }
-
-        if ($idGasto > 0) {
-            $estadoGasto = 'PENDIENTE';
-            
-            // Sincronización exacta de estados
-            if ($estadoCxp === 'PAGADA') {
-                $estadoGasto = 'PAGADO';
-            } elseif ($estadoCxp === 'PARCIAL') {
-                $estadoGasto = 'PARCIAL';
-            } elseif ($estadoCxp === 'ANULADA') {
-                $estadoGasto = 'ANULADO';
-            }
-
-            $stmtG = $this->db()->prepare('UPDATE gastos_registros
-                SET estado = :estado, updated_by = :user, updated_at = NOW()
-                WHERE id = :id_gasto AND deleted_at IS NULL');
-            $stmtG->execute([
-                'estado' => $estadoGasto,
-                'user' => $userId,
-                'id_gasto' => $idGasto,
-            ]);
-        }
     }
 
     public function crearDesdeGasto(int $idGasto, int $userId): int

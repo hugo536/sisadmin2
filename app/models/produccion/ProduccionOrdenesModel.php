@@ -1313,4 +1313,112 @@ class ProduccionOrdenesModel extends Modelo
     {
         return 0.05;
     }
+
+    // =====================================================================
+    // MOTOR MRP: EXPLOSIÓN DE SEMIELABORADOS
+    // =====================================================================
+    public function analizarSemielaboradosFaltantes(int $idOrden): array
+    {
+        // 1. Buscamos qué insumos pide la receta de esta orden, cruzando con el stock
+        $sql = 'SELECT d.id_insumo,
+                       i.nombre AS insumo_nombre,
+                       (d.cantidad_por_unidad * o.cantidad_planificada * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
+                       COALESCE((
+                           SELECT s.stock_actual 
+                           FROM inventario_stock s 
+                           WHERE s.id_item = d.id_insumo AND s.id_almacen = o.id_almacen_planta LIMIT 1
+                       ), 0) AS stock_planta,
+                       (
+                           SELECT r2.id 
+                           FROM produccion_recetas r2 
+                           WHERE r2.id_producto = d.id_insumo AND r2.estado = 1 AND r2.deleted_at IS NULL 
+                           ORDER BY r2.version DESC LIMIT 1
+                       ) as id_receta_hija
+                FROM produccion_ordenes o
+                INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
+                INNER JOIN items i ON i.id = d.id_insumo
+                WHERE o.id = :id_orden
+                  AND o.deleted_at IS NULL';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_orden' => $idOrden]);
+        $insumos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $faltantes = [];
+        foreach ($insumos as $insumo) {
+            $idRecetaHija = (int)($insumo['id_receta_hija'] ?? 0);
+            
+            // Si el insumo NO tiene receta, es materia prima comprada (Ej. Etiqueta, Tapa). Lo ignoramos.
+            if ($idRecetaHija <= 0) continue;
+
+            $requerido = (float)$insumo['qty_requerida'];
+            $stock = (float)$insumo['stock_planta'];
+            $faltante = round(max(0, $requerido - $stock), 4);
+
+            // Si falta stock, lo agregamos a la lista de semielaborados por fabricar
+            if ($faltante > 0) {
+                $faltantes[] = [
+                    'id_insumo' => (int)$insumo['id_insumo'],
+                    'insumo_nombre' => $insumo['insumo_nombre'],
+                    'id_receta_hija' => $idRecetaHija,
+                    'cantidad_faltante' => $faltante
+                ];
+            }
+        }
+
+        return $faltantes;
+    }
+
+    public function generarSubOrdenesAutomatica(int $idOrdenPadre, array $faltantes, int $userId): void
+    {
+        // Traemos datos del padre para heredarlos (Misma fecha, mismo almacén)
+        $stmtPadre = $this->db()->prepare('SELECT id_almacen_planta, fecha_programada, codigo FROM produccion_ordenes WHERE id = ?');
+        $stmtPadre->execute([$idOrdenPadre]);
+        $datosPadre = $stmtPadre->fetch(PDO::FETCH_ASSOC);
+
+        if (!$datosPadre) return;
+
+        // Generamos un correlativo para los códigos
+        $correlativo = (int) $this->db()->query('SELECT COUNT(*) FROM produccion_ordenes')->fetchColumn();
+
+        $sqlInsert = 'INSERT INTO produccion_ordenes
+                        (codigo, id_receta, id_producto_snapshot, receta_codigo_snapshot, receta_version_snapshot,
+                         costo_teorico_unitario_snapshot, costo_teorico_total_snapshot,
+                         id_almacen_planta, cantidad_planificada, fecha_programada, estado, created_by, updated_by, id_orden_padre, observaciones)
+                      VALUES
+                        (:codigo, :id_receta, :id_producto_snapshot, :receta_codigo_snapshot, :receta_version_snapshot,
+                         :costo_teorico_unitario_snapshot, :costo_teorico_total_snapshot,
+                         :id_almacen_planta, :cantidad_planificada, :fecha_programada, 0, :created_by, :updated_by, :id_orden_padre, :obs)';
+        $stmt = $this->db()->prepare($sqlInsert);
+
+        foreach ($faltantes as $f) {
+            $idRecetaHija = (int)($f['id_receta_hija'] ?? 0);
+            $cantidad = (float)($f['cantidad_faltante'] ?? 0);
+
+            if ($idRecetaHija <= 0 || $cantidad <= 0) continue;
+
+            $correlativo++;
+            // Código especial para sub-órdenes (Ej: OP-260315-0042-SUB)
+            $nuevoCodigo = 'OP-' . date('ymd') . '-' . str_pad((string)$correlativo, 4, '0', STR_PAD_LEFT) . '-SUB';
+
+            $snapshot = $this->obtenerSnapshotReceta($idRecetaHija, $cantidad);
+
+            $stmt->execute([
+                'codigo' => $nuevoCodigo,
+                'id_receta' => $idRecetaHija,
+                'id_producto_snapshot' => $snapshot['id_producto_snapshot'],
+                'receta_codigo_snapshot' => $snapshot['receta_codigo_snapshot'],
+                'receta_version_snapshot' => $snapshot['receta_version_snapshot'],
+                'costo_teorico_unitario_snapshot' => number_format($snapshot['costo_teorico_unitario_snapshot'], 4, '.', ''),
+                'costo_teorico_total_snapshot' => number_format($snapshot['costo_teorico_total_snapshot'], 4, '.', ''),
+                'id_almacen_planta' => (int)$datosPadre['id_almacen_planta'],
+                'cantidad_planificada' => number_format($cantidad, 4, '.', ''),
+                'fecha_programada' => $datosPadre['fecha_programada'],
+                'created_by' => $userId,
+                'updated_by' => $userId,
+                'id_orden_padre' => $idOrdenPadre,
+                'obs' => 'Sub-orden auto-generada por faltante para OP principal: ' . $datosPadre['codigo']
+            ]);
+        }
+    }
 }
