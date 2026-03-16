@@ -596,7 +596,6 @@ function renderSidebarInner(
     const nav = document.getElementById(navId);
     const input = document.querySelector(`[data-sidebar-search="${navId}"]`);
     if (!nav || !input) return;
-    const searchableLinks = Array.from(nav.querySelectorAll('.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
     const searchableLinks = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
 
 
