@@ -40,6 +40,17 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
 ?>
 
 <body data-theme="<?php echo e($temaSistema); ?>" style="<?php echo e($bodyStyle); ?>">
+<script>
+(function () {
+    try {
+        if (localStorage.getItem('erp.sidebar.collapsed') === '1') {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    } catch (_err) {
+        // noop
+    }
+})();
+</script>
 
 <button class="btn btn-dark sidebar-mobile-trigger d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebarOffcanvas" aria-controls="appSidebarOffcanvas" aria-label="Abrir menú principal">
     <i class="bi bi-list"></i>

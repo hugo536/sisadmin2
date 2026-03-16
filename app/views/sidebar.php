@@ -334,8 +334,8 @@ function renderSidebarInner(
                 </button>
                 <div class="collapse<?php echo $grupoActivo(['gastos']); ?>" id="<?php echo htmlspecialchars($menuGastosId); ?>" data-menu-key="gastos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/conceptos'); ?>" href="<?php echo e(route_url('gastos/conceptos')); ?>"><span>Conceptos de Gasto</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/registros'); ?>" href="<?php echo e(route_url('gastos/registros')); ?>"><span>Registro de Gastos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/conceptos'); ?>" href="<?php echo e(route_url('gastos/conceptos')); ?>"><i class="bi bi-tags"></i><span>Conceptos de Gasto</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/registros'); ?>" href="<?php echo e(route_url('gastos/registros')); ?>"><i class="bi bi-receipt"></i><span>Registro de Gastos</span></a></li>
                     </ul>
                 </div>
             <?php endif; ?>
@@ -354,14 +354,14 @@ function renderSidebarInner(
                 <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="<?php echo htmlspecialchars($menuTesoreriaId); ?>" data-menu-key="tesoreria" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <?php if (tiene_permiso('tesoreria.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cuentas'); ?>" href="<?php echo e(route_url('tesoreria/cuentas')); ?>"><span>Cuentas</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><span>Movimientos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cuentas'); ?>" href="<?php echo e(route_url('tesoreria/cuentas')); ?>"><i class="bi bi-bank"></i><span>Cuentas</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><i class="bi bi-arrow-left-right"></i><span>Movimientos</span></a></li>
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><span>Cuentas por Cobrar</span><?php $renderBadge('tesoreria/cxc'); ?></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><i class="bi bi-cash-stack"></i><span>Cuentas por Cobrar</span><?php $renderBadge('tesoreria/cxc'); ?></a></li>
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxp.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><span>Cuentas por Pagar</span><?php $renderBadge('tesoreria/cxp'); ?></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><i class="bi bi-wallet"></i><span>Cuentas por Pagar</span><?php $renderBadge('tesoreria/cxp'); ?></a></li>
                         <?php endif; ?>
                     </ul>
                 </div>
@@ -379,16 +379,16 @@ function renderSidebarInner(
                 </button>
                 <div class="collapse<?php echo $grupoActivo($menuRutasContabilidad); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-menu-key="contabilidad" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><span>Plan Contable</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/asientos'); ?>" href="<?php echo e(route_url('contabilidad/asientos')); ?>"><span>Asientos</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/reportes'); ?>" href="<?php echo e(route_url('contabilidad/reportes')); ?>"><span>Reportes</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/centros_costo'); ?>" href="<?php echo e(route_url('contabilidad/centros_costo')); ?>"><span>Centros de costo</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('conciliacion/index'); ?>" href="<?php echo e(route_url('conciliacion/index')); ?>"><span>Conciliación bancaria</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('activos/index'); ?>" href="<?php echo e(route_url('activos/index')); ?>"><span>Activos fijos</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/index'); ?>" href="<?php echo e(route_url('cierre_contable/index')); ?>"><span>Cierres contables</span></a></li>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/estados_financieros'); ?>" href="<?php echo e(route_url('cierre_contable/estados_financieros')); ?>"><span>Estados financieros</span></a></li>
-                        <?php if (tiene_permiso('auditoria.ver')): ?><li class="nav-item"><a class="sidebar-link<?php echo $activo('auditoria/index'); ?>" href="<?php echo e(route_url('auditoria/index')); ?>"><span>Modo auditoría</span></a></li><?php endif; ?>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><i class="bi bi-diagram-3"></i><span>Plan Contable</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><i class="bi bi-calendar3"></i><span>Periodos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/asientos'); ?>" href="<?php echo e(route_url('contabilidad/asientos')); ?>"><i class="bi bi-journal-text"></i><span>Asientos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/reportes'); ?>" href="<?php echo e(route_url('contabilidad/reportes')); ?>"><i class="bi bi-bar-chart"></i><span>Reportes</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/centros_costo'); ?>" href="<?php echo e(route_url('contabilidad/centros_costo')); ?>"><i class="bi bi-bullseye"></i><span>Centros de costo</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('conciliacion/index'); ?>" href="<?php echo e(route_url('conciliacion/index')); ?>"><i class="bi bi-link-45deg"></i><span>Conciliación bancaria</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('activos/index'); ?>" href="<?php echo e(route_url('activos/index')); ?>"><i class="bi bi-building"></i><span>Activos fijos</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/index'); ?>" href="<?php echo e(route_url('cierre_contable/index')); ?>"><i class="bi bi-lock"></i><span>Cierres contables</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('cierre_contable/estados_financieros'); ?>" href="<?php echo e(route_url('cierre_contable/estados_financieros')); ?>"><i class="bi bi-file-earmark-bar-graph"></i><span>Estados financieros</span></a></li>
+                        <?php if (tiene_permiso('auditoria.ver')): ?><li class="nav-item"><a class="sidebar-link<?php echo $activo('auditoria/index'); ?>" href="<?php echo e(route_url('auditoria/index')); ?>"><i class="bi bi-shield-check"></i><span>Modo auditoría</span></a></li><?php endif; ?>
                     </ul>
                 </div>
             <?php endif; ?>
