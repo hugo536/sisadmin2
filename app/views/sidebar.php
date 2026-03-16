@@ -630,26 +630,24 @@ function renderSidebarInner(
   setupSidebarSearch('sidebarNavScrollMobile');
 
   // =========================================================
-// En modo colapsado, al tocar un grupo primero expande sidebar
+  // Protección modo colapsado: no forzar expandir al tocar grupos
   // =========================================================
-  const sidebarDesktop = document.getElementById('appSidebarDesktop');
-  if (sidebarDesktop) {
-    sidebarDesktop.addEventListener('click', (e) => {
+  function setupCollapsedModeGroupGuard(navId) {
+    const nav = document.getElementById(navId);
+    if (!nav) return;
+
+    nav.addEventListener('click', (e) => {
       const toggleGroup = e.target.closest('button.sidebar-link[data-bs-toggle="collapse"]');
       if (!toggleGroup) return;
       if (!document.body.classList.contains('sidebar-collapsed')) return;
 
+      // Mantener sidebar colapsado y evitar que Bootstrap abra/cierre submenús
       e.preventDefault();
       e.stopPropagation();
-
-      document.body.classList.remove('sidebar-collapsed');
-      localStorage.setItem('erp.sidebar.collapsed', '0');
-
-      requestAnimationFrame(() => {
-        toggleGroup.click();
-      });
     });
   }
+
+  setupCollapsedModeGroupGuard('sidebarNavScrollDesktop');
   // Favoritos por usuario (localStorage)
   // =========================================================
   function setupFavorites(navId, favoritesKey) {
@@ -755,6 +753,7 @@ function renderSidebarInner(
       }
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && current.matches('button.sidebar-link[data-bs-toggle="collapse"]')) {
         e.preventDefault();
+        if (document.body.classList.contains('sidebar-collapsed')) return;
         const expanded = current.getAttribute('aria-expanded') === 'true';
         if (e.key === 'ArrowRight' && !expanded) current.click();
         if (e.key === 'ArrowLeft' && expanded) current.click();
@@ -762,6 +761,7 @@ function renderSidebarInner(
 
       if ((e.key === 'Enter' || e.key === ' ') && current.matches('button.sidebar-link[data-bs-toggle="collapse"]')) {
         e.preventDefault();
+        if (document.body.classList.contains('sidebar-collapsed')) return;
         current.click();
       }
     });
