@@ -946,6 +946,7 @@ class ProduccionRecetasModel extends Modelo
         }
 
         $siguienteVersion = $this->obtenerSiguienteVersion((int)$receta['id_producto']);
+        $unidadBaseProducto = $this->obtenerUnidadPrincipalItem((int) $receta['id_producto']);
 
         return [
             'id'                  => $receta['id'],
@@ -955,7 +956,7 @@ class ProduccionRecetasModel extends Modelo
             'codigo'              => $this->generarCodigoVersion($receta['codigo'], $siguienteVersion),
             'descripcion'         => $receta['descripcion'],
             'rendimiento_base'    => $receta['rendimiento_base'],
-            'unidad_rendimiento'  => $receta['unidad_rendimiento'],
+            'unidad_rendimiento'  => $unidadBaseProducto,
             'tiempo_produccion_horas' => $receta['tiempo_produccion_horas'] ?? 1,
             'detalles'            => $receta['detalles'],
             'parametros'          => $receta['parametros'],
@@ -967,9 +968,10 @@ class ProduccionRecetasModel extends Modelo
 
     private function obtenerUnidadPrincipalItem(int $idItem): string
     {
-        $stmt = $this->db()->prepare('SELECT COALESCE(unidad_principal, "UND") FROM items WHERE id = :id LIMIT 1');
+        $stmt = $this->db()->prepare('SELECT COALESCE(unidad_base, "UND") FROM items WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $idItem]);
-        return (string)$stmt->fetchColumn();
+        $unidad = trim((string) $stmt->fetchColumn());
+        return $unidad !== '' ? $unidad : 'UND';
     }
 
     public function obtenerSiguienteCodigoReceta(): string

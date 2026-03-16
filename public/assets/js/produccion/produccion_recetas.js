@@ -506,7 +506,11 @@ function initFormularioRecetas() {
                 inputVersion.classList.add('bg-light');
             }
             if (hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
-            if (inputUnidad) inputUnidad.value = data.unidad_rendimiento || 'UND';
+            if (inputUnidad) {
+                inputUnidad.value = data.unidad_rendimiento || 'UND';
+                inputUnidad.setAttribute('readonly', 'true');
+                inputUnidad.classList.add('bg-light');
+            }
             if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base || 1).toFixed(4);
             if (inputTiempo) inputTiempo.value = parseNumero(data.tiempo_produccion_horas || 1).toFixed(4);
 
