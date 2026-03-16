@@ -52,6 +52,14 @@
   const applySidebarState = function () {
     const collapsed = localStorage.getItem(SIDEBAR_STATE_KEY) === '1';
     document.body.classList.toggle('sidebar-collapsed', collapsed);
+
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+      toggleBtn.setAttribute('title', collapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+      toggleBtn.innerHTML = collapsed
+        ? '<i class="bi bi-layout-sidebar"></i>'
+        : '<i class="bi bi-layout-sidebar-inset"></i>';
+    }
   };
 
   applySidebarState();

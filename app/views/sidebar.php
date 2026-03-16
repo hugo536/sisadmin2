@@ -27,6 +27,7 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
 
 $puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
 $puedeVerRRHH = tiene_permiso('terceros.ver');
+$sidebarBadges = is_array($sidebarBadges ?? null) ? $sidebarBadges : [];
 
 // -----------------------------
 // Usuario
@@ -60,6 +61,7 @@ function renderSidebarInner(
     string $userRole,
     bool $puedeVerComercial,
     bool $puedeVerRRHH,
+    array $sidebarBadges,
     callable $activo,
     callable $grupoActivo,
     callable $linkGrupoActivo
@@ -70,10 +72,24 @@ function renderSidebarInner(
     $menuContabilidadId = 'menuContabilidad_' . $navId;
     $menuConfiguracionId = 'menuConfiguracion_' . $navId;
     $menuCostosId = 'menuCostos_' . $navId;
+    $menuGastosId = 'menuGastos_' . $navId;
     $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
+    $renderBadge = static function (string $badgeKey) use ($sidebarBadges): void {
+        if (!array_key_exists($badgeKey, $sidebarBadges)) {
+            return;
+        }
+
+        $badgeValue = trim((string) $sidebarBadges[$badgeKey]);
+        if ($badgeValue === '') {
+            return;
+        }
+
+        echo '<span class="sidebar-count-badge ms-auto" aria-label="Pendientes ' . htmlspecialchars($badgeValue) . '">' . htmlspecialchars($badgeValue) . '</span>';
+    };
 ?>
     <div class="sidebar-header">
 
+        <div class="sidebar-top-row">
         <div class="sidebar-brand" aria-label="Empresa">
             <div class="brand-icon">
                 <?php if ($logoUrl !== ''): ?>
@@ -99,6 +115,16 @@ function renderSidebarInner(
                 </div>
             </div>
         </div>
+            <button
+                type="button"
+                <?php if ($navId === 'sidebarNavScrollDesktop'): ?>id="toggleSidebar"<?php endif; ?>
+                class="sidebar-icon-btn d-none d-lg-inline-flex"
+                aria-label="Contraer barra lateral"
+                title="Contraer barra lateral"
+            >
+                <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+        </div>
 
         <div class="user-card" aria-label="Usuario">
             <div class="user-avatar"><?php echo htmlspecialchars($userInitial); ?></div>
@@ -108,11 +134,27 @@ function renderSidebarInner(
             </div>
         </div>
 
+        <div class="sidebar-search-wrap" role="search">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input
+                type="search"
+                class="sidebar-search-input"
+                placeholder="Buscar módulo o opción"
+                data-sidebar-search="<?php echo htmlspecialchars($navId); ?>"
+                aria-label="Buscar en el menú"
+            >
+        </div>
+
+        <div class="sidebar-favorites" data-sidebar-favorites="<?php echo htmlspecialchars($navId); ?>" hidden>
+            <div class="nav-label pt-2">Accesos rápidos</div>
+            <div class="sidebar-favorites-list"></div>
+        </div>
+
     </div>
 
     <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
 
-        <div class="nav-label">Principal</div>
+        <div class="nav-label">Operación diaria</div>
         <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
             <a class="sidebar-link<?php echo $activo('reportes'); ?>" href="<?php echo e(route_url('reportes/dashboard')); ?>">
                 <i class="bi bi-graph-up-arrow"></i> <span>Reportes y Control</span>
@@ -143,7 +185,7 @@ function renderSidebarInner(
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </button>
 
-            <div class="collapse<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>" id="<?php echo htmlspecialchars($menuCostosId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+            <div class="collapse<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>" id="<?php echo htmlspecialchars($menuCostosId); ?>" data-menu-key="costos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('reportes/costos_produccion'); ?>" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
@@ -178,9 +220,11 @@ function renderSidebarInner(
             
             <a class="sidebar-link<?php echo $activo('produccion/ordenes'); ?>" href="<?php echo e(route_url('produccion/ordenes')); ?>">
                 <i class="bi bi-gear-wide-connected"></i> <span>Órdenes de Producción</span>
+                <?php $renderBadge('produccion/ordenes'); ?>
             </a>
         <?php endif; ?>
 
+        <div class="nav-label mt-3">Relaciones y talento</div>
         <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
             <a class="sidebar-link<?php echo $activo('terceros'); ?>" href="<?php echo e(route_url('terceros')); ?>">
                 <i class="bi bi-people"></i> <span>Terceros</span>
@@ -197,7 +241,7 @@ function renderSidebarInner(
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </button>
 
-            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>" id="<?php echo htmlspecialchars($menuRRHHId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+            <div class="collapse<?php echo $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']); ?>" id="<?php echo htmlspecialchars($menuRRHHId); ?>" data-menu-key="rrhh" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('horario'); ?>" href="<?php echo e(route_url('horario')); ?>">
@@ -217,6 +261,7 @@ function renderSidebarInner(
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('asistencia/incidencias'); ?>" href="<?php echo e(route_url('asistencia/incidencias')); ?>">
                             <i class="bi bi-clipboard2-pulse"></i> <span>Incidencias</span>
+                            <?php $renderBadge('asistencia/incidencias'); ?>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -241,7 +286,7 @@ function renderSidebarInner(
 
         <?php if ($puedeVerComercial): ?>
 
-            <div class="nav-label mt-3">Estrategia</div>
+            <div class="nav-label mt-3">Comercial y finanzas</div>
             <button class="sidebar-link<?php echo $linkGrupoActivo(['comercial']); ?>"
                type="button"
                data-bs-toggle="collapse"
@@ -252,7 +297,7 @@ function renderSidebarInner(
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </button>
 
-            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="<?php echo htmlspecialchars($menuComercialId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+            <div class="collapse<?php echo $grupoActivo(['comercial']); ?>" id="<?php echo htmlspecialchars($menuComercialId); ?>" data-menu-key="comercial" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('comercial/listas'); ?>" href="<?php echo e(route_url('comercial/listas')); ?>">
@@ -265,6 +310,7 @@ function renderSidebarInner(
             <?php if (tiene_permiso('ventas.ver')): ?>
                 <a class="sidebar-link<?php echo $activo('ventas'); ?>" href="<?php echo e(route_url('ventas')); ?>">
                     <i class="bi bi-bag-check"></i> <span>Ventas</span>
+                    <?php $renderBadge('ventas'); ?>
                 </a>
             <?php endif; ?>
 
@@ -279,13 +325,13 @@ function renderSidebarInner(
                 <button class="sidebar-link<?php echo $linkGrupoActivo(['gastos']); ?>"
                    type="button"
                    data-bs-toggle="collapse"
-                   data-bs-target="#menuGastos"
+                   data-bs-target="#<?php echo htmlspecialchars($menuGastosId); ?>"
                    aria-expanded="<?php echo $grupoActivo(['gastos']) ? 'true' : 'false'; ?>"
-                   aria-controls="menuGastos">
+                   aria-controls="<?php echo htmlspecialchars($menuGastosId); ?>">
                     <i class="bi bi-wallet2"></i> <span>Gastos</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
                 </button>
-                <div class="collapse<?php echo $grupoActivo(['gastos']); ?>" id="menuGastos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+                <div class="collapse<?php echo $grupoActivo(['gastos']); ?>" id="<?php echo htmlspecialchars($menuGastosId); ?>" data-menu-key="gastos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/conceptos'); ?>" href="<?php echo e(route_url('gastos/conceptos')); ?>"><span>Conceptos de Gasto</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('gastos/registros'); ?>" href="<?php echo e(route_url('gastos/registros')); ?>"><span>Registro de Gastos</span></a></li>
@@ -304,17 +350,17 @@ function renderSidebarInner(
                     <i class="bi bi-cash-coin"></i> <span>Tesorería</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
                 </button>
-                <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="<?php echo htmlspecialchars($menuTesoreriaId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+                <div class="collapse<?php echo $grupoActivo(['tesoreria']); ?>" id="<?php echo htmlspecialchars($menuTesoreriaId); ?>" data-menu-key="tesoreria" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <?php if (tiene_permiso('tesoreria.ver')): ?>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cuentas'); ?>" href="<?php echo e(route_url('tesoreria/cuentas')); ?>"><span>Cuentas</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/movimientos'); ?>" href="<?php echo e(route_url('tesoreria/movimientos')); ?>"><span>Movimientos</span></a></li>
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><span>Cuentas por Cobrar</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxc'); ?>" href="<?php echo e(route_url('tesoreria/cxc')); ?>"><span>Cuentas por Cobrar</span><?php $renderBadge('tesoreria/cxc'); ?></a></li>
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxp.ver')): ?>
-                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><span>Cuentas por Pagar</span></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><span>Cuentas por Pagar</span><?php $renderBadge('tesoreria/cxp'); ?></a></li>
                         <?php endif; ?>
                     </ul>
                 </div>
@@ -330,7 +376,7 @@ function renderSidebarInner(
                     <i class="bi bi-journal-bookmark"></i> <span>Contabilidad</span>
                     <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
                 </button>
-                <div class="collapse<?php echo $grupoActivo($menuRutasContabilidad); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+                <div class="collapse<?php echo $grupoActivo($menuRutasContabilidad); ?>" id="<?php echo htmlspecialchars($menuContabilidadId); ?>" data-menu-key="contabilidad" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                     <ul class="nav flex-column ps-3">
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/plan'); ?>" href="<?php echo e(route_url('contabilidad/plan')); ?>"><span>Plan Contable</span></a></li>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('contabilidad/periodos'); ?>" href="<?php echo e(route_url('contabilidad/periodos')); ?>"><span>Periodos</span></a></li>
@@ -378,7 +424,7 @@ function renderSidebarInner(
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </button>
 
-            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>" id="<?php echo htmlspecialchars($menuConfiguracionId); ?>" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+            <div class="collapse<?php echo $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']); ?>" id="<?php echo htmlspecialchars($menuConfiguracionId); ?>" data-menu-key="configuracion" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('config/empresa'); ?>" href="<?php echo e(route_url('config/empresa')); ?>">
@@ -431,6 +477,7 @@ function renderSidebarInner(
         $userRole,
         $puedeVerComercial,
         $puedeVerRRHH,
+        $sidebarBadges,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
@@ -455,6 +502,7 @@ function renderSidebarInner(
         $userRole,
         $puedeVerComercial,
         $puedeVerRRHH,
+        $sidebarBadges,
         $activo,
         $grupoActivo,
         $linkGrupoActivo
@@ -465,6 +513,8 @@ function renderSidebarInner(
 
 <script>
 (function () {
+  const isDesktop = window.matchMedia('(min-width: 992px)').matches;
+
   // =========================================================
   // Scroll persist (Desktop)
   // =========================================================
@@ -498,6 +548,197 @@ function renderSidebarInner(
   setupScrollPersistence('sidebarNavScrollDesktop', 'erp.sidebar.desktop.scrollTop');
 
   // =========================================================
+  // Persistencia de submenús
+  // =========================================================
+  function setupOpenMenusPersistence(navId, storageKey) {
+    const nav = document.getElementById(navId);
+    if (!nav || !window.bootstrap || !bootstrap.Collapse) return;
+
+    const collapses = Array.from(nav.querySelectorAll('.collapse[data-menu-key]'));
+    if (!collapses.length) return;
+
+    let storedKeys = [];
+    try {
+      storedKeys = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      if (!Array.isArray(storedKeys)) storedKeys = [];
+    } catch (_err) {
+      storedKeys = [];
+    }
+
+    collapses.forEach((el) => {
+      const key = el.getAttribute('data-menu-key');
+      if (storedKeys.includes(key)) {
+        bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
+      }
+
+      el.addEventListener('shown.bs.collapse', () => {
+        const openKeys = new Set(storedKeys);
+        openKeys.add(key);
+        storedKeys = Array.from(openKeys);
+        localStorage.setItem(storageKey, JSON.stringify(storedKeys));
+      });
+
+      el.addEventListener('hidden.bs.collapse', () => {
+        storedKeys = storedKeys.filter((k) => k !== key);
+        localStorage.setItem(storageKey, JSON.stringify(storedKeys));
+      });
+    });
+  }
+
+  setupOpenMenusPersistence('sidebarNavScrollDesktop', 'erp.sidebar.desktop.openMenus');
+  setupOpenMenusPersistence('sidebarNavScrollMobile', 'erp.sidebar.mobile.openMenus');
+
+  // =========================================================
+  // Buscador de menú
+  // =========================================================
+  function setupSidebarSearch(navId) {
+    const nav = document.getElementById(navId);
+    const input = document.querySelector(`[data-sidebar-search="${navId}"]`);
+    if (!nav || !input) return;
+
+    const searchableLinks = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
+
+    input.addEventListener('input', () => {
+      const query = input.value.trim().toLowerCase();
+      const labels = nav.querySelectorAll('.nav-label');
+      const listItems = nav.querySelectorAll('.nav-item');
+
+      labels.forEach((label) => {
+        label.style.display = query === '' ? '' : 'none';
+      });
+
+      listItems.forEach((li) => {
+        li.style.display = '';
+      });
+
+      searchableLinks.forEach((link) => {
+        const text = (link.textContent || '').toLowerCase();
+        const isMatch = query === '' || text.includes(query);
+        const li = link.closest('.nav-item');
+
+        if (li) {
+          li.style.display = isMatch ? '' : 'none';
+        } else {
+          link.style.display = isMatch ? '' : 'none';
+        }
+      });
+    });
+  }
+
+  setupSidebarSearch('sidebarNavScrollDesktop');
+  setupSidebarSearch('sidebarNavScrollMobile');
+
+  // =========================================================
+  // Favoritos por usuario (localStorage)
+  // =========================================================
+  function setupFavorites(navId, favoritesKey) {
+    const nav = document.getElementById(navId);
+    const container = document.querySelector(`[data-sidebar-favorites="${navId}"]`);
+    if (!nav || !container) return;
+
+    let favorites = [];
+    try {
+      favorites = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
+      if (!Array.isArray(favorites)) favorites = [];
+    } catch (_err) {
+      favorites = [];
+    }
+
+    const links = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => {
+      const href = link.getAttribute('href') || '';
+      return href !== '' && !link.classList.contains('logout-link');
+    });
+
+    const getFavKey = (link) => link.getAttribute('href') || '';
+
+    links.forEach((link) => {
+      const key = getFavKey(link);
+      const star = document.createElement('button');
+      star.type = 'button';
+      star.className = 'fav-toggle';
+      star.setAttribute('aria-label', 'Marcar como favorito');
+      star.setAttribute('title', 'Marcar como favorito');
+      star.innerHTML = '<i class="bi bi-star"></i>';
+
+      const syncStar = () => {
+        const on = favorites.includes(key);
+        star.classList.toggle('is-favorite', on);
+        star.innerHTML = on ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
+      };
+
+      syncStar();
+      link.appendChild(star);
+
+      star.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (favorites.includes(key)) {
+          favorites = favorites.filter((item) => item !== key);
+        } else {
+          favorites.unshift(key);
+        }
+
+        localStorage.setItem(favoritesKey, JSON.stringify(favorites));
+        syncStar();
+        renderFavorites();
+      });
+    });
+
+    function renderFavorites() {
+      const list = container.querySelector('.sidebar-favorites-list');
+      if (!list) return;
+
+      list.innerHTML = '';
+      const favoriteLinks = favorites
+        .map((fav) => links.find((link) => getFavKey(link) === fav))
+        .filter(Boolean);
+
+      container.hidden = favoriteLinks.length === 0;
+
+      favoriteLinks.forEach((original) => {
+        const clone = original.cloneNode(true);
+        clone.querySelectorAll('.fav-toggle').forEach((btn) => btn.remove());
+        clone.classList.add('is-favorite-shortcut');
+        list.appendChild(clone);
+      });
+    }
+
+    renderFavorites();
+  }
+
+  setupFavorites('sidebarNavScrollDesktop', 'erp.sidebar.favorites');
+  setupFavorites('sidebarNavScrollMobile', 'erp.sidebar.favorites');
+
+  // =========================================================
+  // Navegación por teclado
+  // =========================================================
+  function setupKeyboardNav(navId) {
+    const nav = document.getElementById(navId);
+    if (!nav) return;
+
+    nav.addEventListener('keydown', (e) => {
+      const links = Array.from(nav.querySelectorAll('.sidebar-link')).filter((el) => el.offsetParent !== null);
+      const current = document.activeElement;
+      const index = links.indexOf(current);
+      if (index === -1) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        links[(index + 1) % links.length].focus();
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        links[(index - 1 + links.length) % links.length].focus();
+      }
+    });
+  }
+
+  setupKeyboardNav('sidebarNavScrollDesktop');
+  setupKeyboardNav('sidebarNavScrollMobile');
+
+  // =========================================================
   // Mobile UX: cerrar el offcanvas al click en link real
   // =========================================================
   const offcanvasEl = document.getElementById('appSidebarOffcanvas');
@@ -515,6 +756,18 @@ function renderSidebarInner(
       if (isToggle || isHashMenu) return;
 
       oc.hide();
+    });
+  }
+
+  // =========================================================
+  // Soporte tooltip/colapsado profesional desktop
+  // =========================================================
+  if (isDesktop) {
+    document.querySelectorAll('.sidebar-nav .sidebar-link span').forEach((span) => {
+      const link = span.closest('.sidebar-link');
+      if (link && !link.getAttribute('title')) {
+        link.setAttribute('title', (span.textContent || '').trim());
+      }
     });
   }
 })();
