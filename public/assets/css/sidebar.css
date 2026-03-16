@@ -335,6 +335,12 @@ body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-link{
   border-left-width: 0;
 }
 
+
+body.sidebar-collapsed .sidebar.sidebar-desktop .collapse{
+  display: none !important;
+}
+
+
 /* ==========================================================================
    FOOTER
    ========================================================================== */
