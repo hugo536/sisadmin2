@@ -52,6 +52,24 @@
   align-items: center;
 }
 
+.sidebar-top-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.sidebar-icon-btn{
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,.06);
+  color: var(--sidebar-text);
+  align-items: center;
+  justify-content: center;
+}
+
 .brand-icon{
   width: 44px;
   height: 44px;
@@ -145,6 +163,30 @@
   margin-top: 2px;
 }
 
+.sidebar-search-wrap{
+  margin-top: .75rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: .4rem .6rem;
+}
+
+.sidebar-search-wrap i{
+  color: var(--sidebar-text-muted);
+}
+
+.sidebar-search-input{
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--sidebar-text);
+  outline: none;
+  font-size: .82rem;
+}
+
 /* ==========================================================================
    NAV
    ========================================================================== */
@@ -209,6 +251,11 @@ button.sidebar-link{
   color: #fff;
 }
 
+.sidebar-link:focus-visible{
+  outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
 .sidebar-link.active{
   background: var(--sidebar-active-bg);
   border-left-color: var(--sidebar-active);
@@ -235,6 +282,37 @@ button.sidebar-link{
 .collapse .sidebar-link{
   padding-left: 2.25rem;
   font-size: .82rem;
+}
+
+.sidebar-count-badge{
+  background: rgba(59,130,246,.25);
+  border: 1px solid rgba(147,197,253,.45);
+  color: #bfdbfe;
+  border-radius: 999px;
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: .7rem;
+  padding: .1rem .45rem;
+}
+
+body.sidebar-collapsed .sidebar.sidebar-desktop{
+  width: 84px;
+}
+
+body.sidebar-collapsed .sidebar.sidebar-desktop .brand-meta,
+body.sidebar-collapsed .sidebar.sidebar-desktop .user-info,
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-link span,
+body.sidebar-collapsed .sidebar.sidebar-desktop .nav-label,
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-search-wrap,
+body.sidebar-collapsed .sidebar.sidebar-desktop .chevron,
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-count-badge{
+  display: none !important;
+}
+
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-link{
+  justify-content: center;
+  padding: .7rem 0;
+  border-left-width: 0;
 }
 
 /* ==========================================================================
