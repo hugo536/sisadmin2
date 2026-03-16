@@ -151,12 +151,16 @@ class TesoreriaMovimientoModel extends Modelo
     public function registrarDistribuido(array $data, array $idsOrigen, int $userId): array
     {
         $db = $this->db();
-        $db->beginTransaction();
+        
+        // Verificamos si ya estamos en una transacción para no anidar
+        $localTx = !$db->inTransaction();
+        if ($localTx) {
+            $db->beginTransaction();
+        }
 
         try {
             $origen = strtoupper(trim((string) ($data['origen'] ?? '')));
             $tipo = strtoupper(trim((string) ($data['tipo'] ?? '')));
-            $idTercero = (int) ($data['id_tercero'] ?? 0);
             $montoTotal = round((float) ($data['monto'] ?? 0), 4);
             $moneda = strtoupper(trim((string) ($data['moneda'] ?? 'PEN')));
 
@@ -165,9 +169,25 @@ class TesoreriaMovimientoModel extends Modelo
             $idsAplicados = [];
 
             foreach ($idsOrigen as $idOrigen) {
+                // Si ya no nos queda dinero en el bolsillo, detenemos el bucle
                 if ($restante <= 0) break;
 
-                // Registro individual para cada documento (reutilizamos la lógica de registrar pero simplificada para el bucle)
+                // 1. OBTENEMOS EL SALDO REAL DE ESTA FACTURA ESPECÍFICA
+                $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
+                $stmtSaldo = $db->prepare("SELECT saldo FROM $tabla WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE");
+                $stmtSaldo->execute(['id' => $idOrigen]);
+                $saldoDocumento = round((float) $stmtSaldo->fetchColumn(), 4);
+
+                // Si por alguna razón la factura ya está pagada (saldo 0), saltamos a la siguiente
+                if ($saldoDocumento <= 0) {
+                    continue;
+                }
+
+                // 2. MAGIA FIFO: ¿Cuánto vamos a pagar aquí? 
+                // Elegimos el valor menor entre lo que nos queda en el bolsillo y lo que debe la factura.
+                $montoAPagarAqui = min($restante, $saldoDocumento);
+
+                // 3. Registramos el pago pasándole el monto exacto calculado
                 $pagoAqui = $this->registrar([
                     'tipo'           => $tipo,
                     'origen'         => $origen,
@@ -176,25 +196,30 @@ class TesoreriaMovimientoModel extends Modelo
                     'id_metodo_pago' => (int)$data['id_metodo_pago'],
                     'fecha'          => $data['fecha'],
                     'moneda'         => $moneda,
-                    'monto'          => $restante, // registrar() se encarga de toparlo al saldo disponible
+                    'monto'          => $montoAPagarAqui, // <-- AQUÍ ESTÁ LA CORRECCIÓN CLAVE
                     'referencia'     => $data['referencia'],
                     'observaciones'  => $data['observaciones']
                 ], $userId);
 
-                // Como registrar() ahora hace todo (incluyendo el asiento), solo controlamos el flujo
-                $stmtM = $db->prepare('SELECT monto FROM tesoreria_movimientos WHERE id = :id');
-                $stmtM->execute(['id' => $pagoAqui]);
-                $montoAplicado = (float)$stmtM->fetchColumn();
-
-                $restante = round($restante - $montoAplicado, 4);
+                // 4. Descontamos lo que acabamos de pagar del bolsillo
+                $restante = round($restante - $montoAPagarAqui, 4);
                 $movimientosCount++;
                 $idsAplicados[] = (int)$idOrigen;
             }
 
-            $db->commit();
+            // Opcional: Si $restante > 0 al final del bucle, significa que el usuario pagó
+            // MÁS de lo que el proveedor debía en total. Por ahora, ese dinero "sobrante" no se registra,
+            // pero el FIFO aplicará correctamente a todo lo que debía.
+
+            if ($localTx) {
+                $db->commit();
+            }
+            
             return ['movimientos' => $movimientosCount, 'origenes' => $idsAplicados];
         } catch (Throwable $e) {
-            if ($db->inTransaction()) $db->rollBack();
+            if ($localTx && $db->inTransaction()) {
+                $db->rollBack();
+            }
             throw $e;
         }
     }

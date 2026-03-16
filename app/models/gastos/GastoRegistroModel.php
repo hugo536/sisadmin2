@@ -69,6 +69,7 @@ class GastoRegistroModel extends Modelo
                 throw new RuntimeException('Concepto de gasto inválido.');
             }
 
+            // 1. Guardar Gasto
             $stmt = $db->prepare('INSERT INTO gastos_registros
                 (fecha, id_proveedor, id_concepto, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
@@ -87,9 +88,15 @@ class GastoRegistroModel extends Modelo
 
             $idRegistro = (int) $db->lastInsertId();
 
+            // 2. Generar Cuenta por Pagar (CXP)
             $cxpModel = new TesoreriaCxpModel();
             $idCxp = $cxpModel->crearDesdeGasto($idRegistro, $userId);
+            
+            if ($idCxp === 0) {
+                throw new RuntimeException('Falla de conexión: No se pudo generar la Cuenta por Pagar.');
+            }
 
+            // 3. Generar Asiento Contable
             $asientoModel = new ContaAsientoModel();
             $idAsiento = $asientoModel->registrarAutomaticoGasto($db, [
                 'id_gasto' => $idRegistro,
@@ -100,10 +107,11 @@ class GastoRegistroModel extends Modelo
                 'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
             ], $userId);
 
+            // 4. Vincular los IDs en el Gasto Maestro
             $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
             $stmtFin->execute([
                 'id_cxp' => $idCxp,
-                'id_asiento' => $idAsiento,
+                'id_asiento' => $idAsiento, // Si este sigue siendo 0 después, revisaremos ContaAsientoModel
                 'user' => $userId,
                 'id' => $idRegistro,
             ]);

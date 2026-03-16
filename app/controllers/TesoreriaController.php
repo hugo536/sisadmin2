@@ -367,7 +367,8 @@ class TesoreriaController extends Controlador
             $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
             $this->validarPermisoOperacionCuenta($idCuenta, $origen);
 
-            $this->movModel->registrarDistribuido([
+            // 1. Guardamos el resultado del FIFO (qué facturas se afectaron)
+            $resultado = $this->movModel->registrarDistribuido([
                 'tipo'           => $tipo,
                 'origen'         => $origen,
                 'id_tercero'     => $idTercero,
@@ -379,6 +380,18 @@ class TesoreriaController extends Controlador
                 'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
             ], $idsOrigen, $this->obtenerUsuarioId());
+
+            // 2. ¡EL ESLABÓN PERDIDO! Sincronizamos los estados de esas facturas
+            $userId = $this->obtenerUsuarioId();
+            if (!empty($resultado['origenes'])) {
+                foreach ($resultado['origenes'] as $idDocAfectado) {
+                    if ($origen === 'CXC') {
+                        $this->cxcModel->recalcularEstado($idDocAfectado, $userId);
+                    } else {
+                        $this->cxpModel->recalcularEstado($idDocAfectado, $userId);
+                    }
+                }
+            }
 
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {

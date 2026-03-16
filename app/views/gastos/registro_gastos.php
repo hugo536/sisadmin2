@@ -2,8 +2,37 @@
 $registros = $registros ?? [];
 $proveedores = $proveedores ?? [];
 $conceptos = $conceptos ?? [];
+
+// --- INICIO BLOQUE DE ALERTAS SWEETALERT2 ---
+$swalIcon = null;
+$swalMessage = null;
+
+if (!empty($_GET['error'])) {
+    $swalIcon = 'error';
+    $swalMessage = (string) $_GET['error'];
+} elseif (!empty($_GET['ok'])) {
+    $swalIcon = 'success';
+    $swalMessage = 'El registro de gasto se guardó correctamente.';
+}
+// --- FIN BLOQUE DE ALERTAS ---
 ?>
+
 <div class="container-fluid p-4" id="gastosRegistroApp">
+
+    <?php if ($swalMessage !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: '<?php echo $swalIcon; ?>',
+                        title: '<?php echo $swalIcon === 'error' ? 'Error en la Base de Datos' : '¡Éxito!'; ?>',
+                        text: '<?php echo htmlspecialchars($swalMessage, ENT_QUOTES, 'UTF-8'); ?>',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            });
+        </script>
+    <?php endif; ?>
     
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 fade-in inventario-sticky-header">
         <div>

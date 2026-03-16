@@ -31,7 +31,8 @@ class TesoreriaCxpModel extends Modelo
             $sql .= ' AND p.saldo > 0 AND DATE(p.fecha_vencimiento) < CURDATE()';
         }
 
-        $sql .= ' ORDER BY p.fecha_vencimiento ASC, p.id DESC';
+        // NUEVO CÓDIGO (Los más recientes siempre arriba):
+        $sql .= ' ORDER BY p.id DESC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
@@ -156,8 +157,12 @@ class TesoreriaCxpModel extends Modelo
 
         if ($idGasto > 0) {
             $estadoGasto = 'PENDIENTE';
+            
+            // Sincronización exacta de estados
             if ($estadoCxp === 'PAGADA') {
                 $estadoGasto = 'PAGADO';
+            } elseif ($estadoCxp === 'PARCIAL') {
+                $estadoGasto = 'PARCIAL';
             } elseif ($estadoCxp === 'ANULADA') {
                 $estadoGasto = 'ANULADO';
             }
@@ -176,30 +181,23 @@ class TesoreriaCxpModel extends Modelo
     public function crearDesdeGasto(int $idGasto, int $userId): int
     {
         $db = $this->db();
-        $this->asegurarColumnaIdGasto();
 
-        if ($this->tieneColumnaIdGasto()) {
-            $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxp WHERE id_gasto = :id LIMIT 1');
-            $stmtExiste->execute(['id' => $idGasto]);
-            $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
-            if ($existe > 0) {
-                return $existe;
-            }
-        } else {
-            $stmtExiste = $db->prepare('SELECT id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1');
-            $stmtExiste->execute(['id' => $idGasto]);
-            $idCxpExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
-            if ($idCxpExistente > 0) {
-                return $idCxpExistente;
-            }
+        // 1. Verificamos si ya existe para no duplicar
+        $stmtExiste = $db->prepare('SELECT id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmtExiste->execute(['id' => $idGasto]);
+        $idCxpExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
+        if ($idCxpExistente > 0) {
+            return $idCxpExistente;
         }
 
+        // 2. Obtenemos los datos del gasto recién creado
         $stmtGasto = $db->prepare('SELECT id, fecha, id_proveedor, total
                                    FROM gastos_registros
                                    WHERE id = :id AND deleted_at IS NULL
                                    LIMIT 1');
         $stmtGasto->execute(['id' => $idGasto]);
         $gasto = $stmtGasto->fetch(PDO::FETCH_ASSOC);
+        
         if (!$gasto) {
             throw new RuntimeException('No se encontró el gasto para generar CxP.');
         }
@@ -207,44 +205,35 @@ class TesoreriaCxpModel extends Modelo
         $fecha = substr((string) ($gasto['fecha'] ?? date('Y-m-d')), 0, 10);
         $total = round((float) ($gasto['total'] ?? 0), 4);
 
-        if ($this->tieneColumnaIdGasto()) {
-            $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
-                (id_proveedor, id_gasto, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
-                VALUES
-                (:id_proveedor, :id_gasto, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+        // 3. Insertamos directamente la Cuenta por Pagar
+        $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
+            (id_proveedor, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
+            VALUES
+            (:id_proveedor, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
 
-            $stmtInsert->execute([
-                'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
-                'id_gasto' => $idGasto,
-                'fecha_emision' => $fecha,
-                'fecha_vencimiento' => $fecha,
-                'moneda' => 'PEN',
-                'monto_total' => $total,
-                'saldo' => $total,
-                'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]);
-        } else {
-            $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
-                (id_proveedor, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
-                VALUES
-                (:id_proveedor, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+        $exito = $stmtInsert->execute([
+            'id_proveedor'      => (int) ($gasto['id_proveedor'] ?? 0),
+            'fecha_emision'     => $fecha,
+            'fecha_vencimiento' => $fecha,
+            'moneda'            => 'PEN',
+            'monto_total'       => $total,
+            'saldo'             => $total,
+            'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+            'created_by'        => $userId,
+            'updated_by'        => $userId,
+        ]);
 
-            $stmtInsert->execute([
-                'id_proveedor' => (int) ($gasto['id_proveedor'] ?? 0),
-                'fecha_emision' => $fecha,
-                'fecha_vencimiento' => $fecha,
-                'moneda' => 'PEN',
-                'monto_total' => $total,
-                'saldo' => $total,
-                'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA',
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]);
+        if (!$exito) {
+            throw new RuntimeException('Fallo al insertar la Cuenta por Pagar.');
         }
 
-        return (int) $db->lastInsertId();
+        $nuevoId = (int) $db->lastInsertId();
+        
+        if ($nuevoId === 0) {
+             throw new RuntimeException('La Cuenta por Pagar se insertó pero no devolvió un ID válido.');
+        }
+
+        return $nuevoId;
     }
 
     private function asegurarColumnaIdGasto(): void
