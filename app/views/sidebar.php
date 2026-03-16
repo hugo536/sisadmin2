@@ -145,6 +145,11 @@ function renderSidebarInner(
             >
         </div>
 
+        <div class="sidebar-favorites" data-sidebar-favorites="<?php echo htmlspecialchars($navId); ?>" hidden>
+            <div class="nav-label pt-2">Accesos rápidos</div>
+            <div class="sidebar-favorites-list"></div>
+        </div>
+
 
     </div>
 
@@ -591,8 +596,9 @@ function renderSidebarInner(
     const nav = document.getElementById(navId);
     const input = document.querySelector(`[data-sidebar-search="${navId}"]`);
     if (!nav || !input) return;
-
     const searchableLinks = Array.from(nav.querySelectorAll('.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
+    const searchableLinks = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
+
 
     input.addEventListener('input', () => {
       const query = input.value.trim().toLowerCase();
@@ -625,7 +631,7 @@ function renderSidebarInner(
   setupSidebarSearch('sidebarNavScrollMobile');
 
   // =========================================================
-  // En modo colapsado, al tocar un grupo primero expande sidebar
+// En modo colapsado, al tocar un grupo primero expande sidebar
   // =========================================================
   const sidebarDesktop = document.getElementById('appSidebarDesktop');
   if (sidebarDesktop) {
@@ -645,6 +651,86 @@ function renderSidebarInner(
       });
     });
   }
+  // Favoritos por usuario (localStorage)
+  // =========================================================
+  function setupFavorites(navId, favoritesKey) {
+    const nav = document.getElementById(navId);
+    const container = document.querySelector(`[data-sidebar-favorites="${navId}"]`);
+    if (!nav || !container) return;
+
+    let favorites = [];
+    try {
+      favorites = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
+      if (!Array.isArray(favorites)) favorites = [];
+    } catch (_err) {
+      favorites = [];
+    }
+
+    const links = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => {
+      const href = link.getAttribute('href') || '';
+      return href !== '' && !link.classList.contains('logout-link');
+    });
+
+    const getFavKey = (link) => link.getAttribute('href') || '';
+
+    links.forEach((link) => {
+      const key = getFavKey(link);
+      const star = document.createElement('button');
+      star.type = 'button';
+      star.className = 'fav-toggle';
+      star.setAttribute('aria-label', 'Marcar como favorito');
+      star.setAttribute('title', 'Marcar como favorito');
+      star.innerHTML = '<i class="bi bi-star"></i>';
+
+      const syncStar = () => {
+        const on = favorites.includes(key);
+        star.classList.toggle('is-favorite', on);
+        star.innerHTML = on ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
+      };
+
+      syncStar();
+      link.appendChild(star);
+
+      star.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (favorites.includes(key)) {
+          favorites = favorites.filter((item) => item !== key);
+        } else {
+          favorites.unshift(key);
+        }
+
+        localStorage.setItem(favoritesKey, JSON.stringify(favorites));
+        syncStar();
+        renderFavorites();
+      });
+    });
+
+    function renderFavorites() {
+      const list = container.querySelector('.sidebar-favorites-list');
+      if (!list) return;
+
+      list.innerHTML = '';
+      const favoriteLinks = favorites
+        .map((fav) => links.find((link) => getFavKey(link) === fav))
+        .filter(Boolean);
+
+      container.hidden = favoriteLinks.length === 0;
+
+      favoriteLinks.forEach((original) => {
+        const clone = original.cloneNode(true);
+        clone.querySelectorAll('.fav-toggle').forEach((btn) => btn.remove());
+        clone.classList.add('is-favorite-shortcut');
+        list.appendChild(clone);
+      });
+    }
+
+    renderFavorites();
+  }
+
+  setupFavorites('sidebarNavScrollDesktop', 'erp.sidebar.favorites');
+  setupFavorites('sidebarNavScrollMobile', 'erp.sidebar.favorites');
 
   // =========================================================
   // Navegación por teclado
@@ -668,7 +754,6 @@ function renderSidebarInner(
         e.preventDefault();
         links[(index - 1 + links.length) % links.length].focus();
       }
-
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && current.matches('button.sidebar-link[data-bs-toggle="collapse"]')) {
         e.preventDefault();
         const expanded = current.getAttribute('aria-expanded') === 'true';

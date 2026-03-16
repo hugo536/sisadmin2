@@ -187,6 +187,10 @@
   font-size: .82rem;
 }
 
+.sidebar-favorites-list .sidebar-link{
+  border-left-width: 2px;
+}
+
 /* ==========================================================================
    NAV
    ========================================================================== */
@@ -295,6 +299,20 @@ button.sidebar-link{
   padding: .1rem .45rem;
 }
 
+.fav-toggle{
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--sidebar-text-muted);
+  opacity: .65;
+}
+
+.fav-toggle:hover,
+.fav-toggle.is-favorite{
+  color: #facc15;
+  opacity: 1;
+}
+
 body.sidebar-collapsed .sidebar.sidebar-desktop{
   width: 84px;
 }
@@ -306,6 +324,11 @@ body.sidebar-collapsed .sidebar.sidebar-desktop .nav-label,
 body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-search-wrap,
 body.sidebar-collapsed .sidebar.sidebar-desktop .chevron,
 body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-count-badge{
+
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-favorites,
+body.sidebar-collapsed .sidebar.sidebar-desktop .chevron,
+body.sidebar-collapsed .sidebar.sidebar-desktop .sidebar-count-badge,
+body.sidebar-collapsed .sidebar.sidebar-desktop .fav-toggle{
   display: none !important;
 }
 
