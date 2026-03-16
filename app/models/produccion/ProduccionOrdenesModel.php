@@ -255,7 +255,7 @@ class ProduccionOrdenesModel extends Modelo
         $sql = 'SELECT d.id_insumo,
                        i.nombre AS insumo_nombre,
                        i.requiere_lote,
-                       (d.cantidad_por_unidad * o.cantidad_planificada * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
+                       (d.cantidad_por_unidad * (o.cantidad_planificada / NULLIF(r.rendimiento_base, 0)) * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
                        COALESCE((
                            SELECT s.stock_actual
                            FROM inventario_stock s
@@ -271,6 +271,7 @@ class ProduccionOrdenesModel extends Modelo
                              AND l.stock_lote > 0
                        ) AS lotes_disponibles
                 FROM produccion_ordenes o
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                 INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                 INNER JOIN items i ON i.id = d.id_insumo
                 WHERE o.id = :id_orden
@@ -768,7 +769,9 @@ class ProduccionOrdenesModel extends Modelo
                     continue;
                 }
 
-                $cantidadTeorica = $qtyBase * $cantidadAvance * (1 + ($merma / 100));
+                $rendimientoBase = (float) ($d['rendimiento_base'] ?? 0);
+                $factorEscala = $rendimientoBase > 0 ? ($cantidadAvance / $rendimientoBase) : 0;
+                $cantidadTeorica = $qtyBase * $factorEscala * (1 + ($merma / 100));
                 if ($cantidadTeorica <= 0) {
                     continue;
                 }
@@ -928,8 +931,10 @@ class ProduccionOrdenesModel extends Modelo
 
     public function obtenerDetalleReceta(int $idReceta): array
     {
-        $sql = 'SELECT d.id_insumo, d.etapa, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre
+        $sql = 'SELECT d.id_insumo, d.etapa, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre,
+                       r.rendimiento_base
                 FROM produccion_recetas_detalle d
+                INNER JOIN produccion_recetas r ON r.id = d.id_receta
                 INNER JOIN items i ON i.id = d.id_insumo
                 WHERE d.id_receta = :id_receta
                   AND d.deleted_at IS NULL
@@ -952,11 +957,12 @@ class ProduccionOrdenesModel extends Modelo
 
         $stmtMd = $this->db()->prepare('SELECT d.id_insumo AS id_item,
                                                i.nombre AS item_nombre,
-                                               (d.cantidad_por_unidad * COALESCE(NULLIF(o.cantidad_producida, 0), o.cantidad_planificada, 0) * (1 + (d.merma_porcentaje / 100))) AS cantidad,
+                                               (d.cantidad_por_unidad * (COALESCE(NULLIF(o.cantidad_producida, 0), o.cantidad_planificada, 0) / NULLIF(r.rendimiento_base, 0)) * (1 + (d.merma_porcentaje / 100))) AS cantidad,
                                                COALESCE(SUM(c.cantidad), 0) AS cantidad_real,
                                                COALESCE(AVG(c.costo_unitario), 0) AS costo_unitario,
                                                COALESCE(SUM(c.cantidad * c.costo_unitario), 0) AS costo_total
                                         FROM produccion_ordenes o
+                                        INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                                         INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                                         INNER JOIN items i ON i.id = d.id_insumo
                                         LEFT JOIN produccion_consumos c ON c.id_orden_produccion = o.id
@@ -964,7 +970,7 @@ class ProduccionOrdenesModel extends Modelo
                                                                       AND c.deleted_at IS NULL
                                         WHERE o.id = :id_orden
                                           AND o.deleted_at IS NULL
-                                        GROUP BY d.id_insumo, i.nombre, d.cantidad_por_unidad, d.merma_porcentaje, o.cantidad_producida, o.cantidad_planificada
+                                        GROUP BY d.id_insumo, i.nombre, d.cantidad_por_unidad, d.merma_porcentaje, o.cantidad_producida, o.cantidad_planificada, r.rendimiento_base
                                         ORDER BY i.nombre ASC');
         $stmtMd->execute(['id_orden' => $idOrden]);
 
@@ -1322,7 +1328,7 @@ class ProduccionOrdenesModel extends Modelo
         // 1. Buscamos qué insumos pide la receta de esta orden, cruzando con el stock
         $sql = 'SELECT d.id_insumo,
                        i.nombre AS insumo_nombre,
-                       (d.cantidad_por_unidad * o.cantidad_planificada * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
+                       (d.cantidad_por_unidad * (o.cantidad_planificada / NULLIF(r.rendimiento_base, 0)) * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
                        COALESCE((
                            SELECT s.stock_actual 
                            FROM inventario_stock s 
@@ -1335,6 +1341,7 @@ class ProduccionOrdenesModel extends Modelo
                            ORDER BY r2.version DESC LIMIT 1
                        ) as id_receta_hija
                 FROM produccion_ordenes o
+                INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                 INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                 INNER JOIN items i ON i.id = d.id_insumo
                 WHERE o.id = :id_orden

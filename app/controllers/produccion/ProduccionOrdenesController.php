@@ -138,7 +138,9 @@ class ProduccionOrdenesController extends Controlador
                     foreach ($detalles as $d) {
                         $qtyBase = (float) $d['cantidad_por_unidad'];
                         $merma = (float) $d['merma_porcentaje'];
-                        $cantidadRequerida = $qtyBase * $cantidadPlanificada * (1 + ($merma / 100));
+                        $rendimientoBase = (float) ($d['rendimiento_base'] ?? 0);
+                        $factorEscala = $rendimientoBase > 0 ? ($cantidadPlanificada / $rendimientoBase) : 0;
+                        $cantidadRequerida = $qtyBase * $factorEscala * (1 + ($merma / 100));
 
                         $resultado[] = [
                             'id_insumo' => $d['id_insumo'],
