@@ -150,6 +150,7 @@ function renderSidebarInner(
             <div class="sidebar-favorites-list"></div>
         </div>
 
+
     </div>
 
     <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
@@ -595,8 +596,9 @@ function renderSidebarInner(
     const nav = document.getElementById(navId);
     const input = document.querySelector(`[data-sidebar-search="${navId}"]`);
     if (!nav || !input) return;
-
+    const searchableLinks = Array.from(nav.querySelectorAll('.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
     const searchableLinks = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
+
 
     input.addEventListener('input', () => {
       const query = input.value.trim().toLowerCase();
@@ -629,6 +631,26 @@ function renderSidebarInner(
   setupSidebarSearch('sidebarNavScrollMobile');
 
   // =========================================================
+// En modo colapsado, al tocar un grupo primero expande sidebar
+  // =========================================================
+  const sidebarDesktop = document.getElementById('appSidebarDesktop');
+  if (sidebarDesktop) {
+    sidebarDesktop.addEventListener('click', (e) => {
+      const toggleGroup = e.target.closest('button.sidebar-link[data-bs-toggle="collapse"]');
+      if (!toggleGroup) return;
+      if (!document.body.classList.contains('sidebar-collapsed')) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      document.body.classList.remove('sidebar-collapsed');
+      localStorage.setItem('erp.sidebar.collapsed', '0');
+
+      requestAnimationFrame(() => {
+        toggleGroup.click();
+      });
+    });
+  }
   // Favoritos por usuario (localStorage)
   // =========================================================
   function setupFavorites(navId, favoritesKey) {
@@ -731,6 +753,17 @@ function renderSidebarInner(
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         links[(index - 1 + links.length) % links.length].focus();
+      }
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && current.matches('button.sidebar-link[data-bs-toggle="collapse"]')) {
+        e.preventDefault();
+        const expanded = current.getAttribute('aria-expanded') === 'true';
+        if (e.key === 'ArrowRight' && !expanded) current.click();
+        if (e.key === 'ArrowLeft' && expanded) current.click();
+      }
+
+      if ((e.key === 'Enter' || e.key === ' ') && current.matches('button.sidebar-link[data-bs-toggle="collapse"]')) {
+        e.preventDefault();
+        current.click();
       }
     });
   }

@@ -69,6 +69,7 @@
     toggleBtn.addEventListener('click', function () {
       const collapsed = document.body.classList.toggle('sidebar-collapsed');
       localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? '1' : '0');
+      applySidebarState();
     });
   }
 
