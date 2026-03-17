@@ -52,21 +52,20 @@
                                         </select>
                                     </div>
                                     
-                                    <div class="col-md-4 d-none" id="editAutoIdentidadWrap">
-                                        <div class="form-check form-switch mb-0 bg-pastel-light border border-secondary-subtle rounded px-3 py-2 w-100 d-flex align-items-center">
-                                            <input class="form-check-input mt-0 me-3" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="0">
-                                            <label class="form-check-label small fw-medium text-dark" for="editAutoIdentidad" style="padding-top: 1px;">Generar SKU automáticamente</label>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-9">
-                                        <label for="editNombre" class="form-label small text-muted fw-semibold mb-1">Nombre del producto <span class="text-danger">*</span></label>
+                                    <div class="col-md-8">
+                                        <label for="editNombre" class="form-label small text-muted fw-semibold mb-1">Nombre del producto / ítem <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" id="editNombre" name="nombre" required>
                                     </div>
                                     
-                                    <div class="col-md-3">
-                                        <label for="editSku" class="form-label small text-muted fw-semibold mb-1">SKU</label>
-                                        <input type="text" class="form-control shadow-none border-secondary-subtle sku-lockable bg-light" id="editSku" name="sku" readonly title="El SKU no puede modificarse una vez creado el ítem.">
+                                    <div class="col-md-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label for="editSku" class="form-label small text-muted fw-semibold mb-0">Código SKU</label>
+                                            <div class="form-check form-switch mb-0" title="Generar código aleatorio automáticamente" data-bs-toggle="tooltip">
+                                                <input class="form-check-input mt-0" type="checkbox" id="editAutoIdentidad" name="autogenerar_identidad" value="0" style="cursor: pointer;">
+                                                <label class="form-check-label text-primary" style="font-size: 0.7rem; margin-top: 2px;">Auto</label>
+                                            </div>
+                                        </div>
+                                        <input type="text" class="form-control shadow-none border-secondary-subtle sku-lockable bg-light" id="editSku" name="sku" readonly title="El SKU no puede modificarse libremente una vez creado el ítem." placeholder="Generado por sistema">
                                     </div>
 
                                     <div class="col-md-4">
@@ -215,7 +214,7 @@
                                         <div class="p-3 border border-secondary-subtle rounded-3 bg-pastel-light">
                                             <small class="text-uppercase text-secondary fw-bold d-block mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">Operaciones de Producción</small>
                                             
-                                            <div class="row g-2">
+                                            <div class="row g-2" id="editOperacionesProduccionContainer">
                                                 <div class="col-md-4">
                                                     <div class="form-check form-switch mb-0" id="editRequiereFormulaBomContainer">
                                                         <input class="form-check-input" type="checkbox" id="editRequiereFormulaBom" name="requiere_formula_bom" value="1">
@@ -239,7 +238,7 @@
                                             </div>
                                         </div>
                                     </div>
-
+                                    
                                 </div>
                             </div>
                         </div>

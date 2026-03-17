@@ -402,13 +402,14 @@
         }
     }
 
-    if (grupoCostoUnitario) grupoCostoUnitario.classList.toggle('d-none', tipoVal !== 'INI');
+    // MEJORA 1: Habilitar costo manual para INI y AJ+ (Para no arruinar el Costo Promedio)
+    const habilitarCostoManual = ['INI', 'AJ+'].includes(tipoVal);
+    if (grupoCostoUnitario) grupoCostoUnitario.classList.toggle('d-none', !habilitarCostoManual);
     if (costoUnitarioInput) {
-      const habilitarCostoManual = tipoVal === 'INI';
       costoUnitarioInput.readOnly = !habilitarCostoManual;
       costoUnitarioInput.classList.toggle('bg-light', !habilitarCostoManual);
       costoUnitarioInput.classList.toggle('text-muted', !habilitarCostoManual);
-      if (tipoVal !== 'INI') costoUnitarioInput.value = '0.0000';
+      if (!habilitarCostoManual) costoUnitarioInput.value = '0.0000';
     }
 
     if (grupoProveedor) grupoProveedor.classList.add('d-none');
@@ -432,7 +433,8 @@
         }
     }
 
-    const requiereCentroCosto = tipoVal === 'CON';
+    // MEJORA 2: Exigir Centro de Costo en Consumos y Ajustes Negativos (Mermas/Pérdidas)
+    const requiereCentroCosto = ['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
     if (grupoCentroCosto) {
         grupoCentroCosto.classList.toggle('d-none', !requiereCentroCosto);
     }
@@ -950,9 +952,9 @@
         return;
       }
 
-      if (tipoVal === 'CON' && idCentroCostoVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá este gasto.' });
-        return;
+      if (['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'].includes(tipoVal) && idCentroCostoVal <= 0) {
+          Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá esta salida o pérdida.' });
+          return;
       }
 
       if (lineasMovimiento.length === 0) {

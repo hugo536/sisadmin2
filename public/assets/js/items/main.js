@@ -214,21 +214,14 @@
         return base;
     }
 
-    function generarSkuProducto({ tipo, categoria, marca, sabor, presentacion }) {
-        const bloques = [];
-        const prefCategoria = obtenerPrefijo(categoria);
-        const prefMarca = obtenerPrefijo(marca);
-        const prefSabor = obtenerPrefijo(sabor);
-        const bloquePresentacion = tipo === 'semielaborado'
-            ? limpiarPresentacionSemielaborado(presentacion)
-            : normalizarTextoSku(presentacion);
-
-        if (prefCategoria) bloques.push(prefCategoria);
-        if (prefMarca) bloques.push(prefMarca);
-        if (!saborDebeOmitirse(sabor) && prefSabor) bloques.push(prefSabor);
-        if (bloquePresentacion) bloques.push(bloquePresentacion);
-
-        return bloques.join('-');
+    // 1. Nueva función para generar un SKU aleatorio (Ej: SKU-A7X9B2)
+    function generarSkuAleatorio() {
+        const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let aleatorio = '';
+        for (let i = 0; i < 6; i++) {
+            aleatorio += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+        }
+        return 'ITM-' + aleatorio; // Puedes cambiar 'ITM-' por lo que prefieras
     }
 
     function generarNombreProducto({ marca, sabor, presentacion }) {
@@ -251,7 +244,6 @@
         const sku = document.getElementById(config.skuId);
         const nombre = document.getElementById(config.nombreId);
         const autoIdentidad = document.getElementById(config.autoIdentidadId);
-        const categoria = document.getElementById(config.categoriaId);
         const marca = document.getElementById(config.marcaId);
         const sabor = document.getElementById(config.saborId);
         const presentacion = document.getElementById(config.presentacionId);
@@ -262,80 +254,71 @@
         const apply = () => {
             const tipoVal = tipo.value;
             const hasTipo = tipoVal.trim() !== '';
-            const isItemDetallado = tipoVal === 'producto_terminado' || tipoVal === 'semielaborado';
+            // Saber si es un producto estructurado (que arma su propio nombre)
+            const isProductoFabricado = tipoVal === 'producto_terminado' || tipoVal === 'semielaborado';
             const autoOn = autoIdentidad && autoIdentidad.checked;
 
             if (!hasTipo) {
                 sku.readOnly = true;
                 if (nombre) nombre.readOnly = true;
-                if (autoIdentidad) {
-                    autoIdentidad.disabled = true;
-                    autoIdentidad.checked = true;
-                }
                 return;
             }
 
-            if (!isItemDetallado) {
-                if (nombre) nombre.readOnly = false;
-                sku.readOnly = (mode === 'edit');
-                if (autoIdentidad) {
-                    autoIdentidad.disabled = true;
-                    autoIdentidad.checked = false;
-                }
-                return;
-            }
-
-            if (autoIdentidad) autoIdentidad.disabled = false;
-
+            // 1. LÓGICA DEL SKU (Aplica para todos los tipos)
             if (autoOn) {
-                if (nombre) nombre.readOnly = true;
-                sku.readOnly = true; 
-
-                const catText = obtenerTextoSeleccionado(categoria);
-                const marText = obtenerTextoSeleccionado(marca);
-                const sabText = obtenerTextoSeleccionado(sabor);
-                const presText = obtenerTextoSeleccionado(presentacion);
-
-                if (nombre) {
-                    nombre.value = generarNombreProducto({
-                        marca: marText,
-                        sabor: sabText,
-                        presentacion: presText
-                    });
+                sku.readOnly = true;
+                sku.classList.add('bg-light');
+                if (mode === 'new' && sku.value === '') {
+                    // Usa la función aleatoria que vimos en el paso anterior (ej. ITM-X8B9Q)
+                    sku.value = generarSkuAleatorio(); 
                 }
-
-                if (mode === 'new') {
-                    sku.value = generarSkuProducto({
-                        tipo: tipoVal,
-                        categoria: catText,
-                        marca: marText,
-                        sabor: sabText,
-                        presentacion: presText
-                    });
-                }
-
             } else {
-                if (nombre) nombre.readOnly = false;
-                sku.readOnly = (mode === 'edit'); 
+                sku.readOnly = (mode === 'edit'); // Si edita, nunca cambia SKU. Si es nuevo, lo escribe.
+                sku.classList.remove('bg-light');
+            }
+
+            // 2. LÓGICA DEL NOMBRE (Depende del tipo de ítem)
+            if (isProductoFabricado && autoOn) {
+                // Si es producto terminado y está en Auto, bloqueamos el nombre y lo armamos
+                if (nombre) {
+                    nombre.readOnly = true;
+                    nombre.classList.add('bg-light');
+                    nombre.value = generarNombreProducto({
+                        marca: obtenerTextoSeleccionado(marca),
+                        sabor: obtenerTextoSeleccionado(sabor),
+                        presentacion: obtenerTextoSeleccionado(presentacion)
+                    });
+                }
+            } else {
+                // Para Materia Prima, Insumos, Servicios, o si apagaron el switch: El usuario escribe el nombre
+                if (nombre) {
+                    nombre.readOnly = false;
+                    nombre.classList.remove('bg-light');
+                }
             }
         };
 
         if (!tipo.dataset.skuAutoBound) {
-            [tipo, categoria, marca, sabor, presentacion].forEach((el) => {
+            [tipo, marca, sabor, presentacion].forEach((el) => {
                 el?.addEventListener('change', apply);
             });
 
             if (autoIdentidad) {
                 autoIdentidad.addEventListener('change', () => {
-                    if (!autoIdentidad.checked && nombre) {
-                        nombre.focus();
+                    if (!autoIdentidad.checked) {
+                        if (mode === 'new') sku.value = '';
+                        if (nombre && (tipo.value === 'producto_terminado' || tipo.value === 'semielaborado')) {
+                            nombre.value = ''; // Limpiamos si decide escribirlo manual
+                        }
+                        if (nombre) nombre.focus();
+                    } else {
+                        if (mode === 'new') sku.value = generarSkuAleatorio();
                     }
                     apply();
                 });
             }
             tipo.dataset.skuAutoBound = '1';
         }
-
         apply();
     }
 
@@ -393,6 +376,10 @@
         const marcaContainer = document.getElementById(config.marcaContainerId);
         const saborContainer = document.getElementById(config.saborContainerId);
         const presentacionContainer = document.getElementById(config.presentacionContainerId);
+        
+        // NUEVO: Contenedor de Operaciones de Producción
+        const operacionesProdContainer = document.getElementById(config.operacionesProdContainerId);
+
         const saborSelect = document.getElementById(config.saborId);
         const presentacionSelect = document.getElementById(config.presentacionId);
         const stockContainer = document.getElementById(config.stockContainerId);
@@ -404,58 +391,77 @@
         const permiteDecimales = document.getElementById(config.permiteDecimalesId);
         const requiereLote = document.getElementById(config.requiereLoteId);
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
-        const autoIdentidadWrap = document.getElementById(config.autoIdentidadWrapId);
+        
         const aplicarPresetsDetallado = config.aplicarPresetsDetallado !== false;
 
         const apply = () => {
             const value = tipo.value;
-            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
+            
+            // Redefinimos los grupos lógicos para manufactura
+            const isProductoFabricado = value === 'producto_terminado' || value === 'semielaborado';
+            const usaPresentacion = isProductoFabricado || value === 'material_empaque'; 
             const isMateriaPrima = value === 'materia_prima';
-            const isMaterialEmpaque = value === 'material_empaque';
+            const isInsumo = value === 'insumo';
             const isServicio = value === 'servicio';
 
-            marcaContainer?.classList.toggle('d-none', isServicio);
-            saborContainer?.classList.toggle('d-none', !(isItemDetallado));
-            presentacionContainer?.classList.toggle('d-none', !(isItemDetallado));
-            autoIdentidadWrap?.classList.toggle('d-none', !isItemDetallado);
+            // 1. VISIBILIDAD DE CONTENEDORES (Ocultar lo absurdo)
+            marcaContainer?.classList.remove('d-none'); // Todo puede tener marca
+            saborContainer?.classList.toggle('d-none', !isProductoFabricado);
+            presentacionContainer?.classList.toggle('d-none', !usaPresentacion);
+            
+            // Un Insumo, Empaque o Materia prima NO tienen Fórmula BOM ni son retornables.
+            if (operacionesProdContainer) {
+                operacionesProdContainer.classList.toggle('d-none', !isProductoFabricado);
+            }
 
+            // 2. REQUERIDOS DINÁMICOS
             if (saborSelect) {
-                saborSelect.required = isItemDetallado;
-                if (!isItemDetallado) saborSelect.value = '';
+                saborSelect.required = isProductoFabricado;
+                if (!isProductoFabricado) saborSelect.value = '';
             }
             if (presentacionSelect) {
-                presentacionSelect.required = isItemDetallado;
-                if (!isItemDetallado) presentacionSelect.value = '';
+                presentacionSelect.required = usaPresentacion;
+                if (!usaPresentacion) presentacionSelect.value = '';
             }
 
+            // 3. REGLAS DE INVENTARIO Y TRAZABILIDAD (Por defecto)
+            
+            // Si es un servicio, apagamos todo lo de inventario
             if (isServicio) {
-                controlaStock.checked = false;
-                stockInput.value = '0.0000';
-                permiteDecimales.checked = false;
-                requiereLote.checked = false;
-                requiereVencimiento.checked = false;
+                if(controlaStock) controlaStock.checked = false;
+                if(stockInput) stockInput.value = '0.0000';
+                if(permiteDecimales) permiteDecimales.checked = false;
+                if(requiereLote) requiereLote.checked = false;
+                if(requiereVencimiento) requiereVencimiento.checked = false;
             }
 
-            if (isMateriaPrima) {
-                permiteDecimales.checked = true;
-                requiereLote.checked = true;
+            // Reglas para Insumos y Materia Prima
+            if (isMateriaPrima || isInsumo) {
+                if(permiteDecimales) permiteDecimales.checked = true; // Se pesan/miden
+                if(requiereLote) requiereLote.checked = true;     // Trazabilidad de proveedores
+                if(requiereVencimiento) requiereVencimiento.checked = isMateriaPrima; 
             }
 
-            if (isItemDetallado && aplicarPresetsDetallado) {
-                controlaStock.checked = true;
-                requiereLote.checked = true;
-                requiereVencimiento.checked = true;
+            // Reglas para Producto Fabricado
+            if (isProductoFabricado && aplicarPresetsDetallado) {
+                if(controlaStock) controlaStock.checked = true;
+                if(requiereLote) requiereLote.checked = true;
+                if(requiereVencimiento) requiereVencimiento.checked = true;
+                if(permiteDecimales) permiteDecimales.checked = false; 
             }
 
-            if (isMaterialEmpaque) {
-                permiteDecimales.checked = false;
+            // Reglas para Material de Empaque
+            if (value === 'material_empaque') {
+                if(permiteDecimales) permiteDecimales.checked = false; 
             }
 
+            // Ocultar contenedores de configuración de stock si es servicio
             stockContainer?.classList.toggle('d-none', isServicio);
             permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
             requiereLoteContainer?.classList.toggle('d-none', isServicio);
             requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
 
+            // Actualizamos dependencias visuales de stock y alertas
             toggleStockMinimo(config.controlaStockId, config.stockContainerId, config.stockInputId);
             toggleAlertaVencimiento(config.requiereVencimientoId, config.diasAlertaContainerId, config.diasAlertaId);
         };
@@ -509,6 +515,7 @@
             diasAlertaId: 'newDiasAlerta',
             autoIdentidadWrapId: 'newAutoIdentidadWrap',
             autoIdentidadId: 'newAutoIdentidad',
+            operacionesProdContainerId: 'newOperacionesProduccionContainer',
             aplicarPresetsDetallado: true
         };
 
@@ -606,6 +613,7 @@
             diasAlertaId: 'editDiasAlerta',
             autoIdentidadWrapId: 'editAutoIdentidadWrap',
             autoIdentidadId: 'editAutoIdentidad',
+            operacionesProdContainerId: 'editOperacionesProduccionContainer',
             aplicarPresetsDetallado: false
         };
 

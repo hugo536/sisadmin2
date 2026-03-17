@@ -51,23 +51,21 @@
                                         </select>
                                     </div>
                                     
-                                    <div class="col-md-6 d-flex align-items-end pb-1" id="newAutoIdentidadWrap">
-                                        <div class="form-check form-switch mb-0 bg-pastel-light border border-secondary-subtle rounded px-3 py-2 w-100 d-flex align-items-center">
-                                            <input class="form-check-input mt-0 me-3" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked>
-                                            <label class="form-check-label small fw-medium text-dark" for="newAutoIdentidad" style="padding-top: 1px;">Generar SKU automáticamente</label>
-                                        </div>
+                                    <div class="col-md-8">
+                                        <label for="newNombre" class="form-label small text-muted fw-semibold mb-1">Nombre del producto / ítem <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" id="newNombre" name="nombre" required placeholder="Ej. Botella PET 500ml / Harina de Trigo">
                                     </div>
 
-                                    <div class="col-md-9">
-                                        <label for="newNombre" class="form-label small text-muted fw-semibold mb-1">Nombre del producto <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" id="newNombre" name="nombre" required placeholder="Ej. Botella PET 500ml">
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label for="newSku" class="form-label small text-muted fw-semibold mb-1">SKU</label>
-                                        <input type="text" class="form-control shadow-none border-secondary-subtle sku-lockable bg-light" id="newSku" name="sku" readonly>
+                                    <div class="col-md-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label for="newSku" class="form-label small text-muted fw-semibold mb-0">Código SKU</label>
+                                            <div class="form-check form-switch mb-0" title="Generar código aleatorio automáticamente" data-bs-toggle="tooltip">
+                                                <input class="form-check-input mt-0" type="checkbox" id="newAutoIdentidad" name="autogenerar_identidad" value="1" checked style="cursor: pointer;">
+                                                <label class="form-check-label text-primary" style="font-size: 0.7rem; margin-top: 2px;">Auto</label>
+                                            </div>
+                                        </div>
+                                        <input type="text" class="form-control shadow-none border-secondary-subtle bg-light" id="newSku" name="sku" readonly placeholder="Generado por sistema">
                                         <div class="invalid-feedback" style="font-size: 0.75rem;">Este SKU ya está en uso.</div>
-                                        <div class="valid-feedback" style="font-size: 0.75rem;">SKU disponible.</div>
                                     </div>
 
                                     <div class="col-md-4">
@@ -211,7 +209,7 @@
                                         <div class="p-3 border border-secondary-subtle rounded-3 bg-pastel-light">
                                             <small class="text-uppercase text-secondary fw-bold d-block mb-3" style="font-size: 0.7rem; letter-spacing: 0.5px;">Operaciones de Producción</small>
                                             
-                                            <div class="row g-2">
+                                            <div class="row g-2" id="newOperacionesProduccionContainer">
                                                 <div class="col-md-4">
                                                     <div class="form-check form-switch mb-0" id="newRequiereFormulaBomContainer">
                                                         <input class="form-check-input" type="checkbox" id="newRequiereFormulaBom" name="requiere_formula_bom" value="1">

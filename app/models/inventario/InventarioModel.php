@@ -472,10 +472,12 @@ class InventarioModel extends Modelo
             if ($idAlmacenDestino <= 0) throw new InvalidArgumentException('Debe seleccionar almacén de destino para entradas.');
         } elseif ($esSalida) {
             if ($idAlmacenOrigen <= 0) throw new InvalidArgumentException('Debe seleccionar almacén de origen para salidas.');
-        // --- NUEVO: Validar Centro de Costos para Consumos Internos ---
-            if ($tipo === 'CON' && $idCentroCosto === null) {
-                throw new InvalidArgumentException('Para registrar un consumo interno (Ej. Jabón, Repuestos) debe asignar un Centro de Costos.');
+            
+            // --- ACTUALIZACIÓN: Exigir Centro de Costo también para Mermas/Pérdidas ---
+            if (in_array($tipo, ['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'], true) && $idCentroCosto === null) {
+                throw new InvalidArgumentException('Para salidas por consumo o pérdidas, debe asignar a qué Centro de Costos irá el gasto.');
             }
+            
         } elseif ($esTransferencia) {
             if ($idAlmacenOrigen <= 0 || $idAlmacenDestino <= 0 || $idAlmacenOrigen === $idAlmacenDestino) {
                 throw new InvalidArgumentException('Debe seleccionar almacenes origen y destino distintos para transferencias.');

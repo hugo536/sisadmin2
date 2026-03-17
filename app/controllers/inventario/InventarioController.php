@@ -259,12 +259,22 @@ class InventarioController extends Controlador
                 throw new InvalidArgumentException('Debe agregar al menos una línea para registrar movimientos.');
             }
 
+            // --- VALIDACIÓN DE SEGURIDAD BACKEND (Regla de Oro) ---
+            $tipoMov = trim((string) ($cabecera['tipo_movimiento'] ?? ''));
+            $idCentroCosto = (int) ($cabecera['id_centro_costo'] ?? 0);
+            
+            if (in_array($tipoMov, ['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'], true) && $idCentroCosto <= 0) {
+                throw new InvalidArgumentException('El Centro de Costos es obligatorio para salidas por consumo o pérdidas.');
+            }
+
+            // Pasamos el array al modelo INCLUYENDO el id_centro_costo
             $resultado = $this->inventarioModel->registrarMovimientoLote([
-                'tipo_movimiento' => trim((string) ($cabecera['tipo_movimiento'] ?? '')),
+                'tipo_movimiento' => $tipoMov,
                 'id_almacen' => (int) ($cabecera['id_almacen'] ?? 0),
                 'id_almacen_destino' => (int) ($cabecera['id_almacen_destino'] ?? 0),
                 'referencia' => trim((string) ($cabecera['referencia'] ?? '')),
                 'motivo' => trim((string) ($cabecera['motivo'] ?? '')),
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null, // <-- CAMBIO CRÍTICO AQUÍ
                 'created_by' => (int) ($_SESSION['id'] ?? 0),
             ], $lineas, $atomico);
 
