@@ -42,12 +42,12 @@
                                         <label for="newTipo" class="form-label small text-muted fw-semibold mb-1">Tipo de ítem <span class="text-danger">*</span></label>
                                         <select class="form-select shadow-none border-secondary-subtle" id="newTipo" name="tipo_item" required>
                                             <option value="" selected disabled hidden>Seleccionar tipo</option>
-                                            <option value="producto_terminado">Producto terminado</option>
-                                            <option value="materia_prima">Materia Prima</option>
-                                            <option value="insumo">Insumo</option>
-                                            <option value="semielaborado">Semielaborado</option>
-                                            <option value="material_empaque">Material de Empaque</option>
-                                            <option value="servicio">Servicios / Otros</option>
+                                            
+                                            <option value="producto_terminado" class="fw-bold text-primary">📦 Producto terminado</option>
+                                            <option value="semielaborado" class="fw-bold text-info">🔄 Semielaborado</option>
+                                            <option value="materia_prima" class="fw-bold text-success">🌿 Materia Prima</option>
+                                            <option value="material_empaque" class="fw-bold text-warning">🏷️ Material de Empaque</option>
+                                            <option value="insumo" class="fw-bold text-secondary">🔧 Insumo (Consumibles de fábrica)</option>
                                         </select>
                                     </div>
                                     

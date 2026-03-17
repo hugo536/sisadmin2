@@ -3,7 +3,7 @@
  * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
  * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
  * Incluye: Planificador de Operaciones (Calendario).
- * Modo: Consumo Teórico Estricto (Strict Backflushing)
+ * Modo: Costeo Estándar por Centro de Trabajo (Tarifa de Planta Automática)
  */
 
 if (!window.produccionJsInitialized) {
@@ -107,15 +107,18 @@ if (!window.produccionJsInitialized) {
                     const idOrden = Number(btnDetalle.getAttribute('data-id') || 0);
                     const real = parseFloat(btnDetalle.getAttribute('data-real') || '0') || 0;
                     const totalRealVal = parseFloat(btnDetalle.getAttribute('data-total-real') || '0') || 0;
+                    
                     document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
                     document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
                     document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
                     document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
+                    
                     const mdReal = document.getElementById('detalleMdReal');
                     const modReal = document.getElementById('detalleModReal');
                     const cifReal = document.getElementById('detalleCifReal');
                     const totalReal = document.getElementById('detalleTotalReal');
                     const unitarioReal = document.getElementById('detalleUnitarioReal');
+                    
                     if (mdReal) mdReal.textContent = btnDetalle.getAttribute('data-md-real') || '0.0000';
                     if (modReal) modReal.textContent = btnDetalle.getAttribute('data-mod-real') || '0.0000';
                     if (cifReal) cifReal.textContent = btnDetalle.getAttribute('data-cif-real') || '0.0000';
@@ -189,13 +192,45 @@ if (!window.produccionJsInitialized) {
     }
 
     // =========================================================================
-    // 3. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos)
+    // 3. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos de Tiempo)
     // =========================================================================
     function initModalEjecucion() {
         const modalEl = document.getElementById('modalEjecutarOP');
         if (!modalEl || typeof bootstrap === 'undefined') return;
 
         let modalEjecutar;
+
+        // CÁLCULO DE TIEMPO NETO EN VIVO
+        const inputInicio = document.getElementById('execFechaInicio');
+        const inputFin = document.getElementById('execFechaFin');
+        const inputParada = document.getElementById('execHorasParada');
+        const lblTiempoNeto = document.getElementById('lblTiempoNeto');
+
+        function calcularTiempoNeto() {
+            if (!inputInicio || !inputFin || !lblTiempoNeto) return;
+            
+            if (!inputInicio.value || !inputFin.value) {
+                lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+                return;
+            }
+
+            const f1 = new Date(inputInicio.value);
+            const f2 = new Date(inputFin.value);
+            
+            if (f2 > f1) {
+                let horas = (f2 - f1) / (1000 * 60 * 60);
+                let paradas = parseFloat(inputParada ? inputParada.value : 0) || 0;
+                let neto = Math.max(0, horas - paradas);
+                lblTiempoNeto.innerHTML = `${neto.toFixed(2)} <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            } else {
+                lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            }
+        }
+
+        if(inputInicio) inputInicio.addEventListener('change', calcularTiempoNeto);
+        if(inputFin) inputFin.addEventListener('change', calcularTiempoNeto);
+        if(inputParada) inputParada.addEventListener('input', calcularTiempoNeto);
+
 
         document.addEventListener('click', async function(e) {
             
@@ -217,25 +252,22 @@ if (!window.produccionJsInitialized) {
                 document.getElementById('execReqVenc').value = reqVenc;
                 document.getElementById('execUnidad').value = unidad;
 
+                // Setup Fechas
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                 const localDatetime = now.toISOString().slice(0, 16);
                 
-                document.getElementById('execFechaInicio').value = localDatetime;
-                document.getElementById('execFechaFin').value = localDatetime;
+                if (inputInicio) inputInicio.value = localDatetime;
+                if (inputFin) inputFin.value = localDatetime;
+                if (inputParada) inputParada.value = '';
+                calcularTiempoNeto();
 
                 const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
                 const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
-                const contenedorOrdenMod = document.getElementById('contenedorOrdenMod');
-                const contenedorOrdenCif = document.getElementById('contenedorOrdenCif');
                 
                 tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><div class="spinner-border spinner-border-sm me-2"></div>Buscando stock...</td></tr>';
                 tbodyIngresos.innerHTML = '';
-                if (contenedorOrdenMod) contenedorOrdenMod.innerHTML = '';
-                if (contenedorOrdenCif) contenedorOrdenCif.innerHTML = '';
-                const estadoGuardadoMod = document.getElementById('estadoGuardadoMod');
-                if (estadoGuardadoMod) estadoGuardadoMod.textContent = '';
-
+                
                 const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
 
                 if (!precheckOk && typeof Swal !== 'undefined') {
@@ -300,47 +332,6 @@ if (!window.produccionJsInitialized) {
 
             if (e.target.closest('#btnAgregarConsumo')) { addConsumoRow(null); return; }
             if (e.target.closest('#btnAgregarIngreso')) { addIngresoRow(); return; }
-            if (e.target.closest('#btnGuardarTiemposModAjax')) {
-                const idOrden = document.getElementById('execIdOrden')?.value || '';
-                if (!idOrden) return;
-
-                const formData = new FormData();
-                formData.append('accion', 'guardar_tiempos_mod_ajax');
-                formData.append('id_orden', idOrden);
-
-                document.querySelectorAll('#contenedorOrdenMod .orden-mod-row').forEach((row) => {
-                    formData.append('orden_mod_id_empleado[]', row.querySelector('input[name="orden_mod_id_empleado[]"]')?.value || '');
-                    formData.append('orden_mod_horas_reales[]', row.querySelector('input[name="orden_mod_horas_reales[]"]')?.value || '');
-                    formData.append('orden_mod_costo_hora_real[]', row.querySelector('input[name="orden_mod_costo_hora_real[]"]')?.value || '');
-                });
-
-                try {
-                    const resp = await fetch(window.location.href, { method: 'POST', body: formData });
-                    const data = await resp.json();
-                    const estado = document.getElementById('estadoGuardadoMod');
-                    if (data.success) {
-                        if (estado) estado.textContent = `MOD guardada: ${data.data?.filas || 0} filas | Total S/ ${Number(data.data?.total_mod || 0).toFixed(4)}`;
-                    } else if (estado) {
-                        estado.textContent = data.message || 'No se pudo guardar MOD.';
-                    }
-                } catch (err) {
-                    const estado = document.getElementById('estadoGuardadoMod');
-                    if (estado) estado.textContent = 'Error de conexión al guardar tiempos MOD.';
-                }
-                return;
-            }
-            if (e.target.closest('#btnAgregarOrdenMod')) {
-                const tpl = document.getElementById('tplOrdenModRow');
-                const box = document.getElementById('contenedorOrdenMod');
-                if (tpl && box) box.appendChild(tpl.content.cloneNode(true));
-                return;
-            }
-            if (e.target.closest('#btnAgregarOrdenCif')) {
-                const tpl = document.getElementById('tplOrdenCifRow');
-                const box = document.getElementById('contenedorOrdenCif');
-                if (tpl && box) box.appendChild(tpl.content.cloneNode(true));
-                return;
-            }
 
             const btnRemove = e.target.closest('.js-remove-row');
             if (btnRemove) {
@@ -368,16 +359,6 @@ if (!window.produccionJsInitialized) {
 
                 trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
                 recalcularSemaforos();
-                return;
-            }
-
-            if (e.target.closest('.js-remove-orden-mod')) {
-                e.target.closest('.orden-mod-row')?.remove();
-                return;
-            }
-
-            if (e.target.closest('.js-remove-orden-cif')) {
-                e.target.closest('.orden-cif-row')?.remove();
                 return;
             }
         });
@@ -419,8 +400,7 @@ if (!window.produccionJsInitialized) {
             
             const boxJustificacion = document.getElementById('boxJustificacionFaltante');
             if (boxJustificacion) boxJustificacion.style.display = 'none';
-            const estadoGuardadoMod = document.getElementById('estadoGuardadoMod');
-            if (estadoGuardadoMod) estadoGuardadoMod.textContent = '';
+            if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
         });
     }
 
@@ -673,7 +653,7 @@ if (!window.produccionJsInitialized) {
         const form = modalPlanificar.querySelector('form');
         if (form) {
             form.addEventListener('submit', async function (e) {
-                e.preventDefault(); // Siempre usamos AJAX ahora
+                e.preventDefault(); 
 
                 const btnSubmit = form.querySelector('button[type="submit"]');
                 const originalText = btnSubmit.innerHTML;
@@ -683,7 +663,7 @@ if (!window.produccionJsInitialized) {
                 try {
                     // PASO 1: Guardar la Orden Principal (Padre)
                     const formData = new FormData(form);
-                    formData.set('accion', 'crear_orden_ajax'); // Forzamos acción AJAX
+                    formData.set('accion', 'crear_orden_ajax'); 
 
                     const resCrear = await fetch(window.location.href, {
                         method: 'POST',
@@ -711,7 +691,7 @@ if (!window.produccionJsInitialized) {
 
                     // PASO 3: Evaluar la respuesta del Asistente
                     if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
-                        // Hay faltantes, construimos la lista para el SweetAlert
+                        
                         let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted" style="font-size: 0.9rem;">';
                         resAnalisis.data.forEach(f => {
                             listaHtml += `<li class="mb-1"><i class="bi bi-box-seam me-2"></i><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger fw-bold">${f.cantidad_faltante}</span></li>`;
@@ -751,11 +731,9 @@ if (!window.produccionJsInitialized) {
                                 await Swal.fire('Error', 'Se creó la OP principal, pero hubo un problema al generar las sub-órdenes.', 'error');
                             }
                         } else {
-                            // Dijo que no, solo cerramos con éxito
                             await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden principal planificada correctamente.', timer: 1500, showConfirmButton: false });
                         }
                     } else {
-                        // NO hay faltantes (Todo está en stock)
                         await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden planificada. Stock de semielaborados suficiente.', timer: 1500, showConfirmButton: false });
                     }
 
@@ -764,12 +742,10 @@ if (!window.produccionJsInitialized) {
                     
                     const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
                     if (modalPlanificadorEl && modalPlanificadorEl.classList.contains('show')) {
-                        // Si el calendario está abierto, solo actualizamos el calendario
                         if (typeof window.cargarGridPlanificador === 'function') {
                             window.cargarGridPlanificador(); 
                         }
                     } else {
-                        // Si estábamos en la tabla normal, recargamos la página entera para ver las nuevas órdenes
                         window.location.reload();
                     }
 
@@ -1031,7 +1007,6 @@ if (!window.produccionJsInitialized) {
             document.body.classList.add('modal-open');
         }
     });
-
 
     // =========================================================================
     // FIX DEFINITIVO PARA MODALES SUPERPUESTOS EN BOOTSTRAP (Z-INDEX)

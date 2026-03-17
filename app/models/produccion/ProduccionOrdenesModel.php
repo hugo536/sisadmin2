@@ -100,10 +100,6 @@ class ProduccionOrdenesModel extends Modelo
         return $diccionario;
     }
 
-    // =====================================================================
-    // CÓDIGO EXISTENTE INTACTO
-    // =====================================================================
-
     public function listarOrdenes(): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.cantidad_producida,
@@ -166,16 +162,8 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
 
-        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
-                                                   FROM almacenes
-                                                   WHERE id = :id
-                                                     AND estado = 1
-                                                     AND deleted_at IS NULL
-                                                     AND tipo = :tipo');
-        $stmtAlmacenPlanta->execute([
-            'id' => $idAlmacenPlanta,
-            'tipo' => 'Planta',
-        ]);
+        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*) FROM almacenes WHERE id = :id AND estado = 1 AND deleted_at IS NULL AND tipo = :tipo');
+        $stmtAlmacenPlanta->execute(['id' => $idAlmacenPlanta, 'tipo' => 'Planta']);
         if ((int) $stmtAlmacenPlanta->fetchColumn() <= 0) {
             throw new RuntimeException('El almacén de planta seleccionado no es válido.');
         }
@@ -194,9 +182,7 @@ class ProduccionOrdenesModel extends Modelo
                                           observaciones = :observaciones,
                                           updated_at = NOW(),
                                           updated_by = :updated_by
-                                      WHERE id = :id
-                                        AND estado = 0
-                                        AND deleted_at IS NULL');
+                                      WHERE id = :id AND estado = 0 AND deleted_at IS NULL');
         $stmt->execute([
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
             'fecha_programada' => $fechaProgramada,
@@ -214,17 +200,8 @@ class ProduccionOrdenesModel extends Modelo
 
     public function eliminarOrdenBorrador(int $idOrden, int $userId): void
     {
-        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
-                                      SET deleted_at = NOW(),
-                                          updated_at = NOW(),
-                                          updated_by = :updated_by
-                                      WHERE id = :id
-                                        AND estado = 0
-                                        AND deleted_at IS NULL');
-        $stmt->execute([
-            'id' => $idOrden,
-            'updated_by' => $userId,
-        ]);
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes SET deleted_at = NOW(), updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND estado = 0 AND deleted_at IS NULL');
+        $stmt->execute(['id' => $idOrden, 'updated_by' => $userId]);
         if ($stmt->rowCount() < 1) {
             throw new RuntimeException('Solo se pueden eliminar órdenes en Borrador.');
         }
@@ -232,18 +209,8 @@ class ProduccionOrdenesModel extends Modelo
 
     public function marcarOrdenEnProceso(int $idOrden, int $userId): void
     {
-        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
-                                      SET estado = 1,
-                                          fecha_inicio = COALESCE(fecha_inicio, NOW()),
-                                          updated_at = NOW(),
-                                          updated_by = :updated_by
-                                      WHERE id = :id
-                                        AND estado = 0
-                                        AND deleted_at IS NULL');
-        $stmt->execute([
-            'id' => $idOrden,
-            'updated_by' => $userId,
-        ]);
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes SET estado = 1, fecha_inicio = COALESCE(fecha_inicio, NOW()), updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND estado = 0 AND deleted_at IS NULL');
+        $stmt->execute(['id' => $idOrden, 'updated_by' => $userId]);
     }
 
     private function evaluarPrecheckOrden(int $idOrden): array
@@ -274,8 +241,7 @@ class ProduccionOrdenesModel extends Modelo
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                 INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                 INNER JOIN items i ON i.id = d.id_insumo
-                WHERE o.id = :id_orden
-                  AND o.deleted_at IS NULL';
+                WHERE o.id = :id_orden AND o.deleted_at IS NULL';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_orden' => $idOrden]);
@@ -305,7 +271,7 @@ class ProduccionOrdenesModel extends Modelo
             if ($requiereLote && $lotesDisponibles <= 0) {
                 $ok = false;
                 $estadoItem = 'SIN LOTE';
-                $faltantes[] = sprintf('%s (requiere lote sin disponibilidad)', (string) ($fila['insumo_nombre'] ?? 'Insumo'));
+                $faltantes[] = sprintf('%s (requiere lote)', (string) ($fila['insumo_nombre'] ?? 'Insumo'));
             }
 
             $detalle[] = [
@@ -316,9 +282,7 @@ class ProduccionOrdenesModel extends Modelo
             ];
         }
 
-        $resumen = $ok
-            ? 'Stock de planta suficiente para todos los insumos'
-            : ('Faltantes: ' . implode('; ', $faltantes));
+        $resumen = $ok ? 'Stock de planta suficiente para todos los insumos' : ('Faltantes: ' . implode('; ', $faltantes));
 
         return ['ok' => $ok, 'resumen' => $resumen, 'detalle' => $detalle];
     }
@@ -328,10 +292,8 @@ class ProduccionOrdenesModel extends Modelo
         $sql = 'SELECT r.id, r.codigo, r.version, i.nombre AS producto_nombre
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
-                WHERE r.estado = 1
-                  AND r.deleted_at IS NULL
+                WHERE r.estado = 1 AND r.deleted_at IS NULL
                 ORDER BY i.nombre ASC';
-
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -339,28 +301,19 @@ class ProduccionOrdenesModel extends Modelo
     public function buscarInsumosStockeables(string $termino, int $limite = 30): array
     {
         $busqueda = '%' . $termino . '%';
-        
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
                 FROM items
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND controla_stock = 1
+                WHERE estado = 1 AND deleted_at IS NULL AND controla_stock = 1
                   AND (nombre LIKE :termino_nombre OR sku LIKE :termino_sku)
-                ORDER BY nombre ASC
-                LIMIT ' . (int)$limite;
+                ORDER BY nombre ASC LIMIT ' . (int)$limite;
 
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute([
-            'termino_nombre' => $busqueda,
-            'termino_sku' => $busqueda
-        ]);
-        
+        $stmt->execute(['termino_nombre' => $busqueda, 'termino_sku' => $busqueda]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($items as &$item) {
             $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
         }
-
         return $items;
     }
 
@@ -368,29 +321,20 @@ class ProduccionOrdenesModel extends Modelo
     {
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
                 FROM items
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND controla_stock = 1
+                WHERE estado = 1 AND deleted_at IS NULL AND controla_stock = 1
                 ORDER BY nombre ASC';
-
         $stmt = $this->db()->query($sql);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($items as &$item) {
             $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
         }
-
         return $items;
     }
 
     public function listarAlmacenesActivos(): array
     {
-        $sql = 'SELECT id, nombre
-                FROM almacenes
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                ORDER BY nombre ASC';
-
+        $sql = 'SELECT id, nombre FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -398,18 +342,9 @@ class ProduccionOrdenesModel extends Modelo
     public function listarAlmacenesActivosPorTipo(string $tipo): array
     {
         $tipo = trim($tipo);
-        if ($tipo === '') {
-            return [];
-        }
-
-        $stmt = $this->db()->prepare('SELECT id, nombre
-                                      FROM almacenes
-                                      WHERE estado = 1
-                                        AND deleted_at IS NULL
-                                        AND tipo = :tipo
-                                      ORDER BY nombre ASC');
+        if ($tipo === '') return [];
+        $stmt = $this->db()->prepare('SELECT id, nombre FROM almacenes WHERE estado = 1 AND deleted_at IS NULL AND tipo = :tipo ORDER BY nombre ASC');
         $stmt->execute(['tipo' => $tipo]);
-
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -430,16 +365,8 @@ class ProduccionOrdenesModel extends Modelo
             throw new RuntimeException('La fecha programada no tiene un formato válido.');
         }
 
-        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*)
-                                                   FROM almacenes
-                                                   WHERE id = :id
-                                                     AND estado = 1
-                                                     AND deleted_at IS NULL
-                                                     AND tipo = :tipo');
-        $stmtAlmacenPlanta->execute([
-            'id' => $idAlmacenPlanta,
-            'tipo' => 'Planta',
-        ]);
+        $stmtAlmacenPlanta = $this->db()->prepare('SELECT COUNT(*) FROM almacenes WHERE id = :id AND estado = 1 AND deleted_at IS NULL AND tipo = :tipo');
+        $stmtAlmacenPlanta->execute(['id' => $idAlmacenPlanta, 'tipo' => 'Planta']);
         if ((int) $stmtAlmacenPlanta->fetchColumn() <= 0) {
             throw new RuntimeException('El almacén de planta seleccionado no es válido.');
         }
@@ -466,7 +393,7 @@ class ProduccionOrdenesModel extends Modelo
             'costo_teorico_total_snapshot' => number_format($snapshot['costo_teorico_total_snapshot'], 4, '.', ''),
             'id_almacen_planta' => $idAlmacenPlanta,
             'cantidad_planificada' => number_format($cantidadPlanificada, 4, '.', ''),
-            'fecha_programada' => $fechaProgramada !== '' ? $fechaProgramada : null,
+            'fecha_programada' => $fechaProgramada,
             'created_by' => $userId,
             'updated_by' => $userId,
             'observaciones' => $observaciones !== '' ? $observaciones : null,
@@ -477,11 +404,7 @@ class ProduccionOrdenesModel extends Modelo
 
     private function obtenerSnapshotReceta(int $idReceta, float $cantidadPlanificada): array
     {
-        $stmt = $this->db()->prepare('SELECT id_producto, codigo, version, costo_teorico_unitario
-                                      FROM produccion_recetas
-                                      WHERE id = :id
-                                        AND deleted_at IS NULL
-                                      LIMIT 1');
+        $stmt = $this->db()->prepare('SELECT id_producto, codigo, version, costo_teorico_unitario FROM produccion_recetas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmt->execute(['id' => $idReceta]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -500,8 +423,20 @@ class ProduccionOrdenesModel extends Modelo
         ];
     }
 
-    public function ejecutarOrden(int $idOrden, array $consumos, array $ingresos, int $userId, string $justificacion = '', ?string $fechaInicio = null, ?string $fechaFin = null, array $manoObra = [], array $cif = []): void
-    {
+
+    // =====================================================================
+    // MOTOR DE EJECUCIÓN (NUEVO COSTEO ESTÁNDAR POR LÍNEA)
+    // =====================================================================
+    public function ejecutarOrden(
+        int $idOrden, 
+        array $consumos, 
+        array $ingresos, 
+        int $userId, 
+        string $justificacion = '', 
+        ?string $fechaInicio = null, 
+        ?string $fechaFin = null, 
+        float $horasParada = 0.0
+    ): void {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
         }
@@ -511,30 +446,20 @@ class ProduccionOrdenesModel extends Modelo
 
         try {
             $orden = $this->obtenerOrdenPorId($idOrden);
-            if (!$orden) {
-                throw new RuntimeException('La orden no existe.');
-            }
-            if ((int) $orden['estado'] === 2) {
-                throw new RuntimeException('La orden ya fue ejecutada.');
-            }
-            if ((int) $orden['estado'] === 9) {
-                throw new RuntimeException('No se puede ejecutar una orden anulada.');
-            }
+            if (!$orden) throw new RuntimeException('La orden no existe.');
+            if ((int) $orden['estado'] === 2) throw new RuntimeException('La orden ya fue ejecutada.');
+            if ((int) $orden['estado'] === 9) throw new RuntimeException('No se puede ejecutar una orden anulada.');
 
             $inventarioModel = new InventarioModel(); 
             $costoTotalConsumo = 0.0;
 
+            // 1. REGISTRAR CONSUMOS (MD)
             $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento FROM items WHERE id = :id LIMIT 1');
-
-            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
-                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
-                                         VALUES
-                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
             foreach ($consumos as $consumo) {
                 $idInsumo = (int) ($consumo['id_insumo'] ?? 0);
                 $cantidadUsada = (float) ($consumo['cantidad'] ?? 0);
-                
                 if ($idInsumo <= 0 || $cantidadUsada <= 0) continue;
 
                 $stmtInfoItem->execute(['id' => $idInsumo]);
@@ -546,7 +471,7 @@ class ProduccionOrdenesModel extends Modelo
                 $lote = trim((string) ($consumo['lote'] ?? ''));
 
                 if ($controlaStock && $idAlmacenOrigen <= 0) {
-                    throw new RuntimeException("El insumo (ID {$idInsumo}) controla stock. Debe seleccionar obligatoriamente un almacén de origen.");
+                    throw new RuntimeException("El insumo (ID {$idInsumo}) controla stock. Debe seleccionar un almacén de origen.");
                 }
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
@@ -563,13 +488,11 @@ class ProduccionOrdenesModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                $idItemUnidadInsumo = $this->obtenerUnidadPorDefecto($idInsumo);
-
                 if ($controlaStock && method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
                         'id_item' => $idInsumo,
-                        'id_item_unidad' => $idItemUnidadInsumo, 
+                        'id_item_unidad' => $this->obtenerUnidadPorDefecto($idInsumo), 
                         'id_almacen_origen' => $idAlmacenOrigen,
                         'id_almacen_destino' => null, 
                         'cantidad' => $cantidadUsada,
@@ -581,26 +504,55 @@ class ProduccionOrdenesModel extends Modelo
                 }
             }
 
-            $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
-            
-            if ($cantidadTotalProducida <= 0) {
-                throw new RuntimeException('La cantidad total producida debe ser mayor a cero.');
+            // 2. CÁLCULO DE HORAS Y COSTOS (MOD / CIF AUTOMÁTICOS)
+            $tarifaMod = 0.0;
+            $tarifaCif = 0.0;
+            $idPlanta = (int) ($orden['id_almacen_planta'] ?? 0);
+
+            if ($idPlanta > 0) {
+                $stmtPlanta = $db->prepare('SELECT tarifa_mod_hora, tarifa_cif_hora FROM almacenes WHERE id = :id');
+                $stmtPlanta->execute(['id' => $idPlanta]);
+                $planta = $stmtPlanta->fetch(PDO::FETCH_ASSOC);
+                if ($planta) {
+                    $tarifaMod = (float) ($planta['tarifa_mod_hora'] ?? 0);
+                    $tarifaCif = (float) ($planta['tarifa_cif_hora'] ?? 0);
+                }
             }
 
-            $stmtMdReal = $db->prepare('SELECT COALESCE(SUM(cantidad * costo_unitario), 0)
-                                        FROM produccion_consumos
-                                        WHERE id_orden_produccion = :id_orden');
-            $stmtMdReal->execute(['id_orden' => $idOrden]);
-            $costoTotalConsumo = (float) ($stmtMdReal->fetchColumn() ?: $costoTotalConsumo);
+            // Matemática de Tiempos
+            $fIni = $fechaInicio ? new DateTime($fechaInicio) : new DateTime();
+            $fFin = $fechaFin ? new DateTime($fechaFin) : new DateTime();
+            $diff = $fIni->diff($fFin);
+            
+            $totalHours = ($diff->days * 24) + $diff->h + ($diff->i / 60) + ($diff->s / 3600);
+            $netHours = max(0, $totalHours - $horasParada);
 
+            $costoModReal = $netHours * $tarifaMod;
+            $costoCifReal = $netHours * $tarifaCif;
+
+            // Limpiamos registros manuales viejos si existían
             $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
             $db->prepare('DELETE FROM produccion_ordenes_cif WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
 
-            $costoModReal = $this->guardarCostoModOrden($db, $idOrden, $manoObra);
-            $costoCifReal = $this->guardarCostoCifOrden($db, $idOrden, $cif);
+            // Guardamos el desglose para el visualizador (Permitiendo id_empleado NULL si la BD lo permite)
+            if ($costoModReal > 0) {
+                try {
+                    $db->prepare('INSERT INTO produccion_ordenes_mod (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod) VALUES (?, NULL, ?, ?, ?)')
+                       ->execute([$idOrden, $netHours, $tarifaMod, $costoModReal]);
+                } catch (Throwable $e) {} // Ignoramos error si la DB antigua exige FK, el total global se guardará igual
+            }
 
-            if ($costoCifReal <= 0) {
-                $costoCifReal = $this->guardarCostoCifCuotaPredeterminada($db, $idOrden, $cantidadTotalProducida);
+            if ($costoCifReal > 0) {
+                try {
+                    $db->prepare('INSERT INTO produccion_ordenes_cif (id_orden, concepto, base_distribucion, costo_aplicado) VALUES (?, ?, ?, ?)')
+                       ->execute([$idOrden, 'Tarifa Estándar de Planta (Luz, Agua, Depreciación)', number_format($netHours, 2) . ' Hrs Máquina', $costoCifReal]);
+                } catch (Throwable $e) {}
+            }
+
+            // 3. REGISTRAR INGRESOS AL ALMACÉN
+            $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
+            if ($cantidadTotalProducida <= 0) {
+                throw new RuntimeException('La cantidad total producida debe ser mayor a cero.');
             }
 
             $costoRealTotal = $costoTotalConsumo + $costoModReal + $costoCifReal;
@@ -610,10 +562,7 @@ class ProduccionOrdenesModel extends Modelo
             $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
             $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
 
-            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos
-                                            (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by)
-                                         VALUES
-                                            (:id_orden_produccion, :id_item, :id_almacen, :lote, :fecha_vencimiento, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
+            $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :lote, :fecha_vencimiento, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
             $idItemUnidadTerminado = $this->obtenerUnidadPorDefecto((int) $orden['id_producto']);
 
@@ -625,9 +574,6 @@ class ProduccionOrdenesModel extends Modelo
                 $lote = trim((string) ($ingreso['lote'] ?? ''));
                 $fechaVencimiento = trim((string) ($ingreso['fecha_vencimiento'] ?? ''));
 
-                $loteDb = $lote !== '' ? $lote : null;
-                $fechaVencDb = $fechaVencimiento !== '' ? $fechaVencimiento : null;
-
                 if ($controlaStockProd && $idAlmacenDestino <= 0) {
                     throw new RuntimeException("El producto fabricado controla stock. Debe seleccionar un almacén de destino.");
                 }
@@ -636,8 +582,8 @@ class ProduccionOrdenesModel extends Modelo
                     'id_orden_produccion' => $idOrden,
                     'id_item' => (int) $orden['id_producto'],
                     'id_almacen' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
-                    'lote' => $loteDb, 
-                    'fecha_vencimiento' => $fechaVencDb, 
+                    'lote' => $lote !== '' ? $lote : null, 
+                    'fecha_vencimiento' => $fechaVencimiento !== '' ? $fechaVencimiento : null, 
                     'cantidad' => number_format($cantidadIngresada, 4, '.', ''),
                     'costo_unitario_calculado' => number_format($costoUnitarioIngreso, 4, '.', ''),
                     'created_by' => $userId,
@@ -661,6 +607,7 @@ class ProduccionOrdenesModel extends Modelo
                 }
             }
 
+            // 4. CERRAR LA ORDEN Y ENVIAR A CONTABILIDAD
             $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
                                         SET cantidad_producida = :cantidad_producida,
                                             costo_md_real = :costo_md_real,
@@ -678,8 +625,7 @@ class ProduccionOrdenesModel extends Modelo
                                             justificacion_ajuste = :justificacion,
                                             updated_at = NOW(),
                                             updated_by = :updated_by
-                                        WHERE id = :id
-                                          AND deleted_at IS NULL');
+                                        WHERE id = :id AND deleted_at IS NULL');
             $stmtUpdate->execute([
                 'cantidad_producida' => number_format($cantidadTotalProducida, 4, '.', ''),
                 'costo_md_real' => number_format($costoTotalConsumo, 4, '.', ''),
@@ -726,37 +672,24 @@ class ProduccionOrdenesModel extends Modelo
         }
 
         $orden = $this->obtenerOrdenPorId($idOrden);
-        if ($orden === []) {
-            throw new RuntimeException('La orden no existe.');
-        }
-        if (!in_array((int) ($orden['estado'] ?? -1), [1, 2], true)) {
-            throw new RuntimeException('Solo se puede reportar avance para órdenes en proceso o ejecutadas.');
-        }
+        if ($orden === []) throw new RuntimeException('La orden no existe.');
+        if (!in_array((int) ($orden['estado'] ?? -1), [1, 2], true)) throw new RuntimeException('Solo se puede reportar avance para órdenes en proceso o ejecutadas.');
 
         $idAlmacenPlanta = (int) ($orden['id_almacen_planta'] ?? 0);
-        if ($idAlmacenPlanta <= 0) {
-            throw new RuntimeException('La orden no tiene almacén planta configurado.');
-        }
+        if ($idAlmacenPlanta <= 0) throw new RuntimeException('La orden no tiene almacén planta configurado.');
 
         $fecha = trim((string) ($fechaOperacion ?? ''));
-        if ($fecha === '') {
-            $fecha = date('Y-m-d');
-        }
+        if ($fecha === '') $fecha = date('Y-m-d');
 
         $detalles = $this->obtenerDetalleReceta((int) ($orden['id_receta'] ?? 0));
-        if ($detalles === []) {
-            throw new RuntimeException('La receta no tiene detalle de insumos para consumo teórico.');
-        }
+        if ($detalles === []) throw new RuntimeException('La receta no tiene detalle de insumos para consumo teórico.');
 
         $inventarioModel = new InventarioModel();
         $db = $this->db();
         $db->beginTransaction();
 
         try {
-            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos
-                                            (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by)
-                                         VALUES
-                                            (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
+            $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
             $totalMd = 0.0;
             $lineas = 0;
@@ -765,16 +698,12 @@ class ProduccionOrdenesModel extends Modelo
                 $idInsumo = (int) ($d['id_insumo'] ?? 0);
                 $qtyBase = (float) ($d['cantidad_por_unidad'] ?? 0);
                 $merma = (float) ($d['merma_porcentaje'] ?? 0);
-                if ($idInsumo <= 0 || $qtyBase <= 0) {
-                    continue;
-                }
+                if ($idInsumo <= 0 || $qtyBase <= 0) continue;
 
                 $rendimientoBase = (float) ($d['rendimiento_base'] ?? 0);
                 $factorEscala = $rendimientoBase > 0 ? ($cantidadAvance / $rendimientoBase) : 0;
                 $cantidadTeorica = $qtyBase * $factorEscala * (1 + ($merma / 100));
-                if ($cantidadTeorica <= 0) {
-                    continue;
-                }
+                if ($cantidadTeorica <= 0) continue;
 
                 $costoUnitario = $this->obtenerCostoReferencial($idInsumo);
                 $stmtConsumo->execute([
@@ -809,17 +738,8 @@ class ProduccionOrdenesModel extends Modelo
                 throw new RuntimeException('No se pudo generar consumo teórico para el avance reportado.');
             }
 
-            $stmtUpdate = $db->prepare('UPDATE produccion_ordenes
-                                        SET cantidad_producida = COALESCE(cantidad_producida, 0) + :avance,
-                                            updated_at = NOW(),
-                                            updated_by = :updated_by
-                                        WHERE id = :id
-                                          AND deleted_at IS NULL');
-            $stmtUpdate->execute([
-                'avance' => number_format($cantidadAvance, 4, '.', ''),
-                'updated_by' => $userId,
-                'id' => $idOrden,
-            ]);
+            $stmtUpdate = $db->prepare('UPDATE produccion_ordenes SET cantidad_producida = COALESCE(cantidad_producida, 0) + :avance, updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND deleted_at IS NULL');
+            $stmtUpdate->execute(['avance' => number_format($cantidadAvance, 4, '.', ''), 'updated_by' => $userId, 'id' => $idOrden]);
 
             $db->commit();
 
@@ -836,110 +756,20 @@ class ProduccionOrdenesModel extends Modelo
         }
     }
 
-    public function sincronizarModDesdeAsistencia(int $idOrden, int $userId): array
-    {
-        if ($idOrden <= 0 || $userId <= 0) {
-            throw new RuntimeException('Datos inválidos para sincronizar MOD.');
-        }
-
-        $stmtOrden = $this->db()->prepare('SELECT id, estado,
-                                                  DATE(COALESCE(fecha_inicio, fecha_programada)) AS fecha_inicio_ref,
-                                                  DATE(COALESCE(fecha_fin, CURDATE())) AS fecha_fin_ref
-                                           FROM produccion_ordenes
-                                           WHERE id = :id_orden
-                                             AND deleted_at IS NULL
-                                           LIMIT 1');
-        $stmtOrden->execute(['id_orden' => $idOrden]);
-        $orden = $stmtOrden->fetch(PDO::FETCH_ASSOC) ?: [];
-        if ($orden === []) {
-            throw new RuntimeException('Orden no encontrada para sincronizar MOD.');
-        }
-
-        $fechaInicio = (string) ($orden['fecha_inicio_ref'] ?? '');
-        $fechaFin = (string) ($orden['fecha_fin_ref'] ?? '');
-        if ($fechaInicio === '' || $fechaFin === '') {
-            throw new RuntimeException('La orden no tiene rango de fechas válido para asistencia.');
-        }
-
-        $stmt = $this->db()->prepare('SELECT ar.id_tercero AS id_empleado,
-                                             COALESCE(SUM(COALESCE(ar.horas_trabajadas, 0) + COALESCE(ar.horas_extras, 0)), 0) AS horas_totales
-                                      FROM asistencia_registros ar
-                                      WHERE ar.fecha >= :fecha_inicio
-                                        AND ar.fecha <= :fecha_fin
-                                        AND ar.id_tercero IS NOT NULL
-                                      GROUP BY ar.id_tercero
-                                      HAVING horas_totales > 0');
-        $stmt->execute([
-            'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => $fechaFin,
-        ]);
-
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        $tiempos = [];
-        foreach ($rows as $r) {
-            $idEmpleado = (int) ($r['id_empleado'] ?? 0);
-            $horas = (float) ($r['horas_totales'] ?? 0);
-            if ($idEmpleado <= 0 || $horas <= 0) {
-                continue;
-            }
-
-            $costoHora = $this->obtenerCostoHoraEmpleado($idEmpleado);
-            if ($costoHora <= 0) {
-                continue;
-            }
-
-            $tiempos[] = [
-                'id_empleado' => $idEmpleado,
-                'horas_reales' => $horas,
-                'costo_hora_real' => $costoHora,
-            ];
-        }
-
-        $resultado = $this->guardarTiemposModOrden($idOrden, $tiempos);
-
-        $stmtUpdate = $this->db()->prepare('UPDATE produccion_ordenes
-                                            SET costo_mod_real = :costo_mod_real,
-                                                total_mod_real = :costo_mod_real,
-                                                updated_at = NOW(),
-                                                updated_by = :updated_by
-                                            WHERE id = :id_orden
-                                              AND deleted_at IS NULL');
-        $stmtUpdate->execute([
-            'costo_mod_real' => number_format((float) ($resultado['total_mod'] ?? 0), 4, '.', ''),
-            'updated_by' => $userId,
-            'id_orden' => $idOrden,
-        ]);
-
-        return $resultado;
-    }
-
     public function anularOrden(int $idOrden, int $userId): void
     {
-        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
-                                      SET estado = 9,
-                                          fecha_fin = NOW(),
-                                          updated_at = NOW(),
-                                          updated_by = :updated_by
-                                      WHERE id = :id
-                                        AND estado IN (0, 1)
-                                        AND deleted_at IS NULL');
-        $stmt->execute([
-            'id' => $idOrden,
-            'updated_by' => $userId,
-        ]);
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes SET estado = 9, fecha_fin = NOW(), updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND estado IN (0, 1) AND deleted_at IS NULL');
+        $stmt->execute(['id' => $idOrden, 'updated_by' => $userId]);
     }
 
     public function obtenerDetalleReceta(int $idReceta): array
     {
-        $sql = 'SELECT d.id_insumo, d.etapa, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre,
-                       r.rendimiento_base
+        $sql = 'SELECT d.id_insumo, d.etapa, d.cantidad_por_unidad, d.merma_porcentaje, i.nombre AS insumo_nombre, r.rendimiento_base
                 FROM produccion_recetas_detalle d
                 INNER JOIN produccion_recetas r ON r.id = d.id_receta
                 INNER JOIN items i ON i.id = d.id_insumo
-                WHERE d.id_receta = :id_receta
-                  AND d.deleted_at IS NULL
+                WHERE d.id_receta = :id_receta AND d.deleted_at IS NULL
                 ORDER BY d.id ASC';
-
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_receta' => $idReceta]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -948,11 +778,7 @@ class ProduccionOrdenesModel extends Modelo
     public function obtenerDesgloseCostosOrden(int $idOrden): array
     {
         if ($idOrden <= 0) {
-            return [
-                'materiales' => [],
-                'mod' => [],
-                'cif' => [],
-            ];
+            return ['materiales' => [], 'mod' => [], 'cif' => []];
         }
 
         $stmtMd = $this->db()->prepare('SELECT d.id_insumo AS id_item,
@@ -965,17 +791,15 @@ class ProduccionOrdenesModel extends Modelo
                                         INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                                         INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                                         INNER JOIN items i ON i.id = d.id_insumo
-                                        LEFT JOIN produccion_consumos c ON c.id_orden_produccion = o.id
-                                                                      AND c.id_item = d.id_insumo
-                                                                      AND c.deleted_at IS NULL
-                                        WHERE o.id = :id_orden
-                                          AND o.deleted_at IS NULL
+                                        LEFT JOIN produccion_consumos c ON c.id_orden_produccion = o.id AND c.id_item = d.id_insumo AND c.deleted_at IS NULL
+                                        WHERE o.id = :id_orden AND o.deleted_at IS NULL
                                         GROUP BY d.id_insumo, i.nombre, d.cantidad_por_unidad, d.merma_porcentaje, o.cantidad_producida, o.cantidad_planificada, r.rendimiento_base
                                         ORDER BY i.nombre ASC');
         $stmtMd->execute(['id_orden' => $idOrden]);
 
+        // MOD: Mostramos si hay un empleado, sino usamos la etiqueta genérica de Planta
         $stmtMod = $this->db()->prepare('SELECT m.id_empleado,
-                                                t.nombre_completo AS empleado,
+                                                COALESCE(t.nombre_completo, "Tarifa Estándar de Línea") AS empleado,
                                                 m.horas_reales,
                                                 m.costo_hora_real,
                                                 COALESCE(m.costo_total_mod, (m.horas_reales * m.costo_hora_real)) AS costo_total_mod
@@ -984,74 +808,68 @@ class ProduccionOrdenesModel extends Modelo
                                          WHERE m.id_orden = :id_orden
                                          ORDER BY m.id ASC');
         $stmtMod->execute(['id_orden' => $idOrden]);
+        $modRows = $stmtMod->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        $stmtCif = $this->db()->prepare('SELECT concepto,
-                                                base_distribucion,
-                                                costo_aplicado
-                                         FROM produccion_ordenes_cif
-                                         WHERE id_orden = :id_orden
-                                         ORDER BY id ASC');
+        // Fallback: Si no se pudo guardar el detalle por FK estricto, leemos el global de la orden
+        if (empty($modRows)) {
+            $stmtM = $this->db()->prepare('SELECT costo_mod_real FROM produccion_ordenes WHERE id = ?');
+            $stmtM->execute([$idOrden]);
+            $cMod = (float) $stmtM->fetchColumn();
+            if ($cMod > 0) {
+                $modRows[] = ['id_empleado' => null, 'empleado' => 'Tarifa Estándar de Línea (Global)', 'horas_reales' => 1, 'costo_hora_real' => $cMod, 'costo_total_mod' => $cMod];
+            }
+        }
+
+        $stmtCif = $this->db()->prepare('SELECT concepto, base_distribucion, costo_aplicado FROM produccion_ordenes_cif WHERE id_orden = :id_orden ORDER BY id ASC');
         $stmtCif->execute(['id_orden' => $idOrden]);
+        $cifRows = $stmtCif->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (empty($cifRows)) {
+            $stmtC = $this->db()->prepare('SELECT costo_cif_real FROM produccion_ordenes WHERE id = ?');
+            $stmtC->execute([$idOrden]);
+            $cCif = (float) $stmtC->fetchColumn();
+            if ($cCif > 0) {
+                $cifRows[] = ['concepto' => 'CIF Estándar de Planta (Global)', 'base_distribucion' => 'Global', 'costo_aplicado' => $cCif];
+            }
+        }
 
         return [
             'materiales' => $stmtMd->fetchAll(PDO::FETCH_ASSOC) ?: [],
-            'mod' => $stmtMod->fetchAll(PDO::FETCH_ASSOC) ?: [],
-            'cif' => $stmtCif->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'mod' => $modRows,
+            'cif' => $cifRows,
         ];
     }
 
     public function obtenerStockTotalItem(int $idItem): float
     {
-        $stmt = $this->db()->prepare('SELECT COALESCE(SUM(stock_actual), 0)
-                                      FROM inventario_stock
-                                      WHERE id_item = :id_item');
+        $stmt = $this->db()->prepare('SELECT COALESCE(SUM(stock_actual), 0) FROM inventario_stock WHERE id_item = :id_item');
         $stmt->execute(['id_item' => $idItem]);
-
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
     public function obtenerAlmacenesConStockItem(int $idItem): array
     {
-        $stmt = $this->db()->prepare('SELECT a.id, a.nombre, s.stock_actual
-                                      FROM inventario_stock s
-                                      INNER JOIN almacenes a ON a.id = s.id_almacen
-                                      WHERE s.id_item = :id_item
-                                        AND s.stock_actual > 0');
+        $stmt = $this->db()->prepare('SELECT a.id, a.nombre, s.stock_actual FROM inventario_stock s INNER JOIN almacenes a ON a.id = s.id_almacen WHERE s.id_item = :id_item AND s.stock_actual > 0');
         $stmt->execute(['id_item' => $idItem]);
-
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function obtenerOrdenPorId(int $idOrden): array
     {
-        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado,
+        $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado, o.id_almacen_planta,
                        r.id_producto
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
-                WHERE o.id = :id
-                  AND o.deleted_at IS NULL
-                  AND r.deleted_at IS NULL
-                LIMIT 1';
-
+                WHERE o.id = :id AND o.deleted_at IS NULL AND r.deleted_at IS NULL LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $idOrden]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        return $row ?: [];
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function obtenerStockItemAlmacen(int $idItem, int $idAlmacen): float
     {
-        $stmt = $this->db()->prepare('SELECT stock_actual
-                                      FROM inventario_stock
-                                      WHERE id_item = :id_item
-                                        AND id_almacen = :id_almacen
-                                      LIMIT 1');
-        $stmt->execute([
-            'id_item' => $idItem,
-            'id_almacen' => $idAlmacen,
-        ]);
-
+        $stmt = $this->db()->prepare('SELECT stock_actual FROM inventario_stock WHERE id_item = :id_item AND id_almacen = :id_almacen LIMIT 1');
+        $stmt->execute(['id_item' => $idItem, 'id_almacen' => $idAlmacen]);
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
@@ -1062,262 +880,22 @@ class ProduccionOrdenesModel extends Modelo
         $costoFijo = (float)($stmt->fetchColumn() ?: 0);
         if ($costoFijo > 0) return $costoFijo;
 
-        $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario 
-                                         FROM produccion_recetas 
-                                         WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL 
-                                         ORDER BY id DESC LIMIT 1');
+        $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario FROM produccion_recetas WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
         $stmtRec->execute(['id' => $idItem]);
         $costoReceta = (float)($stmtRec->fetchColumn() ?: 0);
         if ($costoReceta > 0) return $costoReceta;
 
-        $stmtMov = $this->db()->prepare('SELECT costo_unitario 
-                                         FROM inventario_movimientos 
-                                         WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 
-                                         ORDER BY id DESC LIMIT 1');
+        $stmtMov = $this->db()->prepare('SELECT costo_unitario FROM inventario_movimientos WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 ORDER BY id DESC LIMIT 1');
         $stmtMov->execute(['id' => $idItem]);
         return (float)($stmtMov->fetchColumn() ?: 0);
     }
 
     private function obtenerUnidadPorDefecto(int $idItem): ?int
     {
-        $stmt = $this->db()->prepare('SELECT id_item_unidad
-                                      FROM inventario_movimientos
-                                      WHERE id_item = :id_item
-                                        AND id_item_unidad IS NOT NULL
-                                      ORDER BY id DESC LIMIT 1');
+        $stmt = $this->db()->prepare('SELECT id_item_unidad FROM inventario_movimientos WHERE id_item = :id_item AND id_item_unidad IS NOT NULL ORDER BY id DESC LIMIT 1');
         $stmt->execute(['id_item' => $idItem]);
         $val = $stmt->fetchColumn();
-        
         return $val ? (int) $val : null;
-    }
-
-    public function guardarTiemposModOrden(int $idOrden, array $tiempos): array
-    {
-        if ($idOrden <= 0) {
-            throw new RuntimeException('Orden inválida para registrar tiempos MOD.');
-        }
-
-        $db = $this->db();
-        $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
-
-        $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
-                                (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod)
-                              VALUES
-                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real, :costo_total_mod)');
-
-        $total = 0.0;
-        $filas = 0;
-        foreach ($tiempos as $fila) {
-            $idEmpleado = (int) ($fila['id_empleado'] ?? 0);
-            if ($idEmpleado <= 0) {
-                continue;
-            }
-
-            $horasReales = (float) ($fila['horas_reales'] ?? 0);
-            if ($horasReales <= 0) {
-                $horasReales = $this->estimarHorasDesdeAsistencia($idEmpleado, $idOrden);
-            }
-
-            $costoHoraReal = (float) ($fila['costo_hora_real'] ?? 0);
-            if ($costoHoraReal <= 0) {
-                $costoHoraReal = $this->obtenerCostoHoraEmpleado($idEmpleado);
-            }
-
-            if ($horasReales <= 0 || $costoHoraReal <= 0) {
-                continue;
-            }
-
-            $stmt->execute([
-                'id_orden' => $idOrden,
-                'id_empleado' => $idEmpleado,
-                'horas_reales' => number_format($horasReales, 4, '.', ''),
-                'costo_hora_real' => number_format($costoHoraReal, 4, '.', ''),
-                'costo_total_mod' => number_format($horasReales * $costoHoraReal, 4, '.', ''),
-            ]);
-
-            $filas++;
-            $total += $horasReales * $costoHoraReal;
-        }
-
-        return [
-            'filas' => $filas,
-            'total_mod' => $total,
-        ];
-    }
-
-    public function obtenerTasaDepreciacionHoraActivo(int $idActivo): float
-    {
-        if ($idActivo <= 0) {
-            return 0.0;
-        }
-
-        $stmt = $this->db()->prepare('SELECT depreciacion_acumulada
-                                      FROM activos_fijos
-                                      WHERE id = :id
-                                        AND deleted_at IS NULL
-                                      LIMIT 1');
-        $stmt->execute(['id' => $idActivo]);
-        $depreciacionMensual = (float) ($stmt->fetchColumn() ?: 0);
-
-        if ($depreciacionMensual <= 0) {
-            return 0.0;
-        }
-
-        return $depreciacionMensual / 240;
-    }
-
-    private function obtenerCostoHoraEmpleado(int $idEmpleado): float
-    {
-        if ($idEmpleado <= 0) {
-            return 0.0;
-        }
-
-        $stmt = $this->db()->prepare('SELECT COALESCE(sueldo_basico, 0)
-                                      FROM terceros_empleados
-                                      WHERE id_tercero = :id_empleado
-                                      LIMIT 1');
-        $stmt->execute(['id_empleado' => $idEmpleado]);
-        $sueldoBasico = (float) ($stmt->fetchColumn() ?: 0);
-
-        if ($sueldoBasico <= 0) {
-            return 0.0;
-        }
-
-        return $sueldoBasico / 240;
-    }
-
-    private function estimarHorasDesdeAsistencia(int $idEmpleado, int $idOrden): float
-    {
-        try {
-            $stmtOrden = $this->db()->prepare('SELECT DATE(COALESCE(fecha_inicio, fecha_programada)) AS fecha_ini,
-                                                      DATE(COALESCE(fecha_fin, fecha_programada)) AS fecha_fin
-                                               FROM produccion_ordenes
-                                               WHERE id = :id_orden
-                                               LIMIT 1');
-            $stmtOrden->execute(['id_orden' => $idOrden]);
-            $orden = $stmtOrden->fetch(PDO::FETCH_ASSOC) ?: [];
-            if ($orden === []) {
-                return 0.0;
-            }
-
-            $fechaIni = (string) ($orden['fecha_ini'] ?? '');
-            $fechaFin = (string) ($orden['fecha_fin'] ?? '');
-            if ($fechaIni === '' || $fechaFin === '') {
-                return 0.0;
-            }
-
-            $stmt = $this->db()->prepare('SELECT COALESCE(SUM(horas_trabajadas), 0)
-                                          FROM asistencia_empleado_horario
-                                          WHERE id_empleado = :id_empleado
-                                            AND fecha >= :fecha_ini
-                                            AND fecha <= :fecha_fin');
-            $stmt->execute([
-                'id_empleado' => $idEmpleado,
-                'fecha_ini' => $fechaIni,
-                'fecha_fin' => $fechaFin,
-            ]);
-
-            return (float) ($stmt->fetchColumn() ?: 0);
-        } catch (Throwable $e) {
-            return 0.0;
-        }
-    }
-
-    private function guardarCostoModOrden(PDO $db, int $idOrden, array $manoObra): float
-    {
-        if ($manoObra === []) {
-            return 0.0;
-        }
-
-        $stmt = $db->prepare('INSERT INTO produccion_ordenes_mod
-                                (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod)
-                              VALUES
-                                (:id_orden, :id_empleado, :horas_reales, :costo_hora_real, :costo_total_mod)');
-
-        $total = 0.0;
-        foreach ($manoObra as $fila) {
-            $idEmpleado = (int) ($fila['id_empleado'] ?? 0);
-            $horas = (float) ($fila['horas_reales'] ?? 0);
-            $costoHora = (float) ($fila['costo_hora_real'] ?? 0);
-            if ($idEmpleado <= 0 || $horas <= 0 || $costoHora <= 0) {
-                continue;
-            }
-
-            $stmt->execute([
-                'id_orden' => $idOrden,
-                'id_empleado' => $idEmpleado,
-                'horas_reales' => number_format($horas, 4, '.', ''),
-                'costo_hora_real' => number_format($costoHora, 4, '.', ''),
-                'costo_total_mod' => number_format($horas * $costoHora, 4, '.', ''),
-            ]);
-            $total += $horas * $costoHora;
-        }
-
-        return $total;
-    }
-
-    private function guardarCostoCifOrden(PDO $db, int $idOrden, array $cif): float
-    {
-        if ($cif === []) {
-            return 0.0;
-        }
-
-        $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
-                                (id_orden, concepto, id_activo, base_distribucion, costo_aplicado)
-                              VALUES
-                                (:id_orden, :concepto, :id_activo, :base_distribucion, :costo_aplicado)');
-
-        $total = 0.0;
-        foreach ($cif as $fila) {
-            $concepto = trim((string) ($fila['concepto'] ?? ''));
-            $costoAplicado = (float) ($fila['costo_aplicado'] ?? 0);
-            if ($concepto === '' || $costoAplicado <= 0) {
-                continue;
-            }
-
-            $stmt->execute([
-                'id_orden' => $idOrden,
-                'concepto' => $concepto,
-                'id_activo' => !empty($fila['id_activo']) ? (int) $fila['id_activo'] : null,
-                'base_distribucion' => trim((string) ($fila['base_distribucion'] ?? '')) !== '' ? trim((string) ($fila['base_distribucion'] ?? '')) : null,
-                'costo_aplicado' => number_format($costoAplicado, 4, '.', ''),
-            ]);
-            $total += $costoAplicado;
-        }
-
-        return $total;
-    }
-
-    private function guardarCostoCifCuotaPredeterminada(PDO $db, int $idOrden, float $cantidadProducida): float
-    {
-        if ($cantidadProducida <= 0) {
-            return 0.0;
-        }
-
-        $cuotaUnidad = $this->obtenerCuotaCifPredeterminada();
-        if ($cuotaUnidad <= 0) {
-            return 0.0;
-        }
-
-        $monto = $cuotaUnidad * $cantidadProducida;
-        $stmt = $db->prepare('INSERT INTO produccion_ordenes_cif
-                                (id_orden, concepto, id_activo, base_distribucion, costo_aplicado)
-                              VALUES
-                                (:id_orden, :concepto, :id_activo, :base_distribucion, :costo_aplicado)');
-        $stmt->execute([
-            'id_orden' => $idOrden,
-            'concepto' => 'CIF estimado por unidad',
-            'id_activo' => null,
-            'base_distribucion' => 'Unidades',
-            'costo_aplicado' => number_format($monto, 4, '.', ''),
-        ]);
-
-        return $monto;
-    }
-
-    private function obtenerCuotaCifPredeterminada(): float
-    {
-        return 0.05;
     }
 
     // =====================================================================
@@ -1325,7 +903,6 @@ class ProduccionOrdenesModel extends Modelo
     // =====================================================================
     public function analizarSemielaboradosFaltantes(int $idOrden): array
     {
-        // 1. Buscamos qué insumos pide la receta de esta orden, cruzando con el stock
         $sql = 'SELECT d.id_insumo,
                        i.nombre AS insumo_nombre,
                        (d.cantidad_por_unidad * (o.cantidad_planificada / NULLIF(r.rendimiento_base, 0)) * (1 + (d.merma_porcentaje / 100))) AS qty_requerida,
@@ -1344,8 +921,7 @@ class ProduccionOrdenesModel extends Modelo
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta AND r.deleted_at IS NULL
                 INNER JOIN produccion_recetas_detalle d ON d.id_receta = o.id_receta AND d.deleted_at IS NULL
                 INNER JOIN items i ON i.id = d.id_insumo
-                WHERE o.id = :id_orden
-                  AND o.deleted_at IS NULL';
+                WHERE o.id = :id_orden AND o.deleted_at IS NULL';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_orden' => $idOrden]);
@@ -1354,15 +930,12 @@ class ProduccionOrdenesModel extends Modelo
         $faltantes = [];
         foreach ($insumos as $insumo) {
             $idRecetaHija = (int)($insumo['id_receta_hija'] ?? 0);
-            
-            // Si el insumo NO tiene receta, es materia prima comprada (Ej. Etiqueta, Tapa). Lo ignoramos.
             if ($idRecetaHija <= 0) continue;
 
             $requerido = (float)$insumo['qty_requerida'];
             $stock = (float)$insumo['stock_planta'];
             $faltante = round(max(0, $requerido - $stock), 4);
 
-            // Si falta stock, lo agregamos a la lista de semielaborados por fabricar
             if ($faltante > 0) {
                 $faltantes[] = [
                     'id_insumo' => (int)$insumo['id_insumo'],
@@ -1372,20 +945,17 @@ class ProduccionOrdenesModel extends Modelo
                 ];
             }
         }
-
         return $faltantes;
     }
 
     public function generarSubOrdenesAutomatica(int $idOrdenPadre, array $faltantes, int $userId): void
     {
-        // Traemos datos del padre para heredarlos (Misma fecha, mismo almacén)
         $stmtPadre = $this->db()->prepare('SELECT id_almacen_planta, fecha_programada, codigo FROM produccion_ordenes WHERE id = ?');
         $stmtPadre->execute([$idOrdenPadre]);
         $datosPadre = $stmtPadre->fetch(PDO::FETCH_ASSOC);
 
         if (!$datosPadre) return;
 
-        // Generamos un correlativo para los códigos
         $correlativo = (int) $this->db()->query('SELECT COUNT(*) FROM produccion_ordenes')->fetchColumn();
 
         $sqlInsert = 'INSERT INTO produccion_ordenes
@@ -1405,9 +975,7 @@ class ProduccionOrdenesModel extends Modelo
             if ($idRecetaHija <= 0 || $cantidad <= 0) continue;
 
             $correlativo++;
-            // Código especial para sub-órdenes (Ej: OP-260315-0042-SUB)
             $nuevoCodigo = 'OP-' . date('ymd') . '-' . str_pad((string)$correlativo, 4, '0', STR_PAD_LEFT) . '-SUB';
-
             $snapshot = $this->obtenerSnapshotReceta($idRecetaHija, $cantidad);
 
             $stmt->execute([

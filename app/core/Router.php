@@ -28,9 +28,9 @@ class Router
         // Convención: 'roles' -> 'RolesController'
         $controlador_clase_base = ucfirst($modulo) . 'Controller';
         
-        // Mapeo de Alias (Si tus archivos o clases no siguen la convención exacta)
+        // Mapeo de Alias
         $mapa_alias = [
-            'LoginController'         => 'AuthController', // alias -> real
+            'LoginController'         => 'AuthController', 
             'ConfiguracionController' => 'EmpresaController',
             'ConfigController'        => 'EmpresaController',
             'Cajas_bancosController'  => 'CajasBancosController',
@@ -41,6 +41,8 @@ class Router
         ];
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
+
+        // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
 
         if ($modulo === 'dashboard') {
             $modulo = 'reportes';
@@ -64,7 +66,7 @@ class Router
             }
         }
 
-        // Rutas RRHH con subcontroladores (ej: rrhh/config_rrhh/guardar)
+        // Rutas RRHH
         if ($modulo === 'rrhh') {
             if ($accion === 'config_rrhh') {
                 $controlador_clase = 'ConfigRrhhController';
@@ -75,18 +77,15 @@ class Router
             }
         }
 
-        // Rutas de CONTABILIDAD desviadas a subcontroladores específicos
+        // Rutas de CONTABILIDAD
         if ($modulo === 'contabilidad') {
-            // 1. Centros de Costo
             if ($accion === 'centros_costo') {
                 $controlador_clase = 'CentroCostoController';
                 $accion = 'index'; 
             } elseif ($accion === 'guardar_centro_costo') {
                 $controlador_clase = 'CentroCostoController';
                 $accion = 'guardar'; 
-            }
-            // 2. Asientos Contables
-            elseif ($accion === 'asientos') {
+            } elseif ($accion === 'asientos') {
                 $controlador_clase = 'AsientoController';
                 $accion = 'index';
             } elseif ($accion === 'guardar_asiento') {
@@ -95,15 +94,13 @@ class Router
             } elseif ($accion === 'anular_asiento') {
                 $controlador_clase = 'AsientoController';
                 $accion = 'anular';
-            }
-            // 3. Reportes Contables
-            elseif ($accion === 'reportes') {
+            } elseif ($accion === 'reportes') {
                 $controlador_clase = 'ReporteContableController';
                 $accion = 'index';
             }
         }
 
-        // Rutas de CONCILIACIÓN BANCARIA (NUEVO)
+        // Rutas de CONCILIACIÓN BANCARIA
         if ($modulo === 'conciliacion') {
             $controlador_clase = 'ConciliacionController';
             if ($accion === '') {
@@ -111,7 +108,22 @@ class Router
             }
         }
 
-        // Rutas específicas que viven en un controlador dedicado dentro del módulo items
+        // Rutas de COSTOS
+        if ($modulo === 'costos') {
+            if ($accion === 'cierres') {
+                // Si la url es costos/cierres, usa el nuevo controlador
+                $controlador_clase = 'CierresController';
+                $accion = 'index';
+            } else {
+                // Para configuracion o alertas, usa CostosController
+                $controlador_clase = 'CostosController';
+                if ($accion === 'index' || $accion === '') {
+                    $accion = 'configuracion';
+                }
+            }
+        }
+
+        // Rutas de ITEMS
         if ($modulo === 'items' && $accion === 'perfil') {
             $controlador_clase = 'ItemPerfilController';
             $accion = $partes[2] ?? 'index';
@@ -145,7 +157,6 @@ class Router
             if ($this->debug) {
                 die("<h3>Debug Router:</h3><p>Método <strong>$accion()</strong> no encontrado en $controlador_clase.</p>");
             }
-            // Opción: render_not_found() si prefieres 404 en vez de error 500
             $this->render_not_found(); 
             return;
         }
@@ -156,7 +167,7 @@ class Router
 
     private function resolver_controlador_archivo(string $clase): ?string
     {
-        // Rutas posibles (inglés/español por si acaso)
+        // Añadida la ruta para la nueva carpeta 'costos'
         $rutas_posibles = [
             BASE_PATH . '/app/controllers/' . $clase . '.php',
             BASE_PATH . '/app/controllers/inventario/' . $clase . '.php',
@@ -165,11 +176,14 @@ class Router
             BASE_PATH . '/app/controllers/rrhh/' . $clase . '.php',
             BASE_PATH . '/app/controllers/contabilidad/' . $clase . '.php',
             BASE_PATH . '/app/controllers/produccion/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/costos/' . $clase . '.php', // <-- NUEVA RUTA AQUÍ
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 
         foreach ($rutas_posibles as $ruta) {
-            if (is_file($ruta)) return $ruta;
+            if (is_file($ruta)) {
+                return $ruta;
+            }
         }
         return null;
     }
@@ -177,7 +191,6 @@ class Router
     private function render_not_found(): void
     {
         http_response_code(404);
-        // Puedes requerir una vista 404 bonita aquí
         if (is_file(BASE_PATH . '/app/views/404.php')) {
             require BASE_PATH . '/app/views/404.php';
         } else {

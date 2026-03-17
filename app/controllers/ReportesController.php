@@ -138,7 +138,6 @@ class ReportesController extends Controlador
         ]);
     }
 
-
     public function costos_produccion(): void
     {
         AuthMiddleware::handle();
@@ -172,47 +171,13 @@ class ReportesController extends Controlador
             }
         }
 
-        $this->render('reportes/costos_produccion', [
-            'ruta_actual' => 'reportes/costos_produccion',
+        $this->render('costos/produccion', [
+            'ruta_actual' => 'reportes/costos_produccion', // <-- Esto se queda igual para el sidebar
             'filtros' => $f,
             'costosPorOrden' => $costosPorOrden,
             'resumenCostos' => $resumen,
             'pagina' => $pagina,
             'tamano' => $tamano,
-        ]);
-    }
-
-
-    public function costos_configuracion(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.produccion.ver');
-        $this->registrarAuditoria('costos_configuracion');
-
-        $this->render('reportes/costos_configuracion', [
-            'ruta_actual' => 'reportes/costos_configuracion',
-        ]);
-    }
-
-    public function costos_cierres(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.produccion.ver');
-        $this->registrarAuditoria('costos_cierres');
-
-        $this->render('reportes/costos_cierres', [
-            'ruta_actual' => 'reportes/costos_cierres',
-        ]);
-    }
-
-    public function costos_alertas(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.produccion.ver');
-        $this->registrarAuditoria('costos_alertas');
-
-        $this->render('reportes/costos_alertas', [
-            'ruta_actual' => 'reportes/costos_alertas',
         ]);
     }
 

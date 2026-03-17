@@ -624,187 +624,139 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     </div>
 </div>
 
-<div class="modal fade" id="modalEjecutarOP" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+<div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
+            
+            <div class="modal-header bg-success text-white border-bottom-0">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción <span id="lblExecCodigo" class="badge bg-light text-success ms-2 shadow-sm"></span>
+                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción 
+                    <span class="badge bg-white text-success ms-2" id="lblExecCodigo">OP-000000</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <form method="post" id="formEjecutarOrden">
                 <input type="hidden" name="accion" value="ejecutar_orden">
                 <input type="hidden" name="id_orden" id="execIdOrden">
-                
-                <input type="hidden" id="execReqLote" value="0">
-                <input type="hidden" id="execReqVenc" value="0">
-                <input type="hidden" id="execUnidad" value="UND">
-                
-                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <input type="hidden" id="execReqLote">
+                <input type="hidden" id="execReqVenc">
+                <input type="hidden" id="execUnidad">
+
+                <div class="modal-body p-4 bg-light">
                     
                     <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Control de Tiempos de Máquina</h6>
+                        </div>
                         <div class="card-body">
-                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Bitácora de Tiempos Globales</h6>
                             <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-clock-history me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control shadow-none border-secondary-subtle" required>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-play-circle text-success me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-check2-all me-1 text-success"></i>Fin del Trabajo <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control shadow-none border-success-subtle bg-success-subtle bg-opacity-10 fw-bold" required>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-stop-circle text-danger me-1"></i>Fin del Trabajo <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
                                 </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-pause-circle text-warning me-1"></i>Horas de Parada</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.01" min="0" name="horas_parada" id="execHorasParada" class="form-control border-secondary-subtle" placeholder="Ej: 0.5">
+                                        <span class="input-group-text bg-light text-muted">Hrs</span>
+                                    </div>
+                                    <div class="form-text" style="font-size: 0.7rem;">Descansos, limpieza o fallas mecánicas.</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center bg-light rounded p-2 px-3">
+                                <span class="text-muted fw-bold small"><i class="bi bi-calculator me-1"></i>Tiempo Efectivo a Costear por Tarifa de Planta:</span>
+                                <span class="badge bg-dark fs-5 shadow-sm" id="lblTiempoNeto">0.00 <small class="fs-6 text-light fw-normal opacity-75">Horas</small></span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body p-0">
-                            <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active fw-bold text-danger px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
-                                        <i class="bi bi-box-arrow-up-right me-2"></i>1. Consumos (Salidas)
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link fw-bold text-success px-4 py-3" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
-                                        <i class="bi bi-box-arrow-in-down me-2"></i>2. Ingresos (Producto Final)
-                                    </button>
-                                </li>
-                            </ul>
+                    <div id="boxJustificacionFaltante" style="display: none;"></div>
 
-                            <div class="tab-content p-4">
-                                <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0">Insumos Utilizados</h6>
-                                            <small class="text-muted">Material que se descontará del almacén.</small>
-                                        </div>
-                                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-3 shadow-sm" id="btnAgregarConsumo">
-                                            <i class="bi bi-plus-lg me-1"></i>Añadir Fila
-                                        </button>
-                                    </div>
-                                    
-                                    <div class="table-responsive border rounded bg-white">
-                                        <table class="table align-middle mb-0 table-sm" id="tablaConsumosDynamic">
-                                            <thead class="table-light text-muted small text-uppercase fw-bold">
-                                                <tr>
-                                                    <th class="ps-3 py-2">Insumo (ID / Nombre)</th>
-                                                    <th class="py-2">Almacén Origen</th>
-                                                    <th style="width: 140px;" class="py-2">Cantidad</th>
-                                                    <th class="py-2">Lote (Opcional)</th>
-                                                    <th style="width: 60px;" class="text-center py-2">Quitar</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                </tbody>
-                                        </table>
-                                    </div>
+                    <ul class="nav nav-tabs nav-tabs-custom mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
+                                <i class="bi bi-box-arrow-up-right me-2"></i>1. Consumos (Salidas)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
+                                <i class="bi bi-box-arrow-in-down-left me-2"></i>2. Ingresos (Producto Final)
+                            </button>
+                        </li>
+                    </ul>
 
-                                    <div id="boxJustificacionFaltante" class="alert alert-warning border-warning-subtle shadow-sm mt-3 mb-0" style="display: none;">
-                                        <div class="d-flex align-items-start">
-                                            <i class="bi bi-exclamation-triangle-fill fs-3 text-warning me-3 mt-1"></i>
-                                            <div class="w-100">
-                                                <h6 class="fw-bold mb-1 text-dark">Variación en Consumos Detectada</h6>
-                                                <p class="small text-muted mb-2">Has indicado que usarás menos material del planificado o has forzado un stock. Justifica el motivo para poder cerrar esta orden.</p>
-                                                <input type="text" name="justificacion" id="inputJustificacionFaltante" class="form-control shadow-none border-warning-subtle" placeholder="Ej. El material de la receta fue reemplazado por equivalencia...">
-                                            </div>
-                                        </div>
-                                    </div>
+                    <div class="tab-content bg-white p-3 rounded shadow-sm border mb-4">
+                        <div class="tab-pane fade show active" id="tabConsumos" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">Insumos Utilizados</h6>
+                                    <p class="small text-muted mb-0">Material que se descontará del almacén.</p>
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnAgregarConsumo">
+                                    <i class="bi bi-plus-lg me-1"></i> Añadir Fila
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle table-bordered mb-0" id="tablaConsumosDynamic">
+                                    <thead class="table-light text-muted small text-uppercase">
+                                        <tr>
+                                            <th>Insumo (ID / Nombre)</th>
+                                            <th style="width: 25%;">Almacén Origen</th>
+                                            <th style="width: 15%; text-align: center;">Cantidad</th>
+                                            <th style="width: 20%;">Lote (Opcional)</th>
+                                            <th style="width: 5%; text-align: center;">Quitar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
 
-                                <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0">Distribución de Producto Final</h6>
-                                            <small class="text-muted">A qué almacenes ingresa lo fabricado.</small>
-                                        </div>
-                                        <button type="button" class="btn btn-sm btn-outline-success fw-bold px-3 shadow-sm" id="btnAgregarIngreso">
-                                            <i class="bi bi-plus-lg me-1"></i>Añadir Destino
-                                        </button>
-                                    </div>
-                                    
-                                    <div class="alert alert-success bg-success-subtle bg-opacity-50 border-success-subtle d-flex align-items-center py-2 px-3 small shadow-sm mb-3">
-                                        <i class="bi bi-info-circle-fill text-success fs-5 me-2"></i> La cantidad total de producción será la suma de las cantidades ingresadas aquí.
-                                    </div>
-
-                                    <div class="table-responsive border rounded bg-white">
-                                        <table class="table align-middle mb-0 table-sm" id="tablaIngresosDynamic">
-                                            <thead class="table-light text-muted small text-uppercase fw-bold">
-                                                <tr>
-                                                    <th class="ps-3 py-2">Almacén Destino</th>
-                                                    <th style="width: 170px;" class="py-2">Cant. Ingresada</th>
-                                                    <th class="py-2">Lote</th>
-                                                    <th style="width: 160px;" class="py-2">Fecha Venc.</th> 
-                                                    <th style="width: 60px;" class="text-center py-2">Quitar</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                </tbody>
-                                        </table>
-                                    </div>
+                        <div class="tab-pane fade" id="tabIngresos" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">Productos a Ingresar</h6>
+                                    <p class="small text-muted mb-0">Unidades terminadas que entrarán al almacén.</p>
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="btnAgregarIngreso">
+                                    <i class="bi bi-plus-lg me-1"></i> Añadir Fila
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle table-bordered mb-0" id="tablaIngresosDynamic">
+                                    <thead class="table-light text-muted small text-uppercase">
+                                        <tr>
+                                            <th style="width: 25%;">Almacén Destino</th>
+                                            <th style="width: 20%; text-align: center;">Cantidad Producida</th>
+                                            <th>Lote Asignado</th>
+                                            <th>F. Vencimiento</th>
+                                            <th style="width: 5%; text-align: center;">Quitar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row g-4">
-                        <div class="col-12 col-lg-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people me-2 text-secondary"></i>MOD Real</h6>
-                                            <div class="small text-muted mt-1" id="estadoGuardadoMod">Tiempos de mano de obra</div>
-                                        </div>
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-sm btn-light border text-info shadow-sm" id="btnGuardarTiemposModAjax" title="Guardar tiempos parciales">
-                                                <i class="bi bi-cloud-arrow-up"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" id="btnAgregarOrdenMod">
-                                                <i class="bi bi-plus-lg"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase">
-                                        <div class="col-4">Empleado ID</div>
-                                        <div class="col-3">Horas</div>
-                                        <div class="col-4">Costo/H</div>
-                                    </div>
-                                    <div id="contenedorOrdenMod" class="d-flex flex-column gap-2"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-lightning-charge me-2 text-warning"></i>CIF Aplicado</h6>
-                                            <div class="small text-muted mt-1">Gastos indirectos adicionales</div>
-                                        </div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" id="btnAgregarOrdenCif">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div class="row g-2 mb-2 px-1 d-none d-md-flex text-muted small fw-bold text-uppercase">
-                                        <div class="col-7">Concepto</div>
-                                        <div class="col-4">Costo (S/)</div>
-                                    </div>
-                                    <div id="contenedorOrdenCif" class="d-flex flex-column gap-2"></div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-secondary">Nota o Justificación de Cierre (Opcional)</label>
+                        <input type="text" name="justificacion" class="form-control shadow-none border-secondary-subtle" placeholder="Ej: Se utilizó material alternativo por quiebre de stock...">
                     </div>
 
                 </div>
 
                 <div class="modal-footer bg-white border-top shadow-sm">
-                    <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-5 fw-bold"><i class="bi bi-check2-circle me-2"></i>Finalizar y Cerrar OP</button>
+                    <button type="button" class="btn btn-light border fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold px-5"><i class="bi bi-check-circle-fill me-2"></i>Guardar y Ejecutar</button>
                 </div>
             </form>
         </div>
@@ -876,41 +828,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     </div>
 </div>
 
-<template id="tplOrdenModRow">
-    <div class="row g-2 align-items-center mb-2 orden-mod-row bg-white p-2 border rounded shadow-sm">
-        <div class="col-4">
-            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_id_empleado[]" placeholder="ID empleado">
-        </div>
-        <div class="col-3">
-            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_horas_reales[]" step="0.0001" placeholder="Horas">
-        </div>
-        <div class="col-4">
-            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_mod_costo_hora_real[]" step="0.0001" placeholder="S/ Hora">
-        </div>
-        <div class="col-1 text-end">
-            <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove-orden-mod" title="Quitar empleado"><i class="bi bi-trash fs-6"></i></button>
-        </div>
-    </div>
-</template>
-
-<template id="tplOrdenCifRow">
-    <div class="row g-2 align-items-center mb-2 orden-cif-row bg-white p-2 border rounded shadow-sm">
-        <div class="col-7">
-            <input type="text" class="form-control form-control-sm shadow-none border-secondary-subtle" name="orden_cif_concepto[]" placeholder="Ej: Energía, Depreciación...">
-        </div>
-        <div class="col-4">
-            <input type="number" class="form-control form-control-sm shadow-none border-secondary-subtle fw-semibold text-primary" name="orden_cif_costo_aplicado[]" step="0.0001" placeholder="S/ Total">
-        </div>
-        <div class="col-1 text-end">
-            <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove-orden-cif" title="Quitar concepto"><i class="bi bi-trash fs-6"></i></button>
-        </div>
-    </div>
-</template>
-
 <template id="tplSelectAlmacenes">
     <?php foreach ($almacenes as $a): ?>
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
 </template>
 
-<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_ordenes.js?v=2.7"></script>
+<script src="<?php echo base_url(); ?>/public/assets/js/produccion/produccion_ordenes.js?v=2.7"></script>

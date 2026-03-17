@@ -117,7 +117,7 @@ class ProduccionOrdenesController extends Controlador
                     echo json_encode(['success' => true, 'message' => 'Sub-órdenes generadas correctamente.']);
                     exit;
                 }
-                
+
                 // ==========================================================
                 // ENDPOINTS DE ÓRDENES DE PRODUCCIÓN
                 // ==========================================================
@@ -313,7 +313,11 @@ class ProduccionOrdenesController extends Controlador
                     $justificacion = trim((string) ($_POST['justificacion'] ?? ''));
                     $fechaInicio = trim((string) ($_POST['fecha_inicio'] ?? '')) ?: null;
                     $fechaFin = trim((string) ($_POST['fecha_fin'] ?? '')) ?: null;
+                    
+                    // NUEVO: Capturamos las horas de parada
+                    $horasParada = $this->parseDecimal($_POST['horas_parada'] ?? 0);
 
+                    // 1. Procesar Consumos (Igual que antes)
                     $consumos = [];
                     $consIdsInsumo = $_POST['consumo_id_insumo'] ?? [];
                     $consIdsAlmacen = $_POST['consumo_id_almacen'] ?? [];
@@ -321,9 +325,7 @@ class ProduccionOrdenesController extends Controlador
                     $consIdsLote = $_POST['consumo_id_lote'] ?? [];
 
                     foreach ((array) $consIdsInsumo as $idx => $idInsumo) {
-                        if (empty($idInsumo)) {
-                            continue;
-                        }
+                        if (empty($idInsumo)) continue;
                         $loteTexto = trim((string) ($consIdsLote[$idx] ?? ''));
                         $consumos[] = [
                             'id_insumo' => (int) $idInsumo,
@@ -338,6 +340,7 @@ class ProduccionOrdenesController extends Controlador
                         throw new Exception('Debe registrar al menos un consumo de insumos.');
                     }
 
+                    // 2. Procesar Ingresos (Igual que antes)
                     $ingresos = [];
                     $ingIdsAlmacen = $_POST['ingreso_id_almacen'] ?? [];
                     $ingCantidades = $_POST['ingreso_cantidad'] ?? [];
@@ -345,19 +348,16 @@ class ProduccionOrdenesController extends Controlador
                     $ingFechasVencimiento = $_POST['ingresos_fecha_vencimiento'] ?? [];
 
                     foreach ((array) $ingIdsAlmacen as $idx => $idAlmacen) {
-                        if (empty($idAlmacen)) {
-                            continue;
-                        }
+                        if (empty($idAlmacen)) continue;
                         $cantidad = $this->parseDecimal($ingCantidades[$idx] ?? 0);
                         if ($cantidad > 0) {
                             $loteTexto = trim((string) ($ingIdsLote[$idx] ?? ''));
-                            $fechaVencTexto = trim((string) ($ingFechasVencimiento[$idx] ?? ''));
                             $ingresos[] = [
                                 'id_almacen' => (int) $idAlmacen,
                                 'cantidad' => $cantidad,
                                 'id_lote' => ctype_digit($loteTexto) ? (int) $loteTexto : null,
                                 'lote' => $loteTexto,
-                                'fecha_vencimiento' => $fechaVencTexto,
+                                'fecha_vencimiento' => trim((string) ($ingFechasVencimiento[$idx] ?? '')),
                             ];
                         }
                     }
@@ -366,39 +366,7 @@ class ProduccionOrdenesController extends Controlador
                         throw new Exception('Debe registrar al menos un ingreso de producto terminado.');
                     }
 
-                    $manoObra = [];
-                    $modEmpleados = $_POST['orden_mod_id_empleado'] ?? [];
-                    $modHoras = $_POST['orden_mod_horas_reales'] ?? [];
-                    $modCostoHora = $_POST['orden_mod_costo_hora_real'] ?? [];
-                    foreach ((array) $modEmpleados as $idx => $idEmpleado) {
-                        $idEmpleadoInt = (int) $idEmpleado;
-                        $horas = $this->parseDecimal($modHoras[$idx] ?? 0);
-                        $costoHora = $this->parseDecimal($modCostoHora[$idx] ?? 0);
-                        if ($idEmpleadoInt <= 0 || $horas <= 0 || $costoHora <= 0) {
-                            continue;
-                        }
-                        $manoObra[] = [
-                            'id_empleado' => $idEmpleadoInt,
-                            'horas_reales' => $horas,
-                            'costo_hora_real' => $costoHora,
-                        ];
-                    }
-
-                    $cif = [];
-                    $cifConceptos = $_POST['orden_cif_concepto'] ?? [];
-                    $cifCostos = $_POST['orden_cif_costo_aplicado'] ?? [];
-                    foreach ((array) $cifConceptos as $idx => $concepto) {
-                        $conceptoTexto = trim((string) $concepto);
-                        $costoAplicado = $this->parseDecimal($cifCostos[$idx] ?? 0);
-                        if ($conceptoTexto === '' || $costoAplicado <= 0) {
-                            continue;
-                        }
-                        $cif[] = [
-                            'concepto' => $conceptoTexto,
-                            'costo_aplicado' => $costoAplicado,
-                        ];
-                    }
-
+                    // 3. Ejecutar en el Modelo (¡NUEVO FORMATO LIMPIO!)
                     $this->produccionOrdenesModel->ejecutarOrden(
                         $idOrden,
                         $consumos,
@@ -407,15 +375,14 @@ class ProduccionOrdenesController extends Controlador
                         $justificacion,
                         $fechaInicio,
                         $fechaFin,
-                        $manoObra,
-                        $cif
+                        $horasParada // <--- Solo enviamos este decimal
                     );
 
-                    $this->setFlash('success', 'Orden ejecutada y existencias actualizadas correctamente.');
+                    $this->setFlash('success', 'Orden ejecutada y costeada correctamente por Tarifa de Planta.');
                     header('Location: ' . route_url('produccion/ordenes'));
                     exit;
                 }
-
+                
                 if ($accion === 'anular_orden') {
                     $this->produccionOrdenesModel->anularOrden((int) ($_POST['id_orden'] ?? 0), $userId);
                     $this->setFlash('success', 'Orden anulada correctamente.');

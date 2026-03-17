@@ -1,6 +1,6 @@
 <?php
 // =====================================================================================
-// sidebar.php (Bootstrap Offcanvas Responsive) — ACTUALIZADO CON GESTIÓN COMERCIAL
+// sidebar.php (Bootstrap Offcanvas Responsive)
 // - Desktop (>= lg): Sidebar fijo
 // - Mobile (< lg): Sidebar OFFCANVAS
 // =====================================================================================
@@ -73,7 +73,11 @@ function renderSidebarInner(
     $menuConfiguracionId = 'menuConfiguracion_' . $navId;
     $menuCostosId = 'menuCostos_' . $navId;
     $menuGastosId = 'menuGastos_' . $navId;
+    
     $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
+    // Actualizamos el array de rutas para la sección de Costos
+    $menuRutasCostos = ['reportes/costos_produccion', 'costos/configuracion', 'costos/cierres', 'costos/alertas'];
+    
     $renderBadge = static function (string $badgeKey) use ($sidebarBadges): void {
         if (!array_key_exists($badgeKey, $sidebarBadges)) {
             return;
@@ -90,31 +94,32 @@ function renderSidebarInner(
     <div class="sidebar-header">
 
         <div class="sidebar-top-row">
-        <div class="sidebar-brand" aria-label="Empresa">
-            <div class="brand-icon">
-                <?php if ($logoUrl !== ''): ?>
-                    <img
-                        src="<?php echo e($logoUrl); ?>"
-                        alt="Logo Empresa"
-                        class="brand-logo"
-                        loading="lazy"
-                    >
-                <?php else: ?>
-                    <span class="brand-fallback" aria-hidden="true">
-                        <?php echo htmlspecialchars(strtoupper(substr($empresaNombre, 0, 1))); ?>
-                    </span>
-                <?php endif; ?>
-            </div>
+            <div class="sidebar-brand" aria-label="Empresa">
+                <div class="brand-icon">
+                    <?php if ($logoUrl !== ''): ?>
+                        <img
+                            src="<?php echo e($logoUrl); ?>"
+                            alt="Logo Empresa"
+                            class="brand-logo"
+                            loading="lazy"
+                        >
+                    <?php else: ?>
+                        <span class="brand-fallback" aria-hidden="true">
+                            <?php echo htmlspecialchars(strtoupper(substr($empresaNombre, 0, 1))); ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
 
-            <div class="brand-meta">
-                <div class="brand-name" title="<?php echo htmlspecialchars($empresaNombre); ?>">
-                    <?php echo htmlspecialchars($empresaNombre); ?>
-                </div>
-                <div class="brand-sub">
-                    <span class="brand-badge">ERP SYSTEM v2.0</span>
+                <div class="brand-meta">
+                    <div class="brand-name" title="<?php echo htmlspecialchars($empresaNombre); ?>">
+                        <?php echo htmlspecialchars($empresaNombre); ?>
+                    </div>
+                    <div class="brand-sub">
+                        <span class="brand-badge">ERP SYSTEM v2.0</span>
+                    </div>
                 </div>
             </div>
-        </div>
+            
             <button
                 type="button"
                 <?php if ($navId === 'sidebarNavScrollDesktop'): ?>id="toggleSidebar"<?php endif; ?>
@@ -150,7 +155,6 @@ function renderSidebarInner(
             <div class="sidebar-favorites-list"></div>
         </div>
 
-
     </div>
 
     <nav class="sidebar-nav flex-grow-1" id="<?php echo htmlspecialchars($navId); ?>" aria-label="Navegación principal">
@@ -176,17 +180,17 @@ function renderSidebarInner(
 
 
         <?php if (tiene_permiso('reportes.produccion.ver')): ?>
-            <button class="sidebar-link<?php echo $linkGrupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>"
+            <button class="sidebar-link<?php echo $linkGrupoActivo($menuRutasCostos); ?>"
                type="button"
                data-bs-toggle="collapse"
                data-bs-target="#<?php echo htmlspecialchars($menuCostosId); ?>"
-               aria-expanded="<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']) ? 'true' : 'false'; ?>"
+               aria-expanded="<?php echo $grupoActivo($menuRutasCostos) ? 'true' : 'false'; ?>"
                aria-controls="<?php echo htmlspecialchars($menuCostosId); ?>">
-                <i class="bi bi-calculator"></i> <span>Costos</span>
+                <i class="bi bi-calculator"></i> <span>Costos Industriales</span>
                 <span class="ms-auto chevron"><i class="bi bi-chevron-down small"></i></span>
             </button>
 
-            <div class="collapse<?php echo $grupoActivo(['reportes/costos_produccion', 'reportes/costos_configuracion', 'reportes/costos_cierres', 'reportes/costos_alertas']); ?>" id="<?php echo htmlspecialchars($menuCostosId); ?>" data-menu-key="costos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
+            <div class="collapse<?php echo $grupoActivo($menuRutasCostos); ?>" id="<?php echo htmlspecialchars($menuCostosId); ?>" data-menu-key="costos" data-bs-parent="#<?php echo htmlspecialchars($navId); ?>">
                 <ul class="nav flex-column ps-3">
                     <li class="nav-item">
                         <a class="sidebar-link<?php echo $activo('reportes/costos_produccion'); ?>" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
@@ -194,17 +198,17 @@ function renderSidebarInner(
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('reportes/costos_configuracion'); ?>" href="<?php echo e(route_url('reportes/costos_configuracion')); ?>">
-                            <i class="bi bi-sliders"></i> <span>Configuración</span>
+                        <a class="sidebar-link<?php echo $activo('costos/configuracion'); ?>" href="<?php echo e(route_url('costos/configuracion')); ?>">
+                            <i class="bi bi-sliders"></i> <span>Tarifas de Planta</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('reportes/costos_cierres'); ?>" href="<?php echo e(route_url('reportes/costos_cierres')); ?>">
+                        <a class="sidebar-link<?php echo $activo('costos/cierres'); ?>" href="<?php echo e(route_url('costos/cierres')); ?>">
                             <i class="bi bi-calendar-check"></i> <span>Cierres de costos</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="sidebar-link<?php echo $activo('reportes/costos_alertas'); ?>" href="<?php echo e(route_url('reportes/costos_alertas')); ?>">
+                        <a class="sidebar-link<?php echo $activo('costos/alertas'); ?>" href="<?php echo e(route_url('costos/alertas')); ?>">
                             <i class="bi bi-bell"></i> <span>Alertas y variaciones</span>
                         </a>
                     </li>
@@ -517,6 +521,22 @@ function renderSidebarInner(
   const isDesktop = window.matchMedia('(min-width: 992px)').matches;
 
   // =========================================================
+  // Funcionalidad Botón Contraer Sidebar (Mejora UX)
+  // =========================================================
+  const toggleBtn = document.getElementById('toggleSidebar');
+  if (toggleBtn) {
+      // Restaurar estado guardado al cargar
+      if (localStorage.getItem('erp.sidebar.collapsed') === 'true') {
+          document.body.classList.add('sidebar-collapsed');
+      }
+
+      toggleBtn.addEventListener('click', () => {
+          document.body.classList.toggle('sidebar-collapsed');
+          localStorage.setItem('erp.sidebar.collapsed', document.body.classList.contains('sidebar-collapsed'));
+      });
+  }
+
+  // =========================================================
   // Scroll persist (Desktop)
   // =========================================================
   function setupScrollPersistence(navId, storageKey) {
@@ -590,14 +610,13 @@ function renderSidebarInner(
   setupOpenMenusPersistence('sidebarNavScrollMobile', 'erp.sidebar.mobile.openMenus');
 
   // =========================================================
-  // Buscador de menú
+  // Buscador de menú (Mejorado)
   // =========================================================
   function setupSidebarSearch(navId) {
     const nav = document.getElementById(navId);
     const input = document.querySelector(`[data-sidebar-search="${navId}"]`);
     if (!nav || !input) return;
     const searchableLinks = Array.from(nav.querySelectorAll('a.sidebar-link')).filter((link) => !link.classList.contains('logout-link'));
-
 
     input.addEventListener('input', () => {
       const query = input.value.trim().toLowerCase();
@@ -621,6 +640,16 @@ function renderSidebarInner(
           li.style.display = isMatch ? '' : 'none';
         } else {
           link.style.display = isMatch ? '' : 'none';
+        }
+
+        // Mejora: Si hay coincidencia y es una búsqueda, auto-expandir el menú padre
+        if (isMatch && query !== '') {
+            const parentCollapse = link.closest('.collapse');
+            if (parentCollapse) {
+                parentCollapse.classList.add('show');
+                const parentBtn = nav.querySelector(`[data-bs-target="#${parentCollapse.id}"]`);
+                if (parentBtn) parentBtn.setAttribute('aria-expanded', 'true');
+            }
         }
       });
     });
