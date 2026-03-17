@@ -83,12 +83,12 @@ class ActivoFijoModel extends Modelo
             'id_cuenta_activo' => (int)($data['id_cuenta_activo'] ?? 0),
             'id_cuenta_depreciacion' => (int)($data['id_cuenta_depreciacion'] ?? 0),
             'id_cuenta_gasto' => (int)($data['id_cuenta_gasto'] ?? 0),
-            'id_centro_costo' => empty($data['id_centro_costo']) ? null : (int)$data['id_centro_costo'],
+            'id_centro_costo' => empty($data['id_centro_costo']) ? 0 : (int)$data['id_centro_costo'],
             'estado' => (string)($data['estado'] ?? 'ACTIVO'),
         ];
 
-        if ($payload['codigo_activo'] === '' || $payload['nombre'] === '' || $payload['id_cuenta_activo'] <= 0 || $payload['id_cuenta_depreciacion'] <= 0 || $payload['id_cuenta_gasto'] <= 0) {
-            throw new RuntimeException('Complete los campos obligatorios y las cuentas del activo.');
+        if ($payload['codigo_activo'] === '' || $payload['nombre'] === '' || $payload['id_cuenta_activo'] <= 0 || $payload['id_cuenta_depreciacion'] <= 0 || $payload['id_cuenta_gasto'] <= 0 || $payload['id_centro_costo'] <= 0) {
+            throw new RuntimeException('Complete los campos obligatorios, cuentas contables y centro de costo del activo.');
         }
 
         // EL NUEVO CÁLCULO: El Valor en Libros ahora es el Costo Original MENOS la Depreciación Inicial

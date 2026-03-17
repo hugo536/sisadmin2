@@ -121,9 +121,9 @@ $centrosCosto = $centrosCosto ?? [];
                                     <input type="text" class="form-control shadow-none" name="nombre" id="af_nombre" required>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label small text-muted fw-bold">Centro de Costo</label>
-                                    <select class="form-select shadow-none" name="id_centro_costo" id="af_centro">
-                                        <option value="0">Sin centro asignado</option>
+                                    <label class="form-label small text-muted fw-bold">Centro de Costo <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none" name="id_centro_costo" id="af_centro" required>
+                                        <option value="">Seleccione centro...</option>
                                         <?php foreach ($centrosCosto as $cc): ?>
                                             <option value="<?php echo (int)$cc['id']; ?>"><?php echo e($cc['codigo'] . ' - ' . $cc['nombre']); ?></option>
                                         <?php endforeach; ?>

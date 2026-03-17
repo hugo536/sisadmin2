@@ -349,6 +349,27 @@ if (!empty($_GET['error'])) {
                             <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
                         </div>
                         
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza del Pago <span class="text-danger">*</span></label>
+                            <select name="naturaleza_pago" id="pagoNaturaleza" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="DOCUMENTO" selected>Pago de deuda (documento completo)</option>
+                                <option value="CAPITAL">Solo capital (reduce obligación)</option>
+                                <option value="INTERES">Solo interés (gasto financiero)</option>
+                                <option value="MIXTO">Mixto (capital + interés)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 d-none" id="grupoPagoCapital">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto Capital</label>
+                            <input type="number" step="0.01" min="0" name="monto_capital" id="pagoMontoCapital" class="form-control shadow-sm border-secondary-subtle" value="0">
+                        </div>
+
+                        <div class="col-md-6 d-none" id="grupoPagoInteres">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto Interés</label>
+                            <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control shadow-sm border-secondary-subtle" value="0">
+                        </div>
+
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
                             <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-849392">

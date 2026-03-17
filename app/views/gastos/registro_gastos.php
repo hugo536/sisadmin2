@@ -256,11 +256,22 @@ $estadoLabels = [
                                 <select id="idConceptoGasto" class="form-select shadow-none border-secondary-subtle" name="id_concepto" required placeholder="Buscar concepto...">
                                     <option value="">Buscar concepto...</option>
                                     <?php foreach($conceptos as $c): ?>
-                                        <option value="<?php echo (int)$c['id']; ?>"><?php echo e((string)$c['codigo'].' - '.$c['nombre']); ?></option>
+                                        <option value="<?php echo (int)$c['id']; ?>" data-centro-costo="<?php echo (int)($c['id_centro_costo'] ?? 0); ?>"><?php echo e((string)$c['codigo'].' - '.$c['nombre']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                             
+
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-semibold mb-1">Centro de Costo <span class="text-danger">*</span></label>
+                                <select id="idCentroCostoGasto" class="form-select shadow-none border-secondary-subtle" name="id_centro_costo" required>
+                                    <option value="" selected disabled hidden>Seleccione centro de costo...</option>
+                                    <?php foreach(($centrosCosto ?? []) as $cc): ?>
+                                        <option value="<?php echo (int)$cc['id']; ?>"><?php echo e((string)$cc['codigo'].' - '.$cc['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
                             <div class="col-12 mt-4 pt-3 border-top">
                                 <label class="form-label small text-muted fw-semibold mb-1">Monto Total <span class="text-danger">*</span></label>
                                 <div class="input-group">

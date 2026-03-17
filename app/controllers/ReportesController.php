@@ -176,6 +176,7 @@ class ReportesController extends Controlador
             'filtros' => $f,
             'costosPorOrden' => $costosPorOrden,
             'resumenCostos' => $resumen,
+            'resumenGerencial' => $this->produccion->resumenGerencialMensual($f),
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);

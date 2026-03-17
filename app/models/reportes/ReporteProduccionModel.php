@@ -3,6 +3,156 @@ declare(strict_types=1);
 
 class ReporteProduccionModel extends Modelo
 {
+    private function centroPorKeywords(string $keywordsSql): string
+    {
+        return "SELECT id FROM conta_centros_costo WHERE deleted_at IS NULL AND estado = 1 AND ({$keywordsSql})";
+    }
+
+    public function resumenGerencialMensual(array $f): array
+    {
+        $fd = (string) ($f['fecha_desde'] ?? date('Y-m-01'));
+        $fh = (string) ($f['fecha_hasta'] ?? date('Y-m-d'));
+        $params = ['fd' => $fd, 'fh' => $fh];
+
+        $sqlMp = "SELECT COALESCE(SUM(COALESCE(m.costo_total, m.cantidad * COALESCE(m.costo_unitario, 0))), 0)
+                  FROM inventario_movimientos m
+                  INNER JOIN items i ON i.id = m.id_item
+                  WHERE m.deleted_at IS NULL
+                    AND DATE(m.created_at) BETWEEN :fd AND :fh
+                    AND m.tipo_movimiento = 'CON'
+                    AND i.tipo_item = 'materia_prima'
+                    AND m.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%PROD%' OR UPPER(nombre) LIKE '%PRODUCCION%' OR UPPER(nombre) LIKE '%PLANTA%'") . ')';
+
+        $sqlCifInv = "SELECT COALESCE(SUM(COALESCE(m.costo_total, m.cantidad * COALESCE(m.costo_unitario, 0))), 0)
+                      FROM inventario_movimientos m
+                      LEFT JOIN items i ON i.id = m.id_item
+                      WHERE m.deleted_at IS NULL
+                        AND DATE(m.created_at) BETWEEN :fd AND :fh
+                        AND m.tipo_movimiento = 'CON'
+                        AND (i.tipo_item IS NULL OR i.tipo_item <> 'materia_prima')
+                        AND m.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%PROD%' OR UPPER(nombre) LIKE '%PRODUCCION%' OR UPPER(nombre) LIKE '%PLANTA%'") . ')';
+
+        $sqlMod = "SELECT COALESCE(SUM(COALESCE(o.total_mod_real, o.costo_mod_real, 0)), 0)
+                   FROM produccion_ordenes o
+                   WHERE o.deleted_at IS NULL
+                     AND o.estado = 2
+                     AND DATE(COALESCE(o.fecha_fin, o.updated_at, o.created_at)) BETWEEN :fd AND :fh";
+
+        $sqlCifGastos = "SELECT COALESCE(SUM(gr.total), 0)
+                         FROM gastos_registros gr
+                         WHERE gr.deleted_at IS NULL
+                           AND gr.estado <> 'ANULADO'
+                           AND gr.fecha BETWEEN :fd AND :fh
+                           AND gr.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%PROD%' OR UPPER(nombre) LIKE '%PRODUCCION%' OR UPPER(nombre) LIKE '%PLANTA%'") . ')';
+
+        $sqlDep = "SELECT COALESCE(SUM(d.monto), 0)
+                   FROM conta_depreciaciones d
+                   INNER JOIN activos_fijos a ON a.id = d.id_activo_fijo
+                   WHERE d.deleted_at IS NULL
+                     AND a.deleted_at IS NULL
+                     AND CONCAT(d.periodo, '-01') BETWEEN DATE_FORMAT(:fd, '%Y-%m-01') AND DATE_FORMAT(:fh, '%Y-%m-01')";
+
+        $sqlDepProd = $sqlDep . " AND a.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%PROD%' OR UPPER(nombre) LIKE '%PRODUCCION%' OR UPPER(nombre) LIKE '%PLANTA%'") . ')';
+        $sqlDepAdm = $sqlDep . " AND a.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%ADM%' OR UPPER(nombre) LIKE '%ADMIN%'") . ')';
+        $sqlDepVentas = $sqlDep . " AND a.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%VTA%' OR UPPER(codigo) LIKE '%VEN%' OR UPPER(nombre) LIKE '%VENTA%'") . ')';
+
+        $sqlVentas = "SELECT COALESCE(SUM(v.total), 0)
+                      FROM ventas_documentos v
+                      WHERE v.deleted_at IS NULL
+                        AND v.estado <> 'ANULADO'
+                        AND v.fecha_emision BETWEEN :fd AND :fh";
+
+        $sqlCogs = "SELECT COALESCE(SUM(COALESCE(m.costo_total, m.cantidad * COALESCE(m.costo_unitario, 0))), 0)
+                    FROM inventario_movimientos m
+                    WHERE m.deleted_at IS NULL
+                      AND DATE(m.created_at) BETWEEN :fd AND :fh
+                      AND m.tipo_movimiento = 'VEN'";
+
+        $sqlGastoServAdm = "SELECT COALESCE(SUM(gr.total), 0)
+                            FROM gastos_registros gr
+                            WHERE gr.deleted_at IS NULL
+                              AND gr.estado <> 'ANULADO'
+                              AND gr.fecha BETWEEN :fd AND :fh
+                              AND gr.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%ADM%' OR UPPER(nombre) LIKE '%ADMIN%'") . ')';
+
+        $sqlGastoServVentas = "SELECT COALESCE(SUM(gr.total), 0)
+                               FROM gastos_registros gr
+                               WHERE gr.deleted_at IS NULL
+                                 AND gr.estado <> 'ANULADO'
+                                 AND gr.fecha BETWEEN :fd AND :fh
+                                 AND gr.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%VTA%' OR UPPER(codigo) LIKE '%VEN%' OR UPPER(nombre) LIKE '%VENTA%'") . ')';
+
+        $sqlInvAdm = "SELECT COALESCE(SUM(COALESCE(m.costo_total, m.cantidad * COALESCE(m.costo_unitario, 0))), 0)
+                      FROM inventario_movimientos m
+                      WHERE m.deleted_at IS NULL
+                        AND DATE(m.created_at) BETWEEN :fd AND :fh
+                        AND m.tipo_movimiento = 'CON'
+                        AND m.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%ADM%' OR UPPER(nombre) LIKE '%ADMIN%'") . ')';
+
+        $sqlInvVentas = "SELECT COALESCE(SUM(COALESCE(m.costo_total, m.cantidad * COALESCE(m.costo_unitario, 0))), 0)
+                         FROM inventario_movimientos m
+                         WHERE m.deleted_at IS NULL
+                           AND DATE(m.created_at) BETWEEN :fd AND :fh
+                           AND m.tipo_movimiento = 'CON'
+                           AND m.id_centro_costo IN (" . $this->centroPorKeywords("UPPER(codigo) LIKE '%VTA%' OR UPPER(codigo) LIKE '%VEN%' OR UPPER(nombre) LIKE '%VENTA%'") . ')';
+
+        $sqlFin = "SELECT COALESCE(SUM(CASE
+                            WHEN UPPER(COALESCE(naturaleza_pago, 'DOCUMENTO')) = 'INTERES' THEN monto
+                            WHEN UPPER(COALESCE(naturaleza_pago, 'DOCUMENTO')) = 'MIXTO' THEN COALESCE(monto_interes, 0)
+                            ELSE 0 END), 0)
+                   FROM tesoreria_movimientos
+                   WHERE deleted_at IS NULL
+                     AND estado = 'CONFIRMADO'
+                     AND tipo = 'PAGO'
+                     AND fecha BETWEEN :fd AND :fh";
+
+        $q = fn(string $sql) => (float) ((function () use ($sql, $params) {
+            $stmt = $this->db()->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchColumn();
+        })() ?: 0);
+
+        $mp = $q($sqlMp);
+        $mod = $q($sqlMod);
+        $cifInv = $q($sqlCifInv);
+        $cifGastos = $q($sqlCifGastos);
+        $cifDep = $q($sqlDepProd);
+        $cifTotal = $cifInv + $cifGastos + $cifDep;
+        $costoFabricacion = $mp + $mod + $cifTotal;
+
+        $ventas = $q($sqlVentas);
+        $cogs = $q($sqlCogs);
+        $bruta = $ventas - $cogs;
+
+        $gAdm = $q($sqlGastoServAdm) + $q($sqlInvAdm) + $q($sqlDepAdm);
+        $gVentas = $q($sqlGastoServVentas) + $q($sqlInvVentas) + $q($sqlDepVentas);
+        $gFin = $q($sqlFin);
+        $neta = $bruta - $gAdm - $gVentas - $gFin;
+
+        return [
+            'costo_produccion' => [
+                'materia_prima_consumida' => $mp,
+                'mano_obra_directa' => $mod,
+                'cif_total' => $cifTotal,
+                'cif_desglose' => [
+                    'inventario_consumido_planta' => $cifInv,
+                    'servicios_planta' => $cifGastos,
+                    'depreciacion_planta' => $cifDep,
+                ],
+                'costo_total_fabricacion' => $costoFabricacion,
+            ],
+            'estado_resultados' => [
+                'ventas_totales' => $ventas,
+                'costo_productos_vendidos' => $cogs,
+                'ganancia_bruta' => $bruta,
+                'gastos_administracion' => $gAdm,
+                'gastos_ventas' => $gVentas,
+                'gastos_financieros' => $gFin,
+                'ganancia_neta' => $neta,
+            ],
+        ];
+    }
+
     public function contarEnProceso(): int
     {
         $sql = "SELECT COUNT(*) FROM produccion_ordenes WHERE deleted_at IS NULL AND estado IN (0,1)";

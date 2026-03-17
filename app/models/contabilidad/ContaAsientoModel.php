@@ -179,16 +179,47 @@ class ContaAsientoModel extends Modelo
         $monto = round((float)$movimiento['monto'], 4);
         $idTercero = (int)($movimiento['id_tercero'] ?? 0);
         $lineas = [];
+        $naturaleza = strtoupper(trim((string) ($movimiento['naturaleza_pago'] ?? 'DOCUMENTO')));
+        $montoCapital = round((float) ($movimiento['monto_capital'] ?? $monto), 4);
+        $montoInteres = round((float) ($movimiento['monto_interes'] ?? 0), 4);
+        $idCentroCosto = (int) ($movimiento['id_centro_costo'] ?? 0);
 
-        // 
         if ((string)$movimiento['tipo'] === 'COBRO') {
             // Ingresa Dinero (Debe) / Baja Deuda Cliente (Haber)
             $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => $monto, 'haber' => 0, 'id_tercero' => $idTercero];
             $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
         } else {
-            // Baja Deuda Proveedor (Debe) / Sale Dinero (Haber)
-            $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => $monto, 'haber' => 0, 'id_tercero' => $idTercero];
-            $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
+            if ($naturaleza === 'INTERES' || $naturaleza === 'MIXTO') {
+                $idCuentaGastoFin = (int)($mapa['CTA_GASTO_FINANCIERO'] ?? 0);
+                if ($idCuentaGastoFin <= 0) {
+                    $idCuentaGastoFin = $this->resolverCuentaParametroFaltante($db, 'CTA_GASTO_FINANCIERO') ?? 0;
+                    if ($idCuentaGastoFin > 0) {
+                        $paramModel->guardar('CTA_GASTO_FINANCIERO', $idCuentaGastoFin, $userId);
+                    }
+                }
+                if ($idCuentaGastoFin <= 0) {
+                    throw new RuntimeException('Falta parametrización contable de CTA_GASTO_FINANCIERO para registrar intereses.');
+                }
+
+                if ($naturaleza === 'INTERES') {
+                    $montoCapital = 0;
+                    $montoInteres = $monto;
+                } elseif ($montoInteres <= 0) {
+                    $montoInteres = max(0, $monto - $montoCapital);
+                }
+
+                if ($montoCapital > 0) {
+                    $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => $montoCapital, 'haber' => 0, 'id_tercero' => $idTercero];
+                }
+                if ($montoInteres > 0) {
+                    $lineas[] = ['id_cuenta' => $idCuentaGastoFin, 'debe' => $montoInteres, 'haber' => 0, 'id_tercero' => $idTercero, 'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : 0];
+                }
+                $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
+            } else {
+                // Baja Deuda Proveedor (Debe) / Sale Dinero (Haber)
+                $lineas[] = ['id_cuenta' => $idCuentaContra, 'debe' => $monto, 'haber' => 0, 'id_tercero' => $idTercero];
+                $lineas[] = ['id_cuenta' => $idCuentaTesoreria, 'debe' => 0, 'haber' => $monto, 'id_tercero' => $idTercero];
+            }
         }
 
         return $this->crearAsiento($db, [
@@ -317,6 +348,7 @@ class ContaAsientoModel extends Modelo
         $idProveedor = (int) ($movimiento['id_proveedor'] ?? 0);
         $total = round((float) ($movimiento['total'] ?? 0), 4);
         $idCuentaGasto = (int) ($movimiento['id_cuenta_gasto'] ?? 0);
+        $idCentroCosto = (int) ($movimiento['id_centro_costo'] ?? 0);
 
         if ($idGasto <= 0 || $idProveedor <= 0 || $total <= 0 || $idCuentaGasto <= 0) {
             throw new RuntimeException('Datos insuficientes para registrar asiento automático de gasto.');
@@ -352,7 +384,7 @@ class ContaAsientoModel extends Modelo
             'id_origen' => $idGasto,
             'estado' => 'REGISTRADO',
         ], [
-            ['id_cuenta' => $idCuentaGasto, 'debe' => $total, 'haber' => 0, 'id_tercero' => $idProveedor],
+            ['id_cuenta' => $idCuentaGasto, 'debe' => $total, 'haber' => 0, 'id_tercero' => $idProveedor, 'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : 0],
             ['id_cuenta' => $idCuentaCxp, 'debe' => 0, 'haber' => $total, 'id_tercero' => $idProveedor],
         ], $userId);
     }
@@ -389,6 +421,11 @@ class ContaAsientoModel extends Modelo
             $condiciones = [
                 'where' => '(UPPER(c.nombre) LIKE "%MATERIA PRIMA%" OR UPPER(c.nombre) LIKE "%INVENTARIO MATERIA%" OR UPPER(c.nombre) LIKE "%INSUMO%" OR c.codigo LIKE "20%")',
                 'tipo_fallback' => 'ACTIVO',
+            ];
+        } elseif ($clave === 'CTA_GASTO_FINANCIERO') {
+            $condiciones = [
+                'where' => '(UPPER(c.nombre) LIKE "%GASTO FINANCIER%" OR UPPER(c.nombre) LIKE "%INTERES%" OR c.codigo LIKE "67%")',
+                'tipo_fallback' => 'GASTO',
             ];
         } elseif ($clave === 'CTA_CIF_POR_APLICAR') {
             $condiciones = [

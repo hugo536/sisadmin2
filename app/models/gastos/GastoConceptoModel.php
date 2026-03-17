@@ -33,7 +33,7 @@ class GastoConceptoModel extends Modelo
 
     public function listarActivos(): array
     {
-        $stmt = $this->db()->query('SELECT id, codigo, nombre, id_cuenta_contable FROM gastos_conceptos WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC');
+        $stmt = $this->db()->query('SELECT id, codigo, nombre, id_centro_costo, id_cuenta_contable FROM gastos_conceptos WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC');
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

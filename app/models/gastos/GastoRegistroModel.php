@@ -25,10 +25,14 @@ class GastoRegistroModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $sql = 'SELECT gr.*, gc.nombre AS concepto, gc.codigo AS concepto_codigo, t.nombre_completo AS proveedor
+        $sql = 'SELECT gr.*, gc.nombre AS concepto, gc.codigo AS concepto_codigo, t.nombre_completo AS proveedor,
+                       COALESCE(ccr.codigo, ccc.codigo, "SCC") AS centro_costo_codigo,
+                       COALESCE(ccr.nombre, ccc.nombre, "Sin centro") AS centro_costo_nombre
                 FROM gastos_registros gr
                 INNER JOIN gastos_conceptos gc ON gc.id = gr.id_concepto
                 INNER JOIN terceros t ON t.id = gr.id_proveedor
+                LEFT JOIN conta_centros_costo ccr ON ccr.id = gr.id_centro_costo
+                LEFT JOIN conta_centros_costo ccc ON ccc.id = gc.id_centro_costo
                 WHERE ' . implode(' AND ', $where) . '
                 ORDER BY gr.fecha DESC, gr.id DESC';
 
@@ -53,6 +57,7 @@ class GastoRegistroModel extends Modelo
             $idConcepto = (int) ($data['id_concepto'] ?? 0);
             $monto = round((float) ($data['monto'] ?? 0), 4);
             $impuestoTipo = strtoupper(trim((string) ($data['impuesto_tipo'] ?? 'NINGUNO')));
+            $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
 
             if ($fecha === '' || $idProveedor <= 0 || $idConcepto <= 0 || $monto <= 0) {
                 throw new RuntimeException('Complete todos los campos obligatorios del registro de gasto.');
@@ -62,7 +67,7 @@ class GastoRegistroModel extends Modelo
             $impuestoMonto = round($monto * $factorImpuesto, 4);
             $total = round($monto + $impuestoMonto, 4);
 
-            $stmtConcepto = $db->prepare('SELECT id_cuenta_contable, nombre FROM gastos_conceptos WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+            $stmtConcepto = $db->prepare('SELECT id_cuenta_contable, id_centro_costo, nombre FROM gastos_conceptos WHERE id = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
             $stmtConcepto->execute(['id' => $idConcepto]);
             $concepto = $stmtConcepto->fetch(PDO::FETCH_ASSOC);
             if (!$concepto) {
@@ -70,15 +75,15 @@ class GastoRegistroModel extends Modelo
             }
 
             // 1. Guardar Gasto
-            // Modifica la línea del INSERT para que quede así:
             $stmt = $db->prepare('INSERT INTO gastos_registros
-                (fecha, id_proveedor, id_concepto, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
+                (fecha, id_proveedor, id_concepto, id_centro_costo, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:fecha, :id_proveedor, :id_concepto, :monto, :impuesto_tipo, :impuesto_monto, :total, "REGISTRADO", :created_by, :updated_by, NOW(), NOW())');
+                (:fecha, :id_proveedor, :id_concepto, :id_centro_costo, :monto, :impuesto_tipo, :impuesto_monto, :total, "REGISTRADO", :created_by, :updated_by, NOW(), NOW())');
             $stmt->execute([
                 'fecha' => $fecha,
                 'id_proveedor' => $idProveedor,
                 'id_concepto' => $idConcepto,
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : (int) ($concepto['id_centro_costo'] ?? 0),
                 'monto' => $monto,
                 'impuesto_tipo' => $impuestoTipo,
                 'impuesto_monto' => $impuestoMonto,
@@ -105,6 +110,7 @@ class GastoRegistroModel extends Modelo
                 'id_proveedor' => $idProveedor,
                 'total' => $total,
                 'id_cuenta_gasto' => (int) ($concepto['id_cuenta_contable'] ?? 0),
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : (int) ($concepto['id_centro_costo'] ?? 0),
                 'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
             ], $userId);
 
@@ -203,6 +209,7 @@ class GastoRegistroModel extends Modelo
                 fecha DATE NOT NULL,
                 id_proveedor INT NOT NULL,
                 id_concepto INT NOT NULL,
+                id_centro_costo INT NULL,
                 monto DECIMAL(14,4) NOT NULL DEFAULT 0,
                 impuesto_tipo VARCHAR(10) NOT NULL DEFAULT "NINGUNO",
                 impuesto_monto DECIMAL(14,4) NOT NULL DEFAULT 0,
@@ -218,10 +225,12 @@ class GastoRegistroModel extends Modelo
                 KEY idx_gastos_registros_fecha (fecha),
                 KEY idx_gastos_registros_proveedor (id_proveedor),
                 KEY idx_gastos_registros_concepto (id_concepto),
+                KEY idx_gastos_registros_centro (id_centro_costo),
                 KEY idx_gastos_registros_cxp (id_cxp),
                 KEY idx_gastos_registros_asiento (id_asiento),
                 CONSTRAINT fk_gastos_registros_proveedor FOREIGN KEY (id_proveedor) REFERENCES terceros(id),
                 CONSTRAINT fk_gastos_registros_concepto FOREIGN KEY (id_concepto) REFERENCES gastos_conceptos(id),
+                CONSTRAINT fk_gastos_registros_centro FOREIGN KEY (id_centro_costo) REFERENCES conta_centros_costo(id),
                 CONSTRAINT fk_gastos_registros_cxp FOREIGN KEY (id_cxp) REFERENCES tesoreria_cxp(id),
                 CONSTRAINT fk_gastos_registros_asiento FOREIGN KEY (id_asiento) REFERENCES conta_asientos(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');

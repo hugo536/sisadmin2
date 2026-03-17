@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS gastos_registros (
     fecha DATE NOT NULL,
     id_proveedor INT UNSIGNED NOT NULL,
     id_concepto INT UNSIGNED NOT NULL,
+    id_centro_costo INT UNSIGNED NULL,
     monto DECIMAL(14,4) NOT NULL DEFAULT 0,
     impuesto_tipo VARCHAR(10) NOT NULL DEFAULT 'NINGUNO',
     impuesto_monto DECIMAL(14,4) NOT NULL DEFAULT 0,
@@ -44,10 +45,12 @@ CREATE TABLE IF NOT EXISTS gastos_registros (
     KEY idx_gastos_registros_fecha (fecha),
     KEY idx_gastos_registros_proveedor (id_proveedor),
     KEY idx_gastos_registros_concepto (id_concepto),
+    KEY idx_gastos_registros_centro (id_centro_costo),
     KEY idx_gastos_registros_cxp (id_cxp),
     KEY idx_gastos_registros_asiento (id_asiento),
     CONSTRAINT fk_gastos_registros_proveedor FOREIGN KEY (id_proveedor) REFERENCES terceros(id),
     CONSTRAINT fk_gastos_registros_concepto FOREIGN KEY (id_concepto) REFERENCES gastos_conceptos(id),
+    CONSTRAINT fk_gastos_registros_centro FOREIGN KEY (id_centro_costo) REFERENCES conta_centros_costo(id),
     CONSTRAINT fk_gastos_registros_cxp FOREIGN KEY (id_cxp) REFERENCES tesoreria_cxp(id),
     CONSTRAINT fk_gastos_registros_asiento FOREIGN KEY (id_asiento) REFERENCES conta_asientos(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
