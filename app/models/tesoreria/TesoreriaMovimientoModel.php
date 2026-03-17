@@ -71,6 +71,11 @@ class TesoreriaMovimientoModel extends Modelo
             $origen = strtoupper(trim((string) $data['origen']));
             $idOrigen = (int) $data['id_origen'];
             $monto = round((float) $data['monto'], 4);
+            $tipo = strtoupper(trim((string) ($data['tipo'] ?? '')));
+            $naturalezaPago = strtoupper(trim((string) ($data['naturaleza_pago'] ?? 'DOCUMENTO')));
+            $montoCapital = round((float) ($data['monto_capital'] ?? $monto), 4);
+            $montoInteres = round((float) ($data['monto_interes'] ?? 0), 4);
+            $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
 
             if ($monto <= 0) {
                 throw new RuntimeException('El monto de la transacción debe ser mayor a cero.');
@@ -91,6 +96,34 @@ class TesoreriaMovimientoModel extends Modelo
             if (!$origenRow) throw new RuntimeException('Documento de origen no encontrado.');
             if (($origenRow['estado'] ?? '') === 'ANULADA') throw new RuntimeException('El documento está anulado.');
 
+            $montoAplicaOrigen = $monto;
+            if ($origen === 'CXP' && $tipo === 'PAGO') {
+                if (!in_array($naturalezaPago, ['DOCUMENTO', 'CAPITAL', 'INTERES', 'MIXTO'], true)) {
+                    throw new RuntimeException('Naturaleza de pago inválida.');
+                }
+                if ($naturalezaPago === 'INTERES') {
+                    $montoCapital = 0;
+                    $montoInteres = $monto;
+                    $montoAplicaOrigen = 0;
+                } elseif ($naturalezaPago === 'CAPITAL') {
+                    $montoInteres = 0;
+                    $montoCapital = $monto;
+                    $montoAplicaOrigen = $montoCapital;
+                } elseif ($naturalezaPago === 'MIXTO') {
+                    if ($montoCapital <= 0 || $montoInteres <= 0) {
+                        throw new RuntimeException('Para pago mixto debe indicar montos de capital e interés mayores a cero.');
+                    }
+                    if (round($montoCapital + $montoInteres, 4) !== $monto) {
+                        throw new RuntimeException('La suma capital + interés debe ser igual al monto total del pago.');
+                    }
+                    $montoAplicaOrigen = $montoCapital;
+                }
+                $saldoActual = round((float) ($origenRow['saldo'] ?? 0), 4);
+                if ($montoAplicaOrigen > $saldoActual) {
+                    throw new RuntimeException('El componente de capital no puede exceder el saldo pendiente de la obligación.');
+                }
+            }
+
             // 2. Validar cuenta de tesorería y OBTENER VINCULACIÓN CONTABLE
             // 
             $stmtCuenta = $db->prepare('SELECT id, moneda, estado FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
@@ -101,12 +134,12 @@ class TesoreriaMovimientoModel extends Modelo
 
             // 3. Insertar el movimiento de tesorería
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
-                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:tipo, :id_tercero, :origen, :id_origen, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :referencia, :observaciones, "CONFIRMADO", :created_by, :updated_by, NOW(), NOW())');
+                (:tipo, :id_tercero, :origen, :id_origen, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :naturaleza_pago, :monto_capital, :monto_interes, :id_centro_costo, :referencia, :observaciones, "CONFIRMADO", :created_by, :updated_by, NOW(), NOW())');
 
             $stmtInsert->execute([
-                'tipo'           => strtoupper(trim((string)$data['tipo'])),
+                'tipo'           => $tipo,
                 'id_tercero'     => (int) $origenRow['id_tercero'],
                 'origen'         => $origen,
                 'id_origen'      => $idOrigen,
@@ -115,6 +148,10 @@ class TesoreriaMovimientoModel extends Modelo
                 'fecha'          => $data['fecha'],
                 'moneda'         => $data['moneda'],
                 'monto'          => $monto,
+                'naturaleza_pago' => $naturalezaPago,
+                'monto_capital' => $montoCapital,
+                'monto_interes' => $montoInteres,
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
                 'referencia'     => $data['referencia'] ?: null,
                 'observaciones'  => $data['observaciones'] ?: null,
                 'created_by'     => $userId,
@@ -124,8 +161,8 @@ class TesoreriaMovimientoModel extends Modelo
 
             // 4. Actualizar saldo en origen
             $tablaOrigen = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
-            $stmtUpd = $db->prepare("UPDATE $tablaOrigen SET monto_pagado = ROUND(monto_pagado + :monto, 4), updated_by = :user, updated_at = NOW() WHERE id = :id");
-            $stmtUpd->execute(['monto' => $monto, 'user' => $userId, 'id' => $idOrigen]);
+            $stmtUpd = $db->prepare("UPDATE $tablaOrigen SET monto_pagado = ROUND(monto_pagado + :monto_aplica, 4), updated_by = :user, updated_at = NOW() WHERE id = :id");
+            $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
             // 5. REGISTRO CONTABLE AUTOMÁTICO USANDO LA CUENTA VINCULADA
             // 
@@ -136,7 +173,11 @@ class TesoreriaMovimientoModel extends Modelo
                 'fecha'              => (string)$data['fecha'],
                 'monto'              => $monto,
                 'id_cuenta_tesoreria' => (int)$data['id_cuenta'],
-                'id_tercero'         => (int)$origenRow['id_tercero']
+                'id_tercero'         => (int)$origenRow['id_tercero'],
+                'naturaleza_pago'    => $naturalezaPago,
+                'monto_capital'      => $montoCapital,
+                'monto_interes'      => $montoInteres,
+                'id_centro_costo'    => $idCentroCosto
             ], $userId);
 
             $db->commit();
@@ -240,11 +281,21 @@ class TesoreriaMovimientoModel extends Modelo
             $origen = (string)$mov['origen'];
             $idOrigen = (int)$mov['id_origen'];
             $monto = (float)$mov['monto'];
+            $naturaleza = strtoupper((string)($mov['naturaleza_pago'] ?? 'DOCUMENTO'));
+            $montoCapital = (float)($mov['monto_capital'] ?? 0);
+            $montoAplicaOrigen = $monto;
+            if ($origen === 'CXP') {
+                if ($naturaleza === 'INTERES') {
+                    $montoAplicaOrigen = 0;
+                } elseif ($naturaleza === 'MIXTO') {
+                    $montoAplicaOrigen = max(0, $montoCapital);
+                }
+            }
 
             // 1. Revertir saldo en CXC/CXP
             $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
-            $stmtUpd = $db->prepare("UPDATE $tabla SET monto_pagado = GREATEST(ROUND(monto_pagado - :monto, 4), 0), updated_by = :user, updated_at = NOW() WHERE id = :id");
-            $stmtUpd->execute(['monto' => $monto, 'user' => $userId, 'id' => $idOrigen]);
+            $stmtUpd = $db->prepare("UPDATE $tabla SET monto_pagado = GREATEST(ROUND(monto_pagado - :monto_aplica, 4), 0), updated_by = :user, updated_at = NOW() WHERE id = :id");
+            $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
             // 2. Marcar movimiento como anulado
             $db->prepare('UPDATE tesoreria_movimientos SET estado = "ANULADO", updated_by = :user, updated_at = NOW() WHERE id = :id')

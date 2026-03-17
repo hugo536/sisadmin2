@@ -246,6 +246,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+
+        const naturalezaPago = document.getElementById('pagoNaturaleza');
+        const grupoCapital = document.getElementById('grupoPagoCapital');
+        const grupoInteres = document.getElementById('grupoPagoInteres');
+        const inputCapital = document.getElementById('pagoMontoCapital');
+        const inputInteres = document.getElementById('pagoMontoInteres');
+
+        function syncNaturalezaPago() {
+            if (!naturalezaPago) return;
+            const val = String(naturalezaPago.value || 'DOCUMENTO');
+            const mostrarCapital = val === 'CAPITAL' || val === 'MIXTO';
+            const mostrarInteres = val === 'INTERES' || val === 'MIXTO';
+            if (grupoCapital) grupoCapital.classList.toggle('d-none', !mostrarCapital);
+            if (grupoInteres) grupoInteres.classList.toggle('d-none', !mostrarInteres);
+            if (inputCapital) inputCapital.required = mostrarCapital;
+            if (inputInteres) inputInteres.required = mostrarInteres;
+            if (!mostrarCapital && inputCapital) inputCapital.value = '0';
+            if (!mostrarInteres && inputInteres) inputInteres.value = '0';
+        }
+
+        if (naturalezaPago) {
+            naturalezaPago.addEventListener('change', syncNaturalezaPago);
+            syncNaturalezaPago();
+        }
+
         modalPagoEl.addEventListener('hidden.bs.modal', function () {
             const formPago = modalPagoEl.querySelector('form');
             if (formPago) formPago.reset();
@@ -256,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const inputMonto = document.getElementById('pagoMonto');
             if(inputMonto) inputMonto.classList.remove('is-invalid');
+            syncNaturalezaPago();
         });
     }
 

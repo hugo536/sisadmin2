@@ -323,6 +323,10 @@ class TesoreriaController extends Controlador
                 'monto'          => round($monto, 4),
                 'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
+                'naturaleza_pago' => strtoupper(trim((string) ($_POST['naturaleza_pago'] ?? 'DOCUMENTO'))),
+                'monto_capital' => round((float) ($_POST['monto_capital'] ?? 0), 4),
+                'monto_interes' => round((float) ($_POST['monto_interes'] ?? 0), 4),
+                'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
             ];
 
             $this->validarPermisoOperacionCuenta((int) $payload['id_cuenta'], $origen);
@@ -379,6 +383,7 @@ class TesoreriaController extends Controlador
                 'monto'          => $monto,
                 'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
+                'naturaleza_pago' => 'DOCUMENTO',
             ], $idsOrigen, $this->obtenerUsuarioId());
 
             // 2. ¡EL ESLABÓN PERDIDO! Sincronizamos los estados de esas facturas

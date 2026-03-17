@@ -154,6 +154,7 @@ class GastosController extends Controlador
             'filtros' => $filtros,
             'conceptos' => $this->conceptoModel->listarActivos(),
             'proveedores' => $this->proveedorModel->listarActivos(),
+            'centrosCosto' => $this->centroCostoModel->listar(),
         ]);
     }
 
@@ -173,6 +174,7 @@ class GastosController extends Controlador
                 'id_concepto' => (int) ($_POST['id_concepto'] ?? 0),
                 'monto' => (float) ($_POST['monto'] ?? 0),
                 'impuesto_tipo' => trim((string) ($_POST['impuesto_tipo'] ?? 'NINGUNO')),
+                'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
             ];
 
             $this->registroModel->crear($payload, $this->uid());

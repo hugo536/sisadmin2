@@ -6,7 +6,7 @@
     // ==========================================
     if (window.TomSelect) {
       // Agregamos los IDs de todos los selects que queremos mejorar
-      const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor'];
+      const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
 
       selectoresAvanzados.forEach(function(id) {
         const elemento = document.getElementById(id);
@@ -20,6 +20,26 @@
           });
         }
       });
+    }
+
+
+    const selectConcepto = document.getElementById('idConceptoGasto');
+    const selectCentroCosto = document.getElementById('idCentroCostoGasto');
+
+    if (selectConcepto && selectCentroCosto) {
+      const autocompletarCentro = function() {
+        const opt = selectConcepto.options[selectConcepto.selectedIndex];
+        if (!opt) return;
+        const idCentro = Number(opt.dataset.centroCosto || 0);
+        if (idCentro > 0) {
+          selectCentroCosto.value = String(idCentro);
+          if (selectCentroCosto.tomselect) {
+            selectCentroCosto.tomselect.setValue(String(idCentro), true);
+          }
+        }
+      };
+      selectConcepto.addEventListener('change', autocompletarCentro);
+      autocompletarCentro();
     }
 
     const modalEl = document.getElementById('modalDetalleGasto');

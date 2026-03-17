@@ -92,6 +92,10 @@ CREATE TABLE IF NOT EXISTS tesoreria_movimientos (
   fecha DATE NOT NULL,
   moneda ENUM('PEN','USD') NOT NULL DEFAULT 'PEN',
   monto DECIMAL(14,4) NOT NULL,
+  naturaleza_pago ENUM('DOCUMENTO','CAPITAL','INTERES','MIXTO') NOT NULL DEFAULT 'DOCUMENTO',
+  monto_capital DECIMAL(14,4) NOT NULL DEFAULT 0,
+  monto_interes DECIMAL(14,4) NOT NULL DEFAULT 0,
+  id_centro_costo INT NULL,
   referencia VARCHAR(120) NULL,
   observaciones VARCHAR(255) NULL,
   estado ENUM('CONFIRMADO','ANULADO') NOT NULL DEFAULT 'CONFIRMADO',
@@ -104,9 +108,12 @@ CREATE TABLE IF NOT EXISTS tesoreria_movimientos (
   INDEX idx_tes_mov_origen (origen, id_origen, estado),
   INDEX idx_tes_mov_tercero (id_tercero, fecha),
   INDEX idx_tes_mov_cuenta (id_cuenta, fecha),
+  INDEX idx_tes_mov_naturaleza (naturaleza_pago),
+  INDEX idx_tes_mov_centro_costo (id_centro_costo),
   CONSTRAINT fk_tes_mov_tercero FOREIGN KEY (id_tercero) REFERENCES terceros(id),
   CONSTRAINT fk_tes_mov_cuenta FOREIGN KEY (id_cuenta) REFERENCES tesoreria_cuentas(id),
   CONSTRAINT fk_tes_mov_metodo FOREIGN KEY (id_metodo_pago) REFERENCES tesoreria_metodos_pago(id),
+  CONSTRAINT fk_tes_mov_centro_costo FOREIGN KEY (id_centro_costo) REFERENCES conta_centros_costo(id),
   CONSTRAINT chk_tes_mov_monto CHECK (monto > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

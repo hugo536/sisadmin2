@@ -11,6 +11,9 @@ $ordenes = (int) ($resumenCostos['ordenes'] ?? 0);
 $desviadas = (int) ($resumenCostos['desviadas'] ?? 0);
 
 $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 100) : 0;
+$resumenGerencial = is_array($resumenGerencial ?? null) ? $resumenGerencial : [];
+$rc = is_array($resumenGerencial['costo_produccion'] ?? null) ? $resumenGerencial['costo_produccion'] : [];
+$re = is_array($resumenGerencial['estado_resultados'] ?? null) ? $resumenGerencial['estado_resultados'] : [];
 ?>
 
 <div class="container-fluid p-4" id="costosProduccionApp">
@@ -111,6 +114,46 @@ $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 1
             </div>
         </div>
         
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-xl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-factory me-2 text-primary"></i>Reporte 1: Estado del Costo de Producción</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex justify-content-between"><span>Materia prima consumida</span><strong>S/ <?php echo number_format((float)($rc['materia_prima_consumida'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Mano de Obra Directa (MOD)</span><strong>S/ <?php echo number_format((float)($rc['mano_obra_directa'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>CIF inventario (planta)</span><strong>S/ <?php echo number_format((float)(($rc['cif_desglose']['inventario_consumido_planta'] ?? 0)), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>CIF servicios (planta)</span><strong>S/ <?php echo number_format((float)(($rc['cif_desglose']['servicios_planta'] ?? 0)), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>CIF depreciación (planta)</span><strong>S/ <?php echo number_format((float)(($rc['cif_desglose']['depreciacion_planta'] ?? 0)), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between bg-light"><span class="fw-bold">CIF total</span><strong>S/ <?php echo number_format((float)($rc['cif_total'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between bg-primary-subtle"><span class="fw-bold">Costo total de fabricar</span><strong>S/ <?php echo number_format((float)($rc['costo_total_fabricacion'] ?? 0), 2); ?></strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-bar-chart-line me-2 text-success"></i>Reporte 2: Estado de Resultados</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex justify-content-between"><span>Ventas Totales</span><strong>S/ <?php echo number_format((float)($re['ventas_totales'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Costo de productos vendidos</span><strong>S/ <?php echo number_format((float)($re['costo_productos_vendidos'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between bg-light"><span class="fw-bold">Ganancia Bruta</span><strong>S/ <?php echo number_format((float)($re['ganancia_bruta'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Gastos de Administración</span><strong>S/ <?php echo number_format((float)($re['gastos_administracion'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Gastos de Ventas</span><strong>S/ <?php echo number_format((float)($re['gastos_ventas'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Gastos Financieros (intereses)</span><strong>S/ <?php echo number_format((float)($re['gastos_financieros'] ?? 0), 2); ?></strong></li>
+                        <li class="list-group-item d-flex justify-content-between bg-success-subtle"><span class="fw-bold">Ganancia Neta</span><strong>S/ <?php echo number_format((float)($re['ganancia_neta'] ?? 0), 2); ?></strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm">
