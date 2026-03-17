@@ -4,6 +4,7 @@ $filtros = $filtros ?? [];
 $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
+$centros_costo = $centros_costo ?? []; // <-- Capturamos la variable enviada desde el controller
 
 $badge = static function (string $estado): string {
     if ($estado === 'PAGADA') {
@@ -156,9 +157,7 @@ if (!empty($_GET['error'])) {
                         <?php else: ?>
                             <?php foreach ($registros as $r): ?>
                                 <?php 
-                                    // CAMBIO: El valor por defecto al fallar ahora es PENDIENTE
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
-                                    // Búsqueda para JS
                                     $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . $estadoStr);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
@@ -295,6 +294,7 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
+
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -302,7 +302,7 @@ if (!empty($_GET['error'])) {
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Pago</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_pago')); ?>" class="js-form-confirm js-form-monto">
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_pago')); ?>" class="js-form-confirm js-form-monto" id="formPago">
                 <div class="modal-body p-4 bg-light">
                     <input type="hidden" name="id_origen" id="pagoIdOrigen">
                     
@@ -345,12 +345,6 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
-                        </div>
-                        
-
-                        <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Naturaleza del Pago <span class="text-danger">*</span></label>
                             <select name="naturaleza_pago" id="pagoNaturaleza" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="DOCUMENTO" selected>Pago de deuda (documento completo)</option>
@@ -360,18 +354,33 @@ if (!empty($_GET['error'])) {
                             </select>
                         </div>
 
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar (Total que sale del banco) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis fs-5" required>
+                        </div>
+
                         <div class="col-md-6 d-none" id="grupoPagoCapital">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto Capital</label>
+                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
                             <input type="number" step="0.01" min="0" name="monto_capital" id="pagoMontoCapital" class="form-control shadow-sm border-secondary-subtle" value="0">
                         </div>
 
                         <div class="col-md-6 d-none" id="grupoPagoInteres">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto Interés</label>
-                            <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control shadow-sm border-secondary-subtle" value="0">
+                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Interés</label>
+                            <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control shadow-sm border-secondary-subtle text-danger" value="0">
                         </div>
 
+                        <div class="col-md-12 d-none" id="grupoCentroCostoInteres">
+                            <label class="form-label small text-muted fw-bold mb-1">Centro de Costo (Gasto Financiero) <span class="text-danger">*</span></label>
+                            <select name="id_centro_costo" id="pagoCentroCosto" class="form-select shadow-sm border-secondary-subtle bg-warning-subtle">
+                                <option value="" selected disabled>Seleccione...</option>
+                                <?php foreach ($centros_costo as $cc): ?>
+                                    <option value="<?php echo (int) $cc['id']; ?>"><?php echo e((string) ($cc['codigo'] ?? '') . ' - ' . (string) ($cc['nombre'] ?? '')); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Se requiere asignar el pago del interés a un departamento (Ej. Finanzas).</div>
+                        </div>
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                            <label class="form-label small text-muted fw-bold mb-1 mt-2">Referencia / N° Operación</label>
                             <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-849392">
                         </div>
                         

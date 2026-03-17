@@ -306,7 +306,7 @@ if (!empty($_GET['error'])) {
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Cobro</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro')); ?>" class="js-form-confirm js-form-monto">
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro')); ?>" class="js-form-confirm js-form-monto" id="formCobro">
                 <div class="modal-body p-4 bg-light">
                     <input type="hidden" name="id_origen" id="cobroIdOrigen">
                     
@@ -322,7 +322,7 @@ if (!empty($_GET['error'])) {
                         
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
+                            <select name="id_cuenta" id="selectCuentaDestino" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
                                     <?php if (!empty($c['id_cuenta_contable'])): ?>
@@ -335,7 +335,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
+                            <label class="form-label small text-muted fw-bold mb-1">Método de Cobro <span class="text-danger">*</span></label>
                             <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione un método...</option>
                                 <?php foreach($metodos as $m): ?>
@@ -348,20 +348,40 @@ if (!empty($_GET['error'])) {
                             <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
                             <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
                         </div>
-                        
+
                         <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success" required>
+                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza del Cobro <span class="text-danger">*</span></label>
+                            <select name="naturaleza_pago" id="cobroNaturaleza" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="DOCUMENTO" selected>Cobro de deuda (documento completo)</option>
+                                <option value="CAPITAL">Solo capital (reduce obligación)</option>
+                                <option value="INTERES">Solo interés (mora/ingreso extra)</option>
+                                <option value="MIXTO">Mixto (capital + mora)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar (Total que entra al banco) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success fs-5" required>
+                        </div>
+
+                        <div class="col-md-6 d-none" id="grupoCobroCapital">
+                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
+                            <input type="number" step="0.01" min="0" name="monto_capital" id="cobroMontoCapital" class="form-control shadow-sm border-secondary-subtle" value="0">
+                        </div>
+
+                        <div class="col-md-6 d-none" id="grupoCobroInteres">
+                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Interés/Mora</label>
+                            <input type="number" step="0.01" min="0" name="monto_interes" id="cobroMontoInteres" class="form-control shadow-sm border-secondary-subtle text-success" value="0">
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                            <label class="form-label small text-muted fw-bold mb-1 mt-2">Referencia / N° Operación</label>
                             <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-849392">
                         </div>
                         
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
-                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Notas adicionales del pago..."></textarea>
+                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Notas adicionales del cobro..."></textarea>
                         </div>
                     </div>
                 </div>

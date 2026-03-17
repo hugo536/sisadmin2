@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     confirmButtonText: 'Aceptar'
                 });
             }
-            // Limpiar URL
             params.delete('ok');
             params.delete('action');
             const nextUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
@@ -81,11 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const esCaja = tipo === 'CAJA';
         const esBilletera = tipo === 'BILLETERA';
 
-        // Visibilidad de campos bancarios
         bankFields.forEach(f => f.style.display = esCaja ? 'none' : 'block');
         if (cciWrap) cciWrap.style.display = (esCaja || esBilletera) ? 'none' : 'block';
 
-        // Etiquetas dinámicas
         if (numeroLabel) numeroLabel.textContent = esBilletera ? 'N° de Teléfono' : 'N° de cuenta';
         if (numeroInput) {
             numeroInput.placeholder = esBilletera ? '999999999' : '000-0000000';
@@ -97,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (tipoCuentaSelect) {
         tipoCuentaSelect.addEventListener('change', syncFormUX);
-        syncFormUX(); // Ejecución inicial
+        syncFormUX();
     }
 
     // ========================================================================
@@ -105,6 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================================
     document.querySelectorAll('.js-form-confirm').forEach(form => {
         form.addEventListener('submit', function(e) {
+            // EVITAR DOBLE SUBMIT O SUBMIT SI HAY ERRORES PREVIOS
+            if (e.defaultPrevented) return; 
+
             e.preventDefault();
             
             Swal.fire({
@@ -131,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.js-form-delete-cuenta').forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-
             Swal.fire({
                 title: '¿Eliminar cuenta?',
                 text: 'Esta cuenta no tiene movimientos. La eliminación no se podrá deshacer.',
@@ -143,9 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).then((result) => {
                 if (result.isConfirmed) {
                     const btn = this.querySelector('button[type="submit"]');
-                    if (btn) {
-                        btn.disabled = true;
-                    }
+                    if (btn) btn.disabled = true;
                     this.submit();
                 }
             });
@@ -155,23 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.js-switch-estado-cuenta').forEach(sw => {
         sw.addEventListener('change', function () {
             const form = this.closest('form');
-            if (form) {
-                form.submit();
-            }
+            if (form) form.submit();
         });
     });
 
-    // ========================================================================
-    // 3. LIMPIEZA AL CERRAR MODALES DE CUENTA
-    // ========================================================================
     if (modalCuentaEl && formCuenta) {
         modalCuentaEl.addEventListener('hidden.bs.modal', () => {
             const esEdicion = tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true';
             if (!esEdicion) {
                 formCuenta.reset();
-                if (tipoCuentaSelect) {
-                    tipoCuentaSelect.dispatchEvent(new Event('change'));
-                }
+                if (tipoCuentaSelect) tipoCuentaSelect.dispatchEvent(new Event('change'));
             }
         });
     }
@@ -206,11 +196,102 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputMonto.value = saldoFormateado;
                 inputMonto.setAttribute('max', saldoFormateado);
             }
+
+            syncNaturalezaCobro();
         });
 
+        const naturalezaCobro = document.getElementById('cobroNaturaleza');
+        const grupoCapitalCobro = document.getElementById('grupoCobroCapital');
+        const grupoInteresCobro = document.getElementById('grupoCobroInteres');
+        const inputCapitalCobro = document.getElementById('cobroMontoCapital');
+        const inputInteresCobro = document.getElementById('cobroMontoInteres');
+        const inputMontoTotalCobro = document.getElementById('cobroMonto');
+
+        function syncNaturalezaCobro() {
+            if (!naturalezaCobro) return;
+            const val = String(naturalezaCobro.value || 'DOCUMENTO');
+            
+            const mostrarCapital = val === 'CAPITAL' || val === 'MIXTO';
+            const mostrarInteres = val === 'INTERES' || val === 'MIXTO';
+            
+            if (grupoCapitalCobro) grupoCapitalCobro.classList.toggle('d-none', !mostrarCapital);
+            if (grupoInteresCobro) grupoInteresCobro.classList.toggle('d-none', !mostrarInteres);
+            if (inputCapitalCobro) inputCapitalCobro.required = mostrarCapital;
+            if (inputInteresCobro) inputInteresCobro.required = mostrarInteres;
+
+            if (!mostrarCapital && inputCapitalCobro) inputCapitalCobro.value = '0.00';
+            if (!mostrarInteres && inputInteresCobro) inputInteresCobro.value = '0.00';
+            
+            if (inputMontoTotalCobro) {
+                const saldoPendiente = document.getElementById('cobroSaldo') ? document.getElementById('cobroSaldo').value : '0';
+                if (val === 'MIXTO' || val === 'INTERES') {
+                    inputMontoTotalCobro.removeAttribute('max');
+                } else {
+                    inputMontoTotalCobro.setAttribute('max', saldoPendiente);
+                }
+            }
+            validarMontosMixtosCobro();
+        }
+        
+        function validarMontosMixtosCobro() {
+            if (!naturalezaCobro || !inputMontoTotalCobro || !inputCapitalCobro || !inputInteresCobro) return;
+            
+            if (naturalezaCobro.value === 'MIXTO') {
+                const total = parseFloat(inputMontoTotalCobro.value) || 0;
+                const capital = parseFloat(inputCapitalCobro.value) || 0;
+                const interes = parseFloat(inputInteresCobro.value) || 0;
+                
+                if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
+                    inputCapitalCobro.classList.add('is-invalid');
+                    inputInteresCobro.classList.add('is-invalid');
+                } else {
+                    inputCapitalCobro.classList.remove('is-invalid');
+                    inputInteresCobro.classList.remove('is-invalid');
+                }
+            } else {
+                inputCapitalCobro.classList.remove('is-invalid');
+                inputInteresCobro.classList.remove('is-invalid');
+            }
+        }
+
+        if (naturalezaCobro) {
+            naturalezaCobro.addEventListener('change', syncNaturalezaCobro);
+        }
+        
+        [inputMontoTotalCobro, inputCapitalCobro, inputInteresCobro].forEach(input => {
+            if (input) input.addEventListener('input', validarMontosMixtosCobro);
+        });
+
+        const formCobro = document.getElementById('formCobro');
+        if (formCobro) {
+            formCobro.addEventListener('submit', function(e) {
+                if (naturalezaCobro && naturalezaCobro.value === 'MIXTO') {
+                    const total = parseFloat(inputMontoTotalCobro.value) || 0;
+                    const capital = parseFloat(inputCapitalCobro.value) || 0;
+                    const interes = parseFloat(inputInteresCobro.value) || 0;
+                    
+                    if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Montos descuadrados',
+                                text: `La suma de Capital (${capital.toFixed(2)}) + Mora (${interes.toFixed(2)}) debe ser igual al Monto Total (${total.toFixed(2)}).`
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
         modalCobroEl.addEventListener('hidden.bs.modal', function () {
-            const formCobro = modalCobroEl.querySelector('form');
-            if (formCobro) formCobro.reset();
+            const form = modalCobroEl.querySelector('form');
+            if (form) form.reset();
+            if(inputMontoTotalCobro) inputMontoTotalCobro.classList.remove('is-invalid');
+            if(inputCapitalCobro) inputCapitalCobro.classList.remove('is-invalid');
+            if(inputInteresCobro) inputInteresCobro.classList.remove('is-invalid');
+            syncNaturalezaCobro();
         });
     }
 
@@ -244,43 +325,116 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputMonto.value = saldoFormateado;
                 inputMonto.setAttribute('max', saldoFormateado);
             }
+            
+            syncNaturalezaPago();
         });
-
 
         const naturalezaPago = document.getElementById('pagoNaturaleza');
         const grupoCapital = document.getElementById('grupoPagoCapital');
         const grupoInteres = document.getElementById('grupoPagoInteres');
         const inputCapital = document.getElementById('pagoMontoCapital');
         const inputInteres = document.getElementById('pagoMontoInteres');
+        
+        const grupoCentroCosto = document.getElementById('grupoCentroCostoInteres');
+        const inputCentroCosto = document.getElementById('pagoCentroCosto');
+        const inputMontoTotal = document.getElementById('pagoMonto');
 
         function syncNaturalezaPago() {
             if (!naturalezaPago) return;
             const val = String(naturalezaPago.value || 'DOCUMENTO');
+            
             const mostrarCapital = val === 'CAPITAL' || val === 'MIXTO';
             const mostrarInteres = val === 'INTERES' || val === 'MIXTO';
+            
             if (grupoCapital) grupoCapital.classList.toggle('d-none', !mostrarCapital);
             if (grupoInteres) grupoInteres.classList.toggle('d-none', !mostrarInteres);
             if (inputCapital) inputCapital.required = mostrarCapital;
             if (inputInteres) inputInteres.required = mostrarInteres;
-            if (!mostrarCapital && inputCapital) inputCapital.value = '0';
-            if (!mostrarInteres && inputInteres) inputInteres.value = '0';
+            
+            if (grupoCentroCosto) {
+                grupoCentroCosto.classList.toggle('d-none', !mostrarInteres);
+                if (inputCentroCosto) inputCentroCosto.required = mostrarInteres;
+            }
+
+            if (!mostrarCapital && inputCapital) inputCapital.value = '0.00';
+            if (!mostrarInteres && inputInteres) inputInteres.value = '0.00';
+            if (!mostrarInteres && inputCentroCosto) inputCentroCosto.value = '';
+            
+            if (inputMontoTotal) {
+                const saldoPendiente = document.getElementById('pagoSaldo') ? document.getElementById('pagoSaldo').value : '0';
+                if (val === 'MIXTO' || val === 'INTERES') {
+                    inputMontoTotal.removeAttribute('max'); 
+                } else {
+                    inputMontoTotal.setAttribute('max', saldoPendiente); 
+                }
+            }
+            validarMontosMixtos();
+        }
+        
+        function validarMontosMixtos() {
+            if (!naturalezaPago || !inputMontoTotal || !inputCapital || !inputInteres) return;
+            
+            if (naturalezaPago.value === 'MIXTO') {
+                const total = parseFloat(inputMontoTotal.value) || 0;
+                const capital = parseFloat(inputCapital.value) || 0;
+                const interes = parseFloat(inputInteres.value) || 0;
+                
+                if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
+                    inputCapital.classList.add('is-invalid');
+                    inputInteres.classList.add('is-invalid');
+                } else {
+                    inputCapital.classList.remove('is-invalid');
+                    inputInteres.classList.remove('is-invalid');
+                }
+            } else {
+                inputCapital.classList.remove('is-invalid');
+                inputInteres.classList.remove('is-invalid');
+            }
         }
 
         if (naturalezaPago) {
             naturalezaPago.addEventListener('change', syncNaturalezaPago);
-            syncNaturalezaPago();
+        }
+        
+        [inputMontoTotal, inputCapital, inputInteres].forEach(input => {
+            if (input) input.addEventListener('input', validarMontosMixtos);
+        });
+
+        const formPagoRegular = document.getElementById('formPago');
+        if (formPagoRegular) {
+            formPagoRegular.addEventListener('submit', function(e) {
+                if (naturalezaPago && naturalezaPago.value === 'MIXTO') {
+                    const total = parseFloat(inputMontoTotal.value) || 0;
+                    const capital = parseFloat(inputCapital.value) || 0;
+                    const interes = parseFloat(inputInteres.value) || 0;
+                    
+                    if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
+                        e.preventDefault(); 
+                        e.stopImmediatePropagation();
+                        
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Montos descuadrados',
+                                text: `La suma de Capital (${capital.toFixed(2)}) + Interés (${interes.toFixed(2)}) debe ser igual al Monto Total (${total.toFixed(2)}).`
+                            });
+                        }
+                    }
+                }
+            });
         }
 
         modalPagoEl.addEventListener('hidden.bs.modal', function () {
             const formPago = modalPagoEl.querySelector('form');
             if (formPago) formPago.reset();
             
-            // Limpiar los textos de saldo al cerrar
             const txtSaldo = document.getElementById('textoSaldoDisponible');
             if(txtSaldo) txtSaldo.innerHTML = '';
             
-            const inputMonto = document.getElementById('pagoMonto');
-            if(inputMonto) inputMonto.classList.remove('is-invalid');
+            if(inputMontoTotal) inputMontoTotal.classList.remove('is-invalid');
+            if(inputCapital) inputCapital.classList.remove('is-invalid');
+            if(inputInteres) inputInteres.classList.remove('is-invalid');
+            
             syncNaturalezaPago();
         });
     }
@@ -289,41 +443,45 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO ESPECÍFICO Y MANUAL)
     // ========================================================================
     
-    // --- Lógica para el Modal de PAGO ESPECÍFICO ---
     const selectCuenta = document.getElementById('selectCuentaOrigen');
     const textoSaldo = document.getElementById('textoSaldoDisponible');
-    const inputMonto = document.getElementById('pagoMonto');
-    const inputPendiente = document.getElementById('pagoSaldo');
+    const inputMontoCxp = document.getElementById('pagoMonto');
+    const inputPendienteCxp = document.getElementById('pagoSaldo');
 
-    if(selectCuenta && inputMonto && inputPendiente && textoSaldo) {
+    if(selectCuenta && inputMontoCxp && inputPendienteCxp && textoSaldo) {
         function actualizarMaximoEspecifico() {
             const opt = selectCuenta.options[selectCuenta.selectedIndex];
-            const pendiente = parseFloat(inputPendiente.value) || 0;
+            const pendiente = parseFloat(inputPendienteCxp.value) || 0;
 
             if(!opt || opt.value === "") {
                 textoSaldo.innerHTML = "";
-                inputMonto.setAttribute('max', pendiente); // Vuelve al límite original de la deuda
+                inputMontoCxp.setAttribute('max', pendiente);
                 return;
             }
             
             const saldoCuenta = parseFloat(opt.getAttribute('data-saldo')) || 0;
             textoSaldo.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: $${saldoCuenta.toFixed(2)}`;
             
-            // El límite será el saldo del banco, o la deuda (lo que sea menor)
-            let maximo = Math.min(saldoCuenta, pendiente);
-            if(maximo < 0) maximo = 0;
-            
-            inputMonto.setAttribute('max', maximo);
-            
-            if(parseFloat(inputMonto.value) > maximo) {
-                inputMonto.value = maximo.toFixed(2);
+            // Limitamos solo si no es mixto/interés
+            const natPago = document.getElementById('pagoNaturaleza');
+            if (!natPago || (natPago.value !== 'MIXTO' && natPago.value !== 'INTERES')) {
+                let maximo = Math.min(saldoCuenta, pendiente);
+                if(maximo < 0) maximo = 0;
+                inputMontoCxp.setAttribute('max', maximo);
+                
+                if(parseFloat(inputMontoCxp.value) > maximo) {
+                    inputMontoCxp.value = maximo.toFixed(2);
+                }
+            } else {
+                // Si es mixto, el banco solo nos limita lo que hay en caja
+                let maximo = saldoCuenta < 0 ? 0 : saldoCuenta;
+                inputMontoCxp.setAttribute('max', maximo);
             }
         }
 
         selectCuenta.addEventListener('change', actualizarMaximoEspecifico);
 
-        // Validación en tiempo real al escribir
-        inputMonto.addEventListener('input', function() {
+        inputMontoCxp.addEventListener('input', function() {
             const maxVal = parseFloat(this.getAttribute('max'));
             if(!isNaN(maxVal) && parseFloat(this.value) > maxVal) {
                 this.value = maxVal.toFixed(2);
@@ -333,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        inputMonto.addEventListener('focus', actualizarMaximoEspecifico);
+        inputMontoCxp.addEventListener('focus', actualizarMaximoEspecifico);
     }
 
     // --- Lógica para el Modal de PAGO MANUAL ---
@@ -372,7 +530,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Limpiar textos al cerrar el modal de pago manual
         if(modalPagoManualEl) {
             modalPagoManualEl.addEventListener('hidden.bs.modal', function () {
                 const formPagoManual = modalPagoManualEl.querySelector('form');
