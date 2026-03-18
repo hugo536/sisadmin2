@@ -161,6 +161,11 @@ class Router
             return;
         }
 
+        // Armar auditoría automática para toda mutación HTTP (POST/PUT/PATCH/DELETE)
+        if (class_exists('AuditLogger')) {
+            AuditLogger::arm($ruta, $controlador_clase, $accion);
+        }
+
         // Ejecutar acción
         $controlador->{$accion}();
     }
