@@ -2,6 +2,7 @@
     const MODULE_KEY = '__itemsModuleInitialized';
     const INIT_FN_KEY = '__itemsModuleInitPage';
     const EVENTS_BOUND_KEY = '__itemsModuleEventsBound';
+    let itemsBaseUrl = window.location.href;
 
     if (window[MODULE_KEY] && typeof window[INIT_FN_KEY] === 'function') {
         window[INIT_FN_KEY]();
@@ -12,7 +13,7 @@
     let currentPage = 1;
 
     function getItemsEndpoint(extraParams = {}) {
-        const url = new URL(window.location.href);
+        const url = new URL(itemsBaseUrl, window.location.origin);
 
         Object.entries(extraParams).forEach(([key, value]) => {
             url.searchParams.set(key, value);
@@ -1045,6 +1046,14 @@
     window.ItemsShared.confirmAction = confirmAction;
     window.ItemsShared.postAction = postAction;
     window.ItemsShared.refreshAtributosSelectores = refreshAtributosSelectores;
+
+    function initItemsPage(event) {
+        const routeUrlFromEvent = event?.detail?.url;
+        if (routeUrlFromEvent) {
+            itemsBaseUrl = routeUrlFromEvent;
+        } else if (window.location.search.includes('ruta=items')) {
+            itemsBaseUrl = window.location.href;
+        }
 
     function initItemsPage() {
         const tableBody = document.getElementById('itemsTableBody');
