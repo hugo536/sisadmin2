@@ -170,13 +170,16 @@
 
     for (const scriptEl of routeScripts) {
       if (scriptEl.src) {
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           const js = document.createElement('script');
           js.src = scriptEl.src;
           js.async = false;
           js.setAttribute(ROUTE_SCRIPT_MARKER, '1');
           js.onload = resolve;
-          js.onerror = reject;
+          js.onerror = function () {
+            console.warn('[sisadmin] No se pudo cargar script de ruta:', js.src);
+            resolve();
+          };
           document.body.appendChild(js);
         });
       } else {
