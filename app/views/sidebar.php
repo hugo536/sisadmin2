@@ -60,7 +60,7 @@ function renderSidebarInner(
     $menuCostosId       = 'menuCostos_' . $navId;
     $menuGastosId       = 'menuGastos_' . $navId;
  
-    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'auditoria'];
+    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable'];
     $menuRutasCostos       = ['reportes/costos_produccion', 'costos/configuracion', 'costos/cierres', 'costos/alertas'];
  
     $renderBadge = static function (string $badgeKey) use ($sidebarBadges): void {
@@ -383,11 +383,6 @@ function renderSidebarInner(
                 <a class="sb-link sb-sub<?= $activo('cierre_contable/estados_financieros') ?>" href="<?= e(route_url('cierre_contable/estados_financieros')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-file-earmark-bar-graph"></i></span><span class="sb-link-text">Estados financieros</span>
                 </a>
-                <?php if (tiene_permiso('auditoria.ver')): ?>
-                <a class="sb-link sb-sub<?= $activo('auditoria/index') ?>" href="<?= e(route_url('auditoria/index')) ?>">
-                    <span class="sb-link-icon"><i class="bi bi-shield-check"></i></span><span class="sb-link-text">Modo auditoría</span>
-                </a>
-                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
