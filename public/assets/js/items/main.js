@@ -5,7 +5,6 @@
     let itemsBaseUrl = window.location.href;
 
     if (window[MODULE_KEY] && typeof window[INIT_FN_KEY] === 'function') {
-        window[INIT_FN_KEY]();
         return;
     }
     window[MODULE_KEY] = true;
