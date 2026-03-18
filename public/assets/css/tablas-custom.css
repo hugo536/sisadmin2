@@ -169,6 +169,9 @@
 .table-pro th,
 .table-pro td {
     white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .table-responsive {
@@ -178,7 +181,9 @@
 @media (max-width: 991.98px) {
     .table-pro th,
     .table-pro td {
-        white-space: nowrap;
+        white-space: normal;
+        word-break: normal;
+        overflow-wrap: break-word;
     }
 
     .table-pro {
@@ -243,6 +248,8 @@
         gap: 0.7rem;
         text-align: right;
         white-space: normal !important;
+        word-break: normal;
+        overflow-wrap: break-word;
         overflow-wrap: anywhere;
         border-bottom: 1px solid var(--erp-table-border-color);
         padding: 0.6rem 0.85rem;
