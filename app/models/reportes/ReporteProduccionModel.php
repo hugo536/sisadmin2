@@ -269,4 +269,31 @@ class ReporteProduccionModel extends Modelo
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
 
+    public function costosMensualesMdModCif(array $f): array
+    {
+        $params = [
+            'fd' => (string) ($f['fecha_desde'] ?? date('Y-m-01')),
+            'fh' => (string) ($f['fecha_hasta'] ?? date('Y-m-d')),
+        ];
+
+        $sql = "SELECT DATE_FORMAT(COALESCE(o.fecha_fin, o.updated_at, o.created_at), '%Y-%m') AS periodo,
+                       ROUND(SUM(COALESCE(o.total_md_real, o.costo_md_real, 0)), 4) AS md_real,
+                       ROUND(SUM(COALESCE(o.total_mod_real, o.costo_mod_real, 0)), 4) AS mod_real,
+                       ROUND(SUM(COALESCE(o.total_cif_real, o.costo_cif_real, 0)), 4) AS cif_real,
+                       ROUND(SUM(COALESCE(o.costo_real_total, 0)), 4) AS costo_real_total,
+                       ROUND(SUM(COALESCE(o.costo_teorico_total_snapshot, 0)), 4) AS costo_teorico_total,
+                       ROUND(SUM(COALESCE(o.costo_real_total, 0) - COALESCE(o.costo_teorico_total_snapshot, 0)), 4) AS variacion_total,
+                       COUNT(*) AS ordenes
+                FROM produccion_ordenes o
+                WHERE o.deleted_at IS NULL
+                  AND o.estado = 2
+                  AND DATE(COALESCE(o.fecha_fin, o.updated_at, o.created_at)) BETWEEN :fd AND :fh
+                GROUP BY DATE_FORMAT(COALESCE(o.fecha_fin, o.updated_at, o.created_at), '%Y-%m')
+                ORDER BY periodo ASC";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
 }
