@@ -1,6 +1,13 @@
 (function () {
-    if (window.__itemsModuleInitialized) return;
-    window.__itemsModuleInitialized = true;
+    const MODULE_KEY = '__itemsModuleInitialized';
+    const INIT_FN_KEY = '__itemsModuleInitPage';
+    const EVENTS_BOUND_KEY = '__itemsModuleEventsBound';
+
+    if (window[MODULE_KEY] && typeof window[INIT_FN_KEY] === 'function') {
+        window[INIT_FN_KEY]();
+        return;
+    }
+    window[MODULE_KEY] = true;
     const ROWS_PER_PAGE = 20;
     let currentPage = 1;
 
@@ -1039,10 +1046,14 @@
     window.ItemsShared.postAction = postAction;
     window.ItemsShared.refreshAtributosSelectores = refreshAtributosSelectores;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initItemsPage() {
+        const tableBody = document.getElementById('itemsTableBody');
+        if (!tableBody) return;
+
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (token) {
             document.querySelectorAll('form[method="post"]').forEach(form => {
+                if (form.querySelector('input[name="csrf_token"]')) return;
                 const input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'csrf_token';
@@ -1059,5 +1070,17 @@
         if (window.ItemsCategoriasRubros?.init) window.ItemsCategoriasRubros.init();
         if (window.ItemsAtributos?.init) window.ItemsAtributos.init();
         if (window.ItemsUnidadesConversion?.init) window.ItemsUnidadesConversion.init();
-    });
+    }
+
+    window[INIT_FN_KEY] = initItemsPage;
+
+    if (!window[EVENTS_BOUND_KEY]) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initItemsPage, { once: true });
+        } else {
+            initItemsPage();
+        }
+        document.addEventListener('sisadmin:route-loaded', initItemsPage);
+        window[EVENTS_BOUND_KEY] = true;
+    }
 })();
