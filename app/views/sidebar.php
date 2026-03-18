@@ -366,6 +366,7 @@ function renderSidebarInner(
                         <?php endif; ?>
                         <?php if (tiene_permiso('tesoreria.cxp.ver')): ?>
                         <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/cxp'); ?>" href="<?php echo e(route_url('tesoreria/cxp')); ?>"><i class="bi bi-wallet"></i><span>Cuentas por Pagar</span><?php $renderBadge('tesoreria/cxp'); ?></a></li>
+                        <li class="nav-item"><a class="sidebar-link<?php echo $activo('tesoreria/prestamos'); ?>" href="<?php echo e(route_url('tesoreria/prestamos')); ?>"><i class="bi bi-building-fill-check"></i><span>Préstamos Bancarios</span></a></li>
                         <?php endif; ?>
                     </ul>
                 </div>
