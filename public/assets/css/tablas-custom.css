@@ -250,6 +250,7 @@
         white-space: normal !important;
         word-break: normal;
         overflow-wrap: break-word;
+        overflow-wrap: anywhere;
         border-bottom: 1px solid var(--erp-table-border-color);
         padding: 0.6rem 0.85rem;
     }
