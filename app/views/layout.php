@@ -23,12 +23,12 @@
     <style>
         .ts-dropdown, .ts-dropdown.form-control { z-index: 2000 !important; }
         .ts-control { border-radius: 0.375rem; }
-        .app-container {
+        .main-content {
             opacity: 1;
             transition: opacity .18s ease;
         }
-        body.page-is-loading .app-container {
-            opacity: .55;
+        body.page-is-loading .main-content {
+            opacity: .68;
             pointer-events: none;
         }
     </style>
@@ -123,7 +123,7 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php endif; ?>
 
 <?php if (in_array($currentRoute, ['config/empresa', 'empresa/empresa'], true)): ?>
-    <script src="<?php echo e(asset_url('js/empresa.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/configuracion/empresa.js')); ?>"></script>
 <?php endif; ?>
 
 <?php if (in_array($currentRoute, ['items', 'items/index'], true)): ?>
