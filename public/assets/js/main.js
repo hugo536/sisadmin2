@@ -190,6 +190,13 @@
     }
   };
 
+
+  const notifyRouteLoaded = function (context) {
+    document.dispatchEvent(new CustomEvent('sisadmin:route-loaded', {
+      detail: context || {}
+    }));
+  };
+
   const navigateWithoutReload = async function (url, pushState = true) {
     if (navigationInProgress) return;
     if (!window.fetch || !window.DOMParser) {
@@ -224,6 +231,13 @@
       syncDynamicCss(nextDoc);
       await runRouteScripts(nextDoc);
 
+      if (window.ERPTable) {
+        if (typeof window.ERPTable.initTooltips === 'function') window.ERPTable.initTooltips();
+        if (typeof window.ERPTable.autoInitFromDataset === 'function') window.ERPTable.autoInitFromDataset(currentMain);
+        if (typeof window.ERPTable.applyResponsiveCards === 'function') window.ERPTable.applyResponsiveCards(currentMain);
+      }
+
+      notifyRouteLoaded({ url: url.href, container: currentMain });
       updateActiveSidebarLinks(url);
 
       if (pushState) {
@@ -267,5 +281,6 @@
     navigateWithoutReload(new URL(window.location.href), false);
   });
 
+  notifyRouteLoaded({ url: window.location.href, initial: true });
 
 })();
