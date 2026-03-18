@@ -4,6 +4,7 @@ $filtros = $filtros ?? [];
 $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
+$entidades_catalogo = $entidades_catalogo ?? [];
 $centros_costo = $centros_costo ?? [];
 ?>
 
@@ -146,8 +147,8 @@ $centros_costo = $centros_costo ?? [];
             </div>
             <div class="modal-body">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label small text-muted fw-bold mb-1">Entidad financiera (Proveedor) <span class="text-danger">*</span></label>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Proveedor (tercero) <span class="text-danger">*</span></label>
                         <select name="id_proveedor" class="form-select shadow-none" required>
                             <option value="" selected disabled>Seleccione...</option>
                             <?php foreach ($proveedores as $prov): ?>
@@ -155,9 +156,23 @@ $centros_costo = $centros_costo ?? [];
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Entidad financiera (Catálogo)</label>
+                        <select class="form-select shadow-none" id="prestamoEntidadCatalogo">
+                            <option value="" selected>Seleccione...</option>
+                            <?php foreach ($entidades_catalogo as $entidad): ?>
+                                <option
+                                    value="<?php echo e((string) ($entidad['nombre'] ?? '')); ?>"
+                                    data-tipo="<?php echo e((string) ($entidad['tipo'] ?? '')); ?>"
+                                    data-codigo="<?php echo e((string) ($entidad['codigo'] ?? '')); ?>">
+                                    <?php echo e((string) ($entidad['nombre'] ?? '')); ?> (<?php echo e((string) ($entidad['tipo'] ?? '')); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label small text-muted fw-bold mb-1">Nombre entidad financiera <span class="text-danger">*</span></label>
-                        <input type="text" name="entidad_financiera" class="form-control shadow-none" maxlength="160" required>
+                        <input type="text" id="prestamoEntidadNombre" name="entidad_financiera" class="form-control shadow-none" maxlength="160" required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small text-muted fw-bold mb-1">N° contrato</label>
