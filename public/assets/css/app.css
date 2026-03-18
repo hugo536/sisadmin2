@@ -117,6 +117,7 @@ body {
   display: flex;
   flex-direction: column;
   margin-left: var(--sidebar-width);
+  min-width: 0;
   transition: margin-left 0.3s ease;
 }
 
@@ -416,6 +417,126 @@ body.sidebar-collapsed .main-content {
 .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
 .transition-all { transition: all 0.2s ease-in-out; }
 .cursor-pointer { cursor: pointer; }
+
+/* =======================
+   RESPONSIVE GLOBAL HARDENING
+   - Evita overflow horizontal en móviles/tablets.
+   - Mejora legibilidad y usabilidad táctil.
+   ======================= */
+.card,
+.card-body,
+.card-header,
+.main-content > div,
+.container,
+.container-fluid {
+  min-width: 0;
+}
+
+.card-body {
+  overflow-wrap: anywhere;
+}
+
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+}
+
+img,
+svg,
+canvas,
+video,
+iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.btn-group,
+.btn-toolbar {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar-mobile-trigger {
+    top: .65rem;
+    left: .65rem;
+    width: 42px;
+    height: 42px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+  }
+
+  .main-content > .p-3,
+  .main-content > .p-4,
+  .main-content > .p-lg-4 {
+    padding-top: 3.8rem !important;
+  }
+
+  .card-header {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  body {
+    font-size: 0.95rem;
+  }
+
+  h1, .h1 { font-size: 1.45rem; }
+  h2, .h2 { font-size: 1.3rem; }
+  h3, .h3 { font-size: 1.15rem; }
+
+  .main-content > .p-3,
+  .main-content > .p-4,
+  .main-content > .p-lg-4 {
+    padding-inline: .75rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .card {
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: .9rem;
+  }
+
+  .btn {
+    min-height: 38px;
+  }
+
+  .btn-group > .btn,
+  .btn-toolbar > .btn,
+  .btn-toolbar > .btn-group {
+    margin-bottom: .4rem;
+  }
+
+  .input-group {
+    flex-wrap: nowrap;
+  }
+
+  .input-group.w-auto {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  [class*="col-"] > .input-group[style*="max-width"],
+  .input-group[style*="max-width"] {
+    max-width: 100% !important;
+  }
+
+  .nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-tabs .nav-link {
+    flex: 0 0 auto;
+  }
+}
 
 
 /* =========================================================
