@@ -200,20 +200,84 @@
 }
 
 @media (max-width: 767.98px) {
-    .table-pro {
-        font-size: 0.8rem;
+    .table-pro.erp-mobile-cards {
+        border-collapse: separate;
+        border-spacing: 0 10px;
+        font-size: 0.83rem;
     }
 
-    .table-pro thead th {
-        font-size: 0.74rem;
-        padding: 10px 8px;
+    .table-pro.erp-mobile-cards thead {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
-    .table-pro tbody td {
-        padding: 9px 8px;
+    .table-pro.erp-mobile-cards tbody,
+    .table-pro.erp-mobile-cards tr,
+    .table-pro.erp-mobile-cards td,
+    .table-pro.erp-mobile-cards th {
+        display: block;
+        width: 100%;
     }
 
-    .table-pro .form-switch .form-check-input {
-        width: 2.2em;
+    .table-pro.erp-mobile-cards tbody tr {
+        background-color: #ffffff;
+        border: 1px solid var(--erp-table-border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .table-pro.erp-mobile-cards tbody td,
+    .table-pro.erp-mobile-cards tbody th {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.7rem;
+        text-align: right;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        border-bottom: 1px solid var(--erp-table-border-color);
+        padding: 0.6rem 0.85rem;
+    }
+
+    .table-pro.erp-mobile-cards tbody td::before,
+    .table-pro.erp-mobile-cards tbody th::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #4a5568;
+        text-align: left;
+        min-width: 42%;
+        max-width: 56%;
+        flex-shrink: 0;
+    }
+
+    .table-pro.erp-mobile-cards tbody td.td-mobile-no-label::before,
+    .table-pro.erp-mobile-cards tbody th.td-mobile-no-label::before,
+    .table-pro.erp-mobile-cards tbody td[data-label=""]::before,
+    .table-pro.erp-mobile-cards tbody th[data-label=""]::before {
+        content: none;
+    }
+
+    .table-pro.erp-mobile-cards tbody tr > td:last-child,
+    .table-pro.erp-mobile-cards tbody tr > th:last-child {
+        border-bottom: none;
+    }
+
+    .table-pro.erp-mobile-cards .form-switch {
+        justify-content: flex-end;
+    }
+
+    .table-pro.erp-mobile-cards .btn-action,
+    .table-pro.erp-mobile-cards .btn-icon {
+        min-width: 32px;
+        min-height: 32px;
     }
 }
