@@ -2,6 +2,8 @@
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $costosPorOrden = is_array($costosPorOrden ?? null) ? $costosPorOrden : ['rows' => [], 'total' => 0];
 $resumenCostos = is_array($resumenCostos ?? null) ? $resumenCostos : [];
+$costosMensuales = is_array($costosMensuales ?? null) ? $costosMensuales : [];
+$insightMensual = is_array($insightMensual ?? null) ? $insightMensual : [];
 $rows = is_array($costosPorOrden['rows'] ?? null) ? $costosPorOrden['rows'] : [];
 
 $teoricoTotal = (float) ($resumenCostos['teorico_total'] ?? 0);
@@ -14,6 +16,24 @@ $variacionPctGlobal = $teoricoTotal > 0 ? (($variacionTotal / $teoricoTotal) * 1
 $resumenGerencial = is_array($resumenGerencial ?? null) ? $resumenGerencial : [];
 $rc = is_array($resumenGerencial['costo_produccion'] ?? null) ? $resumenGerencial['costo_produccion'] : [];
 $re = is_array($resumenGerencial['estado_resultados'] ?? null) ? $resumenGerencial['estado_resultados'] : [];
+
+$chartLabels = [];
+$chartMd = [];
+$chartMod = [];
+$chartCif = [];
+$chartVariacion = [];
+
+foreach ($costosMensuales as $m) {
+    $chartLabels[] = (string) ($m['periodo'] ?? '');
+    $chartMd[] = (float) ($m['md_real'] ?? 0);
+    $chartMod[] = (float) ($m['mod_real'] ?? 0);
+    $chartCif[] = (float) ($m['cif_real'] ?? 0);
+    $chartVariacion[] = (float) ($m['variacion_total'] ?? 0);
+}
+
+$insightVariacion = (float) ($insightMensual['variacion_total'] ?? 0);
+$insightColor = $insightVariacion > 0 ? 'danger' : ($insightVariacion < 0 ? 'success' : 'secondary');
+$haySerieMensual = $chartLabels !== [];
 ?>
 
 <div class="container-fluid p-4" id="costosProduccionApp">
@@ -51,6 +71,51 @@ $re = is_array($resumenGerencial['estado_resultados'] ?? null) ? $resumenGerenci
     </div>
 
     <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-activity me-2 text-primary"></i>Tendencia mensual MD / MOD / CIF (real)</h5>
+                    <span class="badge text-bg-light border">
+                        <?php echo count($chartLabels); ?> meses en rango
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-xl-8">
+                            <?php if (!$haySerieMensual): ?>
+                                <div class="alert alert-light border text-muted mb-0">
+                                    No hay datos mensuales para graficar en el rango seleccionado.
+                                </div>
+                            <?php else: ?>
+                                <div style="height: 300px;">
+                                    <canvas id="costosMensualesChart" aria-label="Gráfica mensual de costos MD MOD CIF" role="img"></canvas>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-12 col-xl-4">
+                            <div class="border rounded p-3 bg-light h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="text-muted small text-uppercase fw-bold mb-2">Insight sugerido</div>
+                                    <div class="fw-semibold mb-1">Mes con mayor desvío total</div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge bg-<?php echo $insightColor; ?>-subtle text-<?php echo $insightColor; ?>-emphasis border border-<?php echo $insightColor; ?>-subtle">
+                                            <?php echo e((string) ($insightMensual['periodo'] ?? '-')); ?>
+                                        </span>
+                                        <span class="small text-muted"><?php echo (int) ($insightMensual['ordenes'] ?? 0); ?> OP</span>
+                                    </div>
+                                    <div class="h5 mb-1 fw-bold text-<?php echo $insightColor; ?>">S/ <?php echo number_format($insightVariacion, 2); ?></div>
+                                    <div class="small text-muted">Variación sobre teórico: <?php echo number_format((float) ($insightMensual['variacion_pct'] ?? 0), 2); ?>%</div>
+                                </div>
+                                <hr>
+                                <div class="small text-muted mb-0">
+                                    Tip: si sube CIF de forma sostenida, revisa servicios de planta y depreciación para detectar el componente que más presiona el costo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
@@ -269,3 +334,104 @@ $re = is_array($resumenGerencial['estado_resultados'] ?? null) ? $resumenGerenci
         </div>
     </div>
 </div>
+
+<?php if ($haySerieMensual): ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    if (typeof window.Chart === 'undefined') {
+        return;
+    }
+
+    const labels = <?php echo json_encode($chartLabels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const mdData = <?php echo json_encode($chartMd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const modData = <?php echo json_encode($chartMod, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const cifData = <?php echo json_encode($chartCif, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const variacion = <?php echo json_encode($chartVariacion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const el = document.getElementById('costosMensualesChart');
+
+    if (!el) {
+        return;
+    }
+
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'MD real',
+                    data: mdData,
+                    backgroundColor: 'rgba(13, 110, 253, 0.65)',
+                    borderRadius: 4,
+                    stack: 'costos'
+                },
+                {
+                    type: 'bar',
+                    label: 'MOD real',
+                    data: modData,
+                    backgroundColor: 'rgba(25, 135, 84, 0.65)',
+                    borderRadius: 4,
+                    stack: 'costos'
+                },
+                {
+                    type: 'bar',
+                    label: 'CIF real',
+                    data: cifData,
+                    backgroundColor: 'rgba(255, 193, 7, 0.70)',
+                    borderRadius: 4,
+                    stack: 'costos'
+                },
+                {
+                    type: 'line',
+                    label: 'Variación total',
+                    data: variacion,
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.15)',
+                    yAxisID: 'y1',
+                    tension: 0.25,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: S/ ${Number(ctx.parsed.y || 0).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        callback: (_, i) => {
+                            const val = labels[i] || '';
+                            if (!/^\d{4}-\d{2}$/.test(val)) return val;
+                            const [y, m] = val.split('-');
+                            return `${m}/${String(y).slice(-2)}`;
+                        }
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: { display: true, text: 'Costos reales (S/)' }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Variación (S/)' }
+                }
+            }
+        }
+    });
+})();
+</script>
+<?php endif; ?>

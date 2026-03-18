@@ -147,6 +147,7 @@ class ReportesController extends Controlador
         $f = $this->filtrosPeriodo();
 
         $costosPorOrden = $this->produccion->costosPorOrden($f, $pagina, $tamano);
+        $costosMensuales = $this->produccion->costosMensualesMdModCif($f);
 
         $rows = $costosPorOrden['rows'] ?? [];
         $resumen = [
@@ -171,10 +172,36 @@ class ReportesController extends Controlador
             }
         }
 
+        $insightMensual = [
+            'periodo' => '-',
+            'variacion_total' => 0.0,
+            'variacion_pct' => 0.0,
+            'ordenes' => 0,
+        ];
+
+        foreach ($costosMensuales as $mes) {
+            $varMes = (float) ($mes['variacion_total'] ?? 0);
+            if (abs($varMes) < abs($insightMensual['variacion_total'])) {
+                continue;
+            }
+
+            $teoricoMes = (float) ($mes['costo_teorico_total'] ?? 0);
+            $pctMes = $teoricoMes > 0 ? (($varMes / $teoricoMes) * 100) : 0;
+
+            $insightMensual = [
+                'periodo' => (string) ($mes['periodo'] ?? '-'),
+                'variacion_total' => $varMes,
+                'variacion_pct' => $pctMes,
+                'ordenes' => (int) ($mes['ordenes'] ?? 0),
+            ];
+        }
+
         $this->render('costos/produccion', [
             'ruta_actual' => 'reportes/costos_produccion', // <-- Esto se queda igual para el sidebar
             'filtros' => $f,
             'costosPorOrden' => $costosPorOrden,
+            'costosMensuales' => $costosMensuales,
+            'insightMensual' => $insightMensual,
             'resumenCostos' => $resumen,
             'resumenGerencial' => $this->produccion->resumenGerencialMensual($f),
             'pagina' => $pagina,
