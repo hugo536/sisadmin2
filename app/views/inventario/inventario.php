@@ -10,7 +10,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in inventario-sticky-header">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-box-seam-fill me-2 text-primary"></i> Inventario de Productos
+                <i class="bi bi-box-seam-fill me-2 text-primary"></i> Inventario de Productooooos
             </h1>
             <p class="text-muted small mb-0 ms-1">Control de existencias, kardex y movimientos de almacén.</p>
         </div>
