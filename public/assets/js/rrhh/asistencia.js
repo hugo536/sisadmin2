@@ -1,4 +1,7 @@
-document.addEventListener('DOMContentLoaded', () => {
+function initAsistenciaDashboard() {
+    const appRoot = document.getElementById('asistenciaDashboardApp');
+    if (!appRoot || appRoot.dataset.jsInitialized === '1') return;
+    appRoot.dataset.jsInitialized = '1';
 
     const formFiltros = document.getElementById('formFiltrosAsistencia');
     const searchInput = document.getElementById('searchAsistencia');
@@ -813,4 +816,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAsistenciaDashboard);
+} else {
+    initAsistenciaDashboard();
+}
+
+document.addEventListener('sisadmin:route-loaded', initAsistenciaDashboard);

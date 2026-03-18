@@ -568,4 +568,4 @@ $empleadosSinGrupo = $empleadosSinGrupo ?? [];
     </div>
 </div>
 
-<script src="assets/js/rrhh/asistencia.js"></script>
+<script src="/assets/js/rrhh/asistencia.js"></script>

@@ -200,4 +200,4 @@ $empleados = $empleados ?? [];
     </div>
 </div>
 
-<script src="assets/js/rrhh/importar_asistencia.js"></script>
+<script src="/assets/js/rrhh/importar_asistencia.js"></script>
