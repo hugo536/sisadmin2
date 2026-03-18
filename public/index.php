@@ -80,6 +80,7 @@ $coreFiles = [
     BASE_PATH . '/app/config/Conexion.php', // Base de datos
     BASE_PATH . '/app/core/Modelo.php',     // Clase padre Modelos
     BASE_PATH . '/app/core/Controlador.php',// Clase padre Controladores
+    BASE_PATH . '/app/core/AuditLogger.php',// Auditoría global de mutaciones
     BASE_PATH . '/app/core/Router.php'      // Enrutador
 ];
 
