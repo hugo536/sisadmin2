@@ -105,8 +105,31 @@
     );
   };
 
+  const NAV_LOADING_DELAY_MS = 180;
+  let loadingTimerId = null;
+  let loadingStateVisible = false;
+
   const setLoadingState = function (enabled) {
-    document.body.classList.toggle('page-is-loading', enabled);
+    if (enabled) {
+      if (loadingStateVisible || loadingTimerId !== null) return;
+      loadingTimerId = window.setTimeout(function () {
+        document.body.classList.add('page-is-loading');
+        loadingStateVisible = true;
+        loadingTimerId = null;
+      }, NAV_LOADING_DELAY_MS);
+      return;
+    }
+
+    if (loadingTimerId !== null) {
+      window.clearTimeout(loadingTimerId);
+      loadingTimerId = null;
+    }
+    if (loadingStateVisible) {
+      document.body.classList.remove('page-is-loading');
+      loadingStateVisible = false;
+    } else {
+      document.body.classList.remove('page-is-loading');
+    }
   };
 
   const resetDynamicAssets = function () {
