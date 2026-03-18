@@ -22,6 +22,14 @@
     <style>
         .ts-dropdown, .ts-dropdown.form-control { z-index: 2000 !important; }
         .ts-control { border-radius: 0.375rem; }
+        .app-container {
+            opacity: 1;
+            transition: opacity .18s ease;
+        }
+        body.page-is-loading .app-container {
+            opacity: .55;
+            pointer-events: none;
+        }
     </style>
 
     <?php
@@ -45,6 +53,9 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
     try {
         if (localStorage.getItem('erp.sidebar.collapsed') === '1') {
             document.body.classList.add('sidebar-collapsed');
+        }
+        if (sessionStorage.getItem('erp.nav.loading') === '1') {
+            document.body.classList.add('page-is-loading');
         }
     } catch (_err) {
         // noop
