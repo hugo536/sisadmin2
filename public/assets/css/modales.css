@@ -133,3 +133,43 @@
     background-color: #f8f9fa !important;
     border-color: #e9ecef !important;
 }
+
+/* --- 5. RESPONSIVE DE MODALES --- */
+@media (max-width: 991.98px) {
+    .modal-dialog {
+        margin: 0.75rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+        min-height: 100dvh;
+    }
+
+    .modal-content {
+        border-radius: 0;
+        min-height: 100dvh;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 0.9rem;
+        padding-right: 0.9rem;
+    }
+
+    .modal-body {
+        padding-bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .modal-dialog-scrollable .modal-body {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-header .modal-title {
+        font-size: 1rem;
+    }
+}
