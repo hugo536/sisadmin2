@@ -1055,7 +1055,6 @@
             itemsBaseUrl = window.location.href;
         }
 
-    function initItemsPage() {
         const tableBody = document.getElementById('itemsTableBody');
         if (!tableBody) return;
 
