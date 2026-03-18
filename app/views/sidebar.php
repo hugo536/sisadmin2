@@ -836,6 +836,7 @@ body.sidebar-collapsed #mainContent {
     background: var(--sb-bg) !important;
     width: 285px !important;
     border-right: 1px solid var(--sb-border) !important;
+    z-index: 1056 !important;
 }
 .sidebar-offcanvas .offcanvas-header {
     background: var(--sb-bg-2);
@@ -874,10 +875,19 @@ body.sidebar-collapsed #mainContent {
     -webkit-backdrop-filter: blur(12px);
     justify-content: space-around;
     align-items: center;
+    transition: opacity var(--sb-transition), transform var(--sb-transition);
 }
 @media (max-width: 991.98px) {
     .sb-bottom-nav { display: flex; }
-    body { padding-bottom: var(--sb-bottom-h); }
+    body { padding-bottom: calc(var(--sb-bottom-h) + env(safe-area-inset-bottom, 0px)); }
+    .sidebar-offcanvas .offcanvas-body {
+        padding-bottom: calc(var(--sb-bottom-h) + env(safe-area-inset-bottom, 0px) + .75rem);
+    }
+    #appSidebarOffcanvas.show ~ .sb-bottom-nav {
+        opacity: 0;
+        transform: translateY(100%);
+        pointer-events: none;
+    }
 }
  
 .sb-bottom-item {
