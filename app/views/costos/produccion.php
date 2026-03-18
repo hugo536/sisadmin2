@@ -167,63 +167,92 @@ $re = is_array($resumenGerencial['estado_resultados'] ?? null) ? $resumenGerenci
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaCostosOP"
-                       data-erp-table="true"
-                       data-search-input="#filtroCostosOP"
-                       data-rows-per-page="15">
+                    data-erp-table="true"
+                    data-search-input="#filtroCostosOP"
+                    data-rows-per-page="15">
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">#OP</th>
                             <th class="text-secondary fw-semibold" style="min-width: 200px;">Producto</th>
-                            <th class="text-end text-secondary fw-semibold">Planificada</th>
-                            <th class="text-end text-secondary fw-semibold">Producida</th>
+                            <th class="text-center text-secondary fw-semibold">Plan. / Prod.</th>
                             <th class="text-end text-secondary fw-semibold">MD (T vs R)</th>
                             <th class="text-end text-secondary fw-semibold">MOD (T vs R)</th>
                             <th class="text-end text-secondary fw-semibold">CIF (T vs R)</th>
                             <th class="text-end text-secondary fw-semibold">Teórico Total</th>
                             <th class="text-end text-secondary fw-semibold">Real Total</th>
-                            <th class="text-end text-secondary fw-semibold">Variación</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Var. %</th>
+                            <th class="text-end text-secondary fw-semibold" title="Costo Unitario Real">C. Unit. Real</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Variación</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($rows === []): ?>
-                            <tr class="empty-msg-row"><td colspan="11" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes para el rango seleccionado.</td></tr>
+                            <tr class="empty-msg-row">
+                                <td colspan="10" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes para el rango seleccionado.
+                                </td>
+                            </tr>
                         <?php else: ?>
                             <?php foreach ($rows as $row): ?>
                                 <?php
+                                    // Cálculos de variación y colores
                                     $varTotal = (float) ($row['variacion_total'] ?? 0);
                                     $varPct = (float) ($row['variacion_pct'] ?? 0);
                                     $badgeColor = $varTotal > 0 ? 'danger' : ($varTotal < 0 ? 'success' : 'secondary');
-                                    $badgeClass = "bg-{$badgeColor}-subtle text-{$badgeColor}-emphasis border border-{$badgeColor}-subtle";
+                                    
+                                    // Colores específicos para MD, MOD, CIF (Si Real > Teorico = Peligro)
+                                    $mdT = (float) ($row['md_teorico_total'] ?? 0);
+                                    $mdR = (float) ($row['md_real_total'] ?? 0);
+                                    $colorMd = $mdR > $mdT ? 'text-danger fw-bold' : 'text-success fw-bold';
+
+                                    $modT = (float) ($row['mod_teorico_total'] ?? 0);
+                                    $modR = (float) ($row['mod_real_total'] ?? 0);
+                                    $colorMod = $modR > $modT ? 'text-danger fw-bold' : 'text-success fw-bold';
+
+                                    $cifT = (float) ($row['cif_teorico_total'] ?? 0);
+                                    $cifR = (float) ($row['cif_real_total'] ?? 0);
+                                    $colorCif = $cifR > $cifT ? 'text-danger fw-bold' : 'text-success fw-bold';
+
+                                    // Costo Unitario Real
+                                    $cantProducida = (float) ($row['cantidad_producida'] ?? 0);
+                                    $costoRealTotal = (float) ($row['costo_real_total'] ?? 0);
+                                    $costoUnitarioReal = $cantProducida > 0 ? ($costoRealTotal / $cantProducida) : 0;
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($row['codigo'] ?? '') . ' ' . (string) ($row['producto'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($row['codigo'] ?? '-')); ?></td>
                                     <td class="fw-semibold text-dark text-truncate" style="max-width: 250px;" title="<?php echo e((string) ($row['producto'] ?? 'Sin snapshot')); ?>">
                                         <?php echo e((string) ($row['producto'] ?? 'Sin snapshot')); ?>
                                     </td>
-                                    <td class="text-end"><?php echo number_format((float) ($row['cantidad_planificada'] ?? 0), 2); ?></td>
-                                    <td class="text-end fw-semibold"><?php echo number_format((float) ($row['cantidad_producida'] ?? 0), 2); ?></td>
-                                    <td class="text-end small">
-                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['md_teorico_total'] ?? 0), 2); ?></div>
-                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['md_real_total'] ?? 0), 2); ?></div>
+                                    <td class="text-center">
+                                        <div class="small text-muted border-bottom mb-1" title="Planificada"><?php echo number_format((float) ($row['cantidad_planificada'] ?? 0), 2); ?></div>
+                                        <div class="fw-bold text-dark" title="Producida"><?php echo number_format($cantProducida, 2); ?></div>
                                     </td>
                                     <td class="text-end small">
-                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['mod_teorico_total'] ?? 0), 2); ?></div>
-                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['mod_real_total'] ?? 0), 2); ?></div>
+                                        <div class="text-muted" title="Teórico">T: S/ <?php echo number_format($mdT, 2); ?></div>
+                                        <div class="<?php echo $colorMd; ?>" title="Real">R: S/ <?php echo number_format($mdR, 2); ?></div>
                                     </td>
                                     <td class="text-end small">
-                                        <div class="text-muted">T: S/ <?php echo number_format((float) ($row['cif_teorico_total'] ?? 0), 2); ?></div>
-                                        <div class="fw-semibold">R: S/ <?php echo number_format((float) ($row['cif_real_total'] ?? 0), 2); ?></div>
+                                        <div class="text-muted" title="Teórico">T: S/ <?php echo number_format($modT, 2); ?></div>
+                                        <div class="<?php echo $colorMod; ?>" title="Real">R: S/ <?php echo number_format($modR, 2); ?></div>
                                     </td>
-                                    <td class="text-end">S/ <?php echo number_format((float) ($row['costo_teorico_total_snapshot'] ?? 0), 2); ?></td>
-                                    <td class="text-end fw-bold text-dark">S/ <?php echo number_format((float) ($row['costo_real_total'] ?? 0), 2); ?></td>
-                                    <td class="text-end">
-                                        <span class="badge px-2 py-1 rounded <?php echo $badgeClass; ?>">
+                                    <td class="text-end small">
+                                        <div class="text-muted" title="Teórico">T: S/ <?php echo number_format($cifT, 2); ?></div>
+                                        <div class="<?php echo $colorCif; ?>" title="Real">R: S/ <?php echo number_format($cifR, 2); ?></div>
+                                    </td>
+                                    <td class="text-end text-muted">S/ <?php echo number_format((float) ($row['costo_teorico_total_snapshot'] ?? 0), 2); ?></td>
+                                    <td class="text-end fw-bold text-dark">S/ <?php echo number_format($costoRealTotal, 2); ?></td>
+                                    
+                                    <!-- NUEVA COLUMNA: Costo Unitario Real -->
+                                    <td class="text-end fw-bold text-primary bg-light">
+                                        S/ <?php echo number_format($costoUnitarioReal, 4); ?>
+                                    </td>
+                                    
+                                    <td class="text-end pe-4">
+                                        <span class="badge px-2 py-1 rounded bg-<?php echo $badgeColor; ?>-subtle text-<?php echo $badgeColor; ?>-emphasis border border-<?php echo $badgeColor; ?>-subtle d-block mb-1">
                                             S/ <?php echo number_format($varTotal, 2); ?>
                                         </span>
-                                    </td>
-                                    <td class="text-end pe-4 fw-semibold text-<?php echo $badgeColor; ?>">
-                                        <?php echo number_format($varPct, 2); ?>%
+                                        <div class="fw-semibold text-<?php echo $badgeColor; ?> small">
+                                            <?php echo number_format($varPct, 2); ?>%
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
