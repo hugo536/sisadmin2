@@ -18,6 +18,8 @@
     'use strict';
   
     const ERPTable = {};
+    const MOBILE_BREAKPOINT = 767.98;
+    let responsiveRaf = null;
   
     // ---------------------------------------------------------
     // Tooltips
@@ -34,6 +36,82 @@
         new bootstrap.Tooltip(el);
       });
     };
+
+    // ---------------------------------------------------------
+    // Responsive cards (móvil) para tablas .table-pro
+    // ---------------------------------------------------------
+    function normalizeHeaderText(value) {
+      return (value || '')
+        .toString()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function isMobileViewport() {
+      return w.innerWidth <= MOBILE_BREAKPOINT;
+    }
+
+    function buildHeadersMap(tableEl) {
+      const headers = [];
+      const ths = tableEl.querySelectorAll('thead th');
+
+      ths.forEach((th) => {
+        const custom = th.getAttribute('data-mobile-label');
+        const text = normalizeHeaderText(custom || th.textContent);
+        headers.push(text);
+      });
+
+      return headers;
+    }
+
+    function applyMobileLabels(tableEl) {
+      if (!tableEl || tableEl.classList.contains('table-no-mobile-cards')) return;
+
+      const headers = buildHeadersMap(tableEl);
+      const rows = tableEl.querySelectorAll('tbody tr');
+
+      rows.forEach((row) => {
+        const cells = row.querySelectorAll('th, td');
+        cells.forEach((cell, index) => {
+          if (cell.hasAttribute('data-mobile-ignore')) {
+            cell.setAttribute('data-label', '');
+            return;
+          }
+
+          const customLabel = cell.getAttribute('data-mobile-label');
+          const fallback = headers[index] || '';
+          const label = normalizeHeaderText(customLabel || fallback);
+          const colSpan = parseInt(cell.getAttribute('colspan') || '1', 10);
+
+          if (colSpan > 1) {
+            cell.setAttribute('data-label', '');
+            cell.classList.add('td-mobile-no-label');
+            return;
+          }
+
+          cell.setAttribute('data-label', label);
+          cell.classList.remove('td-mobile-no-label');
+        });
+      });
+    }
+
+    ERPTable.applyResponsiveCards = function applyResponsiveCards(root = document) {
+      const tables = root.querySelectorAll('table.table-pro');
+      const isMobile = isMobileViewport();
+
+      tables.forEach((tableEl) => {
+        if (tableEl.classList.contains('table-no-mobile-cards')) return;
+        applyMobileLabels(tableEl);
+        tableEl.classList.toggle('erp-mobile-cards', isMobile);
+      });
+    };
+
+    function queueResponsiveRefresh(root = document) {
+      if (responsiveRaf) w.cancelAnimationFrame(responsiveRaf);
+      responsiveRaf = w.requestAnimationFrame(() => {
+        ERPTable.applyResponsiveCards(root);
+      });
+    }
   
     // ---------------------------------------------------------
     // Table Manager (Filtros + Paginación)
@@ -289,6 +367,7 @@
   
           buildFilterRefs();
           bindEvents();
+          ERPTable.applyResponsiveCards();
           api.update();
           return api;
         },
@@ -313,6 +392,7 @@
   
           const visible = applyFilters();
           showRows(visible);
+          ERPTable.applyResponsiveCards();
         },
   
         setPage(page) {
@@ -475,6 +555,12 @@
     document.addEventListener('DOMContentLoaded', function () {
       ERPTable.initTooltips();
       ERPTable.autoInitFromDataset();
+      ERPTable.applyResponsiveCards();
+
+      const observer = new MutationObserver(() => queueResponsiveRefresh());
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      w.addEventListener('resize', () => queueResponsiveRefresh());
     });
   
-  })(window);
+})(window);
