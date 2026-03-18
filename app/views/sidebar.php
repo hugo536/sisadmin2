@@ -475,9 +475,6 @@ function renderSidebarInner(
     --sb-bottom-h:      64px; /* altura de la bottom bar móvil */
 }
  
-/* ── Font ───────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
- 
 /* ── Reset base ─────────────────────────────────────────────── */
 .sidebar, .offcanvas-body, .sb-header, .sb-nav, .sb-submenu,
 .sb-link, .sb-user-card, .sb-search, .sb-brand {

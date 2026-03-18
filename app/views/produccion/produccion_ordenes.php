@@ -833,5 +833,3 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
 </template>
-
-<script src="<?php echo base_url(); ?>/public/assets/js/produccion/produccion_ordenes.js?v=2.7"></script>
