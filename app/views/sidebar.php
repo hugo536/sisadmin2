@@ -1082,7 +1082,7 @@ body.sidebar-collapsed #mainContent {
 <!-- ============================================================
      JAVASCRIPT
      ============================================================ -->
-<script>
+<script id="sidebar-core-script">
 (function () {
   'use strict';
  
