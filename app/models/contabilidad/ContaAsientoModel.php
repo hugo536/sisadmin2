@@ -243,6 +243,9 @@ class ContaAsientoModel extends Modelo
         $costoMod = round((float) ($movimiento['costo_mod'] ?? 0), 4);
         $costoCif = round((float) ($movimiento['costo_cif'] ?? 0), 4);
         $costoTotal = round((float) ($movimiento['costo_total'] ?? ($costoMd + $costoMod + $costoCif)), 4);
+        
+        // NUEVO: Atrapamos el Centro de Costo que viene de Producción
+        $idCentroCosto = (int) ($movimiento['id_centro_costo'] ?? 0);
 
         if ($idOrden <= 0 || $fecha === '' || $costoTotal <= 0) {
             throw new RuntimeException('Datos insuficientes para registrar asiento automático de producción.');
@@ -304,16 +307,17 @@ class ContaAsientoModel extends Modelo
         }
 
         $lineas = [];
-        $lineas[] = ['id_cuenta' => $idCtaInvPT, 'debe' => $costoTotal, 'haber' => 0];
+        // NUEVO: Asignamos el Centro de Costo a todas las líneas del asiento
+        $lineas[] = ['id_cuenta' => $idCtaInvPT, 'debe' => $costoTotal, 'haber' => 0, 'id_centro_costo' => $idCentroCosto];
 
         if ($costoMd > 0) {
-            $lineas[] = ['id_cuenta' => $idCtaInvMP, 'debe' => 0, 'haber' => $costoMd];
+            $lineas[] = ['id_cuenta' => $idCtaInvMP, 'debe' => 0, 'haber' => $costoMd, 'id_centro_costo' => $idCentroCosto];
         }
         if ($costoMod > 0) {
-            $lineas[] = ['id_cuenta' => $idCtaNomina, 'debe' => 0, 'haber' => $costoMod];
+            $lineas[] = ['id_cuenta' => $idCtaNomina, 'debe' => 0, 'haber' => $costoMod, 'id_centro_costo' => $idCentroCosto];
         }
         if ($costoCif > 0) {
-            $lineas[] = ['id_cuenta' => $idCtaCif, 'debe' => 0, 'haber' => $costoCif];
+            $lineas[] = ['id_cuenta' => $idCtaCif, 'debe' => 0, 'haber' => $costoCif, 'id_centro_costo' => $idCentroCosto];
         }
 
         $sumaHaber = 0.0;

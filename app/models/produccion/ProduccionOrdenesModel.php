@@ -643,6 +643,10 @@ class ProduccionOrdenesModel extends Modelo
             $itemModel = new ItemModel();
             $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
+            $stmtCC = $db->prepare("SELECT id FROM conta_centros_costo WHERE codigo = 'PROD' OR nombre LIKE '%Planta%' LIMIT 1");
+            $stmtCC->execute();
+            $idCentroCostoPlanta = $stmtCC->fetchColumn() ?: null;
+
             $asientoModel = new ContaAsientoModel();
             $asientoModel->registrarAutomaticoProduccion($db, [
                 'id_orden' => $idOrden,
@@ -652,6 +656,7 @@ class ProduccionOrdenesModel extends Modelo
                 'costo_mod' => $costoModReal,
                 'costo_cif' => $costoCifReal,
                 'costo_total' => $costoRealTotal,
+                'id_centro_costo' => $idCentroCostoPlanta // ¡INYECCIÓN DEL DATO PARA LA REGLA DE ORO!
             ], $userId);
 
             $db->commit();

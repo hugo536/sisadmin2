@@ -508,6 +508,7 @@ class ProduccionRecetasModel extends Modelo
 
         $db = $this->db();
 
+        // 1. Costo de Materia Prima y Empaque (MD) - Ya estaba perfecto (Considera la merma)
         $stmtMd = $db->prepare('SELECT COALESCE(SUM((cantidad_por_unidad * (1 + (merma_porcentaje / 100))) * costo_unitario), 0)
                                 FROM produccion_recetas_detalle
                                 WHERE id_receta = :id_receta
@@ -515,18 +516,21 @@ class ProduccionRecetasModel extends Modelo
         $stmtMd->execute(['id_receta' => $idReceta]);
         $costoMD = (float) ($stmtMd->fetchColumn() ?: 0);
 
-        $stmtMod = $db->prepare('SELECT COALESCE(SUM(costo_hora_estimado), 0)
+        // 2. Costo de Mano de Obra Directa (MOD) - CORREGIDO: Ahora multiplica Horas x Costo por Hora
+        $stmtMod = $db->prepare('SELECT COALESCE(SUM(horas_estimadas * costo_hora_estimado), 0)
                                  FROM produccion_recetas_mod
                                  WHERE id_receta = :id_receta');
         $stmtMod->execute(['id_receta' => $idReceta]);
-        $sumaCostoHoraMod = (float) ($stmtMod->fetchColumn() ?: 0);
+        $costoMOD = (float) ($stmtMod->fetchColumn() ?: 0);
 
+        // 3. Costos Indirectos de Fabricación (CIF) - Ya estaba perfecto
         $stmtCif = $db->prepare('SELECT COALESCE(SUM(costo_estimado), 0)
                                  FROM produccion_recetas_cif
                                  WHERE id_receta = :id_receta');
         $stmtCif->execute(['id_receta' => $idReceta]);
         $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
 
+        // 4. Rendimiento (Para sacar el costo unitario)
         $stmtRec = $db->prepare('SELECT rendimiento_base
                                  FROM produccion_recetas
                                  WHERE id = :id_receta
@@ -535,11 +539,12 @@ class ProduccionRecetasModel extends Modelo
         $stmtRec->execute(['id_receta' => $idReceta]);
         $filaRec = $stmtRec->fetch(PDO::FETCH_ASSOC) ?: [];
         $rendimientoBase = (float) ($filaRec['rendimiento_base'] ?? 0);
+        
         if ($rendimientoBase <= 0) {
             throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
         }
 
-        $costoMOD = $sumaCostoHoraMod;
+        // 5. Cálculo Final y Actualización
         $costoTotal = $costoMD + $costoMOD + $costoCIF;
         $costoUnitario = $costoTotal / $rendimientoBase;
 
