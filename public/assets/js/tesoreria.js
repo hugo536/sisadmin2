@@ -167,6 +167,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================================
+    // 3. APOYO FORMULARIO DE PRÉSTAMOS (CATÁLOGO DE ENTIDADES)
+    // ========================================================================
+    const prestamoEntidadCatalogo = document.getElementById('prestamoEntidadCatalogo');
+    const prestamoEntidadNombre = document.getElementById('prestamoEntidadNombre');
+    if (prestamoEntidadCatalogo && prestamoEntidadNombre) {
+        prestamoEntidadCatalogo.addEventListener('change', function () {
+            const selected = this.options[this.selectedIndex];
+            const nombre = selected ? (selected.value || '').trim() : '';
+            if (nombre !== '') {
+                prestamoEntidadNombre.value = nombre;
+            }
+        });
+    }
+
+    // ========================================================================
     // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
     // ========================================================================
     const modalCobroEl = document.getElementById('modalCobro');

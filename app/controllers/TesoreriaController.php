@@ -33,7 +33,142 @@ class TesoreriaController extends Controlador
         $this->centroCostoModel = new CentroCostoModel(); // <-- INICIALIZADO
     }
 
-    // ... (Tu función index, cuentas, guardar_cuenta se mantienen igual) ...
+    public function index(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+        redirect('tesoreria/cuentas');
+    }
+
+    // ========================================================================
+    // MÓDULO: CUENTAS DE TESORERÍA
+    // ========================================================================
+    public function cuentas(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        $idEditar = (int) ($_GET['editar'] ?? 0);
+        $cuentaEditar = null;
+        if ($idEditar > 0) {
+            $cuentaEditar = $this->cuentaModel->obtenerPorId($idEditar);
+        }
+
+        $this->render('tesoreria/tesoreria_cuentas', [
+            'ruta_actual'  => 'tesoreria/cuentas',
+            'cuentas'      => $this->cuentaModel->listarGestion(),
+            'bancos'       => $this->cuentaModel->listarBancosConfigurados(),
+            'cuentaEditar' => $cuentaEditar,
+        ]);
+    }
+
+    public function guardar_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idGuardado = $this->cuentaModel->guardar($_POST, $this->obtenerUsuarioId());
+            $esEdicion = (int) ($_POST['id'] ?? 0) > 0;
+            $action = $esEdicion ? 'updated' : 'created';
+            redirect('tesoreria/cuentas?ok=1&action=' . $action . '&id=' . $idGuardado);
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function cambiar_estado_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $estado = isset($_POST['estado']) ? 1 : 0;
+            $this->cuentaModel->cambiarEstado($idCuenta, $estado, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function eliminar_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $this->cuentaModel->eliminar($idCuenta, $this->obtenerUsuarioId());
+            redirect('tesoreria/cuentas?ok=1&action=deleted');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    // ========================================================================
+    // MÓDULO: CUENTAS POR COBRAR (CXC)
+    // ========================================================================
+    public function cxc(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxc.ver');
+
+        $filtros = [
+            'estado'      => trim((string) ($_GET['estado'] ?? '')),
+            'moneda'      => trim((string) ($_GET['moneda'] ?? '')),
+            'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
+        ];
+
+        $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function ($cta) {
+            return !empty($cta['id_cuenta_contable'])
+                && (int) $cta['id_cuenta_contable'] > 0
+                && (int) ($cta['permite_cobros'] ?? 0) === 1;
+        });
+
+        $this->render('tesoreria/tesoreria_cxc', [
+            'ruta_actual' => 'tesoreria/cxc',
+            'registros'   => $this->cxcModel->listar($filtros),
+            'filtros'     => $filtros,
+            'cuentas'     => $cuentasVinculadas,
+            'metodos'     => $this->listarMetodosPago(),
+            'clientes'    => $this->listarClientesActivos(),
+        ]);
+    }
+
+    public function registrar_cobro(): void
+    {
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.cobros.registrar');
+            $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, 'Error al registrar cobro');
+        }
+    }
+
+    public function registrar_cobro_manual(): void
+    {
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.cobros.registrar');
+            $this->registrarMovimientoManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, 'Error al registrar cobro manual');
+        }
+    }
 
     // ========================================================================
     // MÓDULO: CUENTAS POR PAGAR (CXP)
@@ -114,6 +249,7 @@ class TesoreriaController extends Controlador
             'cuentas'        => $cuentasVinculadas,
             'metodos'        => $this->listarMetodosPago(),
             'proveedores'    => $this->listarProveedoresActivos(),
+            'entidades_catalogo' => $this->listarEntidadesFinancierasCatalogo(),
             'centros_costo'  => $this->centroCostoModel->listarActivos(),
         ]);
     }
@@ -339,6 +475,17 @@ class TesoreriaController extends Controlador
     private function listarProveedoresActivos(): array
     {
         $sql = 'SELECT id, nombre_completo FROM terceros WHERE estado = 1 AND es_proveedor = 1 AND deleted_at IS NULL ORDER BY nombre_completo ASC';
+        return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function listarEntidadesFinancierasCatalogo(): array
+    {
+        $sql = 'SELECT id, codigo, nombre, tipo
+                FROM configuracion_cajas_bancos
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY tipo ASC, nombre ASC';
+
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
