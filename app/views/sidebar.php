@@ -1,8 +1,8 @@
 <?php
 // =====================================================================================
-// sidebar.php — Diseño mejorado con UX móvil, animaciones y barra inferior móvil
+// sidebar.php — Diseño mejorado con UX móvil y animaciones
 // - Desktop (>= lg): Sidebar fijo con colapso a iconos
-// - Mobile (< lg): Offcanvas + Bottom Nav Bar
+// - Mobile (< lg): Offcanvas
 // =====================================================================================
  
 $rutaActual = (string) ($ruta_actual ?? (string) ($_GET['ruta'] ?? 'reportes/dashboard'));
@@ -472,7 +472,6 @@ function renderSidebarInner(
     --sb-transition:    .22s cubic-bezier(.4,0,.2,1);
     --sb-shadow:        0 0 0 1px var(--sb-border), 8px 0 32px rgba(0,0,0,.45);
     --sb-font:          'DM Sans', 'Segoe UI', system-ui, sans-serif;
-    --sb-bottom-h:      64px; /* altura de la bottom bar móvil */
 }
  
 /* ── Reset base ─────────────────────────────────────────────── */
@@ -856,104 +855,6 @@ body.sidebar-collapsed #mainContent {
 }
  
 /* ═══════════════════════════════════════════════════════════
-   MOBILE BOTTOM NAV BAR
-═══════════════════════════════════════════════════════════ */
-.sb-bottom-nav {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: var(--sb-bottom-h);
-    background: var(--sb-bg);
-    border-top: 1px solid var(--sb-border);
-    z-index: 1045;
-    padding: 0 .25rem;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    justify-content: space-around;
-    align-items: center;
-    transition: opacity var(--sb-transition), transform var(--sb-transition);
-}
-@media (max-width: 991.98px) {
-    .sb-bottom-nav { display: flex; }
-    body { padding-bottom: calc(var(--sb-bottom-h) + env(safe-area-inset-bottom, 0px)); }
-    .sidebar-offcanvas .offcanvas-body {
-        padding-bottom: calc(var(--sb-bottom-h) + env(safe-area-inset-bottom, 0px) + .75rem);
-    }
-    #appSidebarOffcanvas.show ~ .sb-bottom-nav {
-        opacity: 0;
-        transform: translateY(100%);
-        pointer-events: none;
-    }
-}
- 
-.sb-bottom-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    padding: .375rem .5rem;
-    border-radius: 10px;
-    color: var(--sb-text-muted);
-    text-decoration: none;
-    font-size: .58rem;
-    font-weight: 500;
-    font-family: var(--sb-font);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    min-width: 52px;
-    transition: color var(--sb-transition), background var(--sb-transition);
-    position: relative;
-}
-.sb-bottom-item i { font-size: 1.2rem; line-height: 1; }
-.sb-bottom-item span { line-height: 1; }
-.sb-bottom-item.active {
-    color: var(--sb-accent);
-}
-.sb-bottom-item.active::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 25%; right: 25%;
-    height: 2px;
-    background: var(--sb-accent);
-    border-radius: 0 0 4px 4px;
-}
-.sb-bottom-item:active { transform: scale(.92); }
-.sb-bottom-item .sb-badge {
-    position: absolute;
-    top: 3px; right: 6px;
-    font-size: .55rem;
-    min-width: 15px; height: 15px;
-    padding: 0 3px;
-    display: flex; align-items: center; justify-content: center;
-}
- 
-/* Hamburger button in bottom nav */
-.sb-bottom-menu-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    padding: .375rem .5rem;
-    border-radius: 10px;
-    color: var(--sb-text-muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    min-width: 52px;
-    font-size: .58rem;
-    font-weight: 500;
-    font-family: var(--sb-font);
-    transition: color var(--sb-transition);
-}
-.sb-bottom-menu-btn i { font-size: 1.2rem; line-height: 1; }
-.sb-bottom-menu-btn span { line-height: 1; }
-.sb-bottom-menu-btn:active { transform: scale(.92); }
- 
-/* ═══════════════════════════════════════════════════════════
    NO-RESULTS search
 ═══════════════════════════════════════════════════════════ */
 .sb-no-results {
@@ -1025,56 +926,6 @@ body.sidebar-collapsed #mainContent {
         ?>
     </div>
 </div>
- 
-<!-- ============================================================
-     MOBILE BOTTOM NAV BAR
-     ============================================================ -->
-<nav class="sb-bottom-nav" aria-label="Navegación rápida">
-    <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
-    <a class="sb-bottom-item<?= str_starts_with($rutaActual, 'reportes') ? ' active' : '' ?>"
-       href="<?= e(route_url('reportes/dashboard')) ?>">
-        <i class="bi bi-graph-up-arrow"></i>
-        <span>Inicio</span>
-    </a>
-    <?php endif; ?>
- 
-    <?php if (tiene_permiso('inventario.ver')): ?>
-    <a class="sb-bottom-item<?= str_starts_with($rutaActual, 'inventario') ? ' active' : '' ?>"
-       href="<?= e(route_url('inventario')) ?>">
-        <i class="bi bi-clipboard-data"></i>
-        <span>Inventario</span>
-    </a>
-    <?php endif; ?>
- 
-    <?php if (tiene_permiso('ventas.ver')): ?>
-    <a class="sb-bottom-item<?= str_starts_with($rutaActual, 'ventas') ? ' active' : '' ?>"
-       href="<?= e(route_url('ventas')) ?>">
-        <i class="bi bi-bag-check"></i>
-        <span>Ventas</span>
-        <?php if (!empty($sidebarBadges['ventas'])): ?>
-        <span class="sb-badge"><?= htmlspecialchars($sidebarBadges['ventas']) ?></span>
-        <?php endif; ?>
-    </a>
-    <?php endif; ?>
- 
-    <?php if (tiene_permiso('compras.ver')): ?>
-    <a class="sb-bottom-item<?= str_starts_with($rutaActual, 'compras') ? ' active' : '' ?>"
-       href="<?= e(route_url('compras')) ?>">
-        <i class="bi bi-cart-check"></i>
-        <span>Compras</span>
-    </a>
-    <?php endif; ?>
- 
-    <button class="sb-bottom-menu-btn"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#appSidebarOffcanvas"
-            aria-controls="appSidebarOffcanvas"
-            aria-label="Abrir menú">
-        <i class="bi bi-grid-3x3-gap"></i>
-        <span>Menú</span>
-    </button>
-</nav>
  
 <!-- ============================================================
      JAVASCRIPT
