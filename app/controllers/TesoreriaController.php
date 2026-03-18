@@ -7,6 +7,7 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaPrestamoModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php'; // <-- AGREGADO
 
@@ -16,6 +17,7 @@ class TesoreriaController extends Controlador
     private TesoreriaCxpModel $cxpModel;
     private TesoreriaMovimientoModel $movModel;
     private TesoreriaCuentaModel $cuentaModel;
+    private TesoreriaPrestamoModel $prestamoModel;
     private ContaCuentaModel $planContableModel;
     private CentroCostoModel $centroCostoModel; // <-- AGREGADO
 
@@ -26,6 +28,7 @@ class TesoreriaController extends Controlador
         $this->cxpModel = new TesoreriaCxpModel();
         $this->movModel = new TesoreriaMovimientoModel();
         $this->cuentaModel = new TesoreriaCuentaModel();
+        $this->prestamoModel = new TesoreriaPrestamoModel();
         $this->planContableModel = new ContaCuentaModel();
         $this->centroCostoModel = new CentroCostoModel(); // <-- INICIALIZADO
     }
@@ -83,6 +86,77 @@ class TesoreriaController extends Controlador
             $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
         } catch (Throwable $e) {
             $this->mostrarErrorFatal($e, "Error al acceder a Pago Manual");
+        }
+    }
+
+    // ========================================================================
+    // MÓDULO: PRÉSTAMOS BANCARIOS
+    // ========================================================================
+    public function prestamos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        $filtros = [
+            'estado' => strtoupper(trim((string) ($_GET['estado'] ?? ''))),
+        ];
+
+        $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function ($cta) {
+            return !empty($cta['id_cuenta_contable'])
+                && (int) $cta['id_cuenta_contable'] > 0
+                && (int) ($cta['permite_pagos'] ?? 0) === 1;
+        });
+
+        $this->render('tesoreria/tesoreria_prestamos', [
+            'ruta_actual'    => 'tesoreria/prestamos',
+            'registros'      => $this->prestamoModel->listar($filtros),
+            'filtros'        => $filtros,
+            'cuentas'        => $cuentasVinculadas,
+            'metodos'        => $this->listarMetodosPago(),
+            'proveedores'    => $this->listarProveedoresActivos(),
+            'centros_costo'  => $this->centroCostoModel->listarActivos(),
+        ]);
+    }
+
+    public function guardar_prestamo(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/prestamos');
+        }
+
+        try {
+            $payload = [
+                'id_proveedor'        => (int) ($_POST['id_proveedor'] ?? 0),
+                'numero_contrato'     => trim((string) ($_POST['numero_contrato'] ?? '')),
+                'entidad_financiera'  => trim((string) ($_POST['entidad_financiera'] ?? '')),
+                'fecha_desembolso'    => trim((string) ($_POST['fecha_desembolso'] ?? date('Y-m-d'))),
+                'fecha_primera_cuota' => trim((string) ($_POST['fecha_primera_cuota'] ?? date('Y-m-d'))),
+                'monto_total'         => round((float) ($_POST['monto_total'] ?? 0), 4),
+                'moneda'              => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'tipo_tasa'           => strtoupper(trim((string) ($_POST['tipo_tasa'] ?? 'FIJA'))),
+                'tasa_anual'          => round((float) ($_POST['tasa_anual'] ?? 0), 4),
+                'numero_cuotas'       => (int) ($_POST['numero_cuotas'] ?? 1),
+                'observaciones'       => trim((string) ($_POST['observaciones'] ?? '')),
+            ];
+
+            $this->prestamoModel->crear($payload, $this->obtenerUsuarioId());
+            redirect('tesoreria/prestamos?ok=1');
+        } catch (Throwable $e) {
+            redirect('tesoreria/prestamos?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    public function registrar_pago_prestamo(): void
+    {
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.pagos.registrar');
+            $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/prestamos');
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al registrar pago de préstamo");
         }
     }
 
