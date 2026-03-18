@@ -557,6 +557,8 @@
         const skuInput = document.getElementById('newSku');
         let skuDebounceTimer = null;
 
+        if (!skuInput) return;
+
         skuInput.addEventListener('input', function () {
             if (this.readOnly) {
                 this.classList.remove('is-valid', 'is-invalid');
@@ -1051,13 +1053,21 @@
             });
         }
 
-        initCreateModal();
-        initEditModal();
-        initTableManager();
-        initEstadoSwitches();
+        const safeInit = (name, fn) => {
+            try {
+                fn();
+            } catch (error) {
+                console.error(`Error inicializando ${name}:`, error);
+            }
+        };
 
-        if (window.ItemsCategoriasRubros?.init) window.ItemsCategoriasRubros.init();
-        if (window.ItemsAtributos?.init) window.ItemsAtributos.init();
-        if (window.ItemsUnidadesConversion?.init) window.ItemsUnidadesConversion.init();
+        safeInit('initCreateModal', initCreateModal);
+        safeInit('initEditModal', initEditModal);
+        safeInit('initTableManager', initTableManager);
+        safeInit('initEstadoSwitches', initEstadoSwitches);
+
+        if (window.ItemsCategoriasRubros?.init) safeInit('ItemsCategoriasRubros.init', () => window.ItemsCategoriasRubros.init());
+        if (window.ItemsAtributos?.init) safeInit('ItemsAtributos.init', () => window.ItemsAtributos.init());
+        if (window.ItemsUnidadesConversion?.init) safeInit('ItemsUnidadesConversion.init', () => window.ItemsUnidadesConversion.init());
     });
 })();
