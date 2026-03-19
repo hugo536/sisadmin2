@@ -34,11 +34,26 @@
         const resumenFormula = document.getElementById('ucResumenFormula');
 
         if (!modal || !tbodyResumen || !tbodyDetalle || !form) return;
+        if (modal.dataset.ucInit === '1') return;
+        modal.dataset.ucInit = '1';
 
         let itemsResumen = [];
         let itemActivo = null;
 
         // --- FUNCIONES AUXILIARES ---
+        const showSuccess = async (message, title = 'Éxito') => {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                await window.Swal.fire({
+                    icon: 'success',
+                    title,
+                    text: message || 'Operación completada correctamente.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#198754'
+                });
+                return;
+            }
+            console.info(message || 'Operación completada correctamente.');
+        };
 
         const renderFormula = () => {
             const nombre = (inputNombre.value || 'Unidad').trim() || 'Unidad';
@@ -172,11 +187,12 @@
                     if (!confirm) return;
 
                     try {
-                        await postAction({
+                        const result = await postAction({
                             accion: 'eliminar_item_unidad_conversion',
                             id: String(id),
                             id_item: String(itemActivo.id)
                         });
+                        await showSuccess(result?.mensaje || 'Unidad de conversión eliminada correctamente.', 'Eliminado');
                         await cargarDetalle(itemActivo.id);
                         await cargarResumen();
                     } catch (error) {
@@ -288,7 +304,16 @@
             }
 
             try {
-                await postAction({
+                const esEdicion = inputAccion.value === 'editar_item_unidad_conversion';
+                const confirm = await confirmAction({
+                    title: esEdicion ? '¿Guardar cambios?' : '¿Crear unidad de conversión?',
+                    text: esEdicion
+                        ? 'Se actualizarán los datos de la unidad seleccionada.'
+                        : 'Se registrará una nueva unidad de conversión para este ítem.'
+                });
+                if (!confirm) return;
+
+                const result = await postAction({
                     accion: inputAccion.value,
                     id: inputId.value,
                     id_item: inputIdItem.value,
@@ -298,6 +323,13 @@
                     peso_kg: inputPeso.value || '0',
                     estado: inputEstado.checked ? '1' : '0'
                 });
+
+                await showSuccess(
+                    result?.mensaje || (esEdicion
+                        ? 'Unidad de conversión actualizada correctamente.'
+                        : 'Unidad de conversión creada correctamente.'),
+                    esEdicion ? 'Actualizado' : 'Guardado'
+                );
                 
                 resetFormulario();
                 await cargarDetalle(itemActivo.id);
