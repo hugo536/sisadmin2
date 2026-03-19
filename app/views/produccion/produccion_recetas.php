@@ -4,6 +4,45 @@ $parametrosCatalogo = $parametros_catalogo ?? [];
 // Recibimos la nueva variable del controlador
 $conceptosOperativos = $conceptos_operativos ?? [];
 ?>
+<style>
+    #tabsRecetaCostos .nav-link {
+        border-radius: 0.65rem 0.65rem 0 0;
+        transition: all .2s ease-in-out;
+    }
+
+    #tabsRecetaCostos .nav-link.receta-tab-active {
+        color: #0d6efd !important;
+        background: rgba(13, 110, 253, 0.10);
+        border-color: rgba(13, 110, 253, 0.35) rgba(13, 110, 253, 0.35) #fff;
+    }
+
+    @media (max-width: 767.98px) {
+        #listaInsumosReceta .detalle-row,
+        #contenedorMod .mod-row,
+        #contenedorCif .cif-row {
+            border: 1px solid #dbe7ff !important;
+            border-radius: .85rem !important;
+            background: #fff !important;
+            box-shadow: 0 .125rem .5rem rgba(10, 37, 64, 0.08) !important;
+            padding: .8rem !important;
+            margin-bottom: .75rem !important;
+        }
+
+        #listaInsumosReceta .detalle-row > [class*="col-"],
+        #contenedorMod .mod-row > [class*="col-"],
+        #contenedorCif .cif-row > [class*="col-"] {
+            width: 100%;
+            margin-bottom: .45rem;
+        }
+
+        #listaInsumosReceta .detalle-row > [class*="col-"]:last-child,
+        #contenedorMod .mod-row > [class*="col-"]:last-child,
+        #contenedorCif .cif-row > [class*="col-"]:last-child {
+            margin-bottom: 0;
+            text-align: right !important;
+        }
+    }
+</style>
 <div class="container-fluid p-4" id="recetasApp">
     
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
@@ -82,10 +121,10 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
                                     data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
                                     
-                                    <td class="ps-4 fw-bold text-primary align-top pt-3">
+                                    <td class="ps-4 fw-bold text-primary align-top pt-3" data-label="Código">
                                         <?php echo e((string) $receta['codigo']); ?>
                                     </td>
-                                    <td class="align-top pt-3">
+                                    <td class="align-top pt-3" data-label="Producto Terminado">
                                         <div class="fw-bold text-dark"><?php echo e((string) $receta['producto_nombre']); ?></div>
                                         <?php if (!empty($receta['descripcion'])): ?>
                                             <div class="small text-muted text-truncate" style="max-width: 250px;" title="<?php echo e((string) $receta['descripcion']); ?>">
@@ -93,16 +132,16 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3" data-label="Versión">
                                         <span class="badge bg-light text-secondary border shadow-sm">v.<?php echo (int) $receta['version']; ?></span>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3" data-label="N° Insumos">
                                         <span class="fw-medium text-dark"><?php echo (int) $receta['total_insumos']; ?> ítems</span>
                                     </td>
-                                    <td class="text-end align-top pt-3 fw-bold text-success">
+                                    <td class="text-end align-top pt-3 fw-bold text-success" data-label="Costo Teórico">
                                         S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3" data-label="Estado">
                                         <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill">Sin receta</span>
                                         <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
@@ -111,7 +150,7 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">Inactiva</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-end pe-4 align-top pt-3">
+                                    <td class="text-end pe-4 align-top pt-3" data-label="Acciones">
                                         <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
                                             <div class="d-inline-flex gap-1">
                                                 <button type="button"
@@ -557,4 +596,4 @@ $conceptosOperativos = $conceptos_operativos ?? [];
 </div>
 
 <script>window.ACTIVOS_FIJOS_CIF = [];</script>
-<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=2.5"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=2.6"></script>
