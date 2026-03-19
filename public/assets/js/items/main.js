@@ -33,6 +33,16 @@
         return Promise.resolve();
     }
 
+    async function parseJsonResponse(response, defaultMessage) {
+        const raw = await response.text();
+        try {
+            return JSON.parse(raw);
+        } catch (_error) {
+            const statusCode = response.status ? ` (HTTP ${response.status})` : '';
+            throw new Error((defaultMessage || 'La respuesta del servidor no es válida.') + statusCode);
+        }
+    }
+
     async function confirmAction(options = {}) {
         const { title = '¿Confirmar acción?', text = 'Esta acción no se puede deshacer.' } = options;
         if (window.Swal && typeof window.Swal.fire === 'function') {
@@ -65,7 +75,7 @@
             body: body.toString()
         });
 
-        const data = await response.json();
+        const data = await parseJsonResponse(response, 'La respuesta del servidor no es JSON válido.');
         if (!response.ok || !data.ok) {
             throw new Error(data.mensaje || 'No se pudo completar la operación.');
         }
@@ -79,7 +89,7 @@
         });
 
         if (!response.ok) throw new Error('No se pudo actualizar la lista de atributos.');
-        const data = await response.json();
+        const data = await parseJsonResponse(response, 'La respuesta del servidor no es JSON válido.');
         if (!data.ok) throw new Error(data.mensaje || 'No se pudo actualizar la lista de atributos.');
         return data;
     }
@@ -581,7 +591,7 @@
                     const response = await fetch(getItemsEndpoint({ accion: 'validar_sku', sku: skuVal }), {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
-                    const data = await response.json();
+                    const data = await parseJsonResponse(response, 'La respuesta del servidor no es JSON válido.');
                     if (data.ok) {
                         if (data.existe) {
                             skuInput.classList.add('is-invalid');
@@ -768,7 +778,7 @@
                 });
 
                 if (!response.ok) throw new Error('Error al obtener datos');
-                const data = await response.json();
+                const data = await parseJsonResponse(response, 'La respuesta del servidor no es JSON válido.');
 
                 renderTable(data.data || []);
                 renderPagination(data.recordsFiltered || 0);
