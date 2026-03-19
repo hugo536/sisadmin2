@@ -366,7 +366,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 </div>
                                 <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
-                                        <table class="table table-sm align-middle mb-0" id="tablaLineasMovimiento">
+                                        <table class="table table-sm align-middle mb-0 table-pro" id="tablaLineasMovimiento">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th class="ps-3 text-secondary fw-semibold">Ítem</th>

@@ -718,6 +718,9 @@
 
       if (lineasMovimiento.length === 0) {
         movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="7" class="text-center text-muted py-3">Aún no hay ítems agregados.</td></tr>';
+        if (window.ERPTable && typeof window.ERPTable.applyResponsiveCards === 'function') {
+          window.ERPTable.applyResponsiveCards(document);
+        }
         return;
       }
 
@@ -743,6 +746,10 @@
         `;
         movimientosDetalleBody.appendChild(tr);
       });
+
+      if (window.ERPTable && typeof window.ERPTable.applyResponsiveCards === 'function') {
+        window.ERPTable.applyResponsiveCards(document);
+      }
     }
 
     function construirClaveLinea(tipoRegistroVal, idRegistroVal, loteVal, idUnidadVal = 0) {
