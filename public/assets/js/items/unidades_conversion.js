@@ -42,18 +42,20 @@
 
         // --- FUNCIONES AUXILIARES ---
         const showSuccess = async (message, title = 'Éxito') => {
+            // Verificamos que la librería SweetAlert2 esté cargada en el sistema
             if (window.Swal && typeof window.Swal.fire === 'function') {
                 await window.Swal.fire({
-                    icon: 'success',
-                    title,
-                    text: message || 'Operación completada correctamente.',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#198754'
-                    timer: 1800,
-                    showConfirmButton: false
+                    icon: 'success',         // Tipo de icono (verde con el check)
+                    title,                   // Título de la alerta
+                    text: message || 'Operación completada correctamente.', // Mensaje de éxito
+                    confirmButtonText: 'OK', // Texto que mostrará el botón
+                    confirmButtonColor: '#198754', // Color verde estándar para coincidir con tu sistema
+                    timer: 2000,             // Tiempo en milisegundos (2 segundos) para que desaparezca sola
+                    showConfirmButton: true  // <-- CAMBIO: Activamos el botón para que el usuario pueda cerrarlo inmediatamente
                 });
                 return;
             }
+            // Mensaje de respaldo en la consola por si SweetAlert2 no está disponible
             console.info(message || 'Operación completada correctamente.');
         };
 
