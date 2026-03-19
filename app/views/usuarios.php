@@ -262,5 +262,3 @@ $currentUserId = $current_user_id ?? 0;
         </div>
     </div>
 </div>
-
-<script src="<?php echo asset_url('js/usuarios.js'); ?>"></script>

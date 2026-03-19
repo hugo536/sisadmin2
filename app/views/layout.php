@@ -104,7 +104,7 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
         accion: '<?php echo strpos((string) ($flash['texto'] ?? ''), 'Usuario creado') !== false ? 'crear' : ''; ?>'
     };
     </script>
-    <script src="<?php echo e(asset_url('js/usuarios.js')); ?>"></script>
+    <script src="<?php echo e(asset_url('js/usuarios.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
 
 <?php if (in_array($currentRoute, ['roles', 'roles/index'], true)): ?>
