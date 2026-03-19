@@ -34,6 +34,8 @@
         const resumenFormula = document.getElementById('ucResumenFormula');
 
         if (!modal || !tbodyResumen || !tbodyDetalle || !form) return;
+        if (modal.dataset.ucInit === '1') return;
+        modal.dataset.ucInit = '1';
 
         let itemsResumen = [];
         let itemActivo = null;
