@@ -173,7 +173,20 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  async function esperarTomSelect(maxIntentos = 30, esperaMs = 150) {
+    for (let i = 0; i < maxIntentos; i += 1) {
+      if (typeof TomSelect !== 'undefined') return true;
+      await new Promise((resolve) => setTimeout(resolve, esperaMs));
+    }
+    return false;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const tomSelectListo = await esperarTomSelect();
+    if (!tomSelectListo) {
+      console.warn('TomSelect no se pudo cargar en Inventario. Se mantendrán selects nativos.');
+    }
+
     const tsConfig = {
         create: false,
         sortField: { field: 'text', direction: 'asc' },
@@ -181,13 +194,13 @@
         dropdownParent: 'body'
     };
 
-    if (tipo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
-    if (almacen) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
-    if (almacenDestino) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
-    if (motivo) {
+    if (tipo && tomSelectListo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
+    if (almacen && tomSelectListo) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
+    if (almacenDestino && tomSelectListo) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
+    if (motivo && tomSelectListo) {
       tomSelectMotivo = new TomSelect('#motivoMovimiento', { ...tsConfig, placeholder: 'Seleccione motivo...' });
     }
-    if (centroCosto) {
+    if (centroCosto && tomSelectListo) {
       tomSelectCentroCosto = new TomSelect('#centroCostoMovimiento', { ...tsConfig, placeholder: 'Seleccione centro de costos...' });
     }
 
@@ -197,11 +210,11 @@
     if (almacenDestino) {
       almacenesBase.destino = Array.from(almacenDestino.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
     }
-    if (proveedor) {
+    if (proveedor && tomSelectListo) {
         tomSelectProveedor = new TomSelect('#proveedorMovimiento', { ...tsConfig, placeholder: 'Buscar proveedor...' });
     }
 
-    if (selectItem) {
+    if (selectItem && tomSelectListo) {
         tomSelectItem = new TomSelect('#itemMovimiento', {
             valueField: 'value',
             labelField: 'nombre',
