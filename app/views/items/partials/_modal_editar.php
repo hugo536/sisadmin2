@@ -48,7 +48,6 @@
                                             <option value="insumo">Insumo</option>
                                             <option value="semielaborado">Semielaborado</option>
                                             <option value="material_empaque">Material de empaque</option>
-                                            <option value="servicio">Servicio</option>
                                         </select>
                                     </div>
                                     

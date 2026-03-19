@@ -342,40 +342,12 @@
     function bindComercialVisibility(config) {
         const tipo = document.getElementById(config.tipoId);
         const card = document.getElementById(config.cardId);
-        const costo = document.getElementById(config.costoId);
-        if (!tipo || !card || !costo) return;
-
-        const tiposComercialesEditables = new Set(['materia_prima', 'insumo', 'repuestos']);
+        if (!tipo || !card) return;
 
         const apply = () => {
             const value = tipo.value;
-            const editable = tiposComercialesEditables.has(value);
-            const isItemDetallado = value === 'producto_terminado' || value === 'semielaborado';
-            const fields = card.querySelectorAll('input, select, textarea');
-
-            card.classList.toggle('opacity-75', !editable);
-
-            fields.forEach((field) => {
-                if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
-                    return;
-                }
-
-                if (field.id === config.costoId) {
-                    field.readOnly = !editable || isItemDetallado;
-                    field.disabled = false;
-                    return;
-                }
-
-                if (field instanceof HTMLInputElement && ['checkbox', 'radio', 'hidden'].includes(field.type)) {
-                    return;
-                }
-
-                if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
-                    field.readOnly = !editable;
-                } else {
-                    field.disabled = !editable;
-                }
-            });
+            const mostrarComercial = value === 'producto_terminado';
+            card.classList.toggle('d-none', !mostrarComercial);
         };
 
         if (!tipo.dataset.comercialVisibilityBound) {
@@ -416,8 +388,6 @@
         const requiereLote = document.getElementById(config.requiereLoteId);
         const requiereVencimiento = document.getElementById(config.requiereVencimientoId);
         
-        const aplicarPresetsDetallado = config.aplicarPresetsDetallado !== false;
-
         const apply = () => {
             const value = tipo.value;
             
@@ -425,17 +395,27 @@
             const isSemielaborado = value === 'semielaborado';
             const isProductoFabricado = isProductoTerminado || isSemielaborado;
             const isMateriaPrima = value === 'materia_prima';
-            const isInsumo = value === 'insumo';
-            const isServicio = value === 'servicio';
             const isMaterialEmpaque = value === 'material_empaque';
+            const tiposConRegla = new Set([
+                'producto_terminado',
+                'semielaborado',
+                'materia_prima',
+                'material_empaque',
+                'insumo'
+            ]);
+            const isTipoConRegla = tiposConRegla.has(value);
 
             const mostrarSabor = isProductoFabricado;
             const mostrarMarca = isProductoTerminado;
-            const mostrarPresentacion = isProductoTerminado || isMaterialEmpaque;
+            const mostrarPresentacion = isProductoTerminado;
             const mostrarFormulaBom = isProductoFabricado;
-            const mostrarFactorConversion = isProductoFabricado;
+            const mostrarFactorConversion = isTipoConRegla;
             const mostrarEnvaseRetornable = isProductoTerminado || isMaterialEmpaque;
             const mostrarOperacionesProduccion = mostrarFormulaBom || mostrarFactorConversion || mostrarEnvaseRetornable;
+            const mostrarPermiteDecimales = isProductoTerminado || isSemielaborado || isMateriaPrima;
+            const mostrarRequiereLote = isProductoTerminado || isSemielaborado || isMateriaPrima;
+            const mostrarRequiereVencimiento = isProductoTerminado || isSemielaborado || isMateriaPrima;
+            const mostrarControlaStock = isTipoConRegla;
 
             // 1. VISIBILIDAD DE CONTENEDORES (Ocultar lo absurdo)
             marcaContainer?.classList.toggle('d-none', !mostrarMarca);
@@ -470,42 +450,17 @@
                 esEnvaseRetornable.checked = false;
             }
 
-            // 3. REGLAS DE INVENTARIO Y TRAZABILIDAD (Por defecto)
-            
-            // Si es un servicio, apagamos todo lo de inventario
-            if (isServicio) {
-                if(controlaStock) controlaStock.checked = false;
-                if(stockInput) stockInput.value = '0.0000';
-                if(permiteDecimales) permiteDecimales.checked = false;
-                if(requiereLote) requiereLote.checked = false;
-                if(requiereVencimiento) requiereVencimiento.checked = false;
-            }
+            // 3. REGLAS DE INVENTARIO Y TRAZABILIDAD (Visibilidad por tipo)
+            stockContainer?.classList.toggle('d-none', !mostrarControlaStock);
+            permiteDecimalesContainer?.classList.toggle('d-none', !mostrarPermiteDecimales);
+            requiereLoteContainer?.classList.toggle('d-none', !mostrarRequiereLote);
+            requiereVencimientoContainer?.classList.toggle('d-none', !mostrarRequiereVencimiento);
 
-            // Reglas para Insumos y Materia Prima
-            if (isMateriaPrima || isInsumo) {
-                if(permiteDecimales) permiteDecimales.checked = true; // Se pesan/miden
-                if(requiereLote) requiereLote.checked = true;     // Trazabilidad de proveedores
-                if(requiereVencimiento) requiereVencimiento.checked = isMateriaPrima; 
-            }
-
-            // Reglas para Producto Fabricado
-            if (isProductoFabricado && aplicarPresetsDetallado) {
-                if(controlaStock) controlaStock.checked = true;
-                if(requiereLote) requiereLote.checked = true;
-                if(requiereVencimiento) requiereVencimiento.checked = true;
-                if(permiteDecimales) permiteDecimales.checked = false; 
-            }
-
-            // Reglas para Material de Empaque
-            if (value === 'material_empaque') {
-                if(permiteDecimales) permiteDecimales.checked = false; 
-            }
-
-            // Ocultar contenedores de configuración de stock si es servicio
-            stockContainer?.classList.toggle('d-none', isServicio);
-            permiteDecimalesContainer?.classList.toggle('d-none', isServicio);
-            requiereLoteContainer?.classList.toggle('d-none', isServicio);
-            requiereVencimientoContainer?.classList.toggle('d-none', isServicio);
+            if (controlaStock && !mostrarControlaStock) controlaStock.checked = false;
+            if (stockInput && !mostrarControlaStock) stockInput.value = '0.0000';
+            if (permiteDecimales && !mostrarPermiteDecimales) permiteDecimales.checked = false;
+            if (requiereLote && !mostrarRequiereLote) requiereLote.checked = false;
+            if (requiereVencimiento && !mostrarRequiereVencimiento) requiereVencimiento.checked = false;
 
             // Actualizamos dependencias visuales de stock y alertas
             toggleStockMinimo(config.controlaStockId, config.stockContainerId, config.stockInputId);
