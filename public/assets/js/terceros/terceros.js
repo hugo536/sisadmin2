@@ -1270,6 +1270,7 @@
             tercerosBaseUrl = window.location.href;
         }
 
+    async function initTercerosPage() {
         const root = document.getElementById('tercerosApp');
         if (!root) return;
         if (lastInitializedRoot === root) return;
@@ -1302,4 +1303,11 @@
         document.addEventListener('sisadmin:route-loaded', initTercerosPage);
         window[EVENTS_BOUND_KEY] = true;
     }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTercerosPage);
+    } else {
+        initTercerosPage();
+    }
+
+    document.addEventListener('sisadmin:route-loaded', initTercerosPage);
 })();
