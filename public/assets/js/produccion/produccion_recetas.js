@@ -129,6 +129,7 @@ function initFormularioRecetas() {
             const activo = tabBtn.classList.contains('active');
             tabBtn.classList.toggle('text-primary', activo);
             tabBtn.classList.toggle('text-secondary', !activo);
+            tabBtn.classList.toggle('receta-tab-active', activo);
         });
     };
 
@@ -315,7 +316,12 @@ function initFormularioRecetas() {
         return row;
     };
 
-    if (btnAgregarInsumo) btnAgregarInsumo.addEventListener('click', crearFilaInsumo);
+    if (btnAgregarInsumo) {
+        btnAgregarInsumo.addEventListener('click', (e) => {
+            e.preventDefault();
+            crearFilaInsumo();
+        });
+    }
     inputRendimientoBase?.addEventListener('input', calcularResumenYCostos);
     inputTiempoProduccionHoras?.addEventListener('input', calcularResumenYCostos);
 
@@ -368,8 +374,12 @@ function initFormularioRecetas() {
 
     if (btnAgregarParametro) btnAgregarParametro.addEventListener('click', () => crearFilaParametro());
 
-    if (btnAgregarMod) btnAgregarMod.addEventListener('click', () => {
-        if (!templateMod || !contenedorMod) return;
+    if (btnAgregarMod) btnAgregarMod.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!templateMod || !contenedorMod) {
+            Swal.fire({ icon: 'error', title: 'No se pudo añadir operario', text: 'Falta el template de MOD en la vista.' });
+            return;
+        }
         const fragment = templateMod.content.cloneNode(true);
         fragment.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcularResumenYCostos));
         contenedorMod.appendChild(fragment);
@@ -377,8 +387,12 @@ function initFormularioRecetas() {
     });
 
     // --- NUEVA LÓGICA DE AGREGAR CIF (Simplificada) ---
-    if (btnAgregarCif) btnAgregarCif.addEventListener('click', () => {
-        if (!templateCif || !contenedorCif) return;
+    if (btnAgregarCif) btnAgregarCif.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!templateCif || !contenedorCif) {
+            Swal.fire({ icon: 'error', title: 'No se pudo añadir costo operativo', text: 'Falta el template de CIF en la vista.' });
+            return;
+        }
         const fragment = templateCif.content.cloneNode(true);
         fragment.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcularResumenYCostos));
         contenedorCif.appendChild(fragment);
