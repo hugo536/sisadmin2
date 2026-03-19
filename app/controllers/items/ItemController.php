@@ -478,15 +478,41 @@ class ItemController extends Controlador
             }
         }
 
-        $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
+        $esProductoTerminado = $tipo === 'producto_terminado';
+        $esSemielaborado = $tipo === 'semielaborado';
+        $esItemDetallado = $esProductoTerminado || $esSemielaborado;
+        $usaPresentacion = $esProductoTerminado || $tipo === 'material_empaque';
+        $usaFormulaBom = $esItemDetallado;
+        $usaFactorConversion = $esItemDetallado;
+        $usaEnvaseRetornable = $esProductoTerminado || $tipo === 'material_empaque';
+
+        if ($esProductoTerminado) {
+            if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para productos terminados.');
+        } else {
+            $data['id_marca'] = null;
+            $data['marca'] = null;
+        }
 
         if ($esItemDetallado) {
-            if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para ítems detallados.');
             if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para ítems detallados.');
-            if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para ítems detallados.');
         } else {
             $data['id_sabor'] = null;
+        }
+
+        if ($usaPresentacion) {
+            if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para este tipo de ítem.');
+        } else {
             $data['id_presentacion'] = null;
+        }
+
+        if (!$usaFormulaBom) {
+            $data['requiere_formula_bom'] = 0;
+        }
+        if (!$usaFactorConversion) {
+            $data['requiere_factor_conversion'] = 0;
+        }
+        if (!$usaEnvaseRetornable) {
+            $data['es_envase_retornable'] = 0;
         }
 
         if ($tipo === 'semielaborado' && !$esEdicion) {
