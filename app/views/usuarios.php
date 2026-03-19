@@ -249,7 +249,7 @@ $currentUserId = $current_user_id ?? 0;
                     </div>
 
                     <div class="form-floating">
-                        <input class="form-control" name="clave" type="password" placeholder="Clave">
+                        <input class="form-control" id="editClave" name="clave" type="password" placeholder="Clave">
                         <label for="editClave" class="text-muted">Nueva contraseña (opcional)</label>
                     </div>
 
