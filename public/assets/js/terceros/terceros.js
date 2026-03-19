@@ -1302,4 +1302,8 @@
         document.addEventListener('sisadmin:route-loaded', initTercerosPage);
         window[EVENTS_BOUND_KEY] = true;
     }
+
 })();
+
+})();
+
