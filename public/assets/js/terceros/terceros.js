@@ -483,10 +483,6 @@
                     el.addEventListener('change', () => syncRoleTabs(prefix));
                 }
             });
-            // Compatibilidad adicional: usar data-target por si cambian IDs de pestañas.
-            form.querySelectorAll('.role-trigger[data-target]').forEach((el) => {
-                el.addEventListener('change', () => syncRoleTabs(prefix));
-            });
 
             // Init Zonas Distribuidor
             if (window.TercerosClientes && window.TercerosClientes.initDistribuidorZones) {
@@ -517,17 +513,10 @@
             const dist = document.getElementById(`${prefix}Distrito`);
             
             if (dep && prov && dist) {
-                let ubigeoReqSeq = 0;
-                const resetSelect = (el, placeholder = 'Seleccionar...') => {
-                    if (!el) return;
-                    el.innerHTML = `<option value="">${placeholder}</option>`;
-                    el.disabled = true;
-                };
-
                 const loadUbigeo = (tipo, padreId, targetEl) => {
-                    const reqId = ++ubigeoReqSeq;
-                    resetSelect(targetEl, 'Cargando...');
-
+                    targetEl.innerHTML = '<option value="">Cargando...</option>';
+                    targetEl.disabled = true;
+                    
                     const fd = new FormData();
                     fd.append('accion', 'cargar_ubigeo');
                     fd.append('tipo', tipo);
@@ -536,33 +525,28 @@
                     fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
                         .then(parseJsonResponse)
                         .then(({data}) => {
-                            if (reqId !== ubigeoReqSeq) return;
-                            resetSelect(targetEl);
-                            if (data?.ok && Array.isArray(data.data)) {
+                            targetEl.innerHTML = '<option value="">Seleccionar...</option>';
+                            if (data.ok && data.data) {
                                 data.data.forEach(x => targetEl.add(new Option(x.nombre, x.id)));
                                 targetEl.disabled = false;
                                 if (targetEl.dataset.preselect) {
                                     targetEl.value = targetEl.dataset.preselect;
-                                    targetEl.dataset.preselect = '';
+                                    targetEl.dataset.preselect = ''; 
                                     targetEl.dispatchEvent(new Event('change'));
                                 }
                             }
-                        })
-                        .catch(() => {
-                            if (reqId !== ubigeoReqSeq) return;
-                            resetSelect(targetEl, 'No se pudo cargar');
                         });
                 };
 
                 dep.addEventListener('change', () => {
-                    resetSelect(dist);
+                    dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true;
                     if (dep.value) loadUbigeo('provincias', dep.value, prov);
-                    else resetSelect(prov);
+                    else { prov.innerHTML = '<option value="">Seleccionar...</option>'; prov.disabled = true; }
                 });
 
                 prov.addEventListener('change', () => {
                     if (prov.value) loadUbigeo('distritos', prov.value, dist);
-                    else resetSelect(dist);
+                    else { dist.innerHTML = '<option value="">Seleccionar...</option>'; dist.disabled = true; }
                 });
             }
 
@@ -610,16 +594,8 @@
 
                 syncRoleTabs('crear');
                 document.getElementById('crearTipoPersona')?.dispatchEvent(new Event('change'));
-                const crearProv = document.getElementById('crearProvincia');
-                const crearDist = document.getElementById('crearDistrito');
-                if (crearProv) {
-                    crearProv.innerHTML = '<option value="">Seleccione provincia...</option>';
-                    crearProv.disabled = true;
-                }
-                if (crearDist) {
-                    crearDist.innerHTML = '<option value="">Seleccione distrito...</option>';
-                    crearDist.disabled = true;
-                }
+                document.getElementById('crearProvincia').innerHTML = '';
+                document.getElementById('crearDistrito').innerHTML = '';
 
                 // Forzar el estado inicial del switch cumpleaños
                 const recordarChkCrear = document.getElementById('crearRecordarCumpleanos');
@@ -992,21 +968,14 @@
     }
 
     function initButtons() {
-        // Delegación: cubre casos donde los nodos cambian/re-renderizan.
-        document.addEventListener('click', (event) => {
-            const telBtn = event.target.closest('#crearAgregarTelefono, #editAgregarTelefono');
-            if (telBtn) {
-                const prefix = telBtn.id.startsWith('edit') ? 'edit' : 'crear';
-                const list = document.getElementById(`${prefix}TelefonosList`);
-                if (list) list.appendChild(buildTelefonoRow());
-            }
+        ['crear', 'edit'].forEach(p => {
+            const btnTel = document.getElementById(`${p}AgregarTelefono`);
+            const listTel = document.getElementById(`${p}TelefonosList`);
+            if (btnTel) btnTel.onclick = () => listTel.appendChild(buildTelefonoRow());
 
-            const ctaBtn = event.target.closest('#crearAgregarCuenta, #editAgregarCuenta');
-            if (ctaBtn) {
-                const prefix = ctaBtn.id.startsWith('edit') ? 'edit' : 'crear';
-                const list = document.getElementById(`${prefix}CuentasBancariasList`);
-                if (list) list.appendChild(buildCuentaRow());
-            }
+            const btnCta = document.getElementById(`${p}AgregarCuenta`);
+            const listCta = document.getElementById(`${p}CuentasBancariasList`);
+            if (btnCta) btnCta.onclick = () => listCta.appendChild(buildCuentaRow());
         });
 
         document.querySelectorAll('.js-eliminar-tercero').forEach(btn => {
@@ -1273,7 +1242,7 @@
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
-    async function bootstrapTerceros() {
+    document.addEventListener('DOMContentLoaded', async function () {
         await fetchCatalogos(); 
 
         initDynamicFields();
@@ -1287,11 +1256,5 @@
         tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootstrapTerceros);
-    } else {
-        bootstrapTerceros();
-    }
+    });
 })();
