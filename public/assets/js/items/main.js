@@ -396,9 +396,16 @@
         
         // NUEVO: Contenedor de Operaciones de Producción
         const operacionesProdContainer = document.getElementById(config.operacionesProdContainerId);
+        const requiereFormulaContainer = document.getElementById(config.requiereFormulaContainerId);
+        const requiereFactorConversionContainer = document.getElementById(config.requiereFactorConversionContainerId);
+        const envaseRetornableContainer = document.getElementById(config.envaseRetornableContainerId);
 
+        const marcaSelect = document.getElementById(config.marcaId);
         const saborSelect = document.getElementById(config.saborId);
         const presentacionSelect = document.getElementById(config.presentacionId);
+        const requiereFormulaBom = document.getElementById(config.requiereFormulaBomId);
+        const requiereFactorConversion = document.getElementById(config.requiereFactorConversionId);
+        const esEnvaseRetornable = document.getElementById(config.esEnvaseRetornableId);
         const stockContainer = document.getElementById(config.stockContainerId);
         const permiteDecimalesContainer = document.getElementById(config.permiteDecimalesContainerId);
         const requiereLoteContainer = document.getElementById(config.requiereLoteContainerId);
@@ -414,31 +421,53 @@
         const apply = () => {
             const value = tipo.value;
             
-            // Redefinimos los grupos lógicos para manufactura
-            const isProductoFabricado = value === 'producto_terminado' || value === 'semielaborado';
-            const usaPresentacion = isProductoFabricado || value === 'material_empaque'; 
+            const isProductoTerminado = value === 'producto_terminado';
+            const isSemielaborado = value === 'semielaborado';
+            const isProductoFabricado = isProductoTerminado || isSemielaborado;
             const isMateriaPrima = value === 'materia_prima';
             const isInsumo = value === 'insumo';
             const isServicio = value === 'servicio';
+            const isMaterialEmpaque = value === 'material_empaque';
+
+            const mostrarSabor = isProductoFabricado;
+            const mostrarMarca = isProductoTerminado;
+            const mostrarPresentacion = isProductoTerminado || isMaterialEmpaque;
+            const mostrarFormulaBom = isProductoFabricado;
+            const mostrarFactorConversion = isProductoFabricado;
+            const mostrarEnvaseRetornable = isProductoTerminado || isMaterialEmpaque;
+            const mostrarOperacionesProduccion = mostrarFormulaBom || mostrarFactorConversion || mostrarEnvaseRetornable;
 
             // 1. VISIBILIDAD DE CONTENEDORES (Ocultar lo absurdo)
-            marcaContainer?.classList.remove('d-none'); // Todo puede tener marca
-            saborContainer?.classList.toggle('d-none', !isProductoFabricado);
-            presentacionContainer?.classList.toggle('d-none', !usaPresentacion);
-            
-            // Un Insumo, Empaque o Materia prima NO tienen Fórmula BOM ni son retornables.
-            if (operacionesProdContainer) {
-                operacionesProdContainer.classList.toggle('d-none', !isProductoFabricado);
-            }
+            marcaContainer?.classList.toggle('d-none', !mostrarMarca);
+            saborContainer?.classList.toggle('d-none', !mostrarSabor);
+            presentacionContainer?.classList.toggle('d-none', !mostrarPresentacion);
+
+            requiereFormulaContainer?.classList.toggle('d-none', !mostrarFormulaBom);
+            requiereFactorConversionContainer?.classList.toggle('d-none', !mostrarFactorConversion);
+            envaseRetornableContainer?.classList.toggle('d-none', !mostrarEnvaseRetornable);
+            operacionesProdContainer?.classList.toggle('d-none', !mostrarOperacionesProduccion);
 
             // 2. REQUERIDOS DINÁMICOS
+            if (marcaSelect) {
+                marcaSelect.required = mostrarMarca;
+                if (!mostrarMarca) marcaSelect.value = '';
+            }
             if (saborSelect) {
-                saborSelect.required = isProductoFabricado;
-                if (!isProductoFabricado) saborSelect.value = '';
+                saborSelect.required = mostrarSabor;
+                if (!mostrarSabor) saborSelect.value = '';
             }
             if (presentacionSelect) {
-                presentacionSelect.required = usaPresentacion;
-                if (!usaPresentacion) presentacionSelect.value = '';
+                presentacionSelect.required = mostrarPresentacion;
+                if (!mostrarPresentacion) presentacionSelect.value = '';
+            }
+            if (requiereFormulaBom && !mostrarFormulaBom) {
+                requiereFormulaBom.checked = false;
+            }
+            if (requiereFactorConversion && !mostrarFactorConversion) {
+                requiereFactorConversion.checked = false;
+            }
+            if (esEnvaseRetornable && !mostrarEnvaseRetornable) {
+                esEnvaseRetornable.checked = false;
             }
 
             // 3. REGLAS DE INVENTARIO Y TRAZABILIDAD (Por defecto)
@@ -517,8 +546,15 @@
             marcaContainerId: 'newMarcaContainer',
             saborContainerId: 'newSaborContainer',
             presentacionContainerId: 'newPresentacionContainer',
+            requiereFormulaContainerId: 'newRequiereFormulaBomContainer',
+            requiereFactorConversionContainerId: 'newRequiereFactorConversionContainer',
+            envaseRetornableContainerId: 'newEsEnvaseRetornableContainer',
+            marcaId: 'newMarca',
             saborId: 'newSabor',
             presentacionId: 'newPresentacion',
+            requiereFormulaBomId: 'newRequiereFormulaBom',
+            requiereFactorConversionId: 'newRequiereFactorConversion',
+            esEnvaseRetornableId: 'newEsEnvaseRetornable',
             controlaStockId: 'newControlaStock',
             stockContainerId: 'newStockMinContainer',
             stockInputId: 'newStockMin',
@@ -615,8 +651,15 @@
             marcaContainerId: 'editMarcaContainer',
             saborContainerId: 'editSaborContainer',
             presentacionContainerId: 'editPresentacionContainer',
+            requiereFormulaContainerId: 'editRequiereFormulaBomContainer',
+            requiereFactorConversionContainerId: 'editRequiereFactorConversionContainer',
+            envaseRetornableContainerId: 'editEsEnvaseRetornableContainer',
+            marcaId: 'editMarca',
             saborId: 'editSabor',
             presentacionId: 'editPresentacion',
+            requiereFormulaBomId: 'editRequiereFormulaBom',
+            requiereFactorConversionId: 'editRequiereFactorConversion',
+            esEnvaseRetornableId: 'editEsEnvaseRetornable',
             controlaStockId: 'editControlaStock',
             stockContainerId: 'editStockMinimoContainer',
             stockInputId: 'editStockMinimo',
