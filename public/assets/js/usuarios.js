@@ -18,23 +18,28 @@
   let tomSelectFiltroEstado = null;
 
   // ---------- Config SweetAlert (solo usuarios) ----------
-  const swalBootstrap = Swal.mixin({
-    customClass: {
-      confirmButton: 'btn btn-primary px-4 fw-bold',
-      cancelButton: 'btn btn-outline-secondary px-4 me-2',
-      popup: 'rounded-3 shadow-sm'
-    },
-    buttonsStyling: false
-  });
+  const swalApi = (window.Swal && typeof window.Swal.mixin === 'function') ? window.Swal : null;
+  const swalBootstrap = swalApi
+    ? swalApi.mixin({
+      customClass: {
+        confirmButton: 'btn btn-primary px-4 fw-bold',
+        cancelButton: 'btn btn-outline-secondary px-4 me-2',
+        popup: 'rounded-3 shadow-sm'
+      },
+      buttonsStyling: false
+    })
+    : null;
 
   // (Opcional) Toast si lo usas luego
-  const Toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 2000,
-    customClass: { popup: 'rounded-3 shadow-sm' }
-  });
+  const Toast = swalApi
+    ? swalApi.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      customClass: { popup: 'rounded-3 shadow-sm' }
+    })
+    : null;
 
   // ---------- 1) Switch de estado ----------
   function initStatusSwitch() {
@@ -74,6 +79,11 @@
     forms.forEach((form) => {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
+
+        if (!swalBootstrap || typeof swalBootstrap.fire !== 'function') {
+          form.submit();
+          return;
+        }
 
         swalBootstrap.fire({
           title: '¿Eliminar usuario?',
