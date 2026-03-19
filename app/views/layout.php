@@ -56,9 +56,10 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
         if (localStorage.getItem('erp.sidebar.collapsed') === '1') {
             document.body.classList.add('sidebar-collapsed');
         }
-        if (sessionStorage.getItem('erp.nav.loading') === '1') {
-            document.body.classList.add('page-is-loading');
-        }
+        // Limpieza defensiva: versiones anteriores dejaron este flag en "1"
+        // y eso bloquea clicks en `.main-content` tras Ctrl+F5.
+        sessionStorage.removeItem('erp.nav.loading');
+        document.body.classList.remove('page-is-loading');
     } catch (_err) {
         // noop
     }
