@@ -1,6 +1,16 @@
 (function () {
     'use strict';
 
+    const MODULE_KEY = '__tercerosModuleInitialized';
+    const INIT_FN_KEY = '__tercerosModuleInitPage';
+    const EVENTS_BOUND_KEY = '__tercerosModuleEventsBound';
+    let tercerosBaseUrl = window.location.href;
+
+    if (window[MODULE_KEY] && typeof window[INIT_FN_KEY] === 'function') {
+        return;
+    }
+    window[MODULE_KEY] = true;
+
     // Configuraciones y Constantes
     const TIPOS_ENTIDAD_CUENTA = ['Banco', 'Caja', 'Billetera Digital', 'Otros'];
     let catalogosFinancieros = { BANCO: [], CAJA: [], BILLETERA: [], OTROS: [] };
@@ -28,7 +38,7 @@
         const fd = new FormData();
         fd.append('accion', 'cargar_catalogos_financieros');
         try {
-            const response = await fetch(window.location.href, {
+            const response = await fetch(getTercerosEndpoint(), {
                 method: 'POST',
                 body: fd,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -53,6 +63,14 @@
 
     function sanitizeDigits(value) {
         return (value || '').replace(/\D/g, '');
+    }
+
+    function getTercerosEndpoint(extraParams = {}) {
+        const url = new URL(tercerosBaseUrl, window.location.origin);
+        Object.entries(extraParams).forEach(([key, value]) => {
+            url.searchParams.set(key, value);
+        });
+        return `${url.pathname}${url.search}`;
     }
 
     function normalizeDateForInput(value) {
@@ -110,7 +128,7 @@
     async function cargarCatalogoCajasBancos() {
         const fd = new FormData();
         fd.append('accion', 'cargar_catalogo_cajas_bancos');
-        const response = await fetch(window.location.href, {
+        const response = await fetch(getTercerosEndpoint(), {
             method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}
         });
         const { data } = await parseJsonResponse(response);
@@ -522,7 +540,7 @@
                     fd.append('tipo', tipo);
                     fd.append('padre_id', padreId);
 
-                    fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                    fetch(getTercerosEndpoint(), { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
                         .then(parseJsonResponse)
                         .then(({data}) => {
                             targetEl.innerHTML = '<option value="">Seleccionar...</option>';
@@ -946,7 +964,7 @@
                 const originalText = btn.innerHTML;
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
 
-                fetch(window.location.href, {
+                fetch(getTercerosEndpoint(), {
                     method: 'POST',
                     body: fd,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
@@ -1001,7 +1019,7 @@
                         const fd = new FormData();
                         fd.append('accion', 'eliminar');
                         fd.append('id', id);
-                        fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                        fetch(getTercerosEndpoint(), { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
                         .then(parseJsonResponse)
                         .then(({ data }) => {
                             if (!data.ok) {
@@ -1024,7 +1042,7 @@
                 fd.append('id', id);
                 fd.append('estado', estado);
                 
-                fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                fetch(getTercerosEndpoint(), { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
                 .then(parseJsonResponse)
                 .then(({data}) => {
                     if(!data.ok) {
@@ -1106,7 +1124,7 @@
             const fd = new FormData();
             fd.append('accion', config.listAction);
             try {
-                const response = await fetch(window.location.href, {
+                const response = await fetch(getTercerosEndpoint(), {
                     method: 'POST',
                     body: fd,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
@@ -1139,7 +1157,7 @@
 
             try {
                 const fd = new FormData(form);
-                const response = await fetch(window.location.href, {
+                const response = await fetch(getTercerosEndpoint(), {
                     method: 'POST',
                     body: fd,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
@@ -1183,7 +1201,7 @@
             if (toggleBtn || toggleSwitch) fd.append('estado', nextState);
 
             try {
-                const response = await fetch(window.location.href, {
+                const response = await fetch(getTercerosEndpoint(), {
                     method: 'POST',
                     body: fd,
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
@@ -1244,6 +1262,14 @@
     // =========================================================================
     let lastInitializedRoot = null;
 
+    async function initTercerosPage(event) {
+        const routeUrlFromEvent = event?.detail?.url;
+        if (routeUrlFromEvent) {
+            tercerosBaseUrl = routeUrlFromEvent;
+        } else if (window.location.search.includes('ruta=terceros')) {
+            tercerosBaseUrl = window.location.href;
+        }
+
     async function initTercerosPage() {
         const root = document.getElementById('tercerosApp');
         if (!root) return;
@@ -1266,6 +1292,17 @@
         });
     }
 
+    window[INIT_FN_KEY] = initTercerosPage;
+
+    if (!window[EVENTS_BOUND_KEY]) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTercerosPage, { once: true });
+        } else {
+            initTercerosPage();
+        }
+        document.addEventListener('sisadmin:route-loaded', initTercerosPage);
+        window[EVENTS_BOUND_KEY] = true;
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initTercerosPage);
     } else {
