@@ -32,7 +32,7 @@ class ItemController extends Controlador
 
         // --- INICIO BLOQUE SEGURIDAD CSRF ---
         if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Genera un token seguro de 64 caracteres
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
         }
         $csrfToken = $_SESSION['csrf_token'];
 
@@ -48,7 +48,6 @@ class ItemController extends Controlador
         }
         // --- FIN BLOQUE SEGURIDAD CSRF ---
 
-        // Agrega esto debajo de la validación del CSRF o junto a los otros es_ajax()
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'validar_sku') {
             $sku = trim((string) ($_GET['sku'] ?? ''));
             if ($sku === '') {
@@ -61,7 +60,6 @@ class ItemController extends Controlador
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
-            // Capturar parámetros de paginación y filtros desde el Request GET
             $pagina = (int) ($_GET['pagina'] ?? 1);
             $limite = (int) ($_GET['limite'] ?? 20);
             
@@ -72,7 +70,6 @@ class ItemController extends Controlador
                 'estado' => (string) ($_GET['estado'] ?? ''),
             ];
 
-            // Pasamos los parámetros al nuevo método del modelo
             json_response($this->itemsModel->datatable($pagina, $limite, $filtros));
             return;
         }
@@ -131,8 +128,6 @@ class ItemController extends Controlador
             unset($_SESSION['items_flash']);
         }
 
-        // BLOQUE DE ACCIONES POST (crear, editar, eliminar, etc.) 
-        // ... (Mantén todo tu código POST exactamente igual, no hay cambios aquí) ...
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
             $userId = (int) ($_SESSION['id'] ?? 0);
@@ -142,23 +137,17 @@ class ItemController extends Controlador
                     require_permiso('items.crear');
                     $data = $this->validarItem($_POST, false);
                     
-                    // Verificamos si el switch de autogeneración estaba encendido en el formulario
                     $autoIdentidad = (isset($_POST['autogenerar_identidad']) && $_POST['autogenerar_identidad'] == '1');
                     
                     if ($data['sku'] !== '') {
                         if ($autoIdentidad) {
-                            // Lógica inteligente: Añadir sufijo -01, -02, etc., si ya existe
                             $baseSku = $data['sku'];
                             $contador = 1;
-                            
-                            // Mientras el SKU exista en la BD, seguimos sumando al contador
                             while ($this->itemsModel->skuExiste($data['sku'])) {
-                                // str_pad asegura que se vea como -01, -02 en lugar de -1, -2
                                 $data['sku'] = $baseSku . '-' . str_pad((string)$contador, 2, '0', STR_PAD_LEFT);
                                 $contador++;
                             }
                         } else {
-                            // Si el usuario lo escribió a mano, mostramos el error original
                             if ($this->itemsModel->skuExiste($data['sku'])) {
                                 throw new RuntimeException('El SKU ya se encuentra registrado. Por favor, escribe uno diferente.');
                             }
@@ -414,7 +403,6 @@ class ItemController extends Controlador
         }
 
         $this->render('items/index', [
-            // YA NO CARGAMOS LOS ITEMS AQUÍ: 'items' => $this->itemsModel->listar(),
             'rubros' => $this->rubroModel->listarRubrosActivos(),
             'rubros_gestion' => $this->rubroModel->listarRubros(),
             'categorias' => $this->categoriaModel->listarCategoriasActivas(),
@@ -463,9 +451,87 @@ class ItemController extends Controlador
             throw new RuntimeException('La categoría seleccionada no existe o está inactiva.');
         }
 
-        $idMarca = isset($data['id_marca']) && $data['id_marca'] !== '' ? (int) $data['id_marca'] : 0;
-        $data['marca'] = null;
+        // --- 1. Reglas Generales Base ---
+        if (!isset($data['controla_stock']) || (int)$data['controla_stock'] !== 1) {
+            $data['controla_stock'] = 0;
+            $data['stock_minimo'] = 0;
+        }
 
+        // --- 2. Limpieza inicial de atributos opcionales ---
+        $idMarca = 0;
+        $data['marca'] = null;
+        $data['id_sabor'] = null;
+        $data['id_presentacion'] = null;
+        $data['requiere_formula_bom'] = 0; 
+        $data['es_envase_retornable'] = 0;
+        $data['requiere_lote'] = 0;
+        $data['requiere_vencimiento'] = 0;
+        $data['permite_decimales'] = 0;
+        $data['requiere_factor_conversion'] = isset($data['requiere_factor_conversion']) ? (int)$data['requiere_factor_conversion'] : 0;
+
+        if ($tipo !== 'producto_terminado') {
+             $data['precio_venta'] = 0;
+             $data['costo_referencial'] = 0;
+        }
+
+        // --- 3. Aplicación estricta de reglas según tipo ---
+        switch ($tipo) {
+            case 'producto_terminado':
+                $idMarca = isset($data['id_marca']) && $data['id_marca'] !== '' ? (int) $data['id_marca'] : 0;
+                if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para productos terminados.');
+                
+                $data['id_sabor'] = $data['id_sabor'] ?? null; 
+                if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para productos terminados.');
+
+                $data['id_presentacion'] = $data['id_presentacion'] ?? null;
+                if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para productos terminados.');
+
+                $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
+                $data['es_envase_retornable'] = isset($data['es_envase_retornable']) ? (int)$data['es_envase_retornable'] : 0;
+                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 0;
+                $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 0;
+                $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 0;
+                break;
+
+            case 'semielaborado':
+                $data['id_sabor'] = $data['id_sabor'] ?? null; 
+                $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
+                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 0;
+                
+                if (!$esEdicion) {
+                    $data['controla_stock'] = 1;
+                    $data['requiere_lote'] = 1;
+                    $data['requiere_vencimiento'] = 1;
+                } else {
+                    $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 0;
+                    $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 0;
+                }
+                break;
+
+            case 'materia_prima':
+                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 1;
+                $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 1;
+                $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 1;
+                break;
+
+            case 'material_empaque':
+                $data['es_envase_retornable'] = isset($data['es_envase_retornable']) ? (int)$data['es_envase_retornable'] : 0;
+                $data['permite_decimales'] = 0; 
+                break;
+
+            case 'insumo':
+                $data['permite_decimales'] = 0; 
+                break;
+                
+            case 'servicio':
+                $data['controla_stock'] = 0;
+                $data['stock_minimo'] = 0;
+                $data['permite_decimales'] = 0;
+                $data['dias_alerta_vencimiento'] = null;
+                break;
+        }
+
+        // --- 4. Validación de Marca ---
         if ($idMarca > 0) {
             foreach ($this->atributoModel->listarMarcas() as $marca) {
                 if ((int) ($marca['id'] ?? 0) === $idMarca) {
@@ -478,51 +544,6 @@ class ItemController extends Controlador
             }
         }
 
-        $esItemDetallado = in_array($tipo, ['producto_terminado', 'semielaborado'], true);
-
-        if ($esItemDetallado) {
-            if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para ítems detallados.');
-            if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para ítems detallados.');
-            if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para ítems detallados.');
-        } else {
-            $data['id_sabor'] = null;
-            $data['id_presentacion'] = null;
-        }
-
-        if ($tipo === 'semielaborado' && !$esEdicion) {
-            $data['controla_stock'] = 1;
-            $data['requiere_lote'] = 1;
-            $data['requiere_vencimiento'] = 1;
-            if (!isset($data['permite_decimales'])) {
-                $data['permite_decimales'] = 0;
-            }
-        }
-
-        if ($tipo === 'servicio') {
-            $data['id_marca'] = null;
-            $data['marca'] = null;
-            $data['controla_stock'] = 0;
-            $data['stock_minimo'] = 0;
-            $data['permite_decimales'] = 0;
-            $data['requiere_lote'] = 0;
-            $data['requiere_vencimiento'] = 0;
-            $data['dias_alerta_vencimiento'] = null;
-        }
-
-        if ($tipo === 'materia_prima') {
-            $data['permite_decimales'] = 1;
-            $data['requiere_lote'] = 1;
-        }
-
-        if ($tipo === 'material_empaque') {
-            $data['permite_decimales'] = 0;
-        }
-
-        if (!isset($data['controla_stock']) || (int)$data['controla_stock'] !== 1) {
-            $data['stock_minimo'] = 0;
-        }
-
-        // Si no mandan SKU (lo mandan vacío), lo dejamos vacío para que el modelo lo genere
         if (!isset($data['sku']) || trim($data['sku']) === '') {
              $data['sku'] = '';
         }
