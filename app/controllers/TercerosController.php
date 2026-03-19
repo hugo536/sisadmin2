@@ -426,7 +426,7 @@ class TercerosController extends Controlador
         $this->render('terceros/terceros', [
             'terceros'       => $this->tercerosModel->listar(),
             'flash'          => $flash,
-            'ruta_actual'    => 'tercero',
+            'ruta_actual'    => 'terceros',
             'departamentos_list' => $departamentos,
             'cargos_list'    => $cargos,
             'areas_list'     => $areas,
@@ -460,7 +460,7 @@ class TercerosController extends Controlador
             'documentos' => $documentos,
             'hijos_empleado' => $hijosEmpleado,
             'departamentos_list' => $departamentos,
-            'ruta_actual' => 'tercero'
+            'ruta_actual' => 'terceros'
         ]);
     }
 
