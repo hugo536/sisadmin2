@@ -1007,68 +1007,69 @@
                 const list = document.getElementById(`${prefix}CuentasBancariasList`);
                 if (list) list.appendChild(buildCuentaRow());
             }
-        });
+            const deleteBtn = event.target.closest('.js-eliminar-tercero');
+            if (!deleteBtn) return;
 
-        document.querySelectorAll('.js-eliminar-tercero').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const puedeEliminar = this.dataset.puedeEliminar === '1';
-                const motivoNoEliminar = this.dataset.motivoNoEliminar || 'No se puede eliminar este tercero.';
+            const id = deleteBtn.dataset.id;
+            const puedeEliminar = deleteBtn.dataset.puedeEliminar === '1';
+            const motivoNoEliminar = deleteBtn.dataset.motivoNoEliminar || 'No se puede eliminar este tercero.';
 
-                if (!puedeEliminar) {
-                    Swal.fire('No se puede eliminar', motivoNoEliminar, 'info');
-                    return;
+            if (!puedeEliminar) {
+                Swal.fire('No se puede eliminar', motivoNoEliminar, 'info');
+                return;
+            }
+
+            Swal.fire({
+                title: '¿Eliminar tercero?',
+                text: 'Esta acción no se puede deshacer',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar'
+            }).then((r) => {
+                if(r.isConfirmed) {
+                    const fd = new FormData();
+                    fd.append('accion', 'eliminar');
+                    fd.append('id', id);
+                    fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                    .then(parseJsonResponse)
+                    .then(({ data }) => {
+                        if (!data.ok) {
+                            throw new Error(data.mensaje || 'No se pudo eliminar el tercero.');
+                        }
+                        window.location.reload();
+                    })
+                    .catch((err) => Swal.fire('Error', err.message, 'error'));
                 }
-
-                Swal.fire({
-                    title: '¿Eliminar tercero?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    confirmButtonText: 'Sí, eliminar'
-                }).then((r) => {
-                    if(r.isConfirmed) {
-                        const fd = new FormData();
-                        fd.append('accion', 'eliminar');
-                        fd.append('id', id);
-                        fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-                        .then(parseJsonResponse)
-                        .then(({ data }) => {
-                            if (!data.ok) {
-                                throw new Error(data.mensaje || 'No se pudo eliminar el tercero.');
-                            }
-                            window.location.reload();
-                        })
-                        .catch((err) => Swal.fire('Error', err.message, 'error'));
-                    }
-                });
             });
         });
-        
-        document.querySelectorAll('.switch-estado-tercero').forEach(sw => {
-            sw.addEventListener('change', function() {
-                const id = this.dataset.id;
-                const estado = this.checked ? 1 : 0;
-                const fd = new FormData();
-                fd.append('accion', 'toggle_estado');
-                fd.append('id', id);
-                fd.append('estado', estado);
-                
-                fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-                .then(parseJsonResponse)
-                .then(({data}) => {
-                    if(!data.ok) {
-                        this.checked = !this.checked;
-                        Swal.fire('Error', data.mensaje, 'error');
-                    } else {
-                        const badge = document.getElementById(`badge_status_tercero_${id}`);
-                        if(badge) {
-                            badge.className = `badge-status status-${estado ? 'active' : 'inactive'}`;
-                            badge.innerText = estado ? 'Activo' : 'Inactivo';
-                        }
+
+        document.addEventListener('change', function(event) {
+            const sw = event.target.closest('.switch-estado-tercero');
+            if (!sw) return;
+
+            const id = sw.dataset.id;
+            const estado = sw.checked ? 1 : 0;
+            const fd = new FormData();
+            fd.append('accion', 'toggle_estado');
+            fd.append('id', id);
+            fd.append('estado', estado);
+
+            fetch(window.location.href, { method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(parseJsonResponse)
+            .then(({data}) => {
+                if(!data.ok) {
+                    sw.checked = !sw.checked;
+                    Swal.fire('Error', data.mensaje, 'error');
+                } else {
+                    const badge = document.getElementById(`badge_status_tercero_${id}`);
+                    if(badge) {
+                        badge.className = estado
+                            ? 'badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill'
+                            : 'badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill';
+                        badge.innerText = estado ? 'Activo' : 'Inactivo';
                     }
-                });
+                }
             });
         });
     }
