@@ -687,8 +687,20 @@
 .maestro-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:.75rem;}
 </style>
 
-<script src="<?php echo asset_url('js/terceros/clientes.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/proveedores.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/empleados.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/distribuidores.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/terceros.js'); ?>"></script>
+<?php
+    $clientesJsPath = __DIR__ . '/../../../public/assets/js/terceros/clientes.js';
+    $proveedoresJsPath = __DIR__ . '/../../../public/assets/js/terceros/proveedores.js';
+    $empleadosJsPath = __DIR__ . '/../../../public/assets/js/terceros/empleados.js';
+    $distribuidoresJsPath = __DIR__ . '/../../../public/assets/js/terceros/distribuidores.js';
+    $tercerosJsPath = __DIR__ . '/../../../public/assets/js/terceros/terceros.js';
+    $clientesJsV = file_exists($clientesJsPath) ? filemtime($clientesJsPath) : time();
+    $proveedoresJsV = file_exists($proveedoresJsPath) ? filemtime($proveedoresJsPath) : time();
+    $empleadosJsV = file_exists($empleadosJsPath) ? filemtime($empleadosJsPath) : time();
+    $distribuidoresJsV = file_exists($distribuidoresJsPath) ? filemtime($distribuidoresJsPath) : time();
+    $tercerosJsV = file_exists($tercerosJsPath) ? filemtime($tercerosJsPath) : time();
+?>
+<script src="<?php echo asset_url('js/terceros/clientes.js') . '?v=' . $clientesJsV; ?>"></script>
+<script src="<?php echo asset_url('js/terceros/proveedores.js') . '?v=' . $proveedoresJsV; ?>"></script>
+<script src="<?php echo asset_url('js/terceros/empleados.js') . '?v=' . $empleadosJsV; ?>"></script>
+<script src="<?php echo asset_url('js/terceros/distribuidores.js') . '?v=' . $distribuidoresJsV; ?>"></script>
+<script src="<?php echo asset_url('js/terceros/terceros.js') . '?v=' . $tercerosJsV; ?>"></script>
