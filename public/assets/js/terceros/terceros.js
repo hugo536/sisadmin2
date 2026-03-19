@@ -1242,8 +1242,16 @@
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
-    document.addEventListener('DOMContentLoaded', async function () {
-        await fetchCatalogos(); 
+    let lastInitializedRoot = null;
+
+    async function initTercerosPage() {
+        const root = document.getElementById('tercerosApp');
+        if (!root) return;
+        if (lastInitializedRoot === root) return;
+
+        lastInitializedRoot = root;
+
+        await fetchCatalogos();
 
         initDynamicFields();
         initModals();
@@ -1251,10 +1259,18 @@
         initMasterCatalogs();
         initFormSubmit();
         initTercerosTableManager();
-        
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
+            return bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl);
         });
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTercerosPage);
+    } else {
+        initTercerosPage();
+    }
+
+    document.addEventListener('sisadmin:route-loaded', initTercerosPage);
 })();
