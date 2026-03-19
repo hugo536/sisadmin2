@@ -47,6 +47,8 @@
                     icon: 'success',
                     title,
                     text: message || 'Operación completada correctamente.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#198754'
                     timer: 1800,
                     showConfirmButton: false
                 });
