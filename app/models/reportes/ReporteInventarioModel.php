@@ -3,6 +3,85 @@ declare(strict_types=1);
 
 class ReporteInventarioModel extends Modelo
 {
+    public function resumenValorizacionDashboard(int $limiteTop = 8): array
+    {
+        $limiteTop = max(3, min(20, $limiteTop));
+
+        $totalInventario = (float) $this->db()->query(
+            'SELECT COALESCE(SUM(
+                        CASE
+                            WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0)
+                            ELSE 0
+                        END
+                    ), 0)
+             FROM inventario_stock s
+             INNER JOIN items i ON i.id = s.id_item
+             LEFT JOIN almacenes a ON a.id = s.id_almacen
+             WHERE s.deleted_at IS NULL
+               AND i.deleted_at IS NULL
+               AND (a.id IS NULL OR a.deleted_at IS NULL)'
+        )->fetchColumn();
+
+        $sqlItems = 'SELECT i.id,
+                            i.sku,
+                            i.nombre,
+                            SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual ELSE 0 END) AS stock_total,
+                            COALESCE(NULLIF(i.costo_referencial, 0), 0) AS costo_ref,
+                            SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) AS valor_total
+                     FROM inventario_stock s
+                     INNER JOIN items i ON i.id = s.id_item
+                     LEFT JOIN almacenes a ON a.id = s.id_almacen
+                     WHERE s.deleted_at IS NULL
+                       AND i.deleted_at IS NULL
+                       AND (a.id IS NULL OR a.deleted_at IS NULL)
+                     GROUP BY i.id, i.sku, i.nombre, i.costo_referencial
+                     HAVING valor_total > 0
+                     ORDER BY valor_total DESC
+                     LIMIT :limite';
+        $stmtItems = $this->db()->prepare($sqlItems);
+        $stmtItems->bindValue(':limite', $limiteTop, PDO::PARAM_INT);
+        $stmtItems->execute();
+        $topItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $sqlAlmacenes = 'SELECT COALESCE(a.id, 0) AS id_almacen,
+                                COALESCE(a.nombre, "Sin Ubicación Física") AS almacen,
+                                SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual ELSE 0 END) AS stock_total,
+                                SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) AS valor_total
+                         FROM inventario_stock s
+                         INNER JOIN items i ON i.id = s.id_item
+                         LEFT JOIN almacenes a ON a.id = s.id_almacen
+                         WHERE s.deleted_at IS NULL
+                           AND i.deleted_at IS NULL
+                           AND (a.id IS NULL OR a.deleted_at IS NULL)
+                         GROUP BY a.id, a.nombre
+                         HAVING valor_total > 0
+                         ORDER BY valor_total DESC';
+        $almacenes = $this->db()->query($sqlAlmacenes)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $itemsValorizados = (int) $this->db()->query(
+            'SELECT COUNT(*)
+             FROM (
+                SELECT i.id
+                FROM inventario_stock s
+                INNER JOIN items i ON i.id = s.id_item
+                LEFT JOIN almacenes a ON a.id = s.id_almacen
+                WHERE s.deleted_at IS NULL
+                  AND i.deleted_at IS NULL
+                  AND (a.id IS NULL OR a.deleted_at IS NULL)
+                GROUP BY i.id
+                HAVING SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) > 0
+             ) t'
+        )->fetchColumn();
+
+        return [
+            'total_inventario' => $totalInventario,
+            'top_items' => $topItems,
+            'almacenes' => $almacenes,
+            'items_valorizados' => $itemsValorizados,
+            'almacenes_valorizados' => count($almacenes),
+        ];
+    }
+
     public function contarStockCritico(): int
     {
         $sql = 'SELECT COUNT(*)
