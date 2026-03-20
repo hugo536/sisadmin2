@@ -228,13 +228,15 @@ class TesoreriaController extends Controlador
         $busqueda = trim((string) ($_GET['q'] ?? ''));
 
         if ($tipo === 'PROVEEDOR') {
-            $sql = "SELECT t.id, t.nombre_completo
+            $sql = "SELECT t.id,
+                           COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Tercero #', t.id)) AS nombre_completo
                     FROM terceros t
                     WHERE t.estado = 1
                       AND t.deleted_at IS NULL
                       AND t.es_proveedor = 1";
         } else {
-            $sql = "SELECT DISTINCT t.id, t.nombre_completo
+            $sql = "SELECT DISTINCT t.id,
+                           COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Tercero #', t.id)) AS nombre_completo
                     FROM terceros t
                     LEFT JOIN distribuidores d
                       ON d.id_tercero = t.id
