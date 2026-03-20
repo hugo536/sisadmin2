@@ -564,14 +564,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
 
         if (terceroSelectEl && typeof TomSelect !== 'undefined') {
+            const getTipoSeleccionado = () => {
+                const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
+                return radioChecked ? radioChecked.value : 'CLIENTE';
+            };
+
+            const getPlaceholderByTipo = (tipo) => tipo === 'PROVEEDOR'
+                ? 'Buscar proveedor activo...'
+                : 'Buscar cliente o distribuidor activo...';
+
             const tsTerceros = new TomSelect(terceroSelectEl, {
                 valueField: 'id',
                 labelField: 'nombre_completo',
                 searchField: 'nombre_completo',
-                placeholder: 'Seleccione o escriba para buscar...',
+                placeholder: getPlaceholderByTipo(getTipoSeleccionado()),
                 preload: true,
                 load: function(query, callback) {
-                    const tipo = document.querySelector('input[name="tipo_deuda"]:checked').value;
+                    const tipo = getTipoSeleccionado();
                     fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(json => callback(json.items || []))
@@ -592,19 +601,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            const recargarOpcionesTerceros = (tipo) => {
+                fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(res => res.json())
+                    .then(json => {
+                        const items = json.items || [];
+                        tsTerceros.clearOptions();
+                        tsTerceros.addOptions(items);
+                        tsTerceros.refreshOptions(false);
+                    })
+                    .catch(() => {
+                        tsTerceros.clearOptions();
+                        tsTerceros.refreshOptions(false);
+                    });
+            };
+
             // Limpiar y recargar TomSelect Terceros al cambiar tipo de deuda
-            const helpTercero = document.getElementById('saldoInicialTerceroHelp');
             radiosTipo.forEach(r => {
                 r.addEventListener('change', () => {
                     tsTerceros.clear(true);
-                    tsTerceros.clearOptions();
-                    tsTerceros.load(''); 
-                    
-                    if (helpTercero) {
-                        helpTercero.innerHTML = r.value === 'CLIENTE'
-                            ? '<i class="bi bi-person-lines-fill me-1"></i>Buscando en catálogo de Clientes y Distribuidores.'
-                            : '<i class="bi bi-shop me-1"></i>Buscando en catálogo de Proveedores.';
+                    tsTerceros.loadedSearches = {};
+                    tsTerceros.settings.placeholder = getPlaceholderByTipo(r.value);
+                    if (tsTerceros.control_input) {
+                        tsTerceros.control_input.placeholder = tsTerceros.settings.placeholder;
                     }
+                    recargarOpcionesTerceros(r.value);
                 });
             });
         }
