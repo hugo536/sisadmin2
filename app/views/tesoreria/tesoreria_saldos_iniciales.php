@@ -164,4 +164,5 @@ if ($error !== '') {
     </form>
 </div>
 
-<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria_saldos.js"></script>
+<!-- Carga del script específico de la vista (Vital para el funcionamiento de la SPA) -->
+<script src="<?php echo base_url(); ?>/assets/js/tesoreria.js?v=<?php echo time(); ?>"></script>

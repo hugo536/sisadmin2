@@ -1,5 +1,8 @@
-document.addEventListener('DOMContentLoaded', () => {
+window.initTesoreria = function() {
     'use strict';
+
+    const tesoreriaApp = document.getElementById('tesoreriaSaldosInicialesApp') || document.getElementById('tesoreriaCuentasApp');
+    if (!tesoreriaApp) return;
 
     // ========================================================================
     // 0. INICIALIZACIÓN GLOBAL
@@ -9,16 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    const tesoreriaApp = document.getElementById('tesoreriaCuentasApp');
     const modalCuentaEl = document.getElementById('modalCuentaTesoreria');
     const formCuenta = document.getElementById('formCuentaTesoreria');
     
-    // Auto-abrir modal en caso de edición
     if (tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true' && modalCuentaEl) {
         bootstrap.Modal.getOrCreateInstance(modalCuentaEl).show();
     }
 
-    // Alertas de éxito post-redirección
     if (tesoreriaApp) {
         const params = new URLSearchParams(window.location.search);
         if (params.get('ok') === '1') {
@@ -101,9 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. CONFIRMACIÓN DE OPERACIONES (SweetAlert2)
     // ========================================================================
     document.querySelectorAll('.js-form-confirm').forEach(form => {
-        form.addEventListener('submit', function(e) {
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        newForm.addEventListener('submit', function(e) {
             if (e.defaultPrevented) return; 
-
             e.preventDefault();
             
             Swal.fire({
@@ -128,7 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.querySelectorAll('.js-form-delete-cuenta').forEach(form => {
-        form.addEventListener('submit', function(e) {
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+
+        newForm.addEventListener('submit', function(e) {
             e.preventDefault();
             Swal.fire({
                 title: '¿Eliminar cuenta?',
@@ -149,7 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.querySelectorAll('.js-switch-estado-cuenta').forEach(sw => {
-        sw.addEventListener('change', function () {
+        const newSw = sw.cloneNode(true);
+        sw.parentNode.replaceChild(newSw, sw);
+        newSw.addEventListener('change', function () {
             const form = this.closest('form');
             if (form) form.submit();
         });
@@ -571,6 +578,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fechaVencimiento && !fechaVencimiento.value) fechaVencimiento.value = hoy;
 
         if (terceroSelectEl && typeof TomSelect !== 'undefined') {
+            
+            // ¡IMPORTANTE PARA SPA! Destruimos la instancia si ya existía para evitar colisiones
+            if (terceroSelectEl.tomselect) {
+                terceroSelectEl.tomselect.destroy();
+            }
+
             const getTipoSeleccionado = () => {
                 const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
                 return radioChecked ? radioChecked.value : 'CLIENTE';
@@ -584,13 +597,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 valueField: 'id',
                 labelField: 'nombre_completo',
                 searchField: 'nombre_completo',
-                placeholder: getPlaceholderByTipo(getTipoSeleccionado()),
-                preload: true,
-                controlInput: '<input>', // <-- FIX: Elimina la raya negra de Bootstrap
+                searchField: ['nombre', 'sku'],
+                placeholder: '🔍 Busque un producto por nombre o código...',
+                // Agrega esta línea aquí también
+                controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
+                
                 load: function(query, callback) {
                     const tipo = getTipoSeleccionado();
+                    const separador = tercerosUrl.includes('?') ? '&' : '?';
+                    const url = `${tercerosUrl}${separador}tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`;
 
-                    fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(json => callback(json.items || []))
                         .catch(() => callback());
@@ -611,7 +628,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const recargarOpcionesTerceros = (tipo) => {
-                fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                const separador = tercerosUrl.includes('?') ? '&' : '?';
+                const url = `${tercerosUrl}${separador}tipo=${encodeURIComponent(tipo)}&q=`;
+
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(res => res.json())
                     .then(json => {
                         const items = json.items || [];
@@ -625,18 +645,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
             };
 
-            // Limpiar y recargar TomSelect Terceros al cambiar tipo de deuda
             const helpTercero = document.getElementById('saldoInicialTerceroHelp');
             radiosTipo.forEach(r => {
                 r.addEventListener('change', () => {
                     tsTerceros.clear(true);
-
                     tsTerceros.loadedSearches = {};
                     tsTerceros.settings.placeholder = getPlaceholderByTipo(r.value);
                     if (tsTerceros.control_input) {
                         tsTerceros.control_input.placeholder = tsTerceros.settings.placeholder;
-                    } // <-- FIX: Llave que faltaba cerrar
-
+                    } 
                     tsTerceros.clearOptions();
                     tsTerceros.loadedSearches = {};
                     tsTerceros.load('');
@@ -656,15 +673,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemsUrl = formSaldoInicial.getAttribute('data-url-items') || '';
 
         if (itemsSelectEl && typeof TomSelect !== 'undefined') {
+            
+            // ¡IMPORTANTE PARA SPA!
+            if (itemsSelectEl.tomselect) {
+                itemsSelectEl.tomselect.destroy();
+            }
+
             const tsItems = new TomSelect(itemsSelectEl, {
                 valueField: 'id',
                 labelField: 'nombre',
                 searchField: ['nombre', 'sku'],
                 placeholder: '🔍 Busque un producto por nombre o código...',
-                controlInput: '<input>', // <-- FIX: Elimina la raya negra de Bootstrap
+                // CORRECCIÓN DEFINITIVA: También eliminado 'controlInput' aquí
+                
                 load: function(query, callback) {
                     if (!query.length) return callback();
-                    fetch(`${itemsUrl}?q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+
+                    const separador = itemsUrl.includes('?') ? '&' : '?';
+                    const url = `${itemsUrl}${separador}q=${encodeURIComponent(query)}`;
+
+                    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(json => callback(json.items || []))
                         .catch(() => callback());
@@ -682,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!value) return;
                     const itemData = this.options[value];
                     agregarFilaDetalle(itemData);
-                    this.clear(true); // Limpiar buscador tras agregar al carrito
+                    this.clear(true); 
                 }
             });
         }
@@ -762,4 +790,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if(inputMontoSaldos) inputMontoSaldos.value = total.toFixed(2);
         }
     }
-});
+};
+
+// Evaluamos si es una recarga completa (Ctrl+F5) o una navegación interna (SPA)
+if (document.readyState === 'loading') {
+    // Si la página apenas está cargando, esperamos a que termine
+    document.addEventListener('DOMContentLoaded', window.initTesoreria);
+} else {
+    // Si ya cargó (porque navegaste desde el menú), lo ejecutamos de inmediato
+    window.initTesoreria();
+}
