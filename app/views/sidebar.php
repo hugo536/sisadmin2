@@ -8,7 +8,7 @@
 $rutaActual = (string) ($ruta_actual ?? (string) ($_GET['ruta'] ?? 'reportes/dashboard'));
  
 $activo = static fn(string $ruta): string =>
-    (str_starts_with($rutaActual, $ruta) || $rutaActual === $ruta . '/index') ? ' active' : '';
+    ($rutaActual === $ruta || $rutaActual === $ruta . '/index') ? ' active' : '';
  
 $grupoActivo = static fn(array $rutas): string => array_reduce(
     $rutas,

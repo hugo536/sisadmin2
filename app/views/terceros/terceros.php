@@ -450,28 +450,28 @@
                         <div class="tab-pane fade" id="crear-tab-pane-cliente" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/terceros/clientes_form.php'; ?>
+                                    <?php $prefix = 'crear'; require __DIR__ . '/clientes_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="crear-tab-pane-distribuidor" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/terceros/distribuidores_form.php'; ?>
+                                    <?php $prefix = 'crear'; require __DIR__ . '/distribuidores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="crear-tab-pane-proveedor" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/terceros/proveedores_form.php'; ?>
+                                    <?php $prefix = 'crear'; require __DIR__ . '/proveedores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="crear-tab-pane-empleado" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/terceros/empleados_form.php'; ?>
+                                    <?php $prefix = 'crear'; require __DIR__ . '/empleados_form.php'; ?>
                                 </div>
                             </div>
                         </div>
@@ -595,7 +595,7 @@
                                     <div class="row g-3">
                                         <div class="col-md-8"><div class="form-floating"><input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="editDireccion"><label>Dirección Fiscal</label></div></div>
                                         <div class="col-md-4"><div class="form-floating"><input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="editEmail"><label>Correo Electrónico</label></div></div>
-                                       
+                                        
                                         <div class="col-md-4 mt-4">
                                             <div class="form-floating">
                                                 <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="editDepartamento">
@@ -643,28 +643,28 @@
                         <div class="tab-pane fade" id="edit-tab-pane-cliente" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/terceros/clientes_form.php'; ?>
+                                    <?php $prefix = 'edit'; require __DIR__ . '/clientes_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="edit-tab-pane-distribuidor" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/terceros/distribuidores_form.php'; ?>
+                                    <?php $prefix = 'edit'; require __DIR__ . '/distribuidores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="edit-tab-pane-proveedor" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/terceros/proveedores_form.php'; ?>
+                                    <?php $prefix = 'edit'; require __DIR__ . '/proveedores_form.php'; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="edit-tab-pane-empleado" tabindex="0">
                             <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
                                 <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/terceros/empleados_form.php'; ?>
+                                    <?php $prefix = 'edit'; require __DIR__ . '/empleados_form.php'; ?>
                                 </div>
                             </div>
                         </div>
@@ -686,9 +686,3 @@
 .empleado-input-disabled{opacity:.7;}
 .maestro-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:.75rem;}
 </style>
-
-<script src="<?php echo asset_url('js/terceros/clientes.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/proveedores.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/empleados.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/distribuidores.js'); ?>"></script>
-<script src="<?php echo asset_url('js/terceros/terceros.js'); ?>"></script>
