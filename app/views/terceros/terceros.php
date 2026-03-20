@@ -691,3 +691,4 @@
 <script src="<?php echo asset_url('js/terceros/proveedores.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros/empleados.js'); ?>"></script>
 <script src="<?php echo asset_url('js/terceros/distribuidores.js'); ?>"></script>
+<script src="<?php echo asset_url('js/terceros/terceros.js'); ?>"></script>
