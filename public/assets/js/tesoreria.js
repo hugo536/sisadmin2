@@ -554,4 +554,88 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
+    // ========================================================================
+    // 7. SALDOS INICIALES (TERCERO CON BÚSQUEDA AJAX)
+    // ========================================================================
+    const formSaldoInicial = document.getElementById('formSaldoInicial');
+    if (formSaldoInicial) {
+        const terceroSelect = document.getElementById('saldoInicialTercero');
+        const fechaEmision = document.getElementById('saldoInicialFechaEmision');
+        const fechaVencimiento = document.getElementById('saldoInicialFechaVencimiento');
+        const radiosTipo = Array.from(document.querySelectorAll('input[name="tipo_deuda"]'));
+        const helpTercero = document.getElementById('saldoInicialTerceroHelp');
+        const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
+
+        const hoy = new Date().toISOString().slice(0, 10);
+        if (fechaEmision && !fechaEmision.value) fechaEmision.value = hoy;
+        if (fechaVencimiento && !fechaVencimiento.value) fechaVencimiento.value = hoy;
+
+        const obtenerTipo = () => {
+            const selected = radiosTipo.find(r => r.checked);
+            return selected ? selected.value : 'CLIENTE';
+        };
+
+        const resetSelect = () => {
+            if (!terceroSelect) return;
+            terceroSelect.innerHTML = '<option value="">Escriba para buscar...</option>';
+        };
+
+        const cargarTerceros = async (q = '') => {
+            if (!terceroSelect) return;
+            const tipo = obtenerTipo();
+            const url = `${tercerosUrl}&tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(q)}`;
+
+            try {
+                terceroSelect.disabled = true;
+                const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
+
+                terceroSelect.innerHTML = '<option value="">Seleccione...</option>';
+                items.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = String(item.id || '');
+                    opt.textContent = String(item.nombre_completo || '');
+                    terceroSelect.appendChild(opt);
+                });
+
+                if (helpTercero) {
+                    helpTercero.textContent = tipo === 'CLIENTE'
+                        ? 'Mostrando clientes activos.'
+                        : 'Mostrando proveedores activos.';
+                }
+            } catch (e) {
+                resetSelect();
+                if (helpTercero) helpTercero.textContent = 'No se pudo cargar la búsqueda. Recargue la página.';
+            } finally {
+                terceroSelect.disabled = false;
+            }
+        };
+
+        radiosTipo.forEach(r => r.addEventListener('change', () => {
+            resetSelect();
+            cargarTerceros('');
+        }));
+
+        let debounceTimer = null;
+        if (terceroSelect) {
+            terceroSelect.addEventListener('mousedown', () => {
+                cargarTerceros('');
+            });
+        }
+
+        // Campo de búsqueda rápido usando prompt para mantener UI Kit sin dependencias externas.
+        if (helpTercero) {
+            helpTercero.addEventListener('click', () => {
+                const termino = window.prompt('Buscar tercero por nombre:', '') || '';
+                window.clearTimeout(debounceTimer);
+                debounceTimer = window.setTimeout(() => cargarTerceros(termino.trim()), 120);
+            });
+            helpTercero.style.cursor = 'pointer';
+            helpTercero.title = 'Click para buscar por nombre';
+        }
+
+        cargarTerceros('');
+    }
 });
