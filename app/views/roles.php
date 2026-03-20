@@ -10,6 +10,14 @@ foreach ($permisos as $permiso) {
     $modulo = (string)($permiso['modulo'] ?? 'General');
     $permisosPorModulo[$modulo][] = $permiso;
 }
+
+ksort($permisosPorModulo, SORT_NATURAL | SORT_FLAG_CASE);
+foreach ($permisosPorModulo as &$permisosModulo) {
+    usort($permisosModulo, static function (array $a, array $b): int {
+        return strcasecmp((string)($a['nombre'] ?? ''), (string)($b['nombre'] ?? ''));
+    });
+}
+unset($permisosModulo);
 ?>
 
 <div class="container-fluid p-4">
@@ -225,7 +233,7 @@ foreach ($permisos as $permiso) {
                                                                             $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
                                                                             ?>
                                                                             <div class="col-12 col-md-6 col-lg-4">
-                                                                                <div class="form-check form-switch bg-white border rounded-2 p-2 h-100 d-flex align-items-center shadow-sm">
+                                                                                <div class="form-check form-switch bg-white border rounded-2 p-2 h-100 d-flex align-items-center shadow-sm" style="min-height:72px;">
                                                                                     <input class="form-check-input m-0 me-3 flex-shrink-0 permiso-check"
                                                                                         type="checkbox"
                                                                                         role="switch"
@@ -428,4 +436,3 @@ foreach ($permisos as $permiso) {
     // Variable global para que JS sepa quién soy yo
     window.MY_ROLE_ID = <?php echo (int)($_SESSION['id_rol'] ?? 0); ?>;
 </script>
-<script src="<?php echo asset_url('js/roles.js'); ?>"></script>

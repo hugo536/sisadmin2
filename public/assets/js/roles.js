@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const TABLE_ID = 'rolesTable';
     const MY_ROLE_ID = (typeof window.MY_ROLE_ID !== 'undefined') ? parseInt(window.MY_ROLE_ID) : 0;
+    let isSyncingRoleSwitch = false;
 
     // =========================================================
     // 1. LÓGICA DE CASCADA (VER -> HIJOS) Y BLOQUEO DE ROL
@@ -141,30 +142,84 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // =========================================================
-    // 3. LOGICA ANTISUICIDIO (Switch)
+    // 3. SWITCH DE ESTADO DE ROL (persistente + antisucidio)
     // =========================================================
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('switch-estado-rol')) {
-            const checkbox = e.target;
-            const rolId = parseInt(checkbox.dataset.id);
+    document.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('switch-estado-rol')) return;
+        if (isSyncingRoleSwitch) return;
 
-            if (rolId === MY_ROLE_ID) {
-                e.preventDefault(); 
-                e.stopPropagation();
-                // Fix visual + Recálculo de estado matriz
-                setTimeout(() => { 
-                    checkbox.checked = true; 
-                    updateRoleMatrixState(checkbox); 
-                }, 10); 
+        const checkbox = e.target;
+        const rolId = parseInt(checkbox.dataset.id, 10) || 0;
+        const estadoNuevo = checkbox.checked ? 1 : 0;
+        const estadoAnterior = estadoNuevo === 1 ? 0 : 1;
 
-                Swal.fire({
-                    icon: 'warning', title: 'Acción Bloqueada',
-                    text: 'Por seguridad, no puedes desactivar tu propio rol.',
-                    confirmButtonText: 'Entendido'
-                });
-                return false;
-            }
+        // Actualiza visual al instante mientras se confirma
+        updateRoleMatrixState(checkbox);
+
+        if (rolId === MY_ROLE_ID) {
+            isSyncingRoleSwitch = true;
+            checkbox.checked = true;
+            updateRoleMatrixState(checkbox);
+            isSyncingRoleSwitch = false;
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Acción bloqueada',
+                text: 'Por seguridad, no puedes desactivar tu propio rol.',
+                confirmButtonText: 'OK'
+            });
+            return;
         }
+
+        Swal.fire({
+            title: '¿Cambiar estado del rol?',
+            text: estadoNuevo === 1
+                ? 'El rol quedará activo.'
+                : 'El rol quedará inactivo y se bloqueará su uso.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cambiar',
+            cancelButtonText: 'Cancelar'
+        }).then(async (result) => {
+            if (!result.isConfirmed) {
+                isSyncingRoleSwitch = true;
+                checkbox.checked = estadoAnterior === 1;
+                updateRoleMatrixState(checkbox);
+                isSyncingRoleSwitch = false;
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append('accion', 'toggle');
+            fd.append('id', String(rolId));
+            fd.append('estado', String(estadoNuevo));
+
+            try {
+                await submitAction(fd);
+                const parentRow = checkbox.closest('tr.role-row-main');
+                if (parentRow) {
+                    parentRow.dataset.estado = String(estadoNuevo);
+                    const badge = parentRow.querySelector('.badge-status');
+                    if (badge) {
+                        badge.className = `badge-status ${estadoNuevo === 1 ? 'status-active' : 'status-inactive'}`;
+                        badge.textContent = estadoNuevo === 1 ? 'Activo' : 'Inactivo';
+                    }
+                }
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Actualizado',
+                    text: 'Estado del rol guardado correctamente.',
+                    confirmButtonText: 'OK'
+                });
+            } catch (error) {
+                isSyncingRoleSwitch = true;
+                checkbox.checked = estadoAnterior === 1;
+                updateRoleMatrixState(checkbox);
+                isSyncingRoleSwitch = false;
+                Swal.fire('Error', error.message || 'No se pudo cambiar el estado del rol.', 'error');
+            }
+        });
     });
 
     // =========================================================
@@ -205,7 +260,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }).then((result) => {
                 if (result.isConfirmed) {
                     submitAction(formData, () => {
-                        Swal.fire('Guardado', 'Rol y permisos actualizados.', 'success');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Guardado',
+                            text: 'Rol y permisos actualizados.',
+                            confirmButtonText: 'OK'
+                        });
                         
                         if (parentRow) {
                             const newState = formData.get('estado_rol');
@@ -231,11 +291,27 @@ document.addEventListener('DOMContentLoaded', function () {
     if (formCrear) {
         formCrear.addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            const confirm = await Swal.fire({
+                title: '¿Crear rol?',
+                text: 'Se creará el nuevo rol con permisos activos por defecto.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, crear',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirm.isConfirmed) return;
+
             try {
                 await submitAction(new FormData(this), () => {
                     document.querySelector('#modalCrearRol .btn-close').click();
                     this.reset();
-                    Swal.fire('Creado', 'Rol creado.', 'success').then(() => window.location.reload());
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Creado',
+                        text: 'Rol creado.',
+                        confirmButtonText: 'OK'
+                    }).then(() => window.location.reload());
                 });
             } catch (error) {
                 Swal.fire('Error', error.message || 'No se pudo crear el rol.', 'error');
@@ -247,10 +323,26 @@ document.addEventListener('DOMContentLoaded', function () {
     if (formEditar) {
         formEditar.addEventListener('submit', async function (e) {
             e.preventDefault();
+
+            const confirm = await Swal.fire({
+                title: '¿Actualizar rol?',
+                text: 'Se guardarán los cambios del rol seleccionado.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, actualizar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirm.isConfirmed) return;
+
             try {
                 await submitAction(new FormData(this), () => {
                     document.querySelector('#modalEditarRol .btn-close').click();
-                    Swal.fire('Actualizado', 'Rol actualizado.', 'success').then(() => window.location.reload());
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Actualizado',
+                        text: 'Rol actualizado.',
+                        confirmButtonText: 'OK'
+                    }).then(() => window.location.reload());
                 });
             } catch (error) {
                 Swal.fire('Error', error.message || 'No se pudo actualizar el rol.', 'error');
@@ -289,7 +381,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 try {
                     const deleted = await submitAction(new FormData(e.target));
-                    await Swal.fire('¡Eliminado!', deleted.mensaje || 'Rol eliminado.', 'success');
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '¡Eliminado!',
+                        text: deleted.mensaje || 'Rol eliminado.',
+                        confirmButtonText: 'OK'
+                    });
                     window.location.reload();
                 } catch (error) {
                     Swal.fire('Error', error.message || 'No se pudo eliminar el rol.', 'error');

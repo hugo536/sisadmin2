@@ -63,20 +63,28 @@ class RolModel extends Modelo
 
     /**
      * Crea un nuevo rol.
+     *
+     * @return int ID creado (0 si falla)
      */
-    public function crear(string $nombre, int $createdBy): bool
+    public function crear(string $nombre, int $createdBy): int
     {
         $slugBase = $this->slugify($nombre);
         $slug = $this->slugDisponible($slugBase);
 
         $sql = 'INSERT INTO roles (nombre, slug, estado, created_at, created_by) 
                 VALUES (:nombre, :slug, 1, NOW(), :created_by)';
-        
-        return $this->db()->prepare($sql)->execute([
+
+        $ok = $this->db()->prepare($sql)->execute([
             'nombre'     => $nombre,
             'slug'       => $slug,
             'created_by' => $createdBy,
         ]);
+
+        if (!$ok) {
+            return 0;
+        }
+
+        return (int) $this->db()->lastInsertId();
     }
 
     /**
