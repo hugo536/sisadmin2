@@ -20,6 +20,64 @@ foreach ($permisosPorModulo as &$permisosModulo) {
 unset($permisosModulo);
 ?>
 
+<style>
+    /* Efecto hover sutil para la tarjeta del permiso */
+    .permiso-card {
+        transition: all 0.2s ease-in-out;
+        border: 1px solid #dee2e6;
+    }
+    
+    .permiso-card:hover {
+        border-color: #0d6efd !important;
+        transform: translateY(-2px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.05)!important;
+    }
+
+    /* Ocultar el slug técnico por defecto para limpiar la vista */
+    .permiso-tecnico-wrapper {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .permiso-card:hover .permiso-tecnico-wrapper {
+        max-height: 30px;
+        opacity: 1;
+        margin-top: 4px;
+    }
+
+    /* ===================================================
+       CORRECCIONES PARA MÓVILES (Falta de espacio en filas)
+       =================================================== */
+    @media (max-width: 767px) {
+        /* Permite que el texto en todas las celdas baje de línea */
+        #rolesTable td {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+
+        /* Ajuste específico para la celda del "Rol" para que no empuje el contenido */
+        #rolesTable .role-row-main td .d-flex {
+            align-items: flex-start !important; /* Alinea arriba por si el texto baja a 2 líneas */
+        }
+        
+        #rolesTable .role-row-main td .d-flex > div:last-child {
+            min-width: 0; /* Clave: Permite que el flex-item se encoja */
+            flex: 1;
+        }
+
+        /* Aseguramos que las acciones (botones) tengan un poco de espacio y no se aplasten */
+        #rolesTable .role-row-main .text-end {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+    }
+</style>
+
 <div class="container-fluid p-4">
 
     <div class="d-flex justify-content-between align-items-start align-items-sm-center mb-4 fade-in gap-2">
@@ -131,14 +189,15 @@ unset($permisosModulo);
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center">
                                             <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" 
-                                                 style="width:40px; height:40px; border-radius:50%;">
+                                                 style="width:40px; height:40px; border-radius:50%; flex-shrink: 0;">
                                                 <i class="bi bi-shield-fill"></i>
                                             </div>
                                             <div>
-                                                <div class="fw-bold text-dark"><?php echo e($rolNombre); ?></div>
-                                                <div class="small text-muted">ID: <?php echo $rolId; ?></div>
+                                                <!-- Agregado text-wrap y text-break para móviles -->
+                                                <div class="fw-bold text-dark text-wrap text-break"><?php echo e($rolNombre); ?></div>
+                                                <div class="small text-muted text-wrap text-break">ID: <?php echo $rolId; ?></div>
                                                 <?php if ($rolSlug !== ''): ?>
-                                                    <code class="small text-primary bg-primary bg-opacity-10 px-2 py-1 rounded-2"><?php echo e($rolSlug); ?></code>
+                                                    <code class="small text-primary bg-primary bg-opacity-10 px-2 py-1 rounded-2 d-inline-block mt-1"><?php echo e($rolSlug); ?></code>
                                                 <?php endif; ?>
                                             </div>
                                         </div>
@@ -153,8 +212,9 @@ unset($permisosModulo);
                                     </td>
 
                                     <td class="text-muted small">
-                                        <div><i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?></div>
-                                        <div class="text-secondary">Por: <?php echo e($rolUpdatedBy); ?></div>
+                                        <!-- Agregado text-wrap para que la fecha larga no empuje la vista -->
+                                        <div class="text-wrap text-break"><i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?></div>
+                                        <div class="text-secondary text-wrap text-break">Por: <?php echo e($rolUpdatedBy); ?></div>
                                     </td>
 
                                     <td class="text-end pe-4">
@@ -196,9 +256,9 @@ unset($permisosModulo);
 
                                 <tr class="role-row-detail bg-light-subtle" data-detail-for="<?php echo $rolId; ?>">
                                     <td colspan="4" class="p-0 border-0">
-                                        <div class="px-3 py-3">
+                                        <div class="px-2 px-sm-3 py-3">
                                             <div class="d-flex align-items-center justify-content-between mb-2">
-                                                <h6 class="fw-bold text-primary mb-0">
+                                                <h6 class="fw-bold text-primary mb-0 text-wrap">
                                                     <i class="bi bi-sliders me-2"></i>Permisos asignados a: <span class="text-dark"><?php echo e($rolNombre); ?></span>
                                                 </h6>
                                             </div>
@@ -215,16 +275,17 @@ unset($permisosModulo);
                                                                         type="button"
                                                                         data-bs-toggle="collapse"
                                                                         data-bs-target="#collapse<?php echo $rolId . $idx; ?>">
-                                                                    <span class="text-uppercase small ls-1"><?php echo e((string)$modulo); ?></span>
-                                                                    <span class="badge bg-light text-secondary ms-2 border"><?php echo count($items); ?></span>
+                                                                    <span class="text-uppercase small ls-1 text-wrap"><?php echo e((string)$modulo); ?></span>
+                                                                    <span class="badge bg-light text-secondary ms-2 border flex-shrink-0"><?php echo count($items); ?></span>
                                                                 </button>
                                                             </h2>
 
                                                             <div id="collapse<?php echo $rolId . $idx; ?>"
                                                                  class="accordion-collapse collapse"
                                                                  data-bs-parent="#acordeonRol<?php echo $rolId; ?>">
-                                                                <div class="accordion-body bg-light bg-opacity-50">
-                                                                    <div class="row g-2">
+                                                                <div class="accordion-body bg-light bg-opacity-50 px-2 px-sm-3">
+                                                                    
+                                                                    <div class="row g-3">
                                                                         <?php foreach ($items as $permiso): ?>
                                                                             <?php
                                                                             $permId   = (int)($permiso['id'] ?? 0);
@@ -232,32 +293,44 @@ unset($permisosModulo);
                                                                             $permSlug = (string)($permiso['slug'] ?? '');
                                                                             $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
                                                                             ?>
-                                                                            <div class="col-12 col-md-6 col-lg-4">
-                                                                                <div class="form-check form-switch bg-white border rounded-2 p-2 h-100 d-flex align-items-center shadow-sm" style="min-height:72px;">
-                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0 permiso-check"
-                                                                                        type="checkbox"
-                                                                                        role="switch"
-                                                                                        name="permisos[]"
-                                                                                        value="<?php echo $permId; ?>"
-                                                                                        data-slug="<?php echo e($permSlug); ?>"
-                                                                                        style="width: 2.5em; height: 1.25em; cursor: pointer;"
-                                                                                        <?php echo $checked ? 'checked' : ''; ?>>
+                                                                            
+                                                                            <div class="col-12 col-lg-6">
+                                                                                <div class="form-check form-switch bg-white rounded-3 p-3 h-100 d-flex align-items-center shadow-sm permiso-card">
                                                                                     
-                                                                                    <div class="lh-1">
-                                                                                        <span class="d-block fw-medium text-dark mb-1"><?php echo e($permNom); ?></span>
-                                                                                        <code class="text-muted small" style="font-size: 0.75em;"><?php echo e($permSlug); ?></code>
+                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0 permiso-check"
+                                                                                           type="checkbox"
+                                                                                           role="switch"
+                                                                                           id="perm_<?php echo $rolId . '_' . $permId; ?>" 
+                                                                                           name="permisos[]"
+                                                                                           value="<?php echo $permId; ?>"
+                                                                                           data-slug="<?php echo e($permSlug); ?>"
+                                                                                           style="width: 3em; height: 1.5em; cursor: pointer;"
+                                                                                           <?php echo $checked ? 'checked' : ''; ?>>
+                                                                                    
+                                                                                    <div class="lh-1 w-100">
+                                                                                        <label class="d-block fw-semibold text-dark mb-0 w-100 text-wrap" 
+                                                                                               style="cursor: pointer; font-size: 0.95rem;" 
+                                                                                               for="perm_<?php echo $rolId . '_' . $permId; ?>">
+                                                                                            <?php echo e($permNom); ?>
+                                                                                        </label>
+                                                                                        
+                                                                                        <div class="permiso-tecnico-wrapper">
+                                                                                            <code class="text-secondary bg-light px-2 py-1 rounded-2 text-break" style="font-size: 0.75em; display: inline-block; margin-top: 5px;">
+                                                                                                <i class="bi bi-code-slash me-1"></i><?php echo e($permSlug); ?>
+                                                                                            </code>
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
                                                                         <?php endforeach; ?>
                                                                     </div>
+
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     <?php endforeach; ?>
                                                 </div>
-
-                                                <div class="d-flex justify-content-end mt-3">
+                                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3 px-2 px-sm-3">
                                                     <button class="btn btn-primary px-4 fw-bold shadow-sm">
                                                         <i class="bi bi-check-circle-fill me-2"></i>Guardar Permisos
                                                     </button>
@@ -273,10 +346,10 @@ unset($permisosModulo);
                         </table>
                     </div>
 
-                    <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                        <small class="text-muted" id="rolesPaginationInfo"></small>
+                    <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+                        <small class="text-muted text-center" id="rolesPaginationInfo"></small>
                         <nav aria-label="Page navigation">
-                            <ul class="pagination mb-0 justify-content-end" id="rolesPaginationControls"></ul>
+                            <ul class="pagination mb-0 justify-content-center justify-content-sm-end" id="rolesPaginationControls"></ul>
                         </nav>
                     </div>
                 </div>
@@ -333,21 +406,21 @@ unset($permisosModulo);
                                     ?>
                                     <tr data-search="<?php echo e($search); ?>">
                                         <td class="ps-4">
-                                            <span class="badge bg-light text-dark border">
+                                            <span class="badge bg-light text-dark border text-wrap">
                                                 <?php echo e($mod); ?>
                                             </span>
                                         </td>
-                                        <td><code class="text-primary"><?php echo e($slug); ?></code></td>
+                                        <td><code class="text-primary text-break"><?php echo e($slug); ?></code></td>
                                         <td>
-                                            <span class="fw-medium text-dark"><?php echo e($nom); ?></span>
+                                            <span class="fw-medium text-dark text-wrap text-break"><?php echo e($nom); ?></span>
                                             <?php if ($desc !== ''): ?>
-                                                <div class="small text-muted mt-1"><?php echo e($desc); ?></div>
+                                                <div class="small text-muted mt-1 text-wrap text-break"><?php echo e($desc); ?></div>
                                             <?php endif; ?>
                                         </td>
 
                                         <td class="small text-muted">
-                                            <div><i class="bi bi-clock me-1"></i><?php echo e($updatedAt); ?></div>
-                                            <div class="text-secondary">Por: <?php echo e($updatedBy); ?></div>
+                                            <div class="text-wrap text-break"><i class="bi bi-clock me-1"></i><?php echo e($updatedAt); ?></div>
+                                            <div class="text-secondary text-wrap text-break">Por: <?php echo e($updatedBy); ?></div>
                                         </td>
 
                                         <td class="text-center">
@@ -433,6 +506,5 @@ unset($permisosModulo);
     </div>
 </div>
 <script>
-    // Variable global para que JS sepa quién soy yo
     window.MY_ROLE_ID = <?php echo (int)($_SESSION['id_rol'] ?? 0); ?>;
 </script>
