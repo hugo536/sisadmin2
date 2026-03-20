@@ -327,6 +327,9 @@ function renderSidebarInner(
                     <span class="sb-link-icon"><i class="bi bi-wallet"></i></span><span class="sb-link-text">Ctas. por Pagar</span>
                     <?php $renderBadge('tesoreria/cxp'); ?>
                 </a>
+                <a class="sb-link sb-sub<?= $activo('tesoreria/saldos_iniciales') ?>" href="<?= e(route_url('tesoreria/saldos_iniciales')) ?>">
+                    <span class="sb-link-icon"><i class="bi bi-hourglass-split"></i></span><span class="sb-link-text">Saldos Iniciales</span>
+                </a>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/prestamos') ?>" href="<?= e(route_url('tesoreria/prestamos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-building-fill-check"></i></span><span class="sb-link-text">Préstamos Bancarios</span>
                 </a>

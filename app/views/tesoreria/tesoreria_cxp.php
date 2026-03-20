@@ -158,14 +158,20 @@ if (!empty($_GET['error'])) {
                             <?php foreach ($registros as $r): ?>
                                 <?php 
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
-                                    $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . $estadoStr);
+                                    $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 fw-bold text-dark align-top pt-3">
                                         <?php echo e((string) ($r['proveedor'] ?? '')); ?>
                                     </td>
                                     <td class="align-top pt-3 text-muted fw-medium">
-                                        #<?php echo str_pad((string)($r['id_recepcion'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
+                                        <?php if (($r['origen'] ?? 'SISTEMA') === 'MIGRACION'): ?>
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle mb-1"><i class="bi bi-clock-history"></i> Saldo Inicial</span><br>
+                                            <small class="text-dark fw-bold"><?php echo e((string) ($r['documento_referencia'] ?? '')); ?></small>
+                                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="<?php echo e((string) ($r['observaciones'] ?? '')); ?>"></i>
+                                        <?php else: ?>
+                                            #<?php echo str_pad((string) ($r['id_recepcion'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="text-center align-top pt-3 text-muted">
                                         <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e((string) ($r['fecha_vencimiento'] ?? '')); ?>

@@ -202,6 +202,148 @@ class TesoreriaController extends Controlador
         ]);
     }
 
+    public function saldos_iniciales(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        $this->render('tesoreria/tesoreria_saldos_iniciales', [
+            'ruta_actual' => 'tesoreria/saldos_iniciales',
+        ]);
+    }
+
+    public function ajax_terceros_saldos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CLIENTE')));
+        $busqueda = trim((string) ($_GET['q'] ?? ''));
+
+        $flag = $tipo === 'PROVEEDOR' ? 'es_proveedor' : 'es_cliente';
+        $sql = "SELECT id, nombre_completo
+                FROM terceros
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND {$flag} = 1";
+
+        $params = [];
+        if ($busqueda !== '') {
+            $sql .= ' AND nombre_completo LIKE :q';
+            $params['q'] = '%' . $busqueda . '%';
+        }
+
+        $sql .= ' ORDER BY nombre_completo ASC LIMIT 30';
+        $stmt = Conexion::get()->prepare($sql);
+        $stmt->execute($params);
+
+        echo json_encode([
+            'ok' => true,
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    public function guardar_saldo_inicial(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/saldos_iniciales');
+        }
+
+        try {
+            $tipo = strtoupper(trim((string) ($_POST['tipo_deuda'] ?? 'CLIENTE')));
+            $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+            $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+            $monto = round((float) ($_POST['monto_total'] ?? 0), 4);
+            $fechaEmision = trim((string) ($_POST['fecha_emision'] ?? ''));
+            $fechaVencimiento = trim((string) ($_POST['fecha_vencimiento'] ?? ''));
+            $docRef = trim((string) ($_POST['documento_referencia'] ?? ''));
+            $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+            $userId = $this->obtenerUsuarioId();
+
+            if (!in_array($tipo, ['CLIENTE', 'PROVEEDOR'], true)) {
+                throw new RuntimeException('Tipo de deuda inválido.');
+            }
+            if ($idTercero <= 0) {
+                throw new RuntimeException('Debe seleccionar un tercero válido.');
+            }
+            if (!in_array($moneda, ['PEN', 'USD'], true)) {
+                throw new RuntimeException('La moneda debe ser PEN o USD.');
+            }
+            if ($monto <= 0) {
+                throw new RuntimeException('El monto debe ser mayor a cero.');
+            }
+            if ($docRef === '') {
+                throw new RuntimeException('El documento de referencia es obligatorio.');
+            }
+            if ($observaciones === '') {
+                throw new RuntimeException('La justificación es obligatoria.');
+            }
+
+            $hoy = date('Y-m-d');
+            if ($fechaEmision === '') {
+                $fechaEmision = $hoy;
+            }
+            if ($fechaVencimiento === '') {
+                $fechaVencimiento = $fechaEmision;
+            }
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVencimiento)) {
+                throw new RuntimeException('Las fechas deben tener formato YYYY-MM-DD.');
+            }
+
+            $estado = $fechaVencimiento < $hoy ? 'VENCIDA' : 'PENDIENTE';
+            $db = Conexion::get();
+
+            if ($tipo === 'CLIENTE') {
+                $stmt = $db->prepare('INSERT INTO tesoreria_cxc
+                    (id_cliente, id_documento_venta, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
+                    VALUES
+                    (:id_cliente, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())');
+                $stmt->execute([
+                    'id_cliente' => $idTercero,
+                    'doc' => $docRef,
+                    'fecha_emision' => $fechaEmision,
+                    'fecha_vencimiento' => $fechaVencimiento,
+                    'moneda' => $moneda,
+                    'monto_total' => $monto,
+                    'saldo' => $monto,
+                    'estado' => $estado,
+                    'observaciones' => $observaciones,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            } else {
+                $stmt = $db->prepare('INSERT INTO tesoreria_cxp
+                    (id_proveedor, id_recepcion, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
+                    VALUES
+                    (:id_proveedor, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())');
+                $stmt->execute([
+                    'id_proveedor' => $idTercero,
+                    'doc' => $docRef,
+                    'fecha_emision' => $fechaEmision,
+                    'fecha_vencimiento' => $fechaVencimiento,
+                    'moneda' => $moneda,
+                    'monto_total' => $monto,
+                    'saldo' => $monto,
+                    'estado' => $estado,
+                    'observaciones' => $observaciones,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            }
+
+            redirect('tesoreria/saldos_iniciales?ok=1');
+        } catch (Throwable $e) {
+            redirect('tesoreria/saldos_iniciales?error=' . urlencode($e->getMessage()));
+        }
+    }
+
     public function registrar_pago(): void
     {
         try {
