@@ -78,6 +78,9 @@ if ($error !== '') {
                         <div class="mb-3">
                             <label for="saldoInicialTercero" class="form-label fw-bold text-muted small mb-1">Tercero <span class="text-danger">*</span></label>
                             <select name="id_tercero" id="saldoInicialTercero" class="form-select shadow-sm" required></select>
+                            <small id="saldoInicialTerceroHelp" class="text-muted d-block mt-1">
+                                <i class="bi bi-person-lines-fill me-1"></i>Buscando en catálogo de Clientes y Distribuidores.
+                            </small>
                         </div>
 
                         <div class="row g-2 mb-3">

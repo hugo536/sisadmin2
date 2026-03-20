@@ -581,6 +581,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 preload: true,
                 load: function(query, callback) {
                     const tipo = getTipoSeleccionado();
+
+                    const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
+                    const tipo = radioChecked ? radioChecked.value : 'CLIENTE';
+
                     fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(json => callback(json.items || []))
@@ -620,10 +624,21 @@ document.addEventListener('DOMContentLoaded', () => {
             radiosTipo.forEach(r => {
                 r.addEventListener('change', () => {
                     tsTerceros.clear(true);
+
                     tsTerceros.loadedSearches = {};
                     tsTerceros.settings.placeholder = getPlaceholderByTipo(r.value);
                     if (tsTerceros.control_input) {
                         tsTerceros.control_input.placeholder = tsTerceros.settings.placeholder;
+
+                    tsTerceros.clearOptions();
+                    tsTerceros.loadedSearches = {};
+                    tsTerceros.load('');
+                    
+                    if (helpTercero) {
+                        helpTercero.innerHTML = r.value === 'CLIENTE'
+                            ? '<i class="bi bi-person-lines-fill me-1"></i>Buscando en catálogo de Clientes y Distribuidores.'
+                            : '<i class="bi bi-shop me-1"></i>Buscando en catálogo de Proveedores.';
+
                     }
                     recargarOpcionesTerceros(r.value);
                 });
