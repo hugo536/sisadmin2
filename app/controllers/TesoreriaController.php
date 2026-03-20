@@ -227,20 +227,30 @@ class TesoreriaController extends Controlador
         $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CLIENTE')));
         $busqueda = trim((string) ($_GET['q'] ?? ''));
 
-        $flag = $tipo === 'PROVEEDOR' ? 'es_proveedor' : 'es_cliente';
-        $sql = "SELECT id, nombre_completo
-                FROM terceros
-                WHERE estado = 1
-                  AND deleted_at IS NULL
-                  AND {$flag} = 1";
+        if ($tipo === 'PROVEEDOR') {
+            $sql = "SELECT t.id, t.nombre_completo
+                    FROM terceros t
+                    WHERE t.estado = 1
+                      AND t.deleted_at IS NULL
+                      AND t.es_proveedor = 1";
+        } else {
+            $sql = "SELECT DISTINCT t.id, t.nombre_completo
+                    FROM terceros t
+                    LEFT JOIN distribuidores d
+                      ON d.id_tercero = t.id
+                     AND d.deleted_at IS NULL
+                    WHERE t.estado = 1
+                      AND t.deleted_at IS NULL
+                      AND (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)";
+        }
 
         $params = [];
         if ($busqueda !== '') {
-            $sql .= ' AND nombre_completo LIKE :q';
+            $sql .= ' AND t.nombre_completo LIKE :q';
             $params['q'] = '%' . $busqueda . '%';
         }
 
-        $sql .= ' ORDER BY nombre_completo ASC LIMIT 30';
+        $sql .= ' ORDER BY t.nombre_completo ASC LIMIT 30';
         $stmt = Conexion::get()->prepare($sql);
         $stmt->execute($params);
 
