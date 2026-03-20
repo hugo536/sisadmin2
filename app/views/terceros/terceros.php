@@ -679,7 +679,7 @@
     </div>
 </div>
 
-<?php include __DIR__ . '/modales_maestros.php'; ?>
+<?php include dirname(__DIR__) . '/modales_maestros.php'; ?>
 
 <style>
 .empleado-switch-card{min-height:58px;}
