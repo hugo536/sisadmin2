@@ -563,6 +563,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const radiosTipo = Array.from(document.querySelectorAll('input[name="tipo_deuda"]'));
         const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
 
+        // Fechas por defecto
+        const fechaEmision = document.getElementById('saldoInicialFechaEmision');
+        const fechaVencimiento = document.getElementById('saldoInicialFechaVencimiento');
+        const hoy = new Date().toISOString().slice(0, 10);
+        if (fechaEmision && !fechaEmision.value) fechaEmision.value = hoy;
+        if (fechaVencimiento && !fechaVencimiento.value) fechaVencimiento.value = hoy;
+
         if (terceroSelectEl && typeof TomSelect !== 'undefined') {
             const getTipoSeleccionado = () => {
                 const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
@@ -579,11 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchField: 'nombre_completo',
                 placeholder: getPlaceholderByTipo(getTipoSeleccionado()),
                 preload: true,
+                controlInput: '<input>', // <-- FIX: Elimina la raya negra de Bootstrap
                 load: function(query, callback) {
                     const tipo = getTipoSeleccionado();
-
-                    const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
-                    const tipo = radioChecked ? radioChecked.value : 'CLIENTE';
 
                     fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
@@ -621,6 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             // Limpiar y recargar TomSelect Terceros al cambiar tipo de deuda
+            const helpTercero = document.getElementById('saldoInicialTerceroHelp');
             radiosTipo.forEach(r => {
                 r.addEventListener('change', () => {
                     tsTerceros.clear(true);
@@ -629,6 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tsTerceros.settings.placeholder = getPlaceholderByTipo(r.value);
                     if (tsTerceros.control_input) {
                         tsTerceros.control_input.placeholder = tsTerceros.settings.placeholder;
+                    } // <-- FIX: Llave que faltaba cerrar
 
                     tsTerceros.clearOptions();
                     tsTerceros.loadedSearches = {};
@@ -638,7 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         helpTercero.innerHTML = r.value === 'CLIENTE'
                             ? '<i class="bi bi-person-lines-fill me-1"></i>Buscando en catálogo de Clientes y Distribuidores.'
                             : '<i class="bi bi-shop me-1"></i>Buscando en catálogo de Proveedores.';
-
                     }
                     recargarOpcionesTerceros(r.value);
                 });
@@ -655,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labelField: 'nombre',
                 searchField: ['nombre', 'sku'],
                 placeholder: '🔍 Busque un producto por nombre o código...',
+                controlInput: '<input>', // <-- FIX: Elimina la raya negra de Bootstrap
                 load: function(query, callback) {
                     if (!query.length) return callback();
                     fetch(`${itemsUrl}?q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
