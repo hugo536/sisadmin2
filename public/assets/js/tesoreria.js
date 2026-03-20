@@ -571,7 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 placeholder: 'Seleccione o escriba para buscar...',
                 preload: true,
                 load: function(query, callback) {
-                    const tipo = document.querySelector('input[name="tipo_deuda"]:checked').value;
+                    const radioChecked = document.querySelector('input[name="tipo_deuda"]:checked');
+                    const tipo = radioChecked ? radioChecked.value : 'CLIENTE';
                     fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(json => callback(json.items || []))
@@ -598,7 +599,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 r.addEventListener('change', () => {
                     tsTerceros.clear(true);
                     tsTerceros.clearOptions();
-                    tsTerceros.load(''); 
+                    tsTerceros.loadedSearches = {};
+                    tsTerceros.load('');
                     
                     if (helpTercero) {
                         helpTercero.innerHTML = r.value === 'CLIENTE'
