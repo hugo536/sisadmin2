@@ -37,8 +37,20 @@ class RolesController extends Controlador
                         require_permiso('roles.crear');
                         $nombre = trim($_POST['nombre'] ?? '');
                         if (empty($nombre)) throw new Exception("El nombre del rol es obligatorio.");
-                        
-                        $this->rolModel->crear($nombre, $userId);
+
+                        $nuevoRolId = $this->rolModel->crear($nombre, $userId);
+                        if ($nuevoRolId <= 0) {
+                            throw new Exception("No se pudo crear el rol.");
+                        }
+
+                        // Regla de negocio: un rol nuevo inicia con todos los permisos activos.
+                        $permisosActivos = $this->permisoModel->listar_activos();
+                        $idsPermisosActivos = array_map(
+                            'intval',
+                            array_filter(array_column($permisosActivos, 'id'), static fn ($id): bool => $id !== null && $id !== '')
+                        );
+                        $this->rolModel->guardar_permisos($nuevoRolId, $idsPermisosActivos, $userId);
+
                         $response = ['ok' => true, 'mensaje' => 'Rol creado correctamente.'];
                         $httpCode = 200;
                         break;
@@ -132,8 +144,7 @@ class RolesController extends Controlador
                 exit;
             } else {
                 // Fallback para POST tradicional
-                header('Location: ' . BASE_URL . '/roles');
-                exit;
+                redirect('roles');
             }
         }
 
