@@ -3,28 +3,6 @@ $totales = is_array($totales ?? null) ? $totales : [];
 $eventos = is_array($eventos ?? null) ? $eventos : [];
 $cumpleanosSemana = is_array($cumpleanosSemana ?? null) ? $cumpleanosSemana : [];
 $reportesWidgets = is_array($reportes_widgets ?? null) ? $reportes_widgets : [];
-$inventarioValorizado = is_array($inventario_valorizado ?? null) ? $inventario_valorizado : [];
-$topItemsValorizados = is_array($inventarioValorizado['top_items'] ?? null) ? $inventarioValorizado['top_items'] : [];
-$almacenesValorizados = is_array($inventarioValorizado['almacenes'] ?? null) ? $inventarioValorizado['almacenes'] : [];
-$totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] ?? 0);
-$itemsValorizadosCount = (int) ($inventarioValorizado['items_valorizados'] ?? 0);
-$almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados'] ?? 0);
-
-$maxValorItem = 0.0;
-foreach ($topItemsValorizados as $it) {
-    $valor = (float) ($it['valor_total'] ?? 0);
-    if ($valor > $maxValorItem) {
-        $maxValorItem = $valor;
-    }
-}
-
-$maxValorAlmacen = 0.0;
-foreach ($almacenesValorizados as $al) {
-    $valor = (float) ($al['valor_total'] ?? 0);
-    if ($valor > $maxValorAlmacen) {
-        $maxValorAlmacen = $valor;
-    }
-}
 ?>
 
 <div class="container-fluid p-4 dashboard-page" id="dashboardApp">
@@ -117,110 +95,6 @@ foreach ($almacenesValorizados as $al) {
         </div>
     </div>
     <?php endif; ?>
-
-    <div class="mb-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <h2 class="h5 fw-bold text-dark mb-0">
-                <i class="bi bi-cash-coin me-2 text-success"></i>Valorización de inventario
-            </h2>
-            <a href="<?php echo e(route_url('reportes/inventario')); ?>" class="btn btn-sm btn-light border text-secondary fw-semibold">
-                <i class="bi bi-box-arrow-up-right me-1"></i>Ver reporte completo
-            </a>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <div class="small text-muted text-uppercase fw-bold mb-1">Total dinero en inventario</div>
-                        <div class="h3 fw-bold text-success mb-0">S/ <?php echo number_format($totalInventarioValorizado, 2); ?></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <div class="small text-muted text-uppercase fw-bold mb-1">Ítems valorizados</div>
-                        <div class="h3 fw-bold text-dark mb-0"><?php echo $itemsValorizadosCount; ?></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <div class="small text-muted text-uppercase fw-bold mb-1">Almacenes con valor</div>
-                        <div class="h3 fw-bold text-dark mb-0"><?php echo $almacenesValorizadosCount; ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3">
-            <div class="col-12 col-xl-7">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-white border-bottom px-4 py-3">
-                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-box2-heart me-2 text-primary"></i>Top ítems por valor</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <?php if ($topItemsValorizados === []): ?>
-                            <div class="text-muted text-center py-4">No hay ítems con valor valorizado.</div>
-                        <?php else: ?>
-                            <?php foreach ($topItemsValorizados as $itemRow): ?>
-                                <?php
-                                $valor = (float) ($itemRow['valor_total'] ?? 0);
-                                $pct = $maxValorItem > 0 ? max(4, ($valor / $maxValorItem) * 100) : 0;
-                                ?>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between gap-2 mb-1">
-                                        <div class="fw-semibold text-dark text-truncate">
-                                            <?php echo e((string) ($itemRow['nombre'] ?? 'Ítem')); ?>
-                                            <span class="text-muted small">(<?php echo e((string) ($itemRow['sku'] ?? '-')); ?>)</span>
-                                        </div>
-                                        <div class="fw-bold text-dark">S/ <?php echo number_format($valor, 2); ?></div>
-                                    </div>
-                                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo (int) round($pct); ?>" style="height: 8px;">
-                                        <div class="progress-bar bg-primary" style="width: <?php echo number_format($pct, 2, '.', ''); ?>%;"></div>
-                                    </div>
-                                    <div class="small text-muted mt-1">
-                                        Stock: <?php echo number_format((float) ($itemRow['stock_total'] ?? 0), 2); ?> · Costo ref: S/ <?php echo number_format((float) ($itemRow['costo_ref'] ?? 0), 2); ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-xl-5">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-white border-bottom px-4 py-3">
-                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-building me-2 text-info"></i>Valor por almacén</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <?php if ($almacenesValorizados === []): ?>
-                            <div class="text-muted text-center py-4">No hay almacenes con valor valorizado.</div>
-                        <?php else: ?>
-                            <?php foreach ($almacenesValorizados as $almRow): ?>
-                                <?php
-                                $valor = (float) ($almRow['valor_total'] ?? 0);
-                                $pct = $maxValorAlmacen > 0 ? max(4, ($valor / $maxValorAlmacen) * 100) : 0;
-                                ?>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between gap-2 mb-1">
-                                        <div class="fw-semibold text-dark text-truncate"><?php echo e((string) ($almRow['almacen'] ?? 'Almacén')); ?></div>
-                                        <div class="fw-bold text-dark">S/ <?php echo number_format($valor, 2); ?></div>
-                                    </div>
-                                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo (int) round($pct); ?>" style="height: 8px;">
-                                        <div class="progress-bar bg-info" style="width: <?php echo number_format($pct, 2, '.', ''); ?>%;"></div>
-                                    </div>
-                                    <div class="small text-muted mt-1">Stock total: <?php echo number_format((float) ($almRow['stock_total'] ?? 0), 2); ?></div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div class="row g-4 mb-4">
         
