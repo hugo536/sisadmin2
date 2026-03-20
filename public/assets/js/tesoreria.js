@@ -102,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================================
     document.querySelectorAll('.js-form-confirm').forEach(form => {
         form.addEventListener('submit', function(e) {
-            // EVITAR DOBLE SUBMIT O SUBMIT SI HAY ERRORES PREVIOS
             if (e.defaultPrevented) return; 
 
             e.preventDefault();
@@ -457,7 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================================
     // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO ESPECÍFICO Y MANUAL)
     // ========================================================================
-    
     const selectCuenta = document.getElementById('selectCuentaOrigen');
     const textoSaldo = document.getElementById('textoSaldoDisponible');
     const inputMontoCxp = document.getElementById('pagoMonto');
@@ -488,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     inputMontoCxp.value = maximo.toFixed(2);
                 }
             } else {
-                // Si es mixto, el banco solo nos limita lo que hay en caja
                 let maximo = saldoCuenta < 0 ? 0 : saldoCuenta;
                 inputMontoCxp.setAttribute('max', maximo);
             }
@@ -556,86 +553,170 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================================
-    // 7. SALDOS INICIALES (TERCERO CON BÚSQUEDA AJAX)
+    // 7. SALDOS INICIALES (TERCEROS, ÍTEMS Y GRILLA DE DETALLE)
     // ========================================================================
     const formSaldoInicial = document.getElementById('formSaldoInicial');
     if (formSaldoInicial) {
-        const terceroSelect = document.getElementById('saldoInicialTercero');
-        const fechaEmision = document.getElementById('saldoInicialFechaEmision');
-        const fechaVencimiento = document.getElementById('saldoInicialFechaVencimiento');
+
+        // --- 7.1 CONFIGURACIÓN DE TOMSELECT (TERCEROS) ---
+        const terceroSelectEl = document.getElementById('saldoInicialTercero');
         const radiosTipo = Array.from(document.querySelectorAll('input[name="tipo_deuda"]'));
-        const helpTercero = document.getElementById('saldoInicialTerceroHelp');
         const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
 
-        const hoy = new Date().toISOString().slice(0, 10);
-        if (fechaEmision && !fechaEmision.value) fechaEmision.value = hoy;
-        if (fechaVencimiento && !fechaVencimiento.value) fechaVencimiento.value = hoy;
-
-        const obtenerTipo = () => {
-            const selected = radiosTipo.find(r => r.checked);
-            return selected ? selected.value : 'CLIENTE';
-        };
-
-        const resetSelect = () => {
-            if (!terceroSelect) return;
-            terceroSelect.innerHTML = '<option value="">Escriba para buscar...</option>';
-        };
-
-        const cargarTerceros = async (q = '') => {
-            if (!terceroSelect) return;
-            const tipo = obtenerTipo();
-            const url = `${tercerosUrl}&tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(q)}`;
-
-            try {
-                terceroSelect.disabled = true;
-                const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const data = await res.json();
-                const items = Array.isArray(data.items) ? data.items : [];
-
-                terceroSelect.innerHTML = '<option value="">Seleccione...</option>';
-                items.forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = String(item.id || '');
-                    opt.textContent = String(item.nombre_completo || '');
-                    terceroSelect.appendChild(opt);
-                });
-
-                if (helpTercero) {
-                    helpTercero.textContent = tipo === 'CLIENTE'
-                        ? 'Mostrando clientes activos.'
-                        : 'Mostrando proveedores activos.';
+        if (terceroSelectEl && typeof TomSelect !== 'undefined') {
+            const tsTerceros = new TomSelect(terceroSelectEl, {
+                valueField: 'id',
+                labelField: 'nombre_completo',
+                searchField: 'nombre_completo',
+                placeholder: 'Seleccione o escriba para buscar...',
+                preload: true,
+                load: function(query, callback) {
+                    const tipo = document.querySelector('input[name="tipo_deuda"]:checked').value;
+                    fetch(`${tercerosUrl}?tipo=${encodeURIComponent(tipo)}&q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(res => res.json())
+                        .then(json => callback(json.items || []))
+                        .catch(() => callback());
+                },
+                render: {
+                    option: function(item, escape) {
+                        return `<div class="py-2 px-3">
+                                    <span class="fw-bold text-dark d-block">${escape(item.nombre_completo)}</span>
+                                </div>`;
+                    },
+                    item: function(item, escape) {
+                        return `<div class="fw-bold text-dark">${escape(item.nombre_completo)}</div>`;
+                    },
+                    no_results: function(data, escape) {
+                        return '<div class="no-results py-2 px-3 text-muted">No se encontraron resultados</div>';
+                    }
                 }
-            } catch (e) {
-                resetSelect();
-                if (helpTercero) helpTercero.textContent = 'No se pudo cargar la búsqueda. Recargue la página.';
-            } finally {
-                terceroSelect.disabled = false;
-            }
-        };
+            });
 
-        radiosTipo.forEach(r => r.addEventListener('change', () => {
-            resetSelect();
-            cargarTerceros('');
-        }));
-
-        let debounceTimer = null;
-        if (terceroSelect) {
-            terceroSelect.addEventListener('mousedown', () => {
-                cargarTerceros('');
+            // Limpiar y recargar TomSelect Terceros al cambiar tipo de deuda
+            const helpTercero = document.getElementById('saldoInicialTerceroHelp');
+            radiosTipo.forEach(r => {
+                r.addEventListener('change', () => {
+                    tsTerceros.clear(true);
+                    tsTerceros.clearOptions();
+                    tsTerceros.load(''); 
+                    
+                    if (helpTercero) {
+                        helpTercero.innerHTML = r.value === 'CLIENTE'
+                            ? '<i class="bi bi-person-lines-fill me-1"></i>Buscando en catálogo de Clientes y Distribuidores.'
+                            : '<i class="bi bi-shop me-1"></i>Buscando en catálogo de Proveedores.';
+                    }
+                });
             });
         }
 
-        // Campo de búsqueda rápido usando prompt para mantener UI Kit sin dependencias externas.
-        if (helpTercero) {
-            helpTercero.addEventListener('click', () => {
-                const termino = window.prompt('Buscar tercero por nombre:', '') || '';
-                window.clearTimeout(debounceTimer);
-                debounceTimer = window.setTimeout(() => cargarTerceros(termino.trim()), 120);
+        // --- 7.2 CONFIGURACIÓN DE TOMSELECT (ÍTEMS) ---
+        const itemsSelectEl = document.getElementById('buscadorItemsSaldo');
+        const itemsUrl = formSaldoInicial.getAttribute('data-url-items') || '';
+
+        if (itemsSelectEl && typeof TomSelect !== 'undefined') {
+            const tsItems = new TomSelect(itemsSelectEl, {
+                valueField: 'id',
+                labelField: 'nombre',
+                searchField: ['nombre', 'sku'],
+                placeholder: '🔍 Busque un producto por nombre o código...',
+                load: function(query, callback) {
+                    if (!query.length) return callback();
+                    fetch(`${itemsUrl}?q=${encodeURIComponent(query)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(res => res.json())
+                        .then(json => callback(json.items || []))
+                        .catch(() => callback());
+                },
+                render: {
+                    option: function(item, escape) {
+                        return `<div class="py-2 px-3 border-bottom">
+                                    <span class="badge bg-secondary me-2">${escape(item.sku || 'N/A')}</span>
+                                    <span class="fw-bold text-dark">${escape(item.nombre)}</span>
+                                    <small class="d-block text-muted mt-1">Precio ref: $${parseFloat(item.precio_venta||0).toFixed(2)} / ${escape(item.unidad_base||'')}</small>
+                                </div>`;
+                    }
+                },
+                onChange: function(value) {
+                    if (!value) return;
+                    const itemData = this.options[value];
+                    agregarFilaDetalle(itemData);
+                    this.clear(true); // Limpiar buscador tras agregar al carrito
+                }
             });
-            helpTercero.style.cursor = 'pointer';
-            helpTercero.title = 'Click para buscar por nombre';
         }
 
-        cargarTerceros('');
+        // --- 7.3 LÓGICA DE LA GRILLA (CARRITO DE DETALLE INFORMATIVO) ---
+        const tbody = document.querySelector('#tablaDetalleSaldos tbody');
+        const filaVacia = document.getElementById('filaVaciaMensaje');
+        const inputMontoSaldos = document.getElementById('saldoInicialMontoManual');
+        const alertaMonto = document.getElementById('alertaMontoManual');
+
+        function agregarFilaDetalle(item) {
+            if(filaVacia) filaVacia.style.display = 'none';
+            if(inputMontoSaldos) inputMontoSaldos.readOnly = true;
+            if(alertaMonto) alertaMonto.style.display = 'block';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <input type="hidden" name="detalle_item_id[]" value="${item.id}">
+                    <input type="hidden" name="detalle_item_nombre[]" value="${item.nombre}">
+                    <span class="badge bg-light text-dark border me-1">${item.sku || '-'}</span>
+                    <span class="fw-bold text-dark small">${item.nombre}</span>
+                </td>
+                <td>
+                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-center js-cant" min="0.01" step="0.01" value="1" required>
+                </td>
+                <td>
+                    <input type="number" name="detalle_precio[]" class="form-control form-control-sm text-end js-precio" min="0" step="0.01" value="${item.precio_venta || 0}" required>
+                </td>
+                <td class="text-end fw-bold text-primary js-subtotal">
+                    0.00
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove"><i class="bi bi-x-lg"></i></button>
+                </td>
+            `;
+
+            if(tbody) tbody.appendChild(tr);
+            
+            const inCant = tr.querySelector('.js-cant');
+            const inPrec = tr.querySelector('.js-precio');
+            const btnDel = tr.querySelector('.js-remove');
+
+            const recalcular = () => {
+                const cant = parseFloat(inCant.value) || 0;
+                const prec = parseFloat(inPrec.value) || 0;
+                tr.querySelector('.js-subtotal').textContent = (cant * prec).toFixed(2);
+                calcularTotalGeneral();
+            };
+
+            inCant.addEventListener('input', recalcular);
+            inPrec.addEventListener('input', recalcular);
+            
+            btnDel.addEventListener('click', () => {
+                tr.remove();
+                calcularTotalGeneral();
+                if (tbody && tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').length === 0) {
+                    if(filaVacia) filaVacia.style.display = '';
+                    if(inputMontoSaldos) inputMontoSaldos.readOnly = false;
+                    if(alertaMonto) alertaMonto.style.display = 'none';
+                }
+            });
+
+            recalcular();
+        }
+
+        function calcularTotalGeneral() {
+            let total = 0;
+            if(!tbody) return;
+            
+            tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => {
+                const cant = parseFloat(tr.querySelector('.js-cant').value) || 0;
+                const prec = parseFloat(tr.querySelector('.js-precio').value) || 0;
+                total += (cant * prec);
+            });
+            
+            if(inputMontoSaldos) inputMontoSaldos.value = total.toFixed(2);
+        }
     }
 });

@@ -8,8 +8,9 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaPrestamoModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaSaldosModel.php'; // <-- Nuevo modelo
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
-require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php'; // <-- AGREGADO
+require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 
 class TesoreriaController extends Controlador
 {
@@ -18,8 +19,9 @@ class TesoreriaController extends Controlador
     private TesoreriaMovimientoModel $movModel;
     private TesoreriaCuentaModel $cuentaModel;
     private TesoreriaPrestamoModel $prestamoModel;
+    private TesoreriaSaldosModel $saldosModel; // <-- Nueva propiedad
     private ContaCuentaModel $planContableModel;
-    private CentroCostoModel $centroCostoModel; // <-- AGREGADO
+    private CentroCostoModel $centroCostoModel;
 
     public function __construct()
     {
@@ -29,8 +31,9 @@ class TesoreriaController extends Controlador
         $this->movModel = new TesoreriaMovimientoModel();
         $this->cuentaModel = new TesoreriaCuentaModel();
         $this->prestamoModel = new TesoreriaPrestamoModel();
+        $this->saldosModel = new TesoreriaSaldosModel(); // <-- Inicialización
         $this->planContableModel = new ContaCuentaModel();
-        $this->centroCostoModel = new CentroCostoModel(); // <-- INICIALIZADO
+        $this->centroCostoModel = new CentroCostoModel();
     }
 
     public function index(): void
@@ -184,7 +187,6 @@ class TesoreriaController extends Controlador
             'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
         ];
 
-        // FILTRO: Solo cuentas con vinculación contable (sin advertencia amarilla)
         $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function($cta) {
             return !empty($cta['id_cuenta_contable'])
                 && (int)$cta['id_cuenta_contable'] > 0
@@ -198,10 +200,13 @@ class TesoreriaController extends Controlador
             'cuentas'     => $cuentasVinculadas,
             'metodos'     => $this->listarMetodosPago(),
             'proveedores' => $this->listarProveedoresActivos(),
-            'centros_costo' => $this->centroCostoModel->listarActivos(), // <-- AGREGADO PARA EL MODAL DE PAGO
+            'centros_costo' => $this->centroCostoModel->listarActivos(),
         ]);
     }
 
+    // ========================================================================
+    // MÓDULO: SALDOS INICIALES (MIGRACIÓN / CUTOVER)
+    // ========================================================================
     public function saldos_iniciales(): void
     {
         AuthMiddleware::handle();
@@ -246,6 +251,36 @@ class TesoreriaController extends Controlador
         exit;
     }
 
+    public function ajax_items_saldos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $busqueda = trim((string) ($_GET['q'] ?? ''));
+        
+        $sql = "SELECT id, sku, nombre, precio_venta, unidad_base
+                FROM items
+                WHERE estado = 1 AND deleted_at IS NULL";
+
+        $params = [];
+        if ($busqueda !== '') {
+            $sql .= ' AND (nombre LIKE :q OR sku LIKE :q)';
+            $params['q'] = '%' . $busqueda . '%';
+        }
+
+        $sql .= ' ORDER BY nombre ASC LIMIT 30';
+        $stmt = Conexion::get()->prepare($sql);
+        $stmt->execute($params);
+
+        echo json_encode([
+            'ok' => true,
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     public function guardar_saldo_inicial(): void
     {
         AuthMiddleware::handle();
@@ -261,9 +296,8 @@ class TesoreriaController extends Controlador
             $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
             $monto = round((float) ($_POST['monto_total'] ?? 0), 4);
             $fechaEmision = trim((string) ($_POST['fecha_emision'] ?? ''));
-            $fechaVencimiento = trim((string) ($_POST['fecha_vencimiento'] ?? ''));
             $docRef = trim((string) ($_POST['documento_referencia'] ?? ''));
-            $observaciones = trim((string) ($_POST['observaciones'] ?? ''));
+            $observacionesText = trim((string) ($_POST['observaciones'] ?? ''));
             $userId = $this->obtenerUsuarioId();
 
             if (!in_array($tipo, ['CLIENTE', 'PROVEEDOR'], true)) {
@@ -275,67 +309,84 @@ class TesoreriaController extends Controlador
             if (!in_array($moneda, ['PEN', 'USD'], true)) {
                 throw new RuntimeException('La moneda debe ser PEN o USD.');
             }
-            if ($monto <= 0) {
-                throw new RuntimeException('El monto debe ser mayor a cero.');
-            }
             if ($docRef === '') {
                 throw new RuntimeException('El documento de referencia es obligatorio.');
-            }
-            if ($observaciones === '') {
-                throw new RuntimeException('La justificación es obligatoria.');
             }
 
             $hoy = date('Y-m-d');
             if ($fechaEmision === '') {
                 $fechaEmision = $hoy;
             }
-            if ($fechaVencimiento === '') {
-                $fechaVencimiento = $fechaEmision;
-            }
 
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVencimiento)) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
                 throw new RuntimeException('Las fechas deben tener formato YYYY-MM-DD.');
             }
 
-            $estado = $fechaVencimiento < $hoy ? 'VENCIDA' : 'PENDIENTE';
-            $db = Conexion::get();
+            // === NUEVA LÓGICA: CAPTURAR EL DETALLE DE ÍTEMS ===
+            $idsItems = $_POST['detalle_item_id'] ?? [];
+            $nombresItems = $_POST['detalle_item_nombre'] ?? [];
+            $cantidades = $_POST['detalle_cantidad'] ?? [];
+            $precios = $_POST['detalle_precio'] ?? [];
+            
+            $detalleJson = [];
+            $sumaCalculada = 0;
 
-            if ($tipo === 'CLIENTE') {
-                $stmt = $db->prepare('INSERT INTO tesoreria_cxc
-                    (id_cliente, id_documento_venta, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
-                    VALUES
-                    (:id_cliente, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())');
-                $stmt->execute([
-                    'id_cliente' => $idTercero,
-                    'doc' => $docRef,
-                    'fecha_emision' => $fechaEmision,
-                    'fecha_vencimiento' => $fechaVencimiento,
-                    'moneda' => $moneda,
-                    'monto_total' => $monto,
-                    'saldo' => $monto,
-                    'estado' => $estado,
-                    'observaciones' => $observaciones,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
+            if (!empty($idsItems) && is_array($idsItems)) {
+                foreach ($idsItems as $index => $idItem) {
+                    $cant = (float) ($cantidades[$index] ?? 0);
+                    $prec = (float) ($precios[$index] ?? 0);
+                    $subtotal = $cant * $prec;
+                    
+                    if ($cant > 0 && $prec >= 0) {
+                        $sumaCalculada += $subtotal;
+                        $detalleJson[] = [
+                            'id_item' => (int) $idItem,
+                            'nombre' => trim((string) ($nombresItems[$index] ?? '')),
+                            'cantidad' => $cant,
+                            'precio_unitario' => $prec,
+                            'subtotal' => $subtotal
+                        ];
+                    }
+                }
+            }
+
+            // Si el usuario llenó la tabla, el monto total DEBE SER la suma exacta de la tabla.
+            if (!empty($detalleJson)) {
+                $monto = round($sumaCalculada, 4);
+                if ($monto <= 0) {
+                    throw new RuntimeException('El monto calculado del detalle debe ser mayor a cero.');
+                }
+                
+                // Guardamos el JSON dentro de las observaciones
+                $observacionesFinal = json_encode([
+                    'nota_manual' => $observacionesText,
+                    'detalle_items' => $detalleJson
+                ], JSON_UNESCAPED_UNICODE);
             } else {
-                $stmt = $db->prepare('INSERT INTO tesoreria_cxp
-                    (id_proveedor, id_recepcion, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
-                    VALUES
-                    (:id_proveedor, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())');
-                $stmt->execute([
-                    'id_proveedor' => $idTercero,
-                    'doc' => $docRef,
-                    'fecha_emision' => $fechaEmision,
-                    'fecha_vencimiento' => $fechaVencimiento,
-                    'moneda' => $moneda,
-                    'monto_total' => $monto,
-                    'saldo' => $monto,
-                    'estado' => $estado,
-                    'observaciones' => $observaciones,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
+                // Si no hay tabla de detalle, validamos el monto digitado manualmente
+                if ($monto <= 0) {
+                    throw new RuntimeException('El monto debe ser mayor a cero.');
+                }
+                $observacionesFinal = $observacionesText;
+            }
+
+            // Armamos el payload con la data limpia para enviarlo al modelo
+            $payload = [
+                'id_tercero'           => $idTercero,
+                'documento_referencia' => $docRef,
+                'fecha_emision'        => $fechaEmision,
+                'fecha_vencimiento'    => $fechaEmision, // Según requerimiento, no se usa vencimiento extra
+                'moneda'               => $moneda,
+                'monto_total'          => $monto,
+                'estado'               => 'ABIERTA', // Como quitamos Vencimiento, siempre nace ABIERTA
+                'observaciones'        => $observacionesFinal,
+            ];
+
+            // 🚀 El controlador delega la inyección en base de datos al nuevo modelo
+            if ($tipo === 'CLIENTE') {
+                $this->saldosModel->crearSaldoCxc($payload, $userId);
+            } else {
+                $this->saldosModel->crearSaldoCxp($payload, $userId);
             }
 
             redirect('tesoreria/saldos_iniciales?ok=1');
@@ -584,7 +635,7 @@ class TesoreriaController extends Controlador
                 'naturaleza_pago' => 'DOCUMENTO',
             ], $idsOrigen, $this->obtenerUsuarioId());
 
-            // 2. ¡EL ESLABÓN PERDIDO! Sincronizamos los estados de esas facturas
+            // 2. Sincronizamos los estados de esas facturas
             $userId = $this->obtenerUsuarioId();
             if (!empty($resultado['origenes'])) {
                 foreach ($resultado['origenes'] as $idDocAfectado) {
