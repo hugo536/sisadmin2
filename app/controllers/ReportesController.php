@@ -36,7 +36,6 @@ class ReportesController extends Controlador
 
         $this->render('reportes/dashboard', [
             'ruta_actual' => 'reportes/dashboard',
-            'inventario_valorizado' => $this->inventario->resumenValorizacionDashboard(),
             'reportes_widgets' => [
                 'stock_critico' => $this->inventario->contarStockCritico(),
                 'compras_pendientes' => $this->compras->contarPendientes(),
