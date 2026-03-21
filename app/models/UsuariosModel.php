@@ -17,12 +17,27 @@ class UsuariosModel extends Modelo
         return is_array($row) ? $row : null;
     }
 
-    // Nuevo auxiliar para validar duplicados
-    public function existe_usuario(string $usuario): bool
+    // Auxiliar para validar duplicados de usuario.
+    // Por defecto revisa solo registros activos; opcionalmente incluye eliminados
+    // y permite excluir un ID (útil en edición).
+    public function existe_usuario(string $usuario, ?int $excluirId = null, bool $incluirEliminados = false): bool
     {
-        $sql = 'SELECT 1 FROM usuarios WHERE usuario = :usuario AND deleted_at IS NULL LIMIT 1';
+        $sql = 'SELECT 1 FROM usuarios WHERE usuario = :usuario';
+        $params = ['usuario' => $usuario];
+
+        if (!$incluirEliminados) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        if ($excluirId !== null && $excluirId > 0) {
+            $sql .= ' AND id <> :excluir_id';
+            $params['excluir_id'] = $excluirId;
+        }
+
+        $sql .= ' LIMIT 1';
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute(['usuario' => $usuario]);
+        $stmt->execute($params);
+
         return (bool) $stmt->fetchColumn();
     }
 
