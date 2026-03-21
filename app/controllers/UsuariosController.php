@@ -39,7 +39,7 @@ class UsuariosController extends Controlador
                     }
 
                     // Validar duplicados
-                    if ($this->usuarioModel->existe_usuario($usuario, null, true)) {
+                    if ($this->usuarioModel->existe_usuario($usuario)) {
                          throw new RuntimeException('El nombre de usuario ya existe.');
                     }
 
@@ -61,7 +61,7 @@ class UsuariosController extends Controlador
                         throw new RuntimeException('Datos inválidos para editar.');
                     }
 
-                    if ($this->usuarioModel->existe_usuario($usuario, $id, true)) {
+                    if ($this->usuarioModel->existe_usuario($usuario, $id)) {
                         throw new RuntimeException('El nombre de usuario ya existe.');
                     }
 
