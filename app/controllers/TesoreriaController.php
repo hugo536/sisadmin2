@@ -407,11 +407,24 @@ class TesoreriaController extends Controlador
                 'observaciones'        => $observacionesFinal,
             ];
 
-            // 🚀 El controlador delega la inyección en base de datos al nuevo modelo
+            $existente = $this->saldosModel->obtenerSaldoInicialPorTercero($tipo, $idTercero);
+
             if ($tipo === 'CLIENTE') {
-                $this->saldosModel->crearSaldoCxc($payload, $userId);
+                if ($existente) {
+                    $montoPagado = round((float) ($existente['monto_pagado'] ?? 0), 4);
+                    $payload['saldo'] = max(0, round((float) $payload['monto_total'] - $montoPagado, 4));
+                    $this->saldosModel->actualizarSaldoCxc((int) $existente['id'], $payload, $userId);
+                } else {
+                    $this->saldosModel->crearSaldoCxc($payload, $userId);
+                }
             } else {
-                $this->saldosModel->crearSaldoCxp($payload, $userId);
+                if ($existente) {
+                    $montoPagado = round((float) ($existente['monto_pagado'] ?? 0), 4);
+                    $payload['saldo'] = max(0, round((float) $payload['monto_total'] - $montoPagado, 4));
+                    $this->saldosModel->actualizarSaldoCxp((int) $existente['id'], $payload, $userId);
+                } else {
+                    $this->saldosModel->crearSaldoCxp($payload, $userId);
+                }
             }
 
             redirect('tesoreria/saldos_iniciales?ok=1');
@@ -769,6 +782,7 @@ class TesoreriaController extends Controlador
         try {
             // Evaluamos a qué tabla mirar dependiendo de la naturaleza
             $tabla = $tipo === 'CLIENTE' ? 'tesoreria_cxc' : 'tesoreria_cxp';
+            $columnaTercero = $tipo === 'CLIENTE' ? 'id_cliente' : 'id_proveedor';
             
             // 1. Verificamos si existe el registro de "SALDO INICIAL" (documento_referencia = Saldo inicial)
             // Asumimos que los saldos iniciales guardan un estado o una referencia particular.
@@ -777,8 +791,10 @@ class TesoreriaController extends Controlador
             
             $sqlCuenta = "SELECT id, monto_total, observaciones 
                           FROM {$tabla} 
-                          WHERE id_tercero = :id_tercero 
+                          WHERE {$columnaTercero} = :id_tercero
+                          AND origen = 'MIGRACION'
                           AND deleted_at IS NULL 
+                          ORDER BY id DESC
                           LIMIT 1";
             
             $stmt = Conexion::get()->prepare($sqlCuenta);
@@ -788,6 +804,7 @@ class TesoreriaController extends Controlador
             $tieneCuenta = $cuentaExiste ? true : false;
             $totalAmortizaciones = 0;
             $detalleItems = [];
+            $amortizaciones = [];
 
             if ($tieneCuenta) {
                 // 2. Si tiene cuenta, buscamos cuánto ha pagado (amortizado) hasta ahora.
@@ -810,6 +827,27 @@ class TesoreriaController extends Controlador
                 ]);
                 $totalAmortizaciones = (float) $stmtAmort->fetchColumn();
 
+                $sqlDetalleAmort = "SELECT m.fecha,
+                                           COALESCE(m.referencia, CONCAT('MOV-', m.id)) AS referencia,
+                                           COALESCE(mp.nombre, 'N/D') AS metodo,
+                                           m.monto
+                                    FROM tesoreria_movimientos m
+                                    LEFT JOIN tesoreria_metodos_pago mp ON mp.id = m.id_metodo_pago
+                                    WHERE m.origen = :origen
+                                      AND m.id_origen = :id_cuenta
+                                      AND m.tipo = :tipo
+                                      AND m.estado = 1
+                                      AND m.deleted_at IS NULL
+                                    ORDER BY m.fecha DESC, m.id DESC";
+
+                $stmtDetalleAmort = Conexion::get()->prepare($sqlDetalleAmort);
+                $stmtDetalleAmort->execute([
+                    'origen' => $origenMov,
+                    'id_cuenta' => $cuentaExiste['id'],
+                    'tipo' => $tipoMov
+                ]);
+                $amortizaciones = $stmtDetalleAmort->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
                 // 3. Intentamos extraer los ítems guardados previamente si es que existen en el JSON de observaciones
                 if (!empty($cuentaExiste['observaciones'])) {
                     $obsDecoded = json_decode($cuentaExiste['observaciones'], true);
@@ -823,7 +861,8 @@ class TesoreriaController extends Controlador
                 'ok' => true,
                 'tiene_cuenta' => $tieneCuenta,
                 'total_amortizaciones' => $totalAmortizaciones,
-                'items_guardados' => $detalleItems
+                'items_guardados' => $detalleItems,
+                'amortizaciones' => $amortizaciones
             ]);
 
         } catch (Exception $e) {

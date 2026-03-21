@@ -627,6 +627,8 @@ window.initTesoreria = function() {
                         desbloquearNaturaleza();
                         resetearBotonGuardar();
                         totalAmortizaciones = 0;
+                        limpiarDetalleCompras();
+                        renderAmortizaciones([]);
                         calcularSaldosReales();
                         return;
                     }
@@ -642,15 +644,14 @@ window.initTesoreria = function() {
                                 
                                 // 2. Actualizamos el botón para que el usuario sepa que está editando
                                 if (btnGuardar) {
-                                    btnGuardar.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Cuenta';
+                                    btnGuardar.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Saldo Inicial';
                                     btnGuardar.classList.replace('btn-primary', 'btn-success');
                                 }
 
                                 // 3. Cargamos el historial de pagos
                                 totalAmortizaciones = data.total_amortizaciones || 0;
-                                
-                                // Opcional: Aquí pintaríamos los ítems antiguos en la tabla si data.items_guardados tiene datos.
-                                
+                                cargarDetalleGuardado(data.items_guardados || []);
+                                renderAmortizaciones(data.amortizaciones || []);
                                 calcularSaldosReales();
                                 
                             } else {
@@ -658,6 +659,8 @@ window.initTesoreria = function() {
                                 desbloquearNaturaleza();
                                 resetearBotonGuardar();
                                 totalAmortizaciones = 0;
+                                limpiarDetalleCompras();
+                                renderAmortizaciones([]);
                                 calcularSaldosReales();
                             }
                         })
@@ -794,6 +797,8 @@ window.initTesoreria = function() {
         const tbody = document.querySelector('#tablaDetalleSaldos tbody');
         const filaVacia = document.getElementById('filaVaciaMensaje');
         const inputMontoSaldos = document.getElementById('saldoInicialMontoManual');
+        const tbodyAmortizaciones = document.querySelector('#tablaAmortizaciones tbody');
+        const filaVaciaAmortizaciones = document.getElementById('filaVaciaAmortizaciones');
 
         if (btnAgregarItemDetalle) {
             btnAgregarItemDetalle.addEventListener('click', function() {
@@ -866,6 +871,61 @@ window.initTesoreria = function() {
             });
 
             recalcular();
+        }
+
+        function limpiarDetalleCompras() {
+            if (!tbody) return;
+            tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => tr.remove());
+            if (filaVacia) filaVacia.style.display = '';
+        }
+
+        function cargarDetalleGuardado(items = []) {
+            limpiarDetalleCompras();
+            if (!Array.isArray(items) || items.length === 0) {
+                return;
+            }
+
+            items.forEach(item => {
+                agregarFilaDetalle({
+                    id: item.id_item,
+                    nombre: item.nombre || 'Ítem',
+                    sku: item.sku || '-',
+                    precio_venta: item.precio_unitario || 0
+                });
+
+                const fila = tbody ? tbody.querySelector('tr:last-child') : null;
+                if (!fila) return;
+                const inCant = fila.querySelector('.js-cant');
+                const inPrec = fila.querySelector('.js-precio');
+                if (inCant) inCant.value = parseFloat(item.cantidad || 0).toFixed(2);
+                if (inPrec) inPrec.value = parseFloat(item.precio_unitario || 0).toFixed(2);
+                inCant?.dispatchEvent(new Event('input'));
+            });
+        }
+
+        function renderAmortizaciones(amortizaciones = []) {
+            if (!tbodyAmortizaciones) return;
+
+            tbodyAmortizaciones.querySelectorAll('tr:not(#filaVaciaAmortizaciones)').forEach(tr => tr.remove());
+
+            if (!Array.isArray(amortizaciones) || amortizaciones.length === 0) {
+                if (filaVaciaAmortizaciones) filaVaciaAmortizaciones.style.display = '';
+                return;
+            }
+
+            if (filaVaciaAmortizaciones) filaVaciaAmortizaciones.style.display = 'none';
+
+            amortizaciones.forEach(amort => {
+                const tr = document.createElement('tr');
+                const monto = parseFloat(amort.monto || 0);
+                tr.innerHTML = `
+                    <td data-label="Fecha">${amort.fecha || '-'}</td>
+                    <td data-label="Ref. Pago">${amort.referencia || '-'}</td>
+                    <td data-label="Método">${amort.metodo || '-'}</td>
+                    <td data-label="Monto" class="text-end fw-bold">${monto.toFixed(2)}</td>
+                `;
+                tbodyAmortizaciones.appendChild(tr);
+            });
         }
 
         // --- 7.3 FUNCIÓN MAESTRA DE CÁLCULO (Suma de Compras - Amortizaciones) ---
