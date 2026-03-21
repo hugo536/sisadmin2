@@ -41,6 +41,27 @@ class UsuariosModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
+    public function existe_email(string $email, ?int $excluirId = null, bool $incluirEliminados = false): bool
+    {
+        $sql = 'SELECT 1 FROM usuarios WHERE email = :email';
+        $params = ['email' => $email];
+
+        if (!$incluirEliminados) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+
+        if ($excluirId !== null && $excluirId > 0) {
+            $sql .= ' AND id <> :excluir_id';
+            $params['excluir_id'] = $excluirId;
+        }
+
+        $sql .= ' LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function listar_activos(): array
     {
         $sql = 'SELECT u.id, u.nombre_completo, u.usuario, u.email, u.id_rol, u.estado, u.ultimo_login, r.nombre AS rol

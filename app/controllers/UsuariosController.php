@@ -42,6 +42,9 @@ class UsuariosController extends Controlador
                     if ($this->usuarioModel->existe_usuario($usuario)) {
                          throw new RuntimeException('El nombre de usuario ya existe.');
                     }
+                    if ($this->usuarioModel->existe_email($email)) {
+                        throw new RuntimeException('El correo electrónico ya está registrado en otro usuario.');
+                    }
 
                     $this->usuarioModel->crear($nombreCompleto, $usuario, $email, $clave, $idRol, $currentUserId);
                     $flash = ['tipo' => 'success', 'texto' => 'Usuario creado correctamente.'];
@@ -63,6 +66,9 @@ class UsuariosController extends Controlador
 
                     if ($this->usuarioModel->existe_usuario($usuario, $id)) {
                         throw new RuntimeException('El nombre de usuario ya existe.');
+                    }
+                    if ($this->usuarioModel->existe_email($email, $id)) {
+                        throw new RuntimeException('El correo electrónico ya está registrado en otro usuario.');
                     }
 
                     // PROTECCIÓN: No se puede cambiar el rol del usuario 'admin' si no eres superadmin o DB
@@ -126,7 +132,26 @@ class UsuariosController extends Controlador
                 }
 
             } catch (Throwable $e) {
-                $flash = ['tipo' => 'error', 'texto' => $e->getMessage()];
+                $mensaje = $e->getMessage();
+
+                // Fallback para errores de integridad no previstos (ej. condición de carrera).
+                if ($e instanceof PDOException) {
+                    $errorInfo = $e->errorInfo ?? [];
+                    $codigoMotor = (string)($errorInfo[1] ?? '');
+                    $detalle = (string)($errorInfo[2] ?? '');
+
+                    if ($codigoMotor === '1062' || stripos($detalle, 'Duplicate entry') !== false) {
+                        if (stripos($detalle, 'uq_usuarios_email') !== false || stripos($detalle, 'for key \'email\'') !== false) {
+                            $mensaje = 'No se pudo guardar: el correo electrónico ya existe.';
+                        } elseif (stripos($detalle, 'uq_usuarios_usuario') !== false || stripos($detalle, 'for key \'usuario\'') !== false) {
+                            $mensaje = 'No se pudo guardar: el nombre de usuario ya existe.';
+                        } else {
+                            $mensaje = 'No se pudo guardar porque ya existe un valor duplicado.';
+                        }
+                    }
+                }
+
+                $flash = ['tipo' => 'error', 'texto' => $mensaje];
             }
         }
 
