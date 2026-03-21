@@ -560,26 +560,26 @@ window.initTesoreria = function() {
     }
 
     // ========================================================================
-    // 7. SALDOS INICIALES (TERCEROS, ÍTEMS Y GRILLA DE DETALLE)
+    // 7. ESTADO DE CUENTA (NUEVO FLUJO: SALDOS INICIALES, ITEMS Y AMORTIZACIONES)
     // ========================================================================
     const formSaldoInicial = document.getElementById('formSaldoInicial');
     if (formSaldoInicial) {
 
-        // --- 7.1 CONFIGURACIÓN DE TOMSELECT (TERCEROS) ---
+        // Declaramos la variable para el total de amortizaciones de forma global para esta vista
+        let totalAmortizaciones = 0;
+
+        // --- 7.1 LÓGICA DE TERCEROS Y PROTECCIÓN DE NATURALEZA ---
         const terceroSelectEl = document.getElementById('saldoInicialTercero');
         const radiosTipo = Array.from(document.querySelectorAll('input[name="tipo_deuda"]'));
+        const labelTipoCliente = document.getElementById('labelTipoCliente');
+        const labelTipoProveedor = document.getElementById('labelTipoProveedor');
+        const btnGuardar = document.getElementById('btnGuardarCuentaTercero');
         const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
-
-        // Fechas por defecto
-        const fechaEmision = document.getElementById('saldoInicialFechaEmision');
-        const fechaVencimiento = document.getElementById('saldoInicialFechaVencimiento');
-        const hoy = new Date().toISOString().slice(0, 10);
-        if (fechaEmision && !fechaEmision.value) fechaEmision.value = hoy;
-        if (fechaVencimiento && !fechaVencimiento.value) fechaVencimiento.value = hoy;
+        
+        // La URL para verificar debe apuntar a la nueva función que pondremos en el Controlador
+        const verificarCuentaUrl = '?ruta=tesoreria/ajax_verificar_cuenta_tercero';
 
         if (terceroSelectEl && typeof TomSelect !== 'undefined') {
-            
-            // ¡IMPORTANTE PARA SPA! Destruimos la instancia si ya existía para evitar colisiones
             if (terceroSelectEl.tomselect) {
                 terceroSelectEl.tomselect.destroy();
             }
@@ -596,10 +596,9 @@ window.initTesoreria = function() {
             const tsTerceros = new TomSelect(terceroSelectEl, {
                 valueField: 'id',
                 labelField: 'nombre_completo',
-                searchField: 'nombre_completo',
-                searchField: ['nombre', 'sku'],
-                placeholder: '🔍 Busque un producto por nombre o código...',
-                // Agrega esta línea aquí también
+                searchField: ['nombre_completo'],
+                placeholder: getPlaceholderByTipo(getTipoSeleccionado()),
+                preload: true,
                 controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
                 
                 load: function(query, callback) {
@@ -620,12 +619,71 @@ window.initTesoreria = function() {
                     },
                     item: function(item, escape) {
                         return `<div class="fw-bold text-dark">${escape(item.nombre_completo)}</div>`;
-                    },
-                    no_results: function(data, escape) {
-                        return '<div class="no-results py-2 px-3 text-muted">No se encontraron resultados</div>';
                     }
+                },
+                onChange: function(value) {
+                    if (!value) {
+                        // Resetear UI si borran el tercero
+                        desbloquearNaturaleza();
+                        resetearBotonGuardar();
+                        totalAmortizaciones = 0;
+                        calcularSaldosReales();
+                        return;
+                    }
+
+                    // Petición a PHP para verificar si el tercero ya tiene cuenta
+                    const tipo = getTipoSeleccionado();
+                    fetch(`${verificarCuentaUrl}&id=${value}&tipo=${tipo}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.ok && data.tiene_cuenta) {
+                                // 1. Protegemos el sistema bloqueando la naturaleza
+                                bloquearNaturaleza();
+                                
+                                // 2. Actualizamos el botón para que el usuario sepa que está editando
+                                if (btnGuardar) {
+                                    btnGuardar.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Cuenta';
+                                    btnGuardar.classList.replace('btn-primary', 'btn-success');
+                                }
+
+                                // 3. Cargamos el historial de pagos
+                                totalAmortizaciones = data.total_amortizaciones || 0;
+                                
+                                // Opcional: Aquí pintaríamos los ítems antiguos en la tabla si data.items_guardados tiene datos.
+                                
+                                calcularSaldosReales();
+                                
+                            } else {
+                                // Es un tercero nuevo, permitimos elegir
+                                desbloquearNaturaleza();
+                                resetearBotonGuardar();
+                                totalAmortizaciones = 0;
+                                calcularSaldosReales();
+                            }
+                        })
+                        .catch(err => console.error('Error al verificar cuenta:', err));
                 }
             });
+
+            // Funciones de ayuda para proteger la integridad de la base de datos
+            function bloquearNaturaleza() {
+                radiosTipo.forEach(radio => radio.disabled = true);
+                if (labelTipoCliente) labelTipoCliente.classList.add('opacity-50');
+                if (labelTipoProveedor) labelTipoProveedor.classList.add('opacity-50');
+            }
+
+            function desbloquearNaturaleza() {
+                radiosTipo.forEach(radio => radio.disabled = false);
+                if (labelTipoCliente) labelTipoCliente.classList.remove('opacity-50');
+                if (labelTipoProveedor) labelTipoProveedor.classList.remove('opacity-50');
+            }
+
+            function resetearBotonGuardar() {
+                if (btnGuardar) {
+                    btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Saldo Inicial';
+                    btnGuardar.classList.replace('btn-success', 'btn-primary');
+                }
+            }
 
             const recargarOpcionesTerceros = (tipo) => {
                 const separador = tercerosUrl.includes('?') ? '&' : '?';
@@ -668,83 +726,118 @@ window.initTesoreria = function() {
             });
         }
 
-        // --- 7.2 CONFIGURACIÓN DE TOMSELECT (ÍTEMS) ---
+        // --- 7.2 LÓGICA DE ÍTEMS, TABLA DE DETALLE Y BOTÓN "AGREGAR" ---
         const itemsSelectEl = document.getElementById('buscadorItemsSaldo');
         const itemsUrl = formSaldoInicial.getAttribute('data-url-items') || '';
+        const btnAgregarItemDetalle = document.getElementById('btnAgregarItemDetalle');
+        
+        let tsItems = null;
+        let itemSeleccionadoTemporal = null; 
 
         if (itemsSelectEl && typeof TomSelect !== 'undefined') {
-            
-            // ¡IMPORTANTE PARA SPA!
             if (itemsSelectEl.tomselect) {
                 itemsSelectEl.tomselect.destroy();
             }
 
-            const tsItems = new TomSelect(itemsSelectEl, {
+            tsItems = new TomSelect(itemsSelectEl, {
                 valueField: 'id',
                 labelField: 'nombre',
                 searchField: ['nombre', 'sku'],
                 placeholder: '🔍 Busque un producto por nombre o código...',
-                // CORRECCIÓN DEFINITIVA: También eliminado 'controlInput' aquí
+                controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
                 
                 load: function(query, callback) {
                     if (!query.length) return callback();
 
+                    // Construimos la URL igual que con los terceros
                     const separador = itemsUrl.includes('?') ? '&' : '?';
                     const url = `${itemsUrl}${separador}q=${encodeURIComponent(query)}`;
 
                     fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(res => res.json())
-                        .then(json => callback(json.items || []))
-                        .catch(() => callback());
+                        .then(res => {
+                            if (!res.ok) {
+                                throw new Error(`HTTP error! status: ${res.status}`);
+                            }
+                            return res.json();
+                        })
+                        .then(json => {
+                            callback(json.items || []);
+                        })
+                        .catch(err => {
+                            console.error('Error al cargar ítems:', err);
+                            callback();
+                        });
                 },
                 render: {
                     option: function(item, escape) {
                         return `<div class="py-2 px-3 border-bottom">
                                     <span class="badge bg-secondary me-2">${escape(item.sku || 'N/A')}</span>
                                     <span class="fw-bold text-dark">${escape(item.nombre)}</span>
-                                    <small class="d-block text-muted mt-1">Precio ref: $${parseFloat(item.precio_venta||0).toFixed(2)} / ${escape(item.unidad_base||'')}</small>
+                                    <small class="d-block text-muted mt-1">Precio ref: S/ ${parseFloat(item.precio_venta||0).toFixed(2)} / ${escape(item.unidad_base||'')}</small>
                                 </div>`;
+                    },
+                    no_results: function(data, escape) {
+                        return '<div class="no-results py-2 px-3 text-muted">No se encontraron productos activos</div>';
                     }
                 },
                 onChange: function(value) {
-                    if (!value) return;
-                    const itemData = this.options[value];
-                    agregarFilaDetalle(itemData);
-                    this.clear(true); 
+                    if (!value) {
+                        itemSeleccionadoTemporal = null;
+                        return;
+                    }
+                    itemSeleccionadoTemporal = this.options[value];
                 }
             });
         }
 
-        // --- 7.3 LÓGICA DE LA GRILLA (CARRITO DE DETALLE INFORMATIVO) ---
+        // Lógica de la tabla (BOM / Detalle de Compras)
         const tbody = document.querySelector('#tablaDetalleSaldos tbody');
         const filaVacia = document.getElementById('filaVaciaMensaje');
         const inputMontoSaldos = document.getElementById('saldoInicialMontoManual');
-        const alertaMonto = document.getElementById('alertaMontoManual');
+
+        if (btnAgregarItemDetalle) {
+            btnAgregarItemDetalle.addEventListener('click', function() {
+                if (!itemSeleccionadoTemporal) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor, busque y seleccione un producto primero.',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                    return;
+                }
+
+                agregarFilaDetalle(itemSeleccionadoTemporal);
+                
+                if (tsItems) {
+                    tsItems.clear(true);
+                }
+                itemSeleccionadoTemporal = null;
+            });
+        }
 
         function agregarFilaDetalle(item) {
             if(filaVacia) filaVacia.style.display = 'none';
-            if(inputMontoSaldos) inputMontoSaldos.readOnly = true;
-            if(alertaMonto) alertaMonto.style.display = 'block';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>
+                <td data-label="Ítem / Descripción">
                     <input type="hidden" name="detalle_item_id[]" value="${item.id}">
                     <input type="hidden" name="detalle_item_nombre[]" value="${item.nombre}">
                     <span class="badge bg-light text-dark border me-1">${item.sku || '-'}</span>
                     <span class="fw-bold text-dark small">${item.nombre}</span>
                 </td>
-                <td>
-                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-center js-cant" min="0.01" step="0.01" value="1" required>
+                <td data-label="Cantidad">
+                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-end js-cant" min="0.01" step="0.01" value="1" required>
                 </td>
-                <td>
+                <td data-label="P. Unit.">
                     <input type="number" name="detalle_precio[]" class="form-control form-control-sm text-end js-precio" min="0" step="0.01" value="${item.precio_venta || 0}" required>
                 </td>
-                <td class="text-end fw-bold text-primary js-subtotal">
+                <td class="text-end fw-bold text-primary js-subtotal" data-label="Subtotal">
                     0.00
                 </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove"><i class="bi bi-x-lg"></i></button>
+                <td class="text-center text-md-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove"><i class="bi bi-trash3"></i></button>
                 </td>
             `;
 
@@ -758,7 +851,7 @@ window.initTesoreria = function() {
                 const cant = parseFloat(inCant.value) || 0;
                 const prec = parseFloat(inPrec.value) || 0;
                 tr.querySelector('.js-subtotal').textContent = (cant * prec).toFixed(2);
-                calcularTotalGeneral();
+                calcularSaldosReales();
             };
 
             inCant.addEventListener('input', recalcular);
@@ -766,37 +859,43 @@ window.initTesoreria = function() {
             
             btnDel.addEventListener('click', () => {
                 tr.remove();
-                calcularTotalGeneral();
+                calcularSaldosReales();
                 if (tbody && tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').length === 0) {
                     if(filaVacia) filaVacia.style.display = '';
-                    if(inputMontoSaldos) inputMontoSaldos.readOnly = false;
-                    if(alertaMonto) alertaMonto.style.display = 'none';
                 }
             });
 
             recalcular();
         }
 
-        function calcularTotalGeneral() {
-            let total = 0;
-            if(!tbody) return;
+        // --- 7.3 FUNCIÓN MAESTRA DE CÁLCULO (Suma de Compras - Amortizaciones) ---
+        function calcularSaldosReales() {
+            let totalCompras = 0;
+
+            if (tbody) {
+                tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => {
+                    const cant = parseFloat(tr.querySelector('.js-cant').value) || 0;
+                    const prec = parseFloat(tr.querySelector('.js-precio').value) || 0;
+                    totalCompras += (cant * prec);
+                });
+            }
+
+            // Lógica final: Saldo Real = Compras - Amortizaciones
+            let saldoReal = totalCompras - totalAmortizaciones;
             
-            tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => {
-                const cant = parseFloat(tr.querySelector('.js-cant').value) || 0;
-                const prec = parseFloat(tr.querySelector('.js-precio').value) || 0;
-                total += (cant * prec);
-            });
-            
-            if(inputMontoSaldos) inputMontoSaldos.value = total.toFixed(2);
+            // Seguridad: El saldo no debería ser negativo en este módulo
+            if (saldoReal < 0) saldoReal = 0;
+
+            if(inputMontoSaldos) {
+                inputMontoSaldos.value = saldoReal.toFixed(2);
+            }
         }
     }
 };
 
 // Evaluamos si es una recarga completa (Ctrl+F5) o una navegación interna (SPA)
 if (document.readyState === 'loading') {
-    // Si la página apenas está cargando, esperamos a que termine
     document.addEventListener('DOMContentLoaded', window.initTesoreria);
 } else {
-    // Si ya cargó (porque navegaste desde el menú), lo ejecutamos de inmediato
     window.initTesoreria();
 }

@@ -734,4 +734,88 @@ class TesoreriaController extends Controlador
             throw new RuntimeException('La cuenta seleccionada no está habilitada para pagos.');
         }
     }
+
+    // ========================================================================
+    // NUEVA FUNCIÓN: VERIFICAR SI EL TERCERO YA TIENE CUENTA Y SALDO DE AMORTIZACIONES
+    // ========================================================================
+    public function ajax_verificar_cuenta_tercero(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver'); // O el permiso adecuado según tu lógica
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idTercero = (int) ($_GET['id'] ?? 0);
+        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CLIENTE'))); // CLIENTE (cxc) o PROVEEDOR (cxp)
+
+        if ($idTercero <= 0) {
+            echo json_encode(['ok' => false, 'mensaje' => 'ID inválido']);
+            exit;
+        }
+
+        try {
+            // Evaluamos a qué tabla mirar dependiendo de la naturaleza
+            $tabla = $tipo === 'CLIENTE' ? 'tesoreria_cxc' : 'tesoreria_cxp';
+            
+            // 1. Verificamos si existe el registro de "SALDO INICIAL" (documento_referencia = Saldo inicial)
+            // Asumimos que los saldos iniciales guardan un estado o una referencia particular.
+            // Si en tu modelo usas un motivo corto específico para identificar el saldo inicial (ej: observacion contiene 'saldo migrado' o doc_ref), 
+            // ajusta esta consulta. Por defecto, asumiremos que solo hay un gran registro consolidado o buscamos cualquiera abierto.
+            
+            $sqlCuenta = "SELECT id, monto_total, observaciones 
+                          FROM {$tabla} 
+                          WHERE id_tercero = :id_tercero 
+                          AND deleted_at IS NULL 
+                          LIMIT 1";
+            
+            $stmt = Conexion::get()->prepare($sqlCuenta);
+            $stmt->execute(['id_tercero' => $idTercero]);
+            $cuentaExiste = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $tieneCuenta = $cuentaExiste ? true : false;
+            $totalAmortizaciones = 0;
+            $detalleItems = [];
+
+            if ($tieneCuenta) {
+                // 2. Si tiene cuenta, buscamos cuánto ha pagado (amortizado) hasta ahora.
+                $origenMov = $tipo === 'CLIENTE' ? 'CXC' : 'CXP';
+                $tipoMov = $tipo === 'CLIENTE' ? 'COBRO' : 'PAGO';
+                
+                $sqlAmortizaciones = "SELECT COALESCE(SUM(monto), 0) as total_pagado 
+                                      FROM tesoreria_movimientos 
+                                      WHERE origen = :origen 
+                                        AND id_origen = :id_cuenta
+                                        AND tipo = :tipo
+                                        AND estado = 1 
+                                        AND deleted_at IS NULL";
+                
+                $stmtAmort = Conexion::get()->prepare($sqlAmortizaciones);
+                $stmtAmort->execute([
+                    'origen' => $origenMov,
+                    'id_cuenta' => $cuentaExiste['id'],
+                    'tipo' => $tipoMov
+                ]);
+                $totalAmortizaciones = (float) $stmtAmort->fetchColumn();
+
+                // 3. Intentamos extraer los ítems guardados previamente si es que existen en el JSON de observaciones
+                if (!empty($cuentaExiste['observaciones'])) {
+                    $obsDecoded = json_decode($cuentaExiste['observaciones'], true);
+                    if (is_array($obsDecoded) && isset($obsDecoded['detalle_items'])) {
+                        $detalleItems = $obsDecoded['detalle_items'];
+                    }
+                }
+            }
+
+            echo json_encode([
+                'ok' => true,
+                'tiene_cuenta' => $tieneCuenta,
+                'total_amortizaciones' => $totalAmortizaciones,
+                'items_guardados' => $detalleItems
+            ]);
+
+        } catch (Exception $e) {
+            echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()]);
+        }
+        exit;
+    }
 }
