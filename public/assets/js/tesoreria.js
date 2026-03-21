@@ -739,6 +739,9 @@ window.initTesoreria = function() {
         const unidadesItemUrl = formSaldoInicial.getAttribute('data-url-item-unidades') || '';
         const btnAgregarItemDetalle = document.getElementById('btnAgregarItemDetalle');
         const fechaIngresoInput = formSaldoInicial.querySelector('input[name="fecha_emision"]');
+        const inputCantidadAgregar = document.getElementById('saldoDetalleCantidad');
+        const selectUnidadAgregar = document.getElementById('saldoDetalleUnidad');
+        const inputSubtotalAgregar = document.getElementById('saldoDetalleSubtotal');
         const cacheUnidades = new Map();
 
         async function obtenerUnidadesItemTesoreria(idItem) {
@@ -759,6 +762,28 @@ window.initTesoreria = function() {
         
         let tsItems = null;
         let itemSeleccionadoTemporal = null; 
+
+        function getOpcionesUnidadesHtml(unidades = []) {
+            return ['<option value="">Base</option>']
+                .concat(unidades.map(unidad => {
+                    const factor = parseFloat(unidad.factor_conversion || 1);
+                    const nombre = unidad.nombre || 'Unidad';
+                    return `<option value="${unidad.id}" data-factor="${factor}" data-nombre="${nombre}">${nombre} (x${factor.toFixed(4)})</option>`;
+                }))
+                .join('');
+        }
+
+        async function refrescarUnidadesEnPanel(item) {
+            if (!selectUnidadAgregar) return;
+            selectUnidadAgregar.innerHTML = '<option value="">Base</option>';
+            if (!item?.id) return;
+            try {
+                const unidades = await obtenerUnidadesItemTesoreria(Number(item.id));
+                selectUnidadAgregar.innerHTML = getOpcionesUnidadesHtml(unidades);
+            } catch (error) {
+                console.warn('No se pudieron cargar unidades para panel de agregado:', error);
+            }
+        }
 
         if (itemsSelectEl && typeof TomSelect !== 'undefined') {
             if (itemsSelectEl.tomselect) {
@@ -809,9 +834,16 @@ window.initTesoreria = function() {
                 onChange: function(value) {
                     if (!value) {
                         itemSeleccionadoTemporal = null;
+                        if (inputSubtotalAgregar) inputSubtotalAgregar.value = '0.00';
+                        if (inputCantidadAgregar) inputCantidadAgregar.value = '1';
+                        if (selectUnidadAgregar) selectUnidadAgregar.innerHTML = '<option value="">Base</option>';
                         return;
                     }
                     itemSeleccionadoTemporal = this.options[value];
+                    if (inputSubtotalAgregar) {
+                        inputSubtotalAgregar.value = parseFloat(itemSeleccionadoTemporal?.precio_venta || 0).toFixed(2);
+                    }
+                    refrescarUnidadesEnPanel(itemSeleccionadoTemporal);
                 }
             });
         }
@@ -835,16 +867,30 @@ window.initTesoreria = function() {
                     return;
                 }
 
-                await agregarFilaDetalle(itemSeleccionadoTemporal);
+                const cantidad = Math.max(parseFloat(inputCantidadAgregar?.value || 1), 0.01);
+                const subtotal = Math.max(parseFloat(inputSubtotalAgregar?.value || 0), 0);
+                const unidadId = selectUnidadAgregar?.value || '';
+                const unidadOption = unidadId ? selectUnidadAgregar?.options?.[selectUnidadAgregar.selectedIndex] : null;
+
+                await agregarFilaDetalle(itemSeleccionadoTemporal, {
+                    cantidad,
+                    subtotal,
+                    unidadId,
+                    unidadNombre: unidadOption?.dataset?.nombre || '',
+                    unidadFactor: unidadOption?.dataset?.factor || '1'
+                });
                 
                 if (tsItems) {
                     tsItems.clear(true);
                 }
                 itemSeleccionadoTemporal = null;
+                if (inputCantidadAgregar) inputCantidadAgregar.value = '1';
+                if (inputSubtotalAgregar) inputSubtotalAgregar.value = '0.00';
+                if (selectUnidadAgregar) selectUnidadAgregar.innerHTML = '<option value="">Base</option>';
             });
         }
 
-        async function agregarFilaDetalle(item) {
+        async function agregarFilaDetalle(item, valoresIniciales = {}) {
             if(filaVacia) filaVacia.style.display = 'none';
 
             let unidades = [];
@@ -855,13 +901,10 @@ window.initTesoreria = function() {
             }
 
             const fechaFila = fechaIngresoInput?.value || new Date().toISOString().slice(0, 10);
-            const opcionesUnidades = ['<option value="">Base</option>']
-                .concat(unidades.map(unidad => {
-                    const factor = parseFloat(unidad.factor_conversion || 1);
-                    const nombre = unidad.nombre || 'Unidad';
-                    return `<option value="${unidad.id}" data-factor="${factor}" data-nombre="${nombre}">${nombre} (x${factor.toFixed(4)})</option>`;
-                }))
-                .join('');
+            const opcionesUnidades = getOpcionesUnidadesHtml(unidades);
+            const cantidadInicial = Math.max(parseFloat(valoresIniciales.cantidad ?? 1), 0.01);
+            const subtotalInicial = Math.max(parseFloat(valoresIniciales.subtotal ?? item.precio_venta ?? 0), 0);
+            const unidadIdInicial = valoresIniciales.unidadId ? String(valoresIniciales.unidadId) : '';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -874,7 +917,7 @@ window.initTesoreria = function() {
                     <span class="fw-bold text-dark small">${item.nombre}</span>
                 </td>
                 <td data-label="Cantidad">
-                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-end js-cant" min="0.01" step="0.01" value="1" required>
+                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-end js-cant" min="0.01" step="0.01" value="${cantidadInicial.toFixed(2)}" required>
                 </td>
                 <td data-label="Unid. conversión">
                     <select name="detalle_item_unidad_id[]" class="form-select form-select-sm js-unidad">
@@ -884,7 +927,7 @@ window.initTesoreria = function() {
                     <input type="hidden" name="detalle_item_unidad_factor[]" class="js-unidad-factor" value="1">
                 </td>
                 <td data-label="Subtotal">
-                    <input type="number" name="detalle_subtotal[]" class="form-control form-control-sm text-end js-subtotal-input" min="0" step="0.01" value="${parseFloat(item.precio_venta || 0).toFixed(2)}" required>
+                    <input type="number" name="detalle_subtotal[]" class="form-control form-control-sm text-end js-subtotal-input" min="0" step="0.01" value="${subtotalInicial.toFixed(2)}" required>
                 </td>
                 <td class="text-center text-md-end">
                     <button type="button" class="btn btn-sm btn-outline-primary border-0 js-edit me-1"><i class="bi bi-pencil-square"></i></button>
@@ -906,6 +949,13 @@ window.initTesoreria = function() {
                 calcularSaldosReales();
             };
 
+            if (selUnidad) {
+                selUnidad.value = unidadIdInicial;
+                if (selUnidad.value !== unidadIdInicial) {
+                    selUnidad.value = '';
+                }
+            }
+
             inCant.addEventListener('input', recalcular);
             inSub.addEventListener('input', recalcular);
             selUnidad?.addEventListener('change', () => {
@@ -914,6 +964,13 @@ window.initTesoreria = function() {
                 inUnidadFactor.value = opt?.dataset?.factor || '1';
             });
             btnEdit?.addEventListener('click', () => inSub?.focus());
+
+            if (valoresIniciales.unidadNombre || valoresIniciales.unidadFactor) {
+                inUnidadNombre.value = valoresIniciales.unidadNombre || '';
+                inUnidadFactor.value = valoresIniciales.unidadFactor || '1';
+            } else {
+                selUnidad?.dispatchEvent(new Event('change'));
+            }
             
             btnDel.addEventListener('click', () => {
                 tr.remove();

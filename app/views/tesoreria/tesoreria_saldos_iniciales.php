@@ -180,6 +180,22 @@ if ($error !== '') {
                             <div class="mb-3">
                                 <select id="buscadorItemsSaldo" class="form-select shadow-sm"></select>
                             </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-4">
+                                    <label for="saldoDetalleCantidad" class="form-label fw-bold text-muted small mb-1">Cantidad</label>
+                                    <input type="number" id="saldoDetalleCantidad" class="form-control shadow-sm text-end" min="0.01" step="0.01" value="1">
+                                </div>
+                                <div class="col-8">
+                                    <label for="saldoDetalleUnidad" class="form-label fw-bold text-muted small mb-1">Unid. conversión</label>
+                                    <select id="saldoDetalleUnidad" class="form-select shadow-sm">
+                                        <option value="">Base</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="saldoDetalleSubtotal" class="form-label fw-bold text-muted small mb-1">Subtotal</label>
+                                <input type="number" id="saldoDetalleSubtotal" class="form-control shadow-sm text-end" min="0.00" step="0.01" value="0.00">
+                            </div>
                             <button type="button" id="btnAgregarItemDetalle" class="btn btn-primary w-100 fw-bold shadow-sm mb-2">
                                 <i class="bi bi-plus-circle me-2"></i>Agregar a la tabla
                             </button>
