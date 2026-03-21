@@ -744,11 +744,11 @@ window.initTesoreria = function() {
                 labelField: 'nombre',
                 searchField: ['nombre', 'sku', 'descripcion'],
                 placeholder: '🔍 Busque un producto por nombre o código...',
+                preload: 'focus',
+                hideSelected: false,
                 controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
                 
                 load: function(query, callback) {
-                    if (!query.length) return callback();
-
                     // Construimos la URL igual que con los terceros
                     const separador = itemsUrl.includes('?') ? '&' : '?';
                     const url = `${itemsUrl}${separador}q=${encodeURIComponent(query)}`;
@@ -777,7 +777,7 @@ window.initTesoreria = function() {
                                 </div>`;
                     },
                     no_results: function(data, escape) {
-                        return '<div class="no-results py-2 px-3 text-muted">No se encontraron productos activos</div>';
+                        return '<div class="no-results py-2 px-3 text-muted">Sin coincidencias para tu búsqueda.</div>';
                     }
                 },
                 onChange: function(value) {
