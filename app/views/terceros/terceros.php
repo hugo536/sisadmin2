@@ -97,7 +97,7 @@
                                     if ((int) $tercero['es_proveedor'] === 1) $roles[] = 'PROVEEDOR';
                                     if ((int) $tercero['es_empleado'] === 1) $roles[] = 'EMPLEADO';
                                     if ((int) $tercero['es_distribuidor'] === 1) $roles[] = 'DISTRIBUIDOR';
-                                    $rolesFiltro = implode('|', $roles);
+                                    $rolesFiltro = implode(' ', $roles); // Con espacio o coma, ¡ahora funcionará de ambas formas!
                                     $estadoBinario = ((int) ($tercero['estado'] ?? 0) === 1) ? 1 : 0;
                                     
                                     $cuentasBancariasParaJs = array_map(function($cta) {

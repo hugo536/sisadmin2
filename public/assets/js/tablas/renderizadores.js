@@ -188,38 +188,35 @@
   
         const actives = filterEls.map((f) => ({
           attr: f.attr,
-          value: (f.el.value ?? '').toString()
+          value: normalizar((f.el.value ?? '').toString()), // Normalizamos aquí
+          match: f.match
         }));
   
         return allRows.filter((row) => {
+          // 1. Filtro de Búsqueda de Texto
           const haystack = normalizar((row.getAttribute(cfg.searchAttr) || '') + '');
           const coincideTexto = texto === '' || haystack.includes(texto);
           if (!coincideTexto) return false;
   
+          // 2. Filtros Adicionales (Selects, etc.)
           for (const f of actives) {
-            const rowVal = (row.getAttribute(f.attr) || '').toString();
-            if (f.value === '') continue;
-
-            const normalizedFilterValue = normalizar(f.value);
-            const normalizedRowValue = normalizar(rowVal);
-
+            if (f.value === '') continue; // Si el select está en "Todos", ignora.
+            
+            // Obtenemos el valor de la fila y lo normalizamos (minúsculas, sin espacios extra)
+            const rowVal = normalizar((row.getAttribute(f.attr) || '').toString());
+  
             if (f.match === 'includes') {
-              const tokens = normalizedRowValue
-                .split(/\s*[|,;\/]\s*/)
-                .map((token) => token.trim())
-                .filter(Boolean);
-
-              const includesMatch = tokens.length > 0
-                ? tokens.includes(normalizedFilterValue)
-                : normalizedRowValue.includes(normalizedFilterValue);
-
-              if (!includesMatch) return false;
+              // Simplemente verificamos si el valor del select está contenido en el atributo de la fila.
+              // Como ambos están normalizados (minúsculas), siempre coincidirán.
+              if (!rowVal.includes(f.value)) return false;
               continue;
             }
-
-            if (normalizedRowValue !== normalizedFilterValue) return false;
+  
+            // Modo 'equals' (por defecto)
+            if (rowVal !== f.value) return false;
           }
-          return true;
+          
+          return true; // Si pasa todas las pruebas, se muestra
         });
       }
   
