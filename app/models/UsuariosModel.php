@@ -69,6 +69,42 @@ class UsuariosModel extends Modelo
     {
         $hash = password_hash($clave, PASSWORD_BCRYPT);
 
+        // Si existe un usuario eliminado con el mismo username, lo reactivamos
+        // para respetar la restricción UNIQUE de la base de datos.
+        $sqlBuscarEliminado = 'SELECT id
+                              FROM usuarios
+                              WHERE usuario = :usuario
+                                AND deleted_at IS NOT NULL
+                              LIMIT 1';
+        $stmtBuscarEliminado = $this->db()->prepare($sqlBuscarEliminado);
+        $stmtBuscarEliminado->execute(['usuario' => $usuario]);
+        $idEliminado = (int) ($stmtBuscarEliminado->fetchColumn() ?: 0);
+
+        if ($idEliminado > 0) {
+            $sqlRestaurar = 'UPDATE usuarios
+                             SET nombre_completo = :nombre,
+                                 usuario = :usuario,
+                                 email = :email,
+                                 clave = :clave,
+                                 id_rol = :rol,
+                                 estado = 1,
+                                 deleted_at = NULL,
+                                 updated_at = NOW(),
+                                 updated_by = :creator
+                             WHERE id = :id
+                               AND deleted_at IS NOT NULL';
+
+            return $this->db()->prepare($sqlRestaurar)->execute([
+                'id' => $idEliminado,
+                'nombre'  => $nombre,
+                'usuario' => $usuario,
+                'email'   => $email,
+                'clave'   => $hash,
+                'rol'     => $idRol,
+                'creator' => $createdBy
+            ]);
+        }
+
         $sql = "INSERT INTO usuarios (nombre_completo, usuario, email, clave, id_rol, created_by, created_at, estado) 
                 VALUES (:nombre, :usuario, :email, :clave, :rol, :creator, NOW(), 1)";
 
