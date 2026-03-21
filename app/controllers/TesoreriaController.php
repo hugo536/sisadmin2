@@ -290,8 +290,13 @@ class TesoreriaController extends Controlador
                         i.nombre LIKE :q
                         OR i.sku LIKE :q
                         OR COALESCE(i.descripcion, \'\') LIKE :q
+                        OR COALESCE(i.marca, \'\') LIKE :q
+                        OR COALESCE(i.unidad_base, \'\') LIKE :q
+                        OR COALESCE(i.tipo_item, \'\') LIKE :q
+
                         OR COALESCE(ip.nombre, \'\') LIKE :q
                         OR COALESCE(s.nombre, \'\') LIKE :q
+
                       )';
             $params['q'] = '%' . $busqueda . '%';
         }
