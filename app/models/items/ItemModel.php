@@ -18,8 +18,11 @@ class ItemModel extends Modelo
         // Búsqueda general (por SKU, Nombre o Descripción)
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
         if ($busqueda !== '') {
-            $where[] = '(i.sku LIKE :q OR i.nombre LIKE :q OR i.descripcion LIKE :q)';
-            $params['q'] = '%' . $busqueda . '%';
+            $where[] = '(i.sku LIKE :q_sku OR i.nombre LIKE :q_nombre OR i.descripcion LIKE :q_descripcion)';
+            $termino = '%' . $busqueda . '%';
+            $params['q_sku'] = $termino;
+            $params['q_nombre'] = $termino;
+            $params['q_descripcion'] = $termino;
         }
 
         // Filtro por Categoría
