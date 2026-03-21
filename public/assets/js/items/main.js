@@ -817,10 +817,6 @@
                     ? `<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Falta agregar una receta"></i>` 
                     : '';
 
-                const imgHtml = item.imagen_principal
-                    ? `<img src="/${escapeHtml(item.imagen_principal)}" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">`
-                    : `<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>`;
-                
                 // AQUÍ ESTÁN LOS BOTONES CORREGIDOS CON LAS CLASES BTN-ICON
                 const btnEliminar = item.puede_eliminar === 1
                     ? `<button type="submit" class="btn-icon btn-icon-danger" title="Eliminar"><i class="bi bi-trash3"></i></button>`
@@ -828,7 +824,6 @@
 
                 return `
                     <tr data-id="${item.id}">
-                        <td class="ps-4 align-middle text-center">${imgHtml}</td>
                         <td class="fw-semibold text-secondary">${escapeHtml(item.sku)}</td>
                         <td>
                             <div class="fw-bold text-dark d-inline-flex align-items-center gap-1">
