@@ -193,19 +193,55 @@ class PermisoModel extends Modelo
             ['slug' => 'usuarios.eliminar', 'nombre' => 'Eliminar Usuarios', 'modulo' => 'USUARIOS'],
         ];
 
-        $insertStmt = $this->db()->prepare(
-            'INSERT INTO permisos_def (slug, nombre, modulo)
-             SELECT :slug, :nombre, :modulo
-             WHERE NOT EXISTS (SELECT 1 FROM permisos_def WHERE slug = :slug_check)'
-        );
+        $usaCreatedBy = $this->tablaTieneColumna('permisos_def', 'created_by');
+        $idUsuarioAuditoria = $usaCreatedBy ? $this->resolverUsuarioAuditoriaId() : null;
+
+        if ($usaCreatedBy && $idUsuarioAuditoria !== null) {
+            $insertStmt = $this->db()->prepare(
+                'INSERT INTO permisos_def (slug, nombre, modulo, created_by)
+                 SELECT :slug, :nombre, :modulo, :created_by
+                 WHERE NOT EXISTS (SELECT 1 FROM permisos_def WHERE slug = :slug_check)'
+            );
+        } else {
+            $insertStmt = $this->db()->prepare(
+                'INSERT INTO permisos_def (slug, nombre, modulo)
+                 SELECT :slug, :nombre, :modulo
+                 WHERE NOT EXISTS (SELECT 1 FROM permisos_def WHERE slug = :slug_check)'
+            );
+        }
 
         foreach ($catalogoBase as $permiso) {
-            $insertStmt->execute([
+            $params = [
                 'slug' => $permiso['slug'],
                 'nombre' => $permiso['nombre'],
                 'modulo' => $permiso['modulo'],
                 'slug_check' => $permiso['slug'],
-            ]);
+            ];
+
+            if ($usaCreatedBy && $idUsuarioAuditoria !== null) {
+                $params['created_by'] = $idUsuarioAuditoria;
+            }
+
+            $insertStmt->execute($params);
         }
+    }
+
+    private function resolverUsuarioAuditoriaId(): ?int
+    {
+        $idSesion = (int) ($_SESSION['id'] ?? 0);
+        if ($idSesion > 0) {
+            $stmtSesion = $this->db()->prepare('SELECT id FROM usuarios WHERE id = :id LIMIT 1');
+            $stmtSesion->execute(['id' => $idSesion]);
+            $idValido = $stmtSesion->fetchColumn();
+
+            if ($idValido !== false) {
+                return (int) $idValido;
+            }
+        }
+
+        $stmtFallback = $this->db()->query('SELECT id FROM usuarios ORDER BY id ASC LIMIT 1');
+        $idFallback = $stmtFallback ? $stmtFallback->fetchColumn() : false;
+
+        return $idFallback !== false ? (int) $idFallback : null;
     }
 }
