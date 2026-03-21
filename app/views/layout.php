@@ -222,9 +222,9 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
 <?php if (!empty($flash['texto']) && empty($flash['custom_js_handled'])): ?>
 <script>
 Swal.fire({
-    icon: '<?php echo e($flash['tipo'] === 'error' ? 'error' : 'success'); ?>',
-    title: '<?php echo e($flash['tipo'] === 'error' ? 'Error' : 'Éxito'); ?>',
-    text: '<?php echo e($flash['texto']); ?>',
+    icon: <?php echo json_encode($flash['tipo'] === 'error' ? 'error' : 'success'); ?>,
+    title: <?php echo json_encode($flash['tipo'] === 'error' ? 'Error' : 'Éxito'); ?>,
+    text: <?php echo json_encode((string) $flash['texto']); ?>,
     confirmButtonText: 'Aceptar'
 });
 </script>
