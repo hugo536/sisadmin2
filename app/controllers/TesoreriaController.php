@@ -272,17 +272,30 @@ class TesoreriaController extends Controlador
 
         $busqueda = trim((string) ($_GET['q'] ?? ''));
         
-        $sql = "SELECT id, sku, nombre, precio_venta, unidad_base
-                FROM items
-                WHERE estado = 1 AND deleted_at IS NULL";
+        $sql = "SELECT i.id,
+                       i.sku,
+                       i.nombre,
+                       i.descripcion,
+                       i.precio_venta,
+                       i.unidad_base
+                FROM items i
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL";
 
         $params = [];
         if ($busqueda !== '') {
-            $sql .= ' AND (nombre LIKE :q OR sku LIKE :q)';
+            $sql .= ' AND (
+                        i.nombre LIKE :q
+                        OR i.sku LIKE :q
+                        OR COALESCE(i.descripcion, \'\') LIKE :q
+                        OR COALESCE(i.marca, \'\') LIKE :q
+                        OR COALESCE(i.unidad_base, \'\') LIKE :q
+                        OR COALESCE(i.tipo_item, \'\') LIKE :q
+                      )';
             $params['q'] = '%' . $busqueda . '%';
         }
 
-        $sql .= ' ORDER BY nombre ASC LIMIT 30';
+        $sql .= ' ORDER BY i.nombre ASC LIMIT 30';
         $stmt = Conexion::get()->prepare($sql);
         $stmt->execute($params);
 

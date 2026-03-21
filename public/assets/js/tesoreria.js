@@ -742,7 +742,7 @@ window.initTesoreria = function() {
             tsItems = new TomSelect(itemsSelectEl, {
                 valueField: 'id',
                 labelField: 'nombre',
-                searchField: ['nombre', 'sku'],
+                searchField: ['nombre', 'sku', 'descripcion'],
                 placeholder: '🔍 Busque un producto por nombre o código...',
                 controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
                 
