@@ -68,62 +68,119 @@ class ItemModel extends Modelo
      * Lista los registros paginados y filtrados (Server-Side Pagination)
      */
     public function listar(int $offset = 0, int $limite = 20, array $filtros = []): array
-{
-    $filtrosData = $this->construirFiltrosBusqueda($filtros);
-    $whereSql = $filtrosData['where'];
-    $params = $filtrosData['params'];
+    {
+        $filtrosData = $this->construirFiltrosBusqueda($filtros);
+        $whereSql = $filtrosData['where'];
+        $params = $filtrosData['params'];
 
-    // Se asume que las tablas de recetas existen según el diseño del sistema
-    $bomPendienteSql = "CASE
-                           WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
-                               SELECT 1
-                               FROM produccion_recetas r
-                               INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
-                               WHERE r.id_producto = i.id
-                                 AND r.deleted_at IS NULL
-                           ) THEN 1
-                           ELSE 0
-                       END AS bom_pendiente";
+        // Se asume que las tablas de recetas existen según el diseño del sistema
+        $bomPendienteSql = "CASE
+                               WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
+                                   SELECT 1
+                                   FROM produccion_recetas r
+                                   INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                                   WHERE r.id_producto = i.id
+                                     AND r.deleted_at IS NULL
+                               ) THEN 1
+                               ELSE 0
+                           END AS bom_pendiente";
 
-    // NUEVO: Subconsulta para traer la primera imagen asociada al ítem
-    $imagenSql = "(
-        SELECT ruta_archivo 
-        FROM item_documentos 
-        WHERE id_item = i.id 
-          AND extension IN ('jpg', 'jpeg', 'png', 'webp', 'gif') 
-          AND estado = 1 
-        ORDER BY created_at ASC 
-        LIMIT 1
-    ) AS imagen_principal";
+        // Subconsulta para traer la primera imagen asociada al ítem
+        $imagenSql = "(
+            SELECT ruta_archivo 
+            FROM item_documentos 
+            WHERE id_item = i.id 
+              AND extension IN ('jpg', 'jpeg', 'png', 'webp', 'gif') 
+              AND estado = 1 
+            ORDER BY created_at ASC 
+            LIMIT 1
+        ) AS imagen_principal";
 
-    $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
-                   i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
-                   i.unidad_base, i.peso_kg, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
-                   i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
-                   i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
-                   i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
-                   {$bomPendienteSql},
-                   {$imagenSql} /* <--- NUEVA LÍNEA */
-            FROM items i
-            WHERE {$whereSql}
-            ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
-            LIMIT " . (int)$limite . " OFFSET " . (int)$offset;
+        $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
+                       i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
+                       i.unidad_base, i.peso_kg, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                       i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
+                       i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
+                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
+                       {$bomPendienteSql},
+                       {$imagenSql}
+                FROM items i
+                WHERE {$whereSql}
+                ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
+                LIMIT " . (int)$limite . " OFFSET " . (int)$offset;
 
-    $stmt = $this->db()->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agregamos la lógica de bloqueo de eliminación a cada fila obtenida
-    foreach ($rows as &$row) {
-        $id = (int) ($row['id'] ?? 0);
-        $bloqueo = $this->obtenerBloqueoEliminacion($id);
-        $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
-        $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+        // Agregamos la lógica de bloqueo de eliminación a cada fila obtenida
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id'] ?? 0);
+            $bloqueo = $this->obtenerBloqueoEliminacion($id);
+            $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
+            $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+        }
+        unset($row);
+
+        return $rows;
     }
-    unset($row);
 
-    return $rows;
-}
+    /**
+     * NUEVO: Lista todos los registros sin paginación (Para Client-Side DataTable)
+     */
+    public function listarTodos(array $filtros = []): array
+    {
+        $filtrosData = $this->construirFiltrosBusqueda($filtros);
+        $whereSql = $filtrosData['where'];
+        $params = $filtrosData['params'];
+
+        $bomPendienteSql = "CASE
+                               WHEN i.requiere_formula_bom = 1 AND NOT EXISTS (
+                                   SELECT 1
+                                   FROM produccion_recetas r
+                                   INNER JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                                   WHERE r.id_producto = i.id
+                                     AND r.deleted_at IS NULL
+                               ) THEN 1
+                               ELSE 0
+                           END AS bom_pendiente";
+
+        $imagenSql = "(
+            SELECT ruta_archivo 
+            FROM item_documentos 
+            WHERE id_item = i.id 
+              AND extension IN ('jpg', 'jpeg', 'png', 'webp', 'gif') 
+              AND estado = 1 
+            ORDER BY created_at ASC 
+            LIMIT 1
+        ) AS imagen_principal";
+
+        $sql = "SELECT i.id, i.sku, i.nombre, i.descripcion, i.tipo_item, i.id_rubro, i.id_categoria,
+                       i.id_marca, i.id_sabor, i.id_presentacion, i.marca,
+                       i.unidad_base, i.peso_kg, i.permite_decimales, i.requiere_lote, i.requiere_vencimiento,
+                       i.dias_alerta_vencimiento, i.controla_stock, i.requiere_formula_bom,
+                       i.requiere_factor_conversion, i.es_envase_retornable, i.stock_minimo, i.precio_venta,
+                       i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
+                       {$bomPendienteSql},
+                       {$imagenSql}
+                FROM items i
+                WHERE {$whereSql}
+                ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id'] ?? 0);
+            $bloqueo = $this->obtenerBloqueoEliminacion($id);
+            $row['puede_eliminar'] = $bloqueo['puede_eliminar'] ? 1 : 0;
+            $row['motivo_no_eliminar'] = $bloqueo['motivo'];
+        }
+        unset($row);
+
+        return $rows;
+    }
 
     /**
      * Genera la respuesta para el endpoint AJAX del datatable
@@ -138,9 +195,6 @@ class ItemModel extends Modelo
         $items = $this->listar($offset, $limite, $filtros);
         $totalFiltrado = $this->contar($filtros);
         
-        // Opcional: Total absoluto sin filtros (a veces requerido por librerías como DataTables)
-        // $totalAbsoluto = $this->contar([]); 
-
         $data = array_map(static function (array $item): array {
             return [
                 'id' => (int) $item['id'],
@@ -170,16 +224,16 @@ class ItemModel extends Modelo
                 'moneda' => (string) ($item['moneda'] ?? ''),
                 'impuesto' => (float) ($item['impuesto'] ?? 0),
                 'estado' => (int) ($item['estado'] ?? 1),
-                'bom_pendiente' => (int) ($item['bom_pendiente'] ?? 0), // Necesario para la UI
-                'puede_eliminar' => (int) ($item['puede_eliminar'] ?? 1), // Necesario para la UI
-                'motivo_no_eliminar' => (string) ($item['motivo_no_eliminar'] ?? ''), // Necesario para la UI
+                'bom_pendiente' => (int) ($item['bom_pendiente'] ?? 0),
+                'puede_eliminar' => (int) ($item['puede_eliminar'] ?? 1),
+                'motivo_no_eliminar' => (string) ($item['motivo_no_eliminar'] ?? ''),
             ];
         }, $items);
 
         return [
             'data' => $data,
             'recordsFiltered' => $totalFiltrado,
-            'recordsTotal' => $totalFiltrado, // Por ahora enviamos el mismo, ajusta si usas DataTables puro
+            'recordsTotal' => $totalFiltrado,
             'paginaActual' => $pagina,
             'limite' => $limite
         ];

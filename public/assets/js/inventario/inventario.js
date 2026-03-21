@@ -175,13 +175,14 @@
 
   async function esperarTomSelect(maxIntentos = 30, esperaMs = 150) {
     for (let i = 0; i < maxIntentos; i += 1) {
-      if (typeof TomSelect !== 'undefined') return true;
+      if (typeof window.TomSelect !== 'undefined') return true;
       await new Promise((resolve) => setTimeout(resolve, esperaMs));
     }
     return false;
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  // --- INICIALIZACIÓN PRINCIPAL SPA COMPATIBLE ---
+  async function initInventarioApp() {
     const tomSelectListo = await esperarTomSelect();
     if (!tomSelectListo) {
       console.warn('TomSelect no se pudo cargar en Inventario. Se mantendrán selects nativos.');
@@ -194,13 +195,13 @@
         dropdownParent: 'body'
     };
 
-    if (tipo && tomSelectListo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
-    if (almacen && tomSelectListo) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
-    if (almacenDestino && tomSelectListo) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
-    if (motivo && tomSelectListo) {
+    if (tipo && tomSelectListo && !tomSelectTipo) tomSelectTipo = new TomSelect('#tipoMovimiento', tsConfig);
+    if (almacen && tomSelectListo && !tomSelectAlmacen) tomSelectAlmacen = new TomSelect('#almacenMovimiento', tsConfig);
+    if (almacenDestino && tomSelectListo && !tomSelectAlmacenDestino) tomSelectAlmacenDestino = new TomSelect('#almacenDestinoMovimiento', tsConfig);
+    if (motivo && tomSelectListo && !tomSelectMotivo) {
       tomSelectMotivo = new TomSelect('#motivoMovimiento', { ...tsConfig, placeholder: 'Seleccione motivo...' });
     }
-    if (centroCosto && tomSelectListo) {
+    if (centroCosto && tomSelectListo && !tomSelectCentroCosto) {
       tomSelectCentroCosto = new TomSelect('#centroCostoMovimiento', { ...tsConfig, placeholder: 'Seleccione centro de costos...' });
     }
 
@@ -210,11 +211,11 @@
     if (almacenDestino) {
       almacenesBase.destino = Array.from(almacenDestino.options).map((opt) => ({ value: opt.value, text: opt.textContent }));
     }
-    if (proveedor && tomSelectListo) {
+    if (proveedor && tomSelectListo && !tomSelectProveedor) {
         tomSelectProveedor = new TomSelect('#proveedorMovimiento', { ...tsConfig, placeholder: 'Buscar proveedor...' });
     }
 
-    if (selectItem && tomSelectListo) {
+    if (selectItem && tomSelectListo && !tomSelectItem) {
         tomSelectItem = new TomSelect('#itemMovimiento', {
             valueField: 'value',
             labelField: 'nombre',
@@ -291,7 +292,10 @@
 
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
-  });
+  }
+
+  // Llamamos a la inicialización Inmediatamente (Compatible con SPA fetch)
+  initInventarioApp();
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
   function normalizarTexto(valor) {
@@ -299,8 +303,8 @@
   }
 
   function initTablaStock() {
-    if (!tablaStock || typeof ERPTable === 'undefined' || !ERPTable.createTableManager) return;
-    stockTableManager = ERPTable.createTableManager({
+    if (!tablaStock || typeof window.ERPTable === 'undefined' || !window.ERPTable.createTableManager) return;
+    stockTableManager = window.ERPTable.createTableManager({
       tableSelector: tablaStock,
       rowsSelector: 'tbody tr[data-search]',
       searchInput: '#inventarioSearch',
@@ -415,7 +419,6 @@
         }
     }
 
-    // MEJORA 1: Habilitar costo manual para INI y AJ+ (Para no arruinar el Costo Promedio)
     const habilitarCostoManual = ['INI', 'AJ+'].includes(tipoVal);
     if (grupoCostoUnitario) grupoCostoUnitario.classList.toggle('d-none', !habilitarCostoManual);
     if (costoUnitarioInput) {
@@ -446,7 +449,6 @@
         }
     }
 
-    // MEJORA 2: Exigir Centro de Costo en Consumos y Ajustes Negativos (Mermas/Pérdidas)
     const requiereCentroCosto = ['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'].includes(tipoVal);
     if (grupoCentroCosto) {
         grupoCentroCosto.classList.toggle('d-none', !requiereCentroCosto);
@@ -458,7 +460,6 @@
         }
     }
 
-    // REGLA: Bloqueo de "Cantidad a Mover"
     const tieneItemSeleccionado = itemData && itemData.id > 0;
     if (cantidadInput) {
         cantidadInput.disabled = !tieneItemSeleccionado;
@@ -648,7 +649,6 @@
     if (almacen) {
         almacen.addEventListener('change', () => {
             if (tomSelectItem) {
-              // Mantener ítem seleccionado al cambiar almacén.
               if (almacen.value) {
                   tomSelectItem.enable();
               } else {
@@ -673,7 +673,7 @@
     if (almacenDestino) {
       almacenDestino.addEventListener('change', () => {
         if ((tipo && tipo.value) === 'TRF' && almacen && String(almacen.value) === String(almacenDestino.value)) {
-          Swal.fire({ icon: 'warning', title: 'Destino inválido', text: 'El almacén destino no puede ser igual al origen.' });
+          window.Swal.fire({ icon: 'warning', title: 'Destino inválido', text: 'El almacén destino no puede ser igual al origen.' });
           if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
         }
       });
@@ -712,7 +712,6 @@
       actualizarUIModal();
     }
 
-    // --- APLICADO: USO DE LA LIBRERÍA DE ICONOS AQUÍ ---
     function renderLineasMovimiento() {
       if (!movimientosDetalleBody) return;
 
@@ -728,7 +727,6 @@
       lineasMovimiento.forEach((linea, idx) => {
         const tr = document.createElement('tr');
         
-        // Usamos IconosAccion.crear pasándole la clase eliminar, el ID (que en este caso es el índice), clases extra, y el data-remove-index necesario para tu script
         const botonEliminarHTML = window.IconosAccion ? 
             window.IconosAccion.crear('eliminar', idx, '', `data-remove-index="${idx}"`) : 
             `<button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}"><i class="bi bi-trash"></i></button>`;
@@ -772,33 +770,33 @@
       const cantidadBaseVal = cantidadVal * factorUnidad;
 
       if (!tipoVal) {
-        Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento antes de agregar líneas.' });
+        window.Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento antes de agregar líneas.' });
         return;
       }
 
       if (idRegistroVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem válido.' });
+        window.Swal.fire({ icon: 'warning', title: 'Ítem inválido', text: 'Selecciona un ítem válido.' });
         return;
       }
 
       const idAlmacenVal = Number((almacen && almacen.value) || '0');
       if (idAlmacenVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen antes de agregar ítems.' });
+        window.Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen antes de agregar ítems.' });
         return;
       }
 
       if (tipoVal === 'INI') {
         if (cantidadVal < 0) {
-          Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Para INI la cantidad debe ser mayor o igual a 0.' });
+          window.Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Para INI la cantidad debe ser mayor o igual a 0.' });
           return;
         }
       } else if (cantidadVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0.' });
+        window.Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0.' });
         return;
       }
 
       if (lineasMovimiento.length >= 100) {
-        Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Solo se permiten hasta 100 líneas por operación.' });
+        window.Swal.fire({ icon: 'warning', title: 'Límite alcanzado', text: 'Solo se permiten hasta 100 líneas por operación.' });
         return;
       }
 
@@ -812,7 +810,7 @@
 
       const itemData = obtenerDataDelItem();
       if (itemData && itemData.requiereLote && loteFinalEnviar.value.trim() === '') {
-        Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
+        window.Swal.fire({ icon: 'warning', title: 'Falta Lote', text: 'Este producto requiere un número de lote.' });
         return;
       }
 
@@ -824,7 +822,7 @@
       });
 
       if (existeDuplicado) {
-        Swal.fire({
+        window.Swal.fire({
           icon: 'warning',
           title: 'Ítem duplicado',
           text: 'Este producto ya fue agregado a la operación. Edite la cantidad o elimine la línea existente.'
@@ -845,7 +843,7 @@
         const cantidadSolicitada = cantidadAcumulada + cantidadBaseVal;
 
         if (cantidadSolicitada > stockDisponible) {
-          Swal.fire({
+          window.Swal.fire({
             icon: 'error',
             title: 'Stock insuficiente',
             text: `No puedes mover ${cantidadSolicitada.toFixed(4)}. Stock disponible: ${stockDisponible.toFixed(4)}.`
@@ -895,6 +893,13 @@
     }
 
     if (modalEl) {
+        modalEl.addEventListener('show.bs.modal', () => {
+            actualizarUIModal();
+            actualizarBloqueoCabecera();
+            limpiarUnidadesTransferencia(); 
+            if (stockHint) stockHint.textContent = '';
+        });
+
         modalEl.addEventListener('hidden.bs.modal', () => {
             form.reset();
             if (tomSelectTipo) tomSelectTipo.clear();
@@ -906,7 +911,7 @@
             if (tomSelectItem) {
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
-                tomSelectItem.disable(); // Lo bloquea al limpiar el modal
+                tomSelectItem.disable(); 
             }
             
             if (itemIdInput) itemIdInput.value = '0';
@@ -948,41 +953,41 @@
       const idCentroCostoVal = Number((centroCosto && centroCosto.value) || '0');
 
       if (!tipoVal) {
-        Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento.' });
+        window.Swal.fire({ icon: 'warning', title: 'Tipo requerido', text: 'Seleccione el tipo de movimiento.' });
         return;
       }
 
       if (idAlmacenVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen/destino principal.' });
+        window.Swal.fire({ icon: 'warning', title: 'Almacén requerido', text: 'Seleccione el almacén origen/destino principal.' });
         return;
       }
 
       if (tipoVal === 'TRF' && idAlmacenDestinoVal <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Destino requerido', text: 'Seleccione el almacén destino para transferencias.' });
+        window.Swal.fire({ icon: 'warning', title: 'Destino requerido', text: 'Seleccione el almacén destino para transferencias.' });
         return;
       }
 
       if (tipoVal === 'TRF' && almacen && almacenDestino && String(almacen.value) === String(almacenDestino.value)) {
-        Swal.fire({ icon: 'warning', title: 'Almacenes inválidos', text: 'El almacén origen y destino deben ser diferentes.' });
+        window.Swal.fire({ icon: 'warning', title: 'Almacenes inválidos', text: 'El almacén origen y destino deben ser diferentes.' });
         return;
       }
 
       if (['AJ+', 'AJ-', 'CON', 'SALIDA_MERMA_PLANTA'].includes(tipoVal) && motivoVal === '') {
-        Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
+        window.Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Seleccione el motivo del movimiento.' });
         return;
       }
 
       if (['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'].includes(tipoVal) && idCentroCostoVal <= 0) {
-          Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá esta salida o pérdida.' });
+          window.Swal.fire({ icon: 'warning', title: 'Centro de Costos', text: 'Debe asignar a qué Centro de Costos irá esta salida o pérdida.' });
           return;
       }
 
       if (lineasMovimiento.length === 0) {
-        Swal.fire({ icon: 'warning', title: 'Sin líneas', text: 'Agrega al menos un ítem a la operación antes de guardar.' });
+        window.Swal.fire({ icon: 'warning', title: 'Sin líneas', text: 'Agrega al menos un ítem a la operación antes de guardar.' });
         return;
       }
 
-      const confirmacion = await Swal.fire({
+      const confirmacion = await window.Swal.fire({
         icon: 'question',
         title: '¿Confirmar operación masiva?',
         text: `Se registrarán ${lineasMovimiento.length} línea(s) de inventario en modo atómico.`,
@@ -1030,18 +1035,20 @@
           throw new Error((result && result.mensaje) || 'Error al guardar.');
         }
 
-        await Swal.fire({
+        await window.Swal.fire({
           icon: 'success',
           title: 'Operación registrada',
           text: `Se registraron ${Array.isArray(result.ids) ? result.ids.length : 0} movimientos.`,
         });
 
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        const modalInstance = window.bootstrap.Modal.getInstance(modalEl);
         if (modalInstance) modalInstance.hide();
-        window.location.reload();
+        
+        // Dado que usas SPA, mejor recargar suave
+        navigateWithoutReload(new URL(window.location.href), false);
 
       } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Error', text: error.message });
+        window.Swal.fire({ icon: 'error', title: 'Error', text: error.message });
       }
     });
 
@@ -1079,17 +1086,17 @@
             throw new Error((json && json.mensaje) || 'No se pudo registrar el retorno de planta.');
           }
 
-          await Swal.fire({
+          await window.Swal.fire({
             icon: 'success',
             title: 'Retorno registrado',
             text: `Devolución: ${Number(json?.data?.cantidad_devolucion || 0).toFixed(4)} | Merma: ${Number(json?.data?.cantidad_merma || 0).toFixed(4)}`
           });
 
-          const inst = modalRetornoEl && bootstrap.Modal.getInstance(modalRetornoEl);
+          const inst = modalRetornoEl && window.bootstrap.Modal.getInstance(modalRetornoEl);
           if (inst) inst.hide();
-          window.location.reload();
+          navigateWithoutReload(new URL(window.location.href), false);
         } catch (error) {
-          Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error de conexión.' });
+          window.Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error de conexión.' });
         }
       });
 
@@ -1102,6 +1109,6 @@
 
       pintarMerma();
     }
-
   }
+
 })();

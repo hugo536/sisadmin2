@@ -1,71 +1,77 @@
 <?php
 /**
- * SCRIPT DE DEPURACIÓN: Cálculo de Depreciación Activos Fijos
+ * 🔍 SCRIPT DE DEPURACIÓN PROFUNDA: Módulo de Ítems
  */
 declare(strict_types=1);
 
-echo "<div style='font-family: sans-serif; padding: 20px;'>";
-echo "<h2>🔍 SCRIPT DE DEPURACIÓN: Matemática de Depreciación</h2>";
+// Configuramos errores al máximo para que nada se escape
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
 
-// --- 1. SIMULAMOS LO QUE EL USUARIO ESCRIBE EN EL FORMULARIO ---
-// Puedes cambiar estos valores para probar diferentes escenarios
-$datos_simulados = [
-    'fecha_adquisicion' => '2021-01-15', // Hace un par de años
-    'costo_adquisicion' => 12000,
-    'valor_residual'    => 2000,
-    'vida_util_meses'   => 60 // 5 años
-];
+// Subimos un nivel porque check.php está dentro de /public
+define('BASE_PATH', dirname(__DIR__));
 
-echo "<table border='1' cellpadding='8' style='border-collapse: collapse; background: #f9f9f9;'>";
-echo "<tr style='background: #ddd;'><th>Campo del Formulario</th><th>Valor Simulado</th></tr>";
-foreach ($datos_simulados as $k => $v) {
-    echo "<tr><td>$k</td><td><b>$v</b></td></tr>";
-}
-echo "</table><br>";
+echo "<div style='font-family: system-ui, sans-serif; padding: 30px; background: #0d1117; color: #c9d1d9; border-radius: 8px;'>";
+echo "<h1 style='color: #58a6ff;'>🔬 CHECK.PHP - Laboratorio de Pruebas de Ítems</h1>";
+echo "<hr style='border-color: #30363d;'>";
 
 try {
-    // --- 2. EL CÁLCULO EXACTO DE TU MODELO ---
-    $fechaAdq = new DateTime($datos_simulados['fecha_adquisicion']);
-    $hoy = new DateTime();
-    $mesesPasados = 0;
-    $vida_util = max(1, (int)$datos_simulados['vida_util_meses']);
-    
-    echo "<p><b>▶ Paso 1:</b> Fechas reconocidas. Hoy es <b>" . $hoy->format('Y-m-d') . "</b></p>";
+    // --- PRUEBA 1: Carga de dependencias ---
+    echo "<h3 style='color: #ff7b72;'>▶ Prueba 1: Carga de Archivos Base</h3>";
+    $archivos_necesarios = [
+        BASE_PATH . '/app/config/config.php', // Ajusta si tu config se llama diferente
+        BASE_PATH . '/app/core/Database.php', // Ajusta si tu DB está en otra ruta
+        BASE_PATH . '/app/core/Modelo.php',
+        BASE_PATH . '/app/models/items/ItemModel.php'
+    ];
 
-    if ($fechaAdq < $hoy) {
-        $diff = $fechaAdq->diff($hoy);
-        // Multiplicamos los años por 12 y sumamos los meses
-        $mesesPasados = ($diff->y * 12) + $diff->m;
-        echo "<p><b>▶ Paso 2:</b> Diferencia real calculada: {$diff->y} años y {$diff->m} meses (Total: <b>$mesesPasados meses pasados</b>).</p>";
+    foreach ($archivos_necesarios as $archivo) {
+        if (file_exists($archivo)) {
+            require_once $archivo;
+            echo "<p style='color: #3fb950; margin: 2px 0;'>✅ Archivo encontrado: " . basename($archivo) . "</p>";
+        } else {
+            echo "<p style='color: #d2a8ff; margin: 2px 0;'>⚠️ Archivo no encontrado (Puede ser normal si se autocarga): " . basename($archivo) . "</p>";
+        }
+    }
+
+    // --- PRUEBA 2: Instanciar Modelo ---
+    echo "<h3 style='color: #ff7b72; margin-top: 20px;'>▶ Prueba 2: Instanciar ItemModel</h3>";
+    if (!class_exists('ItemModel')) {
+        throw new Exception("La clase ItemModel no existe. Falla el autoload o el require.");
+    }
+    $modelo = new ItemModel();
+    echo "<p style='color: #3fb950;'>✅ Modelo instanciado correctamente.</p>";
+
+    // --- PRUEBA 3: Testeando la función listarTodos() ---
+    echo "<h3 style='color: #ff7b72; margin-top: 20px;'>▶ Prueba 3: Ejecutando listarTodos() (Tabla Estática)</h3>";
+    $items = $modelo->listarTodos();
+    
+    $total_items = count($items);
+    if ($total_items > 0) {
+        echo "<p style='color: #3fb950;'>✅ Éxito: La base de datos devolvió <b>$total_items</b> ítems.</p>";
+        echo "<p>Mostrando la estructura del primer ítem para verificar:</p>";
+        echo "<pre style='background: #161b22; padding: 15px; border-radius: 5px; color: #a5d6ff; overflow-x: auto;'>";
+        print_r($items[0]);
+        echo "</pre>";
     } else {
-        echo "<p><b>▶ Paso 2:</b> El activo se compró hoy o en el futuro. Meses = 0.</p>";
+        echo "<p style='color: #f85149;'>⚠️ Advertencia: La consulta funcionó, pero devolvió 0 ítems. ¿La tabla está vacía?</p>";
     }
 
-    if ($mesesPasados > $vida_util) {
-        echo "<p style='color:orange;'><b>⚠️ Aviso:</b> El activo ya superó su vida útil ($mesesPasados > $vida_util). Se limitará el cálculo a $vida_util meses.</p>";
-        $mesesPasados = $vida_util;
-    }
+    // --- PRUEBA 4: Testeando el antiguo datatable() ---
+    echo "<h3 style='color: #ff7b72; margin-top: 20px;'>▶ Prueba 4: Ejecutando datatable() (El método viejo)</h3>";
+    $dt = $modelo->datatable(1, 10, []);
+    echo "<p style='color: #3fb950;'>✅ El datatable no está roto. Devolvió recordsFiltered: <b>" . $dt['recordsFiltered'] . "</b></p>";
 
-    $costo = round((float)$datos_simulados['costo_adquisicion'], 4);
-    $residual = round((float)$datos_simulados['valor_residual'], 4);
-    $base = max(0, $costo - $residual);
-    
-    echo "<p><b>▶ Paso 3:</b> Base depreciable (Costo $costo - Residual $residual) = <b>$base</b></p>";
+    echo "<hr style='border-color: #30363d; margin-top: 30px;'>";
+    echo "<h2 style='color: #3fb950;'>🚀 CONCLUSIÓN DEL BACKEND</h2>";
+    echo "<p>Si ves datos arriba y ningún error fatal rojo, significa que <b>tu PHP y tu Base de Datos están trabajando de manera impecable</b>.</p>";
 
-    // Depreciación por mes * meses pasados
-    $dep_mensual = $base / $vida_util;
-    $dep_acumulada = round($dep_mensual * $mesesPasados, 4);
-    
-    echo "<p><b>▶ Paso 4:</b> Fórmula final -> (Base $base / Vida $vida_util) * $mesesPasados meses = <b>$dep_acumulada</b></p>";
-
-    $valorLibros = max((float)$residual, $costo - $dep_acumulada);
-
-    echo "<hr>";
-    echo "<h2 style='color:green;'>✅ RESULTADO FINAL (LO QUE SE GUARDARÍA EN LA BD)</h2>";
-    echo "<h3>💰 Dep. Acumulada: $ " . number_format($dep_acumulada, 4) . "</h3>";
-    echo "<h3>📘 Valor en Libros: $ " . number_format($valorLibros, 4) . "</h3>";
-
-} catch (Exception $e) {
-    echo "<h2 style='color:red;'>❌ ERROR FATAL DE PHP: " . $e->getMessage() . "</h2>";
+} catch (Throwable $e) {
+    echo "<hr style='border-color: #30363d; margin-top: 30px;'>";
+    echo "<h2 style='color: #f85149;'>❌ ERROR FATAL DETECTADO</h2>";
+    echo "<p><b>Mensaje:</b> " . $e->getMessage() . "</p>";
+    echo "<p><b>Archivo:</b> " . $e->getFile() . " (Línea " . $e->getLine() . ")</p>";
+    echo "<b>Trace:</b><pre style='background: #161b22; padding: 15px; color: #ff7b72;'>" . $e->getTraceAsString() . "</pre>";
 }
+
 echo "</div>";

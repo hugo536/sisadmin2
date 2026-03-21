@@ -59,6 +59,7 @@ class ItemController extends Controlador
             return;
         }
 
+        // Ya no usamos datatable por ajax, pero lo dejamos por si otras vistas lo usan
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'datatable') {
             $pagina = (int) ($_GET['pagina'] ?? 1);
             $limite = (int) ($_GET['limite'] ?? 20);
@@ -403,6 +404,9 @@ class ItemController extends Controlador
         }
 
         $this->render('items/index', [
+            // ESTA ES LA LÍNEA QUE FALTABA
+            'items' => $this->itemsModel->listarTodos(),
+
             'rubros' => $this->rubroModel->listarRubrosActivos(),
             'rubros_gestion' => $this->rubroModel->listarRubros(),
             'categorias' => $this->categoriaModel->listarCategoriasActivas(),

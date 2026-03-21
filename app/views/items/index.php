@@ -135,6 +135,7 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
+                <!-- Se agregó el ID "itemsTable" para que renderizadores.js lo encuentre -->
                 <table class="table align-middle mb-0 table-pro table-hover" id="itemsTable"
                        data-erp-table="true"
                        data-rows-selector="#itemsTableBody tr:not(.empty-msg-row)"
@@ -142,8 +143,6 @@ $tipoItemLabel = static function (string $tipo): string {
                        data-empty-text="No se encontraron ítems"
                        data-info-text-template="Mostrando {start} a {end} de {total} ítems"
                        data-erp-filters='[{"el":"#itemFiltroCategoria","attr":"data-categoria","match":"equals"},{"el":"#itemFiltroTipo","attr":"data-tipo","match":"equals"},{"el":"#itemFiltroEstado","attr":"data-estado","match":"equals"}]'
-                       data-refresh-on-update="true"
-                       data-manager-global="itemsTableManager"
                        data-pagination-controls="#itemsPaginationControls"
                        data-pagination-info="#itemsPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
@@ -158,20 +157,132 @@ $tipoItemLabel = static function (string $tipo): string {
                         </tr>
                     </thead>
                     <tbody id="itemsTableBody">
-                        <tr class="empty-msg-row">
-                            <td colspan="7" class="text-center text-muted py-5">
-                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                                Cargando ítems...
-                            </td>
-                        </tr>
+                        <?php if (empty($items)): ?>
+                            <tr class="empty-msg-row">
+                                <td colspan="7" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay ítems registrados.
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($items as $item): ?>
+                                <?php
+                                $id = (int) ($item['id'] ?? 0);
+                                $sku = (string) ($item['sku'] ?? '');
+                                $nombre = (string) ($item['nombre'] ?? '');
+                                $descripcion = (string) ($item['descripcion'] ?? '');
+                                $tipo = (string) ($item['tipo_item'] ?? '');
+                                $idCategoria = (int) ($item['id_categoria'] ?? 0);
+                                $estado = (int) ($item['estado'] ?? 0);
+                                $isActivo = $estado === 1;
+                                $catNombre = $categoriasPorId[$idCategoria] ?? 'Sin categoría';
+                                $tipoLabelUi = $tipoItemLabel($tipo);
+                                
+                                // Construir el texto de búsqueda (esto es VITAL para el buscador estático)
+                                $searchStr = strtolower(trim($sku . ' ' . $nombre . ' ' . $descripcion));
+                                
+                                // Lógica visual de la imagen
+                                $imagen = (string) ($item['imagen_principal'] ?? '');
+                                $imgHtml = $imagen !== '' 
+                                    ? '<img src="/' . e($imagen) . '" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">'
+                                    : '<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>';
+                                
+                                // Lógica del icono BOM
+                                $bomIcon = ((int) ($item['bom_pendiente'] ?? 0) === 1) 
+                                    ? '<i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="Falta agregar una receta"></i>' 
+                                    : '';
+                                    
+                                // Lógica del botón eliminar
+                                $puedeEliminar = (int) ($item['puede_eliminar'] ?? 0) === 1;
+                                $motivoNoEliminar = (string) ($item['motivo_no_eliminar'] ?? '');
+                                ?>
+                                <tr data-search="<?php echo e($searchStr); ?>" 
+                                    data-categoria="<?php echo $idCategoria; ?>" 
+                                    data-tipo="<?php echo e($tipo); ?>" 
+                                    data-estado="<?php echo $estado; ?>"
+                                    data-id="<?php echo $id; ?>">
+                                    
+                                    <td class="ps-4 align-middle text-center"><?php echo $imgHtml; ?></td>
+                                    <td class="fw-semibold text-secondary"><?php echo e($sku); ?></td>
+                                    <td>
+                                        <div class="fw-bold text-dark d-inline-flex align-items-center gap-1">
+                                            <span><?php echo e($nombre); ?></span>
+                                            <?php echo $bomIcon; ?>
+                                        </div>
+                                        <div class="small text-muted"><?php echo e($descripcion); ?></div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border"><?php echo e($tipoLabelUi); ?></span></td>
+                                    <td><?php echo e($catNombre); ?></td>
+                                    <td class="text-center">
+                                        <span id="badge_status_item_<?php echo $id; ?>" class="badge rounded-pill <?php echo $isActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>">
+                                            <?php echo $isActivo ? 'Activo' : 'Inactivo'; ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex align-items-center justify-content-end gap-2">
+                                            <div class="form-check form-switch pt-1 m-0" data-bs-toggle="tooltip" title="Cambiar estado">
+                                                <input class="form-check-input switch-estado-item-dynamic" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" data-id="<?php echo $id; ?>" <?php echo $isActivo ? 'checked' : ''; ?>>
+                                            </div>
+                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+                                            
+                                            <div class="d-inline-flex gap-1">
+                                                <a href="?ruta=items/perfil&id=<?php echo $id; ?>" class="btn-icon text-info" data-bs-toggle="tooltip" title="Ver perfil y documentos">
+                                                    <i class="bi bi-person-badge"></i>
+                                                </a>
+
+                                                <button class="btn-icon btn-icon-primary" data-bs-toggle="modal" data-bs-target="#modalEditarItem"
+                                                    data-id="<?php echo $id; ?>"
+                                                    data-sku="<?php echo e($sku); ?>"
+                                                    data-nombre="<?php echo e($nombre); ?>"
+                                                    data-descripcion="<?php echo e($descripcion); ?>"
+                                                    data-tipo="<?php echo e($tipo); ?>"
+                                                    data-marca="<?php echo (int) ($item['id_marca'] ?? 0); ?>"
+                                                    data-unidad="<?php echo e((string) ($item['unidad_base'] ?? '')); ?>"
+                                                    data-moneda="<?php echo e((string) ($item['moneda'] ?? '')); ?>"
+                                                    data-impuesto="<?php echo (float) ($item['impuesto'] ?? 0); ?>"
+                                                    data-precio="<?php echo (float) ($item['precio_venta'] ?? 0); ?>"
+                                                    data-stock-minimo="<?php echo (float) ($item['stock_minimo'] ?? 0); ?>"
+                                                    data-costo="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>"
+                                                    data-peso-kg="<?php echo (float) ($item['peso_kg'] ?? 0); ?>"
+                                                    data-controla-stock="<?php echo (int) ($item['controla_stock'] ?? 0); ?>"
+                                                    data-permite-decimales="<?php echo (int) ($item['permite_decimales'] ?? 0); ?>"
+                                                    data-requiere-lote="<?php echo (int) ($item['requiere_lote'] ?? 0); ?>"
+                                                    data-requiere-vencimiento="<?php echo (int) ($item['requiere_vencimiento'] ?? 0); ?>"
+                                                    data-requiere-formula-bom="<?php echo (int) ($item['requiere_formula_bom'] ?? 0); ?>"
+                                                    data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>"
+                                                    data-es-envase-retornable="<?php echo (int) ($item['es_envase_retornable'] ?? 0); ?>"
+                                                    data-dias-alerta-vencimiento="<?php echo (int) ($item['dias_alerta_vencimiento'] ?? 0); ?>"
+                                                    data-rubro="<?php echo (int) ($item['id_rubro'] ?? 0); ?>"
+                                                    data-categoria="<?php echo $idCategoria; ?>"
+                                                    data-sabor="<?php echo (int) ($item['id_sabor'] ?? 0); ?>"
+                                                    data-presentacion="<?php echo (int) ($item['id_presentacion'] ?? 0); ?>"
+                                                    data-estado="<?php echo $estado; ?>" data-bs-toggle="tooltip" title="Editar">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+
+                                                <form method="post" class="d-inline m-0 p-0 form-eliminar-dinamico">
+                                                    <input type="hidden" name="accion" value="eliminar">
+                                                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo e((string) ($csrf_token ?? '')); ?>">
+                                                    <?php if ($puedeEliminar): ?>
+                                                        <button type="submit" class="btn-icon btn-icon-danger" data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash3"></i></button>
+                                                    <?php else: ?>
+                                                        <button type="button" class="btn-icon text-muted opacity-50" data-bs-toggle="tooltip" title="<?php echo e($motivoNoEliminar); ?>" disabled><i class="bi bi-trash3"></i></button>
+                                                    <?php endif; ?>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
             
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-0 px-4 py-3 border-top bg-white rounded-bottom">
-                <div class="small text-muted fw-medium" id="itemsPaginationInfo">Cargando información...</div>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center px-4">
+                <small class="text-muted fw-semibold" id="itemsPaginationInfo">Cargando...</small>
                 <nav aria-label="Paginación de ítems">
-                    <ul class="pagination pagination-sm mb-0 shadow-sm" id="itemsPaginationControls"></ul>
+                    <ul class="pagination mb-0 justify-content-end" id="itemsPaginationControls"></ul>
                 </nav>
             </div>
 
@@ -183,3 +294,5 @@ $tipoItemLabel = static function (string $tipo): string {
 <?php require BASE_PATH . '/app/views/items/partials/_modal_editar.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_unidades.php'; ?>
 <?php require BASE_PATH . '/app/views/items/partials/_modal_categorias.php'; ?>
+
+<script src="<?php echo e(asset_url('js/items/main.js')); ?>?v=<?php echo time(); ?>"></script>

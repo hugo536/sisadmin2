@@ -414,6 +414,6 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
         })
     });
 </script>
-
+<!-- Al final de inventario.php -->
 <script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
-<script src="<?php echo e(asset_url('js/inventario/inventario.js')); ?>"></script>
+<script src="<?php echo e(asset_url('js/inventario/inventario.js')); ?>?v=<?php echo time(); ?>"></script>
