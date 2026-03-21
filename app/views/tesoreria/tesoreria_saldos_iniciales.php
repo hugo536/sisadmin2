@@ -112,7 +112,7 @@ if ($error !== '') {
                         icon: '<?php echo $swalIcon; ?>',
                         title: '<?php echo $swalIcon === 'error' ? 'Error' : 'Éxito'; ?>',
                         text: '<?php echo $swalMessage; ?>',
-                        confirmButtonText: 'Entendido'
+                        confirmButtonText: 'Aceptar'
                     });
                 }
             });
@@ -293,6 +293,46 @@ if ($error !== '') {
             </div>
         </div>
     </form>
+</div>
+
+<div class="modal fade" id="modalEditarDetalleCompra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar detalle de compra</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formEditarDetalleCompra">
+                <div class="modal-body">
+                    <input type="hidden" id="detalleEditRowIndex">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="detalleEditFecha" class="form-label fw-bold small">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="detalleEditFecha" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="detalleEditCantidad" class="form-label fw-bold small">Cantidad <span class="text-danger">*</span></label>
+                            <input type="number" min="0.01" step="0.01" class="form-control text-end" id="detalleEditCantidad" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="detalleEditUnidad" class="form-label fw-bold small">Unidad de conversión</label>
+                            <select id="detalleEditUnidad" class="form-select"></select>
+                        </div>
+                        <div class="col-12">
+                            <label for="detalleEditSubtotal" class="form-label fw-bold small">Subtotal <span class="text-danger">*</span></label>
+                            <input type="number" min="0.00" step="0.01" class="form-control text-end" id="detalleEditSubtotal" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">
+                        <i class="bi bi-check2-circle me-1"></i>Guardar cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="modalPagoPrevio" tabindex="-1" aria-hidden="true">

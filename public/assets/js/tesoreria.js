@@ -854,6 +854,15 @@ window.initTesoreria = function() {
         const inputMontoSaldos = document.getElementById('saldoInicialMontoManual');
         const tbodyAmortizaciones = document.querySelector('#tablaAmortizaciones tbody');
         const filaVaciaAmortizaciones = document.getElementById('filaVaciaAmortizaciones');
+        const modalEditarDetalleEl = document.getElementById('modalEditarDetalleCompra');
+        const formEditarDetalleCompra = document.getElementById('formEditarDetalleCompra');
+        const detalleEditRowIndex = document.getElementById('detalleEditRowIndex');
+        const detalleEditFecha = document.getElementById('detalleEditFecha');
+        const detalleEditCantidad = document.getElementById('detalleEditCantidad');
+        const detalleEditUnidad = document.getElementById('detalleEditUnidad');
+        const detalleEditSubtotal = document.getElementById('detalleEditSubtotal');
+        let modalEditarDetalle = null;
+        let detalleRowEnEdicion = null;
 
         if (btnAgregarItemDetalle) {
             btnAgregarItemDetalle.addEventListener('click', async function() {
@@ -907,9 +916,11 @@ window.initTesoreria = function() {
             const unidadIdInicial = valoresIniciales.unidadId ? String(valoresIniciales.unidadId) : '';
 
             const tr = document.createElement('tr');
+            tr.classList.add('js-detalle-row');
             tr.innerHTML = `
                 <td data-label="Fecha">
-                    <input type="date" class="form-control form-control-sm" name="detalle_fecha[]" value="${fechaFila}" required>
+                    <input type="hidden" name="detalle_fecha[]" class="js-fecha" value="${fechaFila}">
+                    <span class="small fw-semibold js-fecha-label">${fechaFila}</span>
                 </td>
                 <td data-label="Ítem">
                     <input type="hidden" name="detalle_item_id[]" value="${item.id}">
@@ -917,17 +928,18 @@ window.initTesoreria = function() {
                     <span class="fw-bold text-dark small">${item.nombre}</span>
                 </td>
                 <td data-label="Cantidad">
-                    <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-end js-cant" min="0.01" step="0.01" value="${cantidadInicial.toFixed(2)}" required>
+                    <input type="hidden" name="detalle_cantidad[]" class="js-cant" value="${cantidadInicial.toFixed(2)}">
+                    <span class="small d-block text-end js-cant-label">${cantidadInicial.toFixed(2)}</span>
                 </td>
                 <td data-label="Unid. conversión">
-                    <select name="detalle_item_unidad_id[]" class="form-select form-select-sm js-unidad">
-                        ${opcionesUnidades}
-                    </select>
+                    <input type="hidden" name="detalle_item_unidad_id[]" class="js-unidad-id" value="">
+                    <span class="small d-block text-end js-unidad-label">Base</span>
                     <input type="hidden" name="detalle_item_unidad_nombre[]" class="js-unidad-nombre" value="">
                     <input type="hidden" name="detalle_item_unidad_factor[]" class="js-unidad-factor" value="1">
                 </td>
                 <td data-label="Subtotal">
-                    <input type="number" name="detalle_subtotal[]" class="form-control form-control-sm text-end js-subtotal-input" min="0" step="0.01" value="${subtotalInicial.toFixed(2)}" required>
+                    <input type="hidden" name="detalle_subtotal[]" class="js-subtotal-input" value="${subtotalInicial.toFixed(2)}">
+                    <span class="small d-block text-end js-subtotal-label">${subtotalInicial.toFixed(2)}</span>
                 </td>
                 <td class="text-center text-md-end">
                     <button type="button" class="btn btn-sm btn-outline-primary border-0 js-edit me-1"><i class="bi bi-pencil-square"></i></button>
@@ -939,9 +951,14 @@ window.initTesoreria = function() {
             
             const inCant = tr.querySelector('.js-cant');
             const inSub = tr.querySelector('.js-subtotal-input');
-            const selUnidad = tr.querySelector('.js-unidad');
+            const inFecha = tr.querySelector('.js-fecha');
+            const inUnidadId = tr.querySelector('.js-unidad-id');
             const inUnidadNombre = tr.querySelector('.js-unidad-nombre');
             const inUnidadFactor = tr.querySelector('.js-unidad-factor');
+            const labelFecha = tr.querySelector('.js-fecha-label');
+            const labelCant = tr.querySelector('.js-cant-label');
+            const labelSubtotal = tr.querySelector('.js-subtotal-label');
+            const labelUnidad = tr.querySelector('.js-unidad-label');
             const btnDel = tr.querySelector('.js-remove');
             const btnEdit = tr.querySelector('.js-edit');
 
@@ -949,27 +966,27 @@ window.initTesoreria = function() {
                 calcularSaldosReales();
             };
 
-            if (selUnidad) {
-                selUnidad.value = unidadIdInicial;
-                if (selUnidad.value !== unidadIdInicial) {
-                    selUnidad.value = '';
-                }
+            const selectTmp = document.createElement('select');
+            selectTmp.innerHTML = opcionesUnidades;
+            selectTmp.value = unidadIdInicial;
+            if (selectTmp.value !== unidadIdInicial) {
+                selectTmp.value = '';
             }
-
-            inCant.addEventListener('input', recalcular);
-            inSub.addEventListener('input', recalcular);
-            selUnidad?.addEventListener('change', () => {
-                const opt = selUnidad.options[selUnidad.selectedIndex];
-                inUnidadNombre.value = opt?.dataset?.nombre || '';
-                inUnidadFactor.value = opt?.dataset?.factor || '1';
-            });
-            btnEdit?.addEventListener('click', () => inSub?.focus());
+            const unidadOption = selectTmp.options[selectTmp.selectedIndex] || null;
+            inUnidadId.value = selectTmp.value || '';
+            inUnidadNombre.value = valoresIniciales.unidadNombre || unidadOption?.dataset?.nombre || '';
+            inUnidadFactor.value = valoresIniciales.unidadFactor || unidadOption?.dataset?.factor || '1';
+            labelUnidad.textContent = inUnidadNombre.value || 'Base';
+            labelCant.textContent = Number(inCant.value || 0).toFixed(2);
+            labelSubtotal.textContent = Number(inSub.value || 0).toFixed(2);
+            labelFecha.textContent = inFecha.value || '-';
+            tr.dataset.unidadesHtml = opcionesUnidades;
+            btnEdit?.addEventListener('click', () => abrirModalEditarDetalle(tr));
 
             if (valoresIniciales.unidadNombre || valoresIniciales.unidadFactor) {
                 inUnidadNombre.value = valoresIniciales.unidadNombre || '';
                 inUnidadFactor.value = valoresIniciales.unidadFactor || '1';
-            } else {
-                selUnidad?.dispatchEvent(new Event('change'));
+                labelUnidad.textContent = inUnidadNombre.value || 'Base';
             }
             
             btnDel.addEventListener('click', () => {
@@ -981,6 +998,27 @@ window.initTesoreria = function() {
             });
 
             recalcular();
+        }
+
+        function abrirModalEditarDetalle(tr) {
+            if (!tr || !modalEditarDetalle) return;
+            const inFecha = tr.querySelector('.js-fecha');
+            const inCant = tr.querySelector('.js-cant');
+            const inSub = tr.querySelector('.js-subtotal-input');
+            const inUnidadId = tr.querySelector('.js-unidad-id');
+            detalleRowEnEdicion = tr;
+            if (detalleEditRowIndex) detalleEditRowIndex.value = String(Array.from(tbody?.querySelectorAll('.js-detalle-row') || []).indexOf(tr));
+            if (detalleEditFecha) detalleEditFecha.value = inFecha?.value || '';
+            if (detalleEditCantidad) detalleEditCantidad.value = Number(inCant?.value || 0).toFixed(2);
+            if (detalleEditSubtotal) detalleEditSubtotal.value = Number(inSub?.value || 0).toFixed(2);
+            if (detalleEditUnidad) {
+                detalleEditUnidad.innerHTML = tr.dataset.unidadesHtml || '<option value="">Base</option>';
+                detalleEditUnidad.value = inUnidadId?.value || '';
+                if (detalleEditUnidad.value !== (inUnidadId?.value || '')) {
+                    detalleEditUnidad.value = '';
+                }
+            }
+            modalEditarDetalle.show();
         }
 
         function limpiarDetalleCompras() {
@@ -1006,16 +1044,29 @@ window.initTesoreria = function() {
                 if (!fila) return;
                 const inCant = fila.querySelector('.js-cant');
                 const inSub = fila.querySelector('.js-subtotal-input');
-                const inFecha = fila.querySelector('input[name="detalle_fecha[]"]');
-                const selUnidad = fila.querySelector('.js-unidad');
+                const inFecha = fila.querySelector('.js-fecha');
+                const inUnidadId = fila.querySelector('.js-unidad-id');
+                const labelFecha = fila.querySelector('.js-fecha-label');
+                const labelCant = fila.querySelector('.js-cant-label');
+                const labelSubtotal = fila.querySelector('.js-subtotal-label');
                 if (inCant) inCant.value = parseFloat(item.cantidad || 0).toFixed(2);
                 if (inSub) inSub.value = parseFloat(item.subtotal || item.precio_unitario || 0).toFixed(2);
                 if (inFecha) inFecha.value = item.fecha || (fechaIngresoInput?.value || '');
-                if (selUnidad && item.id_item_unidad) {
-                    selUnidad.value = String(item.id_item_unidad);
-                    selUnidad.dispatchEvent(new Event('change'));
+                if (labelCant) labelCant.textContent = Number(inCant?.value || 0).toFixed(2);
+                if (labelSubtotal) labelSubtotal.textContent = Number(inSub?.value || 0).toFixed(2);
+                if (labelFecha) labelFecha.textContent = inFecha?.value || '-';
+                if (inUnidadId && item.id_item_unidad) {
+                    inUnidadId.value = String(item.id_item_unidad);
+                    const selectTmp = document.createElement('select');
+                    selectTmp.innerHTML = fila.dataset.unidadesHtml || '';
+                    selectTmp.value = String(item.id_item_unidad);
+                    const opt = selectTmp.options[selectTmp.selectedIndex];
+                    fila.querySelector('.js-unidad-nombre').value = opt?.dataset?.nombre || '';
+                    fila.querySelector('.js-unidad-factor').value = opt?.dataset?.factor || '1';
+                    const unidadLabel = fila.querySelector('.js-unidad-label');
+                    if (unidadLabel) unidadLabel.textContent = opt?.dataset?.nombre || 'Base';
                 }
-                inCant?.dispatchEvent(new Event('input'));
+                calcularSaldosReales();
             }
         }
 
@@ -1131,6 +1182,48 @@ window.initTesoreria = function() {
                 editandoPagoIndex = null;
                 modalPagoPrevio?.hide();
                 sincronizarPagosLocales();
+            });
+        }
+
+        if (modalEditarDetalleEl && typeof bootstrap !== 'undefined') {
+            modalEditarDetalle = new bootstrap.Modal(modalEditarDetalleEl);
+        }
+
+        if (formEditarDetalleCompra) {
+            formEditarDetalleCompra.addEventListener('submit', (event) => {
+                event.preventDefault();
+                if (!detalleRowEnEdicion) return;
+                const fecha = detalleEditFecha?.value || '';
+                const cantidad = Math.max(parseFloat(detalleEditCantidad?.value || 0), 0.01);
+                const subtotal = Math.max(parseFloat(detalleEditSubtotal?.value || 0), 0);
+                const unidadId = detalleEditUnidad?.value || '';
+                if (!fecha) {
+                    Swal.fire('Atención', 'Debe ingresar una fecha válida.', 'warning');
+                    return;
+                }
+                const inFecha = detalleRowEnEdicion.querySelector('.js-fecha');
+                const inCant = detalleRowEnEdicion.querySelector('.js-cant');
+                const inSub = detalleRowEnEdicion.querySelector('.js-subtotal-input');
+                const inUnidadId = detalleRowEnEdicion.querySelector('.js-unidad-id');
+                const inUnidadNombre = detalleRowEnEdicion.querySelector('.js-unidad-nombre');
+                const inUnidadFactor = detalleRowEnEdicion.querySelector('.js-unidad-factor');
+                const lbFecha = detalleRowEnEdicion.querySelector('.js-fecha-label');
+                const lbCant = detalleRowEnEdicion.querySelector('.js-cant-label');
+                const lbSub = detalleRowEnEdicion.querySelector('.js-subtotal-label');
+                const lbUnidad = detalleRowEnEdicion.querySelector('.js-unidad-label');
+                if (inFecha) inFecha.value = fecha;
+                if (inCant) inCant.value = cantidad.toFixed(2);
+                if (inSub) inSub.value = subtotal.toFixed(2);
+                if (inUnidadId) inUnidadId.value = unidadId;
+                const opt = detalleEditUnidad?.options?.[detalleEditUnidad.selectedIndex] || null;
+                if (inUnidadNombre) inUnidadNombre.value = opt?.dataset?.nombre || '';
+                if (inUnidadFactor) inUnidadFactor.value = opt?.dataset?.factor || '1';
+                if (lbFecha) lbFecha.textContent = fecha;
+                if (lbCant) lbCant.textContent = cantidad.toFixed(2);
+                if (lbSub) lbSub.textContent = subtotal.toFixed(2);
+                if (lbUnidad) lbUnidad.textContent = inUnidadNombre?.value || 'Base';
+                modalEditarDetalle?.hide();
+                calcularSaldosReales();
             });
         }
 
