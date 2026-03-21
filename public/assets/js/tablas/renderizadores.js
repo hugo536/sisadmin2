@@ -205,6 +205,7 @@
 
             if (f.match === 'includes') {
               const tokens = normalizedRowValue
+                .split(/\s*[|,;\/]\s*/)
                 .split(/[|,;]/)
                 .map((token) => token.trim())
                 .filter(Boolean);
