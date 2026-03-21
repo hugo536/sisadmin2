@@ -124,7 +124,8 @@ if ($error !== '') {
           class="js-form-confirm"
           id="formSaldoInicial"
           data-url-terceros="<?php echo e(route_url('tesoreria/ajax_terceros_saldos')); ?>"
-          data-url-items="<?php echo e(route_url('tesoreria/ajax_items_saldos')); ?>">
+          data-url-items="<?php echo e(route_url('tesoreria/ajax_items_saldos')); ?>"
+          data-url-item-unidades="<?php echo e(route_url('tesoreria/ajax_item_unidades_saldos')); ?>">
 
         <div class="row g-4 fade-in">
             
@@ -207,16 +208,17 @@ if ($error !== '') {
                             <table class="table table-hover align-middle mb-0" id="tablaDetalleSaldos">
                                 <thead class="table-light text-secondary small sticky-top">
                                     <tr>
-                                        <th style="width: 45%;">Ítem / Descripción</th>
+                                        <th style="width: 15%;">Fecha</th>
+                                        <th style="width: 33%;">Ítem</th>
                                         <th style="width: 15%; text-align: center;">Cantidad</th>
-                                        <th style="width: 20%; text-align: right;">P. Unit.</th>
+                                        <th style="width: 17%; text-align: center;">Unid. conversión</th>
                                         <th style="width: 15%; text-align: right;">Subtotal</th>
-                                        <th style="width: 5%; text-align: center;"><i class="bi bi-trash"></i></th>
+                                        <th style="width: 5%; text-align: center;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr id="filaVaciaMensaje">
-                                        <td colspan="5" class="text-center text-muted py-4">
+                                        <td colspan="6" class="text-center text-muted py-4">
                                             <i class="bi bi-basket d-block fs-3 mb-2 opacity-50"></i>
                                             Busque y seleccione un ítem en el panel izquierdo para agregarlo a la cuenta.
                                         </td>
@@ -228,7 +230,7 @@ if ($error !== '') {
                         <!-- TABLA DE AMORTIZACIONES (MOCKUP) -->
                         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                             <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-cash-coin me-2"></i>Amortizaciones / Pagos Previos</h5>
-                            <button type="button" class="btn btn-sm btn-outline-success fw-bold shadow-sm"><i class="bi bi-plus-lg me-1"></i>Registrar Pago</button>
+                            <button type="button" id="btnRegistrarPagoPrevio" class="btn btn-sm btn-outline-success fw-bold shadow-sm"><i class="bi bi-plus-lg me-1"></i>Registrar Pago</button>
                         </div>
 
                         <!-- Se agregó la clase table-mobile-cards -->
@@ -237,15 +239,16 @@ if ($error !== '') {
                                 <thead class="table-light text-secondary small">
                                     <tr>
                                         <th style="width: 20%;">Fecha</th>
-                                        <th style="width: 30%;">Ref. Pago</th>
-                                        <th style="width: 30%;">Método</th>
+                                        <th style="width: 25%;">Ref. Pago</th>
+                                        <th style="width: 25%;">Método</th>
                                         <th style="width: 20%; text-align: right;">Monto</th>
+                                        <th style="width: 10%; text-align: center;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <!-- Aquí irán los pagos vía JS/PHP. Por ahora mostramos vacío -->
                                     <tr id="filaVaciaAmortizaciones">
-                                        <td colspan="4" class="text-center text-muted py-3 small">
+                                        <td colspan="5" class="text-center text-muted py-3 small">
                                             Aún no hay amortizaciones registradas para esta cuenta.
                                         </td>
                                     </tr>
@@ -274,6 +277,45 @@ if ($error !== '') {
             </div>
         </div>
     </form>
+</div>
+
+<div class="modal fade" id="modalPagoPrevio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Registrar Pago Previo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formPagoPrevioLocal">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="pagoPrevioFecha" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Monto <span class="text-danger">*</span></label>
+                            <input type="number" min="0.01" step="0.01" class="form-control" id="pagoPrevioMonto" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold small">Referencia</label>
+                            <input type="text" class="form-control" id="pagoPrevioReferencia" maxlength="120" placeholder="Ej. Recibo 001-2026">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold small">Método</label>
+                            <input type="text" class="form-control" id="pagoPrevioMetodo" maxlength="60" placeholder="Transferencia, efectivo, etc.">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold">
+                        <i class="bi bi-check2-circle me-1"></i>Guardar pago
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Carga del script específico de la vista (Vital para el funcionamiento de la SPA) -->

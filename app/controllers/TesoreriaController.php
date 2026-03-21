@@ -306,6 +306,39 @@ class TesoreriaController extends Controlador
         exit;
     }
 
+    public function ajax_item_unidades_saldos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cxp.ver');
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idItem = (int) ($_GET['id_item'] ?? 0);
+        if ($idItem <= 0) {
+            echo json_encode(['ok' => true, 'items' => []], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $sql = "SELECT u.id,
+                       u.nombre,
+                       u.factor_conversion
+                FROM items_unidades u
+                INNER JOIN items i ON i.id = u.id_item
+                WHERE u.id_item = :id_item
+                  AND u.estado = 1
+                  AND u.deleted_at IS NULL
+                  AND i.deleted_at IS NULL
+                ORDER BY u.nombre ASC";
+
+        $stmt = Conexion::get()->prepare($sql);
+        $stmt->execute(['id_item' => $idItem]);
+
+        echo json_encode([
+            'ok' => true,
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     public function guardar_saldo_inicial(): void
     {
         AuthMiddleware::handle();
@@ -351,24 +384,63 @@ class TesoreriaController extends Controlador
             $idsItems = $_POST['detalle_item_id'] ?? [];
             $nombresItems = $_POST['detalle_item_nombre'] ?? [];
             $cantidades = $_POST['detalle_cantidad'] ?? [];
-            $precios = $_POST['detalle_precio'] ?? [];
+            $subtotales = $_POST['detalle_subtotal'] ?? [];
+            $fechasDetalle = $_POST['detalle_fecha'] ?? [];
+            $idsUnidad = $_POST['detalle_item_unidad_id'] ?? [];
+            $nombresUnidad = $_POST['detalle_item_unidad_nombre'] ?? [];
+            $factoresUnidad = $_POST['detalle_item_unidad_factor'] ?? [];
             
             $detalleJson = [];
             $sumaCalculada = 0;
+            $amortizacionesLocales = [];
+
+            $amortFecha = $_POST['amortizacion_local_fecha'] ?? [];
+            $amortReferencia = $_POST['amortizacion_local_referencia'] ?? [];
+            $amortMetodo = $_POST['amortizacion_local_metodo'] ?? [];
+            $amortMonto = $_POST['amortizacion_local_monto'] ?? [];
+
+            if (is_array($amortFecha)) {
+                foreach ($amortFecha as $idx => $fechaAmort) {
+                    $fechaAmort = trim((string) $fechaAmort);
+                    $montoAmort = round((float) ($amortMonto[$idx] ?? 0), 4);
+                    if ($fechaAmort === '' || $montoAmort <= 0) {
+                        continue;
+                    }
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaAmort)) {
+                        continue;
+                    }
+                    $amortizacionesLocales[] = [
+                        'fecha' => $fechaAmort,
+                        'referencia' => trim((string) ($amortReferencia[$idx] ?? '')),
+                        'metodo' => trim((string) ($amortMetodo[$idx] ?? '')),
+                        'monto' => $montoAmort,
+                    ];
+                }
+            }
 
             if (!empty($idsItems) && is_array($idsItems)) {
                 foreach ($idsItems as $index => $idItem) {
                     $cant = (float) ($cantidades[$index] ?? 0);
-                    $prec = (float) ($precios[$index] ?? 0);
-                    $subtotal = $cant * $prec;
+                    $subtotal = (float) ($subtotales[$index] ?? 0);
+                    $fechaDetalle = trim((string) ($fechasDetalle[$index] ?? $fechaEmision));
+                    $idUnidad = (int) ($idsUnidad[$index] ?? 0);
+                    $nombreUnidad = trim((string) ($nombresUnidad[$index] ?? ''));
+                    $factorUnidad = round((float) ($factoresUnidad[$index] ?? 1), 4);
                     
-                    if ($cant > 0 && $prec >= 0) {
+                    if ($fechaDetalle === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDetalle)) {
+                        $fechaDetalle = $fechaEmision;
+                    }
+
+                    if ($cant > 0 && $subtotal >= 0) {
                         $sumaCalculada += $subtotal;
                         $detalleJson[] = [
                             'id_item' => (int) $idItem,
                             'nombre' => trim((string) ($nombresItems[$index] ?? '')),
+                            'fecha' => $fechaDetalle,
                             'cantidad' => $cant,
-                            'precio_unitario' => $prec,
+                            'id_item_unidad' => $idUnidad > 0 ? $idUnidad : null,
+                            'unidad_nombre' => $nombreUnidad !== '' ? $nombreUnidad : null,
+                            'factor_conversion' => $factorUnidad > 0 ? $factorUnidad : 1,
                             'subtotal' => $subtotal
                         ];
                     }
@@ -385,14 +457,18 @@ class TesoreriaController extends Controlador
                 // Guardamos el JSON dentro de las observaciones
                 $observacionesFinal = json_encode([
                     'nota_manual' => $observacionesText,
-                    'detalle_items' => $detalleJson
+                    'detalle_items' => $detalleJson,
+                    'amortizaciones_previas' => $amortizacionesLocales
                 ], JSON_UNESCAPED_UNICODE);
             } else {
                 // Si no hay tabla de detalle, validamos el monto digitado manualmente
                 if ($monto <= 0) {
                     throw new RuntimeException('El monto debe ser mayor a cero.');
                 }
-                $observacionesFinal = $observacionesText;
+                $observacionesFinal = json_encode([
+                    'nota_manual' => $observacionesText,
+                    'amortizaciones_previas' => $amortizacionesLocales
+                ], JSON_UNESCAPED_UNICODE);
             }
 
             // Armamos el payload con la data limpia para enviarlo al modelo
@@ -851,8 +927,25 @@ class TesoreriaController extends Controlador
                 // 3. Intentamos extraer los ítems guardados previamente si es que existen en el JSON de observaciones
                 if (!empty($cuentaExiste['observaciones'])) {
                     $obsDecoded = json_decode($cuentaExiste['observaciones'], true);
-                    if (is_array($obsDecoded) && isset($obsDecoded['detalle_items'])) {
-                        $detalleItems = $obsDecoded['detalle_items'];
+                    if (is_array($obsDecoded)) {
+                        if (isset($obsDecoded['detalle_items']) && is_array($obsDecoded['detalle_items'])) {
+                            $detalleItems = $obsDecoded['detalle_items'];
+                        }
+                        if (!empty($obsDecoded['amortizaciones_previas']) && is_array($obsDecoded['amortizaciones_previas'])) {
+                            foreach ($obsDecoded['amortizaciones_previas'] as $amortLocal) {
+                                $montoLocal = (float) ($amortLocal['monto'] ?? 0);
+                                if ($montoLocal <= 0) {
+                                    continue;
+                                }
+                                $totalAmortizaciones += $montoLocal;
+                                $amortizaciones[] = [
+                                    'fecha' => $amortLocal['fecha'] ?? '-',
+                                    'referencia' => $amortLocal['referencia'] ?? '-',
+                                    'metodo' => $amortLocal['metodo'] ?? '-',
+                                    'monto' => $montoLocal,
+                                ];
+                            }
+                        }
                     }
                 }
             }
