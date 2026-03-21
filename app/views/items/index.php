@@ -144,10 +144,9 @@ $tipoItemLabel = static function (string $tipo): string {
                        data-info-text-template="Mostrando {start} a {end} de {total} ítems"
                        data-erp-filters='[{"el":"#itemFiltroCategoria","attr":"data-categoria","match":"equals"},{"el":"#itemFiltroTipo","attr":"data-tipo","match":"equals"},{"el":"#itemFiltroEstado","attr":"data-estado","match":"equals"}]'
                        data-pagination-controls="#itemsPaginationControls"
-                       data-pagination-info="#itemsPaginationInfo">
+                        data-pagination-info="#itemsPaginationInfo">
                     <thead class="inventario-sticky-thead bg-light border-bottom">
                         <tr>
-                            <th class="ps-4 text-center col-w-50"><i class="bi bi-image text-muted"></i></th> 
                             <th class="text-secondary fw-semibold">SKU</th>
                             <th class="text-secondary fw-semibold">Nombre</th>
                             <th class="text-secondary fw-semibold">Tipo</th>
@@ -159,7 +158,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <tbody id="itemsTableBody">
                         <?php if (empty($items)): ?>
                             <tr class="empty-msg-row">
-                                <td colspan="7" class="text-center text-muted py-5">
+                                <td colspan="6" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay ítems registrados.
                                 </td>
                             </tr>
@@ -180,12 +179,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                 // Construir el texto de búsqueda (esto es VITAL para el buscador estático)
                                 $searchStr = strtolower(trim($sku . ' ' . $nombre . ' ' . $descripcion));
                                 
-                                // Lógica visual de la imagen
-                                $imagen = (string) ($item['imagen_principal'] ?? '');
-                                $imgHtml = $imagen !== '' 
-                                    ? '<img src="/' . e($imagen) . '" alt="Foto" class="rounded object-fit-cover border shadow-sm" style="width: 40px; height: 40px; background: #fff;">'
-                                    : '<div class="bg-secondary-subtle rounded border d-flex align-items-center justify-content-center text-secondary shadow-sm" style="width: 40px; height: 40px;"><i class="bi bi-box-seam"></i></div>';
-                                
                                 // Lógica del icono BOM
                                 $bomIcon = ((int) ($item['bom_pendiente'] ?? 0) === 1) 
                                     ? '<i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="Falta agregar una receta"></i>' 
@@ -201,7 +194,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                     data-estado="<?php echo $estado; ?>"
                                     data-id="<?php echo $id; ?>">
                                     
-                                    <td class="ps-4 align-middle text-center"><?php echo $imgHtml; ?></td>
                                     <td class="fw-semibold text-secondary"><?php echo e($sku); ?></td>
                                     <td>
                                         <div class="fw-bold text-dark d-inline-flex align-items-center gap-1">
