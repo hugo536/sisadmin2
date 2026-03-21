@@ -199,13 +199,25 @@
           for (const f of actives) {
             const rowVal = (row.getAttribute(f.attr) || '').toString();
             if (f.value === '') continue;
-  
+
+            const normalizedFilterValue = normalizar(f.value);
+            const normalizedRowValue = normalizar(rowVal);
+
             if (f.match === 'includes') {
-              if (!rowVal.includes(f.value)) return false;
+              const tokens = normalizedRowValue
+                .split(/[|,;]/)
+                .map((token) => token.trim())
+                .filter(Boolean);
+
+              const includesMatch = tokens.length > 0
+                ? tokens.includes(normalizedFilterValue)
+                : normalizedRowValue.includes(normalizedFilterValue);
+
+              if (!includesMatch) return false;
               continue;
             }
-  
-            if (rowVal !== f.value) return false;
+
+            if (normalizedRowValue !== normalizedFilterValue) return false;
           }
           return true;
         });
