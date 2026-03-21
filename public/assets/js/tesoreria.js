@@ -566,7 +566,8 @@ window.initTesoreria = function() {
     if (formSaldoInicial) {
 
         // Declaramos la variable para el total de amortizaciones de forma global para esta vista
-        let totalAmortizaciones = 0;
+        let totalAmortizacionesRemotas = 0;
+        let totalAmortizacionesLocales = 0;
 
         // --- 7.1 LÓGICA DE TERCEROS Y PROTECCIÓN DE NATURALEZA ---
         const terceroSelectEl = document.getElementById('saldoInicialTercero');
@@ -626,7 +627,8 @@ window.initTesoreria = function() {
                         // Resetear UI si borran el tercero
                         desbloquearNaturaleza();
                         resetearBotonGuardar();
-                        totalAmortizaciones = 0;
+                        totalAmortizacionesRemotas = 0;
+                        totalAmortizacionesLocales = 0;
                         limpiarDetalleCompras();
                         renderAmortizaciones([]);
                         calcularSaldosReales();
@@ -637,7 +639,7 @@ window.initTesoreria = function() {
                     const tipo = getTipoSeleccionado();
                     fetch(`${verificarCuentaUrl}&id=${value}&tipo=${tipo}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
-                        .then(data => {
+                        .then(async data => {
                             if (data.ok && data.tiene_cuenta) {
                                 // 1. Protegemos el sistema bloqueando la naturaleza
                                 bloquearNaturaleza();
@@ -649,8 +651,9 @@ window.initTesoreria = function() {
                                 }
 
                                 // 3. Cargamos el historial de pagos
-                                totalAmortizaciones = data.total_amortizaciones || 0;
-                                cargarDetalleGuardado(data.items_guardados || []);
+                                totalAmortizacionesRemotas = data.total_amortizaciones || 0;
+                                totalAmortizacionesLocales = 0;
+                                await cargarDetalleGuardado(data.items_guardados || []);
                                 renderAmortizaciones(data.amortizaciones || []);
                                 calcularSaldosReales();
                                 
@@ -658,7 +661,8 @@ window.initTesoreria = function() {
                                 // Es un tercero nuevo, permitimos elegir
                                 desbloquearNaturaleza();
                                 resetearBotonGuardar();
-                                totalAmortizaciones = 0;
+                                totalAmortizacionesRemotas = 0;
+                                totalAmortizacionesLocales = 0;
                                 limpiarDetalleCompras();
                                 renderAmortizaciones([]);
                                 calcularSaldosReales();
@@ -732,7 +736,26 @@ window.initTesoreria = function() {
         // --- 7.2 LÓGICA DE ÍTEMS, TABLA DE DETALLE Y BOTÓN "AGREGAR" ---
         const itemsSelectEl = document.getElementById('buscadorItemsSaldo');
         const itemsUrl = formSaldoInicial.getAttribute('data-url-items') || '';
+        const unidadesItemUrl = formSaldoInicial.getAttribute('data-url-item-unidades') || '';
         const btnAgregarItemDetalle = document.getElementById('btnAgregarItemDetalle');
+        const fechaIngresoInput = formSaldoInicial.querySelector('input[name="fecha_emision"]');
+        const cacheUnidades = new Map();
+
+        async function obtenerUnidadesItemTesoreria(idItem) {
+            if (!idItem || !unidadesItemUrl) return [];
+            if (cacheUnidades.has(idItem)) return cacheUnidades.get(idItem);
+            const separador = unidadesItemUrl.includes('?') ? '&' : '?';
+            const response = await fetch(`${unidadesItemUrl}${separador}id_item=${encodeURIComponent(idItem)}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error(data?.mensaje || 'No se pudieron cargar unidades de conversión.');
+            }
+            const unidades = Array.isArray(data.items) ? data.items : [];
+            cacheUnidades.set(idItem, unidades);
+            return unidades;
+        }
         
         let tsItems = null;
         let itemSeleccionadoTemporal = null; 
@@ -801,7 +824,7 @@ window.initTesoreria = function() {
         const filaVaciaAmortizaciones = document.getElementById('filaVaciaAmortizaciones');
 
         if (btnAgregarItemDetalle) {
-            btnAgregarItemDetalle.addEventListener('click', function() {
+            btnAgregarItemDetalle.addEventListener('click', async function() {
                 if (!itemSeleccionadoTemporal) {
                     Swal.fire({
                         icon: 'warning',
@@ -812,7 +835,7 @@ window.initTesoreria = function() {
                     return;
                 }
 
-                agregarFilaDetalle(itemSeleccionadoTemporal);
+                await agregarFilaDetalle(itemSeleccionadoTemporal);
                 
                 if (tsItems) {
                     tsItems.clear(true);
@@ -821,27 +844,50 @@ window.initTesoreria = function() {
             });
         }
 
-        function agregarFilaDetalle(item) {
+        async function agregarFilaDetalle(item) {
             if(filaVacia) filaVacia.style.display = 'none';
+
+            let unidades = [];
+            try {
+                unidades = await obtenerUnidadesItemTesoreria(Number(item.id));
+            } catch (error) {
+                console.warn('No se pudieron cargar unidades para tesorería:', error);
+            }
+
+            const fechaFila = fechaIngresoInput?.value || new Date().toISOString().slice(0, 10);
+            const opcionesUnidades = ['<option value="">Base</option>']
+                .concat(unidades.map(unidad => {
+                    const factor = parseFloat(unidad.factor_conversion || 1);
+                    const nombre = unidad.nombre || 'Unidad';
+                    return `<option value="${unidad.id}" data-factor="${factor}" data-nombre="${nombre}">${nombre} (x${factor.toFixed(4)})</option>`;
+                }))
+                .join('');
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td data-label="Ítem / Descripción">
+                <td data-label="Fecha">
+                    <input type="date" class="form-control form-control-sm" name="detalle_fecha[]" value="${fechaFila}" required>
+                </td>
+                <td data-label="Ítem">
                     <input type="hidden" name="detalle_item_id[]" value="${item.id}">
                     <input type="hidden" name="detalle_item_nombre[]" value="${item.nombre}">
-                    <span class="badge bg-light text-dark border me-1">${item.sku || '-'}</span>
                     <span class="fw-bold text-dark small">${item.nombre}</span>
                 </td>
                 <td data-label="Cantidad">
                     <input type="number" name="detalle_cantidad[]" class="form-control form-control-sm text-end js-cant" min="0.01" step="0.01" value="1" required>
                 </td>
-                <td data-label="P. Unit.">
-                    <input type="number" name="detalle_precio[]" class="form-control form-control-sm text-end js-precio" min="0" step="0.01" value="${item.precio_venta || 0}" required>
+                <td data-label="Unid. conversión">
+                    <select name="detalle_item_unidad_id[]" class="form-select form-select-sm js-unidad">
+                        ${opcionesUnidades}
+                    </select>
+                    <input type="hidden" name="detalle_item_unidad_nombre[]" class="js-unidad-nombre" value="">
+                    <input type="hidden" name="detalle_item_unidad_factor[]" class="js-unidad-factor" value="1">
                 </td>
-                <td class="text-end fw-bold text-primary js-subtotal" data-label="Subtotal">
-                    0.00
+                <td data-label="Subtotal">
+                    <input type="number" name="detalle_subtotal[]" class="form-control form-control-sm text-end js-subtotal-input" min="0" step="0.01" value="${parseFloat(item.precio_venta || 0).toFixed(2)}" required>
                 </td>
                 <td class="text-center text-md-end">
+                    <button type="button" class="btn btn-sm btn-outline-primary border-0 js-edit me-1"><i class="bi bi-pencil-square"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0 js-remove"><i class="bi bi-trash3"></i></button>
                 </td>
             `;
@@ -849,18 +895,25 @@ window.initTesoreria = function() {
             if(tbody) tbody.appendChild(tr);
             
             const inCant = tr.querySelector('.js-cant');
-            const inPrec = tr.querySelector('.js-precio');
+            const inSub = tr.querySelector('.js-subtotal-input');
+            const selUnidad = tr.querySelector('.js-unidad');
+            const inUnidadNombre = tr.querySelector('.js-unidad-nombre');
+            const inUnidadFactor = tr.querySelector('.js-unidad-factor');
             const btnDel = tr.querySelector('.js-remove');
+            const btnEdit = tr.querySelector('.js-edit');
 
             const recalcular = () => {
-                const cant = parseFloat(inCant.value) || 0;
-                const prec = parseFloat(inPrec.value) || 0;
-                tr.querySelector('.js-subtotal').textContent = (cant * prec).toFixed(2);
                 calcularSaldosReales();
             };
 
             inCant.addEventListener('input', recalcular);
-            inPrec.addEventListener('input', recalcular);
+            inSub.addEventListener('input', recalcular);
+            selUnidad?.addEventListener('change', () => {
+                const opt = selUnidad.options[selUnidad.selectedIndex];
+                inUnidadNombre.value = opt?.dataset?.nombre || '';
+                inUnidadFactor.value = opt?.dataset?.factor || '1';
+            });
+            btnEdit?.addEventListener('click', () => inSub?.focus());
             
             btnDel.addEventListener('click', () => {
                 tr.remove();
@@ -879,28 +932,34 @@ window.initTesoreria = function() {
             if (filaVacia) filaVacia.style.display = '';
         }
 
-        function cargarDetalleGuardado(items = []) {
+        async function cargarDetalleGuardado(items = []) {
             limpiarDetalleCompras();
             if (!Array.isArray(items) || items.length === 0) {
                 return;
             }
 
-            items.forEach(item => {
-                agregarFilaDetalle({
+            for (const item of items) {
+                await agregarFilaDetalle({
                     id: item.id_item,
                     nombre: item.nombre || 'Ítem',
-                    sku: item.sku || '-',
-                    precio_venta: item.precio_unitario || 0
+                    precio_venta: item.subtotal || item.precio_unitario || 0
                 });
 
                 const fila = tbody ? tbody.querySelector('tr:last-child') : null;
                 if (!fila) return;
                 const inCant = fila.querySelector('.js-cant');
-                const inPrec = fila.querySelector('.js-precio');
+                const inSub = fila.querySelector('.js-subtotal-input');
+                const inFecha = fila.querySelector('input[name="detalle_fecha[]"]');
+                const selUnidad = fila.querySelector('.js-unidad');
                 if (inCant) inCant.value = parseFloat(item.cantidad || 0).toFixed(2);
-                if (inPrec) inPrec.value = parseFloat(item.precio_unitario || 0).toFixed(2);
+                if (inSub) inSub.value = parseFloat(item.subtotal || item.precio_unitario || 0).toFixed(2);
+                if (inFecha) inFecha.value = item.fecha || (fechaIngresoInput?.value || '');
+                if (selUnidad && item.id_item_unidad) {
+                    selUnidad.value = String(item.id_item_unidad);
+                    selUnidad.dispatchEvent(new Event('change'));
+                }
                 inCant?.dispatchEvent(new Event('input'));
-            });
+            }
         }
 
         function renderAmortizaciones(amortizaciones = []) {
@@ -923,6 +982,10 @@ window.initTesoreria = function() {
                     <td data-label="Ref. Pago">${amort.referencia || '-'}</td>
                     <td data-label="Método">${amort.metodo || '-'}</td>
                     <td data-label="Monto" class="text-end fw-bold">${monto.toFixed(2)}</td>
+                    <td class="text-center text-md-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary border-0 js-edit-amort me-1"><i class="bi bi-pencil-square"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger border-0 js-del-amort"><i class="bi bi-trash3"></i></button>
+                    </td>
                 `;
                 tbodyAmortizaciones.appendChild(tr);
             });
@@ -934,14 +997,13 @@ window.initTesoreria = function() {
 
             if (tbody) {
                 tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => {
-                    const cant = parseFloat(tr.querySelector('.js-cant').value) || 0;
-                    const prec = parseFloat(tr.querySelector('.js-precio').value) || 0;
-                    totalCompras += (cant * prec);
+                    const subtotal = parseFloat(tr.querySelector('.js-subtotal-input')?.value) || 0;
+                    totalCompras += subtotal;
                 });
             }
 
             // Lógica final: Saldo Real = Compras - Amortizaciones
-            let saldoReal = totalCompras - totalAmortizaciones;
+            let saldoReal = totalCompras - (totalAmortizacionesRemotas + totalAmortizacionesLocales);
             
             // Seguridad: El saldo no debería ser negativo en este módulo
             if (saldoReal < 0) saldoReal = 0;
@@ -950,6 +1012,99 @@ window.initTesoreria = function() {
                 inputMontoSaldos.value = saldoReal.toFixed(2);
             }
         }
+
+        const btnRegistrarPagoPrevio = document.getElementById('btnRegistrarPagoPrevio');
+        const modalPagoPrevioEl = document.getElementById('modalPagoPrevio');
+        const formPagoPrevioLocal = document.getElementById('formPagoPrevioLocal');
+        let modalPagoPrevio = null;
+        let editandoPagoIndex = null;
+        let pagosLocales = [];
+
+        function sincronizarPagosLocales() {
+            totalAmortizacionesLocales = pagosLocales.reduce((acc, item) => acc + (parseFloat(item.monto) || 0), 0);
+            const inputsViejos = formSaldoInicial.querySelectorAll('input[name^="amortizacion_local_"]');
+            inputsViejos.forEach(input => input.remove());
+
+            pagosLocales.forEach((pago, idx) => {
+                [['fecha', pago.fecha], ['referencia', pago.referencia], ['metodo', pago.metodo], ['monto', pago.monto]].forEach(([campo, valor]) => {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = `amortizacion_local_${campo}[${idx}]`;
+                    hidden.value = valor || '';
+                    formSaldoInicial.appendChild(hidden);
+                });
+            });
+
+            renderAmortizaciones([
+                ...(window.amortizacionesRemotasCache || []),
+                ...pagosLocales.map((pago, idx) => ({ ...pago, es_local: 1, _local_index: idx }))
+            ]);
+            calcularSaldosReales();
+        }
+
+        if (btnRegistrarPagoPrevio && modalPagoPrevioEl && typeof bootstrap !== 'undefined') {
+            modalPagoPrevio = new bootstrap.Modal(modalPagoPrevioEl);
+            btnRegistrarPagoPrevio.addEventListener('click', () => {
+                editandoPagoIndex = null;
+                if (formPagoPrevioLocal) formPagoPrevioLocal.reset();
+                const fechaDefault = fechaIngresoInput?.value || new Date().toISOString().slice(0, 10);
+                const inFecha = document.getElementById('pagoPrevioFecha');
+                if (inFecha) inFecha.value = fechaDefault;
+                modalPagoPrevio.show();
+            });
+        }
+
+        if (formPagoPrevioLocal) {
+            formPagoPrevioLocal.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const fecha = document.getElementById('pagoPrevioFecha')?.value || '';
+                const referencia = (document.getElementById('pagoPrevioReferencia')?.value || '').trim();
+                const metodo = (document.getElementById('pagoPrevioMetodo')?.value || '').trim();
+                const monto = parseFloat(document.getElementById('pagoPrevioMonto')?.value || 0);
+                if (!fecha || monto <= 0) {
+                    Swal.fire('Atención', 'Debe ingresar fecha y monto válido.', 'warning');
+                    return;
+                }
+                const data = { fecha, referencia, metodo, monto: Number(monto.toFixed(2)), es_local: 1 };
+                if (editandoPagoIndex !== null) {
+                    pagosLocales[editandoPagoIndex] = data;
+                } else {
+                    pagosLocales.push(data);
+                }
+                editandoPagoIndex = null;
+                modalPagoPrevio?.hide();
+                sincronizarPagosLocales();
+            });
+        }
+
+        const renderAmortizacionesOriginal = renderAmortizaciones;
+        renderAmortizaciones = function(amortizaciones = []) {
+            window.amortizacionesRemotasCache = amortizaciones.filter(a => !a.es_local);
+            renderAmortizacionesOriginal(amortizaciones);
+            tbodyAmortizaciones?.querySelectorAll('tr:not(#filaVaciaAmortizaciones)').forEach((tr, index) => {
+                const btnEditAmort = tr.querySelector('.js-edit-amort');
+                const btnDelAmort = tr.querySelector('.js-del-amort');
+                const fila = amortizaciones[index];
+                if (!fila?.es_local) {
+                    btnEditAmort?.classList.add('d-none');
+                    btnDelAmort?.classList.add('d-none');
+                    return;
+                }
+                btnEditAmort?.addEventListener('click', () => {
+                    editandoPagoIndex = Number(fila._local_index);
+                    if (editandoPagoIndex < 0) return;
+                    document.getElementById('pagoPrevioFecha').value = fila.fecha || '';
+                    document.getElementById('pagoPrevioReferencia').value = fila.referencia || '';
+                    document.getElementById('pagoPrevioMetodo').value = fila.metodo || '';
+                    document.getElementById('pagoPrevioMonto').value = Number(fila.monto || 0).toFixed(2);
+                    modalPagoPrevio?.show();
+                });
+                btnDelAmort?.addEventListener('click', () => {
+                    pagosLocales = pagosLocales.filter((_, i) => i !== Number(fila._local_index));
+                    sincronizarPagosLocales();
+                });
+            });
+        };
     }
 };
 
