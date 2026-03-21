@@ -24,6 +24,7 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
  
 $puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
 $puedeVerRRHH = tiene_permiso('terceros.ver');
+$puedeVerDistribuidores = tiene_permiso('distribuidores.ver') || tiene_permiso('terceros.ver');
 $sidebarBadges = is_array($sidebarBadges ?? null) ? $sidebarBadges : [];
  
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
@@ -47,6 +48,7 @@ function renderSidebarInner(
     string $userRole,
     bool $puedeVerComercial,
     bool $puedeVerRRHH,
+    bool $puedeVerDistribuidores,
     array $sidebarBadges,
     callable $activo,
     callable $grupoActivo,
@@ -235,10 +237,12 @@ function renderSidebarInner(
         </div>
         <?php endif; ?>
  
-        <a class="sb-link<?= $activo('distribuidores') ?>" href="<?= e(route_url('distribuidores')) ?>" data-tooltip="Distribuidores">
-            <span class="sb-link-icon"><i class="bi bi-diagram-3"></i></span>
-            <span class="sb-link-text">Distribuidores</span>
-        </a>
+        <?php if ($puedeVerDistribuidores): ?>
+            <a class="sb-link<?= $activo('distribuidores') ?>" href="<?= e(route_url('distribuidores')) ?>" data-tooltip="Distribuidores">
+                <span class="sb-link-icon"><i class="bi bi-diagram-3"></i></span>
+                <span class="sb-link-text">Distribuidores</span>
+            </a>
+        <?php endif; ?>
         <?php endif; ?>
  
         <?php if ($puedeVerComercial): ?>
@@ -450,7 +454,7 @@ function renderSidebarInner(
     renderSidebarInner(
         'sidebarNavScrollDesktop',
         $empresaNombre, $logoUrl, $userInitial, $usuarioNombre, $userRole,
-        $puedeVerComercial, $puedeVerRRHH, $sidebarBadges,
+        $puedeVerComercial, $puedeVerRRHH, $puedeVerDistribuidores, $sidebarBadges,
         $activo, $grupoActivo, $linkGrupoActivo
     );
     ?>
@@ -470,10 +474,10 @@ function renderSidebarInner(
         <?php
         renderSidebarInner(
             'sidebarNavScrollMobile',
-            $empresaNombre, $logoUrl, $userInitial, $usuarioNombre, $userRole,
-            $puedeVerComercial, $puedeVerRRHH, $sidebarBadges,
-            $activo, $grupoActivo, $linkGrupoActivo
-        );
+        $empresaNombre, $logoUrl, $userInitial, $usuarioNombre, $userRole,
+        $puedeVerComercial, $puedeVerRRHH, $puedeVerDistribuidores, $sidebarBadges,
+        $activo, $grupoActivo, $linkGrupoActivo
+    );
         ?>
     </div>
 </div>

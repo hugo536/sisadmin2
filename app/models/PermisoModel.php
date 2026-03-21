@@ -5,6 +5,7 @@ class PermisoModel extends Modelo
 {
     /** @var array<string, array<int, string>> */
     private array $cacheColumnas = [];
+    private bool $catalogoBaseSincronizado = false;
 
     /**
      * Obtiene los slugs de permisos activos para un rol específico.
@@ -59,6 +60,8 @@ class PermisoModel extends Modelo
      */
     public function listar_activos(): array
     {
+        $this->sincronizarCatalogoBase();
+
         $select = [
             'pd.id',
             'pd.slug',
@@ -117,5 +120,92 @@ class PermisoModel extends Modelo
         }
 
         return in_array(strtolower($columna), $this->cacheColumnas[$tabla], true);
+    }
+
+    /**
+     * Asegura que el catálogo base de permisos del sidebar y controladores
+     * exista en la tabla permisos_def.
+     */
+    private function sincronizarCatalogoBase(): void
+    {
+        if ($this->catalogoBaseSincronizado) {
+            return;
+        }
+        $this->catalogoBaseSincronizado = true;
+
+        $catalogoBase = [
+            ['slug' => 'bitacora.ver', 'nombre' => 'Ver Bitácora', 'modulo' => 'BITÁCORA'],
+            ['slug' => 'config.ver', 'nombre' => 'Ver Configuración', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'config.editar', 'nombre' => 'Editar Configuración', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'items.ver', 'nombre' => 'Ver Ítems', 'modulo' => 'CATÁLOGO'],
+            ['slug' => 'items.crear', 'nombre' => 'Crear Ítems', 'modulo' => 'CATÁLOGO'],
+            ['slug' => 'items.editar', 'nombre' => 'Editar Ítems', 'modulo' => 'CATÁLOGO'],
+            ['slug' => 'items.eliminar', 'nombre' => 'Eliminar Ítems', 'modulo' => 'CATÁLOGO'],
+            ['slug' => 'inventario.ver', 'nombre' => 'Ver Inventario', 'modulo' => 'INVENTARIO'],
+            ['slug' => 'inventario.movimiento.crear', 'nombre' => 'Registrar Movimientos de Inventario', 'modulo' => 'INVENTARIO'],
+            ['slug' => 'terceros.ver', 'nombre' => 'Ver Terceros', 'modulo' => 'TERCEROS'],
+            ['slug' => 'terceros.crear', 'nombre' => 'Crear Terceros', 'modulo' => 'TERCEROS'],
+            ['slug' => 'terceros.editar', 'nombre' => 'Editar Terceros', 'modulo' => 'TERCEROS'],
+            ['slug' => 'terceros.eliminar', 'nombre' => 'Eliminar Terceros', 'modulo' => 'TERCEROS'],
+            ['slug' => 'distribuidores.ver', 'nombre' => 'Ver Distribuidores', 'modulo' => 'TERCEROS'],
+            ['slug' => 'asistencia.importar', 'nombre' => 'Importar Biométrico', 'modulo' => 'RRHH'],
+            ['slug' => 'ventas.ver', 'nombre' => 'Ver Ventas', 'modulo' => 'VENTAS'],
+            ['slug' => 'ventas.crear', 'nombre' => 'Crear Ventas', 'modulo' => 'VENTAS'],
+            ['slug' => 'ventas.aprobar', 'nombre' => 'Aprobar Ventas', 'modulo' => 'VENTAS'],
+            ['slug' => 'ventas.eliminar', 'nombre' => 'Eliminar Ventas', 'modulo' => 'VENTAS'],
+            ['slug' => 'compras.ver', 'nombre' => 'Ver Compras', 'modulo' => 'COMPRAS'],
+            ['slug' => 'compras.crear', 'nombre' => 'Crear Compras', 'modulo' => 'COMPRAS'],
+            ['slug' => 'compras.aprobar', 'nombre' => 'Aprobar Compras', 'modulo' => 'COMPRAS'],
+            ['slug' => 'compras.recepcionar', 'nombre' => 'Recepcionar Compras', 'modulo' => 'COMPRAS'],
+            ['slug' => 'compras.eliminar', 'nombre' => 'Eliminar Compras', 'modulo' => 'COMPRAS'],
+            ['slug' => 'tesoreria.ver', 'nombre' => 'Ver Tesorería', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.cxc.ver', 'nombre' => 'Ver Cuentas por Cobrar', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.cxp.ver', 'nombre' => 'Ver Cuentas por Pagar', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.cobros.registrar', 'nombre' => 'Registrar Cobros', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.pagos.registrar', 'nombre' => 'Registrar Pagos', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.movimientos.anular', 'nombre' => 'Anular Movimientos de Tesorería', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'conta.ver', 'nombre' => 'Ver Contabilidad', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.plan_contable.gestionar', 'nombre' => 'Gestionar Plan Contable', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.asientos.crear', 'nombre' => 'Crear Asientos Contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.asientos.anular', 'nombre' => 'Anular Asientos Contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.periodos.ver', 'nombre' => 'Ver Períodos Contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.periodos.cerrar', 'nombre' => 'Cerrar Períodos Contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.reportes.ver', 'nombre' => 'Ver Reportes Contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.conciliacion.gestionar', 'nombre' => 'Gestionar Conciliación Bancaria', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.centros_costo.gestionar', 'nombre' => 'Gestionar Centros de Costo', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'activos.gestionar', 'nombre' => 'Gestionar Activos Fijos', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.depreciacion.ejecutar', 'nombre' => 'Ejecutar Depreciación', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.cierre.mensual', 'nombre' => 'Ejecutar Cierre Mensual', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.cierre.anual', 'nombre' => 'Ejecutar Cierre Anual', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'reportes.dashboard.ver', 'nombre' => 'Ver Dashboard de Reportes', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.inventario.ver', 'nombre' => 'Ver Reporte de Inventario', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.compras.ver', 'nombre' => 'Ver Reporte de Compras', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.ventas.ver', 'nombre' => 'Ver Reporte de Ventas', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.produccion.ver', 'nombre' => 'Ver Reporte de Producción', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.tesoreria.ver', 'nombre' => 'Ver Reporte de Tesorería', 'modulo' => 'REPORTES'],
+            ['slug' => 'roles.ver', 'nombre' => 'Ver Roles y Permisos', 'modulo' => 'ROLES Y PERMISOS'],
+            ['slug' => 'roles.crear', 'nombre' => 'Crear Roles', 'modulo' => 'ROLES Y PERMISOS'],
+            ['slug' => 'roles.editar', 'nombre' => 'Editar Roles', 'modulo' => 'ROLES Y PERMISOS'],
+            ['slug' => 'roles.eliminar', 'nombre' => 'Eliminar Roles', 'modulo' => 'ROLES Y PERMISOS'],
+            ['slug' => 'usuarios.ver', 'nombre' => 'Ver Usuarios', 'modulo' => 'USUARIOS'],
+            ['slug' => 'usuarios.crear', 'nombre' => 'Crear Usuarios', 'modulo' => 'USUARIOS'],
+            ['slug' => 'usuarios.editar', 'nombre' => 'Editar Usuarios', 'modulo' => 'USUARIOS'],
+            ['slug' => 'usuarios.eliminar', 'nombre' => 'Eliminar Usuarios', 'modulo' => 'USUARIOS'],
+        ];
+
+        $insertStmt = $this->db()->prepare(
+            'INSERT INTO permisos_def (slug, nombre, modulo)
+             SELECT :slug, :nombre, :modulo
+             WHERE NOT EXISTS (SELECT 1 FROM permisos_def WHERE slug = :slug_check)'
+        );
+
+        foreach ($catalogoBase as $permiso) {
+            $insertStmt->execute([
+                'slug' => $permiso['slug'],
+                'nombre' => $permiso['nombre'],
+                'modulo' => $permiso['modulo'],
+                'slug_check' => $permiso['slug'],
+            ]);
+        }
     }
 }

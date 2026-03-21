@@ -23,7 +23,9 @@ class DistribuidoresController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
-        require_permiso('terceros.ver');
+        if (!tiene_permiso('distribuidores.ver') && !tiene_permiso('terceros.ver')) {
+            require_permiso('distribuidores.ver');
+        }
 
         $this->render('distribuidores/index', [
             'distribuidores' => $this->distribuidoresModel->listar(),
