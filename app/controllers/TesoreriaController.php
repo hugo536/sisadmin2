@@ -279,8 +279,6 @@ class TesoreriaController extends Controlador
                        i.precio_venta,
                        i.unidad_base
                 FROM items i
-                LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
-                LEFT JOIN item_sabores s ON s.id = i.id_sabor
                 WHERE i.estado = 1
                   AND i.deleted_at IS NULL";
 
@@ -293,10 +291,6 @@ class TesoreriaController extends Controlador
                         OR COALESCE(i.marca, \'\') LIKE :q
                         OR COALESCE(i.unidad_base, \'\') LIKE :q
                         OR COALESCE(i.tipo_item, \'\') LIKE :q
-
-                        OR COALESCE(ip.nombre, \'\') LIKE :q
-                        OR COALESCE(s.nombre, \'\') LIKE :q
-
                       )';
             $params['q'] = '%' . $busqueda . '%';
         }
