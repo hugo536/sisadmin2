@@ -916,23 +916,47 @@ class ItemModel extends Modelo
 
     private function asegurarStockBaseInventario(int $idItem): void
     {
+        $idAlmacen = $this->obtenerAlmacenBaseInventario();
+        if ($idAlmacen <= 0) {
+            return;
+        }
+
         $sqlExiste = 'SELECT id
                       FROM inventario_stock
                       WHERE id_item = :id_item
-                        AND id_almacen = 0
+                        AND id_almacen = :id_almacen
                       LIMIT 1';
         $stmtExiste = $this->db()->prepare($sqlExiste);
-        $stmtExiste->execute(['id_item' => $idItem]);
+        $stmtExiste->execute([
+            'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
+        ]);
 
         if ($stmtExiste->fetchColumn()) {
             return;
         }
 
         $sqlInsert = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
-                      VALUES (:id_item, 0, 0)';
+                      VALUES (:id_item, :id_almacen, 0)';
         $this->db()->prepare($sqlInsert)->execute([
             'id_item' => $idItem,
+            'id_almacen' => $idAlmacen,
         ]);
+    }
+
+    private function obtenerAlmacenBaseInventario(): int
+    {
+        $sql = "SELECT id
+                FROM almacenes
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY CASE WHEN tipo = 'General' THEN 0 ELSE 1 END, id ASC
+                LIMIT 1";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+
+        return (int) ($stmt->fetchColumn() ?: 0);
     }
 
     private function asegurarPresentacionBase(int $idItem, int $userId): void
