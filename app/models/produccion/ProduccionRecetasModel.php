@@ -43,8 +43,8 @@ class ProduccionRecetasModel extends Modelo
                 )
                 WHERE i.deleted_at IS NULL
                   AND (
-                      r.id IS NOT NULL
-                      OR i.tipo_item IN ('producto_terminado', 'semielaborado')
+                      i.requiere_formula_bom = 1
+                      OR r.id IS NOT NULL
                   )
                 ORDER BY i.nombre ASC";
 
