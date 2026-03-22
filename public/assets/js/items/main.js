@@ -814,7 +814,7 @@
                 const tipoLabel = tipoLabels[item.tipo_item] || item.tipo_item;
                 const catNombre = getCategoriaNombre(item.id_categoria);
                 const bomIcon = item.bom_pendiente === 1 
-                    ? `<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Falta agregar una receta"></i>` 
+                    ? `<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Falta definir una receta BOM"></i>` 
                     : '';
 
                 // AQUÍ ESTÁN LOS BOTONES CORREGIDOS CON LAS CLASES BTN-ICON

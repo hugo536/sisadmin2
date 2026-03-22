@@ -5,38 +5,60 @@ class ProduccionRecetasModel extends Modelo
 {
     public function listarRecetas(): array
     {
-        $sql = 'SELECT r.id, r.codigo, r.version, r.descripcion, r.estado, r.created_at,
-                    r.rendimiento_base, r.unidad_rendimiento,
-                    r.costo_md_teorico, r.costo_mod_teorico, r.costo_cif_teorico,
-                    r.costo_teorico_unitario AS costo_teorico,
-                    i.id AS id_producto, 
-                    i.sku AS producto_sku, 
+        $sql = "SELECT
+                    r.id,
+                    COALESCE(r.codigo, CONCAT('BORRADOR-ITEM-', LPAD(i.id, 6, '0'))) AS codigo,
+                    COALESCE(r.version, 1) AS version,
+                    COALESCE(r.descripcion, 'Fórmula pendiente de definición.') AS descripcion,
+                    COALESCE(r.estado, 0) AS estado,
+                    r.created_at,
+                    COALESCE(r.rendimiento_base, 1) AS rendimiento_base,
+                    COALESCE(r.unidad_rendimiento, i.unidad_base, 'UND') AS unidad_rendimiento,
+                    COALESCE(r.costo_md_teorico, 0) AS costo_md_teorico,
+                    COALESCE(r.costo_mod_teorico, 0) AS costo_mod_teorico,
+                    COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico,
+                    COALESCE(r.costo_teorico_unitario, 0) AS costo_teorico,
+                    i.id AS id_producto,
+                    i.sku AS producto_sku,
                     i.nombre AS producto_nombre,
-                    i.unidad_base, -- AHORA SÍ, ESTA ES LA COLUMNA REAL
-                    (
-                        SELECT COUNT(*)
-                        FROM produccion_recetas_detalle d
-                        WHERE d.id_receta = r.id
-                            AND d.deleted_at IS NULL
-                    ) AS total_insumos
+                    i.unidad_base,
+                    i.requiere_formula_bom,
+                    CASE
+                        WHEN r.id IS NULL THEN 0
+                        ELSE (
+                            SELECT COUNT(*)
+                            FROM produccion_recetas_detalle d
+                            WHERE d.id_receta = r.id
+                              AND d.deleted_at IS NULL
+                        )
+                    END AS total_insumos
                 FROM items i
-                INNER JOIN produccion_recetas r ON r.id = (
-                    SELECT pr.id 
+                LEFT JOIN produccion_recetas r ON r.id = (
+                    SELECT pr.id
                     FROM produccion_recetas pr
-                    WHERE pr.id_producto = i.id 
-                    AND pr.deleted_at IS NULL
-                    ORDER BY pr.estado DESC, pr.version DESC 
+                    WHERE pr.id_producto = i.id
+                      AND pr.deleted_at IS NULL
+                    ORDER BY pr.estado DESC, pr.version DESC
                     LIMIT 1
                 )
                 WHERE i.deleted_at IS NULL
-                ORDER BY i.nombre ASC';
+                  AND (
+                      r.id IS NOT NULL
+                      OR i.tipo_item IN ('producto_terminado', 'semielaborado')
+                  )
+                ORDER BY i.nombre ASC";
 
         $stmt = $this->db()->query($sql);
         $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         // Generamos la variable "sin_receta" en memoria (CPU), aliviando a la Base de Datos
         foreach ($resultados as &$fila) {
-            $fila['sin_receta'] = ((int)$fila['total_insumos'] === 0) ? 1 : 0;
+            $requiereBom = (int) ($fila['requiere_formula_bom'] ?? 0) === 1;
+            $tieneReceta = (int) ($fila['id'] ?? 0) > 0;
+            $totalInsumos = (int) ($fila['total_insumos'] ?? 0);
+
+            $fila['sin_receta'] = ($requiereBom && (!$tieneReceta || $totalInsumos === 0)) ? 1 : 0;
+            $fila['bom_desactivada'] = $requiereBom ? 0 : 1;
         }
 
         return $resultados;

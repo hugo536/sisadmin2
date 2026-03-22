@@ -897,45 +897,41 @@ class ItemModel extends Modelo
 
         $requiereFormula = (isset($data['requiere_formula_bom']) && in_array($data['requiere_formula_bom'], [1, '1', 'on', true], true));
         $requiereFactor = (isset($data['requiere_factor_conversion']) && in_array($data['requiere_factor_conversion'], [1, '1', 'on', true], true));
+        $controlaStock = (isset($data['controla_stock']) && in_array($data['controla_stock'], [1, '1', 'on', true], true));
 
+        // La receta BOM ya no se crea automáticamente en DB.
+        // Se maneja como borrador visual en Recetas (BOM) hasta que el usuario la defina y guarde.
         if ($requiereFormula) {
-            $this->asegurarRecetaBase($idItem, $userId);
+            // Intencionalmente sin inserción automática en produccion_recetas.
         }
 
         if ($requiereFactor) {
             $this->asegurarPresentacionBase($idItem, $userId);
         }
+
+        if ($controlaStock) {
+            $this->asegurarStockBaseInventario($idItem);
+        }
     }
 
-    private function asegurarRecetaBase(int $idItem, int $userId): void
+    private function asegurarStockBaseInventario(int $idItem): void
     {
-        $sqlExiste = 'SELECT id FROM produccion_recetas WHERE id_producto = :id_item AND deleted_at IS NULL ORDER BY id DESC LIMIT 1';
+        $sqlExiste = 'SELECT id
+                      FROM inventario_stock
+                      WHERE id_item = :id_item
+                        AND id_almacen = 0
+                      LIMIT 1';
         $stmtExiste = $this->db()->prepare($sqlExiste);
         $stmtExiste->execute(['id_item' => $idItem]);
-        
+
         if ($stmtExiste->fetchColumn()) {
             return;
         }
 
-        $item = $this->obtener($idItem);
-        $codigoBase = 'REC-ITEM-' . str_pad((string) $idItem, 6, '0', STR_PAD_LEFT);
-
-        $sqlInsert = 'INSERT INTO produccion_recetas 
-                        (id_producto, codigo, version, descripcion, estado, rendimiento_base, unidad_rendimiento, costo_teorico_unitario, created_by, updated_by, created_at, updated_at) 
-                      VALUES 
-                        (:id_producto, :codigo, :version, :descripcion, :estado, :rendimiento_base, :unidad_rendimiento, :costo_teorico_unitario, :created_by, :updated_by, NOW(), NOW())';
-        
+        $sqlInsert = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
+                      VALUES (:id_item, 0, 0)';
         $this->db()->prepare($sqlInsert)->execute([
-            'id_producto' => $idItem,
-            'codigo' => $codigoBase,
-            'version' => 1,
-            'descripcion' => 'Fórmula pendiente de configuración.',
-            'estado' => 1,
-            'rendimiento_base' => 1,
-            'unidad_rendimiento' => trim((string) ($item['unidad_base'] ?? 'UND')) ?: 'UND',
-            'costo_teorico_unitario' => 0,
-            'created_by' => $userId > 0 ? $userId : 1,
-            'updated_by' => $userId > 0 ? $userId : 1
+            'id_item' => $idItem,
         ]);
     }
 

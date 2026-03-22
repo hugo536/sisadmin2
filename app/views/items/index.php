@@ -181,7 +181,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                 
                                 // Lógica del icono BOM
                                 $bomIcon = ((int) ($item['bom_pendiente'] ?? 0) === 1) 
-                                    ? '<i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="Falta agregar una receta"></i>' 
+                                    ? '<i class="bi bi-exclamation-triangle-fill text-warning ms-1" data-bs-toggle="tooltip" title="Falta definir una receta BOM"></i>' 
                                     : '';
                                     
                                 // Lógica del botón eliminar
