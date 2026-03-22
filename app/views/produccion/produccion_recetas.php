@@ -77,6 +77,7 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                         <option value="1">Activas</option>
                         <option value="0">Inactivas</option>
                         <option value="2">Sin receta</option>
+                        <option value="3">BOM desactivada</option>
                     </select>
                 </div>
             </div>
@@ -117,9 +118,14 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                             </tr>
                         <?php else: ?>
                             <?php foreach ($recetas as $receta): ?>
+                                <?php
+                                    $bomDesactivada = (int) ($receta['bom_desactivada'] ?? 0) === 1;
+                                    $sinReceta = (int) ($receta['sin_receta'] ?? 0) === 1;
+                                    $dataEstado = $bomDesactivada ? 3 : ($sinReceta ? 2 : (int) ($receta['estado'] ?? 0));
+                                ?>
                                 <tr class="border-bottom" 
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
-                                    data-estado="<?php echo (int) (($receta['sin_receta'] ?? 0) === 1 ? 2 : ($receta['estado'] ?? 0)); ?>">
+                                    data-estado="<?php echo $dataEstado; ?>">
                                     
                                     <td class="ps-4 fw-bold text-primary align-top pt-3" data-label="Código">
                                         <?php echo e((string) $receta['codigo']); ?>
@@ -142,7 +148,9 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                         S/ <?php echo number_format((float) ($receta['costo_teorico'] ?? 0), 4); ?>
                                     </td>
                                     <td class="text-center align-top pt-3" data-label="Estado">
-                                        <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                        <?php if ($bomDesactivada): ?>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">BOM desactivada</span>
+                                        <?php elseif ($sinReceta): ?>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill">Sin receta</span>
                                         <?php elseif ((int) ($receta['estado'] ?? 0) === 1): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill">Activa</span>
@@ -151,7 +159,9 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end pe-4 align-top pt-3" data-label="Acciones">
-                                        <?php if ((int) ($receta['sin_receta'] ?? 0) === 1): ?>
+                                        <?php if ($bomDesactivada): ?>
+                                            <span class="text-muted small">Habilita “Fórmula (BOM)” en Ítems para editar.</span>
+                                        <?php elseif ($sinReceta): ?>
                                             <div class="d-inline-flex gap-1">
                                                 <button type="button"
                                                         class="btn-icon btn-icon-warning js-agregar-receta"

@@ -487,6 +487,10 @@ class ItemController extends Controlador
                 $idMarca = isset($data['id_marca']) && $data['id_marca'] !== '' ? (int) $data['id_marca'] : 0;
                 if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para productos terminados.');
 
+                if (!$esEdicion) {
+                    $data['controla_stock'] = 1;
+                }
+
                 $data['id_sabor'] = $idSabor > 0 ? $idSabor : null;
                 if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para productos terminados.');
 
