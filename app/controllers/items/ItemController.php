@@ -461,8 +461,11 @@ class ItemController extends Controlador
             $data['stock_minimo'] = 0;
         }
 
-        // --- 2. Limpieza inicial de atributos opcionales ---
+        // --- 2. Normalización y limpieza inicial de atributos opcionales ---
         $idMarca = 0;
+        $idSabor = isset($data['id_sabor']) && $data['id_sabor'] !== '' ? (int) $data['id_sabor'] : 0;
+        $idPresentacion = isset($data['id_presentacion']) && $data['id_presentacion'] !== '' ? (int) $data['id_presentacion'] : 0;
+
         $data['marca'] = null;
         $data['id_sabor'] = null;
         $data['id_presentacion'] = null;
@@ -483,11 +486,11 @@ class ItemController extends Controlador
             case 'producto_terminado':
                 $idMarca = isset($data['id_marca']) && $data['id_marca'] !== '' ? (int) $data['id_marca'] : 0;
                 if (empty($idMarca)) throw new RuntimeException('La marca es obligatoria para productos terminados.');
-                
-                $data['id_sabor'] = $data['id_sabor'] ?? null; 
+
+                $data['id_sabor'] = $idSabor > 0 ? $idSabor : null;
                 if (empty($data['id_sabor'])) throw new RuntimeException('El sabor es obligatorio para productos terminados.');
 
-                $data['id_presentacion'] = $data['id_presentacion'] ?? null;
+                $data['id_presentacion'] = $idPresentacion > 0 ? $idPresentacion : null;
                 if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para productos terminados.');
 
                 $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
@@ -498,7 +501,7 @@ class ItemController extends Controlador
                 break;
 
             case 'semielaborado':
-                $data['id_sabor'] = $data['id_sabor'] ?? null; 
+                $data['id_sabor'] = $idSabor > 0 ? $idSabor : null;
                 $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
                 $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 0;
                 
