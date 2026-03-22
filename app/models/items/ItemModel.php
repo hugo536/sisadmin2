@@ -1028,7 +1028,8 @@ class ItemModel extends Modelo
             'costo_referencial' => (float) ($data['costo_referencial'] ?? 0),
             'moneda' => trim((string) ($data['moneda'] ?? 'PEN')),
             'impuesto_porcentaje' => (float) ($data['impuesto'] ?? 0),
-            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            // AQUÍ ESTÁ EL CAMBIO PRINCIPAL:
+            'estado' => isset($data['estado']) ? $parseBool($data['estado']) : 1,
         ];
     }
 

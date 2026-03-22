@@ -78,15 +78,20 @@ class ProduccionRecetasModel extends Modelo
     }
 
     // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
-    public function buscarInsumosStockeables(string $termino, int $limite = 30): array
+    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
+    public function buscarInsumosStockeables(string $termino, bool $soloConBom = false, int $limite = 30): array
     {
         $busqueda = '%' . $termino . '%';
+        
+        // NUEVO: Filtro condicional
+        $filtroBom = $soloConBom ? ' AND requiere_formula_bom = 1' : '';
         
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
                   AND controla_stock = 1
+                  ' . $filtroBom . '
                   AND (nombre LIKE :termino_nombre OR sku LIKE :termino_sku)
                 ORDER BY nombre ASC
                 LIMIT ' . (int)$limite;

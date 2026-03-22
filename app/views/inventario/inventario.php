@@ -2,7 +2,8 @@
 $stockActual = $stockActual ?? [];
 $almacenes = $almacenes ?? [];
 $proveedores = $proveedores ?? []; 
-$centros_costo = $centros_costo ?? []; // <-- NUEVO: Recibir centros de costo
+$centros_costo = $centros_costo ?? []; 
+$categorias = $categorias ?? []; // <-- RECIBIMOS TODAS LAS CATEGORÍAS AQUÍ
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
 
 $tipoItemLabel = static function (string $tipo): string {
@@ -26,17 +27,8 @@ $tipoItemLabel = static function (string $tipo): string {
     }
     return $tipo;
 };
-
-$categoriasInventario = [];
-foreach ($stockActual as $stockFila) {
-    $categoriaId = (int) ($stockFila['id_categoria'] ?? 0);
-    $categoriaNombre = trim((string) ($stockFila['categoria_nombre'] ?? ''));
-    if ($categoriaId > 0 && $categoriaNombre !== '') {
-        $categoriasInventario[$categoriaId] = $categoriaNombre;
-    }
-}
-asort($categoriasInventario, SORT_NATURAL | SORT_FLAG_CASE);
 ?>
+
 <div class="container-fluid p-4" id="inventarioApp">
     
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-4 fade-in inventario-sticky-header">
@@ -84,8 +76,8 @@ asort($categoriasInventario, SORT_NATURAL | SORT_FLAG_CASE);
                 <div class="col-12 col-md-4 col-lg-3">
                     <select class="form-select bg-light" id="inventarioFiltroCategoria">
                         <option value="">Todas las categorías</option>
-                        <?php foreach ($categoriasInventario as $categoriaId => $categoriaNombre): ?>
-                            <option value="<?php echo (int) $categoriaId; ?>"><?php echo e((string) $categoriaNombre); ?></option>
+                        <?php foreach ($categorias as $cat): ?>
+                            <option value="<?php echo (int) ($cat['id'] ?? 0); ?>"><?php echo e((string) ($cat['nombre'] ?? '')); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -186,17 +178,20 @@ asort($categoriasInventario, SORT_NATURAL | SORT_FLAG_CASE);
                                     data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
                                     
                                     <td class="ps-4 fw-bold text-primary"><?php echo e($sku); ?></td>
-                                    <td class="fw-semibold text-dark">
-                                        <?php echo e($itemNombreCompleto); ?>
-                                        <?php if ($categoriaNombre !== ''): ?>
-                                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65rem;"><?php echo e($categoriaNombre); ?></span>
-                                        <?php endif; ?>
-                                        <?php if ($tipoItem !== ''): ?>
-                                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65rem;"><?php echo e($tipoItemLabel($tipoItem)); ?></span>
-                                        <?php endif; ?>
-                                        <?php if($tipoRegistro === 'pack'): ?>
-                                            <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.65rem;">PACK</span>
-                                        <?php endif; ?>
+                                    <td class="text-dark">
+                                        <span class="d-block fw-bold mb-1"><?php echo e($itemNombreCompleto); ?></span>
+                                        
+                                        <div class="d-flex flex-wrap align-items-center gap-1">
+                                            <?php if ($categoriaNombre !== ''): ?>
+                                                <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($tipoItem !== ''): ?>
+                                                <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-layers me-1"></i><?php echo e($tipoItemLabel($tipoItem)); ?></span>
+                                            <?php endif; ?>
+                                            <?php if($tipoRegistro === 'pack'): ?>
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold" style="font-size: 0.65rem;"><i class="bi bi-box-seam me-1"></i>PACK</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
                                     <td class="text-muted"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
@@ -472,6 +467,5 @@ asort($categoriasInventario, SORT_NATURAL | SORT_FLAG_CASE);
         })
     });
 </script>
-<!-- Al final de inventario.php -->
 <script src="<?php echo e(asset_url('js/tablas/iconos_accion.js')); ?>"></script>
 <script src="<?php echo e(asset_url('js/inventario/inventario.js')); ?>?v=<?php echo time(); ?>"></script>

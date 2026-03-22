@@ -5,19 +5,22 @@ require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
 require_once BASE_PATH . '/app/models/configuracion/AlmacenModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
+require_once BASE_PATH . '/app/models/items/CategoriaModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 
 class InventarioController extends Controlador
 {
     private InventarioModel $inventarioModel;
     private AlmacenModel $almacenModel;
-    private CentroCostoModel $centroCostoModel; // <-- NUEVA PROPIEDAD
+    private CentroCostoModel $centroCostoModel; 
+    private CategoriaModel $categoriaModel; // <-- NUEVA PROPIEDAD
 
     public function __construct()
     {
         $this->inventarioModel = new InventarioModel();
         $this->almacenModel = new AlmacenModel();
-        $this->centroCostoModel = new CentroCostoModel(); // <-- INICIALIZAR
+        $this->centroCostoModel = new CentroCostoModel(); 
+        $this->categoriaModel = new CategoriaModel(); // <-- INICIALIZAR
     }
 
     public function index(): void
@@ -39,8 +42,8 @@ class InventarioController extends Controlador
                 'almacenes' => $this->almacenModel->listarActivos(),
                 'proveedores' => $this->inventarioModel->listarProveedoresActivos(),
                 'items' => $this->inventarioModel->listarItems(),
-                // --- NUEVO: Pasar los centros de costo activos ---
                 'centros_costo' => $this->centroCostoModel->listarActivos(), 
+                'categorias' => $this->categoriaModel->listarCategoriasActivas(), // <-- NUEVA LÍNEA DE CATEGORÍAS
                 'flash' => ['tipo' => '', 'texto' => ''],
                 'id_almacen_filtro' => $idAlmacenFiltro,
             ];

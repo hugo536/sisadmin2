@@ -74,7 +74,8 @@ function initFormularioRecetas() {
     const costoTotalUnitarioEl = document.getElementById('costoTotalUnitarioCalculado');
     const tabsRecetaCostos = document.getElementById('tabsRecetaCostos');
 
-    function initTomSelectAjax(selectEl, placeholderText, onChangeCallback = null) {
+    // 1. TomSelect Modificado para aceptar Extra Params (como solo_con_bom)
+    function initTomSelectAjax(selectEl, placeholderText, extraParams = {}, onChangeCallback = null) {
         if (!selectEl || typeof TomSelect === 'undefined') return null;
         selectEl.classList.remove('form-select', 'form-control', 'form-select-sm');
         return new TomSelect(selectEl, {
@@ -90,6 +91,11 @@ function initFormularioRecetas() {
                 const url = new URL(window.location.href);
                 url.searchParams.set('accion', 'buscar_insumos_ajax');
                 url.searchParams.set('q', query);
+                
+                if (extraParams && typeof extraParams === 'object') {
+                    Object.keys(extraParams).forEach(key => url.searchParams.set(key, extraParams[key]));
+                }
+
                 fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(r => r.json())
                     .then(json => callback(json.success && json.data ? json.data : []))
@@ -109,8 +115,9 @@ function initFormularioRecetas() {
         });
     }
 
+    // 2. Inicializamos el producto destino CON el filtro de BOM
     if (inputProducto) {
-        tomProductoDestino = initTomSelectAjax(inputProducto, 'Seleccione producto a fabricar...');
+        tomProductoDestino = initTomSelectAjax(inputProducto, 'Seleccione producto a fabricar...', { solo_con_bom: 1 });
     }
 
     const getProductoDestinoId = () => {
@@ -226,12 +233,10 @@ function initFormularioRecetas() {
             costoCif += parseNumero(row.querySelector('.cif-costo')?.value);
         });
 
-        // NUEVO CÓDIGO CORREGIDO:
         const rendimientoBase = Math.max(parseNumero(inputRendimientoBase?.value || 1), 0);
         const divisorUnidad = rendimientoBase > 0 ? rendimientoBase : 1;
         
         const costoBomUnit = costoTotal / divisorUnidad;
-        // Corrección: Ahora el MOD también se divide entre la cantidad del lote (Rendimiento Base)
         const costoModUnit = costoMod / divisorUnidad; 
         const costoCifUnit = costoCif / divisorUnidad;
         const costoTotalReceta = costoTotal + costoMod + costoCif;
@@ -300,7 +305,8 @@ function initFormularioRecetas() {
 
         listaInsumos.appendChild(fragment);
 
-        const tom = initTomSelectAjax(selectInsumo, 'Buscar insumo...', (value, tomInstance) => {
+        // 3. Inicialización correcta de TomSelect PARA INSUMOS (con {} sin parámetros extra)
+        const tom = initTomSelectAjax(selectInsumo, 'Buscar insumo...', {}, (value, tomInstance) => {
             if (!validarInsumoSeleccionado(value, tomInstance)) return;
             let costoBD = 0;
             if (value) {
@@ -325,7 +331,6 @@ function initFormularioRecetas() {
     inputRendimientoBase?.addEventListener('input', calcularResumenYCostos);
     inputTiempoProduccionHoras?.addEventListener('input', calcularResumenYCostos);
 
-    // --- EL NUEVO EVENT LISTENER PARA EL CIF ---
     document.addEventListener('change', e => {
         if (e.target && e.target.classList.contains('cif-concepto-select')) {
             const option = e.target.options[e.target.selectedIndex];
@@ -386,7 +391,6 @@ function initFormularioRecetas() {
         calcularResumenYCostos();
     });
 
-    // --- NUEVA LÓGICA DE AGREGAR CIF (Simplificada) ---
     if (btnAgregarCif) btnAgregarCif.addEventListener('click', (e) => {
         e.preventDefault();
         if (!templateCif || !contenedorCif) {
@@ -575,10 +579,9 @@ function initFormularioRecetas() {
                 const row = contenedorCif.querySelector('.cif-row:last-child');
                 if (!row) return;
                 
-                // Actualizado para rellenar el select de conceptos
                 const selectConcepto = row.querySelector('select[name="cif_id_activo[]"]');
                 if (selectConcepto) {
-                    selectConcepto.value = fila.id_activo || ''; // Usamos id_activo que guarda el ID de tu nueva tabla
+                    selectConcepto.value = fila.id_activo || '';
                 }
                 const inputNombre = row.querySelector('input[name="cif_concepto[]"]');
                 if(inputNombre) inputNombre.value = fila.concepto || '';
@@ -592,10 +595,7 @@ function initFormularioRecetas() {
 
 function initAccionesRecetaPendiente() {
     const modalEl = document.getElementById('modalCrearReceta');
-    if (!modalEl || typeof bootstrap === 'undefined') return;
-
     const form = document.getElementById('formCrearReceta');
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const selectVersionBase = document.getElementById('newVersionBase');
     const contenedorVersionesPrevias = document.getElementById('contenedorVersionesPrevias');
     const ayudaVersionesPrevias = document.getElementById('ayudaVersionesPrevias');
@@ -637,23 +637,35 @@ function initAccionesRecetaPendiente() {
         api.cargarCif(dataReceta.cif || []);
     };
 
-    modalEl.addEventListener('hidden.bs.modal', function () {
-        const api = window.produccionRecetaFormAPI;
-        if (api) api.limpiarFormularioReceta();
-        else if (form) form.reset();
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            const api = window.produccionRecetaFormAPI;
+            if (api) api.limpiarFormularioReceta();
+            else if (form) form.reset();
 
-        if (selectVersionBase) {
-            selectVersionBase.innerHTML = '<option value="">Seleccione versión...</option>';
-            selectVersionBase.value = '';
-        }
-        if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = 'none';
-        if (ayudaVersionesPrevias) ayudaVersionesPrevias.style.display = 'none';
-        if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva receta';
-    });
+            if (selectVersionBase) {
+                selectVersionBase.innerHTML = '<option value="">Seleccione versión...</option>';
+                selectVersionBase.value = '';
+            }
+            if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = 'none';
+            if (ayudaVersionesPrevias) ayudaVersionesPrevias.style.display = 'none';
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nueva receta';
+        });
+    }
 
+    // EVENTO DEL BOTÓN AMARILLO (Crear Receta) - ROBUSTO
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.js-agregar-receta');
-        if (!btn || !form) return;
+        if (!btn) return; 
+
+        const formActual = document.getElementById('formCrearReceta');
+        const modalElActual = document.getElementById('modalCrearReceta');
+
+        if (!formActual || !modalElActual) {
+            console.error('No se encontró el formulario o el modal en el HTML.');
+            return;
+        }
+        
         const api = window.produccionRecetaFormAPI;
         if (api) {
             api.setCabecera({
@@ -666,7 +678,15 @@ function initAccionesRecetaPendiente() {
                 tiempo_produccion_horas: 1
             });
         }
-        modal.show();
+        
+        if (typeof bootstrap !== 'undefined') {
+            const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
+            if (tooltipInstance) {
+                tooltipInstance.hide();
+            }
+            const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
+            modalObj.show();
+        }
     });
 
     const btnPrincipalNuevaReceta = document.getElementById('btnNuevaReceta');
@@ -712,9 +732,16 @@ function initAccionesRecetaPendiente() {
         });
     }
 
+    // EVENTO DE NUEVA VERSIÓN
     document.addEventListener('click', async function (e) {
         const btn = e.target.closest('.js-nueva-version');
-        if (!btn || !form) return;
+        if (!btn) return;
+        
+        const formActual = document.getElementById('formCrearReceta');
+        const modalElActual = document.getElementById('modalCrearReceta');
+        
+        if (!formActual || !modalElActual) return;
+        
         const idRecetaBase = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
         if (!idRecetaBase) return;
 
@@ -744,7 +771,15 @@ function initAccionesRecetaPendiente() {
                 });
                 if (selectVersionBase.options.length > 0) selectVersionBase.value = selectVersionBase.options[0].value;
             }
-            modal.show();
+            
+            if (typeof bootstrap !== 'undefined') {
+                const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
+                if (tooltipInstance) {
+                    tooltipInstance.hide();
+                }
+                const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
+                modalObj.show();
+            }
         } catch (error) {
             Swal.fire({ icon: 'error', title: 'Error de Carga', text: error.message || 'No se pudo cargar la receta para versionar.' });
         }
@@ -874,7 +909,7 @@ function initGuardadoReceta() {
                     text: 'La receta se guardó correctamente.', 
                     showConfirmButton: true,
                     confirmButtonText: 'OK',
-                    confirmButtonColor: '#0d6efd' // Color azul primary (puedes cambiarlo si usas otro)
+                    confirmButtonColor: '#0d6efd'
                 }).then(() => {
                     bootstrap.Modal.getInstance(document.getElementById('modalCrearReceta'))?.hide();
                     window.location.reload(); 

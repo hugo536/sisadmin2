@@ -107,7 +107,7 @@ class ItemController extends Controlador
         if (es_ajax() && (string) ($_POST['accion'] ?? '') === 'toggle_estado_item') {
             require_permiso('items.editar');
             $id = (int) ($_POST['id'] ?? 0);
-            $estado = ((int) ($_POST['estado'] ?? 0) === 1) ? 1 : 0;
+            $estado = in_array($_POST['estado'] ?? 0, [1, '1', 'on', true], true) ? 1 : 0;
 
             if ($id <= 0) {
                 json_response(['ok' => false, 'mensaje' => 'ID inválido.'], 400);
@@ -456,9 +456,16 @@ class ItemController extends Controlador
         }
 
         // --- 1. Reglas Generales Base ---
-        if (!isset($data['controla_stock']) || (int)$data['controla_stock'] !== 1) {
+        // Evaluamos correctamente si viene "on", "1", 1, etc.
+        $controla_stock_crudo = $data['controla_stock'] ?? 0;
+        $activa_stock = in_array($controla_stock_crudo, [1, '1', 'on', true], true);
+
+        if (!$activa_stock) {
             $data['controla_stock'] = 0;
             $data['stock_minimo'] = 0;
+        } else {
+            // Pasamos el valor crudo para que tu Modelo (mapPayload) lo procese correctamente
+            $data['controla_stock'] = $controla_stock_crudo;
         }
 
         // --- 2. Normalización y limpieza inicial de atributos opcionales ---
@@ -466,20 +473,29 @@ class ItemController extends Controlador
         $idSabor = isset($data['id_sabor']) && $data['id_sabor'] !== '' ? (int) $data['id_sabor'] : 0;
         $idPresentacion = isset($data['id_presentacion']) && $data['id_presentacion'] !== '' ? (int) $data['id_presentacion'] : 0;
 
+        // CAPTURA CRUDA: Guardamos exactamente lo que envía el formulario ('on' o '1')
+        $post_formula_bom = $data['requiere_formula_bom'] ?? 0;
+        $post_envase      = $data['es_envase_retornable'] ?? 0;
+        $post_lote        = $data['requiere_lote'] ?? 0;
+        $post_vcto        = $data['requiere_vencimiento'] ?? 0;
+        $post_decimales   = $data['permite_decimales'] ?? 0;
+        
+        // ¡NUEVO!: También protegemos el factor de conversión del casteo (int)
+        $post_factor_conv = $data['requiere_factor_conversion'] ?? 0;
+
         $data['marca'] = null;
         $data['id_sabor'] = null;
         $data['id_presentacion'] = null;
+        
+        // Limpieza de seguridad por defecto
         $data['requiere_formula_bom'] = 0; 
         $data['es_envase_retornable'] = 0;
         $data['requiere_lote'] = 0;
         $data['requiere_vencimiento'] = 0;
         $data['permite_decimales'] = 0;
-        $data['requiere_factor_conversion'] = isset($data['requiere_factor_conversion']) ? (int)$data['requiere_factor_conversion'] : 0;
-
-        if ($tipo !== 'producto_terminado') {
-             $data['precio_venta'] = 0;
-             $data['costo_referencial'] = 0;
-        }
+        
+        // Asignamos su valor crudo en vez del casteo (int)
+        $data['requiere_factor_conversion'] = $post_factor_conv;
 
         // --- 3. Aplicación estricta de reglas según tipo ---
         switch ($tipo) {
@@ -497,36 +513,38 @@ class ItemController extends Controlador
                 $data['id_presentacion'] = $idPresentacion > 0 ? $idPresentacion : null;
                 if (empty($data['id_presentacion'])) throw new RuntimeException('La presentación es obligatoria para productos terminados.');
 
-                $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
-                $data['es_envase_retornable'] = isset($data['es_envase_retornable']) ? (int)$data['es_envase_retornable'] : 0;
-                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 0;
-                $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 0;
-                $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 0;
+                // Devolvemos el valor crudo capturado
+                $data['requiere_formula_bom'] = $post_formula_bom;
+                $data['es_envase_retornable'] = $post_envase;
+                $data['permite_decimales']    = $post_decimales;
+                $data['requiere_lote']        = $post_lote;
+                $data['requiere_vencimiento'] = $post_vcto;
                 break;
 
             case 'semielaborado':
                 $data['id_sabor'] = $idSabor > 0 ? $idSabor : null;
-                $data['requiere_formula_bom'] = isset($data['requiere_formula_bom']) ? (int)$data['requiere_formula_bom'] : 0;
-                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 0;
+                
+                $data['requiere_formula_bom'] = $post_formula_bom;
+                $data['permite_decimales']    = $post_decimales;
                 
                 if (!$esEdicion) {
                     $data['controla_stock'] = 1;
                     $data['requiere_lote'] = 1;
                     $data['requiere_vencimiento'] = 1;
                 } else {
-                    $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 0;
-                    $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 0;
+                    $data['requiere_lote'] = $post_lote;
+                    $data['requiere_vencimiento'] = $post_vcto;
                 }
                 break;
 
             case 'materia_prima':
-                $data['permite_decimales'] = isset($data['permite_decimales']) ? (int)$data['permite_decimales'] : 1;
-                $data['requiere_lote'] = isset($data['requiere_lote']) ? (int)$data['requiere_lote'] : 1;
-                $data['requiere_vencimiento'] = isset($data['requiere_vencimiento']) ? (int)$data['requiere_vencimiento'] : 1;
+                $data['permite_decimales']    = $post_decimales;
+                $data['requiere_lote']        = $post_lote;
+                $data['requiere_vencimiento'] = $post_vcto;
                 break;
 
             case 'material_empaque':
-                $data['es_envase_retornable'] = isset($data['es_envase_retornable']) ? (int)$data['es_envase_retornable'] : 0;
+                $data['es_envase_retornable'] = $post_envase;
                 $data['permite_decimales'] = 0; 
                 break;
 
@@ -610,7 +628,7 @@ class ItemController extends Controlador
             'codigo_unidad' => trim((string) ($data['codigo_unidad'] ?? '')),
             'factor_conversion' => round($factor, 4),
             'peso_kg' => round($pesoKg, 3),
-            'estado' => ((int) ($data['estado'] ?? 1) === 1) ? 1 : 0,
+            'estado' => in_array($data['estado'] ?? 1, [1, '1', 'on', true], true) ? 1 : 0,
         ];
     }
 
@@ -624,7 +642,7 @@ class ItemController extends Controlador
         return [
             'nombre' => $nombre,
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
-            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'estado' => isset($data['estado']) ? (in_array($data['estado'], [1, '1', 'on', true], true) ? 1 : 0) : 1,
         ];
     }
 
@@ -637,7 +655,7 @@ class ItemController extends Controlador
 
         return [
             'nombre' => $nombre,
-            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'estado' => isset($data['estado']) ? (in_array($data['estado'], [1, '1', 'on', true], true) ? 1 : 0) : 1,
         ];
     }
 
@@ -651,7 +669,7 @@ class ItemController extends Controlador
         return [
             'nombre' => $nombre,
             'descripcion' => trim((string) ($data['descripcion'] ?? '')),
-            'estado' => isset($data['estado']) ? (int) $data['estado'] : 1,
+            'estado' => isset($data['estado']) ? (in_array($data['estado'], [1, '1', 'on', true], true) ? 1 : 0) : 1,
         ];
     }
 }

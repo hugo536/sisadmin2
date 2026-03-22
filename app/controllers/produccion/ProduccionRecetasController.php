@@ -32,9 +32,15 @@ class ProduccionRecetasController extends Controlador
             ob_clean();
             header('Content-Type: application/json; charset=utf-8');
             $termino = trim((string) ($_GET['q'] ?? ''));
+            
+            // NUEVO: Capturamos el parámetro que configuramos en el JavaScript
+            $soloConBom = (int) ($_GET['solo_con_bom'] ?? 0) === 1;
+
+            // Le pasamos el parámetro al modelo
             $resultados = $termino !== ''
-                ? $this->produccionRecetasModel->buscarInsumosStockeables($termino)
+                ? $this->produccionRecetasModel->buscarInsumosStockeables($termino, $soloConBom)
                 : [];
+                
             echo json_encode(['success' => true, 'data' => $resultados]);
             exit;
         }
