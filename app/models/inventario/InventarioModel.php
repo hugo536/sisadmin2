@@ -41,13 +41,14 @@ class InventarioModel extends Modelo
             $subqueryMov     = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id";
             $joinsExtra      = "LEFT JOIN inventario_stock s ON s.id_item = i.id\nLEFT JOIN almacenes a ON a.id = s.id_almacen";
             $whereExtra      = "";
-            $groupBy         = "GROUP BY i.id, i.sku, i.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.requiere_factor_conversion, i.permite_decimales";
+            $groupBy         = "GROUP BY i.id, i.sku, i.nombre, c.nombre, sbr.nombre, prs.nombre, i.descripcion, i.estado, i.id_categoria, i.tipo_item, i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.requiere_factor_conversion, i.permite_decimales";
         }
 
         // 2. CONSTRUIMOS LA CONSULTA BASE PARA ÍTEMS
         $sql = "SELECT i.id AS id_item, i.sku, 
                        i.nombre AS item_nombre, 
                        i.nombre AS item_nombre_base, i.descripcion AS item_descripcion, i.estado AS item_estado,
+                       i.id_categoria, i.tipo_item, COALESCE(c.nombre, '') AS categoria_nombre,
                        i.stock_minimo, i.requiere_vencimiento, i.dias_alerta_vencimiento, i.controla_stock, i.requiere_factor_conversion, i.permite_decimales,
                        'item' AS tipo_registro,
                        {$selectAlmacen}
@@ -55,6 +56,7 @@ class InventarioModel extends Modelo
                        ({$subqueryVenc}) AS proximo_vencimiento,
                        ({$subqueryMov}) AS ultimo_movimiento
                 FROM items i
+                LEFT JOIN categorias c ON c.id = i.id_categoria
                 LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
                 LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                 {$joinsExtra}
@@ -90,19 +92,20 @@ class InventarioModel extends Modelo
                 $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
                 $joinsExtraPack    = "LEFT JOIN inventario_stock sp ON sp.id_pack = p.id\nLEFT JOIN almacenes a ON a.id = sp.id_almacen";
                 $whereExtraPack    = "";
-                $groupByPack       = "GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta";
+                $groupByPack       = "GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, i.id_categoria, i.tipo_item, c.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta";
             }
 
             $sql .= " UNION ALL
                       SELECT p.id AS id_item, p.codigo_presentacion AS sku,
                              COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre,
                              COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre_base,
-                             'Pack Comercial' AS item_descripcion, p.estado AS item_estado, p.stock_minimo AS stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta AS dias_alerta_vencimiento, 1 AS controla_stock, 0 AS requiere_factor_conversion, 0 AS permite_decimales, 'pack' AS tipo_registro,
+                             'Pack Comercial' AS item_descripcion, p.estado AS item_estado, i.id_categoria, i.tipo_item, COALESCE(c.nombre, '') AS categoria_nombre, p.stock_minimo AS stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta AS dias_alerta_vencimiento, 1 AS controla_stock, 0 AS requiere_factor_conversion, 0 AS permite_decimales, 'pack' AS tipo_registro,
                              {$selectAlmacenPack}
                              NULL AS lote_actual, NULL AS proximo_vencimiento,
                              ({$subqueryMovPack}) AS ultimo_movimiento
                       FROM precios_presentaciones p
                       LEFT JOIN items i ON i.id = p.id_item
+                      LEFT JOIN categorias c ON c.id = i.id_categoria
                       LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
                       LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                       {$joinsExtraPack}

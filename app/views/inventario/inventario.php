@@ -4,6 +4,38 @@ $almacenes = $almacenes ?? [];
 $proveedores = $proveedores ?? []; 
 $centros_costo = $centros_costo ?? []; // <-- NUEVO: Recibir centros de costo
 $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
+
+$tipoItemLabel = static function (string $tipo): string {
+    if ($tipo === 'producto' || $tipo === 'producto_terminado') {
+        return 'Producto terminado';
+    }
+    if ($tipo === 'materia_prima') {
+        return 'Materia prima';
+    }
+    if ($tipo === 'material_empaque') {
+        return 'Material de empaque';
+    }
+    if ($tipo === 'servicio') {
+        return 'Servicio';
+    }
+    if ($tipo === 'semielaborado') {
+        return 'Semielaborado';
+    }
+    if ($tipo === 'insumo') {
+        return 'Insumo';
+    }
+    return $tipo;
+};
+
+$categoriasInventario = [];
+foreach ($stockActual as $stockFila) {
+    $categoriaId = (int) ($stockFila['id_categoria'] ?? 0);
+    $categoriaNombre = trim((string) ($stockFila['categoria_nombre'] ?? ''));
+    if ($categoriaId > 0 && $categoriaNombre !== '') {
+        $categoriasInventario[$categoriaId] = $categoriaNombre;
+    }
+}
+asort($categoriasInventario, SORT_NATURAL | SORT_FLAG_CASE);
 ?>
 <div class="container-fluid p-4" id="inventarioApp">
     
@@ -49,15 +81,28 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </div>
                 </div>
                 
-                <div class="col-12 col-md-3 col-lg-3">
-                    <select class="form-select bg-light" id="inventarioFiltroTipoRegistro">
-                        <option value="">Todos los Tipos</option>
-                        <option value="item">Productos Base / Insumos</option>
-                        <option value="pack">Presentaciones Comerciales (Packs)</option>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <select class="form-select bg-light" id="inventarioFiltroCategoria">
+                        <option value="">Todas las categorías</option>
+                        <?php foreach ($categoriasInventario as $categoriaId => $categoriaNombre): ?>
+                            <option value="<?php echo (int) $categoriaId; ?>"><?php echo e((string) $categoriaNombre); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3 col-lg-3">
+                <div class="col-12 col-md-4 col-lg-2">
+                    <select class="form-select bg-light" id="inventarioFiltroTipoItem">
+                        <option value="">Todos los tipos</option>
+                        <option value="producto_terminado">Producto terminado</option>
+                        <option value="materia_prima">Materia prima</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="semielaborado">Semielaborado</option>
+                        <option value="material_empaque">Material de empaque</option>
+                        <option value="servicio">Servicio</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4 col-lg-2">
                     <select class="form-select bg-light" id="inventarioFiltroAlmacen">
                         <option value="" <?php echo $idAlmacenFiltro === 0 ? 'selected' : ''; ?>>Todos los almacenes</option>
                         <?php foreach ($almacenes as $almacen): ?>
@@ -68,7 +113,7 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-2 col-lg-3">
+                <div class="col-12 col-md-4 col-lg-2">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
                         <option value="">Situación / Alertas</option>
                         <option value="disponible">Disponible (Verde)</option>
@@ -93,7 +138,8 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                        data-pagination-info="#inventarioPaginationInfo"
                        data-erp-filters='[
                            {"el":"#inventarioFiltroAlmacen","attr":"data-almacen","match":"equals"},
-                           {"el":"#inventarioFiltroTipoRegistro","attr":"data-tipo-registro","match":"equals"},
+                           {"el":"#inventarioFiltroCategoria","attr":"data-categoria","match":"equals"},
+                           {"el":"#inventarioFiltroTipoItem","attr":"data-tipo-item","match":"equals"},
                            {"el":"#inventarioFiltroEstado","attr":"data-estado","match":"equals"}
                        ]'>
                     <thead class="inventario-sticky-thead border-bottom">
@@ -117,6 +163,10 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 $loteActual = trim((string) ($stock['lote_actual'] ?? ''));
                                 $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
                                 $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
+                                $idCategoria = (int) ($stock['id_categoria'] ?? 0);
+                                $categoriaNombre = trim((string) ($stock['categoria_nombre'] ?? ''));
+                                $tipoItem = trim((string) ($stock['tipo_item'] ?? ''));
+                                $tipoItem = $tipoItem === 'producto' ? 'producto_terminado' : $tipoItem;
                                 
                                 $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
                                 $badgeColor = (string) ($stock['badge_color'] ?? '');
@@ -130,12 +180,20 @@ $idAlmacenFiltro = (int) ($id_almacen_filtro ?? 0);
                                 <tr data-search="<?php echo e($search); ?>"
                                     data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                     data-tipo-registro="<?php echo e($tipoRegistro); ?>"
+                                    data-categoria="<?php echo (int) $idCategoria; ?>"
+                                    data-tipo-item="<?php echo e($tipoItem); ?>"
                                     data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
                                     data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
                                     
                                     <td class="ps-4 fw-bold text-primary"><?php echo e($sku); ?></td>
                                     <td class="fw-semibold text-dark">
                                         <?php echo e($itemNombreCompleto); ?>
+                                        <?php if ($categoriaNombre !== ''): ?>
+                                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65rem;"><?php echo e($categoriaNombre); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($tipoItem !== ''): ?>
+                                            <span class="badge bg-light text-dark border ms-1" style="font-size: 0.65rem;"><?php echo e($tipoItemLabel($tipoItem)); ?></span>
+                                        <?php endif; ?>
                                         <?php if($tipoRegistro === 'pack'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>

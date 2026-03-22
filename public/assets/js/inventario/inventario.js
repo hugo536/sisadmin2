@@ -134,7 +134,8 @@
   }
 
   // --- FILTROS DE LA TABLA PRINCIPAL ---
-  const filtroTipoRegistro = document.getElementById('inventarioFiltroTipoRegistro');
+  const filtroCategoria = document.getElementById('inventarioFiltroCategoria');
+  const filtroTipoItem = document.getElementById('inventarioFiltroTipoItem');
   const filtroEstado = document.getElementById('inventarioFiltroEstado');
   const filtroAlmacen = document.getElementById('inventarioFiltroAlmacen');
   const tablaStock = document.getElementById('tablaInventarioStock');
@@ -309,7 +310,8 @@
       rowsSelector: 'tbody tr[data-search]',
       searchInput: '#inventarioSearch',
       filters: [
-        { el: '#inventarioFiltroTipoRegistro', attr: 'data-tipo-registro', match: 'equals' },
+        { el: '#inventarioFiltroCategoria', attr: 'data-categoria', match: 'equals' },
+        { el: '#inventarioFiltroTipoItem', attr: 'data-tipo-item', match: 'equals' },
         { el: '#inventarioFiltroEstado', attr: 'data-estado', match: 'equals' }
       ],
       rowsPerPage: 25,
