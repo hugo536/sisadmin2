@@ -42,6 +42,16 @@ $conceptosOperativos = $conceptos_operativos ?? [];
             text-align: right !important;
         }
     }
+
+    #tablaRecetas tbody tr.receta-row-disabled {
+        background-color: #f8f9fa;
+    }
+
+    #tablaRecetas tbody tr.receta-row-disabled td,
+    #tablaRecetas tbody tr.receta-row-disabled .fw-bold,
+    #tablaRecetas tbody tr.receta-row-disabled .fw-medium {
+        color: #6c757d !important;
+    }
 </style>
 <div class="container-fluid p-4" id="recetasApp">
     
@@ -123,7 +133,7 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                     $sinReceta = (int) ($receta['sin_receta'] ?? 0) === 1;
                                     $dataEstado = $bomDesactivada ? 3 : ($sinReceta ? 2 : (int) ($receta['estado'] ?? 0));
                                 ?>
-                                <tr class="border-bottom" 
+                                <tr class="border-bottom<?php echo $bomDesactivada ? ' receta-row-disabled' : ''; ?>" 
                                     data-search="<?php echo htmlspecialchars(mb_strtolower($receta['codigo'] . ' ' . $receta['producto_nombre']), ENT_QUOTES, 'UTF-8'); ?>"
                                     data-estado="<?php echo $dataEstado; ?>">
                                     
