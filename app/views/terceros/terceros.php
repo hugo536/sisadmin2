@@ -277,13 +277,15 @@
 
 <div class="modal fade" id="modalCrearTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Registrar Nuevo Tercero</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="formCrearTercero" method="POST" novalidate>
+        <form id="formCrearTercero" method="POST" novalidate class="w-100 m-0">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Registrar Nuevo Tercero</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
                 <input type="hidden" name="accion" value="crear">
+                
                 <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                    
                     <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="crearTerceroTabs" role="tablist">
@@ -481,19 +483,20 @@
                     <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" id="crearGuardarBtn"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 
 <div class="modal fade" id="modalEditarTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-warning"></i>Editar Ficha de Tercero</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="formEditarTercero" method="POST" novalidate>
+        <form id="formEditarTercero" method="POST" novalidate class="w-100 m-0">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-warning"></i>Editar Ficha de Tercero</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
                 <input type="hidden" name="accion" value="editar">
                 <input type="hidden" name="id" id="editId"> 
                 
@@ -674,8 +677,8 @@
                     <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-warning px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Actualizar Ficha</button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 
