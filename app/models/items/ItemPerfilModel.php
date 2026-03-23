@@ -61,8 +61,12 @@ class ItemPerfilModel extends Modelo
         return $row ?: [];
     }
 
+    /**
+     * CORREGIDO: Obtiene el historial de costos eliminando errores de sintaxis SQL
+     */
     public function obtenerHistorialCostos(int $itemId): array
     {
+        // Se limpió la subconsulta duplicada y las comas mal puestas
         $sql = "SELECT * FROM (
                     SELECT 
                         id,
@@ -87,16 +91,10 @@ class ItemPerfilModel extends Modelo
                         FROM inventario_movimientos
                         WHERE id_item = :id_item
                           AND tipo_movimiento IN (
-                            'INI', 'AJ+', 'COM', 'PROD',
-                            'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
+                            'INI', 'AJ+', 'COM', 'PROD', 'ENTRADA',
+                            'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO'
                           )
-                    ) mov
-                    FROM inventario_movimientos
-                    WHERE id_item = :id_item
-                      AND tipo_movimiento IN (
-                        'INI', 'AJ+', 'COM', 'PROD',
-                        'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
-                      )
+                    ) AS mov_interna
                 ) AS sub
                 ORDER BY fecha_movimiento DESC, id DESC
                 LIMIT 20";
@@ -151,16 +149,14 @@ class ItemPerfilModel extends Modelo
         return $this->db()->prepare('DELETE FROM item_documentos WHERE id = :id')->execute(['id' => $docId]);
     }
 
-    /**
-     * SCRIPT DE RECÁLCULO HISTÓRICO DE COSTOS
-     * Recalcula el costo promedio de todo el historial.
-     */
     public function recalcularCostosHistoricos(): void
     {
         $db = $this->db();
         
         try {
-            $db->beginTransaction();
+            if (!$db->inTransaction()) {
+                $db->beginTransaction();
+            }
 
             $stmtItems = $db->query("SELECT id FROM items WHERE controla_stock = 1 AND deleted_at IS NULL");
             $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
@@ -255,8 +251,10 @@ class ItemPerfilModel extends Modelo
 
             $db->commit();
         } catch (Throwable $e) {
-            $db->rollBack();
-            throw $e; // Pasamos el error al controlador
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
         }
     }
 }
