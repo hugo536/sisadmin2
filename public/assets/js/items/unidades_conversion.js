@@ -19,6 +19,7 @@
         const btnAgregar = document.getElementById('btnAgregarUnidadConversion');
         const form = document.getElementById('formUnidadConversion');
         const btnCancelar = document.getElementById('btnCancelarUnidadConversion');
+        const inputBuscarItem = document.getElementById('ucBuscarItem');
         const alertPendientes = document.getElementById('ucPendientesAlert');
         const btnHeaderConversion = document.querySelector('[data-bs-target="#modalUnidadesConversion"]');
 
@@ -39,6 +40,7 @@
 
         let itemsResumen = [];
         let itemActivo = null;
+        let terminoBusquedaResumen = '';
 
         // --- FUNCIONES AUXILIARES ---
         const generarCodigoUnidadAuto = () => {
@@ -151,6 +153,22 @@
             }
         };
 
+        const normalizarTexto = (valor) => String(valor || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim();
+
+        const getItemsResumenFiltrados = () => {
+            const termino = normalizarTexto(terminoBusquedaResumen);
+            if (!termino) return itemsResumen;
+
+            return itemsResumen.filter((item) => {
+                const texto = normalizarTexto(`${item.nombre || ''} ${item.sku || ''}`);
+                return texto.includes(termino);
+            });
+        };
+
         // --- RENDERIZADO DE TABLAS ---
 
         const renderDetalle = (items = []) => {
@@ -223,7 +241,10 @@
 
         const renderResumen = (items = []) => {
             if (!Array.isArray(items) || items.length === 0) {
-                tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hay ítems con factor de conversión activo.</td></tr>';
+                const mensaje = terminoBusquedaResumen
+                    ? 'No se encontraron ítems para la búsqueda actual.'
+                    : 'No hay ítems con factor de conversión activo.';
+                tbodyResumen.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">${mensaje}</td></tr>`;
                 return;
             }
 
@@ -267,9 +288,13 @@
                     
                     resetFormulario();
                     cargarDetalle(item.id);
-                    renderResumen(itemsResumen); // Re-render para aplicar la clase 'table-active'
+                    renderResumenFiltrado(); // Re-render para aplicar la clase 'table-active'
                 });
             });
+        };
+
+        const renderResumenFiltrado = () => {
+            renderResumen(getItemsResumenFiltrados());
         };
 
         // --- FETCH DATA ---
@@ -285,7 +310,7 @@
             
             itemsResumen = data.items || [];
             actualizarPendientesUi(itemsResumen);
-            renderResumen(itemsResumen);
+            renderResumenFiltrado();
         };
 
         const cargarDetalle = async (idItem) => {
@@ -309,6 +334,10 @@
 
         btnAgregar?.addEventListener('click', abrirFormularioNuevo);
         btnCancelar?.addEventListener('click', resetFormulario);
+        inputBuscarItem?.addEventListener('input', () => {
+            terminoBusquedaResumen = inputBuscarItem.value || '';
+            renderResumenFiltrado();
+        });
 
         form.addEventListener('submit', async (ev) => {
             ev.preventDefault();
@@ -362,6 +391,8 @@
         modal.addEventListener('show.bs.modal', async () => {
             try {
                 itemActivo = null;
+                terminoBusquedaResumen = '';
+                if (inputBuscarItem) inputBuscarItem.value = '';
                 if (btnAgregar) btnAgregar.disabled = true;
                 if (tituloSeleccion) tituloSeleccion.textContent = 'Selecciona un ítem para gestionar sus conversiones';
                 

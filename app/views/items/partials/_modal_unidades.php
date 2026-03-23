@@ -16,6 +16,19 @@
                 <div class="row g-3">
                     <div class="col-lg-5">
                         <div class="modal-pastel-card bg-white overflow-hidden h-100">
+                            <div class="p-3 border-bottom bg-light-subtle">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-secondary-subtle border-end-0 text-muted">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input
+                                        type="search"
+                                        class="form-control bg-white border-secondary-subtle border-start-0 ps-0 shadow-none"
+                                        id="ucBuscarItem"
+                                        placeholder="Buscar por nombre o SKU..."
+                                        autocomplete="off">
+                                </div>
+                            </div>
                             <div class="table-responsive h-100">
                                 <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaUnidadesConversion">
                                     <thead>
