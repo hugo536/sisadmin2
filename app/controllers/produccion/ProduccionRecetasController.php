@@ -29,7 +29,9 @@ class ProduccionRecetasController extends Controlador
         require_permiso('inventario.ver');
 
         if (es_ajax() && ($_GET['accion'] ?? '') === 'buscar_insumos_ajax') {
-            ob_clean();
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
             header('Content-Type: application/json; charset=utf-8');
             $termino = trim((string) ($_GET['q'] ?? ''));
             
@@ -47,7 +49,9 @@ class ProduccionRecetasController extends Controlador
 
         // NUEVA ACCIÓN: Obtener el siguiente código autogenerado para una nueva receta
         if (es_ajax() && ($_GET['accion'] ?? '') === 'obtener_siguiente_codigo_ajax') {
-            ob_clean();
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
             header('Content-Type: application/json; charset=utf-8');
             try {
                 $nuevoCodigo = $this->produccionRecetasModel->obtenerSiguienteCodigoReceta();
@@ -67,7 +71,9 @@ class ProduccionRecetasController extends Controlador
 
             try {
                 if ($accion === 'obtener_datos_nueva_version_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) {
+                        ob_clean();
+                    }
                     header('Content-Type: application/json; charset=utf-8');
                     $idRecetaBase = (int) ($_POST['id_receta_base'] ?? 0);
 
@@ -82,7 +88,9 @@ class ProduccionRecetasController extends Controlador
                 }
 
                 if ($accion === 'listar_versiones_receta_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) {
+                        ob_clean();
+                    }
                     header('Content-Type: application/json; charset=utf-8');
                     $idRecetaBase = (int) ($_POST['id_receta_base'] ?? 0);
                     if ($idRecetaBase <= 0) {
@@ -98,7 +106,9 @@ class ProduccionRecetasController extends Controlador
                 }
 
                 if ($accion === 'obtener_receta_version_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) {
+                        ob_clean();
+                    }
                     header('Content-Type: application/json; charset=utf-8');
                     $idReceta = (int) ($_POST['id_receta'] ?? 0);
                     if ($idReceta <= 0) {
@@ -215,7 +225,9 @@ class ProduccionRecetasController extends Controlador
                     }
 
                     if ($esAjaxPost) {
-                        ob_clean();
+                        if (ob_get_level() > 0) {
+                            ob_clean();
+                        }
                         header('Content-Type: application/json; charset=utf-8');
                         echo json_encode(['success' => true, 'message' => $mensajeExito]);
                         exit;
@@ -263,7 +275,9 @@ class ProduccionRecetasController extends Controlador
                 }
             } catch (Throwable $e) {
                 if ($esAjaxPost) {
-                    ob_clean();
+                    if (ob_get_level() > 0) {
+                        ob_clean();
+                    }
                     header('Content-Type: application/json; charset=utf-8');
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                     exit;
@@ -304,3 +318,4 @@ class ProduccionRecetasController extends Controlador
         return $flash;
     }
 }
+?>
