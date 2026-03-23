@@ -256,6 +256,9 @@
     }
   };
 
+  // Exponer navegación parcial para scripts de módulos (inventario, terceros, etc.)
+  window.navigateWithoutReload = navigateWithoutReload;
+
   document.addEventListener('click', function (event) {
     const link = event.target.closest('a[href]');
     if (!isSidebarNavLink(link)) return;
