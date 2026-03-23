@@ -32,6 +32,15 @@ class ItemPerfilModel extends Modelo
                                            ORDER BY m.created_at DESC, m.id DESC
                                            LIMIT 1
                                        ), 0),
+                                       NULLIF((
+                                           SELECT m.costo_unitario
+                                           FROM inventario_movimientos m
+                                           WHERE m.id_item = i.id
+                                             AND m.costo_unitario IS NOT NULL
+                                             AND m.costo_unitario > 0
+                                           ORDER BY m.created_at DESC, m.id DESC
+                                           LIMIT 1
+                                       ), 0),
                                        i.costo_referencial
                                    )
                                END
@@ -61,11 +70,27 @@ class ItemPerfilModel extends Modelo
                         tipo_movimiento,
                         cantidad,
                         costo_unitario AS precio_compra,
-                        costo_promedio_resultante,
+                        costo_normalizado AS costo_promedio_resultante,
                         COALESCE(
-                            LAG(costo_promedio_resultante) OVER (PARTITION BY id_item ORDER BY created_at ASC, id ASC),
+                            LAG(costo_normalizado) OVER (PARTITION BY id_item ORDER BY created_at ASC, id ASC),
                             0
                         ) AS costo_promedio_anterior
+                    FROM (
+                        SELECT
+                            id,
+                            id_item,
+                            created_at,
+                            tipo_movimiento,
+                            cantidad,
+                            costo_unitario,
+                            COALESCE(NULLIF(costo_promedio_resultante, 0), NULLIF(costo_unitario, 0), 0) AS costo_normalizado
+                        FROM inventario_movimientos
+                        WHERE id_item = :id_item
+                          AND tipo_movimiento IN (
+                            'INI', 'AJ+', 'COM', 'PROD',
+                            'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
+                          )
+                    ) mov
                     FROM inventario_movimientos
                     WHERE id_item = :id_item
                       AND tipo_movimiento IN (
