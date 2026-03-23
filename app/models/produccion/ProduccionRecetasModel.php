@@ -90,7 +90,7 @@ class ProduccionRecetasModel extends Modelo
                 FROM items
                 WHERE estado = 1
                   AND deleted_at IS NULL
-                  AND controla_stock = 1
+                  AND tipo_item <> "servicio"
                   ' . $filtroBom . '
                   AND (nombre LIKE :termino_nombre OR sku LIKE :termino_sku)
                 ORDER BY nombre ASC
