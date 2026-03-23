@@ -393,21 +393,53 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <select name="id_receta" id="newRecetaOP" required class="form-select shadow-none border-secondary-subtle">
                                         <option value="">Seleccione fórmula...</option>
                                         <?php foreach ($recetasActivas as $r): ?>
-                                            <option value="<?php echo (int) $r['id']; ?>">
+                                            <option value="<?php echo (int) $r['id']; ?>"
+                                                    data-rendimiento="<?php echo (float) ($r['rendimiento_base'] ?? 1); ?>" 
+                                                    data-tiempo="<?php echo (float) ($r['tiempo_estimado_horas'] ?? 1); ?>">
                                                 <?php echo e((string) $r['codigo']); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="col-md-4">
-                                    <label for="newCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad a Producir <span class="text-danger">*</span></label>
-                                    <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control shadow-none border-primary fw-bold" placeholder="Ej: 100">
+
+                                <div class="col-md-12 mb-1 mt-3 border-top pt-3">
+                                    <label class="form-label small text-muted fw-bold mb-2">Estrategia de Planificación <span class="text-danger">*</span></label>
+                                    <div class="d-flex gap-4">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="modo_planificacion" id="modoCant" value="cantidad" checked disabled>
+                                            <label class="form-check-label small fw-bold text-dark" for="modoCant">
+                                                <i class="bi bi-box-seam me-1 text-primary"></i> Por Cantidad a Producir
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="modo_planificacion" id="modoHoras" value="horas" disabled>
+                                            <label class="form-check-label small fw-bold text-dark" for="modoHoras">
+                                                <i class="bi bi-clock-history me-1 text-warning"></i> Por Horas de Máquina
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
+
+                                <div class="col-md-6">
+                                    <label for="newCantPlan" class="form-label small text-muted fw-bold mb-1">Cantidad a Producir <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input name="cantidad_planificada" id="newCantPlan" min="0.0001" step="0.0001" required type="number" class="form-control shadow-none border-primary fw-bold bg-light text-muted" placeholder="Seleccione receta primero" readonly>
+                                        <span class="input-group-text bg-light text-muted">Und/Kg</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="newHorasPlan" class="form-label small text-muted fw-bold mb-1">Horas de Trabajo <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input id="newHorasPlan" min="0.0001" step="0.0001" type="number" class="form-control shadow-none bg-light text-muted" placeholder="Seleccione receta primero" readonly>
+                                        <span class="input-group-text bg-light text-muted">Hrs</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
                                     <label for="newFechaProgramada" class="form-label small text-muted fw-bold mb-1">Fecha Programada <span class="text-danger">*</span></label>
                                     <input type="date" name="fecha_programada" id="newFechaProgramada" class="form-control shadow-none border-secondary-subtle" required>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <label for="newAlmacenPlanta" class="form-label small text-muted fw-bold mb-1">Planta de Trabajo <span class="text-danger">*</span></label>
                                     <select name="id_almacen_planta" id="newAlmacenPlanta" class="form-select shadow-none border-secondary-subtle" required>
                                         <option value="">Seleccione planta...</option>
@@ -714,7 +746,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        </tbody>
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -741,7 +773,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        </tbody>
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -807,7 +839,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     
                     <div class="planificador-scroll-area mt-3">
                         <div id="planificadorGrid" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 400px;">
-                            </div>
+                        </div>
                     </div>
                 </div>
 

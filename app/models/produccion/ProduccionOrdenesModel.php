@@ -289,11 +289,14 @@ class ProduccionOrdenesModel extends Modelo
 
     public function listarRecetasActivas(): array
     {
-        $sql = 'SELECT r.id, r.codigo, r.version, i.nombre AS producto_nombre
+        $sql = 'SELECT r.id, r.codigo, r.version, i.nombre AS producto_nombre,
+                       r.rendimiento_base, 
+                       r.tiempo_produccion_horas AS tiempo_estimado_horas
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.estado = 1 AND r.deleted_at IS NULL
                 ORDER BY i.nombre ASC';
+        
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }

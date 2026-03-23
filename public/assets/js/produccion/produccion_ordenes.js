@@ -1,42 +1,302 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
- * Archivo actualizado para manejo multi-almacén, división de filas, semáforos,
- * auto-generación de Código OP, UX de Acordeones (Master-Detail) y Reglas de Ítem.
- * Incluye: Planificador de Operaciones (Calendario).
- * Modo: Costeo Estándar por Centro de Trabajo (Tarifa de Planta Automática)
- * FIX: Compatible con Navegación SPA (Fetch)
+ * Archivo actualizado para manejo multi-almacén, SPA, Planificador, 
+ * Cálculo Dual (Horas vs Cantidad) y Motor de Sub-Recetas (MRP).
  */
 
+window.planFechaActual = window.planFechaActual || new Date();
+window.vistaActualPlan = window.vistaActualPlan || 'mes';
+window.diccPlanificacion = window.diccPlanificacion || {};
+
 const initModuloProduccion = () => {
+    // 1. Limpieza SPA para evitar Pantallas Oscuras
+    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.paddingRight = '';
+    document.body.style.overflow = '';
+
     const safeInit = (name, fn) => {
-        try {
-            fn();
-        } catch (error) {
-            console.error(`[Producción] Error inicializando ${name}:`, error);
-        }
+        try { fn(); } catch (error) { console.error(`[Producción] Error inicializando ${name}:`, error); }
     };
 
-    // 1. Inicializamos siempre (UI local de la vista actual)
     safeInit('filtros de órdenes', initFiltrosOrdenes);
     safeInit('tooltips', initTooltips);
-    safeInit('modal de planificación', initModalPlanificacion);
-    safeInit('planificador de operaciones', initPlanificadorOperaciones);
+    safeInit('tom selects', initTomSelects); 
+    safeInit('planificador base', initPlanificadorOperaciones); 
 
-    // 2. Inicializamos SOLO UNA VEZ los eventos globales para evitar duplicados en SPA
+    // Configurar fechas iniciales del modal si se abre
+    const modalPlanificar = document.getElementById('modalPlanificarOP');
+    if (modalPlanificar) {
+        modalPlanificar.addEventListener('show.bs.modal', function () {
+            const inputCodigo = document.getElementById('newCodigoOP'); 
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const sec = String(now.getSeconds()).padStart(2, '0');
+
+            if (inputCodigo) {
+                inputCodigo.value = `OP-${yy}${mm}${dd}-${hh}${min}${sec}`;
+                inputCodigo.setAttribute('readonly', 'true');
+                inputCodigo.classList.add('bg-light');
+            }
+
+            const inputFechaProgramada = document.getElementById('newFechaProgramada');
+            if (inputFechaProgramada && !inputFechaProgramada.value) {
+                inputFechaProgramada.value = `${now.getFullYear()}-${mm}-${dd}`;
+            }
+        });
+        
+        modalPlanificar.addEventListener('hidden.bs.modal', function () {
+            const form = document.getElementById('formCrearOP');
+            if (form) form.reset();
+            
+            const inputHoras = document.getElementById('newHorasPlan');
+            if (inputHoras) inputHoras.value = '';
+            
+            const tsReceta = document.getElementById('newRecetaOP');
+            const tsAlmacen = document.getElementById('newAlmacenPlanta');
+            
+            if (tsReceta && tsReceta.tomselect) tsReceta.tomselect.clear();
+            if (tsAlmacen && tsAlmacen.tomselect) tsAlmacen.tomselect.clear();
+            
+            // Agregamos esta línea para forzar el bloqueo visual al cerrar el modal
+            if (typeof window.calcularPlanificacionOP === 'function') {
+                window.calcularPlanificacionOP();
+            }
+        });
+    }
+
+    // 3. INICIALIZAMOS EVENTOS GLOBALES (A PRUEBA DE SPA)
     if (!window.produccionEventosGlobalesAtados) {
         safeInit('acciones de tabla', initAccionesTabla);
         safeInit('modal de ejecución', initModalEjecucion);
+        safeInit('eventos planificador', initEventosPlanificadorGlobales); 
+        safeInit('motor calculo op', initMotorCalculoYGuardadoGlobal); // <-- NUEVO EVENTO GLOBAL
         window.produccionEventosGlobalesAtados = true;
     }
 };
 
-// =========================================================================
-// LANZADOR INTELIGENTE (Detecta carga normal vs carga SPA)
-// =========================================================================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initModuloProduccion);
 } else {
     initModuloProduccion();
+}
+
+// =========================================================================
+// 0. INICIALIZADOR DE TOM SELECT
+// =========================================================================
+function initTomSelects() {
+    if (typeof TomSelect === 'undefined') return;
+    const tsConfig = { create: false, dropdownParent: 'body' };
+    const initTS = (id) => {
+        const el = document.getElementById(id);
+        if (el && !el.tomselect) new TomSelect(el, tsConfig);
+    };
+    initTS('newRecetaOP');
+    initTS('newAlmacenPlanta');
+    initTS('editAlmacenPlanta');
+}
+
+// =========================================================================
+// 6. MOTOR GLOBAL DE CÁLCULO DUAL Y GUARDADO DE OP (CANTIDAD VS HORAS Y MRP)
+// =========================================================================
+// =========================================================================
+// MOTOR GLOBAL DE CÁLCULO DUAL Y GUARDADO DE OP (CANTIDAD VS HORAS Y SUB-RECETAS)
+// =========================================================================
+function initMotorCalculoYGuardadoGlobal() {
+    
+    // Función central de cálculo matemático
+    window.calcularPlanificacionOP = function() {
+        const inputCant = document.getElementById('newCantPlan');
+        const inputHoras = document.getElementById('newHorasPlan');
+        const selectReceta = document.getElementById('newRecetaOP');
+        const modoSeleccionado = document.querySelector('input[name="modo_planificacion"]:checked');
+        const radiosModo = document.querySelectorAll('input[name="modo_planificacion"]'); 
+
+        if (!selectReceta || !inputCant || !inputHoras || !modoSeleccionado || !radiosModo) return;
+        
+        const valReceta = selectReceta.value;
+        
+        // 1. LÓGICA DE BLOQUEO VISUAL
+        if (!valReceta) {
+            radiosModo.forEach(r => r.disabled = true);
+            inputCant.readOnly = true;
+            inputCant.classList.add('bg-light', 'text-muted');
+            inputCant.placeholder = "Seleccione receta primero";
+            inputCant.value = ''; 
+            
+            inputHoras.readOnly = true;
+            inputHoras.classList.add('bg-light', 'text-muted');
+            inputHoras.placeholder = "Seleccione receta primero";
+            inputHoras.value = ''; 
+            return; 
+        } else {
+            radiosModo.forEach(r => r.disabled = false);
+            const modo = modoSeleccionado.value;
+            if (modo === 'cantidad') {
+                inputCant.readOnly = false;
+                inputCant.classList.remove('bg-light', 'text-muted');
+                inputCant.placeholder = "Ej: 100";
+                inputHoras.readOnly = true;
+                inputHoras.classList.add('bg-light', 'text-muted');
+                inputHoras.placeholder = "Auto-calculado";
+            } else {
+                inputHoras.readOnly = false;
+                inputHoras.classList.remove('bg-light', 'text-muted');
+                inputHoras.placeholder = "Ej: 8";
+                inputCant.readOnly = true;
+                inputCant.classList.add('bg-light', 'text-muted');
+                inputCant.placeholder = "Auto-calculado";
+            }
+        }
+
+        // 2. LÓGICA MATEMÁTICA CORRECTA
+        const option = selectReceta.querySelector(`option[value="${valReceta}"]`);
+        if (!option) return;
+
+        const rendimiento = parseFloat(option.getAttribute('data-rendimiento')) || 1;
+        const tiempo = parseFloat(option.getAttribute('data-tiempo')) || 1;
+        const modo = modoSeleccionado.value;
+
+        if (modo === 'cantidad') {
+            const cant = parseFloat(inputCant.value) || 0;
+            if(cant > 0) inputHoras.value = ((cant * tiempo) / rendimiento).toFixed(4);
+            else inputHoras.value = '';
+        } else {
+            const horas = parseFloat(inputHoras.value) || 0;
+            if(horas > 0) inputCant.value = ((horas * rendimiento) / tiempo).toFixed(4);
+            else inputCant.value = '';
+        }
+    };
+
+    // Delegación de eventos para el teclado y selects
+    document.addEventListener('input', function(e) {
+        if (e.target.id === 'newCantPlan' || e.target.id === 'newHorasPlan') window.calcularPlanificacionOP();
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'newRecetaOP' || e.target.name === 'modo_planificacion') window.calcularPlanificacionOP();
+    });
+
+    // Delegación Global del Envío del Formulario (Con soporte para SUB-RECETAS)
+    document.addEventListener('submit', async function(e) {
+        if (e.target.id === 'formCrearOP') {
+            e.preventDefault();
+            const form = e.target;
+            const btnSubmit = form.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando y analizando...';
+            btnSubmit.disabled = true;
+
+            try {
+                // PASO 1: Guardar la Orden Principal
+                const formData = new FormData(form);
+                formData.set('accion', 'crear_orden_ajax'); 
+
+                const resCrear = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json());
+
+                if (!resCrear.success) {
+                    Swal.fire('Error', resCrear.message || 'No se pudo crear la orden.', 'error');
+                    return;
+                }
+
+                const idOrdenPadre = resCrear.id_orden;
+
+                // PASO 2: MOTOR MRP - Analizar Faltantes
+                const formDataAnalisis = new FormData();
+                formDataAnalisis.append('accion', 'analizar_subordenes_ajax');
+                formDataAnalisis.append('id_orden', idOrdenPadre);
+
+                const resAnalisis = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formDataAnalisis,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json());
+
+                if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
+                    let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted" style="font-size: 0.9rem;">';
+                    resAnalisis.data.forEach(f => {
+                        listaHtml += `<li class="mb-1"><i class="bi bi-box-seam me-2"></i><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger fw-bold">${f.cantidad_faltante}</span></li>`;
+                    });
+                    listaHtml += '</ul>';
+
+                    const confirmacion = await Swal.fire({
+                        icon: 'info',
+                        title: 'Faltan Semielaborados',
+                        html: `<p class="mb-1">Para cumplir con esta orden, no hay stock suficiente de los siguientes productos intermedios:</p>
+                               ${listaHtml}
+                               <div class="mt-3 p-2 bg-light border rounded text-dark small fw-medium">¿Deseas que el sistema genere automáticamente los borradores de las sub-órdenes para estos faltantes?</div>`,
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="bi bi-magic me-1"></i> Sí, generar',
+                        cancelButtonText: 'No, lo haré manual',
+                        confirmButtonColor: '#0d6efd',
+                        cancelButtonColor: '#6c757d'
+                    });
+
+                    if (confirmacion.isConfirmed) {
+                        Swal.fire({ title: 'Generando cadena de producción...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                        
+                        const fdGenerar = new FormData();
+                        fdGenerar.append('accion', 'generar_subordenes_ajax');
+                        fdGenerar.append('id_orden_padre', idOrdenPadre);
+
+                        const resGenerar = await fetch(window.location.href, {
+                            method: 'POST',
+                            body: fdGenerar,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        }).then(r => r.json());
+
+                        if (resGenerar.success) {
+                            await Swal.fire({ icon: 'success', title: '¡Éxito!', text: 'La orden y sus sub-órdenes se generaron correctamente.', timer: 2000, showConfirmButton: false });
+                        } else {
+                            await Swal.fire('Error', 'Se creó la OP principal, pero hubo un problema al generar las sub-órdenes.', 'error');
+                        }
+                    } else {
+                        await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden principal planificada correctamente.', timer: 1500, showConfirmButton: false });
+                    }
+                } else {
+                    await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden planificada. Stock de semielaborados suficiente.', timer: 1500, showConfirmButton: false });
+                }
+
+                // --- FIX DE RECARGA A PRUEBA DE BALAS ---
+                // 1. Cerrar el modal de creación de OP
+                const modalEl = document.getElementById('modalPlanificarOP');
+                if(modalEl) {
+                    const bsModal = bootstrap.Modal.getInstance(modalEl);
+                    if (bsModal) bsModal.hide();
+                }
+                
+                // 2. Verificar si el calendario (Planificador) está abierto en el fondo
+                const plannerModal = document.getElementById('modalPlanificadorProduccion');
+                const isPlannerOpen = plannerModal && (plannerModal.classList.contains('show') || plannerModal.style.display === 'block');
+
+                if (isPlannerOpen && typeof window.cargarGridPlanificador === 'function') {
+                    // Si el calendario está abierto, actualizamos los cuadritos en vivo
+                    window.cargarGridPlanificador(); 
+                } else {
+                    // Si estábamos en la tabla normal, forzamos una recarga real de la página
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                }
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
+            } finally {
+                btnSubmit.innerHTML = originalText;
+                btnSubmit.disabled = false;
+                form.reset(); 
+            }
+        }
+    });
 }
 
 // =========================================================================
@@ -98,19 +358,20 @@ function initAccionesTabla() {
             const modalEditarEl = document.getElementById('modalEditarOP');
             
             if (modalEditarEl && typeof bootstrap !== 'undefined') {
-                if (!modalEditar) {
-                    modalEditar = new bootstrap.Modal(modalEditarEl);
-                }
+                if (!modalEditar) modalEditar = new bootstrap.Modal(modalEditarEl);
 
                 document.getElementById('editIdOrden').value = btnEditar.getAttribute('data-id') || '';
                 document.getElementById('editCantPlan').value = btnEditar.getAttribute('data-cantidad') || '';
                 document.getElementById('editFechaProgramada').value = btnEditar.getAttribute('data-fecha') || '';
-                document.getElementById('editAlmacenPlanta').value = btnEditar.getAttribute('data-id-almacen') || '';
-                document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
                 
+                const editAlmacen = document.getElementById('editAlmacenPlanta');
+                if (editAlmacen) {
+                    editAlmacen.value = btnEditar.getAttribute('data-id-almacen') || '';
+                    if (editAlmacen.tomselect) editAlmacen.tomselect.sync();
+                }
+
+                document.getElementById('editObsOP').value = btnEditar.getAttribute('data-observaciones') || '';
                 modalEditar.show();
-            } else {
-                console.error("El modal de edición ('modalEditarOP') no se encontró en el DOM.");
             }
             return;
         }
@@ -120,9 +381,7 @@ function initAccionesTabla() {
             const modalDetalleEl = document.getElementById('modalDetalleOP');
 
             if (modalDetalleEl && typeof bootstrap !== 'undefined') {
-                if (!modalDetalle) {
-                    modalDetalle = new bootstrap.Modal(modalDetalleEl);
-                }
+                if (!modalDetalle) modalDetalle = new bootstrap.Modal(modalDetalleEl);
 
                 const estado = btnDetalle.getAttribute('data-estado') || '-';
                 const idOrden = Number(btnDetalle.getAttribute('data-id') || 0);
@@ -181,13 +440,10 @@ function initAccionesTabla() {
                     });
 
                 modalDetalle.show();
-            } else {
-                console.error("El modal de detalle ('modalDetalleOP') no se encontró en el DOM.");
             }
         }
     });
 
-    // Se asigna al document para que no se pierda al recargar la tabla en SPA
     document.addEventListener('show.bs.collapse', function (e) {
         if (e.target.classList.contains('collapse-faltantes')) {
             const tablaOrdenes = document.getElementById('tablaOrdenes');
@@ -221,7 +477,6 @@ function initAccionesTabla() {
 function initModalEjecucion() {
     let modalEjecutar;
 
-    // Función global para calcular el tiempo
     window.calcularTiempoNetoOP = function() {
         const inputInicio = document.getElementById('execFechaInicio');
         const inputFin = document.getElementById('execFechaFin');
@@ -249,19 +504,14 @@ function initModalEjecucion() {
     };
 
     document.addEventListener('change', function(e) {
-        if (e.target.id === 'execFechaInicio' || e.target.id === 'execFechaFin') {
-            window.calcularTiempoNetoOP();
-        }
+        if (e.target.id === 'execFechaInicio' || e.target.id === 'execFechaFin') window.calcularTiempoNetoOP();
     });
 
     document.addEventListener('input', function(e) {
-        if (e.target.id === 'execHorasParada') {
-            window.calcularTiempoNetoOP();
-        }
+        if (e.target.id === 'execHorasParada') window.calcularTiempoNetoOP();
     });
 
     document.addEventListener('click', async function(e) {
-        
         const btnAbrir = e.target.closest('.js-abrir-ejecucion');
         if (btnAbrir) {
             const modalEl = document.getElementById('modalEjecutarOP');
@@ -283,7 +533,6 @@ function initModalEjecucion() {
             document.getElementById('execReqVenc').value = reqVenc;
             document.getElementById('execUnidad').value = unidad;
 
-            // Setup Fechas
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             const localDatetime = now.toISOString().slice(0, 16);
@@ -325,9 +574,7 @@ function initModalEjecucion() {
                 const inicioJson = await inicioResponse.json();
                 if (!inicioJson.success) throw new Error(inicioJson.message || 'No se pudo iniciar la ejecución');
             } catch (errorInicio) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Error', text: errorInicio.message || 'No se pudo iniciar la ejecución.' });
-                }
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: errorInicio.message || 'No se pudo iniciar la ejecución.' });
                 return;
             }
 
@@ -340,24 +587,17 @@ function initModalEjecucion() {
                 formData.append('id_receta', idReceta);
                 formData.append('cantidad', planificada);
 
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch(window.location.href, { method: 'POST', body: formData });
                 const result = await response.json();
                 if(tbodyConsumos) tbodyConsumos.innerHTML = ''; 
 
                 if (result.success && result.data.length > 0) {
-                    result.data.forEach(item => {
-                        addConsumoRow(item, planificada);
-                    });
+                    result.data.forEach(item => { addConsumoRow(item, planificada); });
                     recalcularSemaforos(); 
                 } else {
                     if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">No se cargaron insumos. Añádalos manualmente.</td></tr>';
                 }
             } catch (error) {
-                console.error("Error AJAX:", error);
                 if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión al obtener receta.</td></tr>';
             }
 
@@ -407,27 +647,19 @@ function initModalEjecucion() {
         document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => {
             const reqUnitario = parseFloat(tr.getAttribute('data-req-unitario')) || 0;
             const inputConsumo = tr.querySelector('input[name="consumo_cantidad[]"]');
-            if (inputConsumo) {
-                inputConsumo.value = (reqUnitario * totalProducido).toFixed(4);
-            }
+            if (inputConsumo) inputConsumo.value = (reqUnitario * totalProducido).toFixed(4);
         });
-
         recalcularSemaforos();
     }
 
     document.addEventListener('input', function(e) {
-        if (e.target.matches('input[name="ingreso_cantidad[]"]')) {
-            dispararRecalculoTotal();
-        }
+        if (e.target.matches('input[name="ingreso_cantidad[]"]')) dispararRecalculoTotal();
     });
 
     document.addEventListener('change', function(e) {
-        if (e.target.matches('select[name="consumo_id_almacen[]"]')) {
-            recalcularSemaforos();
-        }
+        if (e.target.matches('select[name="consumo_id_almacen[]"]')) recalcularSemaforos();
     });
 
-    // Delegamos el reset al document para el modal de ejecución
     document.addEventListener('hidden.bs.modal', function (e) {
         if (e.target.id === 'modalEjecutarOP') {
             const form = e.target.querySelector('form');
@@ -455,7 +687,6 @@ function addConsumoRow(item = null, planificada = 1) {
 
     if (item) {
         const requerimientoUnitario = (parseFloat(item.cantidad_calculada) / planificada) || 0;
-
         tr.setAttribute('data-id-insumo', item.id_insumo);
         tr.setAttribute('data-req-unitario', requerimientoUnitario); 
         tr.classList.add('fila-calculada');
@@ -463,9 +694,7 @@ function addConsumoRow(item = null, planificada = 1) {
         let optionsHtml = '<option value="">Seleccione almacén...</option>';
         if (item.almacenes && item.almacenes.length > 0) {
             optionsHtml += `<optgroup label="Recomendados (Con Stock)">`;
-            item.almacenes.forEach(a => {
-                optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`;
-            });
+            item.almacenes.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
             optionsHtml += `</optgroup><optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
         } else {
             optionsHtml += `<optgroup label="⚠ Sin Stock Registrado">${templateAlmacenes}</optgroup>`;
@@ -477,37 +706,18 @@ function addConsumoRow(item = null, planificada = 1) {
                 <div class="fw-bold text-dark mb-1">${item.insumo_nombre}</div>
                 <div class="small text-muted"><i class="bi bi-lock-fill"></i> Teórico (Bloqueado)</div>
             </td>
-            <td class="align-middle">
-                <select name="consumo_id_almacen[]" class="form-select form-select-sm" required>
-                    ${optionsHtml}
-                </select>
-            </td>
-            <td class="align-middle">
-                <input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1">
-            </td>
-            <td class="align-middle">
-                <input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)">
-            </td>
-            <td class="text-center align-middle">
-            </td>
+            <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
+            <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
+            <td class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
+            <td class="text-center align-middle"></td>
         `;
     } else {
         tr.innerHTML = `
-            <td class="align-middle">
-                <input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required>
-            </td>
-            <td class="align-middle">
-                <select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select>
-            </td>
-            <td class="align-middle">
-                <input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold" required>
-            </td>
-            <td class="align-middle">
-                <input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)">
-            </td>
-            <td class="text-center align-middle">
-                <button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>
-            </td>
+            <td class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required></td>
+            <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
+            <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold" required></td>
+            <td class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
+            <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
         `;
     }
     tbody.appendChild(tr);
@@ -537,26 +747,16 @@ function addIngresoRow(cantidadDefecto = '') {
         : `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm bg-light text-muted" readonly tabindex="-1">`;
 
     tr.innerHTML = `
-        <td class="align-middle">
-            <select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>
-                ${templateAlmacenes}
-            </select>
-        </td>
+        <td class="align-middle"><select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
         <td class="align-middle" style="width: 160px;">
             <div class="input-group input-group-sm">
                 <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control fw-bold border-success text-end" required value="${cantidadDefecto}">
                 <span class="input-group-text bg-light text-muted fw-bold">${unidad}</span>
             </div>
         </td>
-        <td class="align-middle">
-            ${inputLote}
-        </td>
-        <td class="align-middle">
-            ${inputVenc}
-        </td>
-        <td class="text-center align-middle">
-            <button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>
-        </td>
+        <td class="align-middle">${inputLote}</td>
+        <td class="align-middle">${inputVenc}</td>
+        <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
     `;
     tbody.appendChild(tr);
 }
@@ -614,288 +814,28 @@ function recalcularSemaforos() {
 }
 
 // =========================================================================
-// 6. MODAL DE PLANIFICACIÓN Y GUARDADO AJAX (MOTOR MRP - MULTINIVEL)
-// =========================================================================
-function initModalPlanificacion() {
-    const modalPlanificar = document.getElementById('modalPlanificarOP'); 
-    if (!modalPlanificar) return;
-
-    modalPlanificar.addEventListener('show.bs.modal', function () {
-        const inputCodigo = document.getElementById('newCodigoOP'); 
-        const now = new Date();
-        const yy = String(now.getFullYear()).slice(-2);
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const hh = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        const sec = String(now.getSeconds()).padStart(2, '0');
-
-        if (inputCodigo) {
-            inputCodigo.value = `OP-${yy}${mm}${dd}-${hh}${min}${sec}`;
-            inputCodigo.setAttribute('readonly', 'true');
-            inputCodigo.classList.add('bg-light');
-        }
-
-        const inputFechaProgramada = document.getElementById('newFechaProgramada');
-        if (inputFechaProgramada && !inputFechaProgramada.value) {
-            inputFechaProgramada.value = `${now.getFullYear()}-${mm}-${dd}`;
-        }
-    });
-    
-    // LÓGICA PARA AUTO-CALCULAR CANTIDAD VS HORAS
-    const radioModo = document.querySelectorAll('input[name="modo_planificacion"]');
-    const inputCant = document.getElementById('newCantPlan');
-    const inputHoras = document.getElementById('newHorasPlan');
-    const selectReceta = document.getElementById('newRecetaOP');
-
-    function calcularPlanificacion() {
-        if (!selectReceta || !selectReceta.value || !inputCant || !inputHoras) return;
-        
-        const option = selectReceta.options[selectReceta.selectedIndex];
-        const rendimiento = parseFloat(option.getAttribute('data-rendimiento')) || 1;
-        const tiempo = parseFloat(option.getAttribute('data-tiempo')) || 1;
-        
-        const modoSeleccionado = document.querySelector('input[name="modo_planificacion"]:checked');
-        if (!modoSeleccionado) return;
-        const modo = modoSeleccionado.value;
-        
-        if (modo === 'cantidad') {
-            const cant = parseFloat(inputCant.value) || 0;
-            const horasCalculadas = (cant / rendimiento) * tiempo;
-            inputHoras.value = horasCalculadas > 0 ? horasCalculadas.toFixed(4) : '';
-        } else {
-            const horas = parseFloat(inputHoras.value) || 0;
-            const cantCalculada = (horas / tiempo) * rendimiento;
-            inputCant.value = cantCalculada > 0 ? cantCalculada.toFixed(4) : '';
-        }
-    }
-
-    radioModo.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const modo = e.target.value;
-            if (modo === 'cantidad') {
-                inputCant.readOnly = false;
-                inputCant.classList.remove('bg-light');
-                inputHoras.readOnly = true;
-                inputHoras.classList.add('bg-light');
-                inputCant.focus();
-            } else {
-                inputHoras.readOnly = false;
-                inputHoras.classList.remove('bg-light');
-                inputCant.readOnly = true;
-                inputCant.classList.add('bg-light');
-                inputHoras.focus();
-            }
-            calcularPlanificacion();
-        });
-    });
-
-    if (inputCant) inputCant.addEventListener('input', calcularPlanificacion);
-    if (inputHoras) inputHoras.addEventListener('input', calcularPlanificacion);
-    if (selectReceta) selectReceta.addEventListener('change', calcularPlanificacion);
-
-    // INTERCEPTAR EL FORMULARIO DE NUEVA OP (Motor de Explosión MRP)
-    const form = modalPlanificar.querySelector('form');
-    if (form) {
-        // Removemos cualquier listener previo para evitar duplicados en SPA
-        const newForm = form.cloneNode(true);
-        form.parentNode.replaceChild(newForm, form);
-
-        newForm.addEventListener('submit', async function (e) {
-            e.preventDefault(); 
-
-            const btnSubmit = newForm.querySelector('button[type="submit"]');
-            const originalText = btnSubmit.innerHTML;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando y analizando...';
-            btnSubmit.disabled = true;
-
-            try {
-                // PASO 1: Guardar la Orden Principal (Padre)
-                const formData = new FormData(newForm);
-                formData.set('accion', 'crear_orden_ajax'); 
-
-                const resCrear = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }).then(r => r.json());
-
-                if (!resCrear.success) {
-                    Swal.fire('Error', resCrear.message || 'No se pudo crear la orden.', 'error');
-                    return;
-                }
-
-                const idOrdenPadre = resCrear.id_orden;
-
-                // PASO 2: Preguntar al backend si faltan semielaborados
-                const formDataAnalisis = new FormData();
-                formDataAnalisis.append('accion', 'analizar_subordenes_ajax');
-                formDataAnalisis.append('id_orden', idOrdenPadre);
-
-                const resAnalisis = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formDataAnalisis,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }).then(r => r.json());
-
-                // PASO 3: Evaluar la respuesta del Asistente
-                if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
-                    
-                    let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted" style="font-size: 0.9rem;">';
-                    resAnalisis.data.forEach(f => {
-                        listaHtml += `<li class="mb-1"><i class="bi bi-box-seam me-2"></i><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger fw-bold">${f.cantidad_faltante}</span></li>`;
-                    });
-                    listaHtml += '</ul>';
-
-                    const confirmacion = await Swal.fire({
-                        icon: 'info',
-                        title: 'Faltan Semielaborados',
-                        html: `<p class="mb-1">Para cumplir con esta orden, no hay stock suficiente de los siguientes productos intermedios:</p>
-                               ${listaHtml}
-                               <div class="mt-3 p-2 bg-light border rounded text-dark small fw-medium">¿Deseas que el sistema genere automáticamente los borradores de las sub-órdenes para estos faltantes?</div>`,
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="bi bi-magic me-1"></i> Sí, generar sub-órdenes',
-                        cancelButtonText: 'No, lo haré manual',
-                        confirmButtonColor: '#0d6efd',
-                        cancelButtonColor: '#6c757d'
-                    });
-
-                    // PASO 4: Si el jefe dice SÍ, generamos las hijas
-                    if (confirmacion.isConfirmed) {
-                        Swal.fire({ title: 'Generando cadena de producción...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                        
-                        const fdGenerar = new FormData();
-                        fdGenerar.append('accion', 'generar_subordenes_ajax');
-                        fdGenerar.append('id_orden_padre', idOrdenPadre);
-
-                        const resGenerar = await fetch(window.location.href, {
-                            method: 'POST',
-                            body: fdGenerar,
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        }).then(r => r.json());
-
-                        if (resGenerar.success) {
-                            await Swal.fire({ icon: 'success', title: '¡Éxito!', text: 'La orden y sus sub-órdenes se generaron correctamente.', timer: 2000, showConfirmButton: false });
-                        } else {
-                            await Swal.fire('Error', 'Se creó la OP principal, pero hubo un problema al generar las sub-órdenes.', 'error');
-                        }
-                    } else {
-                        await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden principal planificada correctamente.', timer: 1500, showConfirmButton: false });
-                    }
-                } else {
-                    await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden planificada. Stock de semielaborados suficiente.', timer: 1500, showConfirmButton: false });
-                }
-
-                // FINAL: Refrescar la vista
-                bootstrap.Modal.getInstance(modalPlanificar).hide();
-                
-                const modalPlanificadorEl = document.getElementById('modalPlanificadorProduccion');
-                if (modalPlanificadorEl && modalPlanificadorEl.classList.contains('show')) {
-                    if (typeof window.cargarGridPlanificador === 'function') {
-                        window.cargarGridPlanificador(); 
-                    }
-                } else {
-                    // Refrescamos la vista usando el sistema SPA si está disponible, sino reload clásico
-                    if (window.fetch && window.DOMParser) {
-                        const url = new URL(window.location.href);
-                        // Esto fuerza a main.js a recargar la misma página suavemente
-                        document.querySelector(`a[href="${url.pathname}"]`)?.click();
-                    } else {
-                        window.location.reload();
-                    }
-                }
-
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
-            } finally {
-                btnSubmit.innerHTML = originalText;
-                btnSubmit.disabled = false;
-                newForm.reset(); 
-            }
-        });
-    }
-
-    modalPlanificar.addEventListener('hidden.bs.modal', function () {
-        const form = modalPlanificar.querySelector('form');
-        if (form) form.reset();
-    });
-}
-
-// =========================================================================
 // 7. PLANIFICADOR DE OPERACIONES (CALENDARIO MES / SEMANA)
 // =========================================================================
 function initPlanificadorOperaciones() {
-    const modalPlanificador = document.getElementById('modalPlanificadorProduccion');
-    if (!modalPlanificador) return; 
-
-    let planFechaActual = new Date(); 
-    let vistaActual = 'mes'; 
-    let diccPlanificacion = {}; 
-
-    const recargarPlanificador = () => {
-        planFechaActual = new Date();
-        window.cargarGridPlanificador();
-    };
-
-    modalPlanificador.addEventListener('show.bs.modal', recargarPlanificador);
-    modalPlanificador.addEventListener('shown.bs.modal', () => {
-        const lblPlan = document.getElementById('lblPlanActual');
-        if (lblPlan && /cargando/i.test(lblPlan.textContent || '')) {
-            recargarPlanificador();
-        }
-    });
-
-    const btnAnterior = document.getElementById('btnPlanAnterior');
-    if (btnAnterior) {
-        btnAnterior.onclick = () => {
-            if (vistaActual === 'mes') {
-                planFechaActual.setMonth(planFechaActual.getMonth() - 1);
-            } else {
-                planFechaActual.setDate(planFechaActual.getDate() - 7);
-            }
-            window.cargarGridPlanificador();
-        };
-    }
-
-    const btnSiguiente = document.getElementById('btnPlanSiguiente');
-    if (btnSiguiente) {
-        btnSiguiente.onclick = () => {
-            if (vistaActual === 'mes') {
-                planFechaActual.setMonth(planFechaActual.getMonth() + 1);
-            } else {
-                planFechaActual.setDate(planFechaActual.getDate() + 7);
-            }
-            window.cargarGridPlanificador();
-        };
-    }
-
-    document.querySelectorAll('input[name="vistaPlanificador"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            vistaActual = e.target.value;
-            window.cargarGridPlanificador();
-        });
-    });
-
     window.cargarGridPlanificador = async function() {
         const loader = document.getElementById('planLoader');
         const grid = document.getElementById('planificadorGrid');
         const lblPlan = document.getElementById('lblPlanActual');
-        if (!grid || !loader || !lblPlan) return;
-
-        loader.classList.remove('d-none');
+        
+        if (!grid || !lblPlan) return; 
+        if (loader) loader.classList.remove('d-none');
         
         let primerDia, ultimoDia;
         const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-        if (vistaActual === 'mes') {
-            const year = planFechaActual.getFullYear();
-            const month = planFechaActual.getMonth();
+        if (window.vistaActualPlan === 'mes') {
+            const year = window.planFechaActual.getFullYear();
+            const month = window.planFechaActual.getMonth();
             primerDia = new Date(year, month, 1);
             ultimoDia = new Date(year, month + 1, 0);
             lblPlan.textContent = `${nombresMeses[month]} ${year}`;
         } else {
-            primerDia = new Date(planFechaActual);
+            primerDia = new Date(window.planFechaActual);
             const day = primerDia.getDay() || 7; 
             if (day !== 1) primerDia.setHours(-24 * (day - 1)); 
             
@@ -917,36 +857,27 @@ function initPlanificadorOperaciones() {
             formData.append('desde', strDesde);
             formData.append('hasta', strHasta);
 
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            
+            const response = await fetch(window.location.href, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const resultado = await response.json();
             
-            if (resultado.success) {
-                diccPlanificacion = resultado.data || {};
-            } else {
-                console.error("Error del servidor:", resultado.message);
-                diccPlanificacion = {};
-            }
+            if (resultado.success) window.diccPlanificacion = resultado.data || {};
+            else window.diccPlanificacion = {};
         } catch (e) { 
-            console.error("Error crítico de red o PHP:", e); 
-            diccPlanificacion = {};
+            window.diccPlanificacion = {};
         } 
 
         dibujarGrid(primerDia, ultimoDia);
-        loader.classList.add('d-none');
+        if (loader) loader.classList.add('d-none');
     };
 
     function dibujarGrid(primerDia, ultimoDia) {
         const grid = document.getElementById('planificadorGrid');
-        let html = '';
+        if (!grid) return;
         
-        const minHeight = vistaActual === 'mes' ? '130px' : '350px';
+        let html = '';
+        const minHeight = window.vistaActualPlan === 'mes' ? '130px' : '350px';
 
-        if (vistaActual === 'semana') {
+        if (window.vistaActualPlan === 'semana') {
             grid.classList.remove('vista-mes');
             grid.classList.add('vista-semana');
         } else {
@@ -954,7 +885,7 @@ function initPlanificadorOperaciones() {
             grid.classList.add('vista-mes');
         }
 
-        if (vistaActual === 'mes') {
+        if (window.vistaActualPlan === 'mes') {
             let inicioSemana = primerDia.getDay();
             inicioSemana = inicioSemana === 0 ? 6 : inicioSemana - 1; 
             for (let i = 0; i < inicioSemana; i++) {
@@ -971,8 +902,7 @@ function initPlanificadorOperaciones() {
             
             const diaNum = currentDate.getDate();
             const esDomingo = currentDate.getDay() === 0;
-            
-            const registro = diccPlanificacion[dateStr];
+            const registro = window.diccPlanificacion[dateStr];
             
             let colorClase = 'bg-white border-secondary-subtle border-dashed'; 
             let textoClase = esDomingo ? 'text-danger' : 'text-secondary';
@@ -984,7 +914,7 @@ function initPlanificadorOperaciones() {
                 if(registro.tipo === 'excepcion') colorClase = 'bg-warning-subtle border-warning text-warning-emphasis';
 
                 if (Array.isArray(registro.detalle) && registro.detalle.length > 0) {
-                    if (vistaActual === 'semana') {
+                    if (window.vistaActualPlan === 'semana') {
                         const detalleHtml = registro.detalle.map((op) => {
                             const producto = op.producto || '-';
                             const codigoLimpio = op.codigo ? op.codigo.replace('OP-', '') : '-'; 
@@ -1044,45 +974,65 @@ function initPlanificadorOperaciones() {
             
             currentDate.setDate(currentDate.getDate() + 1);
         }
-
         grid.innerHTML = html;
-        
         if (typeof bootstrap !== 'undefined') {
             const tooltipTriggerList = [].slice.call(grid.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+            tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
         }
     }
 }
 
+function initEventosPlanificadorGlobales() {
+    document.addEventListener('show.bs.modal', function(e) {
+        if (e.target.id === 'modalPlanificadorProduccion') {
+            window.planFechaActual = new Date(); 
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        const btnAnterior = e.target.closest('#btnPlanAnterior');
+        if (btnAnterior) {
+            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() - 1);
+            else window.planFechaActual.setDate(window.planFechaActual.getDate() - 7);
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+
+        const btnSiguiente = e.target.closest('#btnPlanSiguiente');
+        if (btnSiguiente) {
+            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() + 1);
+            else window.planFechaActual.setDate(window.planFechaActual.getDate() + 7);
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('input[name="vistaPlanificador"]')) {
+            window.vistaActualPlan = e.target.value;
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+    });
+}
+
 window.accionProgramarOP = function(fechaStr) {
     const modalOPEl = document.getElementById('modalPlanificarOP');
-    if (!modalOPEl || typeof bootstrap === 'undefined') {
-        return;
-    }
+    if (!modalOPEl || typeof bootstrap === 'undefined') return;
 
     const modalOP = bootstrap.Modal.getOrCreateInstance(modalOPEl);
     const inputFecha = document.getElementById('newFechaProgramada');
-
-    if (inputFecha) {
-        inputFecha.value = fechaStr;
-    }
+    if (inputFecha) inputFecha.value = fechaStr;
 
     modalOP.show();
 };
 
 // =========================================================================
 // FIX DEFINITIVO PARA MODALES SUPERPUESTOS EN BOOTSTRAP (Z-INDEX)
-// (Ejecutar solo una vez por entorno global)
 // =========================================================================
 if (!window.produccionZIndexFixAplicado) {
     document.addEventListener('show.bs.modal', function (event) {
         const modalsAbiertos = document.querySelectorAll('.modal.show').length;
         const nuevoZIndex = 1060 + (10 * modalsAbiertos);
-        
         event.target.style.zIndex = nuevoZIndex;
-        
         setTimeout(() => {
             const backdrops = document.querySelectorAll('.modal-backdrop:not(.z-fixed)');
             backdrops.forEach(backdrop => {
@@ -1092,7 +1042,6 @@ if (!window.produccionZIndexFixAplicado) {
         }, 10);
     });
 
-    // Fix body lock cuando se cierra un modal sobre otro modal
     document.addEventListener('hidden.bs.modal', function (event) {
         if (event.target.id === 'modalPlanificarOP') {
             if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
@@ -1100,6 +1049,5 @@ if (!window.produccionZIndexFixAplicado) {
             }
         }
     });
-
     window.produccionZIndexFixAplicado = true;
 }
