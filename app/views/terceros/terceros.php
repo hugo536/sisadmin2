@@ -277,212 +277,210 @@
 
 <div class="modal fade" id="modalCrearTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <form id="formCrearTercero" method="POST" novalidate class="w-100 m-0">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Registrar Nuevo Tercero</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                
-                <input type="hidden" name="accion" value="crear">
-                
-                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+        <form id="formCrearTercero" method="POST" novalidate class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Registrar Nuevo Tercero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <input type="hidden" name="accion" value="crear">
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+               
+                <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="crearTerceroTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="crear-tab-identificacion" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-contacto" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-financiero" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
                    
-                    <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="crearTerceroTabs" role="tablist">
-                        <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="crear-tab-identificacion" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
-                        <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-contacto" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
-                        <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-financiero" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
-                       
-                        <li class="nav-item d-none" id="crear-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
-                        <li class="nav-item d-none" id="crear-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
-                        <li class="nav-item d-none" id="crear-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
-                        <li class="nav-item d-none" id="crear-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
-                    </ul>
+                    <li class="nav-item d-none" id="crear-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
+                </ul>
 
-                    <div class="tab-content p-0 shadow-sm rounded-bottom">
-                        <div class="tab-pane fade show active" id="crear-tab-pane-identificacion" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="bg-light p-3 rounded-3 border mb-4">
-                                        <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>¿Qué rol cumple este tercero en el sistema?</label>
-                                        <div class="d-flex flex-wrap gap-4">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsCliente" name="es_cliente" value="1" data-target="crear-tab-header-cliente">
-                                                <label class="form-check-label fw-semibold text-secondary" for="crearEsCliente">Es Cliente</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsDistribuidor" name="es_distribuidor" value="1" data-target="crear-tab-header-distribuidor">
-                                                <label class="form-check-label fw-semibold text-secondary" for="crearEsDistribuidor">Es Distribuidor</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1" data-target="crear-tab-header-proveedor">
-                                                <label class="form-check-label fw-semibold text-secondary" for="crearEsProveedor">Es Proveedor</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1" data-target="crear-tab-header-empleado">
-                                                <label class="form-check-label fw-semibold text-secondary" for="crearEsEmpleado">Es Empleado</label>
-                                            </div>
+                <div class="tab-content p-0 shadow-sm rounded-bottom">
+                    <div class="tab-pane fade show active" id="crear-tab-pane-identificacion" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="bg-light p-3 rounded-3 border mb-4">
+                                    <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>¿Qué rol cumple este tercero en el sistema?</label>
+                                    <div class="d-flex flex-wrap gap-4">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsCliente" name="es_cliente" value="1" data-target="crear-tab-header-cliente">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsCliente">Es Cliente</label>
                                         </div>
-                                    </div>
-
-                                    <div class="row g-3">
-                                        <div class="col-md-3">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="crearTipoPersona" required>
-                                                    <option value="NATURAL">Persona Natural</option>
-                                                    <option value="JURIDICA">Persona Jurídica</option>
-                                                </select>
-                                                <label>Tipo Entidad <span class="text-danger">*</span></label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsDistribuidor" name="es_distribuidor" value="1" data-target="crear-tab-header-distribuidor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsDistribuidor">Es Distribuidor</label>
                                         </div>
-                                        <div class="col-md-3">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="crearTipoDoc" required>
-                                                    <option value="DNI">DNI</option>
-                                                    <option value="RUC">RUC</option>
-                                                    <option value="CE">Carnet Ext. (CE)</option>
-                                                </select>
-                                                <label>Tipo Documento <span class="text-danger">*</span></label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1" data-target="crear-tab-header-proveedor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsProveedor">Es Proveedor</label>
                                         </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="crearNumeroDoc" placeholder="Número" required>
-                                                <label>Número de Documento <span class="text-danger">*</span></label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-12">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="nombre_completo" id="crearNombre" placeholder="Razón Social" required>
-                                                <label id="crearNombreLabel">Razón Social / Nombres Completos <span class="text-danger">*</span></label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-12 d-none" id="crearRepresentanteLegalSection">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante">
-                                                <label>Representante Legal</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="estado" id="crearEstado">
-                                                    <option value="1">Activo (Operativo)</option>
-                                                    <option value="0">Inactivo</option>
-                                                </select>
-                                                <label>Estado en Sistema</label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1" data-target="crear-tab-header-empleado">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsEmpleado">Es Empleado</label>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="tab-pane fade" id="crear-tab-pane-contacto" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="row g-3">
-                                        <div class="col-md-8">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="crearDireccion" placeholder="Dirección">
-                                                <label>Dirección Fiscal / Principal</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="crearEmail" placeholder="Email">
-                                                <label>Correo Electrónico</label>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="crearDepartamento">
-                                                    <option value="">Seleccione departamento...</option>
-                                                    <?php foreach ($departamentos_list as $dep): ?>
-                                                        <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <label>Departamento</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="crearProvincia" disabled><option value="">Seleccione provincia...</option></select>
-                                                <label>Provincia</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="crearDistrito" disabled><option value="">Seleccione distrito...</option></select>
-                                                <label>Distrito</label>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-12 mt-4 pt-3 border-top">
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
-                                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
-                                            </div>
-                                            <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="crearTipoPersona" required>
+                                                <option value="NATURAL">Persona Natural</option>
+                                                <option value="JURIDICA">Persona Jurídica</option>
+                                            </select>
+                                            <label>Tipo Entidad <span class="text-danger">*</span></label>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="crear-tab-pane-financiero" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="crearAlertaBancos">
-                                        <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
-                                        <div>Cargando catálogo de entidades financieras...</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
-                                            <small class="text-muted">Necesario para pagos a proveedores o planillas de empleados.</small>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="crearTipoDoc">
+                                                <option value="DNI">DNI</option>
+                                                <option value="RUC">RUC</option>
+                                                <option value="CE">Carnet Ext. (CE)</option>
+                                            </select>
+                                            <label>Tipo Documento</label>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
                                     </div>
-                                    <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="crear-tab-pane-cliente" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/clientes_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="crear-tab-pane-distribuidor" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/distribuidores_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="crear-tab-pane-proveedor" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/proveedores_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="crear-tab-pane-empleado" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'crear'; require __DIR__ . '/empleados_form.php'; ?>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="crearNumeroDoc" placeholder="Número">
+                                            <label>Número de Documento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="nombre_completo" id="crearNombre" placeholder="Razón Social" required>
+                                            <label id="crearNombreLabel">Razón Social / Nombres Completos <span class="text-danger">*</span></label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 d-none" id="crearRepresentanteLegalSection">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante">
+                                            <label>Representante Legal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="estado" id="crearEstado">
+                                                <option value="1">Activo (Operativo)</option>
+                                                <option value="0">Inactivo</option>
+                                            </select>
+                                            <label>Estado en Sistema</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="tab-pane fade" id="crear-tab-pane-contacto" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="crearDireccion" placeholder="Dirección">
+                                            <label>Dirección Fiscal / Principal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-floating">
+                                            <input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="crearEmail" placeholder="Email">
+                                            <label>Correo Electrónico</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="crearDepartamento">
+                                                <option value="">Seleccione departamento...</option>
+                                                <?php foreach ($departamentos_list as $dep): ?>
+                                                    <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <label>Departamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="crearProvincia" disabled><option value="">Seleccione provincia...</option></select>
+                                            <label>Provincia</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="crearDistrito" disabled><option value="">Seleccione distrito...</option></select>
+                                            <label>Distrito</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-12 mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
+                                        </div>
+                                        <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="crear-tab-pane-financiero" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="crearAlertaBancos">
+                                    <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+                                    <div>Cargando catálogo de entidades financieras...</div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
+                                        <small class="text-muted">Necesario para pagos a proveedores o planillas de empleados.</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
+                                </div>
+                                <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="crear-tab-pane-cliente" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/clientes_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-distribuidor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/distribuidores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-proveedor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/proveedores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-empleado" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/empleados_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer bg-white border-top shadow-sm">
-                    <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" id="crearGuardarBtn"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
-                </div>
+            </div>
+            <div class="modal-footer bg-white border-top shadow-sm">
+                <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" id="crearGuardarBtn"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
             </div>
         </form>
     </div>
@@ -490,193 +488,191 @@
 
 <div class="modal fade" id="modalEditarTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <form id="formEditarTercero" method="POST" novalidate class="w-100 m-0">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-warning"></i>Editar Ficha de Tercero</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                
-                <input type="hidden" name="accion" value="editar">
-                <input type="hidden" name="id" id="editId"> 
-                
-                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+        <form id="formEditarTercero" method="POST" novalidate class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Ficha de Tercero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <input type="hidden" name="accion" value="editar">
+            <input type="hidden" name="id" id="editId"> 
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+               
+                <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="editTerceroTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="edit-tab-identificacion" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-contacto" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-financiero" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
                    
-                    <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="editTerceroTabs" role="tablist">
-                        <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="edit-tab-identificacion" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
-                        <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-contacto" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
-                        <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-financiero" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
-                       
-                        <li class="nav-item d-none" id="edit-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
-                        <li class="nav-item d-none" id="edit-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
-                        <li class="nav-item d-none" id="edit-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
-                        <li class="nav-item d-none" id="edit-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
-                    </ul>
+                    <li class="nav-item d-none" id="edit-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
+                </ul>
 
-                    <div class="tab-content p-0 shadow-sm rounded-bottom">
-                        
-                        <div class="tab-pane fade show active" id="edit-tab-pane-identificacion" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="bg-light p-3 rounded-3 border mb-4">
-                                        <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>Roles Asignados</label>
-                                        <div class="d-flex flex-wrap gap-4">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsCliente" name="es_cliente" value="1" data-target="edit-tab-header-cliente">
-                                                <label class="form-check-label fw-semibold text-secondary" for="editEsCliente">Cliente</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsDistribuidor" name="es_distribuidor" value="1" data-target="edit-tab-header-distribuidor">
-                                                <label class="form-check-label fw-semibold text-secondary" for="editEsDistribuidor">Distribuidor</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1" data-target="edit-tab-header-proveedor">
-                                                <label class="form-check-label fw-semibold text-secondary" for="editEsProveedor">Proveedor</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1" data-target="edit-tab-header-empleado">
-                                                <label class="form-check-label fw-semibold text-secondary" for="editEsEmpleado">Empleado</label>
-                                            </div>
+                <div class="tab-content p-0 shadow-sm rounded-bottom">
+                    
+                    <div class="tab-pane fade show active" id="edit-tab-pane-identificacion" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="bg-light p-3 rounded-3 border mb-4">
+                                    <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>Roles Asignados</label>
+                                    <div class="d-flex flex-wrap gap-4">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsCliente" name="es_cliente" value="1" data-target="edit-tab-header-cliente">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsCliente">Cliente</label>
                                         </div>
-                                    </div>
-
-                                    <div class="row g-3">
-                                        <div class="col-md-3">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="editTipoPersona" required>
-                                                    <option value="NATURAL">Persona Natural</option>
-                                                    <option value="JURIDICA">Persona Jurídica</option>
-                                                </select>
-                                                <label>Tipo Entidad</label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsDistribuidor" name="es_distribuidor" value="1" data-target="edit-tab-header-distribuidor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsDistribuidor">Distribuidor</label>
                                         </div>
-                                        <div class="col-md-3">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="editTipoDoc" required>
-                                                    <option value="DNI">DNI</option>
-                                                    <option value="RUC">RUC</option>
-                                                    <option value="CE">Carnet Ext. (CE)</option>
-                                                </select>
-                                                <label>Tipo Documento</label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1" data-target="edit-tab-header-proveedor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsProveedor">Proveedor</label>
                                         </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="editNumeroDoc" required>
-                                                <label>Número de Documento</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-12">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold text-dark" name="nombre_completo" id="editNombre" required>
-                                                <label id="editNombreLabel">Razón Social / Nombres Completos</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-12 d-none" id="editRepresentanteLegalSection">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="editRepresentanteLegal">
-                                                <label>Representante Legal</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="estado" id="editEstado">
-                                                    <option value="1">Activo</option>
-                                                    <option value="0">Inactivo</option>
-                                                </select>
-                                                <label>Estado en Sistema</label>
-                                            </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1" data-target="edit-tab-header-empleado">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsEmpleado">Empleado</label>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="tab-pane fade" id="edit-tab-pane-contacto" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="row g-3">
-                                        <div class="col-md-8"><div class="form-floating"><input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="editDireccion"><label>Dirección Fiscal</label></div></div>
-                                        <div class="col-md-4"><div class="form-floating"><input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="editEmail"><label>Correo Electrónico</label></div></div>
-                                        
-                                        <div class="col-md-4 mt-4">
-                                            <div class="form-floating">
-                                                <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="editDepartamento">
-                                                    <option value="">Seleccione...</option>
-                                                    <?php foreach ($departamentos_list as $dep): ?>
-                                                        <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <label>Departamento</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="editProvincia" disabled><option value="">Seleccione...</option></select><label>Provincia</label></div></div>
-                                        <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="editDistrito" disabled><option value="">Seleccione...</option></select><label>Distrito</label></div></div>
-
-                                        <div class="col-12 mt-4 pt-3 border-top">
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
-                                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
-                                            </div>
-                                            <div id="editTelefonosList" class="d-flex flex-column gap-2"></div>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="editTipoPersona" required>
+                                                <option value="NATURAL">Persona Natural</option>
+                                                <option value="JURIDICA">Persona Jurídica</option>
+                                            </select>
+                                            <label>Tipo Entidad</label>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="edit-tab-pane-financiero" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom">
-                                <div class="card-body p-4">
-                                    <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="editAlertaBancos">
-                                        <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
-                                        <div>Cargando lista de entidades financieras...</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="editTipoDoc">
+                                                <option value="DNI">DNI</option>
+                                                <option value="RUC">RUC</option>
+                                                <option value="CE">Carnet Ext. (CE)</option>
+                                            </select>
+                                            <label>Tipo Documento</label>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
                                     </div>
-                                    <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="edit-tab-pane-cliente" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/clientes_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="edit-tab-pane-distribuidor" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/distribuidores_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="edit-tab-pane-proveedor" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/proveedores_form.php'; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="edit-tab-pane-empleado" tabindex="0">
-                            <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
-                                <div class="card-body p-4">
-                                    <?php $prefix = 'edit'; require __DIR__ . '/empleados_form.php'; ?>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="editNumeroDoc" placeholder="Número">
+                                            <label>Número de Documento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold text-dark" name="nombre_completo" id="editNombre" required>
+                                            <label id="editNombreLabel">Razón Social / Nombres Completos <span class="text-danger">*</span></label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 d-none" id="editRepresentanteLegalSection">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="editRepresentanteLegal">
+                                            <label>Representante Legal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="estado" id="editEstado">
+                                                <option value="1">Activo</option>
+                                                <option value="0">Inactivo</option>
+                                            </select>
+                                            <label>Estado en Sistema</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-contacto" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-8"><div class="form-floating"><input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="editDireccion"><label>Dirección Fiscal</label></div></div>
+                                    <div class="col-md-4"><div class="form-floating"><input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="editEmail"><label>Correo Electrónico</label></div></div>
+                                    
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="editDepartamento">
+                                                <option value="">Seleccione...</option>
+                                                <?php foreach ($departamentos_list as $dep): ?>
+                                                    <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <label>Departamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="editProvincia" disabled><option value="">Seleccione...</option></select><label>Provincia</label></div></div>
+                                    <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="editDistrito" disabled><option value="">Seleccione...</option></select><label>Distrito</label></div></div>
+
+                                    <div class="col-12 mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
+                                        </div>
+                                        <div id="editTelefonosList" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-financiero" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="editAlertaBancos">
+                                    <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+                                    <div>Cargando lista de entidades financieras...</div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
+                                </div>
+                                <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-cliente" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/clientes_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-distribuidor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/distribuidores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-proveedor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/proveedores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-empleado" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/empleados_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer bg-white border-top shadow-sm">
-                    <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Actualizar Ficha</button>
-                </div>
+            </div>
+            <div class="modal-footer bg-white border-top shadow-sm">
+                <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Actualizar Ficha</button>
             </div>
         </form>
     </div>

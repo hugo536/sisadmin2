@@ -1,442 +1,687 @@
-<?php
-// Datos pasados por el controlador
-$t = $tercero ?? [];
-$docs = $documentos ?? [];
-$hijosEmpleado = $hijos_empleado ?? [];
-
-// Helpers de roles
-$esEmpleado = (int)($t['es_empleado'] ?? 0);
-$esCliente = (int)($t['es_cliente'] ?? 0);
-$esProveedor = (int)($t['es_proveedor'] ?? 0);
-$esDistribuidor = (int)($t['es_distribuidor'] ?? 0);
-
-// Helper para mostrar texto vacío
-function showVal($val, $suffix = '') {
-    return !empty($val) ? htmlspecialchars($val) . $suffix : '<span class="text-muted fst-italic">--</span>';
-}
+<?php 
+    $terceros = $terceros ?? []; 
+    $departamentos_list = $departamentos_list ?? []; 
+    $cargos_list = $cargos_list ?? [];
+    $areas_list = $areas_list ?? [];
+    $centros_costo_list = $centros_costo_list ?? [];
 ?>
-
-<div class="container-fluid p-4 terceros-perfil-page">
-    <!-- CABECERA -->
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in terceros-perfil-header">
-        <div class="d-flex align-items-center">
-            <a href="?ruta=terceros" class="btn btn-outline-secondary me-3 shadow-sm rounded-circle terceros-back-btn" title="Volver al listado">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="h3 fw-bold mb-0 text-dark">Expediente Digital</h1>
-                <p class="text-muted small mb-0">Visualización centralizada de información y documentos.</p>
-            </div>
+<div class="container-fluid p-4" id="tercerosApp">
+    
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in terceros-sticky-header">
+        <div>
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-people-fill me-2 text-primary"></i> Terceros
+            </h1>
+            <p class="text-muted small mb-0 ms-1">Gestión unificada de clientes, proveedores y empleados.</p>
         </div>
-        <div class="d-flex align-items-center gap-3">
-            <div class="text-end d-none d-md-block">
-                <small class="text-muted d-block">Última actualización</small>
-                <small class="fw-bold text-dark"><?php echo isset($t['updated_at']) ? date('d/m/Y H:i', strtotime($t['updated_at'])) : date('d/m/Y'); ?></small>
-            </div>
-            <?php if ((int)$t['estado'] === 1): ?>
-                <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill">Activo</span>
-            <?php else: ?>
-                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-2 rounded-pill">Inactivo</span>
-            <?php endif; ?>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionCargos">
+                <i class="bi bi-briefcase me-2 text-warning"></i>Cargos
+            </button>
+            <button class="btn btn-white border shadow-sm text-secondary fw-semibold transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalGestionAreas">
+                <i class="bi bi-building me-2 text-info"></i>Áreas
+            </button>
+            <div class="vr mx-2 d-none d-sm-block"></div>
+            <button class="btn btn-primary shadow-sm fw-bold px-3 transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTercero" id="btnNuevoTercero">
+                <i class="bi bi-person-plus-fill me-2"></i>Nuevo Tercero
+            </button>
         </div>
     </div>
 
-    <div class="row g-4">
-        <!-- COLUMNA IZQUIERDA: TARJETA PERFIL (Sticky) -->
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm sticky-top terceros-profile-card">
-                <div class="card-body text-center p-4">
-                    <div class="avatar-circle mx-auto mb-3 bg-primary text-white fw-bold d-flex align-items-center justify-content-center shadow-sm terceros-avatar-lg">
-                        <?php echo strtoupper(substr((string) ($t['nombre_completo'] ?? '?'), 0, 1)); ?>
-                    </div>
-                    <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($t['nombre_completo'] ?? ''); ?></h5>
-                    <p class="text-muted small mb-3"><?php echo htmlspecialchars($t['tipo_documento'] ?? ''); ?>: <?php echo htmlspecialchars($t['numero_documento'] ?? ''); ?></p>
-                    
-                    <div class="d-flex justify-content-center gap-2 mb-4 flex-wrap">
-                        <?php if ($esCliente): ?><span class="badge bg-info text-dark">Cliente</span><?php endif; ?>
-                        <?php if ($esDistribuidor): ?><span class="badge bg-primary">Distribuidor</span><?php endif; ?>
-                        <?php if ($esProveedor): ?><span class="badge bg-warning text-dark">Proveedor</span><?php endif; ?>
-                        <?php if ($esEmpleado): ?><span class="badge bg-success">Empleado</span><?php endif; ?>
-                    </div>
-
-                    <div class="d-grid gap-2">
-                        <?php if(!empty($t['email'])): ?>
-                            <a href="mailto:<?php echo htmlspecialchars($t['email']); ?>" class="btn btn-outline-primary btn-sm">
-                                <i class="bi bi-envelope me-2"></i>Enviar Email
-                            </a>
-                        <?php endif; ?>
+    <div class="card border-0 shadow-sm mb-4 terceros-sticky-filters">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0 border-secondary-subtle shadow-none" id="terceroSearch" placeholder="Buscar por documento, nombre...">
                     </div>
                 </div>
-                <div class="card-footer bg-light p-3 border-top-0">
-                    <h6 class="small fw-bold text-muted text-uppercase mb-3">Información de Contacto</h6>
-                    <ul class="list-unstyled small mb-0 text-start">
-                        <li class="mb-2 d-flex">
-                            <i class="bi bi-geo-alt text-primary me-2"></i>
-                            <span class="text-muted text-break"><?php echo showVal($t['direccion']); ?></span>
-                        </li>
-                        <li class="mb-2 d-flex">
-                            <i class="bi bi-map text-primary me-2"></i>
-                            <span class="text-muted">
-                                <?php 
-                                    $ubigeo = array_filter([$t['distrito'], $t['provincia'], $t['departamento']]);
-                                    echo !empty($ubigeo) ? implode(', ', $ubigeo) : '--'; 
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="terceroFiltroRol">
+                        <option value="">Todos los roles</option>
+                        <option value="CLIENTE">Cliente</option>
+                        <option value="PROVEEDOR">Proveedor</option>
+                        <option value="EMPLEADO">Empleado</option>
+                        <option value="DISTRIBUIDOR">Distribuidor</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="terceroFiltroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive terceros-table-wrapper">
+                
+                <table class="table align-middle mb-0 table-pro table-hover" id="tercerosTable"
+                       data-erp-table="true"
+                       data-rows-selector="#tercerosTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#terceroSearch"
+                       data-empty-text="No se encontraron terceros"
+                       data-info-text-template="Mostrando {start} a {end} de {total} terceros"
+                       data-erp-filters='[{"el":"#terceroFiltroRol","attr":"data-roles","match":"includes"},{"el":"#terceroFiltroEstado","attr":"data-estado","match":"equals"}]'
+                       data-pagination-controls="#tercerosPaginationControls"
+                       data-pagination-info="#tercerosPaginationInfo"
+                       data-rows-per-page="15">
+                    <thead class="terceros-sticky-thead table-light border-bottom">
+                        <tr>
+                            <th class="ps-4 text-secondary fw-semibold">Documento</th>
+                            <th class="text-secondary fw-semibold">Tercero / Razón Social</th>
+                            <th class="text-secondary fw-semibold">Roles Registrados</th>
+                            <th class="text-secondary fw-semibold">Datos de Contacto</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tercerosTableBody">
+                        <?php if (empty($terceros)): ?>
+                            <tr class="empty-msg-row border-bottom-0">
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="bi bi-people fs-1 d-block mb-2 text-light"></i>
+                                    No hay terceros registrados en el sistema.
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($terceros as $tercero): ?>
+                                <?php
+                                    $roles = [];
+                                    if ((int) $tercero['es_cliente'] === 1) $roles[] = 'CLIENTE';
+                                    if ((int) $tercero['es_proveedor'] === 1) $roles[] = 'PROVEEDOR';
+                                    if ((int) $tercero['es_empleado'] === 1) $roles[] = 'EMPLEADO';
+                                    if ((int) $tercero['es_distribuidor'] === 1) $roles[] = 'DISTRIBUIDOR';
+                                    $rolesFiltro = implode(' ', $roles); // Con espacio o coma, ¡ahora funcionará de ambas formas!
+                                    $estadoBinario = ((int) ($tercero['estado'] ?? 0) === 1) ? 1 : 0;
+                                    
+                                    $cuentasBancariasParaJs = array_map(function($cta) {
+                                        return [
+                                            'config_banco_id' => $cta['config_banco_id'] ?? null,
+                                            'tipo_entidad' => $cta['tipo_entidad'] ?? null,
+                                            'entidad' => $cta['entidad'] ?? '',
+                                            'tipo_cuenta' => $cta['tipo_cuenta'] ?? '',
+                                            'numero_cuenta' => $cta['numero_cuenta'] ?? '',
+                                            'cci' => $cta['cci'] ?? '',
+                                            'titular' => $cta['titular'] ?? '',
+                                            'moneda' => $cta['moneda'] ?? 'PEN',
+                                            'principal' => $cta['principal'] ?? 0,
+                                            'billetera_digital' => $cta['billetera_digital'] ?? 0,
+                                            'observaciones' => $cta['observaciones'] ?? ''
+                                        ];
+                                    }, $tercero['cuentas_bancarias'] ?? []);
                                 ?>
-                            </span>
-                        </li>
-                        <?php if(!empty($t['telefono'])): ?>
-                        <li class="d-flex">
-                            <i class="bi bi-phone text-primary me-2"></i>
-                            <span class="text-muted"><?php echo htmlspecialchars($t['telefono']); ?></span>
-                        </li>
-                        <?php endif; ?>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- COLUMNA DERECHA: CONTENIDO DETALLADO -->
-        <div class="col-lg-9">
-            <div class="card border-0 shadow-sm terceros-content-card">
-                <div class="card-header bg-white border-bottom pt-3 px-4">
-                    <ul class="nav nav-pills card-header-pills" id="perfilTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active rounded-pill" id="gral-tab" data-bs-toggle="tab" data-bs-target="#tab-gral" type="button" role="tab">Información General</button>
-                        </li>
-                        <?php if ($esEmpleado): ?>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill" id="lab-tab" data-bs-toggle="tab" data-bs-target="#tab-lab" type="button" role="tab">Datos Laborales</button>
-                        </li>
-                        <?php endif; ?>
-                        <?php if ($esCliente || $esProveedor): ?>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill" id="com-tab" data-bs-toggle="tab" data-bs-target="#tab-com" type="button" role="tab">Datos Comerciales</button>
-                        </li>
-                        <?php endif; ?>
-                        <?php if ($esDistribuidor): ?>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill" id="dist-tab" data-bs-toggle="tab" data-bs-target="#tab-dist" type="button" role="tab">Distribuidor</button>
-                        </li>
-                        <?php endif; ?>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link rounded-pill bg-primary bg-opacity-10 text-primary" id="docs-tab" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button" role="tab">
-                                <i class="bi bi-folder2-open me-2"></i>Documentos Digitales
-                            </button>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="card-body p-0">
-                    <div class="tab-content h-100" id="perfilTabsContent">
-                        
-                        <!-- TAB 1: INFORMACIÓN GENERAL -->
-                        <div class="tab-pane fade show active p-4" id="tab-gral" role="tabpanel">
-                            <h6 class="fw-bold text-primary mb-4 pb-2 border-bottom">Resumen General</h6>
-                            <div class="row g-4">
-                                <div class="col-md-6">
-                                    <div class="mb-4">
-                                        <label class="text-uppercase text-muted small fw-bold mb-1">Tipo de Persona</label>
-                                        <div class="fs-6"><?php echo showVal($t['tipo_persona']); ?></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="p-3 border rounded bg-light h-100">
-                                        <small class="text-muted d-block mb-1">Representante legal / Encargado</small>
-                                        <div class="fs-6"><?php echo showVal($t['representante_legal'] ?? ''); ?></div>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="text-uppercase text-muted small fw-bold mb-1">Identificación</label>
-                                        <div class="fs-6 fw-semibold text-dark"><?php echo showVal($t['tipo_documento']); ?>: <?php echo showVal($t['numero_documento']); ?></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-4">
-                                        <label class="text-uppercase text-muted small fw-bold mb-1">Rubro / Sector</label>
-                                        <div class="fs-6"><?php echo showVal($t['rubro_sector']); ?></div>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="text-uppercase text-muted small fw-bold mb-1">Email Principal</label>
-                                        <div class="fs-6 text-primary"><?php echo showVal($t['email']); ?></div>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <div class="bg-light p-3 rounded border">
-                                        <label class="text-uppercase text-muted small fw-bold mb-2">Notas</label>
-                                        <p class="mb-0 text-muted fst-italic"><?php echo !empty($t['observaciones']) ? nl2br(htmlspecialchars($t['observaciones'])) : 'Sin observaciones.'; ?></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TAB 2: DATOS LABORALES -->
-                        <?php if ($esEmpleado): ?>
-                        <div class="tab-pane fade p-4" id="tab-lab" role="tabpanel">
-                            <h6 class="fw-bold text-success mb-4 pb-2 border-bottom">Ficha del Empleado</h6>
-                            <div class="row g-4">
-                                <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Cargo</small><div class="fw-bold"><?php echo showVal($t['cargo']); ?></div></div></div>
-                                <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Área</small><div class="fw-bold"><?php echo showVal($t['area']); ?></div></div></div>
-                                <div class="col-md-4"><div class="p-3 border rounded bg-light h-100"><small class="text-muted d-block mb-1">Estado Laboral</small><?php echo ($t['estado_laboral'] ?? '') === 'activo' ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">' . ucfirst((string) ($t['estado_laboral'] ?? '')) . '</span>'; ?></div></div>
-
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Fecha Ingreso</label><div><?php echo showVal($t['fecha_ingreso']); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Fecha Cese</label><div><?php echo showVal($t['fecha_cese'] ?? ''); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Tipo Contrato</label><div><?php echo showVal($t['tipo_contrato'] ?? ''); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Frecuencia Pago</label><div><?php echo showVal($t['tipo_pago'] ?? ''); ?></div></div>
-
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Sueldo / Jornal</label><div class="fw-bold"><?php echo ($t['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/'; ?> <?php echo number_format((float) ($t['sueldo_basico'] ?? 0), 2); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Régimen Pensionario</label><div><?php echo showVal(str_replace('_', ' ', (string) ($t['regimen_pensionario'] ?? ''))); ?></div></div>
-
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Tipo Comisión AFP</label><div><?php echo showVal($t['tipo_comision_afp'] ?? ''); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">CUSPP</label><div><?php echo showVal($t['cuspp'] ?? ''); ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Cobertura</label><div><?php echo !empty($t['essalud']) ? 'ESSALUD: Sí' : 'ESSALUD: No'; ?></div></div>
-
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Asignación Familiar</label><div><?php echo !empty($t['asignacion_familiar']) ? 'Sí' : 'No'; ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Recordar Cumpleaños</label><div><?php echo !empty($t['recordar_cumpleanos']) ? 'Sí' : 'No'; ?></div></div>
-                                <div class="col-md-4"><label class="text-muted small fw-bold">Fecha Nacimiento</label><div><?php echo showVal($t['fecha_nacimiento'] ?? ''); ?></div></div>
-
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Género</label><div><?php echo showVal($t['genero'] ?? ''); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Estado Civil</label><div><?php echo showVal($t['estado_civil'] ?? ''); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Nivel Educativo</label><div><?php echo showVal($t['nivel_educativo'] ?? ''); ?></div></div>
-                                <div class="col-md-3"><label class="text-muted small fw-bold">Tipo de Sangre</label><div><?php echo showVal($t['tipo_sangre'] ?? ''); ?></div></div>
-
-                                <div class="col-md-6"><label class="text-muted small fw-bold">Contacto Emergencia</label><div><?php echo showVal($t['contacto_emergencia_nombre'] ?? ''); ?></div></div>
-                                <div class="col-md-6"><label class="text-muted small fw-bold">Teléfono Emergencia</label><div><?php echo showVal($t['contacto_emergencia_telf'] ?? ''); ?></div></div>
-
-                                <div class="col-12">
-                                    <div class="p-3 border rounded bg-light h-100">
-                                        <small class="text-muted d-block mb-2">Hijos registrados para asignación familiar</small>
-                                        <?php if (!empty($hijosEmpleado)): ?>
-                                            <ul class="mb-0">
-                                                <?php foreach ($hijosEmpleado as $hijo): ?>
-                                                    <li>
-                                                        <?php echo e((string) ($hijo['nombre_completo'] ?? 'Sin nombre')); ?>
-                                                        — <?php echo e((string) ($hijo['fecha_nacimiento'] ?? '--')); ?>
-                                                        <?php if (!empty($hijo['esta_estudiando'])): ?> (Estudia)<?php endif; ?>
-                                                        <?php if (!empty($hijo['discapacidad'])): ?> (Discapacidad)<?php endif; ?>
-                                                    </li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        <?php else: ?>
-                                            <div class="text-muted fst-italic">Sin hijos registrados.</div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <?php if ($esDistribuidor): ?>
-                        <div class="tab-pane fade p-4" id="tab-dist" role="tabpanel">
-                            <h6 class="fw-bold text-primary mb-4 pb-2 border-bottom">Información de Distribuidor</h6>
-                            <div class="row g-4">
-                                <div class="col-12">
-                                    <div class="p-3 border rounded bg-light h-100">
-                                        <small class="text-muted d-block mb-2">Zonas exclusivas</small>
-                                        <?php $zonas = $t['zonas_exclusivas'] ?? []; ?>
-                                        <?php if (!empty($zonas)): ?>
-                                            <ul class="mb-0">
-                                                <?php foreach ($zonas as $zona): ?>
-                                                    <li><?php echo htmlspecialchars($zona['label'] ?? ''); ?></li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        <?php else: ?>
-                                            <div class="text-muted fst-italic">Sin zonas registradas.</div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <!-- TAB 3: DATOS COMERCIALES -->
-                        <?php if ($esCliente || $esProveedor): ?>
-                        <div class="tab-pane fade p-4" id="tab-com" role="tabpanel">
-                            <h6 class="fw-bold text-dark mb-4 pb-2 border-bottom">Información Comercial</h6>
-                            <div class="row g-4">
-                                <?php if($esCliente): ?>
-                                <div class="col-md-6"><div class="badge bg-primary mb-2">Cliente</div><dl class="row mb-0"><dt class="col-sm-6 fw-normal text-muted">Crédito:</dt><dd class="col-sm-6 fw-bold">S/ <?php echo number_format((float)($t['cliente_limite_credito']??0),2); ?></dd></dl></div>
-                                <?php endif; ?>
-                                <?php if($esProveedor): ?>
-                                <div class="col-md-6"><div class="badge bg-warning text-dark mb-2">Proveedor</div><dl class="row mb-0"><dt class="col-sm-6 fw-normal text-muted">Condición:</dt><dd class="col-sm-6 fw-bold"><?php echo showVal($t['proveedor_condicion_pago']); ?></dd></dl></div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <!-- TAB 4: GESTIÓN DOCUMENTAL -->
-                        <div class="tab-pane fade h-100" id="tab-docs" role="tabpanel">
-                            <div class="row g-0 h-100 terceros-docs-layout">
-                                
-                                <!-- LISTA Y CARGA (Izquierda) -->
-                                <div class="col-md-4 col-12 border-end bg-light d-flex flex-column terceros-docs-sidebar">
+                                <tr class="border-bottom" 
+                                    data-estado="<?php echo $estadoBinario; ?>"
+                                    data-roles="<?php echo htmlspecialchars($rolesFiltro); ?>"
+                                    data-search="<?php echo htmlspecialchars(mb_strtolower($tercero['nombre_completo'].' '.$tercero['numero_documento'])); ?>">
                                     
-                                    <!-- Formulario -->
-                                    <div class="p-3 border-bottom bg-white">
-                                        <h6 class="fw-bold mb-2"><i class="bi bi-cloud-upload me-2"></i>Subir Documento</h6>
-                                        <form action="?ruta=terceros" method="POST" enctype="multipart/form-data">
-                                            <input type="hidden" name="accion" value="subir_documento">
-                                            <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
-                                            <div class="mb-2">
-                                                <select class="form-select form-select-sm" name="tipo_documento" id="docTipoSelect" required>
-                                                    <option value="">Tipo...</option>
-                                                </select>
+                                    <td class="ps-4 fw-semibold text-primary align-top pt-3">
+                                        <span class="badge bg-light text-secondary border border-secondary-subtle mb-1"><?php echo htmlspecialchars($tercero['tipo_documento']); ?></span><br>
+                                        <span class="text-dark fw-bold"><?php echo htmlspecialchars($tercero['numero_documento']); ?></span>
+                                    </td>
+                                    
+                                    <td class="align-top pt-3">
+                                        <div class="fw-bold text-dark fs-6"><?php echo htmlspecialchars($tercero['nombre_completo']); ?></div>
+                                        <?php if (!empty($tercero['direccion'])): ?>
+                                            <div class="small text-muted text-truncate mt-1" style="max-width: 250px;" title="<?php echo htmlspecialchars($tercero['direccion']); ?>">
+                                                <i class="bi bi-geo-alt me-1"></i><?php echo htmlspecialchars($tercero['direccion']); ?>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="file" class="form-control form-control-sm" name="archivo" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" required>
-                                            </div>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" name="observaciones" placeholder="Observación (opcional)">
-                                                <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i></button>
-                                            </div>
-                                        </form>
-                                    </div>
-
-                                    <!-- Buscador -->
-                                    <div class="p-2 bg-light border-bottom">
-                                        <input type="text" class="form-control form-control-sm" id="docSearch" placeholder="🔍 Buscar documento...">
-                                    </div>
-
-                                    <!-- Lista con Scroll -->
-                                    <div class="flex-grow-1 overflow-auto p-0 scrollable-list">
-                                        <div class="list-group list-group-flush" id="listaDocumentos">
-                                            <?php if(empty($docs)): ?>
-                                                <div class="text-center p-4 text-muted">
-                                                    <i class="bi bi-folder2-open display-4 opacity-50"></i>
-                                                    <p class="small mt-2">Sin documentos.</p>
-                                                </div>
-                                            <?php else: ?>
-                                                <?php foreach($docs as $doc): 
-                                                    $ext = strtolower($doc['extension'] ?? '');
-                                                    $icon = 'bi-file-earmark';
-                                                    if($ext === 'pdf') $icon = 'bi-file-earmark-pdf text-danger';
-                                                    elseif(in_array($ext, ['jpg','jpeg','png'])) $icon = 'bi-file-earmark-image text-primary';
-                                                    elseif(in_array($ext, ['doc','docx'])) $icon = 'bi-file-earmark-word text-primary';
-                                                    elseif(in_array($ext, ['xls','xlsx'])) $icon = 'bi-file-earmark-excel text-success';
-                                                    
-                                                    $searchText = strtolower($doc['nombre_archivo'] . ' ' . $doc['tipo_documento'] . ' ' . ($doc['observaciones'] ?? ''));
+                                        <?php endif; ?>
+                                    </td>
+                                    
+                                    <td class="align-top pt-3">
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <?php foreach ($roles as $rol): ?>
+                                                <?php 
+                                                    $rolClass = 'bg-light text-dark';
+                                                    if ($rol === 'CLIENTE') $rolClass = 'bg-success-subtle text-success';
+                                                    elseif ($rol === 'PROVEEDOR') $rolClass = 'bg-warning-subtle text-warning-emphasis';
+                                                    elseif ($rol === 'EMPLEADO') $rolClass = 'bg-info-subtle text-info-emphasis';
+                                                    elseif ($rol === 'DISTRIBUIDOR') $rolClass = 'bg-primary-subtle text-primary';
                                                 ?>
-                                                <!-- NOTA: Usamos DIV en lugar de A para evitar problemas de anidamiento con el form -->
-                                                <div class="list-group-item list-group-item-action doc-item py-3" 
-                                                     data-url="<?php echo htmlspecialchars($doc['ruta_archivo']); ?>" 
-                                                     data-type="<?php echo $ext; ?>"
-                                                     data-search="<?php echo htmlspecialchars($searchText); ?>"
-                                                     >
-                                                    
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div class="text-truncate flex-grow-1 pe-2">
-                                                            <h6 class="mb-1 text-dark fw-semibold small text-truncate">
-                                                                <i class="bi <?php echo $icon; ?> me-1"></i>
-                                                                <?php echo htmlspecialchars(!empty($doc['observaciones']) ? $doc['observaciones'] : $doc['nombre_archivo']); ?>
-                                                            </h6>
-                                                            <div class="d-flex align-items-center flex-wrap gap-1">
-                                                                <span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($doc['tipo_documento']); ?></span>
-                                                                <small class="text-muted doc-date"><?php echo date('d/m/Y', strtotime($doc['fecha_subida'])); ?></small>
-                                                            </div>
-                                                        </div>
-                                                        <div class="d-flex gap-1">
-                                                            <!-- Botón Editar -->
-                                                            <button type="button" class="btn btn-sm btn-outline-primary btn-icon-sm btn-edit-doc" 
-                                                                    title="Editar"
-                                                                    data-id="<?php echo (int)$doc['id']; ?>"
-                                                                    data-tipo="<?php echo htmlspecialchars($doc['tipo_documento']); ?>"
-                                                                    data-obs="<?php echo htmlspecialchars($doc['observaciones'] ?? ''); ?>">
-                                                                <i class="bi bi-pencil"></i>
-                                                            </button>
-                                                            <!-- Botón Eliminar -->
-                                                            <form action="?ruta=terceros" method="POST" class="form-eliminar-doc d-inline">
-                                                                <input type="hidden" name="accion" value="eliminar_documento">
-                                                                <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
-                                                                <input type="hidden" name="id_documento" value="<?php echo (int)$doc['id']; ?>">
-                                                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-sm" title="Eliminar">
-                                                                    <i class="bi bi-trash"></i>
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
+                                                <span class="badge <?php echo $rolClass; ?> border px-2 shadow-sm" style="font-size: 0.65rem;"><?php echo htmlspecialchars($rol); ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </td>
+                                    
+                                    <td class="align-top pt-3">
+                                        <?php if (!empty($tercero['telefono'])): ?>
+                                            <div class="fw-medium text-dark small mb-1"><i class="bi bi-telephone text-muted me-2"></i><?php echo htmlspecialchars($tercero['telefono']); ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($tercero['email'])): ?>
+                                            <div class="text-muted small"><i class="bi bi-envelope text-muted me-2"></i><?php echo htmlspecialchars($tercero['email']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    
+                                    <td class="text-center align-top pt-3">
+                                        <?php if ($estadoBinario === 1): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Activo</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill" id="badge_status_tercero_<?php echo (int) $tercero['id']; ?>">Inactivo</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    
+                                    <td class="text-end pe-4 align-top pt-3">
+                                        <div class="d-flex align-items-center justify-content-end gap-2">
+                                            <div class="form-check form-switch pt-1 me-1" title="Cambiar estado" data-bs-toggle="tooltip">
+                                                <input class="form-check-input switch-estado-tercero shadow-none" type="checkbox" role="switch"
+                                                       style="cursor: pointer; width: 2.2em; height: 1.1em;"
+                                                       data-id="<?php echo (int) $tercero['id']; ?>"
+                                                       <?php echo $estadoBinario === 1 ? 'checked' : ''; ?>>
+                                            </div>
+
+                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+
+                                            <a href="?ruta=terceros/perfil&id=<?php echo (int) $tercero['id']; ?>" class="btn btn-sm btn-light text-info border-0 rounded-circle shadow-sm" data-bs-toggle="tooltip" title="Ver Perfil Detallado">
+                                                <i class="bi bi-person-vcard fs-6"></i>
+                                            </a>
+
+                                            <button class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm js-editar-tercero"
+                                                    type="button"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalEditarTercero"
+                                                    data-bs-toggle="tooltip" title="Editar Tercero"
+                                                    data-id="<?php echo (int) $tercero['id']; ?>"
+                                                    data-nombre="<?php echo htmlspecialchars($tercero['nombre_completo']); ?>"
+                                                    data-tipo-doc="<?php echo htmlspecialchars($tercero['tipo_documento']); ?>"
+                                                    data-numero-doc="<?php echo htmlspecialchars($tercero['numero_documento']); ?>"
+                                                    data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona']); ?>"
+                                                    data-estado="<?php echo (int) ($tercero['estado'] ?? 1); ?>"
+                                                    data-representante-legal="<?php echo htmlspecialchars($tercero['representante_legal'] ?? ''); ?>"
+                                                    data-direccion="<?php echo htmlspecialchars($tercero['direccion'] ?? ''); ?>"
+                                                    data-email="<?php echo htmlspecialchars($tercero['email'] ?? ''); ?>"
+                                                    data-telefonos='<?php echo e(json_encode($tercero['telefonos'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
+                                                    data-departamento="<?php echo (int)($tercero['departamento_id'] ?? 0); ?>"
+                                                    data-provincia="<?php echo (int)($tercero['provincia_id'] ?? 0); ?>"
+                                                    data-distrito="<?php echo (int)($tercero['distrito_id'] ?? 0); ?>"
+                                                    data-es-cliente="<?php echo (int)$tercero['es_cliente']; ?>"
+                                                    data-es-proveedor="<?php echo (int)$tercero['es_proveedor']; ?>"
+                                                    data-es-empleado="<?php echo (int)$tercero['es_empleado']; ?>"
+                                                    data-empleado-registrado="<?php echo (int)$tercero['es_empleado']; ?>"
+                                                    data-es-distribuidor="<?php echo (int)$tercero['es_distribuidor']; ?>"
+                                                    data-cargo="<?php echo htmlspecialchars((string) ($tercero['cargo'] ?? '')); ?>"
+                                                    data-area="<?php echo htmlspecialchars((string) ($tercero['area'] ?? '')); ?>"
+                                                    data-id-centro-costo="<?php echo (int) ($tercero['id_centro_costo'] ?? 0); ?>"
+                                                    data-codigo-biometrico="<?php echo htmlspecialchars((string) ($tercero['codigo_biometrico'] ?? '')); ?>"
+                                                    data-fecha-ingreso="<?php echo htmlspecialchars((string) ($tercero['fecha_ingreso'] ?? '')); ?>"
+                                                    data-fecha-cese="<?php echo htmlspecialchars((string) ($tercero['fecha_cese'] ?? '')); ?>"
+                                                    data-estado-laboral="<?php echo htmlspecialchars((string) ($tercero['estado_laboral'] ?? 'activo')); ?>"
+                                                    data-tipo-contrato="<?php echo htmlspecialchars((string) ($tercero['tipo_contrato'] ?? '')); ?>"
+                                                    data-tipo-pago="<?php echo htmlspecialchars((string) ($tercero['tipo_pago'] ?? 'MENSUAL')); ?>"
+                                                    data-moneda="<?php echo htmlspecialchars((string) ($tercero['moneda'] ?? 'PEN')); ?>"
+                                                    data-sueldo-basico="<?php echo htmlspecialchars((string) ($tercero['sueldo_basico'] ?? '')); ?>"
+                                                    data-regimen-pensionario="<?php echo htmlspecialchars((string) ($tercero['regimen_pensionario'] ?? '')); ?>"
+                                                    data-tipo-comision-afp="<?php echo htmlspecialchars((string) ($tercero['tipo_comision_afp'] ?? '')); ?>"
+                                                    data-cuspp="<?php echo htmlspecialchars((string) ($tercero['cuspp'] ?? '')); ?>"
+                                                    data-asignacion-familiar="<?php echo (int) ($tercero['asignacion_familiar'] ?? 0); ?>"
+                                                    data-essalud="<?php echo (int) ($tercero['essalud'] ?? 0); ?>"
+                                                    data-recordar-cumpleanos="<?php echo (int) ($tercero['recordar_cumpleanos'] ?? 0); ?>"
+                                                    data-fecha-nacimiento="<?php echo htmlspecialchars((string) ($tercero['fecha_nacimiento'] ?? '')); ?>"
+                                                    data-genero="<?php echo htmlspecialchars((string) ($tercero['genero'] ?? '')); ?>"
+                                                    data-estado-civil="<?php echo htmlspecialchars((string) ($tercero['estado_civil'] ?? '')); ?>"
+                                                    data-nivel-educativo="<?php echo htmlspecialchars((string) ($tercero['nivel_educativo'] ?? '')); ?>"
+                                                    data-contacto-emergencia-nombre="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_nombre'] ?? '')); ?>"
+                                                    data-contacto-emergencia-telf="<?php echo htmlspecialchars((string) ($tercero['contacto_emergencia_telf'] ?? '')); ?>"
+                                                    data-tipo-sangre="<?php echo htmlspecialchars((string) ($tercero['tipo_sangre'] ?? '')); ?>"
+                                                    data-cliente-dias-credito="<?php echo (int) ($tercero['cliente_dias_credito'] ?? 0); ?>"
+                                                    data-cliente-limite-credito="<?php echo htmlspecialchars((string) ($tercero['cliente_limite_credito'] ?? '')); ?>"
+                                                    data-cliente-condicion-pago="<?php echo htmlspecialchars((string) ($tercero['cliente_condicion_pago'] ?? '')); ?>"
+                                                    data-proveedor-dias-credito="<?php echo (int) ($tercero['proveedor_dias_credito'] ?? 0); ?>"
+                                                    data-proveedor-condicion-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_condicion_pago'] ?? '')); ?>"
+                                                    data-proveedor-forma-pago="<?php echo htmlspecialchars((string) ($tercero['proveedor_forma_pago'] ?? '')); ?>"
+                                                    data-hijos-lista='<?php echo e(json_encode($tercero['hijos_lista'] ?? [], JSON_UNESCAPED_UNICODE)); ?>'
+                                                    data-cuentas-bancarias='<?php echo e(json_encode($cuentasBancariasParaJs, JSON_UNESCAPED_UNICODE)); ?>'>
+                                                <i class="bi bi-pencil fs-6"></i>
+                                            </button>
+                                    
+                                            <?php
+                                                $puedeEliminar = (int) ($tercero['puede_eliminar'] ?? 1) === 1;
+                                                $motivoNoEliminar = (string) ($tercero['motivo_no_eliminar'] ?? 'No se puede eliminar este tercero.');
+                                            ?>
+                                            <button class="btn btn-sm border-0 rounded-circle shadow-sm js-eliminar-tercero <?php echo $puedeEliminar ? 'btn-light text-danger' : 'btn-light text-muted opacity-50'; ?>" 
+                                                    data-id="<?php echo (int) $tercero['id']; ?>"
+                                                    data-puede-eliminar="<?php echo $puedeEliminar ? '1' : '0'; ?>"
+                                                    data-motivo-no-eliminar="<?php echo e($motivoNoEliminar); ?>"
+                                                    data-bs-toggle="tooltip"
+                                                    title="<?php echo $puedeEliminar ? 'Eliminar' : e($motivoNoEliminar); ?>"
+                                                    <?php echo $puedeEliminar ? '' : 'disabled aria-disabled="true"'; ?>>
+                                                <i class="bi bi-trash fs-6"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            
+            <?php if (!empty($terceros)): ?>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-4">
+                <small class="text-muted fw-semibold" id="tercerosPaginationInfo">Procesando...</small>
+                <nav aria-label="Paginación de Terceros">
+                    <ul class="pagination mb-0 shadow-sm" id="tercerosPaginationControls"></ul>
+                </nav>
+            </div>
+            <?php endif; ?>
+            
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCrearTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <form id="formCrearTercero" method="POST" novalidate class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Registrar Nuevo Tercero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <input type="hidden" name="accion" value="crear">
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+               
+                <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="crearTerceroTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="crear-tab-identificacion" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-contacto" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="crear-tab-financiero" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
+                   
+                    <li class="nav-item d-none" id="crear-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
+                    <li class="nav-item d-none" id="crear-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#crear-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
+                </ul>
+
+                <div class="tab-content p-0 shadow-sm rounded-bottom">
+                    <div class="tab-pane fade show active" id="crear-tab-pane-identificacion" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="bg-light p-3 rounded-3 border mb-4">
+                                    <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>¿Qué rol cumple este tercero en el sistema?</label>
+                                    <div class="d-flex flex-wrap gap-4">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsCliente" name="es_cliente" value="1" data-target="crear-tab-header-cliente">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsCliente">Es Cliente</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsDistribuidor" name="es_distribuidor" value="1" data-target="crear-tab-header-distribuidor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsDistribuidor">Es Distribuidor</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsProveedor" name="es_proveedor" value="1" data-target="crear-tab-header-proveedor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsProveedor">Es Proveedor</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="crearEsEmpleado" name="es_empleado" value="1" data-target="crear-tab-header-empleado">
+                                            <label class="form-check-label fw-semibold text-secondary" for="crearEsEmpleado">Es Empleado</label>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- VISOR (Derecha/Abajo) -->
-                                <div class="col-md-8 col-12 bg-secondary bg-opacity-10 d-flex flex-column terceros-visor-panel" id="visorContainer">
-                                    
-                                    <!-- BARRA DE HERRAMIENTAS -->
-                                    <div id="visorToolbar" class="bg-white border-bottom p-2 d-flex justify-content-between align-items-center d-none">
-                                        <span class="small fw-bold text-muted" id="visorFileName">Documento</span>
-                                        <a href="#" id="visorBtnOpen" target="_blank" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-box-arrow-up-right me-1"></i>Abrir Externamente
-                                        </a>
-                                    </div>
-
-                                    <div class="flex-grow-1 position-relative d-flex align-items-center justify-content-center overflow-hidden">
-                                        <!-- Placeholder -->
-                                        <div class="text-center text-muted p-4" id="visorPlaceholder">
-                                            <i class="bi bi-eye display-1 opacity-25"></i>
-                                            <p class="mt-3 fs-5">Selecciona un documento para visualizarlo</p>
-                                            <p class="small">Las imágenes se verán aquí. Los PDFs se pueden abrir en otra pestaña.</p>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="crearTipoPersona" required>
+                                                <option value="NATURAL">Persona Natural</option>
+                                                <option value="JURIDICA">Persona Jurídica</option>
+                                            </select>
+                                            <label>Tipo Entidad <span class="text-danger">*</span></label>
                                         </div>
-
-                                        <!-- Iframe PDF -->
-                                        <iframe id="visorPDF" src="" class="d-none w-100 h-100 border-0"></iframe>
-
-                                        <!-- Imagen -->
-                                        <img id="visorIMG" src="" class="d-none img-fluid shadow-sm rounded terceros-visor-image">
-                                        
-                                        <!-- Mensaje Descarga -->
-                                        <div id="visorExternal" class="d-none text-center">
-                                            <i class="bi bi-file-earmark-arrow-down display-1 text-primary"></i>
-                                            <p class="mt-3">Este archivo no se puede previsualizar aquí.</p>
-                                            <a href="#" id="btnDescarga" target="_blank" class="btn btn-primary"><i class="bi bi-download me-2"></i>Descargar Archivo</a>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="crearTipoDoc" required>
+                                                <option value="DNI">DNI</option>
+                                                <option value="RUC">RUC</option>
+                                                <option value="CE">Carnet Ext. (CE)</option>
+                                            </select>
+                                            <label>Tipo Documento <span class="text-danger">*</span></label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="crearNumeroDoc" placeholder="Número">
+                                            <label>Número de Documento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="nombre_completo" id="crearNombre" placeholder="Razón Social" required>
+                                            <label id="crearNombreLabel">Razón Social / Nombres Completos <span class="text-danger">*</span></label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 d-none" id="crearRepresentanteLegalSection">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="crearRepresentanteLegal" placeholder="Representante">
+                                            <label>Representante Legal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="estado" id="crearEstado">
+                                                <option value="1">Activo (Operativo)</option>
+                                                <option value="0">Inactivo</option>
+                                            </select>
+                                            <label>Estado en Sistema</label>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    <div class="tab-pane fade" id="crear-tab-pane-contacto" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="crearDireccion" placeholder="Dirección">
+                                            <label>Dirección Fiscal / Principal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-floating">
+                                            <input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="crearEmail" placeholder="Email">
+                                            <label>Correo Electrónico</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="crearDepartamento">
+                                                <option value="">Seleccione departamento...</option>
+                                                <?php foreach ($departamentos_list as $dep): ?>
+                                                    <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <label>Departamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="crearProvincia" disabled><option value="">Seleccione provincia...</option></select>
+                                            <label>Provincia</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="crearDistrito" disabled><option value="">Seleccione distrito...</option></select>
+                                            <label>Distrito</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-12 mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
+                                        </div>
+                                        <div id="crearTelefonosList" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="crear-tab-pane-financiero" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="crearAlertaBancos">
+                                    <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+                                    <div>Cargando catálogo de entidades financieras...</div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
+                                        <small class="text-muted">Necesario para pagos a proveedores o planillas de empleados.</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="crearAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
+                                </div>
+                                <div id="crearCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="crear-tab-pane-cliente" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/clientes_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-distribuidor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/distribuidores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-proveedor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/proveedores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="crear-tab-pane-empleado" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'crear'; require __DIR__ . '/empleados_form.php'; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL EDITAR DOC -->
-<div class="modal fade" id="modalEditarDoc" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-light py-2">
-                <h6 class="modal-title fw-bold">Editar Documento</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-footer bg-white border-top shadow-sm">
+                <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" id="crearGuardarBtn"><i class="bi bi-save me-2"></i>Guardar Tercero</button>
             </div>
-            <form action="?ruta=terceros" method="POST">
-                <input type="hidden" name="accion" value="editar_documento">
-                <input type="hidden" name="tercero_id" value="<?php echo (int)$t['id']; ?>">
-                <input type="hidden" name="id_documento" id="editDocId">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Tipo</label>
-                        <select class="form-select form-select-sm" name="tipo_documento" id="editDocTipo" required></select>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label small text-muted">Nombre / Observación</label>
-                        <input type="text" class="form-control form-control-sm" name="observaciones" id="editDocObs">
-                    </div>
-                </div>
-                <div class="modal-footer py-1">
-                    <button type="button" class="btn btn-sm btn-link text-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
-                </div>
-            </form>
-        </div>
+        </form>
     </div>
 </div>
 
-<script>
-    window.perfilRoles = {
-        empleado: <?php echo $esEmpleado; ?>,
-        proveedor: <?php echo $esProveedor; ?>,
-        cliente: <?php echo $esCliente; ?>
-    };
-</script>
-<script src="<?php echo asset_url('js/terceros/terceros_perfil.js'); ?>"></script>
+<div class="modal fade" id="modalEditarTercero" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <form id="formEditarTercero" method="POST" novalidate class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Ficha de Tercero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <input type="hidden" name="accion" value="editar">
+            <input type="hidden" name="id" id="editId"> 
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+               
+                <ul class="nav nav-tabs px-2 pt-2 bg-white rounded-top shadow-sm border-bottom-0" id="editTerceroTabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active fw-bold text-secondary" id="edit-tab-identificacion" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-identificacion" type="button"><i class="bi bi-person-vcard me-2"></i>Identificación</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-contacto" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-contacto" type="button"><i class="bi bi-telephone me-2"></i>Contacto</button></li>
+                    <li class="nav-item"><button class="nav-link fw-bold text-secondary" id="edit-tab-financiero" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-financiero" type="button"><i class="bi bi-bank me-2"></i>Cuentas</button></li>
+                   
+                    <li class="nav-item d-none" id="edit-tab-header-cliente"><button class="nav-link text-success fw-bold bg-success-subtle border-success-subtle ms-2" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-cliente" type="button"><i class="bi bi-bag-check me-1"></i>Cliente</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-distribuidor"><button class="nav-link text-primary fw-bold bg-primary-subtle border-primary-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-distribuidor" type="button"><i class="bi bi-truck me-1"></i>Distribuidor</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-proveedor"><button class="nav-link text-warning-emphasis fw-bold bg-warning-subtle border-warning-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-proveedor" type="button"><i class="bi bi-box-seam me-1"></i>Proveedor</button></li>
+                    <li class="nav-item d-none" id="edit-tab-header-empleado"><button class="nav-link text-info-emphasis fw-bold bg-info-subtle border-info-subtle ms-1" data-bs-toggle="tab" data-bs-target="#edit-tab-pane-empleado" type="button"><i class="bi bi-person-badge me-1"></i>Empleado</button></li>
+                </ul>
+
+                <div class="tab-content p-0 shadow-sm rounded-bottom">
+                    
+                    <div class="tab-pane fade show active" id="edit-tab-pane-identificacion" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="bg-light p-3 rounded-3 border mb-4">
+                                    <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-tags me-2 text-primary"></i>Roles Asignados</label>
+                                    <div class="d-flex flex-wrap gap-4">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsCliente" name="es_cliente" value="1" data-target="edit-tab-header-cliente">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsCliente">Cliente</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsDistribuidor" name="es_distribuidor" value="1" data-target="edit-tab-header-distribuidor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsDistribuidor">Distribuidor</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsProveedor" name="es_proveedor" value="1" data-target="edit-tab-header-proveedor">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsProveedor">Proveedor</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input role-trigger shadow-none" type="checkbox" id="editEsEmpleado" name="es_empleado" value="1" data-target="edit-tab-header-empleado">
+                                            <label class="form-check-label fw-semibold text-secondary" for="editEsEmpleado">Empleado</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_persona" id="editTipoPersona" required>
+                                                <option value="NATURAL">Persona Natural</option>
+                                                <option value="JURIDICA">Persona Jurídica</option>
+                                            </select>
+                                            <label>Tipo Entidad</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="tipo_documento" id="editTipoDoc" required>
+                                                <option value="DNI">DNI</option>
+                                                <option value="RUC">RUC</option>
+                                                <option value="CE">Carnet Ext. (CE)</option>
+                                            </select>
+                                            <label>Tipo Documento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold" name="numero_documento" id="editNumeroDoc">
+                                            <label>Número de Documento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle fw-bold text-dark" name="nombre_completo" id="editNombre" required>
+                                            <label id="editNombreLabel">Razón Social / Nombres Completos</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 d-none" id="editRepresentanteLegalSection">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control shadow-none border-secondary-subtle" name="representante_legal" id="editRepresentanteLegal">
+                                            <label>Representante Legal</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="estado" id="editEstado">
+                                                <option value="1">Activo</option>
+                                                <option value="0">Inactivo</option>
+                                            </select>
+                                            <label>Estado en Sistema</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-contacto" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-8"><div class="form-floating"><input type="text" class="form-control shadow-none border-secondary-subtle" name="direccion" id="editDireccion"><label>Dirección Fiscal</label></div></div>
+                                    <div class="col-md-4"><div class="form-floating"><input type="email" class="form-control shadow-none border-secondary-subtle" name="email" id="editEmail"><label>Correo Electrónico</label></div></div>
+                                    
+                                    <div class="col-md-4 mt-4">
+                                        <div class="form-floating">
+                                            <select class="form-select shadow-none border-secondary-subtle" name="departamento_id" id="editDepartamento">
+                                                <option value="">Seleccione...</option>
+                                                <?php foreach ($departamentos_list as $dep): ?>
+                                                    <option value="<?php echo (int)$dep['id']; ?>"><?php echo htmlspecialchars($dep['nombre']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <label>Departamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="provincia_id" id="editProvincia" disabled><option value="">Seleccione...</option></select><label>Provincia</label></div></div>
+                                    <div class="col-md-4 mt-4"><div class="form-floating"><select class="form-select shadow-none border-secondary-subtle" name="distrito_id" id="editDistrito" disabled><option value="">Seleccione...</option></select><label>Distrito</label></div></div>
+
+                                    <div class="col-12 mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-telephone-plus me-2 text-primary"></i>Números de Teléfono</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarTelefono"><i class="bi bi-plus-lg me-1"></i> Agregar Teléfono</button>
+                                        </div>
+                                        <div id="editTelefonosList" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-financiero" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom">
+                            <div class="card-body p-4">
+                                <div class="alert alert-info py-3 small d-none shadow-sm border-0 d-flex align-items-center" id="editAlertaBancos">
+                                    <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+                                    <div>Cargando lista de entidades financieras...</div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cuentas Bancarias / Billeteras</h6>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 shadow-sm" id="editAgregarCuenta"><i class="bi bi-plus-lg me-1"></i> Agregar Cuenta</button>
+                                </div>
+                                <div id="editCuentasBancariasList" class="d-flex flex-column gap-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="edit-tab-pane-cliente" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-success-subtle bg-opacity-10 border-top border-success">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/clientes_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-distribuidor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-primary-subtle bg-opacity-10 border-top border-primary">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/distribuidores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-proveedor" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-warning-subtle bg-opacity-10 border-top border-warning">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/proveedores_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="edit-tab-pane-empleado" tabindex="0">
+                        <div class="card border-0 rounded-0 rounded-bottom bg-info-subtle bg-opacity-10 border-top border-info">
+                            <div class="card-body p-4">
+                                <?php $prefix = 'edit'; require __DIR__ . '/empleados_form.php'; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top shadow-sm">
+                <button type="button" class="btn btn-light text-secondary border px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Actualizar Ficha</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include dirname(__DIR__) . '/modales_maestros.php'; ?>
+
+<style>
+.empleado-switch-card{min-height:58px;}
+.empleado-input-disabled{opacity:.7;}
+.maestro-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:.75rem;}
+</style>

@@ -785,7 +785,6 @@
                     }
 
                 } catch (error) {
-                    // AQUÍ ATRAPAMOS CUALQUIER OTRO ERROR Y LO MOSTRAMOS EN PANTALLA
                     console.error("Error al cargar modal de edición:", error);
                     Swal.fire({
                         icon: 'error',
@@ -817,20 +816,27 @@
             const sueldoBasico = Number.parseFloat(sueldoBasicoRaw);
             const codigoBiometrico = (form.querySelector('[name="codigo_biometrico"]')?.value || '').trim();
 
-            if (!tipoPersona || !tipoDoc || !nombreCompleto || !numeroDocumento) {
-                return 'Tipo de persona, documento, número y nombre son obligatorios.';
+            // ==============================================================================
+            // AQUÍ ESTABA LA REGLA: QUITAMOS !tipoDoc Y !numeroDocumento
+            // ==============================================================================
+            if (!tipoPersona || !nombreCompleto) {
+                return 'El tipo de persona y el nombre son obligatorios.';
             }
 
             if (tipoPersona === 'JURIDICA' && !representanteLegal) {
                 return 'Representante legal es obligatorio para empresas.';
             }
 
-            if (tipoDoc === 'RUC' && numeroDocumento.length !== 11) {
-                return 'El RUC debe tener 11 dígitos.';
-            }
-
-            if (tipoDoc === 'DNI' && numeroDocumento.length !== 8) {
-                return 'El DNI debe tener 8 dígitos.';
+            // ==============================================================================
+            // AQUÍ OTRA REGLA: SOLO VERIFICAMOS EL TAMAÑO SI ESCRIBISTE ALGO EN EL DNI/RUC
+            // ==============================================================================
+            if (numeroDocumento) {
+                if (tipoDoc === 'RUC' && numeroDocumento.length !== 11) {
+                    return 'El RUC debe tener 11 dígitos.';
+                }
+                if (tipoDoc === 'DNI' && numeroDocumento.length !== 8) {
+                    return 'El DNI debe tener 8 dígitos.';
+                }
             }
 
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

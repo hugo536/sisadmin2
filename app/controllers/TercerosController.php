@@ -328,7 +328,7 @@ class TercerosController extends Controlador
                     require_permiso('terceros.crear');
                     $data = $this->validarTercero($_POST);
                     
-                    if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
+                    if ($data['tipo_documento'] !== '' && $data['numero_documento'] !== '' && $this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'])) {
                         throw new Exception('El documento ya se encuentra registrado.');
                     }
 
@@ -350,7 +350,7 @@ class TercerosController extends Controlador
                     
                     $data = $this->validarTercero($_POST);
                     
-                    if ($this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
+                    if ($data['tipo_documento'] !== '' && $data['numero_documento'] !== '' && $this->tercerosModel->documentoExiste($data['tipo_documento'], $data['numero_documento'], $id)) {
                         throw new Exception('El documento ya se encuentra registrado.');
                     }
 
@@ -396,8 +396,6 @@ class TercerosController extends Controlador
 
             } catch (Exception $e) {
                 if (es_ajax()) {
-                    // Para validaciones de negocio devolvemos 200 + ok=false,
-                    // así evitamos el ruido de 400 en consola y mantenemos SweetAlert.
                     json_response(['ok' => false, 'mensaje' => $e->getMessage()], 200);
                     return;
                 }
@@ -685,8 +683,11 @@ class TercerosController extends Controlador
 
         $roles = [$esCliente, $esProveedor, $esEmpleado, $esDistribuidor];
 
-        if ($tipoPersona === '' || $tipoDoc === '' || $numero === '' || $nombre === '') {
-            throw new Exception('Tipo de persona, documento y nombre son obligatorios.');
+        // ==========================================================
+        // AQUÍ EL CAMBIO: Ya no exigimos número de documento
+        // ==========================================================
+        if ($tipoPersona === '' || $nombre === '') {
+            throw new Exception('Tipo de persona y nombre son obligatorios.');
         }
 
         $representanteLegal = trim((string) ($data['representante_legal'] ?? ''));
@@ -694,11 +695,16 @@ class TercerosController extends Controlador
             throw new Exception('Representante legal es obligatorio para empresas.');
         }
 
-        if ($tipoDoc === 'RUC' && strlen($numeroDocumentoDigits) !== 11) {
-            throw new Exception('El RUC debe tener 11 dígitos.');
-        }
-        if ($tipoDoc === 'DNI' && strlen($numeroDocumentoDigits) !== 8) {
-            throw new Exception('El DNI debe tener 8 dígitos.');
+        // ==========================================================
+        // AQUÍ EL CAMBIO: Solo valida el largo si es que mandaron un número
+        // ==========================================================
+        if ($numero !== '') {
+            if ($tipoDoc === 'RUC' && strlen($numeroDocumentoDigits) !== 11) {
+                throw new Exception('El RUC debe tener 11 dígitos.');
+            }
+            if ($tipoDoc === 'DNI' && strlen($numeroDocumentoDigits) !== 8) {
+                throw new Exception('El DNI debe tener 8 dígitos.');
+            }
         }
 
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -733,14 +739,10 @@ class TercerosController extends Controlador
                 throw new Exception('El código biométrico no puede exceder 50 caracteres.');
             }
 
-            // Validamos que el sueldo (que usamos tanto para mensual como para jornal) sea numérico
             if (!is_numeric($sueldoBasicoRaw) || (float) $sueldoBasicoRaw < 0) {
                 throw new Exception('El sueldo básico/jornal debe ser un número válido mayor o igual a 0.');
             }
             
-            // ==============================================================================
-            // AQUÍ ESTABA EL ERROR: AGREGAMOS 'QUINCENAL' Y 'SEMANAL' A LOS PAGOS PERMITIDOS
-            // ==============================================================================
             if (!in_array($tipoPagoRaw, ['MENSUAL', 'QUINCENAL', 'SEMANAL'], true)) {
                 throw new Exception('El tipo de pago del empleado debe ser MENSUAL, QUINCENAL o SEMANAL.');
             }
@@ -858,9 +860,6 @@ class TercerosController extends Controlador
             return $map[$v] ?? '';
         };
 
-        // ==============================================================================
-        // SEGUNDO CAMBIO: NORMALIZADOR DE TIPO DE PAGO
-        // ==============================================================================
         $normalizeTipoPago = static function ($value) use ($normalizeCatalog) {
             $v = $normalizeCatalog($value);
             return in_array($v, ['MENSUAL', 'QUINCENAL', 'SEMANAL'], true) ? $v : 'MENSUAL';
