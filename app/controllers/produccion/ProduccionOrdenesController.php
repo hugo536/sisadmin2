@@ -39,6 +39,8 @@ class ProduccionOrdenesController extends Controlador
                 'iniciar_ejecucion_ajax', 
                 'obtener_planificador_ajax',
                 'crear_orden_ajax',
+                'analizar_subordenes_ajax',
+                'generar_subordenes_ajax',
                 'guardar_tiempos_mod_ajax',
                 'reportar_avance_diario_ajax',
                 'sincronizar_mod_asistencia_ajax',
