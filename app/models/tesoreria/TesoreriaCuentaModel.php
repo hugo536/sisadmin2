@@ -95,7 +95,7 @@ class TesoreriaCuentaModel extends Modelo
             'saldo_inicial' => round((float) ($payload['saldo_inicial'] ?? 0), 4),
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
-            'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : null,
+            'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : 1,
         ];
 
         // --- VALIDACIONES ---
