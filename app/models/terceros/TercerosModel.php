@@ -301,6 +301,13 @@ class TercerosModel extends Modelo
     {
         $payload = $this->mapPayload($data);
         
+        // --- CAMBIO REALIZADO AQUÍ: Validar duplicidad solo si hay documento ---
+        if ($payload['numero_documento'] !== null) {
+            if ($this->documentoExiste((string)$payload['tipo_documento'], $payload['numero_documento'])) {
+                throw new RuntimeException("Ya existe un registro con el documento " . $payload['tipo_documento'] . " " . $payload['numero_documento'] . ".");
+            }
+        }
+        
         try {
             $this->db()->beginTransaction();
             $sql = "INSERT INTO terceros (
@@ -352,6 +359,13 @@ class TercerosModel extends Modelo
     public function actualizar(int $id, array $data, int $userId): bool
     {
         $payload = $this->mapPayload($data);
+        
+        // --- CAMBIO REALIZADO AQUÍ: Validar duplicidad solo si hay documento ---
+        if ($payload['numero_documento'] !== null) {
+            if ($this->documentoExiste((string)$payload['tipo_documento'], $payload['numero_documento'], $id)) {
+                throw new RuntimeException("Ya existe otro registro usando el documento " . $payload['tipo_documento'] . " " . $payload['numero_documento'] . ".");
+            }
+        }
         
         try {
             $this->db()->beginTransaction();
@@ -581,7 +595,7 @@ class TercerosModel extends Modelo
         return [
             'tipo_persona'     => $payload['tipo_persona'],
             'tipo_documento'   => $payload['tipo_documento'],
-            'numero_documento' => $payload['numero_documento'],
+            'numero_documento' => $payload['numero_documento'], // Ahora pasará el null correctamente si estaba vacío
             'nombre_completo'  => $payload['nombre_completo'],
             'direccion'        => $payload['direccion'],
             'representante_legal' => $payload['representante_legal'],
@@ -604,6 +618,11 @@ class TercerosModel extends Modelo
     {
         $numeroDocumento = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($data['numero_documento'] ?? '')));
         
+        // --- CAMBIO REALIZADO AQUÍ: Convertir documento vacío en null ---
+        if ($numeroDocumento === '') {
+            $numeroDocumento = null;
+        }
+        
         $telefonoPrincipal = null;
         $listaTelefonos = $data['telefonos'] ?? $data['telefonos_list'] ?? [];
         if (!empty($listaTelefonos) && is_array($listaTelefonos)) {
@@ -615,7 +634,6 @@ class TercerosModel extends Modelo
             }
         }
 
-        // --- SOLUCIÓN DEL ERROR AQUÍ ---
         // Usamos filter_var para convertir textos como "false" enviados por JS a un booleano real false.
         $esDistribuidor = filter_var($data['es_distribuidor'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $esCliente = filter_var($data['es_cliente'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
@@ -681,7 +699,6 @@ class TercerosModel extends Modelo
             'contacto_emergencia_telf'   => !empty($data['contacto_emergencia_telf']) ? trim((string) $data['contacto_emergencia_telf']) : null,
             'tipo_sangre'     => !empty($data['tipo_sangre']) ? trim((string) $data['tipo_sangre']) : null,
             
-            // --- CORRECCIÓN FINAL DE CUMPLEAÑOS ---
             'recordar_cumpleanos' => $recordarCumpleanos ? 1 : 0,
             'fecha_nacimiento' => ($recordarCumpleanos && !empty($data['fecha_nacimiento'])) ? $data['fecha_nacimiento'] : null,
 
