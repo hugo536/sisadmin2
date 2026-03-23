@@ -25,13 +25,18 @@ window.initTesoreria = function() {
             const action = (params.get('action') || '').toLowerCase();
             const isUpdate = action === 'updated';
             const isDelete = action === 'deleted';
+            const isTransfer = action === 'transfer';
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
-                    title: isDelete ? 'Cuenta eliminada' : (isUpdate ? 'Cuenta actualizada' : 'Cuenta guardada'),
-                    text: isDelete
+                    title: isTransfer
+                        ? 'Transferencia registrada'
+                        : (isDelete ? 'Cuenta eliminada' : (isUpdate ? 'Cuenta actualizada' : 'Cuenta guardada')),
+                    text: isTransfer
+                        ? 'La transferencia interna se registró correctamente.'
+                        : (isDelete
                         ? 'La cuenta se eliminó correctamente.'
-                        : (isUpdate ? 'La cuenta se actualizó correctamente.' : 'La cuenta se guardó correctamente.'),
+                        : (isUpdate ? 'La cuenta se actualizó correctamente.' : 'La cuenta se guardó correctamente.')),
                     confirmButtonText: 'Aceptar'
                 });
             }

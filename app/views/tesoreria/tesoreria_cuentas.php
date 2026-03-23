@@ -1,5 +1,6 @@
 <?php
 $cuentas = $cuentas ?? [];
+$cuentasActivas = $cuentasActivas ?? [];
 $bancos = $bancos ?? [];
 $cuentaEditar = $cuentaEditar ?? null;
 $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
@@ -18,6 +19,9 @@ $camposBloqueadosEdicion = $esEdicion;
         </div>
         
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalTransferenciaInterna">
+                <i class="bi bi-arrow-left-right me-2 text-success"></i>Transferir
+            </button>
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-journal-text me-2 text-info"></i>Ver movimientos
             </a>
@@ -154,6 +158,74 @@ $camposBloqueadosEdicion = $esEdicion;
             </div>
             
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTransferenciaInterna" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form method="post" action="<?php echo e(route_url('tesoreria/registrar_transferencia_interna')); ?>" class="modal-content border-0 shadow-lg js-form-confirm" autocomplete="off">
+            <div class="modal-header bg-success text-white border-bottom-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-arrow-left-right me-2"></i>Transferencia entre cuentas
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted fw-bold mb-1">Cuenta origen <span class="text-danger">*</span></label>
+                        <select class="form-select shadow-none" name="id_cuenta_origen" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach ($cuentasActivas as $cta): ?>
+                                <option value="<?php echo (int) ($cta['id'] ?? 0); ?>">
+                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '') . ' (' . (string) ($cta['moneda'] ?? '') . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted fw-bold mb-1">Cuenta destino <span class="text-danger">*</span></label>
+                        <select class="form-select shadow-none" name="id_cuenta_destino" required>
+                            <option value="">Seleccione...</option>
+                            <?php foreach ($cuentasActivas as $cta): ?>
+                                <option value="<?php echo (int) ($cta['id'] ?? 0); ?>">
+                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '') . ' (' . (string) ($cta['moneda'] ?? '') . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Fecha <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control shadow-none" name="fecha" value="<?php echo e(date('Y-m-d')); ?>" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
+                        <select class="form-select shadow-none" name="moneda" required>
+                            <option value="PEN">PEN</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
+                        <input type="number" step="0.0001" min="0.0001" class="form-control shadow-none" name="monto" required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted fw-bold mb-1">Referencia</label>
+                        <input type="text" maxlength="120" class="form-control shadow-none" name="referencia" placeholder="Ej. Traspaso caja chica a caja principal">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                        <input type="text" maxlength="255" class="form-control shadow-none" name="observaciones" placeholder="Opcional">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top-0">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-semibold">
+                    <i class="bi bi-check2-circle me-1"></i>Confirmar transferencia
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

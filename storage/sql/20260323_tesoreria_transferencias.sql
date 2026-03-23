@@ -1,0 +1,25 @@
+-- Soporte de transferencias internas de tesorería
+CREATE TABLE IF NOT EXISTS tesoreria_transferencias (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  fecha DATE NOT NULL,
+  id_cuenta_origen INT NOT NULL,
+  id_cuenta_destino INT NOT NULL,
+  moneda ENUM('PEN', 'USD') NOT NULL DEFAULT 'PEN',
+  monto DECIMAL(14,4) NOT NULL,
+  referencia VARCHAR(120) NULL,
+  observaciones VARCHAR(255) NULL,
+  estado ENUM('CONFIRMADA', 'ANULADA') NOT NULL DEFAULT 'CONFIRMADA',
+  created_by INT NULL,
+  updated_by INT NULL,
+  deleted_by INT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  KEY idx_tes_trf_fecha (fecha),
+  KEY idx_tes_trf_origen (id_cuenta_origen, estado),
+  KEY idx_tes_trf_destino (id_cuenta_destino, estado),
+  CONSTRAINT fk_tes_trf_cuenta_origen FOREIGN KEY (id_cuenta_origen) REFERENCES tesoreria_cuentas(id),
+  CONSTRAINT fk_tes_trf_cuenta_destino FOREIGN KEY (id_cuenta_destino) REFERENCES tesoreria_cuentas(id),
+  CONSTRAINT chk_tes_trf_monto CHECK (monto > 0),
+  CONSTRAINT chk_tes_trf_cuentas_distintas CHECK (id_cuenta_origen <> id_cuenta_destino)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
