@@ -54,7 +54,7 @@ class ProduccionOrdenesController extends Controlador
                 // ENDPOINTS DEL PLANIFICADOR
                 // ==========================================================
                 if ($accion === 'crear_orden_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     
                     $idNuevaOrden = $this->produccionOrdenesModel->crearOrden([
@@ -71,10 +71,8 @@ class ProduccionOrdenesController extends Controlador
                     exit;
                 }
 
-
-                
                 if ($accion === 'obtener_planificador_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     
                     $desde = trim((string) ($_POST['desde'] ?? ''));
@@ -94,7 +92,7 @@ class ProduccionOrdenesController extends Controlador
                 // ENDPOINTS MOTOR MRP (EXPLOSIÓN DE MATERIALES)
                 // ==========================================================
                 if ($accion === 'analizar_subordenes_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
                     
@@ -105,7 +103,7 @@ class ProduccionOrdenesController extends Controlador
                 }
 
                 if ($accion === 'generar_subordenes_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     $idOrdenPadre = (int) ($_POST['id_orden_padre'] ?? 0);
                     
@@ -124,7 +122,7 @@ class ProduccionOrdenesController extends Controlador
                 // ENDPOINTS DE ÓRDENES DE PRODUCCIÓN
                 // ==========================================================
                 if ($accion === 'obtener_receta_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     $idReceta = (int) ($_POST['id_receta'] ?? 0);
                     $cantidadPlanificada = (float) ($_POST['cantidad'] ?? 0);
@@ -158,7 +156,7 @@ class ProduccionOrdenesController extends Controlador
                 }
 
                 if ($accion === 'iniciar_ejecucion_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
                     if ($idOrden <= 0) {
@@ -173,7 +171,7 @@ class ProduccionOrdenesController extends Controlador
 
 
                 if ($accion === 'obtener_detalle_costos_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
 
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
@@ -188,7 +186,7 @@ class ProduccionOrdenesController extends Controlador
                 }
 
                 if ($accion === 'sincronizar_mod_asistencia_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
 
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
@@ -207,7 +205,7 @@ class ProduccionOrdenesController extends Controlador
                 }
 
                 if ($accion === 'reportar_avance_diario_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
 
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
@@ -237,7 +235,7 @@ class ProduccionOrdenesController extends Controlador
                 }
 
                 if ($accion === 'guardar_tiempos_mod_ajax') {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
 
                     $idOrden = (int) ($_POST['id_orden'] ?? 0);
@@ -393,7 +391,7 @@ class ProduccionOrdenesController extends Controlador
                 }
             } catch (Throwable $e) {
                 if ($esAjaxReceta) {
-                    ob_clean();
+                    if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                     exit;

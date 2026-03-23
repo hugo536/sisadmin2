@@ -196,11 +196,31 @@ function initMotorCalculoYGuardadoGlobal() {
                 const formData = new FormData(form);
                 formData.set('accion', 'crear_orden_ajax'); 
 
-                const resCrear = await fetch(window.location.href, {
+                // Hacemos la petición
+                const rawResponse = await fetch(window.location.href, {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }).then(r => r.json());
+                });
+
+                // Leemos la respuesta como texto crudo primero
+                const textResponse = await rawResponse.text();
+                let resCrear;
+
+                // Intentamos convertir a JSON de forma segura
+                try {
+                    resCrear = JSON.parse(textResponse);
+                } catch (parseError) {
+                    console.error("❌ El servidor no devolvió JSON válido. Respuesta cruda del servidor:");
+                    console.error(textResponse);
+                    
+                    Swal.fire(
+                        'Error del Servidor', 
+                        'Hubo un problema procesando la petición en PHP. Por favor, revisa la pestaña "Console" (F12) para ver el error exacto.', 
+                        'error'
+                    );
+                    return; // Detenemos la ejecución
+                }
 
                 if (!resCrear.success) {
                     Swal.fire('Error', resCrear.message || 'No se pudo crear la orden.', 'error');
