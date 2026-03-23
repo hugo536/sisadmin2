@@ -19,6 +19,7 @@
         const btnAgregar = document.getElementById('btnAgregarUnidadConversion');
         const form = document.getElementById('formUnidadConversion');
         const btnCancelar = document.getElementById('btnCancelarUnidadConversion');
+        const btnGuardar = document.getElementById('btnGuardarUnidadConversion');
         const inputBuscarItem = document.getElementById('ucBuscarItem');
         const alertPendientes = document.getElementById('ucPendientesAlert');
         const btnHeaderConversion = document.querySelector('[data-bs-target="#modalUnidadesConversion"]');
@@ -85,6 +86,13 @@
             }
         };
 
+        const actualizarBotonGuardar = (esEdicion = false) => {
+            if (!btnGuardar) return;
+            btnGuardar.innerHTML = esEdicion
+                ? '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Unidad'
+                : '<i class="bi bi-save me-2"></i>Guardar Unidad';
+        };
+
         const resetFormulario = () => {
             if (inputAccion) inputAccion.value = 'crear_item_unidad_conversion';
             if (inputId) inputId.value = '0';
@@ -94,6 +102,7 @@
             if (inputPeso) inputPeso.value = '';
             if (inputEstado) inputEstado.checked = true;
             form.classList.add('d-none');
+            actualizarBotonGuardar(false);
             renderFormula();
         };
 
@@ -109,6 +118,7 @@
             if (inputEstado) inputEstado.checked = true;
             generarCodigoUnidadAuto();
             form.classList.remove('d-none');
+            actualizarBotonGuardar(false);
             renderFormula();
             inputNombre?.focus();
         };
@@ -124,6 +134,7 @@
             if (inputEstado) inputEstado.checked = Number(registro.estado || 0) === 1;
             
             form.classList.remove('d-none');
+            actualizarBotonGuardar(true);
             renderFormula();
             inputNombre?.focus();
         };
