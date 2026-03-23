@@ -91,6 +91,12 @@ class ItemPerfilModel extends Modelo
                             'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
                           )
                     ) mov
+                    FROM inventario_movimientos
+                    WHERE id_item = :id_item
+                      AND tipo_movimiento IN (
+                        'INI', 'AJ+', 'COM', 'PROD',
+                        'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
+                      )
                 ) AS sub
                 ORDER BY fecha_movimiento DESC, id DESC
                 LIMIT 20";
