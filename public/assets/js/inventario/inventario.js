@@ -53,9 +53,19 @@
   const lineasMovimiento = [];
   const cacheUnidadesItem = new Map();
 
+  function obtenerUnidadBaseItemActual() {
+    if (!tomSelectItem) return 'Unidad base';
+    const val = tomSelectItem.getValue();
+    if (!val) return 'Unidad base';
+    const itemData = tomSelectItem.options[val] || {};
+    const unidadBase = (itemData.unidad_base || '').toString().trim();
+    return unidadBase || 'Unidad base';
+  }
+
   function limpiarUnidadesTransferencia() {
+    const etiquetaUnidadBase = obtenerUnidadBaseItemActual();
     if (unidadMovimiento) {
-      unidadMovimiento.innerHTML = '<option value="">Unidad base</option>';
+      unidadMovimiento.innerHTML = `<option value="">${etiquetaUnidadBase}</option>`;
       unidadMovimiento.value = '';
       unidadMovimiento.disabled = true;
       unidadMovimiento.classList.add('bg-light'); // Mantiene fondo gris
@@ -91,6 +101,7 @@
     const tipoVal = (tipo && tipo.value) || '';
     const tipoRegistro = (tipoRegistroInput && tipoRegistroInput.value === 'pack') ? 'pack' : 'item';
     const idItem = Number((itemIdInput && itemIdInput.value) || 0);
+    const unidadBase = obtenerUnidadBaseItemActual();
 
     if (tipoRegistro !== 'item' || idItem <= 0 || !tipoVal) {
       limpiarUnidadesTransferencia();
@@ -104,7 +115,7 @@
 
     try {
       const unidades = await obtenerUnidadesItem(idItem);
-      unidadMovimiento.innerHTML = '<option value="">Unidad base</option>';
+      unidadMovimiento.innerHTML = `<option value="">${unidadBase}</option>`;
       unidades.forEach((unidad) => {
         const factor = Number(unidad.factor_conversion || 1);
         const option = document.createElement('option');
@@ -125,8 +136,8 @@
 
       if (unidadMovimientoInfo) {
         unidadMovimientoInfo.textContent = unidades.length > 0
-          ? 'Si elige una unidad, la cantidad se convertirá automáticamente a unidad base.'
-          : 'Este ítem no tiene unidades adicionales; se usará la unidad base.';
+          ? `Si elige una unidad, la cantidad se convertirá automáticamente a ${unidadBase}.`
+          : `Este ítem no tiene unidades adicionales; se usará ${unidadBase}.`;
       }
     } catch (error) {
       limpiarUnidadesTransferencia();
@@ -684,10 +695,11 @@
     if (unidadMovimiento) {
       unidadMovimiento.addEventListener('change', () => {
         const factor = obtenerFactorUnidadSeleccionada();
+        const unidadBase = obtenerUnidadBaseItemActual();
         if (unidadMovimientoInfo) {
           unidadMovimientoInfo.textContent = factor > 1
-            ? `La cantidad se convertirá a base con factor x${factor}.`
-            : 'Se registrará en unidad base.';
+            ? `La cantidad se convertirá a ${unidadBase} con factor x${factor}.`
+            : `Se registrará en ${unidadBase}.`;
         }
       });
     }
@@ -766,9 +778,10 @@
       const aplicaUnidadTransferencia = tipoRegistroVal === 'item'; 
       const factorUnidad = aplicaUnidadTransferencia ? obtenerFactorUnidadSeleccionada() : 1;
       const idItemUnidadVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value ? Number(unidadMovimiento.value) : 0;
+      const unidadBase = obtenerUnidadBaseItemActual();
       const unidadNombreVal = aplicaUnidadTransferencia && unidadMovimiento && unidadMovimiento.value
         ? (unidadMovimiento.options[unidadMovimiento.selectedIndex]?.textContent || 'Unidad')
-        : 'Base';
+        : unidadBase;
       const cantidadBaseVal = cantidadVal * factorUnidad;
 
       if (!tipoVal) {
