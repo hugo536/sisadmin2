@@ -615,5 +615,4 @@ $conceptosOperativos = $conceptos_operativos ?? [];
     </div>
 </div>
 
-<script>window.ACTIVOS_FIJOS_CIF = [];</script>
-<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=2.6"></script>
+<script src="<?php echo base_url(); ?>/assets/js/produccion/produccion_recetas.js?v=<?php echo time(); ?>"></script>

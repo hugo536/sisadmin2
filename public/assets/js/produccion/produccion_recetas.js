@@ -1,16 +1,23 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Recetas BOM)
  * Optimizado con Tom Select AJAX y SweetAlert2.
- * Versión FINAL CORREGIDA - Costeo Operativo Estándar
+ * Versión FINAL CORREGIDA - Costeo Operativo Estándar + SPA Support
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+function inicializarModuloRecetas() {
     initFiltrosTablas();
     initFormularioRecetas();
     initAccionesRecetaPendiente();
     initGestionParametrosCatalogo();
-    initGuardadoReceta(); 
-});
+    initGuardadoReceta();
+}
+
+// ARRANQUE INTELIGENTE PARA SPA
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarModuloRecetas);
+} else {
+    setTimeout(inicializarModuloRecetas, 50);
+}
 
 function initFiltrosTablas() {
     const input = document.getElementById('recetaSearch');
@@ -47,7 +54,8 @@ function initFormularioRecetas() {
     const listaInsumos = document.getElementById('listaInsumosReceta');
     const inputProducto = document.getElementById('newProducto');
 
-    const instanciasTomSelect = new WeakMap();
+    window.recetasTomSelectInstances = window.recetasTomSelectInstances || new WeakMap();
+    const instanciasTomSelect = window.recetasTomSelectInstances;
     let tomProductoDestino = null;
 
     const btnAgregarParametro = document.getElementById('btnAgregarParametro');
@@ -331,33 +339,68 @@ function initFormularioRecetas() {
     inputRendimientoBase?.addEventListener('input', calcularResumenYCostos);
     inputTiempoProduccionHoras?.addEventListener('input', calcularResumenYCostos);
 
-    document.addEventListener('change', e => {
-        if (e.target && e.target.classList.contains('cif-concepto-select')) {
-            const option = e.target.options[e.target.selectedIndex];
-            const nombre = option.getAttribute('data-nombre') || '';
-            const row = e.target.closest('.cif-row');
-            if (row) {
-                const hiddenInput = row.querySelector('.cif-concepto-nombre');
-                if (hiddenInput) {
-                    hiddenInput.value = nombre;
+    // PROTECCIÓN CONTRA EVENTOS GLOBALES DUPLICADOS EN SPA
+    if (!window.eventosGlobalesRecetaItems) {
+        document.addEventListener('change', e => {
+            if (e.target && e.target.classList.contains('cif-concepto-select')) {
+                const option = e.target.options[e.target.selectedIndex];
+                const nombre = option.getAttribute('data-nombre') || '';
+                const row = e.target.closest('.cif-row');
+                if (row) {
+                    const hiddenInput = row.querySelector('.cif-concepto-nombre');
+                    if (hiddenInput) {
+                        hiddenInput.value = nombre;
+                    }
                 }
             }
-        }
-    });
+        });
 
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.js-remove-row');
-        if (btn) {
-            const row = btn.closest('.detalle-row');
-            if (row) {
-                const select = row.querySelector('.select-insumo');
-                const tom = select ? instanciasTomSelect.get(select) : null;
-                if (tom) tom.destroy();
-                row.remove();
-                calcularResumenYCostos();
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.js-remove-row');
+            if (btn) {
+                const row = btn.closest('.detalle-row');
+                if (row) {
+                    const select = row.querySelector('.select-insumo');
+                    const tom = select ? window.recetasTomSelectInstances.get(select) : null;
+                    if (tom) tom.destroy();
+                    row.remove();
+                    // Importante: Llamamos a la función global disponible
+                    if (window.produccionRecetaFormAPI && typeof window.produccionRecetaFormAPI.calcularGlobal === 'function') {
+                        window.produccionRecetaFormAPI.calcularGlobal();
+                    }
+                }
             }
-        }
-    });
+
+            const btnRemoveParam = e.target.closest('.js-remove-param');
+            if (btnRemoveParam) {
+                const row = btnRemoveParam.closest('.parametro-row');
+                if (row) {
+                    row.remove();
+                    const emptyParam = document.getElementById('emptyParametros');
+                    const contenedorParam = document.getElementById('contenedorParametros');
+                    if (emptyParam && contenedorParam) emptyParam.style.display = contenedorParam.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
+                }
+            }
+
+            const btnRemoveMod = e.target.closest('.js-remove-mod');
+            if (btnRemoveMod) {
+                btnRemoveMod.closest('.mod-row')?.remove();
+                if (window.produccionRecetaFormAPI && typeof window.produccionRecetaFormAPI.calcularGlobal === 'function') {
+                    window.produccionRecetaFormAPI.calcularGlobal();
+                }
+            }
+
+            const btnRemoveCif = e.target.closest('.js-remove-cif');
+            if (btnRemoveCif) {
+                btnRemoveCif.closest('.cif-row')?.remove();
+                if (window.produccionRecetaFormAPI && typeof window.produccionRecetaFormAPI.calcularGlobal === 'function') {
+                    window.produccionRecetaFormAPI.calcularGlobal();
+                }
+            }
+        });
+
+        window.eventosGlobalesRecetaItems = true;
+    }
 
     const crearFilaParametro = (data = null) => {
         if (!templateParametro || !contenedorParametros) return;
@@ -403,29 +446,6 @@ function initFormularioRecetas() {
         calcularResumenYCostos();
     });
 
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.js-remove-param');
-        if (btn) {
-            const row = btn.closest('.parametro-row');
-            if (row) {
-                row.remove();
-                if (emptyParametros) emptyParametros.style.display = contenedorParametros.querySelectorAll('.parametro-row').length === 0 ? 'block' : 'none';
-            }
-        }
-
-        const btnRemoveMod = e.target.closest('.js-remove-mod');
-        if (btnRemoveMod) {
-            btnRemoveMod.closest('.mod-row')?.remove();
-            calcularResumenYCostos();
-        }
-
-        const btnRemoveCif = e.target.closest('.js-remove-cif');
-        if (btnRemoveCif) {
-            btnRemoveCif.closest('.cif-row')?.remove();
-            calcularResumenYCostos();
-        }
-    });
-
     const crearFilaInsumoConData = (detalle = null) => {
         const row = crearFilaInsumo();
         if (!detalle || !row) return;
@@ -461,6 +481,7 @@ function initFormularioRecetas() {
 
     window.produccionRecetaFormAPI = {
         limpiarFormularioReceta,
+        calcularGlobal: calcularResumenYCostos, // Exponemos para poder usarla en el global click handler
         setCabecera(data) {
             if (!data) return;
             const inputCodigo = document.getElementById('newCodigo');
@@ -653,41 +674,105 @@ function initAccionesRecetaPendiente() {
         });
     }
 
-    // EVENTO DEL BOTÓN AMARILLO (Crear Receta) - ROBUSTO
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.js-agregar-receta');
-        if (!btn) return; 
-
-        const formActual = document.getElementById('formCrearReceta');
-        const modalElActual = document.getElementById('modalCrearReceta');
-
-        if (!formActual || !modalElActual) {
-            console.error('No se encontró el formulario o el modal en el HTML.');
-            return;
-        }
+    // PROTECCIÓN CONTRA EVENTOS GLOBALES DUPLICADOS EN SPA
+    if (!window.eventosGlobalesAccionesReceta) {
         
-        const api = window.produccionRecetaFormAPI;
-        if (api) {
-            api.setCabecera({
-                codigo: btn.getAttribute('data-codigo') || '',
-                version: btn.getAttribute('data-version') || '1',
-                id_producto: btn.getAttribute('data-id-producto') || '',
-                producto_nombre: btn.getAttribute('data-producto') || '',
-                unidad: btn.getAttribute('data-unidad') || 'UND',
-                rendimiento_base: 1,
-                tiempo_produccion_horas: 1
-            });
-        }
-        
-        if (typeof bootstrap !== 'undefined') {
-            const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
-            if (tooltipInstance) {
-                tooltipInstance.hide();
+        // EVENTO DEL BOTÓN AMARILLO (Crear Receta) - ROBUSTO
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.js-agregar-receta');
+            if (!btn) return; 
+
+            const formActual = document.getElementById('formCrearReceta');
+            const modalElActual = document.getElementById('modalCrearReceta');
+
+            if (!formActual || !modalElActual) {
+                console.error('No se encontró el formulario o el modal en el HTML.');
+                return;
             }
-            const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
-            modalObj.show();
-        }
-    });
+            
+            const api = window.produccionRecetaFormAPI;
+            if (api) {
+                api.setCabecera({
+                    codigo: btn.getAttribute('data-codigo') || '',
+                    version: btn.getAttribute('data-version') || '1',
+                    id_producto: btn.getAttribute('data-id-producto') || '',
+                    producto_nombre: btn.getAttribute('data-producto') || '',
+                    unidad: btn.getAttribute('data-unidad') || 'UND',
+                    rendimiento_base: 1,
+                    tiempo_produccion_horas: 1
+                });
+            }
+            
+            if (typeof bootstrap !== 'undefined') {
+                const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
+                if (tooltipInstance) {
+                    tooltipInstance.hide();
+                }
+                const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
+                modalObj.show();
+            }
+        });
+
+        // EVENTO DE NUEVA VERSIÓN
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.js-nueva-version');
+            if (!btn) return;
+            
+            const formActual = document.getElementById('formCrearReceta');
+            const modalElActual = document.getElementById('modalCrearReceta');
+            
+            if (!formActual || !modalElActual) return;
+            
+            const idRecetaBase = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
+            if (!idRecetaBase) return;
+
+            try {
+                const modalTitleActual = document.getElementById('modalCrearRecetaTitle');
+                const contVersionesActual = document.getElementById('contenedorVersionesPrevias');
+                const ayudaVersionesActual = document.getElementById('ayudaVersionesPrevias');
+                const selectVersionBaseActual = document.getElementById('newVersionBase');
+
+                if (modalTitleActual) modalTitleActual.innerHTML = '<i class="bi bi-files me-2"></i>Nueva versión de receta';
+                if (contVersionesActual) contVersionesActual.style.display = '';
+                if (ayudaVersionesActual) ayudaVersionesActual.style.display = '';
+
+                const datosNuevaVersion = await postAccion('obtener_datos_nueva_version_ajax', { id_receta_base: idRecetaBase });
+                const api = window.produccionRecetaFormAPI;
+                
+                api.setCabeceraNuevaVersion(datosNuevaVersion);
+                api.setIdRecetaBase(idRecetaBase);
+                api.cargarDetalles(datosNuevaVersion.detalles || []);
+                api.cargarParametros(datosNuevaVersion.parametros || []);
+                api.cargarMod(datosNuevaVersion.mano_obra || []);
+                api.cargarCif(datosNuevaVersion.cif || []);
+
+                const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
+                if (selectVersionBaseActual) {
+                    selectVersionBaseActual.innerHTML = '';
+                    (Array.isArray(versiones) ? versiones : []).forEach((version) => {
+                        const option = document.createElement('option');
+                        option.value = String(version.id);
+                        option.textContent = `v.${version.version} - ${version.codigo}${Number(version.estado) === 1 ? ' (Activa)' : ''}`;
+                        selectVersionBaseActual.appendChild(option);
+                    });
+                    if (selectVersionBaseActual.options.length > 0) selectVersionBaseActual.value = selectVersionBaseActual.options[0].value;
+                }
+                
+                if (typeof bootstrap !== 'undefined') {
+                    const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
+                    if (tooltipInstance) {
+                        tooltipInstance.hide();
+                    }
+                    const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
+                    modalObj.show();
+                }
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Error de Carga', text: error.message || 'No se pudo cargar la receta para versionar.' });
+            }
+        });
+
+        window.eventosGlobalesAccionesReceta = true;
+    }
 
     const btnPrincipalNuevaReceta = document.getElementById('btnNuevaReceta');
     if (btnPrincipalNuevaReceta) {
@@ -732,59 +817,6 @@ function initAccionesRecetaPendiente() {
         });
     }
 
-    // EVENTO DE NUEVA VERSIÓN
-    document.addEventListener('click', async function (e) {
-        const btn = e.target.closest('.js-nueva-version');
-        if (!btn) return;
-        
-        const formActual = document.getElementById('formCrearReceta');
-        const modalElActual = document.getElementById('modalCrearReceta');
-        
-        if (!formActual || !modalElActual) return;
-        
-        const idRecetaBase = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
-        if (!idRecetaBase) return;
-
-        try {
-            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-files me-2"></i>Nueva versión de receta';
-            if (contenedorVersionesPrevias) contenedorVersionesPrevias.style.display = '';
-            if (ayudaVersionesPrevias) ayudaVersionesPrevias.style.display = '';
-
-            const datosNuevaVersion = await postAccion('obtener_datos_nueva_version_ajax', { id_receta_base: idRecetaBase });
-            const api = window.produccionRecetaFormAPI;
-            
-            api.setCabeceraNuevaVersion(datosNuevaVersion);
-            api.setIdRecetaBase(idRecetaBase);
-            api.cargarDetalles(datosNuevaVersion.detalles || []);
-            api.cargarParametros(datosNuevaVersion.parametros || []);
-            api.cargarMod(datosNuevaVersion.mano_obra || []);
-            api.cargarCif(datosNuevaVersion.cif || []);
-
-            const versiones = await postAccion('listar_versiones_receta_ajax', { id_receta_base: idRecetaBase });
-            if (selectVersionBase) {
-                selectVersionBase.innerHTML = '';
-                (Array.isArray(versiones) ? versiones : []).forEach((version) => {
-                    const option = document.createElement('option');
-                    option.value = String(version.id);
-                    option.textContent = `v.${version.version} - ${version.codigo}${Number(version.estado) === 1 ? ' (Activa)' : ''}`;
-                    selectVersionBase.appendChild(option);
-                });
-                if (selectVersionBase.options.length > 0) selectVersionBase.value = selectVersionBase.options[0].value;
-            }
-            
-            if (typeof bootstrap !== 'undefined') {
-                const tooltipInstance = bootstrap.Tooltip.getInstance(btn);
-                if (tooltipInstance) {
-                    tooltipInstance.hide();
-                }
-                const modalObj = bootstrap.Modal.getOrCreateInstance(modalElActual);
-                modalObj.show();
-            }
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error de Carga', text: error.message || 'No se pudo cargar la receta para versionar.' });
-        }
-    });
-
     selectVersionBase?.addEventListener('change', async function () {
         const idReceta = parseInt(this.value || '0', 10);
         if (!idReceta) return;
@@ -811,16 +843,33 @@ function initGestionParametrosCatalogo() {
     document.getElementById('btnResetParametroCatalogo')?.addEventListener('click', resetForm);
     document.getElementById('modalGestionParametrosCatalogo')?.addEventListener('show.bs.modal', resetForm);
 
-    document.addEventListener('click', function (e) {
-        const btnEdit = e.target.closest('.js-editar-param-catalogo');
-        if (!btnEdit) return;
-        if (idInput) idInput.value = btnEdit.getAttribute('data-id') || '';
-        if (accionInput) accionInput.value = 'editar_parametro_catalogo';
-        document.getElementById('nombreParametroCatalogo').value = btnEdit.getAttribute('data-nombre') || '';
-        document.getElementById('unidadParametroCatalogo').value = btnEdit.getAttribute('data-unidad') || '';
-        document.getElementById('descripcionParametroCatalogo').value = btnEdit.getAttribute('data-descripcion') || '';
-        if (btnGuardar) btnGuardar.textContent = 'Actualizar';
-    });
+    // PROTECCIÓN CONTRA EVENTOS GLOBALES DUPLICADOS EN SPA
+    if (!window.eventosGlobalesParametros) {
+        document.addEventListener('click', function (e) {
+            const btnEdit = e.target.closest('.js-editar-param-catalogo');
+            if (!btnEdit) return;
+            
+            const idInputCat = document.getElementById('idParametroCatalogo');
+            const accionInputCat = document.getElementById('accionParametroCatalogo');
+            const btnGuardarCat = document.getElementById('btnGuardarParametroCatalogo');
+
+            if (idInputCat) idInputCat.value = btnEdit.getAttribute('data-id') || '';
+            if (accionInputCat) accionInputCat.value = 'editar_parametro_catalogo';
+            
+            const nParam = document.getElementById('nombreParametroCatalogo');
+            if (nParam) nParam.value = btnEdit.getAttribute('data-nombre') || '';
+            
+            const uParam = document.getElementById('unidadParametroCatalogo');
+            if (uParam) uParam.value = btnEdit.getAttribute('data-unidad') || '';
+            
+            const dParam = document.getElementById('descripcionParametroCatalogo');
+            if (dParam) dParam.value = btnEdit.getAttribute('data-descripcion') || '';
+            
+            if (btnGuardarCat) btnGuardarCat.textContent = 'Actualizar';
+        });
+
+        window.eventosGlobalesParametros = true;
+    }
 }
 
 function initGuardadoReceta() {
