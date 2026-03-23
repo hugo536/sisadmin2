@@ -3,10 +3,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
         btnNuevaVenta.addEventListener('click', async () => {
-            limpiarModalVenta();
-            await agregarFilaVenta(); // Agrega una fila vacía inicial
-            document.getElementById('btnGuardarVenta').style.display = 'block';
-            modalVenta.show();
+            try {
+                limpiarModalVenta();
+                await agregarFilaVenta(); // Agrega una fila vacía inicial
+                document.getElementById('btnGuardarVenta').style.display = 'block';
+                modalVenta.show();
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'No se pudo abrir el formulario de pedido.', 'error');
+            }
         });
     }
 

@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const app = document.getElementById('comprasApp');
     if (!app) return;
 
@@ -13,8 +13,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cacheUnidades = new Map();
 
+    async function esperarTomSelect(maxIntentos = 20, esperaMs = 150) {
+        for (let i = 0; i < maxIntentos; i++) {
+            if (typeof TomSelect !== 'undefined') return true;
+            await new Promise((resolve) => setTimeout(resolve, esperaMs));
+        }
+        return false;
+    }
+
+    const tomSelectListo = await esperarTomSelect();
+    if (!tomSelectListo) {
+        console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
+    }
+
     let tomSelectProveedor = null;
-    if (document.getElementById('idProveedor')) {
+    if (document.getElementById('idProveedor') && tomSelectListo) {
         tomSelectProveedor = new TomSelect('#idProveedor', {
             create: false,
             sortField: { field: 'text', direction: 'asc' },
@@ -456,12 +469,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbodyDetalle.appendChild(fila);
 
-        const tomSelectItem = new TomSelect(inputItem, {
-            create: false,
-            sortField: { field: 'text', direction: 'asc' },
-            placeholder: 'Buscar ítem...',
-            dropdownParent: 'body',
-        });
+        let tomSelectItem = null;
+        if (tomSelectListo) {
+            tomSelectItem = new TomSelect(inputItem, {
+                create: false,
+                sortField: { field: 'text', direction: 'asc' },
+                placeholder: 'Buscar ítem...',
+                dropdownParent: 'body',
+            });
+        }
 
         [inputCantidad, inputCosto, inputUnidad].forEach((input) => {
             input.addEventListener('input', () => recalcularFila(fila));
@@ -472,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inputCentroCosto.addEventListener('change', () => recalcularFila(fila));
         }
 
-        tomSelectItem.on('change', async (value) => {
+        const onCambioItem = async (value) => {
             if (!value) {
                 await actualizarUnidadPorItem(fila, null);
                 return;
@@ -490,21 +506,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: 'Este producto ya está en la lista.',
                     confirmButtonColor: '#3085d6',
                 });
-                tomSelectItem.clear();
+                if (tomSelectItem) tomSelectItem.clear();
+                else inputItem.value = '';
                 return;
             }
 
             await actualizarUnidadPorItem(fila, null);
-        });
+        };
+
+        if (tomSelectItem) {
+            tomSelectItem.on('change', onCambioItem);
+        } else {
+            inputItem.addEventListener('change', (e) => onCambioItem(e.target.value));
+        }
 
         btnQuitar.addEventListener('click', () => {
-            tomSelectItem.destroy();
+            if (tomSelectItem) tomSelectItem.destroy();
             fila.remove();
             recalcularTotalGeneral();
         });
 
         if (item) {
-            tomSelectItem.setValue(item.id_item);
+            if (tomSelectItem) tomSelectItem.setValue(item.id_item);
+            else inputItem.value = String(item.id_item || '');
             inputCantidad.value = item.cantidad;
             inputCosto.value = item.costo_unitario;
             if (inputCentroCosto) {
