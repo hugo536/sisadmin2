@@ -10,12 +10,20 @@ if (!window.produccionJsInitialized) {
     window.produccionJsInitialized = true;
 
     document.addEventListener('DOMContentLoaded', function() {
-        initFiltrosOrdenes();
-        initTooltips();
-        initAccionesTabla();
-        initModalEjecucion();
-        initModalPlanificacion();
-        initPlanificadorOperaciones(); 
+        const safeInit = (name, fn) => {
+            try {
+                fn();
+            } catch (error) {
+                console.error(`[Producción] Error inicializando ${name}:`, error);
+            }
+        };
+
+        safeInit('filtros de órdenes', initFiltrosOrdenes);
+        safeInit('tooltips', initTooltips);
+        safeInit('acciones de tabla', initAccionesTabla);
+        safeInit('modal de ejecución', initModalEjecucion);
+        safeInit('modal de planificación', initModalPlanificacion);
+        safeInit('planificador de operaciones', initPlanificadorOperaciones);
     });
 
     // =========================================================================
@@ -777,9 +785,17 @@ if (!window.produccionJsInitialized) {
         let vistaActual = 'mes'; 
         let diccPlanificacion = {}; 
 
-        modalPlanificador.addEventListener('show.bs.modal', () => {
+        const recargarPlanificador = () => {
             planFechaActual = new Date();
             window.cargarGridPlanificador();
+        };
+
+        modalPlanificador.addEventListener('show.bs.modal', recargarPlanificador);
+        modalPlanificador.addEventListener('shown.bs.modal', () => {
+            const lblPlan = document.getElementById('lblPlanActual');
+            if (lblPlan && /cargando/i.test(lblPlan.textContent || '')) {
+                recargarPlanificador();
+            }
         });
 
         document.getElementById('btnPlanAnterior').addEventListener('click', () => {
