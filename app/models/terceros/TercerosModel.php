@@ -303,52 +303,24 @@ class TercerosModel extends Modelo
         
         try {
             $this->db()->beginTransaction();
+            $sql = "INSERT INTO terceros (
+                        tipo_persona, tipo_documento, numero_documento, nombre_completo,
+                        direccion, representante_legal, telefono, email, departamento, provincia, distrito,
+                        rubro_sector, observaciones, es_cliente, es_proveedor, es_empleado,
+                        estado, created_by, updated_by
+                    ) VALUES (
+                        :tipo_persona, :tipo_documento, :numero_documento, :nombre_completo,
+                        :direccion, :representante_legal, :telefono, :email, :departamento, :provincia, :distrito,
+                        :rubro_sector, :observaciones, :es_cliente, :es_proveedor, :es_empleado,
+                        :estado, :created_by, :updated_by
+                    )";
+            
+            $params = $this->filtrarParamsTercero($payload);
+            $params['created_by'] = $userId;
+            $params['updated_by'] = $userId;
 
-            $existente = $this->buscarPorDocumento($payload['tipo_documento'], $payload['numero_documento']);
-            $idTercero = 0;
-
-            if (!empty($existente)) {
-                $idTercero = (int) $existente['id'];
-                
-                $sql = "UPDATE terceros SET 
-                            tipo_persona = :tipo_persona, 
-                            nombre_completo = :nombre_completo, 
-                            direccion = :direccion,
-                            representante_legal = :representante_legal,
-                            telefono = :telefono, 
-                            email = :email, 
-                            departamento = :departamento, provincia = :provincia, distrito = :distrito,
-                            rubro_sector = :rubro_sector, observaciones = :observaciones,
-                            es_cliente = :es_cliente, es_proveedor = :es_proveedor, es_empleado = :es_empleado,
-                            estado = :estado, updated_by = :updated_by, deleted_at = NULL
-                        WHERE id = :id";
-                
-                $params = $this->filtrarParamsTercero($payload);
-                $params['id'] = $idTercero;
-                $params['updated_by'] = $userId;
-                unset($params['tipo_documento'], $params['numero_documento'], $params['created_by']);
-
-                $this->db()->prepare($sql)->execute($params);
-            } else {
-                $sql = "INSERT INTO terceros (
-                            tipo_persona, tipo_documento, numero_documento, nombre_completo,
-                            direccion, representante_legal, telefono, email, departamento, provincia, distrito,
-                            rubro_sector, observaciones, es_cliente, es_proveedor, es_empleado,
-                            estado, created_by, updated_by
-                        ) VALUES (
-                            :tipo_persona, :tipo_documento, :numero_documento, :nombre_completo,
-                            :direccion, :representante_legal, :telefono, :email, :departamento, :provincia, :distrito,
-                            :rubro_sector, :observaciones, :es_cliente, :es_proveedor, :es_empleado,
-                            :estado, :created_by, :updated_by
-                        )";
-                
-                $params = $this->filtrarParamsTercero($payload);
-                $params['created_by'] = $userId;
-                $params['updated_by'] = $userId;
-
-                $this->db()->prepare($sql)->execute($params);
-                $idTercero = (int) $this->db()->lastInsertId();
-            }
+            $this->db()->prepare($sql)->execute($params);
+            $idTercero = (int) $this->db()->lastInsertId();
 
             if (!empty($payload['es_empleado'])) {
                 $this->empleadosModel->guardar($idTercero, $payload, $userId);
