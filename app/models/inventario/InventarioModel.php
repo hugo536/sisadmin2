@@ -496,10 +496,6 @@ class InventarioModel extends Modelo
             throw new RuntimeException('No se pudo identificar el ítem base para registrar el movimiento.');
         }
 
-        if ($tipo === 'INI' && $this->existeMovimientoInicial($db, $idItemMovimiento, $idAlmacenDestino)) {
-            throw new InvalidArgumentException('Ya existe un movimiento INI para este registro y almacén.');
-        }
-
         $requiereLote = !$esPack && (int) ($configRegistro['requiere_lote'] ?? 0) === 1;
         $requiereVenc = !$esPack && (int) ($configRegistro['requiere_vencimiento'] ?? 0) === 1;
 
