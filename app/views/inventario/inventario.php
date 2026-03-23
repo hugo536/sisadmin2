@@ -179,12 +179,14 @@ $tipoItemLabel = static function (string $tipo): string {
                                     
                                     <td class="ps-4 fw-bold text-primary"><?php echo e($sku); ?></td>
                                     <td class="text-dark">
-                                        <div class="d-flex flex-column align-items-end w-100 text-end">
+                                        <!-- El contenedor ahora usa align-items-md-start y text-md-start para alinearse a la izquierda en PC -->
+                                        <div class="d-flex flex-column align-items-end align-items-md-start w-100 text-end text-md-start">
                                             <span class="fw-bold mb-2 text-wrap" style="word-break: break-word;">
                                                 <?php echo e($itemNombreCompleto); ?>
                                             </span>
                                             
-                                            <div class="d-flex flex-wrap justify-content-end gap-1">
+                                            <!-- Aquí también usamos justify-content-md-start para los badges (etiquetas) -->
+                                            <div class="d-flex flex-wrap justify-content-end justify-content-md-start gap-1">
                                                 <?php if ($categoriaNombre !== ''): ?>
                                                     <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
                                                 <?php endif; ?>
