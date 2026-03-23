@@ -15,9 +15,29 @@ class ItemPerfilModel extends Modelo
                        i.costo_referencial, i.moneda, i.impuesto_porcentaje AS impuesto, i.estado,
                        i.created_at, i.updated_at,
                        i.ultimo_costo_compra,
-                       (SELECT COALESCE(SUM(stock_actual * costo_promedio) / NULLIF(SUM(stock_actual), 0), i.costo_referencial)
-                        FROM inventario_stock
-                        WHERE id_item = i.id) AS costo_promedio
+                       (
+                           SELECT
+                               CASE
+                                   WHEN SUM(CASE WHEN stock_actual > 0 THEN stock_actual ELSE 0 END) > 0
+                                       THEN SUM(CASE WHEN stock_actual > 0 THEN stock_actual * costo_promedio ELSE 0 END)
+                                            / NULLIF(SUM(CASE WHEN stock_actual > 0 THEN stock_actual ELSE 0 END), 0)
+                                   ELSE COALESCE(
+                                       NULLIF(i.ultimo_costo_compra, 0),
+                                       NULLIF((
+                                           SELECT m.costo_promedio_resultante
+                                           FROM inventario_movimientos m
+                                           WHERE m.id_item = i.id
+                                             AND m.costo_promedio_resultante IS NOT NULL
+                                             AND m.costo_promedio_resultante > 0
+                                           ORDER BY m.created_at DESC, m.id DESC
+                                           LIMIT 1
+                                       ), 0),
+                                       i.costo_referencial
+                                   )
+                               END
+                           FROM inventario_stock
+                           WHERE id_item = i.id
+                       ) AS costo_promedio
                 FROM items i
                 LEFT JOIN item_rubros r ON r.id = i.id_rubro
                 LEFT JOIN categorias c ON c.id = i.id_categoria
@@ -48,7 +68,10 @@ class ItemPerfilModel extends Modelo
                         ) AS costo_promedio_anterior
                     FROM inventario_movimientos
                     WHERE id_item = :id_item
-                      AND tipo_movimiento IN ('COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA')
+                      AND tipo_movimiento IN (
+                        'INI', 'AJ+', 'COM', 'PROD',
+                        'COMPRA', 'RECEPCION_COMPRA', 'SALDO_INICIAL', 'AJUSTE_INGRESO', 'ENTRADA'
+                      )
                 ) AS sub
                 ORDER BY fecha_movimiento DESC, id DESC
                 LIMIT 20";
