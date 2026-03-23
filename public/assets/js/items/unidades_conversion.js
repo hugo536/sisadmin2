@@ -41,6 +41,21 @@
         let itemActivo = null;
 
         // --- FUNCIONES AUXILIARES ---
+        const generarCodigoUnidadAuto = () => {
+            if (!inputCodigo) return;
+            const skuBase = String(itemActivo?.sku || 'UND').trim().toUpperCase() || 'UND';
+            const nombreUnidad = String(inputNombre?.value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/-{2,}/g, '-')
+                .slice(0, 24);
+
+            inputCodigo.value = `${skuBase}-${nombreUnidad || 'UNIDAD'}`.slice(0, 40);
+        };
+
         const showSuccess = async (message, title = 'Éxito') => {
             // Verificamos que la librería SweetAlert2 esté cargada en el sistema
             if (window.Swal && typeof window.Swal.fire === 'function') {
@@ -90,7 +105,7 @@
             if (inputFactor) inputFactor.value = '';
             if (inputPeso) inputPeso.value = '0.000';
             if (inputEstado) inputEstado.checked = true;
-            
+            generarCodigoUnidadAuto();
             form.classList.remove('d-none');
             renderFormula();
             inputNombre?.focus();
@@ -101,7 +116,7 @@
             if (inputId) inputId.value = String(registro.id || 0);
             if (inputIdItem) inputIdItem.value = String(itemActivo?.id || 0);
             if (inputNombre) inputNombre.value = registro.nombre || '';
-            if (inputCodigo) inputCodigo.value = registro.codigo_unidad || '';
+            generarCodigoUnidadAuto();
             if (inputFactor) inputFactor.value = Number(registro.factor_conversion || 0).toFixed(4);
             if (inputPeso) inputPeso.value = Number(registro.peso_kg || 0).toFixed(3);
             if (inputEstado) inputEstado.checked = Number(registro.estado || 0) === 1;
@@ -290,6 +305,7 @@
         [inputNombre, inputFactor].forEach((el) => {
             el?.addEventListener('input', renderFormula);
         });
+        inputNombre?.addEventListener('input', generarCodigoUnidadAuto);
 
         btnAgregar?.addEventListener('click', abrirFormularioNuevo);
         btnCancelar?.addEventListener('click', resetFormulario);
