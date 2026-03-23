@@ -525,24 +525,38 @@ class InventarioModel extends Modelo
         if ($iniciaTransaccion) $db->beginTransaction();
 
         try {
-            // A. Registrar el movimiento
+            // ---> NUEVA LÓGICA DE COSTOS AQUÍ <---
+            $nuevoCostoPromedio = null;
+            if (!$esPack) {
+                if ($esEntrada && $costoUnitario > 0) {
+                    // Si entra mercadería, recalculamos el Costo Promedio Ponderado
+                    $nuevoCostoPromedio = $this->procesarCostosIngreso($db, $idItemMovimiento, $idAlmacenDestino, $cantidad, $costoUnitario);
+                } else {
+                    // Si es salida o transferencia (o entrada a costo 0), mantenemos el costo histórico actual para el Kardex
+                    $idAlmacenConsulta = $esSalida ? $idAlmacenOrigen : ($esTransferencia ? $idAlmacenOrigen : $idAlmacenDestino);
+                    $nuevoCostoPromedio = $this->obtenerCostoPromedioActual($db, $idItemMovimiento, $idAlmacenConsulta);
+                }
+            }
+
+            // A. Registrar el movimiento (Agregamos costo_promedio_resultante al SQL)
             $sqlMovimiento = 'INSERT INTO inventario_movimientos 
-                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by)
+                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by, costo_promedio_resultante)
                               VALUES 
-                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :id_centro_costo, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by)';
+                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :id_centro_costo, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by, :costo_promedio_resultante)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItemMovimiento,
                 'id_item_unidad' => $idItemUnidad > 0 ? $idItemUnidad : null,
                 'id_almacen_origen' => $idAlmacenOrigen > 0 ? $idAlmacenOrigen : null,
                 'id_almacen_destino' => $idAlmacenDestino > 0 ? $idAlmacenDestino : null,
-                'id_centro_costo' => $idCentroCosto, // <-- NUEVO
+                'id_centro_costo' => $idCentroCosto,
                 'tipo_movimiento' => $tipo,
                 'cantidad' => $cantidad,
                 'costo_unitario' => $costoUnitario > 0 ? number_format($costoUnitario, 4, '.', '') : null,
                 'costo_total' => $costoTotal > 0 ? number_format($costoTotal, 4, '.', '') : null,
                 'referencia' => $referenciaFinal !== '' ? $referenciaFinal : null,
                 'created_by' => $createdBy,
+                'costo_promedio_resultante' => $nuevoCostoPromedio, // <-- GUARDAMOS LA FOTO DEL COSTO
             ]);
             
             $idMovimiento = (int) $db->lastInsertId();
@@ -1366,4 +1380,55 @@ class InventarioModel extends Modelo
         }
     }
 
+    /**
+     * Calcula el Costo Promedio Ponderado, y actualiza la tabla de stock e items
+     */
+    private function procesarCostosIngreso(PDO $db, int $idItem, int $idAlmacen, float $cantidadIngreso, float $precioCompra): float
+    {
+        // 1. Bloqueamos la fila (FOR UPDATE) para leer el stock y costo real en este milisegundo
+        $stmt = $db->prepare("SELECT stock_actual, costo_promedio FROM inventario_stock WHERE id_item = ? AND id_almacen = ? FOR UPDATE");
+        $stmt->execute([$idItem, $idAlmacen]);
+        $data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $stockActual = $data ? (float) $data['stock_actual'] : 0.0;
+        $costoPromedioActual = $data ? (float) $data['costo_promedio'] : 0.0;
+
+        // 2. Matemática Pura: Costo Promedio Ponderado
+        $valorInventarioActual = $stockActual * $costoPromedioActual;
+        $valorIngreso = $cantidadIngreso * $precioCompra;
+        $nuevoStock = $stockActual + $cantidadIngreso;
+
+        // Si por ajustes pasados el stock era negativo, evitamos locuras matemáticas tomando el nuevo precio directo
+        if ($nuevoStock > 0 && $stockActual >= 0) {
+            $nuevoPromedio = ($valorInventarioActual + $valorIngreso) / $nuevoStock;
+        } else {
+            $nuevoPromedio = $precioCompra;
+        }
+
+        // 3. Actualizamos el Costo Promedio en el Almacén
+        if ($data) {
+            $stmtUpd = $db->prepare("UPDATE inventario_stock SET costo_promedio = ? WHERE id_item = ? AND id_almacen = ?");
+            $stmtUpd->execute([$nuevoPromedio, $idItem, $idAlmacen]);
+        } else {
+            // Si el ítem nunca había estado en este almacén, creamos la fila (el stock se sumará luego en ajustarStock)
+            $stmtIns = $db->prepare("INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, costo_promedio) VALUES (?, ?, 0, ?)");
+            $stmtIns->execute([$idItem, $idAlmacen, $nuevoPromedio]);
+        }
+
+        // 4. Guardamos el último costo de compra para las Alertas Financieras
+        $stmtUpdItem = $db->prepare("UPDATE items SET ultimo_costo_compra = ? WHERE id = ?");
+        $stmtUpdItem->execute([$precioCompra, $idItem]);
+
+        return $nuevoPromedio;
+    }
+
+    /**
+     * Obtiene el costo promedio actual de un almacén para registros de salidas o traspasos
+     */
+    private function obtenerCostoPromedioActual(PDO $db, int $idItem, int $idAlmacen): float
+    {
+        $stmt = $db->prepare("SELECT costo_promedio FROM inventario_stock WHERE id_item = ? AND id_almacen = ? LIMIT 1");
+        $stmt->execute([$idItem, $idAlmacen]);
+        return (float) ($stmt->fetchColumn() ?: 0.0);
+    }
 }

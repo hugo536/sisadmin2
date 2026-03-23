@@ -16,6 +16,7 @@ class ItemPerfilController extends Controlador
     public function index(): void
     {
         AuthMiddleware::handle();
+
         require_permiso('items.ver');
 
         if (empty($_SESSION['csrf_token'])) {
@@ -140,6 +141,7 @@ class ItemPerfilController extends Controlador
         $this->render('items/perfil', [
             'item' => $item,
             'documentos' => $this->itemPerfilModel->listarDocumentos($idItem),
+            'historial_costos' => $this->itemPerfilModel->obtenerHistorialCostos($idItem),
             'flash' => $flash,
             'ruta_actual' => 'items/perfil',
             'csrf_token' => $csrfToken,

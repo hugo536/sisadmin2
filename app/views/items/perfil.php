@@ -1,6 +1,8 @@
 <?php
 $i = $item ?? [];
 $docs = $documentos ?? [];
+// Nueva variable que vendrá del controlador
+$historialCostos = $historial_costos ?? []; 
 
 function showItemVal($val, string $fallback = '--'): string {
     $txt = trim((string) ($val ?? ''));
@@ -55,6 +57,11 @@ function showItemVal($val, string $fallback = '--'): string {
                         <li class="nav-item" role="presentation">
                             <button class="nav-link rounded-pill text-secondary border border-secondary-subtle fw-semibold hover-primary bg-light" id="docs-tab" data-bs-toggle="tab" data-bs-target="#tab-docs" type="button" role="tab">
                                 <i class="bi bi-folder2-open me-2"></i>Documentos Digitales
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded-pill text-secondary border border-secondary-subtle fw-semibold hover-primary bg-light" id="costos-tab" data-bs-toggle="tab" data-bs-target="#tab-costos" type="button" role="tab">
+                                <i class="bi bi-currency-dollar me-2"></i>Costos y Fluctuación
                             </button>
                         </li>
                     </ul>
@@ -127,9 +134,7 @@ function showItemVal($val, string $fallback = '--'): string {
 
                         <div class="tab-pane fade h-100" id="tab-docs" role="tabpanel">
                             <div class="row g-0 h-100" style="min-height: 600px;">
-                                
                                 <div class="col-md-5 col-lg-4 border-end border-secondary-subtle bg-light d-flex flex-column h-100">
-                                    
                                     <div class="p-3 border-bottom border-secondary-subtle bg-white">
                                         <h6 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-arrow-up text-primary me-2"></i>Subir Documento</h6>
                                         <form action="?ruta=items/perfil&id=<?php echo (int) ($i['id'] ?? 0); ?>" method="POST" enctype="multipart/form-data" class="bg-light p-2 rounded-3 border border-secondary-subtle">
@@ -238,7 +243,106 @@ function showItemVal($val, string $fallback = '--'): string {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
 
+                        <div class="tab-pane fade p-4" id="tab-costos" role="tabpanel">
+                            <h6 class="fw-bold text-dark mb-4 pb-2 border-bottom border-secondary-subtle">
+                                <i class="bi bi-currency-dollar text-success me-2"></i>Análisis de Costos
+                            </h6>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="card bg-light border-secondary-subtle shadow-sm h-100">
+                                        <div class="card-body text-center p-3">
+                                            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px;">Costo Promedio Actual</small>
+                                            <h3 class="fw-bold text-dark mt-2 mb-0">S/ <?php echo htmlspecialchars(number_format((float) ($i['costo_promedio'] ?? 0), 4)); ?></h3>
+                                            <small class="text-muted">Valor contable en stock</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <?php 
+                                    $costoPromedio = (float) ($i['costo_promedio'] ?? 0);
+                                    $ultimoCosto = (float) ($i['ultimo_costo_compra'] ?? 0);
+                                    $colorUltimoCosto = 'text-dark';
+                                    $iconoTendencia = '';
+                                    
+                                    if ($ultimoCosto > $costoPromedio && $costoPromedio > 0) {
+                                        $colorUltimoCosto = 'text-danger';
+                                        $iconoTendencia = '<i class="bi bi-arrow-up-right ms-1"></i>';
+                                    } elseif ($ultimoCosto < $costoPromedio && $ultimoCosto > 0) {
+                                        $colorUltimoCosto = 'text-success';
+                                        $iconoTendencia = '<i class="bi bi-arrow-down-right ms-1"></i>';
+                                    }
+                                    ?>
+                                    <div class="card bg-light border-secondary-subtle shadow-sm h-100">
+                                        <div class="card-body text-center p-3">
+                                            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px;">Último Costo de Compra</small>
+                                            <h3 class="fw-bold <?php echo $colorUltimoCosto; ?> mt-2 mb-0">
+                                                S/ <?php echo htmlspecialchars(number_format($ultimoCosto, 4)) . $iconoTendencia; ?>
+                                            </h3>
+                                            <small class="text-muted">Precio pagado al proveedor</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-primary bg-opacity-10 border-primary border-opacity-25 shadow-sm h-100">
+                                        <div class="card-body text-center p-3">
+                                            <small class="text-primary fw-bold text-uppercase" style="letter-spacing: 0.5px;">Margen Sugerido vs Venta</small>
+                                            <?php 
+                                                $precioVenta = (float) ($i['precio_venta'] ?? 0);
+                                                $margen = 0;
+                                                if ($precioVenta > 0 && $ultimoCosto > 0) {
+                                                    $margen = (($precioVenta - $ultimoCosto) / $precioVenta) * 100;
+                                                }
+                                            ?>
+                                            <h3 class="fw-bold text-primary mt-2 mb-0"><?php echo number_format($margen, 2); ?>%</h3>
+                                            <small class="text-primary opacity-75">Basado en último costo</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="fw-bold text-dark mb-3">Historial de Ingresos y Fluctuación</h6>
+                            <div class="table-responsive bg-white border border-secondary-subtle rounded-3 shadow-sm">
+                                <table class="table table-hover align-middle mb-0 text-sm">
+                                    <thead class="table-light border-bottom border-secondary-subtle">
+                                        <tr>
+                                            <th class="text-secondary fw-semibold py-3 px-3">Fecha</th>
+                                            <th class="text-secondary fw-semibold py-3">Movimiento</th>
+                                            <th class="text-secondary fw-semibold py-3 text-end">Cant.</th>
+                                            <th class="text-secondary fw-semibold py-3 text-end">Promedio Anterior</th>
+                                            <th class="text-secondary fw-semibold py-3 text-end text-primary">Precio Compra</th>
+                                            <th class="text-secondary fw-semibold py-3 text-end text-success">Nuevo Costo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($historialCostos)): ?>
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted py-5">
+                                                    <i class="bi bi-clock-history fs-3 d-block mb-2 opacity-50"></i>
+                                                    No hay registros de compras recientes que afecten el costo.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($historialCostos as $mov): ?>
+                                                <tr>
+                                                    <td class="px-3 text-muted"><?php echo date('d/m/Y H:i', strtotime($mov['fecha_movimiento'])); ?></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border border-secondary-subtle">
+                                                            <?php echo htmlspecialchars($mov['tipo_movimiento']); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-end fw-medium"><?php echo number_format((float)$mov['cantidad'], 2); ?></td>
+                                                    <td class="text-end text-muted">S/ <?php echo number_format((float)$mov['costo_promedio_anterior'], 4); ?></td>
+                                                    <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$mov['precio_compra'], 4); ?></td>
+                                                    <td class="text-end fw-bold text-success bg-success bg-opacity-10">S/ <?php echo number_format((float)$mov['costo_promedio_resultante'], 4); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
