@@ -1047,7 +1047,11 @@
         if (modalInstance) modalInstance.hide();
         
         // Dado que usas SPA, mejor recargar suave
-        navigateWithoutReload(new URL(window.location.href), false);
+        if (typeof window.navigateWithoutReload === 'function') {
+          window.navigateWithoutReload(new URL(window.location.href), false);
+        } else {
+          window.location.reload();
+        }
 
       } catch (error) {
         window.Swal.fire({ icon: 'error', title: 'Error', text: error.message });
@@ -1096,7 +1100,11 @@
 
           const inst = modalRetornoEl && window.bootstrap.Modal.getInstance(modalRetornoEl);
           if (inst) inst.hide();
-          navigateWithoutReload(new URL(window.location.href), false);
+          if (typeof window.navigateWithoutReload === 'function') {
+            window.navigateWithoutReload(new URL(window.location.href), false);
+          } else {
+            window.location.reload();
+          }
         } catch (error) {
           window.Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error de conexión.' });
         }
