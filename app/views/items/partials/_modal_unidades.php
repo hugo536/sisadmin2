@@ -55,8 +55,11 @@
                                 </div>
                                 
                                 <div class="col-md-6 form-floating">
-                                    <input type="text" class="form-control shadow-none border-secondary-subtle" id="ucCodigoUnidad" placeholder="Código">
+                                    <input type="text" class="form-control shadow-none border-secondary-subtle bg-light text-muted" id="ucCodigoUnidad" placeholder="Código" readonly>
                                     <label>Código / SKU Empaque (Opcional)</label>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted">El código SKU empaque se genera automáticamente.</small>
                                 </div>
                                 
                                 <div class="col-md-4 form-floating mt-2">

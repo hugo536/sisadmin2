@@ -625,11 +625,34 @@ class ItemController extends Controlador
         return [
             'id_item' => $idItem,
             'nombre' => $nombre,
-            'codigo_unidad' => trim((string) ($data['codigo_unidad'] ?? '')),
+            'codigo_unidad' => $this->generarCodigoUnidadConversion($item, $nombre),
             'factor_conversion' => round($factor, 4),
             'peso_kg' => round($pesoKg, 3),
             'estado' => in_array($data['estado'] ?? 1, [1, '1', 'on', true], true) ? 1 : 0,
         ];
+    }
+
+    private function generarCodigoUnidadConversion(array $item, string $nombreUnidad): string
+    {
+        $skuBase = strtoupper(trim((string) ($item['sku'] ?? 'UND')));
+        if ($skuBase === '') {
+            $skuBase = 'UND';
+        }
+
+        $normalizado = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $nombreUnidad);
+        if ($normalizado === false) {
+            $normalizado = $nombreUnidad;
+        }
+
+        $slug = strtoupper((string) $normalizado);
+        $slug = preg_replace('/[^A-Z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+        $slug = preg_replace('/-{2,}/', '-', $slug) ?? '';
+        if ($slug === '') {
+            $slug = 'UNIDAD';
+        }
+
+        return substr($skuBase . '-' . substr($slug, 0, 24), 0, 40);
     }
 
     private function validarCategoria(array $data): array
