@@ -7,6 +7,7 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaTransferenciaModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaPrestamoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaSaldosModel.php'; // <-- Nuevo modelo
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
@@ -18,6 +19,7 @@ class TesoreriaController extends Controlador
     private TesoreriaCxpModel $cxpModel;
     private TesoreriaMovimientoModel $movModel;
     private TesoreriaCuentaModel $cuentaModel;
+    private TesoreriaTransferenciaModel $transferenciaModel;
     private TesoreriaPrestamoModel $prestamoModel;
     private TesoreriaSaldosModel $saldosModel; // <-- Nueva propiedad
     private ContaCuentaModel $planContableModel;
@@ -30,6 +32,7 @@ class TesoreriaController extends Controlador
         $this->cxpModel = new TesoreriaCxpModel();
         $this->movModel = new TesoreriaMovimientoModel();
         $this->cuentaModel = new TesoreriaCuentaModel();
+        $this->transferenciaModel = new TesoreriaTransferenciaModel();
         $this->prestamoModel = new TesoreriaPrestamoModel();
         $this->saldosModel = new TesoreriaSaldosModel(); // <-- Inicialización
         $this->planContableModel = new ContaCuentaModel();
@@ -60,9 +63,36 @@ class TesoreriaController extends Controlador
         $this->render('tesoreria/tesoreria_cuentas', [
             'ruta_actual'  => 'tesoreria/cuentas',
             'cuentas'      => $this->cuentaModel->listarGestion(),
+            'cuentasActivas' => $this->cuentaModel->listarActivas(),
             'bancos'       => $this->cuentaModel->listarBancosConfigurados(),
             'cuentaEditar' => $cuentaEditar,
         ]);
+    }
+
+    public function registrar_transferencia_interna(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.pagos.registrar');
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cuentas');
+        }
+
+        try {
+            $this->transferenciaModel->registrar([
+                'id_cuenta_origen' => (int) ($_POST['id_cuenta_origen'] ?? 0),
+                'id_cuenta_destino' => (int) ($_POST['id_cuenta_destino'] ?? 0),
+                'fecha' => trim((string) ($_POST['fecha'] ?? '')),
+                'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'monto' => round((float) ($_POST['monto'] ?? 0), 4),
+                'referencia' => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+            ], $this->obtenerUsuarioId());
+
+            redirect('tesoreria/cuentas?ok=1&action=transfer');
+        } catch (Throwable $e) {
+            redirect('tesoreria/cuentas?error=' . urlencode($e->getMessage()));
+        }
     }
 
     public function guardar_cuenta(): void

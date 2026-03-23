@@ -17,8 +17,8 @@ class TesoreriaCuentaModel extends Modelo
                        c.id_cuenta_contable,
                        c.permite_cobros,
                        c.permite_pagos,
-                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo,
-                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo,
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
                 LEFT JOIN (
                     SELECT id_cuenta,
@@ -29,6 +29,20 @@ class TesoreriaCuentaModel extends Modelo
                     WHERE deleted_at IS NULL
                     GROUP BY id_cuenta
                 ) mov ON mov.id_cuenta = c.id
+                LEFT JOIN (
+                    SELECT cuenta_id,
+                           SUM(delta) AS saldo_delta
+                    FROM (
+                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        UNION ALL
+                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                    ) x
+                    GROUP BY cuenta_id
+                ) trf ON trf.cuenta_id = c.id
                 WHERE estado = 1 
                   AND c.deleted_at IS NULL
                 ORDER BY c.tipo ASC, c.nombre ASC';
@@ -43,7 +57,7 @@ class TesoreriaCuentaModel extends Modelo
     {
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
                        COALESCE(mov.total_movimientos, 0) AS total_movimientos,
-                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
                 LEFT JOIN configuracion_cajas_bancos cb ON cb.id = c.config_banco_id
                 LEFT JOIN (
@@ -56,6 +70,20 @@ class TesoreriaCuentaModel extends Modelo
                     WHERE deleted_at IS NULL
                     GROUP BY id_cuenta
                 ) mov ON mov.id_cuenta = c.id
+                LEFT JOIN (
+                    SELECT cuenta_id,
+                           SUM(delta) AS saldo_delta
+                    FROM (
+                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        UNION ALL
+                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                    ) x
+                    GROUP BY cuenta_id
+                ) trf ON trf.cuenta_id = c.id
                 WHERE c.deleted_at IS NULL
                 ORDER BY c.estado DESC, c.nombre ASC';
 
