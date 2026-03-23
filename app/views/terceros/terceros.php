@@ -119,15 +119,15 @@
                                 <tr class="border-bottom" 
                                     data-estado="<?php echo $estadoBinario; ?>"
                                     data-roles="<?php echo htmlspecialchars($rolesFiltro); ?>"
-                                    data-search="<?php echo htmlspecialchars(mb_strtolower($tercero['nombre_completo'].' '.$tercero['numero_documento'])); ?>">
+                                    data-search="<?php echo htmlspecialchars(mb_strtolower((string) ($tercero['nombre_completo'] ?? '').' '.(string) ($tercero['numero_documento'] ?? ''))); ?>">
                                     
                                     <td class="ps-4 fw-semibold text-primary align-top pt-3">
-                                        <span class="badge bg-light text-secondary border border-secondary-subtle mb-1"><?php echo htmlspecialchars($tercero['tipo_documento']); ?></span><br>
-                                        <span class="text-dark fw-bold"><?php echo htmlspecialchars($tercero['numero_documento']); ?></span>
+                                        <span class="badge bg-light text-secondary border border-secondary-subtle mb-1"><?php echo htmlspecialchars((string) ($tercero['tipo_documento'] ?? '')); ?></span><br>
+                                        <span class="text-dark fw-bold"><?php echo htmlspecialchars((string) ($tercero['numero_documento'] ?? '')); ?></span>
                                     </td>
                                     
                                     <td class="align-top pt-3">
-                                        <div class="fw-bold text-dark fs-6"><?php echo htmlspecialchars($tercero['nombre_completo']); ?></div>
+                                        <div class="fw-bold text-dark fs-6"><?php echo htmlspecialchars((string) ($tercero['nombre_completo'] ?? '')); ?></div>
                                         <?php if (!empty($tercero['direccion'])): ?>
                                             <div class="small text-muted text-truncate mt-1" style="max-width: 250px;" title="<?php echo htmlspecialchars($tercero['direccion']); ?>">
                                                 <i class="bi bi-geo-alt me-1"></i><?php echo htmlspecialchars($tercero['direccion']); ?>
@@ -188,9 +188,9 @@
                                                     data-bs-target="#modalEditarTercero"
                                                     data-bs-toggle="tooltip" title="Editar Tercero"
                                                     data-id="<?php echo (int) $tercero['id']; ?>"
-                                                    data-nombre="<?php echo htmlspecialchars($tercero['nombre_completo']); ?>"
-                                                    data-tipo-doc="<?php echo htmlspecialchars($tercero['tipo_documento']); ?>"
-                                                    data-numero-doc="<?php echo htmlspecialchars($tercero['numero_documento']); ?>"
+                                                    data-nombre="<?php echo htmlspecialchars((string) ($tercero['nombre_completo'] ?? '')); ?>"
+                                                    data-tipo-doc="<?php echo htmlspecialchars((string) ($tercero['tipo_documento'] ?? '')); ?>"
+                                                    data-numero-doc="<?php echo htmlspecialchars((string) ($tercero['numero_documento'] ?? '')); ?>"
                                                     data-tipo-persona="<?php echo htmlspecialchars($tercero['tipo_persona']); ?>"
                                                     data-estado="<?php echo (int) ($tercero['estado'] ?? 1); ?>"
                                                     data-representante-legal="<?php echo htmlspecialchars($tercero['representante_legal'] ?? ''); ?>"
