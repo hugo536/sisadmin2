@@ -137,7 +137,7 @@ $tipoItemLabel = static function (string $tipo): string {
                     <thead class="inventario-sticky-thead border-bottom">
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">SKU</th>
-                            <th class="text-secondary fw-semibold">Producto (Nombre Completo)</th>
+                            <th class="text-secondary fw-semibold">Producto</th>
                             <th class="text-secondary fw-semibold">Almacén</th>
                             <th class="text-secondary fw-semibold">Lote</th>
                             <th class="text-end text-secondary fw-semibold">Stock Actual</th>
@@ -179,34 +179,41 @@ $tipoItemLabel = static function (string $tipo): string {
                                     
                                     <td class="ps-4 fw-bold text-primary"><?php echo e($sku); ?></td>
                                     <td class="text-dark">
-                                        <span class="d-block fw-bold mb-1"><?php echo e($itemNombreCompleto); ?></span>
-                                        
-                                        <div class="d-flex flex-wrap align-items-center gap-1">
-                                            <?php if ($categoriaNombre !== ''): ?>
-                                                <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
-                                            <?php endif; ?>
-                                            <?php if ($tipoItem !== ''): ?>
-                                                <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-layers me-1"></i><?php echo e($tipoItemLabel($tipoItem)); ?></span>
-                                            <?php endif; ?>
-                                            <?php if($tipoRegistro === 'pack'): ?>
-                                                <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold" style="font-size: 0.65rem;"><i class="bi bi-box-seam me-1"></i>PACK</span>
-                                            <?php endif; ?>
+                                        <div class="d-flex flex-column align-items-end w-100 text-end">
+                                            <span class="fw-bold mb-2 text-wrap" style="word-break: break-word;">
+                                                <?php echo e($itemNombreCompleto); ?>
+                                            </span>
+                                            
+                                            <div class="d-flex flex-wrap justify-content-end gap-1">
+                                                <?php if ($categoriaNombre !== ''): ?>
+                                                    <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
+                                                <?php endif; ?>
+                                                <?php if ($tipoItem !== ''): ?>
+                                                    <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-layers me-1"></i><?php echo e($tipoItemLabel($tipoItem)); ?></span>
+                                                <?php endif; ?>
+                                                <?php if($tipoRegistro === 'pack'): ?>
+                                                    <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold" style="font-size: 0.65rem;"><i class="bi bi-box-seam me-1"></i>PACK</span>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
                                     <td class="text-muted"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
                                     <td class="text-end">
-                                        <div class="fw-bold fs-6 text-dark"><?php echo $stockFormateado; ?></div>
-                                        <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
-                                            <div class="d-flex flex-column align-items-end mt-1 pb-1" style="gap: 3px;">
-                                                <?php foreach ($stock['desglose'] as $d): ?>
-                                                    <div class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">
-                                                        <?php echo e($d['texto']); ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        <?php endif; ?>
+                                        <div class="d-flex flex-column align-items-end w-100">
+                                            <span class="fw-bold fs-6 text-dark mb-1"><?php echo $stockFormateado; ?></span>
+                                            
+                                            <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
+                                                <div class="d-flex flex-column align-items-end" style="gap: 3px;">
+                                                    <?php foreach ($stock['desglose'] as $d): ?>
+                                                        <span class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium text-wrap text-end" style="font-size: 0.7rem; max-width: 100%;">
+                                                            <?php echo e($d['texto']); ?>
+                                                        </span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
