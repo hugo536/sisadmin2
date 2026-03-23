@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', async () => {
+(async function initVentas() {
     // --- EVENTO NUEVA VENTA ---
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
@@ -712,19 +712,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- EVENTOS GENERALES ---
     function recargarTabla() {
+        // En lugar de redirigir toda la pagina, puedes aprovechar el sistema SPA
         const params = new URLSearchParams({ accion: 'listar' });
         if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim());
         if (filtroEstado.value !== '') params.set('estado', filtroEstado.value);
         if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value);
         if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value);
+        
+        // Forma tradicional
         window.location.href = `${urls.index}&${params.toString()}`;
     }
 
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
-        el.addEventListener('change', recargarTabla);
+        if(el) {
+            el.addEventListener('change', recargarTabla);
+        }
     });
     
-    document.querySelector('#tablaVentas tbody').addEventListener('click', async (e) => {
+    document.querySelector('#tablaVentas tbody')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
         const tr = btn.closest('tr');
@@ -787,4 +792,4 @@ document.addEventListener('DOMContentLoaded', async () => {
             try { await abrirModalDespacho(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
     });
-});
+})();

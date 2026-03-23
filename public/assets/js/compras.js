@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', async () => {
+(async function initCompras() {
+    // 1. Verificación vital: si no estamos en compras, salimos de inmediato
     const app = document.getElementById('comprasApp');
     if (!app) return;
 
@@ -898,4 +899,4 @@ document.addEventListener('DOMContentLoaded', async () => {
             recargarPagina();
         }
     });
-});
+})();
