@@ -398,7 +398,8 @@
             disabledState = 'disabled';
         } else {
             almacenesDisp.forEach(alm => {
-                opcionesHTML += `<option value="${alm.id}">${alm.nombre} (Dispo: ${parseFloat(alm.stock_actual)})</option>`;
+                const stockDisponible = Number.parseFloat(alm.stock_actual || 0) || 0;
+                opcionesHTML += `<option value="${alm.id}" data-stock="${stockDisponible}">${alm.nombre} (Dispo: ${stockDisponible})</option>`;
             });
         }
 
@@ -525,32 +526,23 @@
                 return;
             }
 
-            spanStock.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary"></div>';
-            try {
-                const res = await getJson(`${urls.index}&accion=buscar_items&q=${encodeURIComponent(linea.sku)}&id_almacen=${idAlmacen}`);
-                const itemData = (res.data || []).find(i => i.id == linea.id_item);
-                const stock = itemData ? Math.floor(parseFloat(itemData.stock_actual)) : 0;
+            const optionSel = selectAlmacen.options[selectAlmacen.selectedIndex];
+            const stock = optionSel ? Math.floor(Number.parseFloat(optionSel.dataset.stock || '0') || 0) : 0;
 
-                spanStock.textContent = stock;
-                spanStock.className = `text-center fw-bold despacho-stock ${stock <= 0 ? 'text-danger' : 'text-success'}`;
+            spanStock.textContent = stock;
+            spanStock.className = `text-center fw-bold despacho-stock ${stock <= 0 ? 'text-danger' : 'text-success'}`;
 
-                let despachadoEnOtros = 0;
-                obtenerFilasGrupo().forEach(f => {
-                    if (f !== tr) despachadoEnOtros += parseInt(f.querySelector('.despacho-cantidad').value || 0, 10) || 0;
-                });
+            let despachadoEnOtros = 0;
+            obtenerFilasGrupo().forEach(f => {
+                if (f !== tr) despachadoEnOtros += parseInt(f.querySelector('.despacho-cantidad').value || 0, 10) || 0;
+            });
 
-                const faltaPorAsignar = parseInt(linea.cantidad_pendiente, 10) - despachadoEnOtros;
-                const sugerido = Math.max(0, Math.min(faltaPorAsignar, stock));
-                inputCant.value = sugerido;
+            const faltaPorAsignar = parseInt(linea.cantidad_pendiente, 10) - despachadoEnOtros;
+            const sugerido = Math.max(0, Math.min(faltaPorAsignar, stock));
+            inputCant.value = sugerido;
 
-                sincronizarGrupo(tr);
-                validarGrupoItem(linea.id);
-            } catch (e) {
-                spanStock.textContent = '0';
-                spanStock.className = 'text-center fw-bold despacho-stock text-danger';
-                inputCant.value = 0;
-                validarGrupoItem(linea.id);
-            }
+            sincronizarGrupo(tr);
+            validarGrupoItem(linea.id);
         });
 
         inputCant.addEventListener('input', () => {
