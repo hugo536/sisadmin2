@@ -203,6 +203,20 @@
         });
     });
 
+    document.querySelectorAll('.js-editar-cuenta-link').forEach(link => {
+        const newLink = link.cloneNode(true);
+        link.parentNode.replaceChild(newLink, link);
+
+        newLink.addEventListener('click', function (e) {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (typeof window.navigateWithoutReload !== 'function') return;
+
+            e.preventDefault();
+            const url = new URL(this.href, window.location.href);
+            window.navigateWithoutReload(url, true);
+        });
+    });
+
     document.querySelectorAll('.js-switch-estado-cuenta').forEach(sw => {
         const newSw = sw.cloneNode(true);
         sw.parentNode.replaceChild(newSw, sw);
