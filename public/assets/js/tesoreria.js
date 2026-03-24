@@ -1,7 +1,13 @@
 window.initTesoreria = function() {
     'use strict';
 
-    const tesoreriaApp = document.getElementById('tesoreriaSaldosInicialesApp') || document.getElementById('tesoreriaCuentasApp');
+    const tesoreriaApp =
+        document.getElementById('tesoreriaSaldosInicialesApp') ||
+        document.getElementById('tesoreriaCuentasApp') ||
+        document.getElementById('tesoreriaCxcApp') ||
+        document.getElementById('tesoreriaCxpApp') ||
+        document.getElementById('tesoreriaMovimientosApp') ||
+        document.getElementById('tesoreriaPrestamosApp');
     if (!tesoreriaApp) return;
 
     // ========================================================================

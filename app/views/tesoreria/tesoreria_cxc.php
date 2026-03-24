@@ -199,7 +199,7 @@ if (!empty($_GET['error'])) {
                                                 data-id-origen="<?php echo (int) $r['id']; ?>" 
                                                 data-moneda="<?php echo e((string) $r['moneda']); ?>" 
                                                 data-saldo="<?php echo (float) $r['saldo']; ?>"
-                                                data-bs-toggle="tooltip" title="Registrar Cobro">
+                                                title="Registrar Cobro">
                                                 <i class="bi bi-currency-dollar fs-5"></i>
                                             </button>
                                         <?php endif; ?>
@@ -399,4 +399,3 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-
