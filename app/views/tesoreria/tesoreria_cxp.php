@@ -302,7 +302,7 @@ if (!empty($_GET['error'])) {
 
 
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Pago</h5>
@@ -324,7 +324,7 @@ if (!empty($_GET['error'])) {
                         
                         <div class="col-md-12">
                             <label class="form-label fw-bold small text-muted">Cuenta Origen <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" id="selectCuentaOrigen" class="form-select shadow-none" required>
+                            <select name="id_cuenta" id="selectCuentaOrigen" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
                                     <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">

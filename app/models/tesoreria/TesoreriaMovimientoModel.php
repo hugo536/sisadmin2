@@ -136,7 +136,7 @@ class TesoreriaMovimientoModel extends Modelo
             if (($origenRow['estado'] ?? '') === 'ANULADA') throw new RuntimeException('El documento está anulado.');
 
             $montoAplicaOrigen = $monto;
-            if ($origen === 'CXP' && $tipo === 'PAGO') {
+            if (($origen === 'CXP' && $tipo === 'PAGO') || ($origen === 'CXC' && $tipo === 'COBRO')) {
                 if (!in_array($naturalezaPago, ['DOCUMENTO', 'CAPITAL', 'INTERES', 'MIXTO'], true)) {
                     throw new RuntimeException('Naturaleza de pago inválida.');
                 }
