@@ -306,7 +306,7 @@ if (!empty($_GET['error'])) {
 
 
 <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Cobro</h5>

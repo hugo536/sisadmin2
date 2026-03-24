@@ -135,8 +135,16 @@ class TesoreriaMovimientoModel extends Modelo
             if (!$origenRow) throw new RuntimeException('Documento de origen no encontrado.');
             if (($origenRow['estado'] ?? '') === 'ANULADA') throw new RuntimeException('El documento está anulado.');
 
+            $monedaOrigen = strtoupper(trim((string) ($origenRow['moneda'] ?? '')));
+            if ($monedaOrigen === '') {
+                throw new RuntimeException('La moneda del documento de origen es inválida.');
+            }
+            // La moneda real del movimiento siempre viene del documento de origen
+            // para evitar inconsistencias por manipulación del formulario.
+            $data['moneda'] = $monedaOrigen;
+
             $montoAplicaOrigen = $monto;
-            if ($origen === 'CXP' && $tipo === 'PAGO') {
+            if (($origen === 'CXP' && $tipo === 'PAGO') || ($origen === 'CXC' && $tipo === 'COBRO')) {
                 if (!in_array($naturalezaPago, ['DOCUMENTO', 'CAPITAL', 'INTERES', 'MIXTO'], true)) {
                     throw new RuntimeException('Naturaleza de pago inválida.');
                 }
@@ -168,6 +176,10 @@ class TesoreriaMovimientoModel extends Modelo
             $cuentaTes = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
             
             if (!$cuentaTes || (int)$cuentaTes['estado'] !== 1) throw new RuntimeException('La cuenta de tesorería está inactiva.');
+            $monedaCuenta = strtoupper(trim((string) ($cuentaTes['moneda'] ?? '')));
+            if ($monedaCuenta !== '' && $monedaCuenta !== $monedaOrigen) {
+                throw new RuntimeException('La moneda de la cuenta no coincide con la moneda del documento.');
+            }
 
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
                 (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
