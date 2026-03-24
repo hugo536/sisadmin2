@@ -499,6 +499,7 @@ class ProduccionOrdenesModel extends Modelo
                         'id_item_unidad' => $this->obtenerUnidadPorDefecto($idInsumo), 
                         'id_almacen_origen' => $idAlmacenOrigen,
                         'id_almacen_destino' => null, 
+                        'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
                         'cantidad' => $cantidadUsada,
                         'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
                         'lote' => $lote,
