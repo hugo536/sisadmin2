@@ -197,7 +197,7 @@ if (!empty($_GET['error'])) {
                                                 data-id-origen="<?php echo (int) $r['id']; ?>" 
                                                 data-moneda="<?php echo e((string) $r['moneda']); ?>" 
                                                 data-saldo="<?php echo (float) $r['saldo']; ?>"
-                                                data-bs-toggle="tooltip" title="Registrar Pago">
+                                                title="Registrar Pago">
                                                 <i class="bi bi-cash-coin fs-5"></i>
                                             </button>
                                         <?php endif; ?>
