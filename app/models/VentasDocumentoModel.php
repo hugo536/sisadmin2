@@ -269,12 +269,16 @@ class VentasDocumentoModel extends Modelo
             $stmt = $db->prepare('UPDATE ventas_documentos
                                   SET estado = 9,
                                       deleted_at = NOW(),
-                                      deleted_by = :user,
-                                      updated_by = :user,
+                                      deleted_by = :deleted_user,
+                                      updated_by = :updated_user,
                                       updated_at = NOW()
                                   WHERE id = :id
                                     AND deleted_at IS NULL');
-            $stmt->execute(['id' => $idDocumento, 'user' => $userId]);
+            $stmt->execute([
+                'id' => $idDocumento,
+                'deleted_user' => $userId,
+                'updated_user' => $userId,
+            ]);
             if ($stmt->rowCount() === 0) {
                 throw new RuntimeException('No se pudo anular el pedido.');
             }
