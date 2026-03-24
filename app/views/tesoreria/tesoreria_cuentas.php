@@ -130,6 +130,7 @@ $camposBloqueadosEdicion = $esEdicion;
                                             <?php $urlEditar = route_url('tesoreria/cuentas'); ?>
                                             <a href="<?php echo e($urlEditar . (str_contains($urlEditar, '?') ? '&' : '?') . 'editar=' . (int) $c['id']); ?>" 
                                             class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-primary js-editar-cuenta-link" 
+                                            class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-primary" 
                                             data-bs-toggle="tooltip" data-bs-placement="top" title="Editar Cuenta">
                                                 <i class="bi bi-pencil-square fs-5"></i>
                                             </a>
