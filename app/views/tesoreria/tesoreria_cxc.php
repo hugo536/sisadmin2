@@ -397,5 +397,5 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-
 <script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
+
