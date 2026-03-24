@@ -8,7 +8,7 @@ window.planFechaActual = window.planFechaActual || new Date();
 window.vistaActualPlan = window.vistaActualPlan || 'mes';
 window.diccPlanificacion = window.diccPlanificacion || {};
 
-const initModuloProduccion = () => {
+window.initModuloProduccion = window.initModuloProduccion || function initModuloProduccion() {
     // 1. Limpieza SPA para evitar Pantallas Oscuras
     document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
     document.body.classList.remove('modal-open');
@@ -80,9 +80,9 @@ const initModuloProduccion = () => {
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initModuloProduccion);
+    document.addEventListener('DOMContentLoaded', window.initModuloProduccion);
 } else {
-    initModuloProduccion();
+    window.initModuloProduccion();
 }
 
 // =========================================================================
