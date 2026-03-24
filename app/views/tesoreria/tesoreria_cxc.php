@@ -227,7 +227,6 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="modalCobroManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -398,3 +397,5 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
+<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
+
