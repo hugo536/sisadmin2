@@ -194,14 +194,15 @@ if (!empty($_GET['error'])) {
                                     </td>
                                     <td class="text-center pe-4 align-top pt-3">
                                         <?php if (in_array($estadoStr, ['PENDIENTE', 'ABIERTA', 'PARCIAL', 'VENCIDA'], true)): ?>
-                                            <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle js-open-cobro shadow-sm me-1" 
-                                                data-bs-toggle="modal" data-bs-target="#modalCobro"
-                                                data-id-origen="<?php echo (int) $r['id']; ?>" 
-                                                data-moneda="<?php echo e((string) $r['moneda']); ?>" 
-                                                data-saldo="<?php echo (float) $r['saldo']; ?>"
-                                                title="Registrar Cobro">
-                                                <i class="bi bi-currency-dollar fs-5"></i>
-                                            </button>
+                                            <span data-bs-toggle="tooltip" title="Registrar Cobro">
+                                                <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle js-open-cobro shadow-sm me-1" 
+                                                    data-bs-toggle="modal" data-bs-target="#modalCobro"
+                                                    data-id-origen="<?php echo (int) $r['id']; ?>" 
+                                                    data-moneda="<?php echo e((string) ($r['moneda'] ?? '')); ?>" 
+                                                    data-saldo="<?php echo (float) ($r['saldo'] ?? 0); ?>">
+                                                    <i class="bi bi-currency-dollar fs-5"></i>
+                                                </button>
+                                            </span>
                                         <?php endif; ?>
                                         <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>&origen=CXC&id_origen=<?php echo (int) $r['id']; ?>&id_tercero=<?php echo (int) ($r['id_cliente'] ?? 0); ?>" 
                                            class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm"
@@ -226,7 +227,6 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-
 
 <div class="modal fade" id="modalCobroManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -304,9 +304,8 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-
 <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Cobro</h5>
@@ -319,11 +318,11 @@ if (!empty($_GET['error'])) {
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
-                            <input name="moneda" id="cobroMoneda" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-secondary" readonly>
+                            <input name="moneda" id="cobroMoneda" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-secondary">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Saldo Pendiente</label>
-                            <input id="cobroSaldo" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-danger" readonly data-saldo-target="1">
+                            <input id="cobroSaldo" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-danger" data-saldo-target="1">
                         </div>
                         
                         <div class="col-md-12">
@@ -399,3 +398,64 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    // Escuchamos los clics directamente en el contenedor de esta vista
+    const appContainer = document.getElementById('tesoreriaCxcApp');
+    if (!appContainer) return;
+
+    appContainer.addEventListener('click', function(e) {
+        // Buscamos si el clic provino del botón de cobrar
+        const btn = e.target.closest('.js-open-cobro');
+        if (!btn) return;
+
+        // 1. Extraemos los datos del botón
+        const idOrigen = btn.getAttribute('data-id-origen') || '';
+        const moneda = btn.getAttribute('data-moneda') || '';
+        const saldo = parseFloat(btn.getAttribute('data-saldo') || 0).toFixed(2);
+
+        // 2. Inyectamos los datos directamente en los campos del Modal
+        const inputIdOrigen = document.getElementById('cobroIdOrigen');
+        const inputMoneda = document.getElementById('cobroMoneda');
+        const inputSaldo = document.getElementById('cobroSaldo');
+        const inputMonto = document.getElementById('cobroMonto');
+
+        if (inputIdOrigen) inputIdOrigen.value = idOrigen;
+        if (inputMoneda) inputMoneda.value = moneda;
+        if (inputSaldo) inputSaldo.value = saldo;
+        
+        if (inputMonto) {
+            inputMonto.value = saldo;
+            inputMonto.setAttribute('max', saldo);
+        }
+
+        // 3. Filtrar la cuenta destino por la moneda que acabamos de inyectar
+        const selectCuentaDestino = document.getElementById('selectCuentaDestino');
+        if (selectCuentaDestino && moneda) {
+            const opciones = selectCuentaDestino.querySelectorAll('option');
+            let primeraOpcionValida = null;
+
+            opciones.forEach(opcion => {
+                if (opcion.value === "") return; // Ignorar "Seleccione..."
+                
+                if (opcion.textContent.includes(`(${moneda})`)) {
+                    opcion.style.display = '';
+                    if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
+                } else {
+                    opcion.style.display = 'none';
+                }
+            });
+
+            // Autoseleccionar la cuenta correcta
+            selectCuentaDestino.value = primeraOpcionValida || "";
+        }
+
+        // 4. Forzar la actualización visual de los campos de Naturaleza del cobro
+        const naturalezaSelect = document.getElementById('cobroNaturaleza');
+        if (naturalezaSelect) {
+            naturalezaSelect.dispatchEvent(new Event('change'));
+        }
+    });
+})();
+</script>

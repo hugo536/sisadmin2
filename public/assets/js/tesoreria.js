@@ -198,131 +198,176 @@ window.initTesoreria = function() {
         });
     }
 
-    // ========================================================================
+   // ========================================================================
     // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
     // ========================================================================
-    const modalCobroEl = document.getElementById('modalCobro');
-    if (modalCobroEl) {
-        modalCobroEl.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            if (!button) return;
-            
-            const idOrigen = button.getAttribute('data-id-origen');
-            const moneda = button.getAttribute('data-moneda');
-            const saldo = button.getAttribute('data-saldo');
-            
-            const inputIdOrigen = document.getElementById('cobroIdOrigen');
-            if (inputIdOrigen) inputIdOrigen.value = idOrigen || '';
-            
-            const inputMoneda = document.getElementById('cobroMoneda');
-            if (inputMoneda) inputMoneda.value = moneda || '';
-            
-            const saldoNum = parseFloat(saldo) || 0;
-            const saldoFormateado = saldoNum.toFixed(2);
-            
-            const inputSaldo = document.getElementById('cobroSaldo');
-            if (inputSaldo) inputSaldo.value = saldoFormateado;
-            
-            const inputMonto = document.getElementById('cobroMonto');
-            if (inputMonto) {
-                inputMonto.value = saldoFormateado;
-                inputMonto.setAttribute('max', saldoFormateado);
-            }
-
-            syncNaturalezaCobro();
-        });
-
-        const naturalezaCobro = document.getElementById('cobroNaturaleza');
-        const grupoCapitalCobro = document.getElementById('grupoCobroCapital');
-        const grupoInteresCobro = document.getElementById('grupoCobroInteres');
-        const inputCapitalCobro = document.getElementById('cobroMontoCapital');
-        const inputInteresCobro = document.getElementById('cobroMontoInteres');
-        const inputMontoTotalCobro = document.getElementById('cobroMonto');
-
-        function syncNaturalezaCobro() {
-            if (!naturalezaCobro) return;
-            const val = String(naturalezaCobro.value || 'DOCUMENTO');
-            
-            const mostrarCapital = val === 'CAPITAL' || val === 'MIXTO';
-            const mostrarInteres = val === 'INTERES' || val === 'MIXTO';
-            
-            if (grupoCapitalCobro) grupoCapitalCobro.classList.toggle('d-none', !mostrarCapital);
-            if (grupoInteresCobro) grupoInteresCobro.classList.toggle('d-none', !mostrarInteres);
-            if (inputCapitalCobro) inputCapitalCobro.required = mostrarCapital;
-            if (inputInteresCobro) inputInteresCobro.required = mostrarInteres;
-
-            if (!mostrarCapital && inputCapitalCobro) inputCapitalCobro.value = '0.00';
-            if (!mostrarInteres && inputInteresCobro) inputInteresCobro.value = '0.00';
-            
-            if (inputMontoTotalCobro) {
-                const saldoPendiente = document.getElementById('cobroSaldo') ? document.getElementById('cobroSaldo').value : '0';
-                if (val === 'MIXTO' || val === 'INTERES') {
-                    inputMontoTotalCobro.removeAttribute('max');
-                } else {
-                    inputMontoTotalCobro.setAttribute('max', saldoPendiente);
-                }
-            }
-            validarMontosMixtosCobro();
-        }
+    
+    // Usamos delegación global en 'document' para que sobreviva a la navegación SPA
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-open-cobro');
+        if (!btn) return; // Si no es el botón de cobrar, ignoramos
         
-        function validarMontosMixtosCobro() {
-            if (!naturalezaCobro || !inputMontoTotalCobro || !inputCapitalCobro || !inputInteresCobro) return;
+        // 1. Extraemos los datos del botón asegurando que no haya espacios en blanco
+        const idOrigen = btn.getAttribute('data-id-origen') || '';
+        const moneda = (btn.getAttribute('data-moneda') || '').trim();
+        const saldo = parseFloat(btn.getAttribute('data-saldo') || 0).toFixed(2);
+        
+        // 2. Llenamos los campos del modal directamente
+        const inputIdOrigen = document.getElementById('cobroIdOrigen');
+        const inputMoneda = document.getElementById('cobroMoneda');
+        const inputSaldo = document.getElementById('cobroSaldo');
+        const inputMonto = document.getElementById('cobroMonto');
+
+        if (inputIdOrigen) inputIdOrigen.value = idOrigen;
+        if (inputMoneda) inputMoneda.value = moneda;
+        if (inputSaldo) inputSaldo.value = saldo;
+        
+        if (inputMonto) {
+            inputMonto.value = saldo;
+            inputMonto.setAttribute('max', saldo);
+        }
+
+        // 3. FILTRAR "CUENTA DESTINO" POR MONEDA (Corrección de visibilidad)
+        const selectCuentaDestino = document.getElementById('selectCuentaDestino');
+        if (selectCuentaDestino && moneda) {
+            const opciones = selectCuentaDestino.querySelectorAll('option');
+            let primeraOpcionValida = null;
+
+            opciones.forEach(opcion => {
+                if (opcion.value === "") {
+                    opcion.selected = true; // Por defecto dejamos el placeholder
+                    return;
+                }
+                
+                // Si la opción contiene la moneda ej: "(PEN)"
+                if (opcion.textContent.includes(`(${moneda})`)) {
+                    opcion.hidden = false;      // Mostramos la opción correctamente
+                    opcion.disabled = false;    // La habilitamos
+                    if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
+                } else {
+                    opcion.hidden = true;       // Ocultamos la opción (Cross-browser)
+                    opcion.disabled = true;     // Prevenimos selección por teclado
+                }
+            });
+
+            // Autoseleccionar la primera cuenta válida encontrada
+            if (primeraOpcionValida) {
+                selectCuentaDestino.value = primeraOpcionValida;
+            } else {
+                selectCuentaDestino.value = "";
+            }
+        }
+
+        // 4. Forzar cálculo de "Naturaleza de cobro"
+        const naturalezaSelect = document.getElementById('cobroNaturaleza');
+        if (naturalezaSelect) {
+            naturalezaSelect.dispatchEvent(new Event('change'));
+        }
+    });
+
+    // --- Lógica de Naturaleza de Cobro ---
+    const naturalezaCobro = document.getElementById('cobroNaturaleza');
+    const grupoCapitalCobro = document.getElementById('grupoCobroCapital');
+    const grupoInteresCobro = document.getElementById('grupoCobroInteres');
+    const inputCapitalCobro = document.getElementById('cobroMontoCapital');
+    const inputInteresCobro = document.getElementById('cobroMontoInteres');
+    const inputMontoTotalCobro = document.getElementById('cobroMonto');
+
+    function syncNaturalezaCobro() {
+        if (!naturalezaCobro) return;
+        const val = String(naturalezaCobro.value || 'DOCUMENTO');
+        
+        const mostrarCapital = val === 'CAPITAL' || val === 'MIXTO';
+        const mostrarInteres = val === 'INTERES' || val === 'MIXTO';
+        
+        if (grupoCapitalCobro) grupoCapitalCobro.classList.toggle('d-none', !mostrarCapital);
+        if (grupoInteresCobro) grupoInteresCobro.classList.toggle('d-none', !mostrarInteres);
+        if (inputCapitalCobro) inputCapitalCobro.required = mostrarCapital;
+        if (inputInteresCobro) inputInteresCobro.required = mostrarInteres;
+
+        if (!mostrarCapital && inputCapitalCobro) inputCapitalCobro.value = '0.00';
+        if (!mostrarInteres && inputInteresCobro) inputInteresCobro.value = '0.00';
+        
+        if (inputMontoTotalCobro) {
+            const saldoPendiente = document.getElementById('cobroSaldo') ? document.getElementById('cobroSaldo').value : '0';
+            if (val === 'MIXTO' || val === 'INTERES') {
+                inputMontoTotalCobro.removeAttribute('max');
+            } else {
+                inputMontoTotalCobro.setAttribute('max', saldoPendiente);
+            }
+        }
+        validarMontosMixtosCobro();
+    }
+    
+    function validarMontosMixtosCobro() {
+        if (!naturalezaCobro || !inputMontoTotalCobro || !inputCapitalCobro || !inputInteresCobro) return;
+        
+        if (naturalezaCobro.value === 'MIXTO') {
+            const total = parseFloat(inputMontoTotalCobro.value) || 0;
+            const capital = parseFloat(inputCapitalCobro.value) || 0;
+            const interes = parseFloat(inputInteresCobro.value) || 0;
             
-            if (naturalezaCobro.value === 'MIXTO') {
+            if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
+                inputCapitalCobro.classList.add('is-invalid');
+                inputInteresCobro.classList.add('is-invalid');
+            } else {
+                inputCapitalCobro.classList.remove('is-invalid');
+                inputInteresCobro.classList.remove('is-invalid');
+            }
+        } else {
+            inputCapitalCobro.classList.remove('is-invalid');
+            inputInteresCobro.classList.remove('is-invalid');
+        }
+    }
+
+    if (naturalezaCobro) {
+        naturalezaCobro.addEventListener('change', syncNaturalezaCobro);
+    }
+    
+    [inputMontoTotalCobro, inputCapitalCobro, inputInteresCobro].forEach(input => {
+        if (input) input.addEventListener('input', validarMontosMixtosCobro);
+    });
+
+    const formCobro = document.getElementById('formCobro');
+    if (formCobro) {
+        formCobro.addEventListener('submit', function(e) {
+            if (naturalezaCobro && naturalezaCobro.value === 'MIXTO') {
                 const total = parseFloat(inputMontoTotalCobro.value) || 0;
                 const capital = parseFloat(inputCapitalCobro.value) || 0;
                 const interes = parseFloat(inputInteresCobro.value) || 0;
                 
                 if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
-                    inputCapitalCobro.classList.add('is-invalid');
-                    inputInteresCobro.classList.add('is-invalid');
-                } else {
-                    inputCapitalCobro.classList.remove('is-invalid');
-                    inputInteresCobro.classList.remove('is-invalid');
-                }
-            } else {
-                inputCapitalCobro.classList.remove('is-invalid');
-                inputInteresCobro.classList.remove('is-invalid');
-            }
-        }
-
-        if (naturalezaCobro) {
-            naturalezaCobro.addEventListener('change', syncNaturalezaCobro);
-        }
-        
-        [inputMontoTotalCobro, inputCapitalCobro, inputInteresCobro].forEach(input => {
-            if (input) input.addEventListener('input', validarMontosMixtosCobro);
-        });
-
-        const formCobro = document.getElementById('formCobro');
-        if (formCobro) {
-            formCobro.addEventListener('submit', function(e) {
-                if (naturalezaCobro && naturalezaCobro.value === 'MIXTO') {
-                    const total = parseFloat(inputMontoTotalCobro.value) || 0;
-                    const capital = parseFloat(inputCapitalCobro.value) || 0;
-                    const interes = parseFloat(inputInteresCobro.value) || 0;
-                    
-                    if ((capital + interes).toFixed(2) !== total.toFixed(2)) {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Montos descuadrados',
-                                text: `La suma de Capital (${capital.toFixed(2)}) + Mora (${interes.toFixed(2)}) debe ser igual al Monto Total (${total.toFixed(2)}).`
-                            });
-                        }
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Montos descuadrados',
+                            text: `La suma de Capital (${capital.toFixed(2)}) + Mora (${interes.toFixed(2)}) debe ser igual al Monto Total (${total.toFixed(2)}).`
+                        });
                     }
                 }
-            });
-        }
+            }
+        });
+    }
 
+    // 3. Limpieza al cerrar el modal
+    if (modalCobroEl) {
         modalCobroEl.addEventListener('hidden.bs.modal', function () {
             const form = modalCobroEl.querySelector('form');
             if (form) form.reset();
             if(inputMontoTotalCobro) inputMontoTotalCobro.classList.remove('is-invalid');
             if(inputCapitalCobro) inputCapitalCobro.classList.remove('is-invalid');
             if(inputInteresCobro) inputInteresCobro.classList.remove('is-invalid');
+            
+            // Mostrar todas las opciones de la Cuenta Destino de nuevo
+            const selectCuentaDestino = document.getElementById('selectCuentaDestino');
+            if (selectCuentaDestino) {
+                const opciones = selectCuentaDestino.querySelectorAll('option');
+                opciones.forEach(opcion => opcion.style.display = ''); 
+                selectCuentaDestino.value = ""; 
+            }
+
             syncNaturalezaCobro();
         });
     }
