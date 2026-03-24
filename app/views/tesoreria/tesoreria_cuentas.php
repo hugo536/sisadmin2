@@ -8,8 +8,7 @@ $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
 $camposBloqueadosEdicion = $esEdicion;
 ?>
 
-<div class="container-fluid p-4" id="tesoreriaCuentasApp" data-es-edicion="<?php echo $esEdicion ? 'true' : 'false'; ?>">
-    
+<div class="container-fluid p-4" id="tesoreriaCuentasApp" data-es-edicion="<?php echo !empty($cuentaEditar) ? 'true' : 'false'; ?>">
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
@@ -117,17 +116,23 @@ $camposBloqueadosEdicion = $esEdicion;
                                         </span>
                                     </td>
                                     <td class="text-end pe-4 pt-3">
-                                        <div class="d-inline-flex align-items-center gap-2">
-                                            <form method="post" action="<?php echo e(route_url('tesoreria/cambiar_estado_cuenta')); ?>" class="d-inline">
-                                                <input type="hidden" name="id_cuenta" value="<?php echo (int) ($c['id'] ?? 0); ?>">
-                                                <div class="form-check form-switch m-0" data-bs-toggle="tooltip" data-bs-placement="top" title="Activar/Inactivar cuenta">
-                                                    <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" value="1" <?php echo $esActiva ? 'checked' : ''; ?>>
-                                                </div>
-                                            </form>
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <form method="post" action="<?php echo e(route_url('tesoreria/cambiar_estado_cuenta')); ?>" class="d-inline">
+                                            <input type="hidden" name="id_cuenta" value="<?php echo (int) ($c['id'] ?? 0); ?>">
+                                            <div class="form-check form-switch m-0" data-bs-toggle="tooltip" data-bs-placement="top" title="Activar/Inactivar cuenta">
+                                                <input class="form-check-input js-switch-estado-cuenta" type="checkbox" name="estado" value="1" <?php echo $esActiva ? 'checked' : ''; ?>>
+                                            </div>
+                                        </form>
 
-                                            <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
+                                        <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
 
-                                            <div class="d-inline-flex align-items-center gap-1">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>&editar=<?php echo (int) $c['id']; ?>" 
+                                            class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-primary" 
+                                            data-bs-toggle="tooltip" data-bs-placement="top" title="Editar Cuenta">
+                                                <i class="bi bi-pencil-square fs-5"></i>
+                                            </a>
+
                                             <?php $puedeEliminar = ((int) ($c['total_movimientos'] ?? 0) === 0); ?>
                                             <?php if ($puedeEliminar): ?>
                                                 <form method="post" action="<?php echo e(route_url('tesoreria/eliminar_cuenta')); ?>" class="d-inline js-form-delete-cuenta">
@@ -141,9 +146,9 @@ $camposBloqueadosEdicion = $esEdicion;
                                                     <i class="bi bi-trash fs-5"></i>
                                                 </button>
                                             <?php endif; ?>
-                                            </div>
                                         </div>
-                                    </td>
+                                    </div>
+                                </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -350,11 +355,11 @@ $camposBloqueadosEdicion = $esEdicion;
 
                                 <div class="col-12 d-flex flex-wrap gap-4 mt-3 pt-3 border-top">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_cobros" id="permiteCobros" <?php echo ((int) ($cuentaEditar['permite_cobros'] ?? 1) === 1) ? 'checked' : ''; ?>>
+                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_cobros" id="permiteCobros" value="1" <?php echo ((int) ($cuentaEditar['permite_cobros'] ?? 1) === 1) ? 'checked' : ''; ?>>
                                         <label class="form-check-label fw-medium text-dark" for="permiteCobros">Permite Cobros</label>
                                     </div>
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_pagos" id="permitePagos" <?php echo ((int) ($cuentaEditar['permite_pagos'] ?? 1) === 1) ? 'checked' : ''; ?>>
+                                        <input class="form-check-input border-secondary-subtle" type="checkbox" name="permite_pagos" id="permitePagos" value="1" <?php echo ((int) ($cuentaEditar['permite_pagos'] ?? 1) === 1) ? 'checked' : ''; ?>>
                                         <label class="form-check-label fw-medium text-dark" for="permitePagos">Permite Pagos</label>
                                     </div>
                                 </div>

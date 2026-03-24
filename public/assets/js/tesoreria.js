@@ -1,5 +1,6 @@
-(function arrancarTesoreria(intentos = 20) {
+(function arrancarTesoreria(intentos) {
     'use strict';
+    if (intentos === undefined) intentos = 20;
 
     // 1. Buscamos el contenedor principal
     const tesoreriaApp =
@@ -44,14 +45,23 @@
     // ========================================================================
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+        if (typeof bootstrap !== 'undefined') {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        }
     });
 
     const modalCuentaEl = document.getElementById('modalCuentaTesoreria');
     const formCuenta = document.getElementById('formCuentaTesoreria');
     
     if (tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true' && modalCuentaEl) {
-        bootstrap.Modal.getOrCreateInstance(modalCuentaEl).show();
+        if (typeof bootstrap !== 'undefined') {
+            // Le damos 150ms al DOM para que termine de procesarse antes de llamar a Bootstrap
+            setTimeout(() => {
+                console.log("Abriendo modal de edición..."); // Para que lo veas en la consola
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalCuentaEl);
+                modalInstance.show();
+            }, 150);
+        }
     }
 
     if (tesoreriaApp) {
@@ -227,7 +237,7 @@
         });
     }
 
-   // ========================================================================
+    // ========================================================================
     // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
     // ========================================================================
     document.addEventListener('click', function(e) {
@@ -260,22 +270,24 @@
             opciones.forEach(opcion => {
                 if (opcion.value === "") {
                     opcion.selected = true;
+                    opcion.style.display = '';
+                    opcion.disabled = false;
                     return;
                 }
 
                 const tieneAdvertencia = opcion.dataset.tieneAdvertencia === '1';
                 if (tieneAdvertencia) {
-                    opcion.hidden = true;
+                    opcion.style.display = 'none';
                     opcion.disabled = true;
                     return;
                 }
                 
-                if (opcion.textContent.includes(`(${moneda})`)) {
-                    opcion.hidden = false;
+                if (opcion.textContent.toUpperCase().includes(`(${moneda.toUpperCase()})`)) {
+                    opcion.style.display = '';
                     opcion.disabled = false;
                     if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
                 } else {
-                    opcion.hidden = true;
+                    opcion.style.display = 'none';
                     opcion.disabled = true;
                 }
             });
@@ -390,7 +402,10 @@
             const selectCuentaDestino = document.getElementById('selectCuentaDestino');
             if (selectCuentaDestino) {
                 const opciones = selectCuentaDestino.querySelectorAll('option');
-                opciones.forEach(opcion => opcion.style.display = ''); 
+                opciones.forEach(opcion => {
+                    opcion.style.display = '';
+                    opcion.disabled = false;
+                });
                 selectCuentaDestino.value = ""; 
             }
 
@@ -429,9 +444,42 @@
                 inputMonto.setAttribute('max', saldoFormateado);
             }
             
+            // --- NUEVO CÓDIGO: Filtro de cuentas para CXP ---
+            const selectCuentaOrigen = document.getElementById('selectCuentaOrigen');
+            if (selectCuentaOrigen && moneda) {
+                const opciones = selectCuentaOrigen.querySelectorAll('option');
+                let primeraOpcionValida = null;
+
+                opciones.forEach(opcion => {
+                    if (opcion.value === "") {
+                        opcion.selected = true;
+                        opcion.style.display = '';
+                        opcion.disabled = false;
+                        return;
+                    }
+
+                    if (opcion.textContent.toUpperCase().includes(`(${moneda.toUpperCase()})`)) {
+                        opcion.style.display = '';
+                        opcion.disabled = false;
+                        if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
+                    } else {
+                        opcion.style.display = 'none';
+                        opcion.disabled = true;
+                    }
+                });
+
+                if (primeraOpcionValida) {
+                    selectCuentaOrigen.value = primeraOpcionValida;
+                    selectCuentaOrigen.dispatchEvent(new Event('change')); 
+                } else {
+                    selectCuentaOrigen.value = "";
+                }
+            }
+            
             syncNaturalezaPago();
         });
 
+        // Funciones auxiliares restauradas
         const naturalezaPago = document.getElementById('pagoNaturaleza');
         const grupoCapital = document.getElementById('grupoPagoCapital');
         const grupoInteres = document.getElementById('grupoPagoInteres');
@@ -538,9 +586,19 @@
             if(inputCapital) inputCapital.classList.remove('is-invalid');
             if(inputInteres) inputInteres.classList.remove('is-invalid');
             
+            const selectCuentaOrigen = document.getElementById('selectCuentaOrigen');
+            if (selectCuentaOrigen) {
+                const opciones = selectCuentaOrigen.querySelectorAll('option');
+                opciones.forEach(opcion => {
+                    opcion.style.display = '';
+                    opcion.disabled = false;
+                });
+                selectCuentaOrigen.value = ""; 
+            }
+
             syncNaturalezaPago();
         });
-    }
+    } // FIN DE SECCION 5 RESTAURADO
 
     // ========================================================================
     // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO ESPECÍFICO Y MANUAL)
@@ -637,8 +695,45 @@
                 if (formPagoManual) formPagoManual.reset();
                 textoSaldoManual.innerHTML = '';
                 inputMontoManual.classList.remove('is-invalid');
+                
+                const opciones = selectCuentaManual.querySelectorAll('option');
+                opciones.forEach(op => {
+                    op.style.display = '';
+                    op.disabled = false;
+                });
             });
         }
+    }
+
+    // --- Lógica de filtrado para PAGO MANUAL ---
+    const selectMonedaManual = document.querySelector('#modalPagoManual select[name="moneda"]');
+    if (selectMonedaManual && selectCuentaManual) {
+        selectMonedaManual.addEventListener('change', function() {
+            const moneda = this.value;
+            const opciones = selectCuentaManual.querySelectorAll('option');
+            
+            opciones.forEach(opcion => {
+                if (opcion.value === "") {
+                    opcion.selected = true;
+                    opcion.style.display = '';
+                    opcion.disabled = false;
+                    return;
+                }
+                
+                if (moneda && opcion.textContent.includes(`(${moneda})`)) {
+                    opcion.style.display = '';
+                    opcion.disabled = false;
+                } else if (moneda) {
+                    opcion.style.display = 'none';
+                    opcion.disabled = true;
+                } else {
+                    opcion.style.display = '';
+                    opcion.disabled = false;
+                }
+            });
+            
+            selectCuentaManual.dispatchEvent(new Event('change'));
+        });
     }
 
     // ========================================================================

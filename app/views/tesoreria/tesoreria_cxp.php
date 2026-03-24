@@ -262,7 +262,7 @@ if (!empty($_GET['error'])) {
                                 <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
                                     <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
-                                        <?php echo htmlspecialchars($cta['nombre']); ?>
+                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
