@@ -60,6 +60,7 @@ $camposBloqueadosEdicion = $esEdicion;
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
+                <!-- REGRESARON LOS DATA-ATTRIBUTES PARA EL ESCÁNER AUTOMÁTICO -->
                 <table class="table align-middle mb-0 table-hover table-pro" id="tablaCuentas"
                        data-erp-table="true"
                        data-pagination-controls="#cuentasPaginationControls"
@@ -379,3 +380,14 @@ $camposBloqueadosEdicion = $esEdicion;
 </div>
 
 <script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
+
+<!-- GATILLO A PRUEBA DE SPA: Fuerzo el auto-init de ERPTable aquí mismo -->
+<script>
+    if (typeof window.ERPTable !== 'undefined' && window.ERPTable.autoInitFromDataset) {
+        window.ERPTable.autoInitFromDataset(document.getElementById('tesoreriaCuentasApp') || document);
+        
+        setTimeout(() => {
+            window.ERPTable.autoInitFromDataset(document.getElementById('tesoreriaCuentasApp') || document);
+        }, 100);
+    }
+</script>

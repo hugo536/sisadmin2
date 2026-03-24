@@ -1,6 +1,7 @@
-window.initTesoreria = function() {
+(function arrancarTesoreria(intentos = 20) {
     'use strict';
 
+    // 1. Buscamos el contenedor principal
     const tesoreriaApp =
         document.getElementById('tesoreriaSaldosInicialesApp') ||
         document.getElementById('tesoreriaCuentasApp') ||
@@ -8,7 +9,35 @@ window.initTesoreria = function() {
         document.getElementById('tesoreriaCxpApp') ||
         document.getElementById('tesoreriaMovimientosApp') ||
         document.getElementById('tesoreriaPrestamosApp');
-    if (!tesoreriaApp) return;
+    
+    // 2. EL TRUCO SPA: Si el HTML aún no ha sido inyectado, esperamos 50ms y reintentamos.
+    if (!tesoreriaApp) {
+        if (intentos > 0) {
+            setTimeout(() => arrancarTesoreria(intentos - 1), 50);
+        }
+        return; // Detenemos ESTE intento, pero el setTimeout lanzará uno nuevo.
+    }
+
+    // ========================================================================
+    // --- A PARTIR DE AQUÍ ESTAMOS 100% SEGUROS DE QUE EL HTML YA EXISTE ---
+    // ========================================================================
+
+    // INICIALIZACIÓN DE LA TABLA DE CUENTAS
+    const tablaCuentas = document.getElementById('tablaCuentas');
+    if (tablaCuentas && window.ERPTable && window.ERPTable.createTableManager) {
+        if (!tablaCuentas.dataset.iniciada) { // Evitar doble inicialización
+            window.ERPTable.createTableManager({
+                tableSelector: tablaCuentas,
+                rowsSelector: 'tbody tr', 
+                rowsPerPage: 25,
+                paginationControls: '#cuentasPaginationControls',
+                paginationInfo: '#cuentasPaginationInfo',
+                infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`,
+                emptyText: 'Mostrando 0-0 de 0 resultados'
+            }).init();
+            tablaCuentas.dataset.iniciada = 'true';
+        }
+    }
 
     // ========================================================================
     // 0. INICIALIZACIÓN GLOBAL
@@ -201,18 +230,14 @@ window.initTesoreria = function() {
    // ========================================================================
     // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
     // ========================================================================
-    
-    // Usamos delegación global en 'document' para que sobreviva a la navegación SPA
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.js-open-cobro');
-        if (!btn) return; // Si no es el botón de cobrar, ignoramos
+        if (!btn) return;
         
-        // 1. Extraemos los datos del botón asegurando que no haya espacios en blanco
         const idOrigen = btn.getAttribute('data-id-origen') || '';
         const moneda = (btn.getAttribute('data-moneda') || '').trim();
         const saldo = parseFloat(btn.getAttribute('data-saldo') || 0).toFixed(2);
         
-        // 2. Llenamos los campos del modal directamente
         const inputIdOrigen = document.getElementById('cobroIdOrigen');
         const inputMoneda = document.getElementById('cobroMoneda');
         const inputSaldo = document.getElementById('cobroSaldo');
@@ -227,7 +252,6 @@ window.initTesoreria = function() {
             inputMonto.setAttribute('max', saldo);
         }
 
-        // 3. FILTRAR "CUENTA DESTINO" POR MONEDA (Corrección de visibilidad)
         const selectCuentaDestino = document.getElementById('selectCuentaDestino');
         if (selectCuentaDestino && moneda) {
             const opciones = selectCuentaDestino.querySelectorAll('option');
@@ -235,7 +259,7 @@ window.initTesoreria = function() {
 
             opciones.forEach(opcion => {
                 if (opcion.value === "") {
-                    opcion.selected = true; // Por defecto dejamos el placeholder
+                    opcion.selected = true;
                     return;
                 }
 
@@ -246,18 +270,16 @@ window.initTesoreria = function() {
                     return;
                 }
                 
-                // Si la opción contiene la moneda ej: "(PEN)"
                 if (opcion.textContent.includes(`(${moneda})`)) {
-                    opcion.hidden = false;      // Mostramos la opción correctamente
-                    opcion.disabled = false;    // La habilitamos
+                    opcion.hidden = false;
+                    opcion.disabled = false;
                     if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
                 } else {
-                    opcion.hidden = true;       // Ocultamos la opción (Cross-browser)
-                    opcion.disabled = true;     // Prevenimos selección por teclado
+                    opcion.hidden = true;
+                    opcion.disabled = true;
                 }
             });
 
-            // Autoseleccionar la primera cuenta válida encontrada
             if (primeraOpcionValida) {
                 selectCuentaDestino.value = primeraOpcionValida;
             } else {
@@ -265,14 +287,12 @@ window.initTesoreria = function() {
             }
         }
 
-        // 4. Forzar cálculo de "Naturaleza de cobro"
         const naturalezaSelect = document.getElementById('cobroNaturaleza');
         if (naturalezaSelect) {
             naturalezaSelect.dispatchEvent(new Event('change'));
         }
     });
 
-    // --- Lógica de Naturaleza de Cobro ---
     const naturalezaCobro = document.getElementById('cobroNaturaleza');
     const grupoCapitalCobro = document.getElementById('grupoCobroCapital');
     const grupoInteresCobro = document.getElementById('grupoCobroInteres');
@@ -358,7 +378,7 @@ window.initTesoreria = function() {
         });
     }
 
-    // 3. Limpieza al cerrar el modal
+    const modalCobroEl = document.getElementById('modalCobro'); 
     if (modalCobroEl) {
         modalCobroEl.addEventListener('hidden.bs.modal', function () {
             const form = modalCobroEl.querySelector('form');
@@ -367,7 +387,6 @@ window.initTesoreria = function() {
             if(inputCapitalCobro) inputCapitalCobro.classList.remove('is-invalid');
             if(inputInteresCobro) inputInteresCobro.classList.remove('is-invalid');
             
-            // Mostrar todas las opciones de la Cuenta Destino de nuevo
             const selectCuentaDestino = document.getElementById('selectCuentaDestino');
             if (selectCuentaDestino) {
                 const opciones = selectCuentaDestino.querySelectorAll('option');
@@ -628,11 +647,9 @@ window.initTesoreria = function() {
     const formSaldoInicial = document.getElementById('formSaldoInicial');
     if (formSaldoInicial) {
 
-        // Declaramos la variable para el total de amortizaciones de forma global para esta vista
         let totalAmortizacionesRemotas = 0;
         let totalAmortizacionesLocales = 0;
 
-        // --- 7.1 LÓGICA DE TERCEROS Y PROTECCIÓN DE NATURALEZA ---
         const terceroSelectEl = document.getElementById('saldoInicialTercero');
         const radiosTipo = Array.from(document.querySelectorAll('input[name="tipo_deuda"]'));
         const labelTipoCliente = document.getElementById('labelTipoCliente');
@@ -640,7 +657,6 @@ window.initTesoreria = function() {
         const btnGuardar = document.getElementById('btnGuardarCuentaTercero');
         const tercerosUrl = formSaldoInicial.getAttribute('data-url-terceros') || '';
         
-        // La URL para verificar debe apuntar a la nueva función que pondremos en el Controlador
         const verificarCuentaUrl = '?ruta=tesoreria/ajax_verificar_cuenta_tercero';
 
         if (terceroSelectEl && typeof TomSelect !== 'undefined') {
@@ -687,7 +703,6 @@ window.initTesoreria = function() {
                 },
                 onChange: function(value) {
                     if (!value) {
-                        // Resetear UI si borran el tercero
                         desbloquearNaturaleza();
                         resetearBotonGuardar();
                         totalAmortizacionesRemotas = 0;
@@ -698,22 +713,18 @@ window.initTesoreria = function() {
                         return;
                     }
 
-                    // Petición a PHP para verificar si el tercero ya tiene cuenta
                     const tipo = getTipoSeleccionado();
                     fetch(`${verificarCuentaUrl}&id=${value}&tipo=${tipo}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(res => res.json())
                         .then(async data => {
                             if (data.ok && data.tiene_cuenta) {
-                                // 1. Protegemos el sistema bloqueando la naturaleza
                                 bloquearNaturaleza();
                                 
-                                // 2. Actualizamos el botón para que el usuario sepa que está editando
                                 if (btnGuardar) {
                                     btnGuardar.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Saldo Inicial';
                                     btnGuardar.classList.replace('btn-primary', 'btn-success');
                                 }
 
-                                // 3. Cargamos el historial de pagos
                                 totalAmortizacionesRemotas = data.total_amortizaciones || 0;
                                 totalAmortizacionesLocales = 0;
                                 await cargarDetalleGuardado(data.items_guardados || []);
@@ -721,7 +732,6 @@ window.initTesoreria = function() {
                                 calcularSaldosReales();
                                 
                             } else {
-                                // Es un tercero nuevo, permitimos elegir
                                 desbloquearNaturaleza();
                                 resetearBotonGuardar();
                                 totalAmortizacionesRemotas = 0;
@@ -735,7 +745,6 @@ window.initTesoreria = function() {
                 }
             });
 
-            // Funciones de ayuda para proteger la integridad de la base de datos
             function bloquearNaturaleza() {
                 radiosTipo.forEach(radio => radio.disabled = true);
                 if (labelTipoCliente) labelTipoCliente.classList.add('opacity-50');
@@ -796,7 +805,6 @@ window.initTesoreria = function() {
             });
         }
 
-        // --- 7.2 LÓGICA DE ÍTEMS, TABLA DE DETALLE Y BOTÓN "AGREGAR" ---
         const itemsSelectEl = document.getElementById('buscadorItemsSaldo');
         const itemsUrl = formSaldoInicial.getAttribute('data-url-items') || '';
         const unidadesItemUrl = formSaldoInicial.getAttribute('data-url-item-unidades') || '';
@@ -863,7 +871,6 @@ window.initTesoreria = function() {
                 controlInput: '<input type="text" class="form-control shadow-none" autocomplete="off">',
                 
                 load: function(query, callback) {
-                    // Construimos la URL igual que con los terceros
                     const separador = itemsUrl.includes('?') ? '&' : '?';
                     const url = `${itemsUrl}${separador}q=${encodeURIComponent(query)}`;
 
@@ -911,7 +918,6 @@ window.initTesoreria = function() {
             });
         }
 
-        // Lógica de la tabla (BOM / Detalle de Compras)
         const tbody = document.querySelector('#tablaDetalleSaldos tbody');
         const filaVacia = document.getElementById('filaVaciaMensaje');
         const inputMontoSaldos = document.getElementById('saldoInicialMontoManual');
@@ -1162,7 +1168,6 @@ window.initTesoreria = function() {
             });
         }
 
-        // --- 7.3 FUNCIÓN MAESTRA DE CÁLCULO (Suma de Compras - Amortizaciones) ---
         function calcularSaldosReales() {
             let totalCompras = 0;
 
@@ -1173,10 +1178,8 @@ window.initTesoreria = function() {
                 });
             }
 
-            // Lógica final: Saldo Real = Compras - Amortizaciones
             let saldoReal = totalCompras - (totalAmortizacionesRemotas + totalAmortizacionesLocales);
             
-            // Seguridad: El saldo no debería ser negativo en este módulo
             if (saldoReal < 0) saldoReal = 0;
 
             if(inputMontoSaldos) {
@@ -1331,7 +1334,6 @@ window.initTesoreria = function() {
         transferOrigenSelect.addEventListener('change', function() {
             const origenId = this.value;
 
-            // Evitar que el destino sea igual al origen
             Array.from(transferDestinoSelect.options).forEach(opt => {
                 if (opt.value !== "" && opt.value === origenId) {
                     opt.disabled = true;
@@ -1340,12 +1342,10 @@ window.initTesoreria = function() {
                 }
             });
             
-            // Si la cuenta destino seleccionada es la misma que la nueva origen, limpiarla
             if (transferDestinoSelect.value === origenId) {
                 transferDestinoSelect.value = "";
             }
 
-            // Limitar el monto máximo al saldo de la cuenta origen
             const selectedOption = this.options[this.selectedIndex];
             if (selectedOption && selectedOption.value !== "") {
                 const saldo = parseFloat(selectedOption.getAttribute('data-saldo')) || 0;
@@ -1357,11 +1357,4 @@ window.initTesoreria = function() {
             }
         });
     }
-};
-
-// Evaluamos si es una recarga completa (Ctrl+F5) o una navegación interna (SPA)
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', window.initTesoreria);
-} else {
-    window.initTesoreria();
-}
+})();
