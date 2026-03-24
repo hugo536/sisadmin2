@@ -238,6 +238,13 @@ window.initTesoreria = function() {
                     opcion.selected = true; // Por defecto dejamos el placeholder
                     return;
                 }
+
+                const tieneAdvertencia = opcion.dataset.tieneAdvertencia === '1';
+                if (tieneAdvertencia) {
+                    opcion.hidden = true;
+                    opcion.disabled = true;
+                    return;
+                }
                 
                 // Si la opción contiene la moneda ej: "(PEN)"
                 if (opcion.textContent.includes(`(${moneda})`)) {

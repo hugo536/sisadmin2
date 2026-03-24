@@ -263,8 +263,12 @@ if (!empty($_GET['error'])) {
                             <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
-                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                    <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
+                                    <?php if (!$tieneAdvertenciaContable): ?>
+                                        <option
+                                            value="<?php echo (int) $c['id']; ?>"
+                                            data-tipo="<?php echo e($c['tipo']); ?>"
+                                            data-tiene-advertencia="0">
                                             <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
                                         </option>
                                     <?php endif; ?>
@@ -329,8 +333,12 @@ if (!empty($_GET['error'])) {
                             <select name="id_cuenta" id="selectCuentaDestino" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
-                                    <?php if (!empty($c['id_cuenta_contable'])): ?>
-                                        <option value="<?php echo (int) $c['id']; ?>" data-tipo="<?php echo e($c['tipo']); ?>">
+                                    <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
+                                    <?php if (!$tieneAdvertenciaContable): ?>
+                                        <option
+                                            value="<?php echo (int) $c['id']; ?>"
+                                            data-tipo="<?php echo e($c['tipo']); ?>"
+                                            data-tiene-advertencia="0">
                                             <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
                                         </option>
                                     <?php endif; ?>
@@ -398,4 +406,3 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 <script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
-
