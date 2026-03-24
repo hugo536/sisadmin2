@@ -18,45 +18,85 @@ class TesoreriaMovimientoModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function listarRecientes(array $filtros = [], int $limite = 20): array
+    public function listarRecientes(array $filtros = [], int $limite = 50): array
     {
-        $where = ['m.deleted_at IS NULL'];
+        $origenFilter = strtoupper(trim((string) ($filtros['origen'] ?? '')));
+        $idOrigenFilter = (int) ($filtros['id_origen'] ?? 0);
+        $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
+
         $params = [];
-
-        $origen = strtoupper(trim((string) ($filtros['origen'] ?? '')));
-        if (in_array($origen, ['CXC', 'CXP'], true)) {
-            $where[] = 'm.origen = :origen';
-            $params['origen'] = $origen;
+        
+        // --- QUERY 1: Movimientos Normales ---
+        $whereMov = ['m.deleted_at IS NULL'];
+        if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
+            $whereMov[] = 'm.origen = :origen_mov';
+            $params['origen_mov'] = $origenFilter;
+        }
+        if ($idOrigenFilter > 0) {
+            $whereMov[] = 'm.id_origen = :id_origen_mov';
+            $params['id_origen_mov'] = $idOrigenFilter;
+        }
+        if ($idTerceroFilter > 0) {
+            $whereMov[] = 'm.id_tercero = :id_tercero_mov';
+            $params['id_tercero_mov'] = $idTerceroFilter;
         }
 
-        $idOrigen = (int) ($filtros['id_origen'] ?? 0);
-        if ($idOrigen > 0) {
-            $where[] = 'm.id_origen = :id_origen';
-            $params['id_origen'] = $idOrigen;
+        $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
+                          COALESCE(c.codigo, "S/C") AS cuenta_codigo, 
+                          COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
+                          COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre,
+                          m.created_at
+                   FROM tesoreria_movimientos m
+                   LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
+                   LEFT JOIN terceros t ON t.id = m.id_tercero
+                   WHERE ' . implode(' AND ', $whereMov);
+
+        // --- QUERY 2: Transferencias (Salidas y Entradas) ---
+        $whereTrf = ['trf.deleted_at IS NULL'];
+        $addTransfers = true;
+        
+        if ($origenFilter !== '' && $origenFilter !== 'TRANSFERENCIA') {
+            $addTransfers = false; // Solo quieren ver CXC o CXP
+        }
+        if ($idOrigenFilter > 0) {
+            $whereTrf[] = 'trf.id = :id_origen_trf';
+            $params['id_origen_trf'] = $idOrigenFilter;
+        }
+        if ($idTerceroFilter > 0) {
+            $addTransfers = false; // Las transferencias son internas, no tienen tercero
         }
 
-        $idTercero = (int) ($filtros['id_tercero'] ?? 0);
-        if ($idTercero > 0) {
-            $where[] = 'm.id_tercero = :id_tercero';
-            $params['id_tercero'] = $idTercero;
+        if ($addTransfers) {
+            // Un egreso por la cuenta origen
+            $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado,
+                                 COALESCE(co.codigo, "S/C") AS cuenta_codigo,
+                                 COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre,
+                                 "Cuentas Propias" AS tercero_nombre,
+                                 trf.created_at
+                          FROM tesoreria_transferencias trf
+                          LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen
+                          WHERE ' . implode(' AND ', $whereTrf);
+
+            // Un ingreso por la cuenta destino
+            $sqlTrfIn = 'SELECT trf.id, trf.fecha, "COBRO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado,
+                                 COALESCE(cd.codigo, "S/C") AS cuenta_codigo,
+                                 COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre,
+                                 "Cuentas Propias" AS tercero_nombre,
+                                 trf.created_at
+                          FROM tesoreria_transferencias trf
+                          LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino
+                          WHERE ' . implode(' AND ', $whereTrf);
+
+            $sqlFinal = "($sqlMov) UNION ALL ($sqlTrfOut) UNION ALL ($sqlTrfIn) ORDER BY fecha DESC, created_at DESC LIMIT :limite";
+        } else {
+            $sqlFinal = "$sqlMov ORDER BY fecha DESC, created_at DESC LIMIT :limite";
         }
 
-        $sql = 'SELECT m.*, 
-                       COALESCE(c.codigo, "S/C") AS cuenta_codigo, 
-                       COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
-                       COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre
-                FROM tesoreria_movimientos m
-                LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
-                LEFT JOIN terceros t ON t.id = m.id_tercero
-                WHERE ' . implode(' AND ', $where) . '
-                ORDER BY m.id DESC
-                LIMIT :limite';
-
-        $stmt = $this->db()->prepare($sql);
+        $stmt = $this->db()->prepare($sqlFinal);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v);
         }
-        $stmt->bindValue('limite', $limite, PDO::PARAM_INT);
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
         $stmt->execute();
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -81,7 +121,6 @@ class TesoreriaMovimientoModel extends Modelo
                 throw new RuntimeException('El monto de la transacción debe ser mayor a cero.');
             }
 
-            // 1. Obtener datos del documento origen (CXC o CXP)
             if ($origen === 'CXC') {
                 $stmtOrigen = $db->prepare('SELECT id, id_cliente AS id_tercero, moneda, saldo, estado FROM tesoreria_cxc WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
             } elseif ($origen === 'CXP') {
@@ -124,15 +163,12 @@ class TesoreriaMovimientoModel extends Modelo
                 }
             }
 
-            // 2. Validar cuenta de tesorería y OBTENER VINCULACIÓN CONTABLE
-            // 
             $stmtCuenta = $db->prepare('SELECT id, moneda, estado FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
             $stmtCuenta->execute(['id' => (int) $data['id_cuenta']]);
             $cuentaTes = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
             
             if (!$cuentaTes || (int)$cuentaTes['estado'] !== 1) throw new RuntimeException('La cuenta de tesorería está inactiva.');
 
-            // 3. Insertar el movimiento de tesorería
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
                 (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
@@ -159,17 +195,14 @@ class TesoreriaMovimientoModel extends Modelo
             ]);
             $idMovimiento = (int) $db->lastInsertId();
 
-            // 4. Actualizar saldo en origen
             $tablaOrigen = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
             $stmtUpd = $db->prepare("UPDATE $tablaOrigen SET monto_pagado = ROUND(monto_pagado + :monto_aplica, 4), updated_by = :user, updated_at = NOW() WHERE id = :id");
             $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
-            // 5. REGISTRO CONTABLE AUTOMÁTICO USANDO LA CUENTA VINCULADA
-            // 
             $contaModel = new ContaAsientoModel();
             $contaModel->registrarAutomaticoTesoreria($db, [
                 'id_movimiento'      => $idMovimiento,
-                'tipo'               => strtoupper(trim((string)$data['tipo'])), // COBRO o PAGO
+                'tipo'               => strtoupper(trim((string)$data['tipo'])), 
                 'fecha'              => (string)$data['fecha'],
                 'monto'              => $monto,
                 'id_cuenta_tesoreria' => (int)$data['id_cuenta'],
@@ -192,8 +225,6 @@ class TesoreriaMovimientoModel extends Modelo
     public function registrarDistribuido(array $data, array $idsOrigen, int $userId): array
     {
         $db = $this->db();
-        
-        // Verificamos si ya estamos en una transacción para no anidar
         $localTx = !$db->inTransaction();
         if ($localTx) {
             $db->beginTransaction();
@@ -210,25 +241,19 @@ class TesoreriaMovimientoModel extends Modelo
             $idsAplicados = [];
 
             foreach ($idsOrigen as $idOrigen) {
-                // Si ya no nos queda dinero en el bolsillo, detenemos el bucle
                 if ($restante <= 0) break;
 
-                // 1. OBTENEMOS EL SALDO REAL DE ESTA FACTURA ESPECÍFICA
                 $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
                 $stmtSaldo = $db->prepare("SELECT saldo FROM $tabla WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE");
                 $stmtSaldo->execute(['id' => $idOrigen]);
                 $saldoDocumento = round((float) $stmtSaldo->fetchColumn(), 4);
 
-                // Si por alguna razón la factura ya está pagada (saldo 0), saltamos a la siguiente
                 if ($saldoDocumento <= 0) {
                     continue;
                 }
 
-                // 2. MAGIA FIFO: ¿Cuánto vamos a pagar aquí? 
-                // Elegimos el valor menor entre lo que nos queda en el bolsillo y lo que debe la factura.
                 $montoAPagarAqui = min($restante, $saldoDocumento);
 
-                // 3. Registramos el pago pasándole el monto exacto calculado
                 $pagoAqui = $this->registrar([
                     'tipo'           => $tipo,
                     'origen'         => $origen,
@@ -237,20 +262,15 @@ class TesoreriaMovimientoModel extends Modelo
                     'id_metodo_pago' => (int)$data['id_metodo_pago'],
                     'fecha'          => $data['fecha'],
                     'moneda'         => $moneda,
-                    'monto'          => $montoAPagarAqui, // <-- AQUÍ ESTÁ LA CORRECCIÓN CLAVE
+                    'monto'          => $montoAPagarAqui,
                     'referencia'     => $data['referencia'],
                     'observaciones'  => $data['observaciones']
                 ], $userId);
 
-                // 4. Descontamos lo que acabamos de pagar del bolsillo
                 $restante = round($restante - $montoAPagarAqui, 4);
                 $movimientosCount++;
                 $idsAplicados[] = (int)$idOrigen;
             }
-
-            // Opcional: Si $restante > 0 al final del bucle, significa que el usuario pagó
-            // MÁS de lo que el proveedor debía en total. Por ahora, ese dinero "sobrante" no se registra,
-            // pero el FIFO aplicará correctamente a todo lo que debía.
 
             if ($localTx) {
                 $db->commit();
@@ -292,16 +312,13 @@ class TesoreriaMovimientoModel extends Modelo
                 }
             }
 
-            // 1. Revertir saldo en CXC/CXP
             $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
             $stmtUpd = $db->prepare("UPDATE $tabla SET monto_pagado = GREATEST(ROUND(monto_pagado - :monto_aplica, 4), 0), updated_by = :user, updated_at = NOW() WHERE id = :id");
             $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
-            // 2. Marcar movimiento como anulado
             $db->prepare('UPDATE tesoreria_movimientos SET estado = "ANULADO", updated_by = :user, updated_at = NOW() WHERE id = :id')
                ->execute(['id' => $idMovimiento, 'user' => $userId]);
 
-            // 3. Anular asiento contable asociado
             $stmtAs = $db->prepare('SELECT id FROM conta_asientos WHERE origen_modulo = "TESORERIA" AND id_origen = :id_mov AND estado = "REGISTRADO" LIMIT 1');
             $stmtAs->execute(['id_mov' => $idMovimiento]);
             $idAsiento = (int)$stmtAs->fetchColumn();
@@ -321,17 +338,32 @@ class TesoreriaMovimientoModel extends Modelo
 
     public function resumenPorCuenta(): array
     {
-        $sql = 'SELECT res.id, res.codigo, res.nombre, res.moneda, res.ingresos, res.egresos, (res.ingresos - res.egresos) AS saldo_teorico
-                FROM (
-                    SELECT c.id, c.codigo, c.nombre, c.moneda,
-                           COALESCE(SUM(CASE WHEN m.estado = "CONFIRMADO" AND m.tipo = "COBRO" AND DATE(m.fecha) = CURDATE() THEN m.monto ELSE 0 END), 0) AS ingresos,
-                           COALESCE(SUM(CASE WHEN m.estado = "CONFIRMADO" AND m.tipo = "PAGO" AND DATE(m.fecha) = CURDATE() THEN m.monto ELSE 0 END), 0) AS egresos
-                    FROM tesoreria_cuentas c
-                    LEFT JOIN tesoreria_movimientos m ON m.id_cuenta = c.id AND m.deleted_at IS NULL
-                    WHERE c.deleted_at IS NULL AND c.estado = 1
-                    GROUP BY c.id, c.codigo, c.nombre, c.moneda
-                ) res
-                ORDER BY res.nombre ASC';
+        $sql = 'SELECT c.id, c.codigo, c.nombre, c.moneda,
+                (
+                    -- Ingresos = COBROS normales + TRANSFERENCIAS ENTRANTES
+                    COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "COBRO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
+                    COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_destino = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
+                ) AS ingresos,
+                (
+                    -- Egresos = PAGOS normales + TRANSFERENCIAS SALIENTES
+                    COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "PAGO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
+                    COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_origen = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
+                ) AS egresos,
+                (
+                    -- Saldo = Ingresos - Egresos
+                    (
+                        COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "COBRO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
+                        COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_destino = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
+                    ) - 
+                    (
+                        COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "PAGO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
+                        COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_origen = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
+                    )
+                ) AS saldo_teorico
+                FROM tesoreria_cuentas c
+                WHERE c.deleted_at IS NULL AND c.estado = 1
+                ORDER BY c.nombre ASC';
+                
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

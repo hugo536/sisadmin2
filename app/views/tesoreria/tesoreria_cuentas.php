@@ -174,22 +174,22 @@ $camposBloqueadosEdicion = $esEdicion;
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted fw-bold mb-1">Cuenta origen <span class="text-danger">*</span></label>
-                        <select class="form-select shadow-none" name="id_cuenta_origen" required>
+                        <select class="form-select shadow-none" name="id_cuenta_origen" id="selectCuentaOrigen" required>
                             <option value="">Seleccione...</option>
                             <?php foreach ($cuentasActivas as $cta): ?>
-                                <option value="<?php echo (int) ($cta['id'] ?? 0); ?>">
-                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '') . ' (' . (string) ($cta['moneda'] ?? '') . ')'); ?>
+                                <option value="<?php echo (int) ($cta['id'] ?? 0); ?>" data-saldo="<?php echo (float) ($cta['saldo_actual'] ?? 0); ?>">
+                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '')); ?> | Saldo: <?php echo e((string) ($cta['moneda'] ?? '')); ?> <?php echo number_format((float) ($cta['saldo_actual'] ?? 0), 2); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted fw-bold mb-1">Cuenta destino <span class="text-danger">*</span></label>
-                        <select class="form-select shadow-none" name="id_cuenta_destino" required>
+                        <select class="form-select shadow-none" name="id_cuenta_destino" id="selectCuentaDestino" required>
                             <option value="">Seleccione...</option>
                             <?php foreach ($cuentasActivas as $cta): ?>
                                 <option value="<?php echo (int) ($cta['id'] ?? 0); ?>">
-                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '') . ' (' . (string) ($cta['moneda'] ?? '') . ')'); ?>
+                                    <?php echo e((string) ($cta['codigo'] ?? '') . ' - ' . (string) ($cta['nombre'] ?? '')); ?> | Saldo: <?php echo e((string) ($cta['moneda'] ?? '')); ?> <?php echo number_format((float) ($cta['saldo_actual'] ?? 0), 2); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -207,7 +207,7 @@ $camposBloqueadosEdicion = $esEdicion;
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
-                        <input type="number" step="0.0001" min="0.0001" class="form-control shadow-none" name="monto" required>
+                        <input type="number" step="0.0001" min="0.0001" class="form-control shadow-none" name="monto" id="inputMontoTransferencia" required>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label small text-muted fw-bold mb-1">Referencia</label>

@@ -72,19 +72,35 @@ class TesoreriaController extends Controlador
     public function registrar_transferencia_interna(): void
     {
         AuthMiddleware::handle();
-        require_permiso('tesoreria.pagos.registrar');
+        require_permiso('tesoreria.pagos.registrar'); // OJO: Si tienes un permiso específico como 'tesoreria.transferencias.registrar', cámbialo aquí.
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
             redirect('tesoreria/cuentas');
         }
 
         try {
+            $idOrigen = (int) ($_POST['id_cuenta_origen'] ?? 0);
+            $idDestino = (int) ($_POST['id_cuenta_destino'] ?? 0);
+            $monto = round((float) ($_POST['monto'] ?? 0), 4);
+
+            // --- INICIO DE VALIDACIONES BACKEND DE SEGURIDAD ---
+            if ($idOrigen <= 0 || $idDestino <= 0) {
+                throw new RuntimeException('Debe seleccionar la cuenta origen y destino.');
+            }
+            if ($idOrigen === $idDestino) {
+                throw new RuntimeException('La cuenta de origen y destino no pueden ser la misma.');
+            }
+            if ($monto <= 0) {
+                throw new RuntimeException('El monto de la transferencia debe ser mayor a cero.');
+            }
+            // --- FIN DE VALIDACIONES ---
+
             $this->transferenciaModel->registrar([
-                'id_cuenta_origen' => (int) ($_POST['id_cuenta_origen'] ?? 0),
-                'id_cuenta_destino' => (int) ($_POST['id_cuenta_destino'] ?? 0),
+                'id_cuenta_origen' => $idOrigen,
+                'id_cuenta_destino' => $idDestino,
                 'fecha' => trim((string) ($_POST['fecha'] ?? '')),
                 'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
-                'monto' => round((float) ($_POST['monto'] ?? 0), 4),
+                'monto' => $monto,
                 'referencia' => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
             ], $this->obtenerUsuarioId());
@@ -670,16 +686,25 @@ class TesoreriaController extends Controlador
             $origen       = strtoupper(trim((string) ($_POST['origen'] ?? '')));
             $userId       = $this->obtenerUsuarioId();
 
-            if ($idMovimiento <= 0 || !in_array($origen, ['CXC', 'CXP'], true)) {
+            // CORRECCIÓN: Agregamos 'TRANSFERENCIA' a los orígenes permitidos
+            if ($idMovimiento <= 0 || !in_array($origen, ['CXC', 'CXP', 'TRANSFERENCIA'], true)) {
                 throw new RuntimeException('Datos inválidos para anular el movimiento.');
             }
 
+            // Anulamos el movimiento en el ledger principal
             $this->movModel->anular($idMovimiento, $userId);
             
+            // Recalculamos estados dependiendo del origen
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
-            } else {
+            } elseif ($origen === 'CXP') {
                 $this->cxpModel->recalcularEstado($idOrigen, $userId);
+            } elseif ($origen === 'TRANSFERENCIA') {
+                // NOTA: Si en tu 'transferenciaModel' tienes un método para cambiar el estado 
+                // de la transferencia a 'ANULADO', deberías llamarlo aquí.
+                if (method_exists($this->transferenciaModel, 'anular')) {
+                    $this->transferenciaModel->anular($idOrigen, $userId);
+                }
             }
 
             redirect('tesoreria/movimientos?ok=1');

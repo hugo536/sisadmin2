@@ -64,6 +64,7 @@ if (!empty($_GET['error'])) {
                         <option value="">Todos los orígenes</option>
                         <option value="CXC" <?php echo (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : ''; ?>>Cuentas por Cobrar (CXC)</option>
                         <option value="CXP" <?php echo (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : ''; ?>>Cuentas por Pagar (CXP)</option>
+                        <option value="TRANSFERENCIA" <?php echo (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : ''; ?>>Transferencias Internas</option>
                     </select>
                 </div>
                 
@@ -176,14 +177,21 @@ if (!empty($_GET['error'])) {
                             <?php 
                                 $estado = (string) ($m['estado'] ?? '');
                                 $tipo = (string) ($m['tipo'] ?? '');
-                                $origen = (string) ($m['origen'] ?? '');
-                                $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
+                                $origen = strtoupper((string) ($m['origen'] ?? ''));
+                                
+                                // NUEVO: Lógica para manejar el "Tercero" en transferencias
+                                if ($origen === 'TRANSFERENCIA') {
+                                    $tercero = 'Cuentas Propias (Interno)';
+                                } else {
+                                    $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
+                                }
+
                                 $cuenta = (string) ($m['cuenta_codigo'] ?? '') . ' - ' . (string) ($m['cuenta_nombre'] ?? '');
                                 
                                 // String de búsqueda
                                 $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado);
                                 
-                                // Color del monto (Verde para cobros, Rojo para pagos)
+                                // Color del monto (Verde para cobros/ingresos, Rojo para pagos/egresos)
                                 $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
                                 $montoSigno = $tipo === 'COBRO' ? '+' : '-';
                             ?>
@@ -205,9 +213,15 @@ if (!empty($_GET['error'])) {
                                     <?php echo e($tercero); ?>
                                 </td>
                                 <td class="text-center align-top pt-3">
-                                    <span class="badge bg-light text-secondary border border-secondary-subtle">
-                                        <?php echo e($origen); ?> #<?php echo (int) ($m['id_origen'] ?? 0); ?>
-                                    </span>
+                                    <?php if($origen === 'TRANSFERENCIA'): ?>
+                                        <span class="badge bg-info-subtle text-info border border-info-subtle" title="ID Transferencia: <?php echo (int) ($m['id_origen'] ?? 0); ?>">
+                                            <i class="bi bi-arrow-left-right me-1"></i> TRF #<?php echo (int) ($m['id_origen'] ?? 0); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-secondary border border-secondary-subtle">
+                                            <?php echo e($origen); ?> #<?php echo (int) ($m['id_origen'] ?? 0); ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="align-top pt-3 text-muted small">
                                     <?php echo e($cuenta); ?>

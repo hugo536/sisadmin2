@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 class TesoreriaCuentaModel extends Modelo
 {
-    /**
-     * Lista las cuentas activas para su uso en formularios de cobro/pago.
-     */
     public function listarActivas(): array
     {
         $sql = 'SELECT c.id,
@@ -50,9 +47,6 @@ class TesoreriaCuentaModel extends Modelo
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * Lista las cuentas para el panel de gestión de tesorería.
-     */
     public function listarGestion(): array
     {
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
@@ -101,9 +95,6 @@ class TesoreriaCuentaModel extends Modelo
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * Guarda o actualiza una cuenta de tesorería.
-     */
     public function guardar(array $payload, int $userId): int
     {
         $id = (int) ($payload['id'] ?? 0);
@@ -126,7 +117,6 @@ class TesoreriaCuentaModel extends Modelo
             'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : 1,
         ];
 
-        // --- VALIDACIONES ---
         if ($data['nombre'] === '') throw new RuntimeException('El nombre es obligatorio.');
         if (!in_array($data['tipo'], ['CAJA', 'BANCO', 'BILLETERA'], true)) throw new RuntimeException('Tipo de cuenta inválido.');
         if (!in_array($data['moneda'], ['PEN', 'USD'], true)) throw new RuntimeException('Moneda inválida.');
@@ -138,7 +128,6 @@ class TesoreriaCuentaModel extends Modelo
                 throw new RuntimeException('La cuenta de tesorería no existe o fue eliminada.');
             }
 
-            // Campos bloqueados en edición
             $data['codigo'] = (string) ($cuentaActual['codigo'] ?? '');
             $data['config_banco_id'] = (int) ($cuentaActual['config_banco_id'] ?? 0);
             $data['titular'] = (string) ($cuentaActual['titular'] ?? '');
@@ -152,11 +141,9 @@ class TesoreriaCuentaModel extends Modelo
             }
 
         } elseif ($data['codigo'] === '') {
-            // Autogenerar código si es necesario
             $data['codigo'] = $this->generarCodigoDisponible($data['tipo']);
         }
 
-        // Limpiar datos según el tipo de cuenta
         $data['config_banco_id'] = $data['config_banco_id'] > 0 ? $data['config_banco_id'] : null;
         $data['fecha_saldo_inicial'] = $data['fecha_saldo_inicial'] !== '' ? $data['fecha_saldo_inicial'] : null;
         
@@ -170,7 +157,6 @@ class TesoreriaCuentaModel extends Modelo
 
         $db = $this->db();
         
-        // Verificar código duplicado
         $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL AND id <> :id LIMIT 1');
         $stmtExiste->execute(['codigo' => $data['codigo'], 'id' => $id]);
         if ($stmtExiste->fetch(PDO::FETCH_ASSOC)) {
@@ -181,7 +167,6 @@ class TesoreriaCuentaModel extends Modelo
 
         try {
             if ($id > 0) {
-                // --- UPDATE ---
                 $sql = 'UPDATE tesoreria_cuentas SET
                         codigo = :codigo, nombre = :nombre, tipo = :tipo, moneda = :moneda,
                         config_banco_id = :config_banco_id,
@@ -198,7 +183,6 @@ class TesoreriaCuentaModel extends Modelo
                 return $id;
             }
 
-            // --- INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
                      permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, observaciones,
@@ -299,8 +283,13 @@ class TesoreriaCuentaModel extends Modelo
         $stmtMov->execute(['id_cuenta' => $id]);
         $totalMov = (int) $stmtMov->fetchColumn();
 
-        if ($totalMov > 0) {
-            throw new RuntimeException('No se puede eliminar la cuenta porque ya tiene movimientos registrados.');
+        // --- NUEVO: Validar que no tenga transferencias tampoco ---
+        $stmtTrf = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_transferencias WHERE (id_cuenta_origen = :id OR id_cuenta_destino = :id) AND deleted_at IS NULL');
+        $stmtTrf->execute(['id' => $id]);
+        $totalTrf = (int) $stmtTrf->fetchColumn();
+
+        if ($totalMov > 0 || $totalTrf > 0) {
+            throw new RuntimeException('No se puede eliminar la cuenta porque ya tiene movimientos o transferencias registradas.');
         }
 
         $stmt = $this->db()->prepare('UPDATE tesoreria_cuentas

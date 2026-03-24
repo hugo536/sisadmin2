@@ -1261,6 +1261,44 @@ window.initTesoreria = function() {
             });
         };
     }
+
+    // ========================================================================
+    // 8. LÓGICA DE TRANSFERENCIAS INTERNAS (Saldos y Validaciones)
+    // ========================================================================
+    const transferOrigenSelect = document.getElementById('selectCuentaOrigen');
+    const transferDestinoSelect = document.getElementById('selectCuentaDestino');
+    const transferMontoInput = document.getElementById('inputMontoTransferencia');
+
+    if (transferOrigenSelect && transferDestinoSelect && transferMontoInput) {
+        transferOrigenSelect.addEventListener('change', function() {
+            const origenId = this.value;
+
+            // Evitar que el destino sea igual al origen
+            Array.from(transferDestinoSelect.options).forEach(opt => {
+                if (opt.value !== "" && opt.value === origenId) {
+                    opt.disabled = true;
+                } else {
+                    opt.disabled = false;
+                }
+            });
+            
+            // Si la cuenta destino seleccionada es la misma que la nueva origen, limpiarla
+            if (transferDestinoSelect.value === origenId) {
+                transferDestinoSelect.value = "";
+            }
+
+            // Limitar el monto máximo al saldo de la cuenta origen
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.value !== "") {
+                const saldo = parseFloat(selectedOption.getAttribute('data-saldo')) || 0;
+                transferMontoInput.setAttribute('max', saldo);
+                transferMontoInput.setAttribute('title', 'Saldo máximo disponible: ' + saldo);
+            } else {
+                transferMontoInput.removeAttribute('max');
+                transferMontoInput.removeAttribute('title');
+            }
+        });
+    }
 };
 
 // Evaluamos si es una recarga completa (Ctrl+F5) o una navegación interna (SPA)
