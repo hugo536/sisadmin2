@@ -438,7 +438,8 @@ class ProduccionOrdenesModel extends Modelo
         string $justificacion = '', 
         ?string $fechaInicio = null, 
         ?string $fechaFin = null, 
-        float $horasParada = 0.0
+        float $horasParada = 0.0,
+        int $idCentroCosto = 0 // <--- NUEVO PARÁMETRO
     ): void {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
@@ -646,10 +647,7 @@ class ProduccionOrdenesModel extends Modelo
             $itemModel = new ItemModel();
             $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
-            $stmtCC = $db->prepare("SELECT id FROM conta_centros_costo WHERE codigo = 'PROD' OR nombre LIKE '%Planta%' LIMIT 1");
-            $stmtCC->execute();
-            $idCentroCostoPlanta = $stmtCC->fetchColumn() ?: null;
-
+            // <--- CAMBIO: AHORA USAMOS EL $idCentroCosto QUE VIENE POR PARÁMETRO
             $asientoModel = new ContaAsientoModel();
             $asientoModel->registrarAutomaticoProduccion($db, [
                 'id_orden' => $idOrden,
@@ -659,7 +657,7 @@ class ProduccionOrdenesModel extends Modelo
                 'costo_mod' => $costoModReal,
                 'costo_cif' => $costoCifReal,
                 'costo_total' => $costoRealTotal,
-                'id_centro_costo' => $idCentroCostoPlanta // ¡INYECCIÓN DEL DATO PARA LA REGLA DE ORO!
+                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null // Asignación de la variable
             ], $userId);
 
             $db->commit();
@@ -1003,5 +1001,19 @@ class ProduccionOrdenesModel extends Modelo
                 'obs' => 'Sub-orden auto-generada por faltante para OP principal: ' . $datosPadre['codigo']
             ]);
         }
+    }
+
+    // =====================================================================
+    // NUEVA FUNCIÓN PARA LISTAR LOS CENTROS DE COSTO
+    // =====================================================================
+    public function listarCentrosCosto(): array
+    {
+        $sql = 'SELECT id, codigo, nombre, estado 
+                FROM conta_centros_costo 
+                WHERE deleted_at IS NULL 
+                ORDER BY nombre ASC';
+                
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

@@ -3,6 +3,7 @@ $ordenes = $ordenes ?? [];
 $recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
 $almacenesPlanta = $almacenes_planta ?? [];
+$centros = $centros ?? []; // <-- Variable agregada para los centros de costo
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <style>
@@ -779,12 +780,32 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         </div>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="form-label small fw-bold text-secondary">Nota o Justificación de Cierre (Opcional)</label>
-                        <input type="text" name="justificacion" class="form-control shadow-none border-secondary-subtle" placeholder="Ej: Se utilizó material alternativo por quiebre de stock...">
-                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Centro de Costos <span class="text-danger">*</span></label>
+                            <select name="id_centro_costo" id="execCentroCosto" class="form-select shadow-none border-secondary-subtle" required>
+                                <option value="">Seleccione a dónde irá el gasto...</option>
+                                <?php if (!empty($centros)): ?>
+                                    <?php foreach ($centros as $c): ?>
+                                        <?php if ((int)$c['estado'] === 1): // Solo mostramos los activos ?>
+                                            <option value="<?php echo (int)$c['id']; ?>">
+                                                <?php echo e($c['codigo']); ?> - <?php echo e($c['nombre']); ?>
+                                            </option>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="" disabled>No hay centros de costo registrados</option>
+                                <?php endif; ?>
+                            </select>
+                            <div class="form-text" style="font-size: 0.7rem;">Requerido para la salida de insumos por consumo.</div>
+                        </div>
 
-                </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Nota o Justificación de Cierre (Opcional)</label>
+                            <input type="text" name="justificacion" class="form-control shadow-none border-secondary-subtle" placeholder="Ej: Se utilizó material alternativo...">
+                        </div>
+                    </div>
+                    </div>
 
                 <div class="modal-footer bg-white border-top shadow-sm">
                     <button type="button" class="btn btn-light border fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>

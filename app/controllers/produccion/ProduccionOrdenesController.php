@@ -314,10 +314,11 @@ class ProduccionOrdenesController extends Controlador
                     $fechaInicio = trim((string) ($_POST['fecha_inicio'] ?? '')) ?: null;
                     $fechaFin = trim((string) ($_POST['fecha_fin'] ?? '')) ?: null;
                     
-                    // NUEVO: Capturamos las horas de parada
+                    // Capturamos las variables nuevas
                     $horasParada = $this->parseDecimal($_POST['horas_parada'] ?? 0);
+                    $idCentroCosto = (int) ($_POST['id_centro_costo'] ?? 0); // <--- CAMBIO 1: Capturamos el Centro de Costos
 
-                    // 1. Procesar Consumos (Igual que antes)
+                    // 1. Procesar Consumos
                     $consumos = [];
                     $consIdsInsumo = $_POST['consumo_id_insumo'] ?? [];
                     $consIdsAlmacen = $_POST['consumo_id_almacen'] ?? [];
@@ -340,7 +341,7 @@ class ProduccionOrdenesController extends Controlador
                         throw new Exception('Debe registrar al menos un consumo de insumos.');
                     }
 
-                    // 2. Procesar Ingresos (Igual que antes)
+                    // 2. Procesar Ingresos
                     $ingresos = [];
                     $ingIdsAlmacen = $_POST['ingreso_id_almacen'] ?? [];
                     $ingCantidades = $_POST['ingreso_cantidad'] ?? [];
@@ -366,7 +367,7 @@ class ProduccionOrdenesController extends Controlador
                         throw new Exception('Debe registrar al menos un ingreso de producto terminado.');
                     }
 
-                    // 3. Ejecutar en el Modelo (¡NUEVO FORMATO LIMPIO!)
+                    // 3. Ejecutar en el Modelo
                     $this->produccionOrdenesModel->ejecutarOrden(
                         $idOrden,
                         $consumos,
@@ -375,7 +376,8 @@ class ProduccionOrdenesController extends Controlador
                         $justificacion,
                         $fechaInicio,
                         $fechaFin,
-                        $horasParada // <--- Solo enviamos este decimal
+                        $horasParada,
+                        $idCentroCosto // <--- CAMBIO 2: Pasamos el ID al modelo
                     );
 
                     $this->setFlash('success', 'Orden ejecutada y costeada correctamente por Tarifa de Planta.');
@@ -406,6 +408,7 @@ class ProduccionOrdenesController extends Controlador
             'recetas_activas' => $this->produccionOrdenesModel->listarRecetasActivas(),
             'almacenes' => $this->produccionOrdenesModel->listarAlmacenesActivos(),
             'almacenes_planta' => $this->produccionOrdenesModel->listarAlmacenesActivosPorTipo('Planta'),
+            'centros' => $this->produccionOrdenesModel->listarCentrosCosto(), // <--- CAMBIO 3: Enviamos los centros a la vista
             'ruta_actual' => 'produccion/ordenes',
         ]);
     }
