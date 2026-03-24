@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
-require_once BASE_PATH . '/app/models/inventario/InventarioModel.php'; // <-- 1. AÑADIMOS EL MODELO DE INVENTARIO
+require_once BASE_PATH . '/app/models/inventario/InventarioModel.php'; 
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 
@@ -13,14 +13,14 @@ class VentasController extends Controlador
 {
     private VentasDocumentoModel $documentoModel;
     private VentasDespachoModel $despachoModel;
-    private InventarioModel $inventarioModel; // <-- 2. DECLARAMOS LA PROPIEDAD
+    private InventarioModel $inventarioModel; 
     private TesoreriaCxcModel $tesoreriaCxcModel;
 
     public function __construct()
     {
         $this->documentoModel = new VentasDocumentoModel();
         $this->despachoModel = new VentasDespachoModel();
-        $this->inventarioModel = new InventarioModel(); // <-- 3. INICIALIZAMOS EL MODELO
+        $this->inventarioModel = new InventarioModel(); 
         $this->tesoreriaCxcModel = new TesoreriaCxcModel();
     }
 
@@ -42,26 +42,24 @@ class VentasController extends Controlador
             return;
         }
 
-        // 2. Ver Detalle Venta (AJAX) - ¡MODIFICADO PARA STOCK INTELIGENTE!
+        // 2. Ver Detalle Venta (AJAX) 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
             $id = (int) ($_GET['id'] ?? 0);
             $venta = $this->documentoModel->obtener($id);
 
-            // --- NUEVO: Anexar almacenes con stock a cada línea del detalle ---
+            // Anexar almacenes con stock a cada línea del detalle
             if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
                 foreach ($venta['detalle'] as &$linea) {
                     $idItem = (int) ($linea['id_item'] ?? 0);
-                    // Consultamos qué almacenes tienen stock de este ítem específico
                     $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItem);
                 }
             }
-            // ------------------------------------------------------------------
 
             json_response(['ok' => true, 'data' => $venta]);
             return;
         }
 
-        // 3. Buscador de Clientes (AJAX para Select2 o similar)
+        // 3. Buscador de Clientes (AJAX)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
             json_response(['ok' => true, 'data' => $this->documentoModel->buscarClientes($q)]);
@@ -97,9 +95,58 @@ class VentasController extends Controlador
         }
 
         // 5. Renderizado de Vista Principal
+
+        // --- NUEVO: Generar PDF (Profesional) ---
+        if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
+            $id = (int) ($_GET['id'] ?? 0);
+            if ($id <= 0) {
+                die('ID de pedido inválido.');
+            }
+
+            // Obtenemos los datos completos del pedido
+            $venta = $this->documentoModel->obtener($id);
+            if (empty($venta)) {
+                die('El pedido no existe.');
+            }
+
+            // --- NUEVO: Obtenemos los datos de la empresa ---
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php'; // <-- Agrega la subcarpeta correcta aquí
+            $empresaModel = new EmpresaModel();
+            $config = $empresaModel->obtener();
+
+            // Requerimos el autoloader de Composer
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            // Usamos Dompdf
+            $dompdf = new \Dompdf\Dompdf();
+            
+            // Opciones para cargar imágenes y logos
+            $options = $dompdf->getOptions();
+            $options->set(array('isRemoteEnabled' => true));
+            $dompdf->setOptions($options);
+
+            // 1. Capturamos el HTML
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_pedido.php';
+            $html = ob_get_clean();
+
+            // 2. Cargamos el HTML en Dompdf
+            $dompdf->loadHtml($html);
+
+            // 3. Papel A4 vertical
+            $dompdf->setPaper('A4', 'portrait');
+
+            // 4. Renderizamos
+            $dompdf->render();
+
+            // 5. Mostrar en el navegador
+            $dompdf->stream('Despacho_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
+            return;
+        }
+
         $this->render('ventas', [
             'ruta_actual' => 'ventas',
-            'ventas' => $this->documentoModel->listar($filtros), // Carga inicial
+            'ventas' => $this->documentoModel->listar($filtros),
             'filtros' => $filtros,
             'almacenes' => $this->documentoModel->listarAlmacenesActivos(),
         ]);
@@ -120,7 +167,6 @@ class VentasController extends Controlador
             $userId = $this->obtenerUsuarioId();
 
             $idCliente = (int) ($payload['id_cliente'] ?? 0);
-            // Capturamos la fecha de emisión (si viene vacía, el modelo pondrá HOY)
             $fechaEmision = !empty($payload['fecha_emision']) ? trim((string) $payload['fecha_emision']) : null;
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
@@ -133,7 +179,6 @@ class VentasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem al pedido.');
             }
 
-            // Recálculo de seguridad en Backend + validaciones de negocio.
             $total = 0.0;
             $itemsUnicos = [];
             $cantidadesPorItem = [];
@@ -163,19 +208,25 @@ class VentasController extends Controlador
                 $total += $cantidad * $precio;
             }
 
+            // ==========================================
+            // CÓDIGO COMENTADO: Validación de Stock
+            // Esto permite guardar el pedido sin importar si la cantidad supera el stock.
+            // ==========================================
+            /*
             foreach ($cantidadesPorItem as $idItem => $cantidadSolicitada) {
                 $stockActual = $this->documentoModel->obtenerStockDisponibleItem((int) $idItem);
                 if ($cantidadSolicitada > $stockActual) {
                     throw new RuntimeException('No puede registrar cantidades mayores al stock disponible.');
                 }
             }
+            */
 
             $id = $this->documentoModel->crearOActualizar([
                 'id' => (int) ($payload['id'] ?? 0),
                 'id_cliente' => $idCliente,
-                'fecha_emision' => $fechaEmision, // Agregado al payload
+                'fecha_emision' => $fechaEmision, 
                 'observaciones' => $observaciones,
-                'subtotal' => round($total, 2), // Asumiendo sin impuestos por ahora
+                'subtotal' => round($total, 2), 
                 'total' => round($total, 2),
             ], $detalle, $userId);
 
@@ -244,48 +295,46 @@ class VentasController extends Controlador
         }
     }
 
-    public function despachar()
+    public function despachar(): void
     {
-        // Verificar si es AJAX
+        // BUG FIX: Se agregó el AuthMiddleware y el formato estandarizado
+        AuthMiddleware::handle();
+        // require_permiso('ventas.despachar'); // Descomenta esta línea si tienes este permiso configurado
+
         if (!es_ajax()) {
-            http_response_code(400); // Bad Request
-            echo json_encode(['ok' => false, 'mensaje' => 'Acceso denegado']);
+            json_response(['ok' => false, 'mensaje' => 'Acceso denegado'], 400);
             return;
-        }
-
-        $data = json_decode(file_get_contents('php://input'), true);
-        
-        $idDocumento = (int) ($data['id_documento'] ?? 0);
-        $cerrarForzado = (bool) ($data['cerrar_forzado'] ?? false);
-        $observaciones = trim($data['observaciones'] ?? '');
-        $detalle = $data['detalle'] ?? [];
-
-        // VALIDACIÓN MODIFICADA: Ya no exigimos 'id_almacen' global
-        if ($idDocumento <= 0) {
-            echo json_encode(['ok' => false, 'mensaje' => 'Documento inválido']);
-            return;
-        }
-
-        if (empty($detalle) || !is_array($detalle)) {
-            echo json_encode(['ok' => false, 'mensaje' => 'No hay ítems para despachar']);
-            return;
-        }
-
-        // Validamos que CADA línea tenga su almacén
-        foreach ($detalle as $linea) {
-            if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {
-                echo json_encode(['ok' => false, 'mensaje' => 'Error: Hay filas sin almacén seleccionado.']);
-                return;
-            }
         }
 
         try {
-            // Llamamos al modelo (Nota: ya no pasamos un ID Almacén único)
-            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $_SESSION['user_id'] ?? 1);
+            $data = $this->leerJson(); // BUG FIX: Usamos el helper en lugar de file_get_contents
             
-            echo json_encode(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
-        } catch (Exception $e) {
-            echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()]);
+            $idDocumento = (int) ($data['id_documento'] ?? 0);
+            $cerrarForzado = (bool) ($data['cerrar_forzado'] ?? false);
+            $observaciones = trim($data['observaciones'] ?? '');
+            $detalle = $data['detalle'] ?? [];
+
+            if ($idDocumento <= 0) {
+                throw new RuntimeException('Documento inválido');
+            }
+
+            if (empty($detalle) || !is_array($detalle)) {
+                throw new RuntimeException('No hay ítems para despachar');
+            }
+
+            foreach ($detalle as $linea) {
+                if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {
+                    throw new RuntimeException('Error: Hay filas sin almacén seleccionado.');
+                }
+            }
+
+            $userId = $this->obtenerUsuarioId(); // BUG FIX: Usamos el helper seguro para el ID
+
+            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId);
+            
+            json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
         }
     }
 
@@ -309,4 +358,6 @@ class VentasController extends Controlador
         }
         return $id;
     }
+
+    
 }

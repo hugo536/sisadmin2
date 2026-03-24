@@ -107,8 +107,10 @@ $estadoLabels = [
                                             <?php elseif ($estado === 2): ?> 
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                             <?php else: ?> 
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -167,11 +169,8 @@ $estadoLabels = [
 
                     <div class="card border-0 shadow-sm">
                         <div class="card-body p-0">
-                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-white rounded-top">
+                            <div class="p-3 border-bottom bg-white rounded-top">
                                 <h6 class="mb-0 fw-bold text-dark">Detalle de Productos</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar Producto
-                                </button>
                             </div>
                             
                             <div class="table-responsive">
@@ -189,7 +188,13 @@ $estadoLabels = [
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="4" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL PEDIDO:</td>
+                                            <td colspan="3" class="ps-3 py-3 align-middle">
+                                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
+                                                    <i class="bi bi-plus-lg me-1"></i>Agregar Producto
+                                                </button>
+                                            </td>
+                                            
+                                            <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL PEDIDO:</td>
                                             <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ventaTotal">S/ 0.00</td>
                                             <td></td>
                                         </tr>
@@ -303,3 +308,14 @@ $estadoLabels = [
     </tr>
 </template>
 
+<script>
+    // Función para imprimir el PDF
+    function imprimirPedido(id) {
+        const app = document.getElementById('ventasApp');
+        if (!app) return;
+        const baseUrl = app.dataset.urlIndex;
+        
+        // Abrimos la ruta de imprimir en una nueva pestaña
+        window.open(`${baseUrl}&accion=imprimir&id=${id}`, '_blank');
+    }
+</script>

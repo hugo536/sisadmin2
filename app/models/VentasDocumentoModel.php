@@ -50,10 +50,16 @@ class VentasDocumentoModel extends Modelo
 
     public function obtener(int $idDocumento): array
     {
-        $sql = 'SELECT id, codigo, id_cliente, fecha_emision, observaciones, subtotal, total, estado
-                FROM ventas_documentos
-                WHERE id = :id
-                  AND deleted_at IS NULL
+        // AÑADIMOS EL LEFT JOIN PARA TRAER LOS DATOS DEL TERCERO (CLIENTE)
+        $sql = 'SELECT v.id, v.codigo, v.id_cliente, 
+                       t.nombre_completo AS cliente, 
+                       t.numero_documento AS cliente_doc, 
+                       t.direccion AS cliente_direccion, 
+                       v.fecha_emision, v.observaciones, v.subtotal, v.total, v.estado
+                FROM ventas_documentos v
+                LEFT JOIN terceros t ON t.id = v.id_cliente
+                WHERE v.id = :id
+                  AND v.deleted_at IS NULL
                 LIMIT 1';
 
         $stmt = $this->db()->prepare($sql);
@@ -64,6 +70,7 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
+        // MODIFICACIÓN AQUÍ: Agregamos una subconsulta para traer el stock_actual real
         $sqlDetalle = 'SELECT d.id,
                               d.id_item,
                               i.sku,
@@ -71,7 +78,8 @@ class VentasDocumentoModel extends Modelo
                               d.cantidad,
                               d.precio_unitario,
                               d.total_linea AS subtotal,
-                              d.cantidad_despachada
+                              d.cantidad_despachada,
+                              (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item) AS stock_actual
                        FROM ventas_documentos_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
                        WHERE d.id_documento_venta = :id_documento
@@ -138,7 +146,7 @@ class VentasDocumentoModel extends Modelo
                 ]);
 
                 $db->prepare('UPDATE ventas_documentos_detalle
-                              SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
+                              SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
                               WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
                     ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
             } else {
@@ -272,7 +280,7 @@ class VentasDocumentoModel extends Modelo
             }
 
             $db->prepare('UPDATE ventas_documentos_detalle
-                          SET deleted_at = NOW(), deleted_by = :user, updated_by = :user, updated_at = NOW()
+                          SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
                           WHERE id_documento_venta = :id_documento
                             AND deleted_at IS NULL')
                 ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
@@ -549,95 +557,16 @@ class VentasDocumentoModel extends Modelo
 
     /**
      * Registra el despacho de mercadería (Salida de Almacén)
-     * Soporta múltiples filas con diferentes almacenes.
+     * Actúa como puente hacia el modelo especializado de despachos
+     * para mantener la lógica centralizada y soportar multi-almacén.
      */
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId): void
     {
-        $db = $this->db();
-        $db->beginTransaction();
-
-        try {
-            // 1. Validar estado actual del pedido
-            $stmt = $db->prepare("SELECT estado FROM ventas_documentos WHERE id = ?");
-            $stmt->execute([$idDoc]);
-            $estadoActual = $stmt->fetchColumn();
-
-            if ($estadoActual == 3 || $estadoActual == 9) {
-                throw new Exception("El pedido ya está cerrado o anulado.");
-            }
-
-            // 2. Sentencias Preparadas (Para optimizar dentro del bucle)
-            // Actualizar cantidad despachada en el detalle del pedido
-            $sqlUpdateDetalle = "UPDATE ventas_documentos_detalle 
-                                 SET cantidad_despachada = cantidad_despachada + ? 
-                                 WHERE id = ?";
-            
-            // Restar Stock (Validando que exista en ese almacén específico)
-            $sqlRestarStock = "UPDATE inventario_stock 
-                               SET stock_actual = stock_actual - ?, updated_at = NOW() 
-                               WHERE id_item = (SELECT id_item FROM ventas_documentos_detalle WHERE id = ?) 
-                               AND id_almacen = ?";
-
-            // Registrar movimiento en Kardex
-            $sqlKardex = "INSERT INTO inventario_movimientos 
-                          (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_at, created_by) 
-                          SELECT id_item, ?, NULL, 'VEN', ?, CONCAT('Despacho Pedido #', ?), NOW(), ? 
-                          FROM ventas_documentos_detalle WHERE id = ?";
-
-            $stmtUpdDet = $db->prepare($sqlUpdateDetalle);
-            $stmtStock  = $db->prepare($sqlRestarStock);
-            $stmtKardex = $db->prepare($sqlKardex);
-
-            foreach ($detalle as $item) {
-                $idDetalle = (int)$item['id_documento_detalle'];
-                $idAlmacen = (int)$item['id_almacen']; // Aquí obtenemos el almacén de la fila
-                $cantidad  = (float)$item['cantidad'];
-
-                if ($cantidad <= 0) continue;
-
-                // A. Actualizar lo despachado en el pedido
-                $stmtUpdDet->execute([$cantidad, $idDetalle]);
-
-                // B. Restar Stock
-                $stmtStock->execute([$cantidad, $idDetalle, $idAlmacen]);
-                
-                // Si rowCount es 0, significa que no encontró el ítem en ese almacén en la tabla de stock
-                if ($stmtStock->rowCount() === 0) {
-                    throw new Exception("Error de stock: El producto no existe o no está asignado al almacén seleccionado (ID: $idAlmacen).");
-                }
-
-                // C. Kardex
-                $stmtKardex->execute([$idAlmacen, $cantidad, $idDoc, $userId, $idDetalle]);
-            }
-
-            // 3. Actualizar Observaciones de cabecera si hay nuevas
-            if (!empty($obs)) {
-                $db->prepare("UPDATE ventas_documentos SET observaciones = CONCAT(COALESCE(observaciones, ''), ' | Despacho: ', ?) WHERE id = ?")
-                   ->execute([$obs, $idDoc]);
-            }
-
-            // 4. Calcular si se cierra el pedido
-            $sqlPendiente = "SELECT SUM(cantidad - cantidad_despachada) as pendiente 
-                             FROM ventas_documentos_detalle 
-                             WHERE id_documento_venta = ? AND deleted_at IS NULL";
-            $stmtPen = $db->prepare($sqlPendiente);
-            $stmtPen->execute([$idDoc]);
-            $pendienteTotal = (float)$stmtPen->fetchColumn();
-
-            $nuevoEstado = 2; // Aprobado (Parcial)
-            if ($pendienteTotal <= 0.01 || $cerrarForzado) {
-                $nuevoEstado = 3; // Cerrado / Entregado
-            }
-
-            $db->prepare("UPDATE ventas_documentos SET estado = ? WHERE id = ?")->execute([$nuevoEstado, $idDoc]);
-
-            $db->commit();
-
-        } catch (Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-            throw $e;
-        }
+        // Instanciamos el modelo especializado que contiene la lógica multi-almacén
+        require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
+        $despachoModel = new VentasDespachoModel();
+        
+        // Le pasamos la responsabilidad al método robusto que ya arreglamos
+        $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId);
     }
 }

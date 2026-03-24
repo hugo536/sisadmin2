@@ -6,7 +6,23 @@
             try {
                 limpiarModalVenta();
                 await agregarFilaVenta(); // Agrega una fila vacía inicial
-                document.getElementById('btnGuardarVenta').style.display = 'block';
+                
+                const btnGuardar = document.getElementById('btnGuardarVenta');
+                btnGuardar.style.display = 'block';
+                btnGuardar.textContent = 'Guardar Pedido';
+
+                // Mostrar alerta de borrador también al crear nuevo
+                if (!document.getElementById('alertaBorradorInfo')) {
+                    const tablaDetalle = document.getElementById('tablaDetalleVenta');
+                    const alertaHTML = `
+                        <div id="alertaBorradorInfo" class="alert alert-warning py-2 mb-3 d-flex align-items-center" style="font-size: 0.9rem;">
+                            <i class="bi bi-info-circle-fill text-warning me-2 fs-5"></i>
+                            <div><strong>Modo Borrador:</strong> Las cantidades ingresadas son tentativas y <u>no descuentan el stock físico</u> todavía.</div>
+                        </div>
+                    `;
+                    tablaDetalle.insertAdjacentHTML('beforebegin', alertaHTML);
+                }
+
                 modalVenta.show();
             } catch (error) {
                 console.error(error);
@@ -178,14 +194,24 @@
         const idItem = Number(fila.querySelector('.detalle-item').value || 0);
         if (!idItem) return;
         const cantidad = Number(fila.querySelector('.detalle-cantidad').value || 0);
-        const precio = await obtenerPrecioItem(idItem, cantidad > 0 ? cantidad : 1);
-        if (precio === null) return;
-        fila.querySelector('.detalle-precio').value = precio.toFixed(2);
+        
+        const inputPrecio = fila.querySelector('.detalle-precio');
+        
+        // Consultamos al backend si hay un precio oficial para esta cantidad
+        const precioNuevo = await obtenerPrecioItem(idItem, cantidad > 0 ? cantidad : 1);
+        
+        if (precioNuevo === null) return;
+        
+        // SOLUCIÓN: Solo sobreescribimos si el backend devuelve un precio válido (mayor a 0).
+        if (precioNuevo > 0) {
+            inputPrecio.value = precioNuevo.toFixed(2);
+        }
+        
         recalcularTotalVenta();
     }
 
-    // --- 3. LÓGICA DE FILAS VENTA (PRODUCTOS) ---
-    async function agregarFilaVenta(item = null) {
+    // Le agregamos el parámetro "esBorrador" que por defecto es true
+    async function agregarFilaVenta(item = null, esBorrador = true) {
         const fragment = templateFilaVenta.content.cloneNode(true);
         const fila = fragment.querySelector('tr');
         tbodyVenta.appendChild(fragment);
@@ -194,6 +220,16 @@
         const inputCantidad = filaReal.querySelector('.detalle-cantidad');
         const inputPrecio = filaReal.querySelector('.detalle-precio');
         const selectItem = filaReal.querySelector('.detalle-item');
+        const btnQuitar = filaReal.querySelector('.btn-quitar-fila');
+
+        // --- NUEVO: SI NO ES BORRADOR, BLOQUEAMOS TODO ---
+        if (!esBorrador) {
+            inputCantidad.readOnly = true;
+            inputCantidad.classList.add('bg-light', 'border-0');
+            inputPrecio.readOnly = true;
+            inputPrecio.classList.add('bg-light', 'border-0');
+            if (btnQuitar) btnQuitar.style.display = 'none'; // Ocultamos el basurero
+        }
 
         inputCantidad.addEventListener('input', async () => {
             validarCantidadVsStock(filaReal);
@@ -202,7 +238,7 @@
         });
         inputPrecio.addEventListener('input', recalcularTotalVenta);
         
-        filaReal.querySelector('.btn-quitar-fila').addEventListener('click', () => {
+        btnQuitar.addEventListener('click', () => {
             if (selectItem.tomselect) selectItem.tomselect.destroy();
             filaReal.remove();
             recalcularTotalVenta();
@@ -220,6 +256,7 @@
             searchField: 'text',
             placeholder: "Buscar producto...",
             dropdownParent: 'body',
+            /* ... (mantén el mismo código de 'load', 'onChange' y 'render' que ya tienes aquí adentro) ... */
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;
@@ -287,13 +324,36 @@
             tom.addOption({
                 id: item.id_item,
                 text: `${item.sku || ''} - ${item.item_nombre}`,
-                stock: 0,
+                stock: Number(item.stock_actual || 0), 
                 precio: Number(item.precio_unitario)
             });
             tom.setValue(item.id_item);
+            
+            // Si no es borrador, bloqueamos el select de TomSelect
+            if (!esBorrador) tom.disable(); 
+
             inputCantidad.value = Number(item.cantidad || 0).toFixed(2);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
+            
+            filaReal.querySelector('.detalle-stock').textContent = Number(item.stock_actual || 0).toFixed(2);
+            
+            // --- NUEVO: Mostrar "Entregado: X" si el pedido ya está cerrado/despachado ---
+            if (!esBorrador) {
+                const cantDespachada = Number(item.cantidad_despachada || 0);
+                const infoDespacho = document.createElement('div');
+                infoDespacho.innerHTML = `<span class="badge ${cantDespachada < item.cantidad ? 'bg-warning text-dark' : 'bg-success'} mt-1">Entregado: ${cantDespachada}</span>`;
+                inputCantidad.parentElement.appendChild(infoDespacho);
+            } else {
+                validarCantidadVsStock(filaReal); 
+            }
         }
+
+        if (!item && esBorrador) {
+            setTimeout(() => {
+                filaReal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+        }
+
         recalcularTotalVenta();
     }
 
@@ -307,8 +367,12 @@
         ventaObservaciones.value = '';
         tbodyVenta.innerHTML = '';
         ventaTotal.textContent = 'S/ 0.00';
+        
+        const btnGuardar = document.getElementById('btnGuardarVenta');
+        if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
+        const alerta = document.getElementById('alertaBorradorInfo');
+        if (alerta) alerta.remove();
     }
-
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
         await agregarFilaVenta();
@@ -340,12 +404,34 @@
             if (!detalle.length) throw new Error('Debe agregar al menos un producto.');
 
             const ids = new Set();
+            let excedeStock = false; 
+
             for (const fila of tbodyVenta.querySelectorAll('tr')) {
                 const data = filaVentaPayload(fila);
                 if (data.id_item <= 0) throw new Error('Seleccione un producto en todas las filas.');
                 if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos en el pedido.');
                 ids.add(data.id_item);
-                if (!validarCantidadVsStock(fila)) throw new Error('No puede ingresar una cantidad mayor al stock.');
+                
+                if (!validarCantidadVsStock(fila)) {
+                    excedeStock = true;
+                }
+            }
+
+            if (excedeStock) {
+                const confirmacion = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Stock excedido',
+                    text: 'Uno o más productos superan el stock disponible. Al ser un borrador, puedes guardarlo. ¿Estás seguro de continuar?',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0d6efd',
+                    cancelButtonColor: '#dc3545',
+                    confirmButtonText: 'Sí, guardar pedido',
+                    cancelButtonText: 'Cancelar'
+                });
+
+                if (!confirmacion.isConfirmed) {
+                    return; 
+                }
             }
 
             const payload = await postJson(urls.guardar, {
@@ -377,9 +463,7 @@
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
 
-        // Generar filas iniciales
         (venta.detalle || []).forEach((linea) => {
-            // Solo mostrar lo que tiene pendiente
             if (Number(linea.cantidad_pendiente) > 0.0001) {
                 agregarFilaDespacho(linea, null);
             }
@@ -387,7 +471,6 @@
         modalDespacho.show();
     }
 
-    // Función para agregar filas al despacho (Soporta inserción adyacente)
     function agregarFilaDespacho(linea, filaReferencia = null) {
         let opcionesHTML = '<option value="">Seleccione...</option>';
         let disabledState = '';
@@ -467,11 +550,6 @@
             
             filas.forEach((fila, idx) => {
                 const btn = fila.querySelector('.btn-quitar-despacho');
-                
-                // ELIMINAMOS las líneas que ponían el input como readOnly
-                // Ahora el input SIEMPRE será editable por el usuario.
-
-                // Solo controlamos si se muestra o no el botón de basurero
                 if (btn) btn.classList.toggle('d-none', !multiple || idx === 0);
             });
         };
@@ -556,10 +634,8 @@
         btnSplit.addEventListener('click', () => {
             const filas = obtenerFilasGrupo();
             
-            // 1. Contamos cuántos almacenes realmente tienen stock (> 0)
             const almacenesConStock = (linea.almacenes_disponibles || []).filter(alm => parseFloat(alm.stock_actual) > 0).length;
 
-            // 2. Validamos si hay almacenes disponibles para seguir fraccionando
             if (almacenesConStock <= 1 || filas.length >= almacenesConStock) {
                 Swal.fire({
                     icon: 'info',
@@ -569,7 +645,6 @@
                 return;
             }
 
-            // 3. (Opcional) Límite técnico máximo de filas si lo deseas
             if (filas.length >= 3) {
                 Swal.fire('Límite alcanzado', 'Solo se permite despachar desde un máximo de 3 almacenes a la vez.', 'info');
                 return;
@@ -597,7 +672,6 @@
         actualizarModoGrupo();
     }
 
-    // Función auxiliar para validar todas las filas de un mismo producto
     function validarGrupoItem(idDetalle) {
         const filas = [...tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${idDetalle}"]`)];
         if (filas.length === 0) return;
@@ -613,7 +687,6 @@
             
             sumaTotalCargada += cant;
 
-            // Validación individual de fila: ¿Excede el stock de SU almacén?
             if (cant > stock && stockStr !== '-') {
                 input.classList.add('is-invalid');
                 input.title = `Solo hay ${stock} en este almacén`;
@@ -623,7 +696,6 @@
             }
         });
 
-        // Validación grupal: ¿La suma excede el pedido?
         const badge = filas[0].querySelector('.badge-pendiente');
         if (sumaTotalCargada > pendienteGlobal) {
             filas.forEach(f => f.querySelector('.despacho-cantidad').classList.add('is-invalid'));
@@ -638,13 +710,10 @@
         }
     }
 
-    // --- GUARDAR DESPACHO MULTI-FILA ---
     document.getElementById('btnGuardarDespacho').addEventListener('click', async () => {
         try {
-            // Recolectamos todas las filas
             const filas = [...tbodyDespacho.querySelectorAll('tr')];
             
-            // Construimos el detalle agrupando
             const detalle = filas.map(fila => {
                 const idAlmacen = fila.querySelector('.fila-almacen').value;
                 const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
@@ -654,14 +723,12 @@
                     id_almacen: Number(idAlmacen),
                     cantidad: cantidad
                 };
-            }).filter(d => d.cantidad > 0); // Solo enviamos lo que tenga cantidad > 0
+            }).filter(d => d.cantidad > 0); 
 
-            // Validaciones
             if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
             if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
             if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
-            // Chequeo de Cierre Forzado
             const resumenPorItem = {}; 
             filas.forEach(f => {
                 const id = f.dataset.idDetalle;
@@ -669,7 +736,6 @@
                 resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
             });
 
-            // Ver si hay algo parcial
             let esParcial = false;
             filas.forEach(f => {
                 const id = f.dataset.idDetalle;
@@ -702,16 +768,13 @@
         }
     });
 
-    // --- EVENTOS GENERALES ---
     function recargarTabla() {
-        // En lugar de redirigir toda la pagina, puedes aprovechar el sistema SPA
         const params = new URLSearchParams({ accion: 'listar' });
         if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim());
         if (filtroEstado.value !== '') params.set('estado', filtroEstado.value);
         if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value);
         if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value);
         
-        // Forma tradicional
         window.location.href = `${urls.index}&${params.toString()}`;
     }
 
@@ -734,26 +797,62 @@
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
+                // Evaluamos si es borrador ANTES de hacer el resto
+                const esBorrador = Number(venta.estado) === 0;
+                
                 const nombreCliente = tr.querySelector('td:nth-child(2)').textContent;
                 if (tomSelectCliente) {
                     tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
                     tomSelectCliente.setValue(venta.id_cliente);
+                    // Bloqueamos el select si no es borrador
+                    if (!esBorrador) tomSelectCliente.disable();
+                    else tomSelectCliente.enable();
                 } else {
                     idCliente.innerHTML = `<option value="${venta.id_cliente}">${nombreCliente}</option>`;
                     idCliente.value = venta.id_cliente;
+                    idCliente.disabled = !esBorrador;
                 }
                 
-                fechaEmision.value = venta.fecha_emision || '';
-                ventaObservaciones.value = venta.observaciones || '';
+                const inputFecha = document.getElementById('fechaEmision');
+                const inputObs = document.getElementById('ventaObservaciones');
+                
+                inputFecha.value = venta.fecha_emision || '';
+                inputObs.value = venta.observaciones || '';
+                
+                // Bloqueamos cabecera si no es borrador
+                inputFecha.readOnly = !esBorrador;
+                inputObs.readOnly = !esBorrador;
+
+                // Ocultamos el botón "Agregar Producto" global si no es borrador
+                const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
+                if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
 
                 if (venta.detalle && venta.detalle.length) {
-                    for (const linea of venta.detalle) await agregarFilaVenta(linea);
+                    for (const linea of venta.detalle) await agregarFilaVenta(linea, esBorrador);
                 } else {
-                    await agregarFilaVenta();
+                    await agregarFilaVenta(null, esBorrador);
                 }
 
-                const esBorrador = Number(venta.estado) === 0;
-                document.getElementById('btnGuardarVenta').style.display = esBorrador ? 'block' : 'none';
+                const btnGuardar = document.getElementById('btnGuardarVenta');
+                
+                if (esBorrador) {
+                    btnGuardar.style.display = 'block';
+                    btnGuardar.textContent = 'Actualizar Pedido';
+                    
+                    if (!document.getElementById('alertaBorradorInfo')) {
+                        const tablaDetalle = document.getElementById('tablaDetalleVenta'); 
+                        const alertaHTML = `
+                            <div id="alertaBorradorInfo" class="alert alert-warning py-2 mb-3 d-flex align-items-center" style="font-size: 0.9rem;">
+                                <i class="bi bi-info-circle-fill text-warning me-2 fs-5"></i>
+                                <div><strong>Modo Borrador:</strong> Las cantidades ingresadas son tentativas y <u>no descuentan el stock físico</u> todavía.</div>
+                            </div>
+                        `;
+                        tablaDetalle.insertAdjacentHTML('beforebegin', alertaHTML);
+                    }
+                } else {
+                    btnGuardar.style.display = 'none';
+                }
+                
                 modalVenta.show();
             } catch (err) { Swal.fire('Error', 'No se pudo cargar', 'error'); }
         }

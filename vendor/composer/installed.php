@@ -3,7 +3,7 @@
         'name' => 'sisadmin2/erp',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '2f5e61c420bff240a9db1e340321ad7c03180565',
+        'reference' => '6719a40bc7de6f2b29b1e61c43bb8cd8e6cc3389',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -76,7 +76,7 @@
         'sisadmin2/erp' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '2f5e61c420bff240a9db1e340321ad7c03180565',
+            'reference' => '6719a40bc7de6f2b29b1e61c43bb8cd8e6cc3389',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
