@@ -4,25 +4,21 @@ $filtros = $filtros ?? [];
 $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
-$centros_costo = $centros_costo ?? []; // <-- Capturamos la variable enviada desde el controller
+$centros_costo = $centros_costo ?? []; 
 
 $badge = static function (string $estado): string {
     if ($estado === 'PAGADA') {
         return 'bg-success-subtle text-success border border-success-subtle';
     }
-
     if ($estado === 'PARCIAL') {
         return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
     }
-
     if ($estado === 'VENCIDA') {
         return 'bg-danger-subtle text-danger border border-danger-subtle';
     }
-
     if ($estado === 'ANULADA') {
         return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
     }
-
     return 'bg-primary-subtle text-primary border border-primary-subtle';
 };
 ?>
@@ -60,12 +56,11 @@ if (!empty($_GET['error'])) {
             </button>
         </div>
     </div>
+    
     <?php if ($swalMessage !== null): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                if (typeof Swal === 'undefined') {
-                    return;
-                }
+                if (typeof Swal === 'undefined') return;
                 Swal.fire({
                     icon: <?php echo json_encode($swalIcon); ?>,
                     title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
@@ -257,8 +252,8 @@ if (!empty($_GET['error'])) {
                             <input type="number" step="0.01" min="0.01" name="monto" id="montoPagarManual" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label fw-bold small text-muted">Cuenta Origen <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" id="selectCuentaOrigenManual" class="form-select shadow-none" required>
+                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" id="selectCuentaOrigenManual" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
                                     <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
@@ -300,9 +295,8 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Pago</h5>
@@ -323,12 +317,12 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label fw-bold small text-muted">Cuenta Origen <span class="text-danger">*</span></label>
+                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
                             <select name="id_cuenta" id="selectCuentaOrigen" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
                                     <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
-                                        <?php echo htmlspecialchars($cta['nombre']); ?>
+                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -404,3 +398,5 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
+
+<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
