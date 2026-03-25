@@ -607,6 +607,8 @@ function initModalEjecucion() {
                 formData.append('accion', 'obtener_receta_ajax');
                 formData.append('id_receta', idReceta);
                 formData.append('cantidad', planificada);
+                formData.append('id_orden', String(idOrden));
+
                 formData.append('id_almacen_planta', String(idAlmacenPlanta));
 
                 const response = await fetch(window.location.href, { method: 'POST', body: formData });
@@ -617,7 +619,8 @@ function initModalEjecucion() {
                     result.data.forEach(item => { addConsumoRow(item, planificada, idAlmacenPlanta); });
                     recalcularSemaforos(); 
                 } else {
-                    if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">No se cargaron insumos. Añádalos manualmente.</td></tr>';
+                    const detalleError = (result && result.message) ? String(result.message) : 'No se cargaron insumos. Añádalos manualmente.';
+                    if(tbodyConsumos) tbodyConsumos.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${detalleError}</td></tr>`;
                 }
             } catch (error) {
                 if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión al obtener receta.</td></tr>';

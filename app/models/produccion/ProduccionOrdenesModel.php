@@ -1001,6 +1001,18 @@ class ProduccionOrdenesModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+
+    public function obtenerCabeceraOrden(int $idOrden): array
+    {
+        if ($idOrden <= 0) {
+            return [];
+        }
+
+        $stmt = $this->db()->prepare('SELECT id, id_receta, cantidad_planificada, id_almacen_planta FROM produccion_ordenes WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id' => $idOrden]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function obtenerOrdenPorId(int $idOrden): array
     {
         $sql = 'SELECT o.id, o.codigo, o.id_receta, o.cantidad_planificada, o.estado, o.id_almacen_planta,
