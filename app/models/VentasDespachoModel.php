@@ -176,6 +176,13 @@ class VentasDespachoModel extends Modelo
                         'created_by' => $userId,
                     ]);
                 }
+                $this->registrarAjusteEnvasesPorDespacho(
+                    $db,
+                    $idDocumento,
+                    (int) ($documento['id_cliente'] ?? 0),
+                    $lineasAlmacen,
+                    $codigoDespacho
+                );
             }
 
             // 4. Verificar si se completó todo el pedido (después de procesar todos los almacenes)
@@ -208,7 +215,7 @@ class VentasDespachoModel extends Modelo
 
     private function obtenerDocumento(PDO $db, int $idDocumento): array
     {
-        $stmt = $db->prepare('SELECT id, estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt = $db->prepare('SELECT id, id_cliente, estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmt->execute(['id' => $idDocumento]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
@@ -252,6 +259,89 @@ class VentasDespachoModel extends Modelo
         $stmt->execute(['id_documento' => $idDocumento]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+
+    private function registrarAjusteEnvasesPorDespacho(PDO $db, int $idDocumento, int $idCliente, array $lineasDespachadas, string $codigoDespacho): void
+    {
+        if ($idCliente <= 0 || empty($lineasDespachadas)) {
+            return;
+        }
+
+        $ajustesPorEnvase = [];
+
+        foreach ($lineasDespachadas as $linea) {
+            $idProducto = (int) ($linea['id_item'] ?? 0);
+            $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
+
+            if ($idProducto <= 0 || $cantidadDespachada <= 0) {
+                continue;
+            }
+
+            $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
+            foreach ($envasesReceta as $envase) {
+                $idItemEnvase = (int) ($envase['id_item_envase'] ?? 0);
+                $factor = (float) ($envase['factor_envase'] ?? 0);
+                if ($idItemEnvase <= 0 || $factor <= 0) {
+                    continue;
+                }
+
+                $cantidadAjuste = (int) round($cantidadDespachada * $factor, 0);
+                if ($cantidadAjuste <= 0) {
+                    continue;
+                }
+
+                $ajustesPorEnvase[$idItemEnvase] = ($ajustesPorEnvase[$idItemEnvase] ?? 0) + $cantidadAjuste;
+            }
+        }
+
+        if (empty($ajustesPorEnvase)) {
+            return;
+        }
+
+        $stmt = $db->prepare('INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones)
+                              VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones)');
+
+        foreach ($ajustesPorEnvase as $idItemEnvase => $cantidadAjuste) {
+            $stmt->execute([
+                'id_tercero' => $idCliente,
+                'id_item_envase' => (int) $idItemEnvase,
+                'tipo_operacion' => 'AJUSTE_CLIENTE',
+                'cantidad' => $cantidadAjuste,
+                'id_venta' => $idDocumento,
+                'observaciones' => 'Descuento automático por despacho ' . $codigoDespacho,
+            ]);
+        }
+    }
+
+    private function obtenerEnvasesRetornablesDeReceta(PDO $db, int $idProducto): array
+    {
+        if ($idProducto <= 0) {
+            return [];
+        }
+
+        $stmt = $db->prepare('SELECT d.id_insumo AS id_item_envase,
+                                     (d.cantidad_por_unidad / NULLIF(r.rendimiento_base, 0)) AS factor_envase
+                              FROM produccion_recetas_detalle d
+                              INNER JOIN items i ON i.id = d.id_insumo
+                              INNER JOIN produccion_recetas r ON r.id = d.id_receta
+                              WHERE d.deleted_at IS NULL
+                                AND i.deleted_at IS NULL
+                                AND i.es_envase_retornable = 1
+                                AND r.deleted_at IS NULL
+                                AND r.estado = 1
+                                AND d.id_receta = (
+                                    SELECT r2.id
+                                    FROM produccion_recetas r2
+                                    WHERE r2.id_producto = :id_producto
+                                      AND r2.estado = 1
+                                      AND r2.deleted_at IS NULL
+                                    ORDER BY r2.version DESC, r2.id DESC
+                                    LIMIT 1
+                                )');
+        $stmt->execute(['id_producto' => $idProducto]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function generarCodigo(PDO $db): string
