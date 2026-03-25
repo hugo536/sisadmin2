@@ -652,18 +652,20 @@ class ProduccionOrdenesModel extends Modelo
             $itemModel = new ItemModel();
             $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
-            // <--- CAMBIO: AHORA USAMOS EL $idCentroCosto QUE VIENE POR PARÁMETRO
-            $asientoModel = new ContaAsientoModel();
-            $asientoModel->registrarAutomaticoProduccion($db, [
-                'id_orden' => $idOrden,
-                'codigo_orden' => (string) ($orden['codigo'] ?? ''),
-                'fecha' => substr((string) ($fechaFin ?? date('Y-m-d H:i:s')), 0, 10),
-                'costo_md' => $costoTotalConsumo,
-                'costo_mod' => $costoModReal,
-                'costo_cif' => $costoCifReal,
-                'costo_total' => $costoRealTotal,
-                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null // Asignación de la variable
-            ], $userId);
+            // Solo registramos asiento automático cuando existe costo valorizado.
+            if ($costoRealTotal > 0) {
+                $asientoModel = new ContaAsientoModel();
+                $asientoModel->registrarAutomaticoProduccion($db, [
+                    'id_orden' => $idOrden,
+                    'codigo_orden' => (string) ($orden['codigo'] ?? ''),
+                    'fecha' => substr((string) ($fechaFin ?? date('Y-m-d H:i:s')), 0, 10),
+                    'costo_md' => $costoTotalConsumo,
+                    'costo_mod' => $costoModReal,
+                    'costo_cif' => $costoCifReal,
+                    'costo_total' => $costoRealTotal,
+                    'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
+                ], $userId);
+            }
 
             $db->commit();
 
