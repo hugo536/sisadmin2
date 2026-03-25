@@ -4,6 +4,7 @@ declare(strict_types=1);
 // Requerimos el controlador base
 require_once BASE_PATH . '/app/core/Controlador.php';
 require_once BASE_PATH . '/app/models/inventario/ControlEnvasesModel.php'; 
+require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 
 class EnvasesController extends Controlador
 {
@@ -11,6 +12,7 @@ class EnvasesController extends Controlador
 
     public function __construct()
     {
+        AuthMiddleware::handle();
         parent::__construct();
         $this->envasesModel = new ControlEnvasesModel();
     }
