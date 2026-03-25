@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once BASE_PATH . '/app/core/Modelo.php';
+require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
 
 class ControlEnvasesModel extends Modelo {
     
@@ -24,6 +25,73 @@ class ControlEnvasesModel extends Modelo {
         $stmt->bindParam(':observaciones', $observaciones, PDO::PARAM_STR);
 
         return $stmt->execute();
+    }
+
+    public function registrarMovimientoConKardex(
+        int $idTercero,
+        int $idItemEnvase,
+        string $tipoOperacion,
+        int $cantidad,
+        ?int $idVenta,
+        string $observaciones,
+        int $idUsuario,
+        int $idAlmacen
+    ): bool {
+        $tipoOperacion = trim($tipoOperacion);
+        $observaciones = trim($observaciones);
+        $operacionUuid = bin2hex(random_bytes(8));
+
+        if ($idTercero <= 0 || $idItemEnvase <= 0 || $cantidad <= 0 || $idUsuario <= 0) {
+            throw new InvalidArgumentException('Datos inválidos para registrar movimiento de envases.');
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $ok = $this->registrarMovimiento(
+                $idTercero,
+                $idItemEnvase,
+                $tipoOperacion,
+                $cantidad,
+                $idVenta,
+                ($observaciones !== '' ? $observaciones . ' | ' : '') . 'OP:' . $operacionUuid
+            );
+
+            if (!$ok) {
+                throw new RuntimeException('No se pudo registrar el movimiento de envases en cuenta corriente.');
+            }
+
+            if (in_array($tipoOperacion, ['RECEPCION_VACIO', 'ENTREGA_LLENO'], true)) {
+                if ($idAlmacen <= 0) {
+                    throw new InvalidArgumentException('Debe seleccionar un almacén para impactar Kardex.');
+                }
+
+                $inventarioModel = new InventarioModel();
+                $referencia = 'ENVASE | ' . $tipoOperacion . ' | Tercero:' . $idTercero . ' | OP:' . $operacionUuid;
+
+                $datosKardex = [
+                    'tipo_movimiento' => $tipoOperacion === 'RECEPCION_VACIO' ? 'AJ+' : 'VEN',
+                    'tipo_registro' => 'item',
+                    'id_item' => $idItemEnvase,
+                    'cantidad' => $cantidad,
+                    'referencia' => $referencia,
+                    'created_by' => $idUsuario,
+                    'operacion_uuid' => $operacionUuid,
+                    'id_almacen_origen' => $tipoOperacion === 'ENTREGA_LLENO' ? $idAlmacen : 0,
+                    'id_almacen_destino' => $tipoOperacion === 'RECEPCION_VACIO' ? $idAlmacen : 0,
+                ];
+
+                $inventarioModel->registrarMovimiento($datosKardex);
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public function obtenerSaldoCliente($id_tercero, $id_item_envase) {
@@ -90,6 +158,16 @@ class ControlEnvasesModel extends Modelo {
                   AND es_envase_retornable = 1 
                 ORDER BY nombre ASC";
                 
+        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function obtenerAlmacenesActivos(): array {
+        $sql = "SELECT id, nombre
+                FROM almacenes
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC";
+
         return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 

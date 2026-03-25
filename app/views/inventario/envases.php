@@ -148,6 +148,7 @@
                                     <select class="form-select bg-light" id="tipo_operacion" name="tipo_operacion" required>
                                         <option value="">Seleccione...</option>
                                         <option value="RECEPCION_VACIO">📥 El cliente devolvió envases vacíos</option>
+                                        <option value="ENTREGA_LLENO">📤 Préstamo / Entrega manual al cliente</option>
                                         <option value="AJUSTE_CLIENTE">⚠️ Ajuste (Roto/Perdido por el cliente)</option>
                                     </select>
                                 </div>
@@ -167,6 +168,19 @@
                                 <div class="col-md-6">
                                     <label for="cantidad" class="form-label text-muted small fw-bold mb-1">Cantidad Física <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="cantidad" name="cantidad" min="1" required placeholder="Ej. 50">
+                                </div>
+
+                                <div class="col-md-6" id="grupo_almacen_envases">
+                                    <label for="id_almacen" class="form-label text-muted small fw-bold mb-1">Almacén físico (Kardex)</label>
+                                    <select class="form-select bg-light" id="id_almacen" name="id_almacen">
+                                        <option value="">Seleccione almacén...</option>
+                                        <?php if(!empty($almacenes)): ?>
+                                            <?php foreach ($almacenes as $a): ?>
+                                                <option value="<?= (int)($a['id'] ?? 0) ?>"><?= htmlspecialchars((string)($a['nombre'] ?? '')) ?></option>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </select>
+                                    <small class="text-muted">Obligatorio para recepción y préstamo; opcional para ajustes.</small>
                                 </div>
                             </div>
                         </div>

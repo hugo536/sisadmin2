@@ -38,9 +38,33 @@
         const form = document.getElementById('formMovimientoEnvase');
         if (form && !form.dataset.eventBound) {
             form.dataset.eventBound = 'true'; // Evitar que el evento se duplique
+            const selectTipo = document.getElementById('tipo_operacion');
+            const selectAlmacen = document.getElementById('id_almacen');
+
+            const actualizarReglasAlmacen = () => {
+                if (!selectTipo || !selectAlmacen) return;
+                const requiereKardex = ['RECEPCION_VACIO', 'ENTREGA_LLENO'].includes(selectTipo.value);
+                selectAlmacen.required = requiereKardex;
+            };
+
+            if (selectTipo) {
+                selectTipo.addEventListener('change', actualizarReglasAlmacen);
+                actualizarReglasAlmacen();
+            }
             
             form.addEventListener('submit', async function (e) {
                 e.preventDefault();
+
+                if (selectTipo && selectAlmacen) {
+                    const requiereKardex = ['RECEPCION_VACIO', 'ENTREGA_LLENO'].includes(selectTipo.value);
+                    if (requiereKardex && !selectAlmacen.value) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Falta almacén', 'Debes seleccionar un almacén para impactar Kardex.', 'warning');
+                        }
+                        selectAlmacen.focus();
+                        return;
+                    }
+                }
                 
                 const btn = form.querySelector('button[type="submit"]');
                 const btnOriginal = btn.innerHTML;
@@ -150,7 +174,7 @@
                             let nombreOperacion = mov.tipo_operacion;
 
                             if (mov.tipo_operacion === 'RECEPCION_VACIO') { badgeClass = 'bg-success'; icon = '📥'; nombreOperacion = 'Recepción Vacíos'; } 
-                            else if (mov.tipo_operacion === 'ENTREGA_LLENO') { badgeClass = 'bg-primary'; icon = '📤'; nombreOperacion = 'Entrega Llenos'; } 
+                            else if (mov.tipo_operacion === 'ENTREGA_LLENO') { badgeClass = 'bg-primary'; icon = '📤'; nombreOperacion = 'Préstamo / Entrega'; } 
                             else if (mov.tipo_operacion === 'AJUSTE_CLIENTE' || mov.tipo_operacion === 'MERMA_PLANTA') { badgeClass = 'bg-warning text-dark'; icon = '⚠️'; nombreOperacion = 'Ajuste / Merma'; }
 
                             tbody.innerHTML += `
