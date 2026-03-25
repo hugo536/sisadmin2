@@ -89,76 +89,78 @@
         }
 
         // ==========================================
-        // 4. NUEVO: LÓGICA PARA VER HISTORIAL
+        // 4. LÓGICA BLINDADA PARA VER HISTORIAL
         // ==========================================
-        const contenedorApp = document.getElementById('envasesApp');
-        // Prevenimos que el evento se asigne múltiples veces en navegación SPA
-        if (contenedorApp && !contenedorApp.dataset.historialBound) {
-            contenedorApp.dataset.historialBound = 'true'; 
+        
+        // Usamos una variable global (window) para asegurar que el evento
+        // se registre UNA SOLA VEZ en tu SPA, pase lo que pase.
+        if (!window.historialEventBound) {
+            window.historialEventBound = true; 
 
-            contenedorApp.addEventListener('click', async function(e) {
-                // Delegación de eventos: buscamos si el clic fue en el botón o su ícono
+            document.addEventListener('click', async function(e) {
+                // Buscamos si el clic fue en el botón o en el ícono del reloj
                 const btnHistorial = e.target.closest('.btn-ver-historial');
                 
                 if (btnHistorial) {
-                    // Extraemos los datos del botón
+                    e.preventDefault(); // Evitamos comportamientos raros
+                    console.log("1. ¡Clic detectado en el botón historial!");
+
+                    // Extraemos los datos
                     const idTercero = btnHistorial.dataset.tercero;
                     const idItem = btnHistorial.dataset.item;
                     const nombreCliente = btnHistorial.dataset.clienteNombre;
                     
-                    // Preparamos el Modal
+                    console.log(`2. Datos extraídos: Tercero=${idTercero}, Item=${idItem}, Cliente=${nombreCliente}`);
+
+                    // Verificamos que el HTML del modal exista
+                    const modalEl = document.getElementById('modalHistorial');
+                    if (!modalEl) {
+                        console.error("❌ ERROR: No se encontró el HTML del modal con ID 'modalHistorial'. ¿Lo copiaste en la vista?");
+                        if (typeof Swal !== 'undefined') Swal.fire('Error', 'Falta el código HTML del modal', 'error');
+                        return;
+                    }
+
+                    // Preparamos los textos
                     document.getElementById('historialClienteNombre').textContent = 'Cliente: ' + nombreCliente;
                     const tbody = document.getElementById('tablaHistorialBody');
-                    
-                    // Estado de carga
                     tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted mb-0">Cargando historial...</p></td></tr>';
                     
-                    // Mostramos el Modal
-                    const modalObj = new bootstrap.Modal(document.getElementById('modalHistorial'));
-                    modalObj.show();
-
                     try {
-                        // Construimos la URL para tu enrutador (ajustado a tu formato ?ruta=...)
+                        console.log("3. Intentando abrir el Modal de Bootstrap...");
+                        // Usamos getOrCreateInstance que es más seguro en Bootstrap 5
+                        const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+                        modalObj.show();
+                        console.log("4. Modal abierto correctamente.");
+
+                        // Petición AJAX
                         const url = `?ruta=inventario/envases/historial&tercero=${idTercero}&item=${idItem}`;
-                        
-                        // Hacemos la petición GET
+                        console.log("5. Consultando URL:", url);
+
                         const response = await fetch(url, { 
                             headers: { 'X-Requested-With': 'XMLHttpRequest' } 
                         });
                         
-                        if (!response.ok) throw new Error('Error de red al obtener el historial');
+                        if (!response.ok) throw new Error(`Error de red: ${response.status} ${response.statusText}`);
                         
                         const datos = await response.json();
-                        tbody.innerHTML = ''; // Limpiamos el mensaje de carga
+                        console.log("6. Datos recibidos del servidor:", datos);
+
+                        tbody.innerHTML = ''; 
                         
-                        // Si no hay datos (no debería pasar si está en la tabla, pero por si acaso)
                         if (datos.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay movimientos detallados para mostrar.</td></tr>';
                             return;
                         }
 
-                        // Recorremos los datos y dibujamos las filas
                         datos.forEach(mov => {
                             let badgeClass = 'bg-secondary';
                             let icon = '';
                             let nombreOperacion = mov.tipo_operacion;
 
-                            // Formateo visual según el tipo de operación
-                            if (mov.tipo_operacion === 'RECEPCION_VACIO') { 
-                                badgeClass = 'bg-success'; 
-                                icon = '📥'; 
-                                nombreOperacion = 'Recepción Vacíos';
-                            } else if (mov.tipo_operacion === 'ENTREGA_LLENO') { 
-                                badgeClass = 'bg-primary'; 
-                                icon = '📤'; 
-                                nombreOperacion = 'Entrega Llenos';
-                            } else if (mov.tipo_operacion === 'AJUSTE_CLIENTE' || mov.tipo_operacion === 'MERMA_PLANTA') { 
-                                badgeClass = 'bg-warning text-dark'; 
-                                icon = '⚠️'; 
-                                nombreOperacion = 'Ajuste / Merma';
-                            }
+                            if (mov.tipo_operacion === 'RECEPCION_VACIO') { badgeClass = 'bg-success'; icon = '📥'; nombreOperacion = 'Recepción Vacíos'; } 
+                            else if (mov.tipo_operacion === 'ENTREGA_LLENO') { badgeClass = 'bg-primary'; icon = '📤'; nombreOperacion = 'Entrega Llenos'; } 
+                            else if (mov.tipo_operacion === 'AJUSTE_CLIENTE' || mov.tipo_operacion === 'MERMA_PLANTA') { badgeClass = 'bg-warning text-dark'; icon = '⚠️'; nombreOperacion = 'Ajuste / Merma'; }
 
-                            // Añadimos la fila a la tabla
                             tbody.innerHTML += `
                                 <tr>
                                     <td class="text-muted small">#${mov.id}</td>
@@ -168,10 +170,11 @@
                                 </tr>
                             `;
                         });
+                        console.log("7. Tabla dibujada con éxito.");
                         
                     } catch (error) {
                         tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle fs-4 d-block mb-2"></i> Ocurrió un error al cargar la información.</td></tr>';
-                        console.error("Error obteniendo el historial:", error);
+                        console.error("❌ ERROR FINAL:", error);
                     }
                 }
             });
