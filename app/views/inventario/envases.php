@@ -147,7 +147,8 @@
                                     <label for="tipo_operacion" class="form-label text-muted small fw-bold mb-1">Tipo de Movimiento <span class="text-danger">*</span></label>
                                     <select class="form-select bg-light" id="tipo_operacion" name="tipo_operacion" required>
                                         <option value="">Seleccione...</option>
-                                        <option value="RECEPCION_VACIO">📥 El cliente devolvió envases vacíos</option>
+                                        <option value="RECEPCION_VACIO">📥 Recepción de envases vacíos (del cliente)</option>
+                                        <option value="PRESTAMO_ENVASE">📤 Préstamo / Entrega manual al cliente</option>
                                         <option value="AJUSTE_CLIENTE">⚠️ Ajuste (Roto/Perdido por el cliente)</option>
                                     </select>
                                 </div>
