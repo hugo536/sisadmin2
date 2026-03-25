@@ -50,9 +50,19 @@ class Router
             $accion = $accion === 'index' ? 'dashboard' : $accion;
         }
 
-        if ($modulo === 'inventario' && $accion === 'kardex') {
-            $controlador_clase = 'InventarioKardexController';
-            $accion = 'index';
+        // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
+
+        // Rutas de INVENTARIO
+        if ($modulo === 'inventario') {
+            if ($accion === 'kardex') {
+                $controlador_clase = 'InventarioKardexController';
+                $accion = 'index';
+            } elseif ($accion === 'envases') {
+                $controlador_clase = 'EnvasesController';
+                
+                // CORRECCIÓN AQUÍ: Permite leer si la acción es "guardar", sino usa "index"
+                $accion = $partes[2] ?? 'index'; 
+            }
         }
 
         if ($modulo === 'produccion') {

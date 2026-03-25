@@ -301,7 +301,6 @@ class TercerosModel extends Modelo
     {
         $payload = $this->mapPayload($data);
         
-        // --- CAMBIO REALIZADO AQUÍ: Validar duplicidad solo si hay documento ---
         if ($payload['numero_documento'] !== null) {
             if ($this->documentoExiste((string)$payload['tipo_documento'], $payload['numero_documento'])) {
                 throw new RuntimeException("Ya existe un registro con el documento " . $payload['tipo_documento'] . " " . $payload['numero_documento'] . ".");
@@ -360,7 +359,6 @@ class TercerosModel extends Modelo
     {
         $payload = $this->mapPayload($data);
         
-        // --- CAMBIO REALIZADO AQUÍ: Validar duplicidad solo si hay documento ---
         if ($payload['numero_documento'] !== null) {
             if ($this->documentoExiste((string)$payload['tipo_documento'], $payload['numero_documento'], $id)) {
                 throw new RuntimeException("Ya existe otro registro usando el documento " . $payload['tipo_documento'] . " " . $payload['numero_documento'] . ".");
@@ -595,7 +593,7 @@ class TercerosModel extends Modelo
         return [
             'tipo_persona'     => $payload['tipo_persona'],
             'tipo_documento'   => $payload['tipo_documento'],
-            'numero_documento' => $payload['numero_documento'], // Ahora pasará el null correctamente si estaba vacío
+            'numero_documento' => $payload['numero_documento'], 
             'nombre_completo'  => $payload['nombre_completo'],
             'direccion'        => $payload['direccion'],
             'representante_legal' => $payload['representante_legal'],
@@ -618,7 +616,6 @@ class TercerosModel extends Modelo
     {
         $numeroDocumento = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($data['numero_documento'] ?? '')));
         
-        // --- CAMBIO REALIZADO AQUÍ: Convertir documento vacío en null ---
         if ($numeroDocumento === '') {
             $numeroDocumento = null;
         }
@@ -634,7 +631,6 @@ class TercerosModel extends Modelo
             }
         }
 
-        // Usamos filter_var para convertir textos como "false" enviados por JS a un booleano real false.
         $esDistribuidor = filter_var($data['es_distribuidor'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $esCliente = filter_var($data['es_cliente'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         if ($esDistribuidor) {

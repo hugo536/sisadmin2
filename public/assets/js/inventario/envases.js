@@ -1,0 +1,189 @@
+(function () {
+    'use strict';
+
+    function initModuloEnvases() {
+        // 1. REVIVIR LA TABLA Y LA PAGINACIÓN
+        // Usamos la función global de tu renderizadores.js para inicializar la tabla nueva
+        if (window.ERPTable) {
+            const contenedor = document.getElementById('spa-main-content') || document;
+            window.ERPTable.autoInitFromDataset(contenedor);
+        }
+
+        // 2. REVIVIR LOS SELECTS CON BÚSQUEDA (Tom Select)
+        if (typeof TomSelect !== 'undefined') {
+            const configTS = { 
+                create: false, 
+                sortField: { field: "text", direction: "asc" },
+                // VITAL: dropdownParent 'body' evita que la lista de resultados se esconda detrás del modal
+                dropdownParent: 'body' 
+            };
+
+            const selectCliente = document.getElementById('id_tercero');
+            if (selectCliente && !selectCliente.tomselect) {
+                new TomSelect(selectCliente, { ...configTS, placeholder: "Buscar cliente..." });
+            }
+
+            const selectItem = document.getElementById('id_item_envase');
+            if (selectItem && !selectItem.tomselect) {
+                new TomSelect(selectItem, { ...configTS, placeholder: "Buscar envase..." });
+            }
+
+            const selectOp = document.getElementById('tipo_operacion');
+            if (selectOp && !selectOp.tomselect) {
+                new TomSelect(selectOp, { create: false, controlInput: null });
+            }
+        }
+
+        // 3. ENVIAR FORMULARIO POR AJAX (Para mantener la experiencia SPA)
+        const form = document.getElementById('formMovimientoEnvase');
+        if (form && !form.dataset.eventBound) {
+            form.dataset.eventBound = 'true'; // Evitar que el evento se duplique
+            
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                
+                const btn = form.querySelector('button[type="submit"]');
+                const btnOriginal = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+
+                    if (response.ok) {
+                        // Ocultamos el modal
+                        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalMovimientoEnvase'));
+                        if (modalInst) modalInst.hide();
+
+                        // Alerta de éxito y refresco SPA
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success', 
+                                title: 'Guardado', 
+                                text: 'El movimiento se registró correctamente.', 
+                                timer: 1500, 
+                                showConfirmButton: false
+                            }).then(() => {
+                                // Refrescar la vista usando tu función nativa de main.js
+                                if (typeof window.navigateWithoutReload === 'function') {
+                                    window.navigateWithoutReload(new URL(window.location.href), false);
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                        }
+                    } else {
+                        throw new Error('Error en la respuesta del servidor');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'Ocurrió un problema al guardar.', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = btnOriginal;
+                }
+            });
+        }
+
+        // ==========================================
+        // 4. NUEVO: LÓGICA PARA VER HISTORIAL
+        // ==========================================
+        const contenedorApp = document.getElementById('envasesApp');
+        // Prevenimos que el evento se asigne múltiples veces en navegación SPA
+        if (contenedorApp && !contenedorApp.dataset.historialBound) {
+            contenedorApp.dataset.historialBound = 'true'; 
+
+            contenedorApp.addEventListener('click', async function(e) {
+                // Delegación de eventos: buscamos si el clic fue en el botón o su ícono
+                const btnHistorial = e.target.closest('.btn-ver-historial');
+                
+                if (btnHistorial) {
+                    // Extraemos los datos del botón
+                    const idTercero = btnHistorial.dataset.tercero;
+                    const idItem = btnHistorial.dataset.item;
+                    const nombreCliente = btnHistorial.dataset.clienteNombre;
+                    
+                    // Preparamos el Modal
+                    document.getElementById('historialClienteNombre').textContent = 'Cliente: ' + nombreCliente;
+                    const tbody = document.getElementById('tablaHistorialBody');
+                    
+                    // Estado de carga
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted mb-0">Cargando historial...</p></td></tr>';
+                    
+                    // Mostramos el Modal
+                    const modalObj = new bootstrap.Modal(document.getElementById('modalHistorial'));
+                    modalObj.show();
+
+                    try {
+                        // Construimos la URL para tu enrutador (ajustado a tu formato ?ruta=...)
+                        const url = `?ruta=inventario/envases/historial&tercero=${idTercero}&item=${idItem}`;
+                        
+                        // Hacemos la petición GET
+                        const response = await fetch(url, { 
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+                        });
+                        
+                        if (!response.ok) throw new Error('Error de red al obtener el historial');
+                        
+                        const datos = await response.json();
+                        tbody.innerHTML = ''; // Limpiamos el mensaje de carga
+                        
+                        // Si no hay datos (no debería pasar si está en la tabla, pero por si acaso)
+                        if (datos.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay movimientos detallados para mostrar.</td></tr>';
+                            return;
+                        }
+
+                        // Recorremos los datos y dibujamos las filas
+                        datos.forEach(mov => {
+                            let badgeClass = 'bg-secondary';
+                            let icon = '';
+                            let nombreOperacion = mov.tipo_operacion;
+
+                            // Formateo visual según el tipo de operación
+                            if (mov.tipo_operacion === 'RECEPCION_VACIO') { 
+                                badgeClass = 'bg-success'; 
+                                icon = '📥'; 
+                                nombreOperacion = 'Recepción Vacíos';
+                            } else if (mov.tipo_operacion === 'ENTREGA_LLENO') { 
+                                badgeClass = 'bg-primary'; 
+                                icon = '📤'; 
+                                nombreOperacion = 'Entrega Llenos';
+                            } else if (mov.tipo_operacion === 'AJUSTE_CLIENTE' || mov.tipo_operacion === 'MERMA_PLANTA') { 
+                                badgeClass = 'bg-warning text-dark'; 
+                                icon = '⚠️'; 
+                                nombreOperacion = 'Ajuste / Merma';
+                            }
+
+                            // Añadimos la fila a la tabla
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td class="text-muted small">#${mov.id}</td>
+                                    <td><span class="badge ${badgeClass} px-2 py-1">${icon} ${nombreOperacion}</span></td>
+                                    <td class="text-center fw-bold text-dark">${mov.cantidad}</td>
+                                    <td class="small text-muted text-break">${mov.observaciones || '<span class="text-light-subtle">Sin observaciones</span>'}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                    } catch (error) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle fs-4 d-block mb-2"></i> Ocurrió un error al cargar la información.</td></tr>';
+                        console.error("Error obteniendo el historial:", error);
+                    }
+                }
+            });
+        }
+    }
+
+    // Asegurar que se ejecute tanto en recarga completa como en navegación SPA
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initModuloEnvases);
+    } else {
+        // Pequeño retraso para asegurar que el HTML del SPA ya está en pantalla
+        setTimeout(initModuloEnvases, 50);
+    }
+
+})();

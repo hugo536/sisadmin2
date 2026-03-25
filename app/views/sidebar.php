@@ -150,6 +150,11 @@ function renderSidebarInner(
             <span class="sb-link-icon"><i class="bi bi-clipboard-data"></i></span>
             <span class="sb-link-text">Inventario</span>
         </a>
+
+        <a class="sb-link<?= $activo('inventario/envases') ?>" href="<?= e(route_url('inventario/envases')) ?>" data-tooltip="Control de Envases">
+            <span class="sb-link-icon"><i class="bi bi-recycle"></i></span>
+            <span class="sb-link-text">Control de Envases</span>
+        </a>
         <?php endif; ?>
  
         <?php if (tiene_permiso('reportes.produccion.ver')): ?>
