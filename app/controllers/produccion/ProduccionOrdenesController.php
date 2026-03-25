@@ -126,6 +126,7 @@ class ProduccionOrdenesController extends Controlador
                     header('Content-Type: application/json; charset=utf-8');
                     $idReceta = (int) ($_POST['id_receta'] ?? 0);
                     $cantidadPlanificada = (float) ($_POST['cantidad'] ?? 0);
+                    $idAlmacenPlanta = (int) ($_POST['id_almacen_planta'] ?? 0);
 
                     if ($idReceta <= 0 || $cantidadPlanificada <= 0) {
                         echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
@@ -147,7 +148,7 @@ class ProduccionOrdenesController extends Controlador
                             'insumo_nombre' => $d['insumo_nombre'],
                             'cantidad_calculada' => round($cantidadRequerida, 4),
                             'stock_disponible' => round($this->produccionOrdenesModel->obtenerStockTotalItem((int) $d['id_insumo']), 4),
-                            'almacenes' => $this->produccionOrdenesModel->obtenerAlmacenesConStockItem((int) $d['id_insumo']),
+                            'almacenes' => $this->produccionOrdenesModel->obtenerAlmacenesConStockItem((int) $d['id_insumo'], $idAlmacenPlanta),
                         ];
                     }
 
