@@ -21,8 +21,10 @@ class VentasDocumentoModel extends Modelo
         $params = [];
 
         if (!empty($filtros['q'])) {
-            $sql .= ' AND (v.codigo LIKE :q OR t.nombre_completo LIKE :q)';
-            $params['q'] = '%' . trim((string) $filtros['q']) . '%';
+            $sql .= ' AND (v.codigo LIKE :q_codigo OR t.nombre_completo LIKE :q_cliente)';
+            $busqueda = '%' . trim((string) $filtros['q']) . '%';
+            $params['q_codigo'] = $busqueda;
+            $params['q_cliente'] = $busqueda;
         }
 
         if (isset($filtros['estado']) && $filtros['estado'] !== '' && $filtros['estado'] !== null) {
