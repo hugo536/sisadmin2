@@ -809,6 +809,39 @@ class ProduccionOrdenesModel extends Modelo
                                         GROUP BY d.id_insumo, i.nombre, d.cantidad_por_unidad, d.merma_porcentaje, o.cantidad_producida, o.cantidad_planificada, r.rendimiento_base
                                         ORDER BY i.nombre ASC');
         $stmtMd->execute(['id_orden' => $idOrden]);
+        $materiales = $stmtMd->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Incluye consumos reales que no estén en la receta (excepciones por almacén/ajustes manuales).
+        $stmtMdExtras = $this->db()->prepare('SELECT c.id_item,
+                                                     i.nombre AS item_nombre,
+                                                     0 AS cantidad,
+                                                     COALESCE(SUM(c.cantidad), 0) AS cantidad_real,
+                                                     COALESCE(AVG(c.costo_unitario), 0) AS costo_unitario,
+                                                     COALESCE(SUM(c.cantidad * c.costo_unitario), 0) AS costo_total
+                                              FROM produccion_consumos c
+                                              INNER JOIN items i ON i.id = c.id_item
+                                              WHERE c.id_orden_produccion = :id_orden
+                                                AND c.deleted_at IS NULL
+                                                AND NOT EXISTS (
+                                                    SELECT 1
+                                                    FROM produccion_ordenes o
+                                                    INNER JOIN produccion_recetas_detalle d
+                                                        ON d.id_receta = o.id_receta
+                                                       AND d.deleted_at IS NULL
+                                                    WHERE o.id = :id_orden_receta
+                                                      AND o.deleted_at IS NULL
+                                                      AND d.id_insumo = c.id_item
+                                                )
+                                              GROUP BY c.id_item, i.nombre
+                                              ORDER BY i.nombre ASC');
+        $stmtMdExtras->execute([
+            'id_orden' => $idOrden,
+            'id_orden_receta' => $idOrden,
+        ]);
+        $materialesExtras = $stmtMdExtras->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (!empty($materialesExtras)) {
+            $materiales = array_merge($materiales, $materialesExtras);
+        }
 
         // MOD: Mostramos si hay un empleado, sino usamos la etiqueta genérica de Planta
         $stmtMod = $this->db()->prepare('SELECT m.id_empleado,
@@ -847,7 +880,7 @@ class ProduccionOrdenesModel extends Modelo
         }
 
         return [
-            'materiales' => $stmtMd->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'materiales' => $materiales,
             'mod' => $modRows,
             'cif' => $cifRows,
         ];
