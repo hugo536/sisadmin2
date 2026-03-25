@@ -126,10 +126,25 @@ class ProduccionOrdenesController extends Controlador
                     header('Content-Type: application/json; charset=utf-8');
                     $idReceta = (int) ($_POST['id_receta'] ?? 0);
                     $cantidadPlanificada = (float) ($_POST['cantidad'] ?? 0);
+                    $idAlmacenPlanta = (int) ($_POST['id_almacen_planta'] ?? 0);
+                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
 
-                    if ($idReceta <= 0 || $cantidadPlanificada <= 0) {
-                        echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
+                    if ($idOrden > 0 && ($idReceta <= 0 || $cantidadPlanificada <= 0 || $idAlmacenPlanta <= 0)) {
+                        $orden = $this->produccionOrdenesModel->obtenerCabeceraOrden($idOrden);
+                        if (!empty($orden)) {
+                            if ($idReceta <= 0) $idReceta = (int) ($orden['id_receta'] ?? 0);
+                            if ($cantidadPlanificada <= 0) $cantidadPlanificada = (float) ($orden['cantidad_planificada'] ?? 0);
+                            if ($idAlmacenPlanta <= 0) $idAlmacenPlanta = (int) ($orden['id_almacen_planta'] ?? 0);
+                        }
+                    }
+
+                    if ($idReceta <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'La orden no tiene receta válida.']);
                         exit;
+                    }
+
+                    if ($cantidadPlanificada <= 0) {
+                        $cantidadPlanificada = 1;
                     }
 
                     $detalles = $this->produccionOrdenesModel->obtenerDetalleReceta($idReceta);
@@ -147,7 +162,7 @@ class ProduccionOrdenesController extends Controlador
                             'insumo_nombre' => $d['insumo_nombre'],
                             'cantidad_calculada' => round($cantidadRequerida, 4),
                             'stock_disponible' => round($this->produccionOrdenesModel->obtenerStockTotalItem((int) $d['id_insumo']), 4),
-                            'almacenes' => $this->produccionOrdenesModel->obtenerAlmacenesConStockItem((int) $d['id_insumo']),
+                            'almacenes' => $this->produccionOrdenesModel->obtenerAlmacenesConStockItem((int) $d['id_insumo'], $idAlmacenPlanta),
                         ];
                     }
 
