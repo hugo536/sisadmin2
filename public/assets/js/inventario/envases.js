@@ -66,10 +66,14 @@
                     }
                 }
                 
-                const btn = form.querySelector('button[type="submit"]');
-                const btnOriginal = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+                const btn = (e.submitter instanceof HTMLElement)
+                    ? e.submitter
+                    : document.querySelector(`button[type="submit"][form="${form.id}"]`) || form.querySelector('button[type="submit"], input[type="submit"]');
+                const btnOriginal = btn ? btn.innerHTML : '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+                }
 
                 try {
                     const response = await fetch(form.action, {
@@ -106,8 +110,10 @@
                 } catch (err) {
                     if (typeof Swal !== 'undefined') Swal.fire('Error', 'Ocurrió un problema al guardar.', 'error');
                 } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = btnOriginal;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = btnOriginal;
+                    }
                 }
             });
         }
