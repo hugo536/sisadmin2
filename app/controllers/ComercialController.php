@@ -2,6 +2,7 @@
 // app/controladores/ComercialController.php
 
 require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
+require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 
 class ComercialController extends Controlador {
 
@@ -9,9 +10,7 @@ class ComercialController extends Controlador {
 
     public function __construct() {
         parent::__construct();
-        if (!isset($_SESSION['id'])) {
-            redirect('login');
-        }
+        AuthMiddleware::handle();
 
         $this->listaPrecioModel = new ListaPrecioModel();
     }
