@@ -103,19 +103,15 @@
                 
                 if (btnHistorial) {
                     e.preventDefault(); // Evitamos comportamientos raros
-                    console.log("1. ¡Clic detectado en el botón historial!");
 
                     // Extraemos los datos
                     const idTercero = btnHistorial.dataset.tercero;
                     const idItem = btnHistorial.dataset.item;
                     const nombreCliente = btnHistorial.dataset.clienteNombre;
-                    
-                    console.log(`2. Datos extraídos: Tercero=${idTercero}, Item=${idItem}, Cliente=${nombreCliente}`);
 
                     // Verificamos que el HTML del modal exista
                     const modalEl = document.getElementById('modalHistorial');
                     if (!modalEl) {
-                        console.error("❌ ERROR: No se encontró el HTML del modal con ID 'modalHistorial'. ¿Lo copiaste en la vista?");
                         if (typeof Swal !== 'undefined') Swal.fire('Error', 'Falta el código HTML del modal', 'error');
                         return;
                     }
@@ -126,15 +122,12 @@
                     tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted mb-0">Cargando historial...</p></td></tr>';
                     
                     try {
-                        console.log("3. Intentando abrir el Modal de Bootstrap...");
                         // Usamos getOrCreateInstance que es más seguro en Bootstrap 5
                         const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
                         modalObj.show();
-                        console.log("4. Modal abierto correctamente.");
 
                         // Petición AJAX
                         const url = `?ruta=inventario/envases/historial&tercero=${idTercero}&item=${idItem}`;
-                        console.log("5. Consultando URL:", url);
 
                         const response = await fetch(url, { 
                             headers: { 'X-Requested-With': 'XMLHttpRequest' } 
@@ -143,7 +136,6 @@
                         if (!response.ok) throw new Error(`Error de red: ${response.status} ${response.statusText}`);
                         
                         const datos = await response.json();
-                        console.log("6. Datos recibidos del servidor:", datos);
 
                         tbody.innerHTML = ''; 
                         
@@ -170,11 +162,9 @@
                                 </tr>
                             `;
                         });
-                        console.log("7. Tabla dibujada con éxito.");
                         
                     } catch (error) {
                         tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle fs-4 d-block mb-2"></i> Ocurrió un error al cargar la información.</td></tr>';
-                        console.error("❌ ERROR FINAL:", error);
                     }
                 }
             });

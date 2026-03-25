@@ -19,9 +19,10 @@
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
                 <div class="col-12 col-md-4">
+                    <label for="envasesSearch" class="visually-hidden">Buscar cliente o envase</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="envasesSearch" placeholder="Buscar cliente o envase...">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="envasesSearch" name="busqueda_envases" placeholder="Buscar cliente o envase...">
                     </div>
                 </div>
             </div>
