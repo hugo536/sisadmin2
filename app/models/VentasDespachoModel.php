@@ -279,6 +279,11 @@ class VentasDespachoModel extends Modelo
             }
 
             $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
+
+            if ($envasesReceta === []) {
+                $envasesReceta = $this->obtenerEnvasesRetornablesDesdeHistoricoProduccion($db, $idProducto);
+            }
+
             foreach ($envasesReceta as $envase) {
                 $idItemEnvase = (int) ($envase['id_item_envase'] ?? 0);
                 $factor = (float) ($envase['factor_envase'] ?? 0);
@@ -329,16 +334,49 @@ class VentasDespachoModel extends Modelo
                                 AND i.deleted_at IS NULL
                                 AND i.es_envase_retornable = 1
                                 AND r.deleted_at IS NULL
+
                                 AND r.estado = 1
+
                                 AND d.id_receta = (
                                     SELECT r2.id
                                     FROM produccion_recetas r2
                                     WHERE r2.id_producto = :id_producto
+
+                                      AND r2.deleted_at IS NULL
+                                    ORDER BY (r2.estado = 1) DESC, r2.version DESC, r2.id DESC
+
                                       AND r2.estado = 1
                                       AND r2.deleted_at IS NULL
                                     ORDER BY r2.version DESC, r2.id DESC
+
                                     LIMIT 1
                                 )');
+        $stmt->execute(['id_producto' => $idProducto]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+
+
+    private function obtenerEnvasesRetornablesDesdeHistoricoProduccion(PDO $db, int $idProducto): array
+    {
+        if ($idProducto <= 0) {
+            return [];
+        }
+
+        $stmt = $db->prepare('SELECT c.id_item AS id_item_envase,
+                                     (SUM(c.cantidad) / NULLIF(SUM(o.cantidad_producida), 0)) AS factor_envase
+                              FROM produccion_ordenes o
+                              INNER JOIN produccion_consumos c ON c.id_orden_produccion = o.id AND c.deleted_at IS NULL
+                              INNER JOIN items i ON i.id = c.id_item
+                              WHERE o.deleted_at IS NULL
+                                AND o.estado = 2
+                                AND o.cantidad_producida > 0
+                                AND o.id_producto_snapshot = :id_producto
+                                AND i.deleted_at IS NULL
+                                AND i.es_envase_retornable = 1
+                              GROUP BY c.id_item
+                              HAVING factor_envase > 0');
         $stmt->execute(['id_producto' => $idProducto]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
