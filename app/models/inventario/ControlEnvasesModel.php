@@ -97,18 +97,57 @@ class ControlEnvasesModel extends Modelo {
     // NUEVA FUNCIÓN: Obtener historial para el Modal
     // ==========================================
     public function obtenerHistorial(int $id_tercero, int $id_item_envase): array {
-        $sql = "SELECT id, tipo_operacion, cantidad, observaciones 
-                FROM cta_cte_envases 
-                WHERE id_tercero = :id_tercero 
-                  AND id_item_envase = :id_item_envase 
-                ORDER BY id DESC LIMIT 50"; 
-                
+        $columnas = $this->obtenerColumnasTablaEnvases();
+
+        $idCol = null;
+        foreach (['id', 'id_cta_cte_envase', 'id_movimiento'] as $candidata) {
+            if (isset($columnas[$candidata])) {
+                $idCol = $candidata;
+                break;
+            }
+        }
+
+        $orderCol = null;
+        foreach (['created_at', 'fecha_movimiento', 'fecha', 'id', 'id_cta_cte_envase', 'id_movimiento'] as $candidata) {
+            if (isset($columnas[$candidata])) {
+                $orderCol = $candidata;
+                break;
+            }
+        }
+
+        $selectId = $idCol ? "{$idCol} AS id" : "0 AS id";
+        $selectObs = isset($columnas['observaciones']) ? "observaciones" : "'' AS observaciones";
+        $orderBy = $orderCol ? "{$orderCol} DESC" : "tipo_operacion ASC";
+
+        $sql = "SELECT {$selectId}, tipo_operacion, cantidad, {$selectObs}
+                FROM cta_cte_envases
+                WHERE id_tercero = :id_tercero
+                  AND id_item_envase = :id_item_envase
+                ORDER BY {$orderBy}
+                LIMIT 50";
+
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':id_tercero', $id_tercero, PDO::PARAM_INT);
         $stmt->bindParam(':id_item_envase', $id_item_envase, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function obtenerColumnasTablaEnvases(): array {
+        $sql = "SHOW COLUMNS FROM cta_cte_envases";
+        $stmt = $this->db->query($sql);
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $columnas = [];
+        foreach ($filas as $fila) {
+            $nombre = (string)($fila['Field'] ?? '');
+            if ($nombre !== '') {
+                $columnas[$nombre] = true;
+            }
+        }
+
+        return $columnas;
     }
 }
 ?>
