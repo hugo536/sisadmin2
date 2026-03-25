@@ -888,15 +888,116 @@ class ProduccionOrdenesModel extends Modelo
 
     public function obtenerStockTotalItem(int $idItem): float
     {
-        $stmt = $this->db()->prepare('SELECT COALESCE(SUM(stock_actual), 0) FROM inventario_stock WHERE id_item = :id_item');
-        $stmt->execute(['id_item' => $idItem]);
+        $sql = 'SELECT COALESCE(SUM(t.stock_disponible), 0)
+                FROM (
+                    SELECT COALESCE(s.id_almacen, l.id_almacen) AS id_almacen,
+                           GREATEST(COALESCE(s.stock_actual, 0), COALESCE(l.stock_lote, 0)) AS stock_disponible
+                    FROM (
+                        SELECT id_almacen, SUM(stock_actual) AS stock_actual
+                        FROM inventario_stock
+                        WHERE id_item = :id_item
+                        GROUP BY id_almacen
+                    ) s
+                    LEFT JOIN (
+                        SELECT id_almacen, SUM(stock_lote) AS stock_lote
+                        FROM inventario_lotes
+                        WHERE id_item = :id_item_lotes
+                          AND stock_lote > 0
+                        GROUP BY id_almacen
+                    ) l ON l.id_almacen = s.id_almacen
+
+                    UNION
+
+                    SELECT l.id_almacen,
+                           GREATEST(COALESCE(s.stock_actual, 0), COALESCE(l.stock_lote, 0)) AS stock_disponible
+                    FROM (
+                        SELECT id_almacen, SUM(stock_lote) AS stock_lote
+                        FROM inventario_lotes
+                        WHERE id_item = :id_item_lotes_union
+                          AND stock_lote > 0
+                        GROUP BY id_almacen
+                    ) l
+                    LEFT JOIN (
+                        SELECT id_almacen, SUM(stock_actual) AS stock_actual
+                        FROM inventario_stock
+                        WHERE id_item = :id_item_union
+                        GROUP BY id_almacen
+                    ) s ON s.id_almacen = l.id_almacen
+                    WHERE s.id_almacen IS NULL
+                ) t
+                LEFT JOIN almacenes a ON a.id = t.id_almacen
+                WHERE (t.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_item_lotes' => $idItem,
+            'id_item_lotes_union' => $idItem,
+            'id_item_union' => $idItem,
+            'id_almacen_planta' => $idAlmacenPlanta,
+        ]);
+
         return (float) ($stmt->fetchColumn() ?: 0);
     }
 
-    public function obtenerAlmacenesConStockItem(int $idItem): array
+    public function obtenerAlmacenesConStockItem(int $idItem, int $idAlmacenPlanta = 0): array
     {
-        $stmt = $this->db()->prepare('SELECT a.id, a.nombre, s.stock_actual FROM inventario_stock s INNER JOIN almacenes a ON a.id = s.id_almacen WHERE s.id_item = :id_item AND s.stock_actual > 0');
-        $stmt->execute(['id_item' => $idItem]);
+        $sql = 'SELECT a.id,
+                       a.nombre,
+                       a.tipo,
+                       t.stock_disponible AS stock_actual,
+                       CASE WHEN a.id = :id_almacen_planta THEN 1 ELSE 0 END AS es_planta
+                FROM (
+                    SELECT COALESCE(s.id_almacen, l.id_almacen) AS id_almacen,
+                           GREATEST(COALESCE(s.stock_actual, 0), COALESCE(l.stock_lote, 0)) AS stock_disponible
+                    FROM (
+                        SELECT id_almacen, SUM(stock_actual) AS stock_actual
+                        FROM inventario_stock
+                        WHERE id_item = :id_item
+                        GROUP BY id_almacen
+                    ) s
+                    LEFT JOIN (
+                        SELECT id_almacen, SUM(stock_lote) AS stock_lote
+                        FROM inventario_lotes
+                        WHERE id_item = :id_item_lotes
+                          AND stock_lote > 0
+                        GROUP BY id_almacen
+                    ) l ON l.id_almacen = s.id_almacen
+
+                    UNION
+
+                    SELECT l.id_almacen,
+                           GREATEST(COALESCE(s.stock_actual, 0), COALESCE(l.stock_lote, 0)) AS stock_disponible
+                    FROM (
+                        SELECT id_almacen, SUM(stock_lote) AS stock_lote
+                        FROM inventario_lotes
+                        WHERE id_item = :id_item_lotes_union
+                          AND stock_lote > 0
+                        GROUP BY id_almacen
+                    ) l
+                    LEFT JOIN (
+                        SELECT id_almacen, SUM(stock_actual) AS stock_actual
+                        FROM inventario_stock
+                        WHERE id_item = :id_item_union
+                        GROUP BY id_almacen
+                    ) s ON s.id_almacen = l.id_almacen
+                    WHERE s.id_almacen IS NULL
+                ) t
+                INNER JOIN almacenes a ON a.id = t.id_almacen
+                WHERE a.estado = 1
+                  AND a.deleted_at IS NULL
+                  AND t.stock_disponible > 0
+                ORDER BY es_planta DESC, t.stock_disponible DESC, a.nombre ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_item_lotes' => $idItem,
+            'id_item_lotes_union' => $idItem,
+            'id_item_union' => $idItem,
+            'id_almacen_planta' => $idAlmacenPlanta,
+        ]);
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

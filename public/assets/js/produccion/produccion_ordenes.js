@@ -541,6 +541,7 @@ function initModalEjecucion() {
             const codigo = btnAbrir.getAttribute('data-codigo') || '';
             const idReceta = btnAbrir.getAttribute('data-receta') || '';
             const planificada = parseFloat(btnAbrir.getAttribute('data-planificada')) || 0;
+            const idAlmacenPlanta = parseInt(btnAbrir.getAttribute('data-id-almacen-planta') || '0', 10) || 0;
             
             document.getElementById('execIdOrden').value = idOrden;
             document.getElementById('lblExecCodigo').textContent = codigo;
@@ -606,13 +607,14 @@ function initModalEjecucion() {
                 formData.append('accion', 'obtener_receta_ajax');
                 formData.append('id_receta', idReceta);
                 formData.append('cantidad', planificada);
+                formData.append('id_almacen_planta', String(idAlmacenPlanta));
 
                 const response = await fetch(window.location.href, { method: 'POST', body: formData });
                 const result = await response.json();
                 if(tbodyConsumos) tbodyConsumos.innerHTML = ''; 
 
                 if (result.success && result.data.length > 0) {
-                    result.data.forEach(item => { addConsumoRow(item, planificada); });
+                    result.data.forEach(item => { addConsumoRow(item, planificada, idAlmacenPlanta); });
                     recalcularSemaforos(); 
                 } else {
                     if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">No se cargaron insumos. Añádalos manualmente.</td></tr>';
@@ -699,7 +701,7 @@ function initModalEjecucion() {
 // =========================================================================
 // 4. GENERADORES DE INTERFAZ
 // =========================================================================
-function addConsumoRow(item = null, planificada = 1) {
+function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
     const tbody = document.querySelector('#tablaConsumosDynamic tbody');
     if (!tbody) return;
     const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
@@ -712,12 +714,27 @@ function addConsumoRow(item = null, planificada = 1) {
         tr.classList.add('fila-calculada');
 
         let optionsHtml = '<option value="">Seleccione almacén...</option>';
-        if (item.almacenes && item.almacenes.length > 0) {
-            optionsHtml += `<optgroup label="Recomendados (Con Stock)">`;
-            item.almacenes.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
-            optionsHtml += `</optgroup><optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
-        } else {
+        const almacenesConStock = Array.isArray(item.almacenes) ? item.almacenes : [];
+        const almacenPlanta = almacenesConStock.find(a => Number(a.id) === Number(idAlmacenPlanta));
+        const otrosConStock = almacenesConStock.filter(a => Number(a.id) !== Number(idAlmacenPlanta));
+
+        if (almacenPlanta) {
+            optionsHtml += `<optgroup label="✅ Recomendado: Almacén de Planta">`;
+            optionsHtml += `<option value="${almacenPlanta.id}" data-stock="${almacenPlanta.stock_actual}" selected>${almacenPlanta.nombre} (Stock: ${almacenPlanta.stock_actual})</option>`;
+            optionsHtml += `</optgroup>`;
+        } else if (idAlmacenPlanta > 0) {
+            optionsHtml += `<optgroup label="⚠ Planta sin stock para este insumo"></optgroup>`;
+        }
+
+        if (otrosConStock.length > 0) {
+            optionsHtml += `<optgroup label="Con stock en otros almacenes">`;
+            otrosConStock.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
+            optionsHtml += `</optgroup>`;
+            optionsHtml += `<optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
+        } else if (!almacenPlanta) {
             optionsHtml += `<optgroup label="⚠ Sin Stock Registrado">${templateAlmacenes}</optgroup>`;
+        } else {
+            optionsHtml += `<optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
         }
 
         tr.innerHTML = `

@@ -250,6 +250,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         data-req-lote="<?php echo (int) ($orden['requiere_lote'] ?? 0); ?>"
                                                         data-req-venc="<?php echo (int) ($orden['requiere_vencimiento'] ?? 0); ?>"
                                                         data-unidad="<?php echo e((string) ($orden['unidad_base'] ?? 'UND')); ?>"
+                                                        data-id-almacen-planta="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
                                                         title="<?php echo $estado === 1 ? 'Continuar Producción' : 'Ejecutar Producción'; ?>">
                                                     <i class="bi bi-play-fill"></i>
                                                     <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
