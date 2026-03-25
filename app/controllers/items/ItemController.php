@@ -544,6 +544,9 @@ class ItemController extends Controlador
                 break;
 
             case 'material_empaque':
+                if (!$esEdicion) {
+                    $data['controla_stock'] = 1;
+                }
                 $data['es_envase_retornable'] = $post_envase;
                 $data['permite_decimales'] = 0; 
                 break;
