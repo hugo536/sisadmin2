@@ -608,6 +608,7 @@ function initModalEjecucion() {
                 formData.append('id_receta', idReceta);
                 formData.append('cantidad', planificada);
                 formData.append('id_orden', String(idOrden));
+
                 formData.append('id_almacen_planta', String(idAlmacenPlanta));
 
                 const response = await fetch(window.location.href, { method: 'POST', body: formData });
