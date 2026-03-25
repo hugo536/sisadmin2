@@ -84,6 +84,7 @@ class VentasDespachoModel extends Modelo
                     'id_documento_detalle' => $idDetalle,
                     'id_item' => (int) $detalle['id_item'],
                     'cantidad' => $cantidad,
+                    'id_almacen' => $idAlmacenLinea // <--- ¡Asegúrate de agregar esta línea!
                 ];
             }
 
@@ -270,6 +271,7 @@ class VentasDespachoModel extends Modelo
 
         $ajustesPorEnvase = [];
 
+        // 1. Identificar cuántos envases vacíos requiere esta venta
         foreach ($lineasDespachadas as $linea) {
             $idProducto = (int) ($linea['id_item'] ?? 0);
             $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
@@ -278,6 +280,7 @@ class VentasDespachoModel extends Modelo
                 continue;
             }
 
+            // Buscamos si el producto vendido tiene un envase retornable en su receta
             $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
 
             if ($envasesReceta === []) {
@@ -304,17 +307,23 @@ class VentasDespachoModel extends Modelo
             return;
         }
 
-        $stmt = $db->prepare('INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones)
-                              VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones)');
-
+        // 2. Preparar SOLO la consulta de Cuenta Corriente (No tocamos el Kardex físico aquí)
+        $operacionUuid = bin2hex(random_bytes(8));
+        
+        $stmtCtaCte = $db->prepare('INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones) VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones)');
+        
+        // 3. Ejecutar las salidas (Cuenta Corriente) por cada envase identificado
         foreach ($ajustesPorEnvase as $idItemEnvase => $cantidadAjuste) {
-            $stmt->execute([
+            $obsFinal = 'Salida automática por despacho ' . $codigoDespacho . ' | OP:' . $operacionUuid;
+            
+            // Registramos la ENTREGA_LLENO en envases (Afecta el saldo del cliente, pero NO el Kardex físico)
+            $stmtCtaCte->execute([
                 'id_tercero' => $idCliente,
-                'id_item_envase' => (int) $idItemEnvase,
-                'tipo_operacion' => 'AJUSTE_CLIENTE',
+                'id_item_envase' => $idItemEnvase,
+                'tipo_operacion' => 'ENTREGA_LLENO',
                 'cantidad' => $cantidadAjuste,
                 'id_venta' => $idDocumento,
-                'observaciones' => 'Descuento automático por despacho ' . $codigoDespacho,
+                'observaciones' => $obsFinal,
             ]);
         }
     }
