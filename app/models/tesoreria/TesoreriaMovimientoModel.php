@@ -66,6 +66,7 @@ class TesoreriaMovimientoModel extends Modelo
             $addTransfers = false; // Las transferencias son internas, no tienen tercero
         }
 
+        $paramsFinal = $params;
         if ($addTransfers) {
             // Un egreso por la cuenta origen
             $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado,
@@ -89,11 +90,12 @@ class TesoreriaMovimientoModel extends Modelo
 
             $sqlFinal = "($sqlMov) UNION ALL ($sqlTrfOut) UNION ALL ($sqlTrfIn) ORDER BY fecha DESC, created_at DESC LIMIT :limite";
         } else {
+            unset($paramsFinal['id_origen_trf']);
             $sqlFinal = "$sqlMov ORDER BY fecha DESC, created_at DESC LIMIT :limite";
         }
 
         $stmt = $this->db()->prepare($sqlFinal);
-        foreach ($params as $k => $v) {
+        foreach ($paramsFinal as $k => $v) {
             $stmt->bindValue(':' . $k, $v);
         }
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
