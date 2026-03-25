@@ -396,6 +396,7 @@ class TesoreriaController extends Controlador
 
         try {
             $tipo = strtoupper(trim((string) ($_POST['tipo_deuda'] ?? 'CLIENTE')));
+            $modoRegistro = strtoupper(trim((string) ($_POST['modo_registro'] ?? 'DETALLE')));
             $idTercero = (int) ($_POST['id_tercero'] ?? 0);
             $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
             $monto = round((float) ($_POST['monto_total'] ?? 0), 4);
@@ -406,6 +407,9 @@ class TesoreriaController extends Controlador
 
             if (!in_array($tipo, ['CLIENTE', 'PROVEEDOR'], true)) {
                 throw new RuntimeException('Tipo de deuda inválido.');
+            }
+            if (!in_array($modoRegistro, ['DETALLE', 'MANUAL'], true)) {
+                throw new RuntimeException('Modo de registro inválido.');
             }
             if ($idTercero <= 0) {
                 throw new RuntimeException('Debe seleccionar un tercero válido.');
@@ -464,7 +468,7 @@ class TesoreriaController extends Controlador
                 }
             }
 
-            if (!empty($idsItems) && is_array($idsItems)) {
+            if ($modoRegistro === 'DETALLE' && !empty($idsItems) && is_array($idsItems)) {
                 foreach ($idsItems as $index => $idItem) {
                     $cant = (float) ($cantidades[$index] ?? 0);
                     $subtotal = (float) ($subtotales[$index] ?? 0);
@@ -494,7 +498,10 @@ class TesoreriaController extends Controlador
             }
 
             // Si el usuario llenó la tabla, el monto total DEBE SER la suma exacta de la tabla.
-            if (!empty($detalleJson)) {
+            if ($modoRegistro === 'DETALLE') {
+                if (empty($detalleJson)) {
+                    throw new RuntimeException('Debe agregar al menos un ítem al detalle o cambiar a "Monto directo".');
+                }
                 $monto = round($sumaCalculada, 4);
                 if ($monto <= 0) {
                     throw new RuntimeException('El monto calculado del detalle debe ser mayor a cero.');
@@ -502,6 +509,7 @@ class TesoreriaController extends Controlador
                 
                 // Guardamos el JSON dentro de las observaciones
                 $observacionesFinal = json_encode([
+                    'modo_registro' => $modoRegistro,
                     'nota_manual' => $observacionesText,
                     'detalle_items' => $detalleJson,
                     'amortizaciones_previas' => $amortizacionesLocales
@@ -512,6 +520,7 @@ class TesoreriaController extends Controlador
                     throw new RuntimeException('El monto debe ser mayor a cero.');
                 }
                 $observacionesFinal = json_encode([
+                    'modo_registro' => $modoRegistro,
                     'nota_manual' => $observacionesText,
                     'amortizaciones_previas' => $amortizacionesLocales
                 ], JSON_UNESCAPED_UNICODE);
@@ -936,8 +945,11 @@ class TesoreriaController extends Controlador
             $totalAmortizaciones = 0;
             $detalleItems = [];
             $amortizaciones = [];
+            $modoRegistro = 'DETALLE';
+            $montoBaseReferencial = 0;
 
             if ($tieneCuenta) {
+                $montoBaseReferencial = round((float) ($cuentaExiste['monto_total'] ?? 0), 4);
                 // 2. Si tiene cuenta, buscamos cuánto ha pagado (amortizado) hasta ahora.
                 $origenMov = $tipo === 'CLIENTE' ? 'CXC' : 'CXP';
                 $tipoMov = $tipo === 'CLIENTE' ? 'COBRO' : 'PAGO';
@@ -983,8 +995,14 @@ class TesoreriaController extends Controlador
                 if (!empty($cuentaExiste['observaciones'])) {
                     $obsDecoded = json_decode($cuentaExiste['observaciones'], true);
                     if (is_array($obsDecoded)) {
+                        if (!empty($obsDecoded['modo_registro']) && strtoupper((string) $obsDecoded['modo_registro']) === 'MANUAL') {
+                            $modoRegistro = 'MANUAL';
+                        }
                         if (isset($obsDecoded['detalle_items']) && is_array($obsDecoded['detalle_items'])) {
                             $detalleItems = $obsDecoded['detalle_items'];
+                            if ($detalleItems !== []) {
+                                $modoRegistro = 'DETALLE';
+                            }
                         }
                         if (!empty($obsDecoded['amortizaciones_previas']) && is_array($obsDecoded['amortizaciones_previas'])) {
                             foreach ($obsDecoded['amortizaciones_previas'] as $amortLocal) {
@@ -1003,12 +1021,18 @@ class TesoreriaController extends Controlador
                         }
                     }
                 }
+
+                if ($modoRegistro === 'MANUAL') {
+                    $montoBaseReferencial = round($montoBaseReferencial + $totalAmortizaciones, 4);
+                }
             }
 
             echo json_encode([
                 'ok' => true,
                 'tiene_cuenta' => $tieneCuenta,
                 'total_amortizaciones' => $totalAmortizaciones,
+                'modo_registro' => $modoRegistro,
+                'monto_base_referencial' => $montoBaseReferencial,
                 'items_guardados' => $detalleItems,
                 'amortizaciones' => $amortizaciones
             ]);

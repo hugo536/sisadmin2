@@ -174,6 +174,31 @@ if ($error !== '') {
                             <input type="text" name="documento_referencia" class="form-control shadow-sm" maxlength="50" required placeholder="Ej. F001-445">
                         </div>
 
+                        <div class="mt-4 pt-3 border-top">
+                            <label class="form-label fw-bold text-dark small mb-2">Modo de Registro</label>
+                            <div class="d-flex flex-column gap-2 mb-3">
+                                <input type="radio" class="btn-check" name="modo_registro" id="modoRegistroDetalle" value="DETALLE" checked autocomplete="off">
+                                <label class="btn btn-outline-primary text-start px-3 py-2 shadow-sm fw-semibold" for="modoRegistroDetalle">
+                                    <i class="bi bi-cart-check me-2"></i>Con detalle de compra/producto
+                                </label>
+
+                                <input type="radio" class="btn-check" name="modo_registro" id="modoRegistroManual" value="MANUAL" autocomplete="off">
+                                <label class="btn btn-outline-secondary text-start px-3 py-2 shadow-sm fw-semibold" for="modoRegistroManual">
+                                    <i class="bi bi-cash-coin me-2"></i>Monto directo (sin producto)
+                                </label>
+                            </div>
+
+                            <div id="bloqueMontoBaseManual" class="mb-3 d-none">
+                                <label for="saldoInicialMontoBaseManual" class="form-label fw-bold text-muted small mb-1">
+                                    Monto base de la deuda <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="saldoInicialMontoBaseManual" class="form-control shadow-sm text-end" min="0.01" step="0.01" value="0.00" placeholder="0.00">
+                                <small class="text-muted">
+                                    Se registrará como: <strong>Monto base - amortizaciones</strong>.
+                                </small>
+                            </div>
+                        </div>
+
                         <!-- 3. Búsqueda de Ítems y Botón -->
                         <div class="mt-4 pt-3 border-top">
                             <label class="form-label fw-bold text-dark mb-2"><i class="bi bi-box-seam me-1"></i>Agregar Compra / Producto</label>

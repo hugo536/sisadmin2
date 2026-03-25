@@ -816,6 +816,9 @@
                         resetearBotonGuardar();
                         totalAmortizacionesRemotas = 0;
                         totalAmortizacionesLocales = 0;
+                        if (radioModoDetalle) radioModoDetalle.checked = true;
+                        if (inputMontoBaseManual) inputMontoBaseManual.value = '0.00';
+                        actualizarModoRegistroUI('DETALLE');
                         limpiarDetalleCompras();
                         renderAmortizaciones([]);
                         calcularSaldosReales();
@@ -836,6 +839,17 @@
 
                                 totalAmortizacionesRemotas = data.total_amortizaciones || 0;
                                 totalAmortizacionesLocales = 0;
+                                const modoGuardado = data.modo_registro === 'MANUAL' ? 'MANUAL' : 'DETALLE';
+                                if (modoGuardado === 'MANUAL' && radioModoManual) {
+                                    radioModoManual.checked = true;
+                                } else if (radioModoDetalle) {
+                                    radioModoDetalle.checked = true;
+                                }
+                                if (inputMontoBaseManual) {
+                                    const montoBase = parseFloat(data.monto_base_referencial || 0);
+                                    inputMontoBaseManual.value = montoBase > 0 ? montoBase.toFixed(2) : '0.00';
+                                }
+                                actualizarModoRegistroUI(modoGuardado);
                                 await cargarDetalleGuardado(data.items_guardados || []);
                                 renderAmortizaciones(data.amortizaciones || []);
                                 calcularSaldosReales();
@@ -845,6 +859,9 @@
                                 resetearBotonGuardar();
                                 totalAmortizacionesRemotas = 0;
                                 totalAmortizacionesLocales = 0;
+                                if (radioModoDetalle) radioModoDetalle.checked = true;
+                                if (inputMontoBaseManual) inputMontoBaseManual.value = '0.00';
+                                actualizarModoRegistroUI('DETALLE');
                                 limpiarDetalleCompras();
                                 renderAmortizaciones([]);
                                 calcularSaldosReales();
@@ -922,6 +939,11 @@
         const inputCantidadAgregar = document.getElementById('saldoDetalleCantidad');
         const selectUnidadAgregar = document.getElementById('saldoDetalleUnidad');
         const inputSubtotalAgregar = document.getElementById('saldoDetalleSubtotal');
+        const bloqueMontoBaseManual = document.getElementById('bloqueMontoBaseManual');
+        const inputMontoBaseManual = document.getElementById('saldoInicialMontoBaseManual');
+        const radiosModoRegistro = Array.from(document.querySelectorAll('input[name="modo_registro"]'));
+        const radioModoDetalle = document.getElementById('modoRegistroDetalle');
+        const radioModoManual = document.getElementById('modoRegistroManual');
         const cacheUnidades = new Map();
 
         async function obtenerUnidadesItemTesoreria(idItem) {
@@ -942,6 +964,42 @@
         
         let tsItems = null;
         let itemSeleccionadoTemporal = null; 
+        let modoRegistroActual = radioModoManual?.checked ? 'MANUAL' : 'DETALLE';
+
+        function obtenerModoRegistro() {
+            const radio = document.querySelector('input[name="modo_registro"]:checked');
+            return radio?.value === 'MANUAL' ? 'MANUAL' : 'DETALLE';
+        }
+
+        function actualizarModoRegistroUI(modo = 'DETALLE') {
+            modoRegistroActual = modo === 'MANUAL' ? 'MANUAL' : 'DETALLE';
+            const esManual = modoRegistroActual === 'MANUAL';
+
+            if (bloqueMontoBaseManual) {
+                bloqueMontoBaseManual.classList.toggle('d-none', !esManual);
+            }
+            if (inputMontoBaseManual) {
+                inputMontoBaseManual.disabled = !esManual;
+                if (!esManual && !inputMontoBaseManual.value) {
+                    inputMontoBaseManual.value = '0.00';
+                }
+            }
+            if (itemsSelectEl?.tomselect) {
+                itemsSelectEl.tomselect.wrapper.classList.toggle('opacity-50', esManual);
+                if (itemsSelectEl.tomselect.control_input) {
+                    itemsSelectEl.tomselect.control_input.disabled = esManual;
+                }
+            }
+            if (btnAgregarItemDetalle) {
+                btnAgregarItemDetalle.disabled = esManual;
+                btnAgregarItemDetalle.classList.toggle('disabled', esManual);
+            }
+            if (inputCantidadAgregar) inputCantidadAgregar.disabled = esManual;
+            if (selectUnidadAgregar) selectUnidadAgregar.disabled = esManual;
+            if (inputSubtotalAgregar) inputSubtotalAgregar.disabled = esManual;
+
+            calcularSaldosReales();
+        }
 
         function getOpcionesUnidadesHtml(unidades = []) {
             return ['<option value="">Base</option>']
@@ -1280,7 +1338,9 @@
         function calcularSaldosReales() {
             let totalCompras = 0;
 
-            if (tbody) {
+            if (obtenerModoRegistro() === 'MANUAL') {
+                totalCompras = Math.max(parseFloat(inputMontoBaseManual?.value || 0), 0);
+            } else if (tbody) {
                 tbody.querySelectorAll('tr:not(#filaVaciaMensaje)').forEach(tr => {
                     const subtotal = parseFloat(tr.querySelector('.js-subtotal-input')?.value) || 0;
                     totalCompras += subtotal;
@@ -1295,6 +1355,14 @@
                 inputMontoSaldos.value = saldoReal.toFixed(2);
             }
         }
+
+        radiosModoRegistro.forEach(radio => {
+            radio.addEventListener('change', () => {
+                actualizarModoRegistroUI(obtenerModoRegistro());
+            });
+        });
+
+        inputMontoBaseManual?.addEventListener('input', calcularSaldosReales);
 
         const btnRegistrarPagoPrevio = document.getElementById('btnRegistrarPagoPrevio');
         const modalPagoPrevioEl = document.getElementById('modalPagoPrevio');
@@ -1430,6 +1498,8 @@
                 });
             });
         };
+
+        actualizarModoRegistroUI(obtenerModoRegistro());
     }
 
     // ========================================================================
