@@ -934,7 +934,6 @@ class ProduccionOrdenesModel extends Modelo
             'id_item_lotes' => $idItem,
             'id_item_lotes_union' => $idItem,
             'id_item_union' => $idItem,
-            'id_almacen_planta' => $idAlmacenPlanta,
         ]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
