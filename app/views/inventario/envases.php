@@ -149,6 +149,9 @@
                                         <option value="">Seleccione...</option>
                                         <option value="RECEPCION_VACIO">📥 El cliente devolvió envases vacíos</option>
                                         <option value="ENTREGA_LLENO">📤 Préstamo / Entrega manual al cliente</option>
+
+                                        <option value="RECEPCION_VACIO">📥 Recepción de envases vacíos (del cliente)</option>
+                                        <option value="PRESTAMO_ENVASE">📤 Préstamo / Entrega manual al cliente</option>
                                         <option value="AJUSTE_CLIENTE">⚠️ Ajuste (Roto/Perdido por el cliente)</option>
                                     </select>
                                 </div>
