@@ -341,14 +341,9 @@ class VentasDespachoModel extends Modelo
                                     SELECT r2.id
                                     FROM produccion_recetas r2
                                     WHERE r2.id_producto = :id_producto
-
-                                      AND r2.deleted_at IS NULL
-                                    ORDER BY (r2.estado = 1) DESC, r2.version DESC, r2.id DESC
-
                                       AND r2.estado = 1
                                       AND r2.deleted_at IS NULL
                                     ORDER BY r2.version DESC, r2.id DESC
-
                                     LIMIT 1
                                 )');
         $stmt->execute(['id_producto' => $idProducto]);
