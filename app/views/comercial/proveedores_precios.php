@@ -43,6 +43,7 @@ $preciosMatriz = $precios_matriz ?? [];
                     <?php else: ?>
                         <?php foreach ($acuerdos as $acuerdo): ?>
                             <?php $isSelected = $acuerdoSeleccionado && (int)$acuerdoSeleccionado['id'] === (int)$acuerdo['id']; ?>
+                            <?php $isActive = (int)($acuerdo['estado'] ?? 1) === 1; ?>
                             <button type="button"
                                     class="list-group-item list-group-item-action d-flex justify-content-between align-items-start proveedor-sidebar-item <?php echo $isSelected ? 'active' : ''; ?>"
                                     data-id-acuerdo="<?php echo (int)$acuerdo['id']; ?>"
@@ -51,6 +52,7 @@ $preciosMatriz = $precios_matriz ?? [];
                                     <div class="fw-semibold"><?php echo e($acuerdo['proveedor_nombre']); ?></div>
                                     <small class="text-muted"><?php echo (int)($acuerdo['total_productos'] ?? 0); ?> productos</small>
                                 </div>
+                                <span class="rounded-circle mt-1 flex-shrink-0" style="width:10px;height:10px;background:<?php echo $isActive ? '#22c55e' : '#9ca3af'; ?>;"></span>
                             </button>
                         <?php endforeach; ?>
                         <div class="px-3 py-4 text-center text-muted small d-none" id="sidebarProveedorNoResults">No hay coincidencias.</div>

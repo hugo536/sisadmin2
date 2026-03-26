@@ -674,10 +674,25 @@ function initComercialProveedorApp() {
         const res = await fetch(withParam(urls.obtenerMatriz, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudo cargar la matriz.');
+        const totalProductos = (json.matriz || []).length;
         if (tabla) tabla.dataset.idAcuerdo = String(idAcuerdo);
         if (titulo) titulo.textContent = json.acuerdo.proveedor_nombre;
-        if (resumen) resumen.textContent = `${(json.matriz || []).length} productos configurados`;
+        if (resumen) resumen.textContent = `${totalProductos} productos configurados`;
         renderRows(json.matriz || []);
+
+        const sidebarItem = document.querySelector(`.proveedor-sidebar-item[data-id-acuerdo="${idAcuerdo}"]`);
+        if (sidebarItem) {
+            const counterText = sidebarItem.querySelector('small');
+            if (counterText) {
+                counterText.textContent = `${totalProductos} productos`;
+            }
+
+            const dotEl = sidebarItem.querySelector('.rounded-circle');
+            if (dotEl && json.acuerdo) {
+                const isActive = parseInt(json.acuerdo.estado, 10) === 1;
+                dotEl.style.background = isActive ? '#22c55e' : '#9ca3af';
+            }
+        }
     };
 
     if (sidebarList) {

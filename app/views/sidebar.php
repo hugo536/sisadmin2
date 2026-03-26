@@ -265,7 +265,7 @@ function renderSidebarInner(
         <div class="collapse<?= $grupoActivo(['comercial']) ?>" id="<?= htmlspecialchars($menuComercialId) ?>" data-menu-key="comercial" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
                 <a class="sb-link sb-sub<?= $activo('comercial/listas') ?>" href="<?= e(route_url('comercial/listas')) ?>">
-                    <span class="sb-link-icon"><i class="bi bi-currency-dollar"></i></span><span class="sb-link-text">Listas de Precios</span>
+                    <span class="sb-link-icon"><i class="bi bi-currency-dollar"></i></span><span class="sb-link-text">Precios Clientes</span>
                 </a>
                 <a class="sb-link sb-sub<?= $activo('comercial/proveedores') ?>" href="<?= e(route_url('comercial/proveedores')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-truck"></i></span><span class="sb-link-text">Precios Proveedor</span>
