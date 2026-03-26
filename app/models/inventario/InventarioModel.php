@@ -708,6 +708,9 @@ class InventarioModel extends Modelo
                     'lote' => $lote,
                     'fecha_vencimiento' => $fechaVencimiento !== '' ? $fechaVencimiento : null,
                     'costo_unitario' => $costoUnitario,
+                    'id_centro_costo' => isset($cabecera['id_centro_costo']) && (int) $cabecera['id_centro_costo'] > 0
+                        ? (int) $cabecera['id_centro_costo']
+                        : null,
                     'created_by' => $createdBy,
                     'operacion_uuid' => $operacionUuid,
                 ];
