@@ -134,7 +134,7 @@ class ReporteTesoreriaModel extends Modelo
                     i.nombre AS producto,
                     CAST(COALESCE(d.cantidad, 0) AS DECIMAL(14,2)) AS cantidad,
                     CAST(COALESCE(d.precio_unitario, 0) AS DECIMAL(14,4)) AS precio_unitario,
-                    CAST(COALESCE(d.subtotal, c.monto_total) AS DECIMAL(14,2)) AS subtotal_linea,
+                    CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS subtotal_linea,
                     CAST(c.monto_total AS DECIMAL(14,2)) AS monto_documento,
                     CAST(COALESCE(pagos.total_depositos, 0) AS DECIMAL(14,2)) AS depositos_documento,
                     CAST(c.saldo AS DECIMAL(14,2)) AS saldo_documento,
@@ -179,10 +179,10 @@ class ReporteTesoreriaModel extends Modelo
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
                     CAST(ROUND(SUM(COALESCE(d.cantidad, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
-                    CAST(ROUND(SUM(COALESCE(d.subtotal, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(COALESCE(d.total_linea, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
                     CAST(ROUND(SUM(
                         CASE
-                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.subtotal, 0) / dt.total_subtotal)
+                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.total_linea, 0) / dt.total_subtotal)
                             ELSE c.saldo
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_saldo
@@ -191,7 +191,7 @@ class ReporteTesoreriaModel extends Modelo
                 LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
                 LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
                 LEFT JOIN (
-                    SELECT dd.id_documento_venta, SUM(COALESCE(dd.subtotal, 0)) AS total_subtotal
+                    SELECT dd.id_documento_venta, SUM(COALESCE(dd.total_linea, 0)) AS total_subtotal
                     FROM ventas_documentos_detalle dd
                     WHERE dd.deleted_at IS NULL
                     GROUP BY dd.id_documento_venta
