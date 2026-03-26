@@ -4,6 +4,9 @@ $detalle = is_array($detalle ?? null) ? $detalle : ['rows' => [], 'total' => 0, 
 $porProducto = is_array($porProducto ?? null) ? $porProducto : [];
 $resumen = is_array($detalle['resumen'] ?? null) ? $detalle['resumen'] : [];
 $vista = (string) ($filtros['vista'] ?? 'DETALLE');
+$periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($filtros['fecha_hasta'] ?? '') !== ''
+    ? 'Periodo: ' . date('d-m-Y', strtotime((string)$filtros['fecha_desde'])) . ' al ' . date('d-m-Y', strtotime((string)$filtros['fecha_hasta']))
+    : 'Periodo filtrado';
 ?>
 
 <div class="container-fluid p-4" id="reportesEstadoCuentaApp">
@@ -18,7 +21,7 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
-            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/estado_cuenta')); ?>">
+            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/estado_cuenta')); ?>" id="estadoCuentaFiltrosForm">
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde</label>
                     <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
@@ -54,11 +57,6 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                         <option value="PRODUCTO" <?php echo $vista === 'PRODUCTO' ? 'selected' : ''; ?>>Resumen por Producto</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-2">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
-                        <i class="bi bi-funnel-fill me-2"></i>Filtrar
-                    </button>
-                </div>
             </form>
         </div>
     </div>
@@ -69,6 +67,7 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                 <div class="card-body">
                     <div class="small text-muted text-uppercase">Total Documentos</div>
                     <div class="h4 fw-bold mb-0"><?php echo (int) ($resumen['total_documentos'] ?? 0); ?></div>
+                    <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
         </div>
@@ -77,6 +76,7 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                 <div class="card-body">
                     <div class="small text-muted text-uppercase">Total Facturado</div>
                     <div class="h4 fw-bold mb-0 text-primary">S/ <?php echo number_format((float)($resumen['total_facturado'] ?? 0), 2); ?></div>
+                    <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
         </div>
@@ -85,6 +85,7 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                 <div class="card-body">
                     <div class="small text-muted text-uppercase">Total Depósitos</div>
                     <div class="h4 fw-bold mb-0 text-success">S/ <?php echo number_format((float)($resumen['total_pagado'] ?? 0), 2); ?></div>
+                    <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
         </div>
@@ -93,6 +94,7 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                 <div class="card-body">
                     <div class="small text-muted text-uppercase">Saldo Pendiente</div>
                     <div class="h4 fw-bold mb-0 text-danger">S/ <?php echo number_format((float)($resumen['total_saldo'] ?? 0), 2); ?></div>
+                    <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
         </div>
@@ -189,7 +191,11 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
                                 $search = mb_strtolower(trim((string)($row['cliente'] ?? '') . ' ' . (string)($row['documento'] ?? '') . ' ' . (string)($row['producto'] ?? '')));
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>">
-                                    <td class="ps-4"><?php echo e((string)($row['fecha_atencion'] ?? '')); ?></td>
+                                    <?php
+                                    $fechaAtencion = trim((string)($row['fecha_atencion'] ?? ''));
+                                    $fechaAtencionFmt = $fechaAtencion !== '' ? date('d-m-Y', strtotime($fechaAtencion)) : '';
+                                    ?>
+                                    <td class="ps-4"><?php echo e($fechaAtencionFmt); ?></td>
                                     <td class="fw-semibold"><?php echo e((string)($row['cliente'] ?? '')); ?></td>
                                     <td><?php echo e((string)($row['documento'] ?? '')); ?></td>
                                     <td><?php echo e((string)($row['producto'] ?? 'Sin producto asociado')); ?></td>
@@ -212,3 +218,27 @@ $vista = (string) ($filtros['vista'] ?? 'DETALLE');
         </div>
     <?php endif; ?>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('estadoCuentaFiltrosForm');
+    if (!form) return;
+
+    const fields = form.querySelectorAll('input[name], select[name]');
+    let timer = null;
+    const autoSubmit = function () {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+            form.submit();
+        }, 450);
+    };
+
+    fields.forEach(function (field) {
+        const isTextLike = field.matches('input[type="number"], input[type="text"], input[type="search"]');
+        field.addEventListener(isTextLike ? 'input' : 'change', autoSubmit);
+        if (isTextLike) {
+            field.addEventListener('change', autoSubmit);
+        }
+    });
+});
+</script>

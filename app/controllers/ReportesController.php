@@ -269,7 +269,7 @@ class ReportesController extends Controlador
 
         if ($fechaDesde === '' || $fechaHasta === '') {
             $fechaDesde = date('Y-m-01');
-            $fechaHasta = date('Y-m-d');
+            $fechaHasta = date('Y-m-t');
         }
 
         if ($fechaDesde > $fechaHasta) {
