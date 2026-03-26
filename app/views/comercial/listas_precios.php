@@ -280,6 +280,37 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
     </div>
 </div>
 
+<div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form id="formAgregarEscalaVolumen" class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-bar-chart-steps me-2"></i>Agregar Escala por Volumen</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Presentación</label>
+                        <select class="form-select" id="selectItemVolumen" required></select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Cantidad Mínima</label>
+                        <input type="number" min="0.0001" step="0.0001" class="form-control" id="inputCantidadMinimaVolumen" required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Precio Unitario</label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" min="0" step="0.0001" class="form-control" id="inputPrecioUnitarioVolumen" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" type="submit">Agregar Escala</button>
+            </div>
+        </form>
 <div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4" style="height: auto !important; min-height: 0 !important; display: block;">
