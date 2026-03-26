@@ -4,7 +4,7 @@
  * - Tarifa General por Volumen
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+function initComercialApp() {
     const appAcuerdos = document.getElementById('acuerdosComercialesApp');
     if (!appAcuerdos) return;
 
@@ -62,6 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let tsPresentacion = null;
     let tsItemVolumen = null;
 
+    const softReloadSPA = (newUrlString = null) => {
+        if (typeof window.navigateWithoutReload === 'function') {
+            const urlTarget = newUrlString ? new URL(newUrlString, window.location.origin) : new URL(window.location.href);
+            window.navigateWithoutReload(urlTarget, false);
+        } else {
+            window.location.href = newUrlString || window.location.href;
+        }
+    };
+
     const postForm = async (url, payload) => {
         const fd = new FormData();
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
@@ -98,22 +107,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowTemplate = (item, modo) => {
         if (modo === 'volumen') {
             return `
-                <tr data-id-detalle="${item.id}">
-                    <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
-                    <td>${item.producto_nombre}</td>
-                    <td>
+                <tr data-id-detalle="${item.id}" class="escala-grupo-${item.grupoId || ''} mobile-expandable-row" style="display: none;">
+                    <td class="ps-4 text-muted small border-0 col-mobile-hide"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
+                    <td class="border-0 col-mobile-hide"></td> 
+                    <td class="border-0">
                         <div class="input-group input-group-sm" style="max-width: 120px;">
                             <span class="input-group-text bg-light border-end-0">≥</span>
                             <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="${parseFloat(item.cantidad_minima).toFixed(2)}" data-original="${parseFloat(item.cantidad_minima).toFixed(2)}">
                         </div>
                     </td>
-                    <td>
+                    <td class="border-0">
                         <div class="input-group input-group-sm" style="max-width: 130px;">
                             <span class="input-group-text bg-light border-end-0">S/</span>
                             <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}" data-original="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}">
                         </div>
                     </td>
-                    <td class="text-end pe-4">
+                    <td class="text-end pe-4 border-0 col-mobile-hide">
                         <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -123,21 +132,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return `
-            <tr data-id-detalle="${item.id}">
-                <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
-                <td class="fw-semibold text-dark">${item.producto_nombre}</td>
+            <tr data-id-detalle="${item.id}" class="mobile-expandable-row">
+                <td class="ps-4 col-mobile-hide"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
+                
+                <td class="fw-semibold text-dark">
+                    <span>${item.producto_nombre}</span>
+                </td>
+                
                 <td>
                     <div class="input-group input-group-sm" style="max-width: 130px;">
                         <span class="input-group-text bg-light border-end-0">S/</span>
                         <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-pactado" value="${parseFloat(item.precio_pactado).toFixed(4)}" data-original="${parseFloat(item.precio_pactado).toFixed(4)}">
                     </div>
                 </td>
-                <td class="text-center">
+                
+                <td class="text-center col-mobile-hide">
                     <div class="form-check form-switch d-flex justify-content-center mb-0">
                         <input class="form-check-input js-estado-precio" type="checkbox" ${parseInt(item.estado, 10) === 1 ? 'checked' : ''}>
                     </div>
                 </td>
-                <td class="text-end pe-4">
+                
+                <td class="text-end pe-4 col-mobile-hide">
                     <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-producto" type="button" title="Eliminar producto">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -147,14 +162,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const cargarMatriz = async (idAcuerdo) => {
+        if(tbody) tbody.style.opacity = '0.5';
+
         const url = `${urls.obtenerMatriz}&id_acuerdo=${idAcuerdo}`;
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const json = await res.json();
+        
+        if(tbody) tbody.style.opacity = '1';
         if (!res.ok || !json.success) throw new Error(json.message || 'No se pudo cargar la matriz.');
 
         const modo = json.modo || 'acuerdo';
         
-        // CORRECCIÓN: Actualizar encabezados de tabla según modo
         const thead = tabla.querySelector('thead tr');
         if (thead) {
             if (modo === 'volumen') {
@@ -182,34 +200,113 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (tituloCliente) tituloCliente.textContent = json.acuerdo.cliente_nombre;
+        
+        let countProductos = 0;
+
         if (resumenTarifas) {
             if (modo === 'volumen') {
-                const uniqueItems = new Set(json.matriz.map(item => item.id_item)).size;
-                resumenTarifas.textContent = `${uniqueItems} productos configurados`;
+                countProductos = new Set(json.matriz.map(item => item.id_item)).size;
+                resumenTarifas.textContent = `${countProductos} productos configurados`;
             } else {
-                resumenTarifas.textContent = `${json.matriz.length} tarifas configuradas`;
+                countProductos = json.matriz.length;
+                resumenTarifas.textContent = `${countProductos} tarifas configuradas`;
             }
         }
+
         if (btnAgregarProducto) btnAgregarProducto.innerHTML = `<i class="bi bi-plus-lg me-1"></i>${modo === 'volumen' ? 'Agregar Escala' : 'Agregar Producto'}`;
 
-        // Mostrar/Ocultar dropdown de opciones si es volumen o no
         const dropdownOpciones = document.querySelector('.dropdown .btn-outline-secondary');
         if (dropdownOpciones) dropdownOpciones.closest('.dropdown').style.display = modo === 'volumen' ? 'none' : 'block';
 
-        if (!tbody) return;
-        if (!Array.isArray(json.matriz) || json.matriz.length === 0) {
-            renderEmptyRow(modo);
-            return;
+        if (tbody) {
+            if (!Array.isArray(json.matriz) || json.matriz.length === 0) {
+                renderEmptyRow(modo);
+            } else {
+                tbody.innerHTML = json.matriz.map(r => rowTemplate(r, modo)).join('');
+            }
         }
-        tbody.innerHTML = json.matriz.map(r => rowTemplate(r, modo)).join('');
+
+        const sidebarItem = document.querySelector(`.acuerdo-sidebar-item[data-id-acuerdo="${idAcuerdo}"]`);
+        if (sidebarItem) {
+            const counterText = sidebarItem.querySelector('small.text-muted');
+            if (counterText) {
+                counterText.textContent = `${countProductos} productos`;
+            }
+            
+            const dotEl = sidebarItem.querySelector('.rounded-circle');
+            if (dotEl && json.acuerdo) {
+                const isActive = parseInt(json.acuerdo.estado, 10) === 1;
+                dotEl.style.background = isActive ? '#22c55e' : '#9ca3af';
+            }
+        }
     };
 
-    const refrescarPaginaConAcuerdo = (idAcuerdo) => {
-        const u = new URL(window.location.href);
-        u.searchParams.set('ruta', 'comercial/listas');
-        u.searchParams.set('id', String(idAcuerdo));
-        window.location.href = u.toString();
+    const normalizarTexto = (texto) => {
+        return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     };
+
+    if (filtroClientes && sidebarList) {
+        filtroClientes.addEventListener('input', () => {
+            const terminosBusqueda = normalizarTexto(filtroClientes.value).split(' ').filter(t => t.length > 0);
+            const items = sidebarList.querySelectorAll('.acuerdo-sidebar-item');
+            let visibles = 0;
+
+            items.forEach(item => {
+                const textoItem = normalizarTexto(item.dataset.search || '');
+                const coincide = terminosBusqueda.every(termino => textoItem.includes(termino));
+                const mostrar = terminosBusqueda.length === 0 || coincide;
+
+                item.removeAttribute('style'); 
+
+                if (mostrar) {
+                    item.classList.remove('d-none');
+                    item.classList.add('d-flex');
+                    visibles += 1;
+                } else {
+                    item.classList.remove('d-flex');
+                    item.classList.add('d-none');
+                }
+            });
+
+            const empty = document.getElementById('sidebarNoResults');
+            if (empty) {
+                if (visibles === 0) {
+                    empty.classList.remove('d-none');
+                    empty.classList.add('d-block');
+                } else {
+                    empty.classList.remove('d-block');
+                    empty.classList.add('d-none');
+                }
+            }
+        });
+    }
+
+    if (sidebarList) {
+        sidebarList.addEventListener('click', (e) => {
+            const item = e.target.closest('.acuerdo-sidebar-item');
+            if (!item) return;
+            e.preventDefault();
+            
+            const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
+            
+            document.querySelectorAll('.acuerdo-sidebar-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('id', idAcuerdo);
+            window.history.pushState({ sisadminPartial: true }, '', url.toString());
+
+            cargarMatriz(idAcuerdo);
+
+            const offcanvasEl = document.getElementById('sidebarClientesMenu');
+            if (offcanvasEl) {
+                const offcanvasInst = bootstrap.Offcanvas.getInstance(offcanvasEl);
+                if (offcanvasInst) {
+                    offcanvasInst.hide();
+                }
+            }
+        });
+    }
 
     const loadClientesDisponibles = async () => {
         const res = await fetch(urls.clientesDisponibles, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -222,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectCliente.innerHTML = '';
             tsCliente = new TomSelect(selectCliente, {
                 options,
-                maxItems: 1, // <--- AGREGA ESTO
+                maxItems: 1, 
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
@@ -244,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectPresentacion.innerHTML = '';
             tsPresentacion = new TomSelect(selectPresentacion, {
                 options,
-                maxItems: 1, // <--- AGREGA ESTO
+                maxItems: 1, 
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
@@ -265,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectItemVolumen.innerHTML = '';
             tsItemVolumen = new TomSelect(selectItemVolumen, {
                 options,
-                maxItems: 1, // <---- AGREGA ESTA LÍNEA AQUÍ
+                maxItems: 1, 
                 create: false,
                 valueField: 'value',
                 labelField: 'text',
@@ -274,34 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
-
-    if (filtroClientes && sidebarList) {
-        filtroClientes.addEventListener('input', () => {
-            const term = filtroClientes.value.toLowerCase().trim();
-            const items = sidebarList.querySelectorAll('.acuerdo-sidebar-item');
-            let visibles = 0;
-            items.forEach(item => {
-                const show = (item.dataset.search || '').includes(term);
-                item.style.display = show ? '' : 'none';
-                if (show) visibles += 1;
-            });
-            const empty = document.getElementById('sidebarNoResults');
-            if (empty) empty.style.display = visibles ? 'none' : '';
-        });
-    }
-
-    if (sidebarList) {
-        sidebarList.addEventListener('click', (e) => {
-            const item = e.target.closest('.acuerdo-sidebar-item');
-            if (!item) return;
-            
-            const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
-            
-            // Reemplazamos la carga por AJAX (que rompía el acordeón) 
-            // por una navegación limpia. PHP se encargará de dibujar todo perfecto.
-            window.location.href = '?ruta=comercial/listas&id=' + idAcuerdo;
-        });
-    }
 
     if (modalVincularEl) {
         modalVincularEl.addEventListener('show.bs.modal', async () => {
@@ -317,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const resp = await postForm(urls.crearAcuerdo, { id_tercero: idTercero, observaciones: inputObs ? inputObs.value : '' });
                 if (modalVincular) modalVincular.hide();
-                refrescarPaginaConAcuerdo(resp.id);
+                softReloadSPA(`?ruta=comercial/listas&id=${resp.id}`);
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -351,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await postForm(urls.agregarProducto, { id_acuerdo: idAcuerdo, id_presentacion: idPresentacion, precio_pactado: precio });
                 if (modalAgregar) modalAgregar.hide();
-                window.location.reload(); // <--- ESTO ARREGLA EL CONTADOR DEL CLIENTE
+                cargarMatriz(idAcuerdo); 
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -366,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await postForm(urls.agregarVolumen, { id_item: idItem, cantidad_minima: cantidad, precio_unitario: precio });
                 if (modalVolumen) modalVolumen.hide();
-                window.location.reload(); // <--- ESTO ARREGLA EL CONTADOR
+                cargarMatriz(getAcuerdoId()); 
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -380,16 +449,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!idDetalle) return;
 
             try {
-                // ACUERDOS NORMALES
                 if (e.target.classList.contains('js-precio-pactado')) {
                     const precio = parseFloat(e.target.value || '0');
                     if (precio < 0) return;
                     await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_pactado: precio });
-                    e.target.value = precio.toFixed(4); // Formatear correcto visualmente
+                    e.target.value = precio.toFixed(4); 
                     e.target.setAttribute('data-original', e.target.value);
                 }
                 
-                // TARIFA GENERAL (VOLUMEN)
                 if (e.target.classList.contains('js-cantidad-minima') || e.target.classList.contains('js-precio-volumen')) {
                     const cantInput = tr.querySelector('.js-cantidad-minima');
                     const precInput = tr.querySelector('.js-precio-volumen');
@@ -410,14 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.target.classList.add('is-valid');
                 setTimeout(() => e.target.classList.remove('is-valid'), 900);
             } catch (_err) {
-                // Si falla, restaurar el original
                 e.target.value = e.target.getAttribute('data-original');
                 e.target.classList.add('is-invalid');
                 setTimeout(() => e.target.classList.remove('is-invalid'), 1400);
             }
         }, true);
 
-        // Toggle Switch (Solo Acuerdos)
         tbody.addEventListener('change', async (e) => {
             if (!e.target.classList.contains('js-estado-precio')) return;
             const tr = e.target.closest('tr');
@@ -426,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             catch (err) { e.target.checked = !e.target.checked; Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
 
-        // Eliminar fila (Ambos Modos)
+        // Manejo de botones de eliminación
         tbody.addEventListener('click', async (e) => {
             const btnDeleteAcuerdo = e.target.closest('.js-eliminar-producto');
             const btnDeleteVolumen = e.target.closest('.js-eliminar-volumen');
@@ -450,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (btnDeleteVolumen) await postForm(urls.eliminarVolumen, { id_detalle: idDetalle });
                 else await postForm(urls.eliminarProducto, { id_detalle: idDetalle });
-                window.location.reload(); // <--- ESTO ACTUALIZA TODO AL ELIMINAR
+                cargarMatriz(idAcuerdo); 
             } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -461,7 +526,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!idAcuerdo) return;
             const confirm = await Swal.fire({ icon: 'question', title: 'Suspender acuerdo', text: 'Se dejarán de aplicar estas tarifas.', showCancelButton: true, confirmButtonText: 'Suspender' });
             if (!confirm.isConfirmed) return;
-            try { await postForm(urls.suspenderAcuerdo, { id_acuerdo: idAcuerdo }); window.location.reload(); }
+            try { 
+                await postForm(urls.suspenderAcuerdo, { id_acuerdo: idAcuerdo }); 
+                cargarMatriz(idAcuerdo); 
+            }
             catch (err) { Swal.fire({ icon: 'warning', title: 'No se pudo suspender', text: err.message }); }
         });
     }
@@ -470,7 +538,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnActivar.addEventListener('click', async () => {
             const idAcuerdo = getAcuerdoId();
             if (!idAcuerdo) return;
-            try { await postForm(urls.activarAcuerdo, { id_acuerdo: idAcuerdo }); window.location.reload(); }
+            try { 
+                await postForm(urls.activarAcuerdo, { id_acuerdo: idAcuerdo }); 
+                cargarMatriz(idAcuerdo); 
+            }
             catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
@@ -481,25 +552,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!idAcuerdo) return;
             const confirm = await Swal.fire({ icon: 'warning', title: 'Romper acuerdo', text: 'Esta acción eliminará el acuerdo y su matriz.', showCancelButton: true, confirmButtonText: 'Eliminar acuerdo', confirmButtonColor: '#dc3545' });
             if (!confirm.isConfirmed) return;
-            try { await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdo }); window.location.href = '?ruta=comercial/listas'; }
+            try { 
+                await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdo }); 
+                softReloadSPA('?ruta=comercial/listas'); 
+            }
             catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
         });
     }
 
-    // =========================================================================
-    // ACORDEÓN PARA PRECIOS POR VOLUMEN (Modo Estricto)
-    // =========================================================================
     window.toggleAcordeonVolumen = function(grupoId, headerRow) {
-        
-        // 1. CERRAR TODOS LOS DEMÁS GRUPOS
-        // Buscamos todas las filas que sean escalas, pero que NO sean del grupo que acabamos de clickear
         document.querySelectorAll('tr[class*="escala-grupo-"]').forEach(fila => {
             if (!fila.classList.contains('escala-' + grupoId)) {
-                fila.style.display = 'none'; // Las ocultamos
+                fila.style.display = 'none';
             }
         });
 
-        // 2. RESTAURAR TODAS LAS FLECHAS A "ABAJO" (Excepto la del grupo actual)
         document.querySelectorAll('.js-chevron').forEach(icono => {
             if (icono !== headerRow.querySelector('.js-chevron')) {
                 icono.classList.remove('bi-chevron-up');
@@ -507,27 +574,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 3. ABRIR / CERRAR EL GRUPO SELECCIONADO
         const filas = document.querySelectorAll('.escala-' + grupoId);
         const chevron = headerRow.querySelector('.js-chevron');
 
         if (filas.length === 0) return;
 
-        // Comprobamos si el grupo actual está oculto o visible
         const estanOcultas = filas[0].style.display === 'none';
 
-        // Lo alternamos
         filas.forEach(fila => {
             fila.style.display = estanOcultas ? 'table-row' : 'none';
         });
 
-        // Giramos la flecha del grupo actual
         if (estanOcultas) {
             chevron.classList.remove('bi-chevron-down');
-            chevron.classList.add('bi-chevron-up'); // Flecha arriba (abierto)
+            chevron.classList.add('bi-chevron-up'); 
         } else {
             chevron.classList.remove('bi-chevron-up');
-            chevron.classList.add('bi-chevron-down'); // Flecha abajo (cerrado)
+            chevron.classList.add('bi-chevron-down'); 
         }
     };
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initComercialApp);
+} else {
+    initComercialApp();
+}

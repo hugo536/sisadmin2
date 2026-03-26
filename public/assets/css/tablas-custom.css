@@ -287,4 +287,36 @@
         min-width: 32px;
         min-height: 32px;
     }
+
+    /* =========================================================
+       MAGIA MÓVIL: Tarjetas Expandibles (Acordeón)
+       ========================================================= */
+    .table-pro.erp-mobile-cards .mobile-expandable-row {
+        cursor: pointer;
+        -webkit-tap-highlight-color: rgba(0,0,0,0.05); /* Efecto nativo al tocar */
+        transition: background-color 0.2s ease;
+    }
+
+    .table-pro.erp-mobile-cards .mobile-expandable-row:active {
+        background-color: #f8f9fa !important;
+    }
+
+    /* 1. Ocultar columnas secundarias por defecto */
+    .table-pro.erp-mobile-cards tbody tr.mobile-expandable-row td.col-mobile-hide {
+        display: none !important;
+    }
+
+    /* 2. Mostrar columnas cuando la fila se expande */
+    .table-pro.erp-mobile-cards tbody tr.mobile-expandable-row.expanded td.col-mobile-hide {
+        display: flex !important; 
+        animation: fadeInMobile 0.25s ease forwards;
+        border-top: 1px dashed var(--erp-table-border-color);
+        margin-top: 5px;
+        padding-top: 5px;
+    }
+
+    @keyframes fadeInMobile {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 }

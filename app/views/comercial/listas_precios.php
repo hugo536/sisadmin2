@@ -32,50 +32,73 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
     </div>
 
     <div class="row g-4">
-        <div class="col-lg-4 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body border-bottom">
-                    <h6 class="fw-bold mb-3">Clientes Vinculados</h6>
-                    <div class="input-group input-group-sm mb-3">
-                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input type="search" class="form-control" id="filtroClientesAcuerdo" placeholder="Filtrar clientes...">
-                    </div>
-                    <button class="btn btn-primary w-100" type="button" data-bs-toggle="modal" data-bs-target="#modalVincularCliente">
-                        <i class="bi bi-person-plus-fill me-2"></i>Vincular Cliente
-                    </button>
+        
+        <div class="col-lg-4 col-xl-3 mb-3 mb-lg-0">
+            
+            <button class="btn btn-outline-primary w-100 d-lg-none mb-3 shadow-sm bg-white" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarClientesMenu">
+                <i class="bi bi-people-fill me-2"></i> Cambiar Cliente / Acuerdo
+            </button>
+
+            <div class="offcanvas-lg offcanvas-end border-0 shadow-sm rounded-3" tabindex="-1" id="sidebarClientesMenu">
+                
+                <div class="offcanvas-header bg-light border-bottom d-lg-none">
+                    <h6 class="offcanvas-title fw-bold mb-0 text-primary">
+                        <i class="bi bi-people-fill me-2"></i>Seleccionar Cliente
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
                 </div>
-                <div class="list-group list-group-flush overflow-auto" style="max-height: 70vh;" id="acuerdosSidebarList">
-                    <?php if (empty($acuerdos)): ?>
-                        <div class="px-3 py-4 text-center text-muted small" id="sidebarNoResults">
-                            No hay clientes vinculados.
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($acuerdos as $acuerdo): ?>
-                            <?php
-                            $isActive = (int)$acuerdo['estado'] === 1;
-                            $sinTarifas = (int)($acuerdo['sin_tarifas'] ?? 0) === 1;
-                            $isSelected = $acuerdoSeleccionado && (int)$acuerdoSeleccionado['id'] === (int)$acuerdo['id'];
-                            ?>
-                            <button type="button"
-                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-start acuerdo-sidebar-item <?php echo $isSelected ? 'active' : ''; ?>"
-                                    data-id-acuerdo="<?php echo (int)$acuerdo['id']; ?>"
-                                    data-search="<?php echo e(mb_strtolower($acuerdo['cliente_nombre'])); ?>">
-                                <div class="me-2">
-                                    <div class="fw-semibold"><?php echo e($acuerdo['cliente_nombre']); ?></div>
-                                    <?php if ((int)$acuerdo['id'] === 0): ?>
-                                        <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
-                                    <?php elseif ($sinTarifas): ?>
-                                        <small class="text-warning d-flex align-items-center gap-1 mt-1">
-                                            <i class="bi bi-exclamation-triangle-fill"></i> Sin Tarifas
-                                        </small>
-                                    <?php else: ?>
-                                        <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
-                                    <?php endif; ?>
-                                </div>
-                                <span class="rounded-circle mt-1 flex-shrink-0" style="width:10px;height:10px;background:<?php echo $isActive ? '#22c55e' : '#9ca3af'; ?>;"></span>
+
+                <div class="offcanvas-body p-0 flex-column h-100">
+                    <div class="card border-0 h-100 w-100 shadow-none d-flex flex-column">
+                        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0">Clientes Vinculados</h6>
+                            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalVincularCliente" title="Vincular Cliente">
+                                <i class="bi bi-person-plus-fill me-1"></i> Nuevo
                             </button>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                        </div>
+                        
+                        <div class="p-2 border-bottom bg-light flex-shrink-0">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                <input type="search" class="form-control border-start-0 ps-0 shadow-none" id="filtroClientesAcuerdo" placeholder="Buscar cliente...">
+                            </div>
+                        </div>
+
+                        <div class="list-group list-group-flush overflow-auto flex-grow-1" id="acuerdosSidebarList">
+                            <?php if (empty($acuerdos)): ?>
+                                <div class="px-3 py-4 text-center text-muted small" id="sidebarNoResults">
+                                    No hay clientes vinculados.
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($acuerdos as $acuerdo): ?>
+                                    <?php
+                                    $isActive = (int)$acuerdo['estado'] === 1;
+                                    $sinTarifas = (int)($acuerdo['sin_tarifas'] ?? 0) === 1;
+                                    $isSelected = $acuerdoSeleccionado && (int)$acuerdoSeleccionado['id'] === (int)$acuerdo['id'];
+                                    ?>
+                                    <button type="button"
+                                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-start acuerdo-sidebar-item <?php echo $isSelected ? 'active' : ''; ?>"
+                                            data-id-acuerdo="<?php echo (int)$acuerdo['id']; ?>"
+                                            data-search="<?php echo e(mb_strtolower($acuerdo['cliente_nombre'])); ?>">
+                                        <div class="me-2">
+                                            <div class="fw-semibold"><?php echo e($acuerdo['cliente_nombre']); ?></div>
+                                            <?php if ((int)$acuerdo['id'] === 0): ?>
+                                                <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
+                                            <?php elseif ($sinTarifas): ?>
+                                                <small class="text-warning d-flex align-items-center gap-1 mt-1">
+                                                    <i class="bi bi-exclamation-triangle-fill"></i> Sin Tarifas
+                                                </small>
+                                            <?php else: ?>
+                                                <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span class="rounded-circle mt-1 flex-shrink-0" style="width:10px;height:10px;background:<?php echo $isActive ? '#22c55e' : '#9ca3af'; ?>;"></span>
+                                    </button>
+                                <?php endforeach; ?>
+                                <div class="px-3 py-4 text-center text-muted small d-none" id="sidebarNoResults">No hay coincidencias.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -139,11 +162,6 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
 
                 <div class="card-body p-0">
                     <?php if ($acuerdoSeleccionado): ?>
-                        <?php if (!$presentacionesHabilitadas): ?>
-                            <div class="alert alert-warning m-3 mb-0">
-                                Las presentaciones comerciales fueron retiradas. Este acuerdo permanece activo para gestión de clientes, pero la matriz de tarifas por presentación no está disponible.
-                            </div>
-                        <?php endif; ?>
                         <div class="table-responsive">
                             <table class="table align-middle mb-0 table-pro" id="tablaMatrizAcuerdo" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>" data-modo="<?php echo e($modoVista); ?>">
                                 <thead>
@@ -174,12 +192,11 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                     <?php else: ?>
                                         <?php if ($modoVista === 'volumen'): ?>
                                         <?php
-                                        // MAGIA: AGRUPAMOS LOS PRECIOS POR PRODUCTO
                                         $agrupados = [];
                                         foreach ($preciosMatriz as $row) {
                                             $agrupados[$row['producto_nombre']][] = $row;
                                         }
-                                        $grupoId = 0; // Iniciar contador para el acordeón
+                                        $grupoId = 0;
                                         ?>
                                         <?php foreach ($agrupados as $producto => $escalas): ?>
                                             <?php $grupoId++; ?>
@@ -196,9 +213,9 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                             </tr>
                                             
                                             <?php foreach ($escalas as $row): ?>
-                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="escala-grupo-<?php echo $grupoId; ?>" style="display: none;">
-                                                <td class="ps-4 text-muted small border-0"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
-                                                <td class="border-0"></td> 
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="escala-grupo-<?php echo $grupoId; ?> mobile-expandable-row" style="display: none;">
+                                                <td class="ps-4 text-muted small border-0 col-mobile-hide"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
+                                                <td class="border-0 col-mobile-hide"></td> 
                                                 <td class="border-0">
                                                     <div class="input-group input-group-sm" style="max-width: 120px;">
                                                         <span class="input-group-text bg-light border-end-0">≥</span>
@@ -211,7 +228,7 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                                         <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>" data-original="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>">
                                                     </div>
                                                 </td>
-                                                <td class="text-end pe-4 border-0">
+                                                <td class="text-end pe-4 border-0 col-mobile-hide">
                                                     <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
@@ -222,8 +239,8 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
 
                                         <?php else: ?>
                                             <?php foreach ($preciosMatriz as $row): ?>
-                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
-                                                <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="mobile-expandable-row">
+                                                <td class="ps-4 col-mobile-hide"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
                                                 <td class="fw-semibold text-dark"><?php echo e($row['producto_nombre']); ?></td>
                                                 <td>
                                                     <div class="input-group input-group-sm" style="max-width: 130px;">
@@ -231,12 +248,12 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                                         <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-pactado" value="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>" data-original="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>">
                                                     </div>
                                                 </td>
-                                                <td class="text-center">
+                                                <td class="text-center col-mobile-hide">
                                                     <div class="form-check form-switch d-flex justify-content-center mb-0">
                                                         <input class="form-check-input js-estado-precio" type="checkbox" <?php echo (int)$row['estado'] === 1 ? 'checked' : ''; ?>>
                                                     </div>
                                                 </td>
-                                                <td class="text-end pe-4">
+                                                <td class="text-end pe-4 col-mobile-hide">
                                                     <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-producto" type="button" title="Eliminar producto">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
@@ -248,15 +265,11 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                 </tbody>
                             </table>
                         </div>
-                    <?php else: ?>
-                        <div class="p-5 text-center text-muted">
-                            <i class="bi bi-layout-sidebar-inset-reverse display-6 d-block mb-2"></i>
-                            Vincula un cliente desde el panel izquierdo para crear su acuerdo comercial.
-                        </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
 
@@ -319,30 +332,43 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
     </div>
 </div>
 
-<div class="modal fade" id="modalAgregarProducto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Agregar Producto al Acuerdo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="modal fade" id="modalAgregarProducto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        
+        <div class="modal-content border-0 shadow-lg rounded-4" style="height: auto !important; min-height: 0 !important; display: block;">
+            
+            <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-box-seam text-primary me-2"></i>Agregar Producto
+                </h5>
+                <button type="button" class="btn-close bg-light rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form id="formAgregarProductoAcuerdo">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Presentación</label>
-                        <select class="form-select" id="selectPresentacionAcuerdo" required></select>
+            
+            <form id="formAgregarProductoAcuerdo" class="m-0">
+                <div class="modal-body px-4 pt-3 pb-4">
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Presentación</label>
+                        <select class="form-select form-select-lg" id="selectPresentacionAcuerdo" required></select>
                     </div>
-                    <label class="form-label">Precio Inicial</label>
-                    <div class="input-group">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" min="0" step="0.0001" class="form-control" id="inputPrecioInicialAcuerdo" required>
+                    
+                    <div>
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Precio Inicial</label>
+                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
+                            <span class="input-group-text bg-white border-0 text-muted fw-bold ps-3">S/</span>
+                            <input type="number" min="0" step="0.0001" class="form-control border-0 px-2 fw-bold text-primary fs-5 shadow-none" id="inputPrecioInicialAcuerdo" placeholder="0.0000" required>
+                        </div>
                     </div>
+                    
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Agregar</button>
+                
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 py-3 px-4 d-flex justify-content-between">
+                    <button class="btn btn-link text-muted text-decoration-none fw-semibold px-0" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary px-4 fw-bold shadow-sm rounded-pill" type="submit">Agregar a la lista</button>
                 </div>
             </form>
+            
         </div>
     </div>
 </div>
+
