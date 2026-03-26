@@ -332,6 +332,244 @@ class ListaPrecioModel extends Modelo {
         return $stmt->execute([':id' => $idDetalle]);
     }
 
+    public function listarAcuerdosProveedor(): array {
+        if (!$this->tablaExiste('comercial_acuerdos_proveedor') || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return [];
+        }
+
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+
+        $sql = "SELECT
+                    capv.id,
+                    capv.id_tercero,
+                    capv.estado,
+                    capv.observaciones,
+                    MAX({$nombreComercialExpr}) AS nombre_comercial,
+                    MAX({$nombreExpr}) AS nombre,
+                    MAX({$apellidoExpr}) AS apellido,
+                    COUNT(capp.id) AS total_productos
+                FROM comercial_acuerdos_proveedor capv
+                INNER JOIN terceros t ON t.id = capv.id_tercero
+                LEFT JOIN comercial_acuerdos_proveedor_precios capp ON capp.id_acuerdo_proveedor = capv.id
+                GROUP BY capv.id, capv.id_tercero, capv.estado, capv.observaciones
+                ORDER BY capv.created_at DESC, capv.id DESC";
+
+        $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['proveedor_nombre'] = $this->construirNombreCliente($row);
+        }
+        return $rows;
+    }
+
+    public function obtenerAcuerdoProveedor(int $idAcuerdo): ?array {
+        if ($idAcuerdo <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor') || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return null;
+        }
+
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+
+        $sql = "SELECT
+                    capv.*,
+                    MAX({$nombreComercialExpr}) AS nombre_comercial,
+                    MAX({$nombreExpr}) AS nombre,
+                    MAX({$apellidoExpr}) AS apellido,
+                    COUNT(capp.id) AS total_productos
+                FROM comercial_acuerdos_proveedor capv
+                INNER JOIN terceros t ON t.id = capv.id_tercero
+                LEFT JOIN comercial_acuerdos_proveedor_precios capp ON capp.id_acuerdo_proveedor = capv.id
+                WHERE capv.id = :id
+                GROUP BY capv.id";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $idAcuerdo]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        $row['proveedor_nombre'] = $this->construirNombreCliente($row);
+        return $row;
+    }
+
+    public function listarProveedoresDisponibles(): array {
+        if (!$this->tablaExiste('comercial_acuerdos_proveedor')) {
+            return [];
+        }
+
+        $nombreComercialExpr = $this->terceroExpr('nombre_comercial');
+        $nombreExpr = $this->terceroExpr('nombre', 'nombre_completo');
+        $apellidoExpr = $this->terceroExpr('apellido');
+
+        $sql = "SELECT
+                    t.id,
+                    {$nombreComercialExpr} AS nombre_comercial,
+                    {$nombreExpr} AS nombre,
+                    {$apellidoExpr} AS apellido
+                FROM terceros t
+                WHERE t.es_proveedor = 1
+                  AND t.estado = 1
+                  AND t.deleted_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM comercial_acuerdos_proveedor capv
+                      WHERE capv.id_tercero = t.id
+                  )
+                ORDER BY TRIM(CONCAT(COALESCE({$nombreComercialExpr}, ''), ' ', COALESCE({$nombreExpr}, ''), ' ', COALESCE({$apellidoExpr}, ''))) ASC";
+
+        $rows = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['proveedor_nombre'] = $this->construirNombreCliente($row);
+        }
+        return $rows;
+    }
+
+    public function crearAcuerdoProveedor(int $idTercero, ?string $observaciones = null): int {
+        if ($idTercero <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor')) {
+            return 0;
+        }
+
+        $sql = "INSERT INTO comercial_acuerdos_proveedor (id_tercero, observaciones, estado)
+                VALUES (:id_tercero, :observaciones, 1)";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':id_tercero' => $idTercero,
+            ':observaciones' => $observaciones !== null && trim($observaciones) !== '' ? trim($observaciones) : null,
+        ]);
+        return (int)$this->db->lastInsertId();
+    }
+
+    public function obtenerMatrizPreciosProveedor(int $idAcuerdo): array {
+        if ($idAcuerdo <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    capp.id,
+                    capp.id_item,
+                    capp.precio_recomendado,
+                    capp.estado,
+                    i.sku AS codigo_presentacion,
+                    1 AS factor,
+                    i.nombre AS item_nombre,
+                    s.nombre AS sabor_nombre,
+                    ip.nombre AS presentacion_nombre
+                FROM comercial_acuerdos_proveedor_precios capp
+                INNER JOIN items i ON i.id = capp.id_item
+                LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                WHERE capp.id_acuerdo_proveedor = :id_acuerdo
+                ORDER BY i.nombre ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id_acuerdo' => $idAcuerdo]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['producto_nombre'] = $this->construirNombrePresentacion($row);
+        }
+        return $rows;
+    }
+
+    public function listarItemsDisponiblesAcuerdoProveedor(int $idAcuerdo): array {
+        if ($idAcuerdo <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    i.id,
+                    i.sku AS codigo_presentacion,
+                    1 AS factor,
+                    i.nombre AS item_nombre,
+                    s.nombre AS sabor_nombre,
+                    ip.nombre AS presentacion_nombre
+                FROM items i
+                LEFT JOIN item_sabores s ON s.id = i.id_sabor
+                LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                WHERE i.estado = 1
+                  AND i.deleted_at IS NULL
+                  AND i.tipo_item IN ('materia_prima', 'insumo', 'material_empaque', 'servicio')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM comercial_acuerdos_proveedor_precios capp
+                      WHERE capp.id_acuerdo_proveedor = :id_acuerdo
+                        AND capp.id_item = i.id
+                  )
+                ORDER BY i.nombre ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id_acuerdo' => $idAcuerdo]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['producto_nombre'] = $this->construirNombrePresentacion($row);
+        }
+        return $rows;
+    }
+
+    public function agregarPrecioProveedor(int $idAcuerdo, int $idItem, float $precio): bool {
+        if ($idAcuerdo <= 0 || $idItem <= 0 || $precio <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return false;
+        }
+
+        $sql = "INSERT INTO comercial_acuerdos_proveedor_precios (id_acuerdo_proveedor, id_item, precio_recomendado, estado)
+                VALUES (:id_acuerdo, :id_item, :precio, 1)";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':id_acuerdo' => $idAcuerdo,
+            ':id_item' => $idItem,
+            ':precio' => $precio,
+        ]);
+    }
+
+    public function actualizarPrecioProveedor(int $idDetalle, float $precio): bool {
+        if ($idDetalle <= 0 || $precio < 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return false;
+        }
+
+        $sql = "UPDATE comercial_acuerdos_proveedor_precios
+                SET precio_recomendado = :precio
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([':precio' => $precio, ':id' => $idDetalle]);
+    }
+
+    public function eliminarPrecioProveedor(int $idDetalle): bool {
+        if ($idDetalle <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return false;
+        }
+
+        $sql = "DELETE FROM comercial_acuerdos_proveedor_precios WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([':id' => $idDetalle]);
+    }
+
+    public function obtenerPrecioRecomendadoProveedor(int $idProveedor, int $idItem): ?float {
+        if ($idProveedor <= 0 || $idItem <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor') || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return null;
+        }
+
+        $sql = "SELECT capp.precio_recomendado
+                FROM comercial_acuerdos_proveedor_precios capp
+                INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
+                WHERE capv.id_tercero = :id_proveedor
+                  AND capv.estado = 1
+                  AND capp.estado = 1
+                  AND capp.id_item = :id_item
+                ORDER BY capp.id DESC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':id_proveedor' => $idProveedor,
+            ':id_item' => $idItem,
+        ]);
+        $valor = $stmt->fetchColumn();
+        if ($valor === false) {
+            return null;
+        }
+        return (float)$valor;
+    }
+
     private function construirNombreCliente(array $row): string {
         $comercial = trim((string)($row['nombre_comercial'] ?? ''));
         $persona = trim((string)($row['nombre'] ?? '') . ' ' . (string)($row['apellido'] ?? ''));

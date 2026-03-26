@@ -267,6 +267,9 @@ function renderSidebarInner(
                 <a class="sb-link sb-sub<?= $activo('comercial/listas') ?>" href="<?= e(route_url('comercial/listas')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-currency-dollar"></i></span><span class="sb-link-text">Listas de Precios</span>
                 </a>
+                <a class="sb-link sb-sub<?= $activo('comercial/proveedores') ?>" href="<?= e(route_url('comercial/proveedores')) ?>">
+                    <span class="sb-link-icon"><i class="bi bi-truck"></i></span><span class="sb-link-text">Precios Proveedor</span>
+                </a>
             </div>
         </div>
  

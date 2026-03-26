@@ -10,6 +10,7 @@
         anular: app.dataset.urlAnular,
         recepcionar: app.dataset.urlRecepcionar,
         unidadesItem: app.dataset.urlUnidadesItem,
+        precioSugerido: app.dataset.urlPrecioSugerido,
     };
 
     const cacheUnidades = new Map();
@@ -146,6 +147,26 @@
         const items = Array.isArray(json.items) ? json.items : [];
         cacheUnidades.set(idItem, items);
         return items;
+    }
+
+    async function aplicarPrecioSugeridoProveedor(fila) {
+        if (modalSoloLecturaActiva) return;
+        const idProv = Number(idProveedor.value || 0);
+        const inputItem = fila.querySelector('.detalle-item');
+        const inputCosto = fila.querySelector('.detalle-costo');
+        const idItem = Number(inputItem?.value || 0);
+
+        if (idProv <= 0 || idItem <= 0 || !urls.precioSugerido) return;
+
+        const separador = urls.precioSugerido.includes('?') ? '&' : '?';
+        const res = await fetch(`${urls.precioSugerido}${separador}accion=precio_sugerido_proveedor&id_proveedor=${idProv}&id_item=${idItem}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const json = await parseJsonSafe(res);
+        if (!res.ok || !json.ok || !json.encontrado) return;
+
+        inputCosto.value = Number(json.precio_recomendado).toFixed(4);
+        recalcularFila(fila);
     }
 
     function getUnidadBaseDesdeSelect(inputItem) {
@@ -327,6 +348,7 @@
             }
 
             await actualizarUnidadPorItem(fila, null);
+            await aplicarPrecioSugeridoProveedor(fila);
         };
 
         if (tomSelectItem) {
@@ -774,6 +796,18 @@
 
     if (btnAgregarFila) {
         btnAgregarFila.addEventListener('click', () => agregarFila());
+    }
+
+    const refrescarPreciosSugeridos = async () => {
+        const filas = [...tbodyDetalle.querySelectorAll('tr')];
+        for (const fila of filas) {
+            await aplicarPrecioSugeridoProveedor(fila);
+        }
+    };
+    if (tomSelectProveedor) {
+        tomSelectProveedor.on('change', refrescarPreciosSugeridos);
+    } else if (idProveedor) {
+        idProveedor.addEventListener('change', refrescarPreciosSugeridos);
     }
 
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach((el) => {

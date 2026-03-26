@@ -87,6 +87,7 @@ function initComercialApp() {
     };
 
     const getAcuerdoId = () => (tabla ? parseInt(tabla.dataset.idAcuerdo || '0', 10) || 0 : 0);
+    const withParam = (url, key, value) => `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
     const getModo = () => (tabla ? (tabla.dataset.modo || 'acuerdo') : 'acuerdo');
 
     const renderEmptyRow = (modo) => {
@@ -595,8 +596,199 @@ function initComercialApp() {
     };
 }
 
+function initComercialProveedorApp() {
+    const app = document.getElementById('acuerdosProveedoresApp');
+    if (!app) return;
+
+    const urls = {
+        proveedoresDisponibles: app.dataset.urlProveedoresDisponibles,
+        crearAcuerdo: app.dataset.urlCrearAcuerdo,
+        obtenerMatriz: app.dataset.urlObtenerMatriz,
+        itemsDisponibles: app.dataset.urlItemsDisponibles,
+        agregarProducto: app.dataset.urlAgregarProducto,
+        actualizarPrecio: app.dataset.urlActualizarPrecio,
+        eliminarPrecio: app.dataset.urlEliminarPrecio,
+    };
+
+    const tabla = document.getElementById('tablaMatrizProveedor');
+    const tbody = document.getElementById('matrizProveedorBodyRows');
+    const titulo = document.getElementById('acuerdoProveedorTitulo');
+    const resumen = document.getElementById('acuerdoProveedorResumen');
+    const sidebarList = document.getElementById('acuerdosProveedorSidebarList');
+    const filtro = document.getElementById('filtroProveedoresAcuerdo');
+
+    const modalVincularEl = document.getElementById('modalVincularProveedor');
+    const formVincular = document.getElementById('formVincularProveedor');
+    const selectProveedor = document.getElementById('selectProveedorVincular');
+
+    const modalAgregarEl = document.getElementById('modalAgregarProductoProveedor');
+    const formAgregar = document.getElementById('formAgregarProductoProveedor');
+    const selectProducto = document.getElementById('selectProductoProveedor');
+    const inputPrecio = document.getElementById('inputPrecioProveedor');
+    const btnAgregar = document.getElementById('btnAgregarProductoProveedor');
+
+    const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
+    const modalAgregar = modalAgregarEl ? new bootstrap.Modal(modalAgregarEl) : null;
+
+    const getAcuerdoId = () => (tabla ? parseInt(tabla.dataset.idAcuerdo || '0', 10) || 0 : 0);
+    const withParam = (url, key, value) => `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+    const postForm = async (url, payload) => {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
+        const res = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+        const json = await res.json().catch(() => ({ success: false, message: 'Respuesta inválida' }));
+        if (!res.ok || !json.success) throw new Error(json.message || 'No se pudo completar la operación.');
+        return json;
+    };
+
+    const softReloadSPA = (newUrlString = null) => {
+        if (typeof window.navigateWithoutReload === 'function') {
+            const urlTarget = newUrlString ? new URL(newUrlString, window.location.origin) : new URL(window.location.href);
+            window.navigateWithoutReload(urlTarget, false);
+        } else {
+            window.location.href = newUrlString || window.location.href;
+        }
+    };
+
+    const renderRows = (matriz) => {
+        if (!tbody) return;
+        if (!Array.isArray(matriz) || matriz.length === 0) {
+            tbody.innerHTML = `<tr id="emptyMatrizProveedorRow"><td colspan="4" class="text-center text-muted py-5">
+                <i class="bi bi-exclamation-circle text-warning fs-1 d-block mb-2"></i>Este proveedor aún no tiene productos recomendados.
+            </td></tr>`;
+            return;
+        }
+        tbody.innerHTML = matriz.map((item) => `
+            <tr data-id-detalle="${item.id}">
+                <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
+                <td class="fw-semibold text-dark">${item.producto_nombre || ''}</td>
+                <td><div class="input-group input-group-sm" style="max-width: 140px;">
+                    <span class="input-group-text bg-light border-end-0">S/</span>
+                    <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-proveedor" value="${parseFloat(item.precio_recomendado).toFixed(4)}" data-original="${parseFloat(item.precio_recomendado).toFixed(4)}">
+                </div></td>
+                <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger border-0 js-eliminar-precio-proveedor" type="button"><i class="bi bi-trash"></i></button></td>
+            </tr>`).join('');
+    };
+
+    const cargarMatriz = async (idAcuerdo) => {
+        const res = await fetch(withParam(urls.obtenerMatriz, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.message || 'No se pudo cargar la matriz.');
+        if (tabla) tabla.dataset.idAcuerdo = String(idAcuerdo);
+        if (titulo) titulo.textContent = json.acuerdo.proveedor_nombre;
+        if (resumen) resumen.textContent = `${(json.matriz || []).length} productos configurados`;
+        renderRows(json.matriz || []);
+    };
+
+    if (sidebarList) {
+        sidebarList.addEventListener('click', async (e) => {
+            const item = e.target.closest('.proveedor-sidebar-item');
+            if (!item) return;
+            const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
+            document.querySelectorAll('.proveedor-sidebar-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            try { await cargarMatriz(idAcuerdo); } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        });
+    }
+
+    if (filtro && sidebarList) {
+        filtro.addEventListener('input', () => {
+            const term = (filtro.value || '').trim().toLowerCase();
+            let visible = 0;
+            sidebarList.querySelectorAll('.proveedor-sidebar-item').forEach((row) => {
+                const ok = row.dataset.search.includes(term);
+                row.classList.toggle('d-none', !ok);
+                if (ok) visible++;
+            });
+            const noResults = document.getElementById('sidebarProveedorNoResults');
+            if (noResults) noResults.classList.toggle('d-none', visible > 0);
+        });
+    }
+
+    if (formVincular) {
+        modalVincularEl?.addEventListener('show.bs.modal', async () => {
+            const res = await fetch(urls.proveedoresDisponibles, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const json = await res.json();
+            const opciones = (json.data || []).map(p => `<option value="${p.id}">${p.proveedor_nombre}</option>`).join('');
+            selectProveedor.innerHTML = `<option value="">Seleccione...</option>${opciones}`;
+        });
+        formVincular.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const resp = await postForm(urls.crearAcuerdo, { id_tercero: selectProveedor.value });
+                modalVincular?.hide();
+                softReloadSPA(`?ruta=comercial/proveedores&id=${resp.id}`);
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        });
+    }
+
+    if (btnAgregar) {
+        btnAgregar.addEventListener('click', async () => {
+            const idAcuerdo = getAcuerdoId();
+            if (!idAcuerdo) return;
+            try {
+                const res = await fetch(withParam(urls.itemsDisponibles, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const json = await res.json();
+                selectProducto.innerHTML = `<option value="">Seleccione...</option>${(json.data || []).map(i => `<option value="${i.id}">${i.producto_nombre}</option>`).join('')}`;
+                inputPrecio.value = '';
+                modalAgregar?.show();
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        });
+    }
+
+    if (formAgregar) {
+        formAgregar.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const idAcuerdo = getAcuerdoId();
+            try {
+                await postForm(urls.agregarProducto, {
+                    id_acuerdo: idAcuerdo,
+                    id_item: selectProducto.value,
+                    precio_recomendado: inputPrecio.value,
+                });
+                modalAgregar?.hide();
+                await cargarMatriz(idAcuerdo);
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        });
+    }
+
+    if (tbody) {
+        tbody.addEventListener('change', async (e) => {
+            if (!e.target.classList.contains('js-precio-proveedor')) return;
+            const fila = e.target.closest('tr');
+            const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
+            if (!idDetalle) return;
+            try {
+                await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_recomendado: e.target.value });
+                e.target.dataset.original = e.target.value;
+            } catch (err) {
+                e.target.value = e.target.dataset.original || '0.0000';
+                Swal.fire('Error', err.message, 'error');
+            }
+        });
+
+        tbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.js-eliminar-precio-proveedor');
+            if (!btn) return;
+            const fila = btn.closest('tr');
+            const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
+            if (!idDetalle) return;
+            const conf = await Swal.fire({ icon: 'warning', title: 'Eliminar producto', text: 'Se quitará la recomendación de precio.', showCancelButton: true });
+            if (!conf.isConfirmed) return;
+            try {
+                await postForm(urls.eliminarPrecio, { id_detalle: idDetalle });
+                await cargarMatriz(getAcuerdoId());
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        });
+    }
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initComercialApp);
+    document.addEventListener('DOMContentLoaded', () => {
+        initComercialApp();
+        initComercialProveedorApp();
+    });
 } else {
     initComercialApp();
+    initComercialProveedorApp();
 }

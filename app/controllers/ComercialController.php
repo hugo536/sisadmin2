@@ -72,6 +72,34 @@ class ComercialController extends Controlador {
         $this->vista('comercial/listas_precios', $datos);
     }
 
+    public function proveedores() {
+        $idAcuerdo = (int)($_GET['id'] ?? 0);
+        $acuerdos = $this->listaPrecioModel->listarAcuerdosProveedor();
+
+        $acuerdoSeleccionado = null;
+        $matriz = [];
+
+        if ($idAcuerdo > 0) {
+            $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdoProveedor($idAcuerdo);
+            if ($acuerdoSeleccionado) {
+                $matriz = $this->listaPrecioModel->obtenerMatrizPreciosProveedor($idAcuerdo);
+            }
+        }
+
+        if (!$acuerdoSeleccionado && !empty($acuerdos)) {
+            $idAcuerdo = (int)$acuerdos[0]['id'];
+            $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdoProveedor($idAcuerdo);
+            $matriz = $this->listaPrecioModel->obtenerMatrizPreciosProveedor($idAcuerdo);
+        }
+
+        $this->vista('comercial/proveedores_precios', [
+            'titulo' => 'Acuerdos con Proveedores',
+            'acuerdos' => $acuerdos,
+            'acuerdo_seleccionado' => $acuerdoSeleccionado,
+            'precios_matriz' => $matriz,
+        ]);
+    }
+
     public function clientesDisponiblesAjax() {
         if (!$this->esPeticionAjax()) {
             json_response(['success' => false, 'message' => 'Petición inválida'], 400);
@@ -81,6 +109,18 @@ class ComercialController extends Controlador {
         json_response([
             'success' => true,
             'data' => $this->listaPrecioModel->listarClientesDisponibles()
+        ]);
+    }
+
+    public function proveedoresDisponiblesAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        json_response([
+            'success' => true,
+            'data' => $this->listaPrecioModel->listarProveedoresDisponibles(),
         ]);
     }
 
@@ -104,6 +144,156 @@ class ComercialController extends Controlador {
         } catch (PDOException $e) {
             json_response(['success' => false, 'message' => 'No fue posible vincular el cliente.'], 500);
         }
+    }
+
+    public function crearListaProveedor() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            json_response(['success' => false, 'message' => 'Método inválido'], 405);
+            return;
+        }
+
+        $idTercero = (int)($_POST['id_tercero'] ?? 0);
+        $observaciones = trim((string)($_POST['observaciones'] ?? ''));
+
+        if ($idTercero <= 0) {
+            json_response(['success' => false, 'message' => 'Proveedor inválido'], 422);
+            return;
+        }
+
+        try {
+            $id = $this->listaPrecioModel->crearAcuerdoProveedor($idTercero, $observaciones !== '' ? $observaciones : null);
+            if ($id <= 0) {
+                json_response(['success' => false, 'message' => 'No existe la estructura de acuerdos de proveedor. Ejecuta el script SQL primero.'], 409);
+                return;
+            }
+            json_response(['success' => true, 'id' => $id]);
+        } catch (PDOException $e) {
+            json_response(['success' => false, 'message' => 'No fue posible vincular el proveedor.'], 500);
+        }
+    }
+
+    public function obtenerMatrizProveedorAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idAcuerdo = (int)($_GET['id_acuerdo'] ?? 0);
+        if ($idAcuerdo <= 0) {
+            json_response(['success' => false, 'message' => 'Acuerdo inválido'], 422);
+            return;
+        }
+
+        $acuerdo = $this->listaPrecioModel->obtenerAcuerdoProveedor($idAcuerdo);
+        if (!$acuerdo) {
+            json_response(['success' => false, 'message' => 'Acuerdo no encontrado'], 404);
+            return;
+        }
+
+        json_response([
+            'success' => true,
+            'acuerdo' => $acuerdo,
+            'matriz' => $this->listaPrecioModel->obtenerMatrizPreciosProveedor($idAcuerdo),
+        ]);
+    }
+
+    public function itemsProveedorDisponiblesAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idAcuerdo = (int)($_GET['id_acuerdo'] ?? 0);
+        if ($idAcuerdo <= 0) {
+            json_response(['success' => false, 'message' => 'Acuerdo inválido'], 422);
+            return;
+        }
+
+        json_response([
+            'success' => true,
+            'data' => $this->listaPrecioModel->listarItemsDisponiblesAcuerdoProveedor($idAcuerdo),
+        ]);
+    }
+
+    public function agregarProductoProveedorAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idAcuerdo = (int)($_POST['id_acuerdo'] ?? 0);
+        $idItem = (int)($_POST['id_item'] ?? 0);
+        $precio = (float)($_POST['precio_recomendado'] ?? 0);
+
+        if ($idAcuerdo <= 0 || $idItem <= 0 || $precio <= 0) {
+            json_response(['success' => false, 'message' => 'Datos incompletos o inválidos'], 422);
+            return;
+        }
+
+        try {
+            $ok = $this->listaPrecioModel->agregarPrecioProveedor($idAcuerdo, $idItem, $precio);
+            if (!$ok) {
+                json_response(['success' => false, 'message' => 'No se pudo guardar la recomendación. Verifica si las tablas existen.'], 409);
+                return;
+            }
+            json_response(['success' => $ok]);
+        } catch (PDOException $e) {
+            json_response(['success' => false, 'message' => 'El producto ya está vinculado al proveedor.'], 409);
+        }
+    }
+
+    public function actualizarPrecioProveedorAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        $precio = (float)($_POST['precio_recomendado'] ?? -1);
+        if ($idDetalle <= 0 || $precio < 0) {
+            json_response(['success' => false, 'message' => 'Datos inválidos'], 422);
+            return;
+        }
+
+        $ok = $this->listaPrecioModel->actualizarPrecioProveedor($idDetalle, $precio);
+        json_response(['success' => $ok]);
+    }
+
+    public function eliminarPrecioProveedorAjax() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            json_response(['success' => false, 'message' => 'Detalle inválido'], 422);
+            return;
+        }
+
+        $ok = $this->listaPrecioModel->eliminarPrecioProveedor($idDetalle);
+        json_response(['success' => $ok]);
+    }
+
+    public function precioRecomendadoProveedorAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idProveedor = (int)($_GET['id_proveedor'] ?? 0);
+        $idItem = (int)($_GET['id_item'] ?? 0);
+        if ($idProveedor <= 0 || $idItem <= 0) {
+            json_response(['success' => false, 'message' => 'Parámetros inválidos'], 422);
+            return;
+        }
+
+        $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor($idProveedor, $idItem);
+        json_response([
+            'success' => true,
+            'encontrado' => $precio !== null,
+            'precio_recomendado' => $precio,
+        ]);
     }
 
     public function obtenerMatrizAcuerdoAjax() {
