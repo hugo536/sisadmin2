@@ -350,8 +350,14 @@
 
         if (!item && esBorrador) {
             setTimeout(() => {
-                filaReal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
+                // 'center' asegura que la fila quede en medio de la pantalla
+                filaReal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Hacemos focus automáticamente para que el usuario solo empiece a teclear
+                if (tom) {
+                    tom.focus(); 
+                }
+            }, 100); // Aumentamos un poquito el tiempo para que el DOM se asiente
         }
 
         recalcularTotalVenta();

@@ -79,6 +79,7 @@ $estadoLabels = [
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Proveedor</th>
                             <th class="text-secondary fw-semibold">Fecha Emisión</th>
+                            <th class="text-secondary fw-semibold text-primary">Fecha Entrega</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
@@ -95,6 +96,9 @@ $estadoLabels = [
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
                                     <td><?php echo e((string) ($orden['fecha_orden'] ?? '')); ?></td>
+                                    
+                                    <td class="fw-semibold text-primary"><?php echo e((string) ($orden['fecha_entrega'] ?? '-')); ?></td>
+                                    
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
@@ -174,11 +178,8 @@ $estadoLabels = [
 
                     <div class="card border-0 shadow-sm">
                         <div class="card-body p-0">
-                            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-white rounded-top">
+                            <div class="p-3 border-bottom bg-white rounded-top">
                                 <h6 class="mb-0 fw-bold text-dark">Detalle de Productos</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFila">
-                                    <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
-                                </button>
                             </div>
                             
                             <div class="table-responsive">
@@ -196,7 +197,12 @@ $estadoLabels = [
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="4" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
+                                            <td colspan="3" class="ps-3 py-3 align-middle">
+                                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFila">
+                                                    <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
+                                                </button>
+                                            </td>
+                                            <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
                                             <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ordenTotal">S/ 0.00</td>
                                             <td></td>
                                         </tr>
@@ -216,45 +222,63 @@ $estadoLabels = [
     </div>
 </div>
 
-<div class="modal fade" id="modalRecepcionCompra" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade" id="modalRecepcionCompra" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-info text-white border-bottom-0">
+            <div class="modal-header bg-info text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Recepcionar Mercadería</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
-                <div class="alert alert-info d-flex align-items-center mb-4 shadow-sm border-0 rounded-3">
-                    <i class="bi bi-info-circle-fill fs-4 me-3"></i>
-                    <div>Esta acción ingresará el stock físico al inventario y cerrará la orden de compra.</div>
-                </div>
-                
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <input type="hidden" id="recepcionOrdenId" value="0">
                 
-                <div class="mb-2 shadow-sm rounded p-3 bg-white border" id="bloqueDistribucionRecepcion">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="fw-semibold text-muted mb-0">Distribución por almacén <span class="text-danger">*</span></label>
-                        <small class="text-muted">Total comprado: <strong id="recepcionTotalCantidad">0</strong></small>
+                <select id="recepcionAlmacen" class="d-none">
+                    <option value="">Seleccione almacén...</option>
+                    <?php foreach ($almacenes as $almacen): ?>
+                        <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <div class="alert alert-info d-flex align-items-center mb-4 shadow-sm border-0 rounded-3">
+                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                    <div>
+                        <strong>Modo Recepción Parcial:</strong> Puede editar la cantidad a ingresar. Si recibe menos de lo pedido, la orden quedará abierta a menos que fuerce el cierre.
                     </div>
-                    <select id="recepcionAlmacenTemplate" class="d-none">
-                        <option value="">Seleccione el almacén...</option>
-                        <?php foreach ($almacenes as $almacen): ?>
-                            <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="recepcionDistribucionRows"></div>
-                    <div class="mt-2 text-end">
-                        <button type="button" class="btn btn-sm btn-outline-info" id="btnAgregarAlmacenRecepcion">
-                            <i class="bi bi-plus-circle me-1"></i>Agregar otro almacén
-                        </button>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-pro" id="tablaDetalleRecepcion">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-3 text-secondary col-min-w-300">Producto / Pedido</th>
+                                        <th class="text-center text-secondary col-w-250">Almacén Destino</th>
+                                        <th class="text-center text-secondary col-w-100">Pendiente</th>
+                                        <th class="text-end pe-3 text-secondary col-w-160">A Ingresar (Base)</th>
+                                        <th class="text-center text-secondary col-w-80">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-white border-top-0">
-                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-info text-white fw-bold px-4" id="btnConfirmarRecepcion">
-                    <i class="bi bi-check-lg me-2"></i>Confirmar Ingreso
-                </button>
+            
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
+                <div class="form-check form-switch m-0 ps-5">
+                    <input class="form-check-input" type="checkbox" id="cerrarForzadoRecepcion" style="cursor: pointer;">
+                    <label class="form-check-label fw-semibold text-danger small" for="cerrarForzadoRecepcion">
+                        Forzar cierre (Cancelar saldos no recibidos)
+                    </label>
+                </div>
+                <div>
+                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-info text-white fw-bold px-4" id="btnConfirmarRecepcion">
+                        <i class="bi bi-check-lg me-2"></i>Confirmar Ingreso
+                    </button>
+                </div>
             </div>
         </div>
     </div>

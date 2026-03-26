@@ -37,17 +37,15 @@
         });
     }
 
+    // --- VARIABLES ORDEN DE COMPRA ---
     const modalOrdenElement = document.getElementById('modalOrdenCompra');
     const modalOrden = new bootstrap.Modal(modalOrdenElement);
-    const modalRecepcion = new bootstrap.Modal(document.getElementById('modalRecepcionCompra'));
-
     const tablaCompras = document.getElementById('tablaCompras');
     const tbodyTabla = tablaCompras.querySelector('tbody');
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     const filtroEstado = document.getElementById('filtroEstado');
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
-
     const formOrden = document.getElementById('formOrdenCompra');
     const ordenId = document.getElementById('ordenId');
     const idProveedor = document.getElementById('idProveedor');
@@ -60,17 +58,19 @@
     const tituloModalOrden = document.querySelector('#modalOrdenCompra .modal-title');
     const btnAgregarFila = document.getElementById('btnAgregarFila');
 
+    // --- VARIABLES RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
+    const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
+    const modalRecepcion = new bootstrap.Modal(modalRecepcionEl);
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
-    const recepcionDistribucionRows = document.getElementById('recepcionDistribucionRows');
-    const recepcionAlmacenTemplate = document.getElementById('recepcionAlmacenTemplate');
-    const recepcionTotalCantidad = document.getElementById('recepcionTotalCantidad');
-    const btnAgregarAlmacenRecepcion = document.getElementById('btnAgregarAlmacenRecepcion');
+    const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
+    const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
+    const selectTemplateAlmacen = document.getElementById('recepcionAlmacen');
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
 
     let ordenEnEdicionId = 0;
-    let totalRecepcionCompra = 0;
     let modalSoloLecturaActiva = false;
 
+    // --- FUNCIONES GENERALES ---
     function setOrdenEnEdicion(id = 0) {
         const parsedId = Number(id || 0);
         ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
@@ -96,12 +96,8 @@
         if (!contentType.includes('application/json')) {
             throw new Error('El servidor devolvió una respuesta no válida. Revise el log del backend.');
         }
-
-        try {
-            return JSON.parse(raw);
-        } catch (_) {
-            throw new Error('No se pudo interpretar la respuesta del servidor.');
-        }
+        try { return JSON.parse(raw); } 
+        catch (_) { throw new Error('No se pudo interpretar la respuesta del servidor.'); }
     }
 
     async function postJson(url, data, btnElement = null) {
@@ -123,9 +119,7 @@
             });
 
             const json = await parseJsonSafe(response);
-            if (!response.ok || !json.ok) {
-                throw new Error(json.mensaje || 'Error en la operación.');
-            }
+            if (!response.ok || !json.ok) throw new Error(json.mensaje || 'Error en la operación.');
             return json;
         } finally {
             if (btnElement) {
@@ -135,181 +129,7 @@
         }
     }
 
-
-    function formatearCantidad(valor) {
-        const numero = Number.parseFloat(valor || 0);
-        if (!Number.isFinite(numero)) return '0';
-        return numero.toFixed(4).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
-    }
-
-    function parseCantidad(valor) {
-        const numero = Number.parseFloat(valor || 0);
-        return Number.isFinite(numero) ? numero : 0;
-    }
-
-    function obtenerRowsDistribucion() {
-        return Array.from(recepcionDistribucionRows.querySelectorAll('.recepcion-distribucion-row'));
-    }
-
-    function validarAlmacenesDuplicados() {
-        const seleccionados = new Map();
-        for (const row of obtenerRowsDistribucion()) {
-            const select = row.querySelector('.recepcion-almacen');
-            const idAlmacen = Number(select?.value || 0);
-            if (idAlmacen <= 0) continue;
-            if (seleccionados.has(idAlmacen)) {
-                Swal.fire('Almacén duplicado', 'No puede seleccionar el mismo almacén en ambas líneas.', 'warning');
-                select.value = '';
-                return false;
-            }
-            seleccionados.set(idAlmacen, true);
-        }
-        return true;
-    }
-
-    function actualizarOpcionesAlmacen() {
-        const selects = document.querySelectorAll('.recepcion-almacen');
-        // Obtener todos los IDs de almacenes que ya tienen una selección válida
-        const valoresSeleccionados = Array.from(selects)
-            .map(s => s.value)
-            .filter(v => v !== "");
-
-        selects.forEach(select => {
-            const valorActual = select.value;
-            Array.from(select.options).forEach(option => {
-                if (!option.value) return; // Ignoramos la opción por defecto ("Seleccione...")
-                
-                // Si el valor ya está seleccionado en OTRO select, lo deshabilitamos y ocultamos
-                if (valoresSeleccionados.includes(option.value) && option.value !== valorActual) {
-                    option.style.display = 'none';
-                    option.disabled = true;
-                } else {
-                    option.style.display = '';
-                    option.disabled = false;
-                }
-            });
-        });
-    }
-
-    function setFilasEditablesDistribucion(editable) {
-        obtenerRowsDistribucion().forEach((row) => {
-            const inputCantidad = row.querySelector('.recepcion-cantidad');
-            if (!inputCantidad) return;
-            inputCantidad.readOnly = !editable;
-            inputCantidad.classList.toggle('bg-light', !editable);
-        });
-    }
-
-    function sincronizarCantidadesDistribucion(rowOrigen = null) {
-        const rows = obtenerRowsDistribucion();
-        
-        // Si hay exactamente 2 filas, mantenemos el auto-completado automático por comodidad
-        if (rows.length === 2 && rowOrigen) {
-            const rowA = rows[0];
-            const rowB = rows[1];
-            const inputA = rowA.querySelector('.recepcion-cantidad');
-            const inputB = rowB.querySelector('.recepcion-cantidad');
-
-            const origenEsA = rowOrigen.dataset.index === rowA.dataset.index;
-            if (origenEsA) {
-                const valorA = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputA.value)));
-                inputA.value = formatearCantidad(valorA);
-                inputB.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorA));
-            } else {
-                const valorB = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(inputB.value)));
-                inputB.value = formatearCantidad(valorB);
-                inputA.value = formatearCantidad(Math.max(0, totalRecepcionCompra - valorB));
-            }
-        } else if (rowOrigen) {
-            // Para 3 o más filas, solo evitamos que una sola fila sea mayor al total comprado
-            const input = rowOrigen.querySelector('.recepcion-cantidad');
-            const valor = Math.max(0, Math.min(totalRecepcionCompra, parseCantidad(input.value)));
-            input.value = formatearCantidad(valor);
-        }
-    }
-
-    function crearFilaDistribucion(index, cantidad, editable) {
-        const fila = document.createElement('div');
-        fila.className = 'recepcion-distribucion-row row g-2 align-items-center mb-2';
-        fila.dataset.index = String(index);
-        
-        fila.innerHTML = `
-            <div class="col-6">
-                <select class="form-select recepcion-almacen" required></select>
-            </div>
-            <div class="col-4">
-                <input type="number" class="form-control text-end recepcion-cantidad" min="0" step="0.0001" value="${formatearCantidad(cantidad)}" ${editable ? '' : 'readonly'}>
-            </div>
-            <div class="col-2 text-end">
-                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-almacen-recepcion ${index === 1 ? 'd-none' : ''}" title="Quitar almacén" style="width:32px;height:32px;">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        `;
-
-        const select = fila.querySelector('.recepcion-almacen');
-        const inputCantidad = fila.querySelector('.recepcion-cantidad');
-        const btnQuitar = fila.querySelector('.btn-quitar-almacen-recepcion');
-        
-        if (recepcionAlmacenTemplate) {
-            select.innerHTML = recepcionAlmacenTemplate.innerHTML;
-        }
-
-        if (!editable) {
-            inputCantidad.classList.add('bg-light');
-        }
-
-        // CAMBIO 1: Actualiza las opciones visualmente para ocultar almacenes ya seleccionados
-        select.addEventListener('change', () => {
-            actualizarOpcionesAlmacen();
-        });
-
-        inputCantidad.addEventListener('input', () => {
-            sincronizarCantidadesDistribucion(fila);
-        });
-
-        if (btnQuitar) {
-            btnQuitar.addEventListener('click', () => {
-                fila.remove();
-                
-                // CAMBIO 2: Liberar el almacén que acabamos de borrar para que vuelva a estar disponible
-                actualizarOpcionesAlmacen(); 
-                
-                const rows = obtenerRowsDistribucion();
-                if (rows.length === 1) {
-                    const input = rows[0].querySelector('.recepcion-cantidad');
-                    const boton = rows[0].querySelector('.btn-quitar-almacen-recepcion');
-                    
-                    // Si solo queda 1 fila, le asignamos el total restante
-                    input.value = formatearCantidad(totalRecepcionCompra);
-                    input.readOnly = true;
-                    input.classList.add('bg-light');
-                    if (boton) boton.classList.add('d-none');
-                    btnAgregarAlmacenRecepcion.disabled = false;
-                }
-            });
-        }
-
-        return fila;
-    }
-
-    function obtenerDistribucionRecepcion() {
-        return obtenerRowsDistribucion().map((row) => ({
-            id_almacen: Number(row.querySelector('.recepcion-almacen')?.value || 0),
-            cantidad: parseCantidad(row.querySelector('.recepcion-cantidad')?.value || 0),
-        }));
-    }
-
-    function inicializarDistribucionRecepcion(totalCantidad) {
-        totalRecepcionCompra = Math.max(0, parseCantidad(totalCantidad));
-        recepcionTotalCantidad.textContent = formatearCantidad(totalRecepcionCompra);
-        recepcionDistribucionRows.innerHTML = '';
-
-        const filaPrincipal = crearFilaDistribucion(1, totalRecepcionCompra, false);
-        recepcionDistribucionRows.appendChild(filaPrincipal);
-        btnAgregarAlmacenRecepcion.disabled = false;
-    }
-
+    // --- LÓGICA ORDEN DE COMPRA ---
     async function obtenerUnidadesItem(idItem) {
         if (!idItem || idItem <= 0) return [];
         if (cacheUnidades.has(idItem)) return cacheUnidades.get(idItem);
@@ -337,7 +157,7 @@
         const inputItem = fila.querySelector('.detalle-item');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
         const inputCentroCosto = fila.querySelector('.detalle-centro-costo');
-        const info = fila.querySelector('.detalle-conversion-info'); // Asegúrate de tener un span con esta clase debajo del select
+        const info = fila.querySelector('.detalle-conversion-info');
 
         const idItem = Number(inputItem.value || 0);
         const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
@@ -348,11 +168,10 @@
 
         const unidadNombre = inputUnidad.classList.contains('d-none')
             ? getUnidadBaseDesdeSelect(inputItem)
-            : (inputUnidad.selectedOptions?.[0]?.text.split(' (')[0] || 'UND'); // Extraemos el nombre limpio
+            : (inputUnidad.selectedOptions?.[0]?.text.split(' (')[0] || 'UND');
 
         const cantidadBase = cantidad * factor;
 
-        // --- MEJORA: UI Intuitiva para la conversión ---
         if (info) {
             if (idItem > 0 && factor > 1) {
                  info.innerHTML = `<small class="text-muted fw-bold">Entrarán al almacén: ${cantidadBase.toFixed(2)} ${getUnidadBaseDesdeSelect(inputItem)}</small>`;
@@ -376,8 +195,8 @@
     }
 
     function recalcularFila(fila) {
-        const { cantidad, costo_unitario } = filaToPayload(fila);
-        const subtotal = cantidad * costo_unitario;
+        const { cantidad_base, costo_unitario } = filaToPayload(fila);
+        const subtotal = cantidad_base * costo_unitario;
         fila.querySelector('.detalle-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
         recalcularTotalGeneral();
     }
@@ -386,7 +205,7 @@
         let total = 0;
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const item = filaToPayload(fila);
-            total += item.cantidad * item.costo_unitario;
+            total += item.cantidad_base * item.costo_unitario;
         });
         ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
@@ -397,7 +216,6 @@
         const info = fila.querySelector('.detalle-conversion-info');
         const inputCosto = fila.querySelector('.detalle-costo');
 
-        // Reiniciar el select
         inputUnidad.innerHTML = '<option value="">Unidad de compra...</option>';
         inputUnidad.classList.add('d-none');
         inputUnidad.disabled = true;
@@ -408,7 +226,6 @@
         const requiereFactor = Number(selected.dataset.requiereFactorConversion || 0) === 1;
         const unidadBase = selected.dataset.unidadBase || 'UND';
         
-        // --- MEJORA: Autocompletar costo referencial si es un ítem nuevo ---
         if (!itemGuardado && selected.dataset.costoReferencial) {
              const costoRef = parseFloat(selected.dataset.costoReferencial);
              if (costoRef > 0) inputCosto.value = costoRef.toFixed(4);
@@ -422,20 +239,13 @@
 
         try {
             const unidades = await obtenerUnidadesItem(Number(inputItem.value));
-            
-            // --- MEJORA: Renderizado profesional de las opciones ---
             unidades.forEach((u) => {
                 const option = document.createElement('option');
                 option.value = String(u.id || '');
                 option.dataset.factor = String(u.factor_conversion || '1');
-                
-                // Formateo limpio del factor (ej: 1000 en vez de 1000.0000)
                 const factorLimpio = parseFloat(u.factor_conversion).toString();
-                
-                // El texto que verá el usuario. Usamos 'text' o 'nombre' dependiendo del backend.
                 const nombreSelect = u.text || u.nombre;
                 option.textContent = `${nombreSelect} (Equivale a ${factorLimpio} ${unidadBase})`;
-                
                 inputUnidad.appendChild(option);
             });
 
@@ -445,7 +255,6 @@
             if (itemGuardado?.id_item_unidad) {
                 inputUnidad.value = String(itemGuardado.id_item_unidad);
             } else if (inputUnidad.options.length > 1) {
-                // Seleccionamos la primera unidad por defecto (después del placeholder)
                 inputUnidad.selectedIndex = 1;
             }
         } catch (error) {
@@ -486,7 +295,12 @@
         });
 
         if (inputCentroCosto) {
-            inputCentroCosto.addEventListener('change', () => recalcularFila(fila));
+            inputCentroCosto.addEventListener('change', () => {
+                if (inputCentroCosto.value) {
+                    inputCentroCosto.classList.remove('is-invalid', 'border-danger');
+                }
+                recalcularFila(fila);
+            });
         }
 
         const onCambioItem = async (value) => {
@@ -542,18 +356,24 @@
 
         sincronizarBloqueoFilaDetalle(fila);
         recalcularFila(fila);
+
+        // --- AUTOSCROLL Y ENFOQUE AL AGREGAR ---
+        if (!item) {
+            setTimeout(() => {
+                fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (tomSelectItem && !modalSoloLecturaActiva) {
+                    tomSelectItem.focus();
+                }
+            }, 100);
+        }
     }
 
     function sincronizarBloqueoFilaDetalle(fila) {
         if (!fila) return;
-
         const inputItem = fila.querySelector('.detalle-item');
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
 
-        if (inputUnidad) {
-            inputUnidad.disabled = modalSoloLecturaActiva;
-        }
-
+        if (inputUnidad) inputUnidad.disabled = modalSoloLecturaActiva;
         if (inputItem?.tomselect) {
             if (modalSoloLecturaActiva) inputItem.tomselect.disable();
             else inputItem.tomselect.enable();
@@ -567,12 +387,6 @@
         if (modalOrdenElement) {
             modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
         }
-
-
-        if (modalOrdenElement) {
-            modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
-        }
-
 
         if (tituloModalOrden) {
             if (deshabilitar && Number(estado) === 3) {
@@ -607,15 +421,10 @@
                     control.disabled = deshabilitar;
                     return;
                 }
-
                 if (control.classList.contains('detalle-subtotal')) return;
-
                 control.disabled = deshabilitar;
-                if (control.tagName === 'INPUT') {
-                    control.readOnly = deshabilitar;
-                }
+                if (control.tagName === 'INPUT') control.readOnly = deshabilitar;
             });
-
             sincronizarBloqueoFilaDetalle(fila);
         });
 
@@ -630,12 +439,8 @@
     function limpiarModalOrden() {
         formOrden.reset();
         setOrdenEnEdicion(0);
-
-        if (tomSelectProveedor) {
-            tomSelectProveedor.clear();
-        } else {
-            idProveedor.value = '';
-        }
+        if (tomSelectProveedor) tomSelectProveedor.clear();
+        else idProveedor.value = '';
 
         tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
             if (select.tomselect) select.tomselect.destroy();
@@ -646,39 +451,167 @@
         setModoSoloLectura(false, 0);
     }
 
-    btnGuardarOrden.addEventListener('click', async () => {
-        if (!idProveedor.value) {
-            return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
+    // --- LÓGICA RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
+    async function abrirModalRecepcion(idOrden) {
+        try {
+            const separador = urls.index.includes('?') ? '&' : '?';
+            const res = await getJson(`${urls.index}${separador}accion=ver&id=${idOrden}`);
+            const orden = res.data;
+
+            recepcionOrdenId.value = orden.id;
+            cerrarForzadoRecepcion.checked = false;
+            tbodyRecepcion.innerHTML = '';
+
+            const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
+            detalle.forEach((linea) => {
+                if (Number(linea.cantidad_pendiente) > 0.0001) {
+                    agregarFilaRecepcion(linea, null);
+                }
+            });
+            modalRecepcion.show();
+        } catch (error) {
+            Swal.fire('Error', error.message || 'No se pudo preparar la recepción.', 'error');
+        }
+    }
+
+    // Helper interno para no duplicar código
+    async function getJson(url) {
+        const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const payload = await res.json();
+        if (!res.ok || !payload.ok) throw new Error(payload.mensaje || 'Error del servidor');
+        return payload;
+    }
+
+    function agregarFilaRecepcion(linea, filaReferencia = null) {
+        const tr = document.createElement('tr');
+        tr.dataset.idDetalle = linea.id;
+        tr.dataset.pendienteTotal = linea.cantidad_pendiente;
+
+        const factorHtml = Number(linea.factor_conversion_aplicado) > 1 
+            ? `<span class="badge bg-info-subtle text-info border border-info-subtle ms-1">x ${linea.factor_conversion_aplicado}</span>` 
+            : '';
+
+        tr.innerHTML = `
+            <td class="align-middle py-3 ps-3">
+                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                <div class="small text-muted d-flex align-items-center gap-2 mt-1">
+                    <span>Pedido: <strong class="text-dark">${Number(linea.cantidad_unidad).toFixed(2)} ${linea.unidad_nombre}</strong> ${factorHtml}</span>
+                </div>
+                <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split-recepcion" title="Ingresar a otro almacén adicional">
+                    <i class="bi bi-diagram-2 me-1"></i>Fraccionar en otro almacén
+                </button>
+            </td>
+            <td class="align-middle px-2">
+                <select class="form-select form-select-sm fila-almacen-rec shadow-none border-secondary-subtle fw-semibold text-secondary" required>
+                    ${selectTemplateAlmacen.innerHTML}
+                </select>
+            </td>
+            <td class="text-center align-middle">
+                <span class="badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2 shadow-sm">${Number(linea.cantidad_pendiente).toFixed(2)} ${linea.unidad_base}</span>
+            </td>
+            <td class="align-middle px-2">
+                <input type="number" class="form-control form-control-sm text-center recepcion-cantidad fw-bold text-primary shadow-none border-secondary-subtle mx-auto"
+                       min="0" step="0.01" value="${Number(linea.cantidad_pendiente).toFixed(2)}" style="max-width: 110px;">
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-recepcion d-none d-inline-flex align-items-center justify-content-center transition-all p-0" title="Quitar línea" style="width: 34px; height: 34px;">
+                    <i class="bi bi-trash-fill fs-6"></i>
+                </button>
+            </td>
+        `;
+
+        if (filaReferencia) {
+            filaReferencia.insertAdjacentElement('afterend', tr);
+        } else {
+            tbodyRecepcion.appendChild(tr);
         }
 
-        if (!fechaEntrega.value) {
-            return Swal.fire('Falta Fecha', 'La fecha de entrega estimada es obligatoria.', 'warning');
-        }
+        const selectAlmacen = tr.querySelector('.fila-almacen-rec');
+        const inputCant = tr.querySelector('.recepcion-cantidad');
+        const btnSplit = tr.querySelector('.btn-split-recepcion');
+        const btnQuitar = tr.querySelector('.btn-quitar-recepcion');
+
+        const obtenerFilasGrupo = () => [...tbodyRecepcion.querySelectorAll(`tr[data-id-detalle="${linea.id}"]`)];
+
+        const actualizarModoGrupo = () => {
+            const filas = obtenerFilasGrupo();
+            const multiple = filas.length > 1;
+            filas.forEach((fila, idx) => {
+                const btn = fila.querySelector('.btn-quitar-recepcion');
+                if (btn) btn.classList.toggle('d-none', !multiple || idx === 0);
+            });
+        };
+
+        const validarCantidades = () => {
+            const filas = obtenerFilasGrupo();
+            const pendienteGlobal = parseFloat(linea.cantidad_pendiente);
+            let sumaCargada = 0;
+
+            filas.forEach(f => sumaCargada += parseFloat(f.querySelector('.recepcion-cantidad').value || 0));
+
+            const badge = filas[0].querySelector('.badge-pendiente-rec');
+            if (sumaCargada > pendienteGlobal) {
+                filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.add('is-invalid'));
+                badge.className = "badge bg-danger text-white badge-pendiente-rec rounded-pill px-3 py-2";
+                badge.textContent = `Excedido (Máx: ${pendienteGlobal})`;
+            } else {
+                filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.remove('is-invalid'));
+                badge.className = "badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2";
+                badge.textContent = `${pendienteGlobal.toFixed(2)} ${linea.unidad_base}`;
+            }
+        };
+
+        inputCant.addEventListener('input', validarCantidades);
+        selectAlmacen.addEventListener('change', validarCantidades);
+
+        btnSplit.addEventListener('click', () => {
+            agregarFilaRecepcion(linea, tr);
+            tr.querySelector('.recepcion-cantidad').value = 0; 
+            validarCantidades();
+        });
+
+        btnQuitar.addEventListener('click', () => {
+            tr.remove();
+            actualizarModoGrupo();
+            validarCantidades();
+        });
+
+        actualizarModoGrupo();
+        return tr;
+    }
+
+    // --- EVENTOS PRINCIPALES ---
+    btnGuardarOrden.addEventListener('click', async () => {
+        if (!idProveedor.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
+        if (!fechaEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de entrega estimada es obligatoria.', 'warning');
 
         const detalle = [];
         let errorDetalle = false;
+        let errorCentroCosto = false;
 
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const datos = filaToPayload(fila);
+            const selectCentroCosto = fila.querySelector('.detalle-centro-costo');
+
             if (datos.id_item > 0) {
+                if (selectCentroCosto) selectCentroCosto.classList.remove('is-invalid', 'border-danger');
+
                 if (datos.cantidad <= 0 || datos.cantidad_base <= 0 || datos.factor_conversion_aplicado <= 0) {
                     errorDetalle = true;
                 }
+
+                if (!datos.id_centro_costo || datos.id_centro_costo <= 0) {
+                    errorCentroCosto = true;
+                    if (selectCentroCosto) selectCentroCosto.classList.add('is-invalid', 'border-danger'); 
+                }
+
                 detalle.push(datos);
             }
         });
 
-        if (detalle.length === 0) {
-            return Swal.fire({
-                icon: 'error',
-                title: 'Orden vacía',
-                text: 'Debe agregar al menos un producto a la orden de compra.',
-            });
-        }
-
-        if (errorDetalle) {
-            return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
-        }
+        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto a la orden de compra.' });
+        if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para todos los ítems de la orden.', 'warning');
+        if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
         try {
             const payload = {
@@ -698,74 +631,56 @@
         }
     });
 
-    if (btnAgregarAlmacenRecepcion) {
-        btnAgregarAlmacenRecepcion.addEventListener('click', () => {
-            const rows = obtenerRowsDistribucion();
-            
-            // 1. Calcular cuánto stock ya hemos distribuido en las filas actuales
-            let cantidadDistribuida = 0;
-            rows.forEach(row => {
-                cantidadDistribuida += parseCantidad(row.querySelector('.recepcion-cantidad')?.value || 0);
-            });
-            
-            // 2. Calcular lo que falta distribuir
-            const cantidadRestante = Math.max(0, totalRecepcionCompra - cantidadDistribuida);
-
-            setFilasEditablesDistribucion(true);
-            
-            // 3. Crear la nueva fila con el index dinámico y la cantidad restante
-            const nuevoIndex = rows.length + 1; 
-            const filaNueva = crearFilaDistribucion(nuevoIndex, cantidadRestante, true);
-            recepcionDistribucionRows.appendChild(filaNueva);
-            
-            // 4. Actualizar visualmente los selects
-            actualizarOpcionesAlmacen();
-        });
-    }
-
     btnConfirmarRecepcion.addEventListener('click', async () => {
-        if (!validarAlmacenesDuplicados()) return;
-
-        const distribucion = obtenerDistribucionRecepcion();
-        if (distribucion.length === 0) {
-            return Swal.fire('Atención', 'Debe definir al menos un almacén de destino.', 'warning');
-        }
-
-        if (distribucion.some((row) => row.id_almacen <= 0)) {
-            return Swal.fire('Atención', 'Seleccione un almacén en cada línea.', 'warning');
-        }
-
-        const totalIngresado = distribucion.reduce((acc, row) => acc + row.cantidad, 0);
-        if (Math.abs(totalIngresado - totalRecepcionCompra) > 0.0001) {
-            return Swal.fire(
-                'Distribución inválida',
-                `La suma por almacenes (${formatearCantidad(totalIngresado)}) debe ser exacta al total comprado (${formatearCantidad(totalRecepcionCompra)}).`,
-                'warning',
-            );
-        }
-
-        const confirm = await Swal.fire({
-            title: '¿Confirmar ingreso?',
-            text: 'Se actualizará el stock físico según la distribución por almacenes.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, recepcionar',
-        });
-
-        if (!confirm.isConfirmed) return;
-
         try {
-            const res = await postJson(urls.recepcionar, {
-                id_orden: Number(recepcionOrdenId.value),
-                id_almacen: distribucion[0].id_almacen,
-                distribucion,
+            const filas = [...tbodyRecepcion.querySelectorAll('tr')];
+            const detalle = filas.map(fila => {
+                const idAlmacen = fila.querySelector('.fila-almacen-rec').value;
+                const cantidad = parseFloat(fila.querySelector('.recepcion-cantidad').value || 0);
+                
+                return {
+                    id_documento_detalle: Number(fila.dataset.idDetalle),
+                    id_almacen: Number(idAlmacen),
+                    cantidad: cantidad
+                };
+            }).filter(d => d.cantidad > 0);
+
+            if (detalle.length === 0) throw new Error('Debe ingresar cantidad en al menos un producto.');
+            if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione un almacén destino para todas las filas.');
+            if (tbodyRecepcion.querySelector('.is-invalid')) throw new Error('Corrija las cantidades en rojo. No puede recibir más de lo pendiente.');
+
+            let esParcial = false;
+            const resumenPorItem = {}; 
+            filas.forEach(f => {
+                const id = f.dataset.idDetalle;
+                resumenPorItem[id] = (resumenPorItem[id] || 0) + parseFloat(f.querySelector('.recepcion-cantidad').value || 0);
+            });
+
+            filas.forEach(f => {
+                const pendiente = parseFloat(f.dataset.pendienteTotal);
+                if (resumenPorItem[f.dataset.idDetalle] < pendiente - 0.001) esParcial = true;
+            });
+
+            if (esParcial && !cerrarForzadoRecepcion.checked) {
+                const resp = await Swal.fire({
+                    icon: 'info', title: 'Recepción Parcial', 
+                    text: 'Está ingresando menos cantidad de la esperada. La orden quedará abierta con saldo pendiente. ¿Desea continuar?', 
+                    showCancelButton: true, confirmButtonText: 'Sí, ingresar parcial'
+                });
+                if (!resp.isConfirmed) return;
+            }
+
+            const payload = await postJson(urls.recepcionar, {
+                id_orden: Number(recepcionOrdenId.value || 0),
+                cerrar_forzado: cerrarForzadoRecepcion.checked,
+                detalle: detalle
             }, btnConfirmarRecepcion);
 
-            await Swal.fire('Éxito', res.mensaje, 'success');
+            await Swal.fire('Ingresado', payload.mensaje, 'success');
             modalRecepcion.hide();
             recargarPagina();
-        } catch (e) {
-            Swal.fire('Error', e.message, 'error');
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
         }
     });
 
@@ -787,7 +702,6 @@
                 if (json.ok && json.data) {
                     const d = json.data;
                     limpiarModalOrden();
-
                     setOrdenEnEdicion(d.id);
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
                     else idProveedor.value = d.id_proveedor;
@@ -795,11 +709,8 @@
                     fechaEntrega.value = d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
 
-                    if (d.detalle && d.detalle.length > 0) {
-                        d.detalle.forEach((item) => agregarFila(item));
-                    } else {
-                        agregarFila();
-                    }
+                    if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
+                    else agregarFila();
 
                     const estadoDoc = Number(d.estado || 0);
                     setModoSoloLectura(estadoDoc !== 0, estadoDoc);
@@ -814,11 +725,8 @@
 
         if (target.classList.contains('btn-aprobar')) {
             const confirm = await Swal.fire({
-                title: '¿Aprobar Orden?',
-                text: 'Una orden aprobada quedará lista para recepción y ya no será editable.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, aprobar',
+                title: '¿Aprobar Orden?', text: 'Una orden aprobada quedará lista para recepción y ya no será editable.',
+                icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar',
             });
 
             if (!confirm.isConfirmed) return;
@@ -835,12 +743,8 @@
 
         if (target.classList.contains('btn-anular')) {
             const confirm = await Swal.fire({
-                title: '¿Anular Orden?',
-                text: 'Esta acción no se puede deshacer.',
-                icon: 'error',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Sí, anular',
+                title: '¿Anular Orden?', text: 'Esta acción no se puede deshacer.',
+                icon: 'error', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, anular',
             });
 
             if (!confirm.isConfirmed) return;
@@ -856,24 +760,7 @@
         }
 
         if (target.classList.contains('btn-recepcionar')) {
-            recepcionOrdenId.value = id;
-            try {
-                const separador = urls.index.includes('?') ? '&' : '?';
-                const res = await fetch(`${urls.index}${separador}accion=ver&id=${id}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const json = await parseJsonSafe(res);
-                if (!res.ok || !json.ok || !json.data) {
-                    throw new Error(json.mensaje || 'No se pudo preparar la recepción.');
-                }
-
-                const detalle = Array.isArray(json.data.detalle) ? json.data.detalle : [];
-                const totalCantidad = detalle.reduce((acc, item) => acc + parseCantidad(item.cantidad_base || item.cantidad || 0), 0);
-                inicializarDistribucionRecepcion(totalCantidad);
-                modalRecepcion.show();
-            } catch (error) {
-                Swal.fire('Error', error.message || 'No se pudo preparar la recepción.', 'error');
-            }
+            abrirModalRecepcion(id);
         }
     });
 

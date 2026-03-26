@@ -11,7 +11,8 @@ class ComprasOrdenModel extends Modelo
                        o.id_proveedor,
                        t.nombre_completo AS proveedor,
                        DATE_FORMAT(o.fecha_emision, "%d/%m/%Y") AS fecha_orden,
-                       o.fecha_entrega_estimada AS fecha_entrega,
+                       /* Formateamos la fecha de entrega igual que la de emisión */
+                       DATE_FORMAT(o.fecha_entrega_estimada, "%d/%m/%Y") AS fecha_entrega,
                        o.total,
                        o.estado,
                        o.created_at
