@@ -23,9 +23,24 @@
             // Si la pantalla es grande, no hacemos nada
             if (window.innerWidth > MOBILE_BREAKPOINT) return;
 
+            const collapseExpandedRows = function(table) {
+                if (!table) return;
+                table.querySelectorAll('.mobile-expandable-row.expanded').forEach(row => {
+                    row.classList.remove('expanded');
+                });
+            };
+
             // Buscar si el clic fue en una fila expandible
             const trClick = e.target.closest('.mobile-expandable-row');
-            if (!trClick) return;
+            if (!trClick) {
+                const tableClick = e.target.closest('table.table-pro.erp-mobile-cards');
+                if (tableClick) {
+                    collapseExpandedRows(tableClick);
+                } else {
+                    document.querySelectorAll('table.table-pro.erp-mobile-cards').forEach(collapseExpandedRows);
+                }
+                return;
+            }
 
             // Ignorar clics dentro de inputs, botones o selects (para que puedas editar el precio tranquilo)
             if (e.target.closest('input') || e.target.closest('button') || e.target.closest('select') || e.target.classList.contains('input-group-text')) {
@@ -37,11 +52,7 @@
             const table = trClick.closest('table');
 
             // 1. Cerrar TODAS las filas de esta tabla primero
-            if (table) {
-                table.querySelectorAll('.mobile-expandable-row.expanded').forEach(row => {
-                    row.classList.remove('expanded');
-                });
-            }
+            collapseExpandedRows(table);
 
             // 2. Si la fila no estaba expandida, la abrimos (si ya estaba, se queda cerrada por el paso 1)
             if (!isExpanded) {
