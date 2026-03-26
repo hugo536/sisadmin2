@@ -280,32 +280,36 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
     </div>
 </div>
 
-<div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-bar-chart-steps me-2"></i>Agregar Escala por Volumen</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4" style="height: auto !important; min-height: 0 !important; display: block;">
+            <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-bar-chart-steps text-primary me-2"></i>Agregar Escala por Volumen
+                </h5>
+                <button type="button" class="btn-close bg-light rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form id="formAgregarEscalaVolumen">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Producto</label>
-                        <select class="form-select" id="selectItemVolumen" required></select>
+            <form id="formAgregarEscalaVolumen" class="m-0">
+                <div class="modal-body px-4 pt-3 pb-4">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Presentación</label>
+                        <select class="form-select form-select-lg" id="selectItemVolumen" required></select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Cantidad Mínima</label>
-                        <input type="number" min="0.0001" step="0.0001" class="form-control" id="inputCantidadMinimaVolumen" required>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Cantidad Mínima</label>
+                        <input type="number" min="0.0001" step="0.0001" class="form-control form-control-lg" id="inputCantidadMinimaVolumen" required>
                     </div>
-                    <label class="form-label">Precio Unitario</label>
-                    <div class="input-group">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" min="0" step="0.0001" class="form-control" id="inputPrecioUnitarioVolumen" required>
+                    <div>
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Precio Unitario</label>
+                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
+                            <span class="input-group-text bg-white border-0 text-muted fw-bold ps-3">S/</span>
+                            <input type="number" min="0" step="0.0001" class="form-control border-0 px-2 fw-bold text-primary fs-5 shadow-none" id="inputPrecioUnitarioVolumen" placeholder="0.0000" required>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Agregar Escala</button>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 py-3 px-4 d-flex justify-content-between">
+                    <button class="btn btn-link text-muted text-decoration-none fw-semibold px-0" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary px-4 fw-bold shadow-sm rounded-pill" type="submit">Agregar a la lista</button>
                 </div>
             </form>
         </div>
