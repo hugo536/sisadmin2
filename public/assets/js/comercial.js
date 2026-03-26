@@ -107,22 +107,22 @@ function initComercialApp() {
     const rowTemplate = (item, modo) => {
         if (modo === 'volumen') {
             return `
-                <tr data-id-detalle="${item.id}" class="escala-grupo-${item.grupoId || ''} mobile-expandable-row" style="display: none;">
-                    <td class="ps-4 text-muted small border-0 col-mobile-hide"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
-                    <td class="border-0 col-mobile-hide"></td> 
-                    <td class="border-0">
+                <tr data-id-detalle="${item.id}" class="mobile-expandable-row">
+                    <td class="ps-4 col-mobile-hide"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
+                    <td class="fw-semibold text-dark">${item.producto_nombre || ''}</td>
+                    <td>
                         <div class="input-group input-group-sm" style="max-width: 120px;">
                             <span class="input-group-text bg-light border-end-0">≥</span>
                             <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="${parseFloat(item.cantidad_minima).toFixed(2)}" data-original="${parseFloat(item.cantidad_minima).toFixed(2)}">
                         </div>
                     </td>
-                    <td class="border-0">
+                    <td>
                         <div class="input-group input-group-sm" style="max-width: 130px;">
                             <span class="input-group-text bg-light border-end-0">S/</span>
                             <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}" data-original="${parseFloat(item.precio_pactado || item.precio_unitario).toFixed(4)}">
                         </div>
                     </td>
-                    <td class="text-end pe-4 border-0 col-mobile-hide">
+                    <td class="text-end pe-4 col-mobile-hide">
                         <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
                             <i class="bi bi-trash"></i>
                         </button>

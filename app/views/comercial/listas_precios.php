@@ -191,51 +191,31 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                         </tr>
                                     <?php else: ?>
                                         <?php if ($modoVista === 'volumen'): ?>
-                                        <?php
-                                        $agrupados = [];
-                                        foreach ($preciosMatriz as $row) {
-                                            $agrupados[$row['producto_nombre']][] = $row;
-                                        }
-                                        $grupoId = 0;
-                                        ?>
-                                        <?php foreach ($agrupados as $producto => $escalas): ?>
-                                            <?php $grupoId++; ?>
-                                            <tr class="table-light row-clickable" onclick="toggleAcordeonVolumen('grupo-<?php echo $grupoId; ?>', this)">
-                                                <td colspan="5" class="fw-bold text-dark border-bottom">
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <div>
-                                                            <i class="bi bi-box-seam text-primary me-2"></i><?php echo e($producto); ?>
-                                                            <span class="badge bg-white text-secondary border ms-2"><?php echo e($escalas[0]['codigo_presentacion'] ?: 'N/A'); ?></span>
-                                                        </div>
-                                                        <i class="bi bi-chevron-down text-muted js-chevron transition-transform"></i>
-                                                    </div>
+                                            <?php foreach ($preciosMatriz as $row): ?>
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="mobile-expandable-row">
+                                                <td class="ps-4 col-mobile-hide">
+                                                    <span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span>
                                                 </td>
-                                            </tr>
-                                            
-                                            <?php foreach ($escalas as $row): ?>
-                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="escala-grupo-<?php echo $grupoId; ?> mobile-expandable-row" style="display: none;">
-                                                <td class="ps-4 text-muted small border-0 col-mobile-hide"><i class="bi bi-arrow-return-right me-1"></i> Escala</td>
-                                                <td class="border-0 col-mobile-hide"></td> 
-                                                <td class="border-0">
+                                                <td class="fw-semibold text-dark"><?php echo e($row['producto_nombre']); ?></td>
+                                                <td>
                                                     <div class="input-group input-group-sm" style="max-width: 120px;">
                                                         <span class="input-group-text bg-light border-end-0">≥</span>
-                                                        <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="<?php echo (float)$row['cantidad_minima']; ?>" data-original="<?php echo (float)$row['cantidad_minima']; ?>">
+                                                        <input type="number" min="0.01" step="0.01" class="form-control border-start-0 px-1 js-cantidad-minima" value="<?php echo number_format((float)$row['cantidad_minima'], 2, '.', ''); ?>" data-original="<?php echo number_format((float)$row['cantidad_minima'], 2, '.', ''); ?>">
                                                     </div>
                                                 </td>
-                                                <td class="border-0">
+                                                <td>
                                                     <div class="input-group input-group-sm" style="max-width: 130px;">
                                                         <span class="input-group-text bg-light border-end-0">S/</span>
                                                         <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-volumen" value="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>" data-original="<?php echo number_format((float)$row['precio_pactado'], 4, '.', ''); ?>">
                                                     </div>
                                                 </td>
-                                                <td class="text-end pe-4 border-0 col-mobile-hide">
+                                                <td class="text-end pe-4 col-mobile-hide">
                                                     <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-volumen" type="button" title="Eliminar escala">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </td>
                                             </tr>
                                             <?php endforeach; ?>
-                                        <?php endforeach; ?>
 
                                         <?php else: ?>
                                             <?php foreach ($preciosMatriz as $row): ?>
@@ -371,4 +351,3 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
         </div>
     </div>
 </div>
-
