@@ -69,17 +69,20 @@ class ComprasOrdenModel extends Modelo
             return [];
         }
 
-        // Seleccionamos los campos correctos de la BD (cantidad_solicitada, costo_unitario_pactado)
-        // Calculamos el subtotal al vuelo ya que no existe en la tabla detalle
+        // AGREGAMOS: cantidad_recibida, cantidad_pendiente, cantidad_unidad y unidad_base
         $detalleSql = 'SELECT d.id,
                               d.id_item,
                               i.sku,
                               i.nombre AS item_nombre,
                               d.id_item_unidad,
                               COALESCE(d.unidad_nombre, i.unidad_base) AS unidad_nombre,
+                              COALESCE(i.unidad_base, "UND") AS unidad_base,
                               COALESCE(d.factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
                               COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad,
+                              COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad_unidad,
                               COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) AS cantidad_base,
+                              COALESCE(d.cantidad_recibida, 0) AS cantidad_recibida,
+                              (COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) - COALESCE(d.cantidad_recibida, 0)) AS cantidad_pendiente,
                               d.id_centro_costo,
                               d.costo_unitario_pactado AS costo_unitario,
                               (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal
