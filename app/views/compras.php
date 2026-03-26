@@ -22,7 +22,8 @@ $estadoLabels = [
      data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
      data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
      data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>"
-     data-url-unidades-item="<?php echo e(route_url('compras/index')); ?>">
+     data-url-unidades-item="<?php echo e(route_url('compras/index')); ?>"
+     data-url-precio-sugerido="<?php echo e(route_url('compras/index')); ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>

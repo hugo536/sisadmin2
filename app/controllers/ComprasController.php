@@ -8,6 +8,7 @@ require_once BASE_PATH . '/app/models/ComprasRecepcionModel.php';
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
+require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
 
 class ComprasController extends Controlador
 {
@@ -15,6 +16,7 @@ class ComprasController extends Controlador
     private ComprasRecepcionModel $recepcionModel;
     private TesoreriaCxpModel $tesoreriaCxpModel;
     private CentroCostoModel $centroCostoModel;
+    private ListaPrecioModel $listaPrecioModel;
 
     public function __construct()
     {
@@ -22,6 +24,7 @@ class ComprasController extends Controlador
         $this->recepcionModel = new ComprasRecepcionModel();
         $this->tesoreriaCxpModel = new TesoreriaCxpModel();
         $this->centroCostoModel = new CentroCostoModel();
+        $this->listaPrecioModel = new ListaPrecioModel();
     }
 
     public function index(): void
@@ -59,6 +62,23 @@ class ComprasController extends Controlador
                     'mensaje' => 'No se pudieron cargar unidades de conversión.',
                 ], 500);
             }
+            return;
+        }
+
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_sugerido_proveedor') {
+            $idProveedor = (int) ($_GET['id_proveedor'] ?? 0);
+            $idItem = (int) ($_GET['id_item'] ?? 0);
+            if ($idProveedor <= 0 || $idItem <= 0) {
+                json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
+                return;
+            }
+
+            $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor($idProveedor, $idItem);
+            json_response([
+                'ok' => true,
+                'encontrado' => $precio !== null,
+                'precio_recomendado' => $precio,
+            ]);
             return;
         }
 
