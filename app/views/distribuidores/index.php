@@ -38,7 +38,8 @@ $distribuidores = $distribuidores ?? [];
                             <th class="ps-4">Documento</th>
                             <th>Distribuidor</th>
                             <th>Zonas exclusivas</th>
-                            <th class="text-end pe-4">Ventas actual</th>
+                            <th class="text-end">Ventas actual</th>
+                            <th class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,8 +63,14 @@ $distribuidores = $distribuidores ?? [];
                                         <span class="text-muted">Sin zonas</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-end pe-4" data-label="Ventas actual">
+                                <td class="text-end" data-label="Ventas actual">
                                     <span class="text-muted">--</span>
+                                </td>
+                                <td class="text-end pe-4" data-label="Acciones">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="<?php echo e(route_url('reportes/estado_cuenta') . '&id_cliente=' . (int) $distribuidor['id']); ?>">
+                                        <i class="bi bi-receipt-cutoff me-1"></i>Ver Estado de Cuenta
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

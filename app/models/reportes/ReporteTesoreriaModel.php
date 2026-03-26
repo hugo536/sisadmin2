@@ -107,4 +107,192 @@ class ReporteTesoreriaModel extends Modelo
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
+
+
+    public function estadoCuentaClientes(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        [$where, $params] = $this->buildEstadoCuentaWhere($f);
+
+        $countSql = "SELECT COUNT(*)
+                     FROM tesoreria_cxc c
+                     INNER JOIN terceros t ON t.id = c.id_cliente
+                     LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+                     LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
+                     LEFT JOIN items i ON i.id = d.id_item
+                     WHERE {$where}";
+        $count = $this->db()->prepare($countSql);
+        $count->execute($params);
+
+        $sql = "SELECT
+                    c.id AS cxc_id,
+                    c.id_cliente,
+                    COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Cliente #', c.id_cliente)) AS cliente,
+                    DATE(COALESCE(v.fecha_emision, c.fecha_emision)) AS fecha_atencion,
+                    COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
+                    i.id AS id_item,
+                    i.nombre AS producto,
+                    CAST(COALESCE(d.cantidad, 0) AS DECIMAL(14,2)) AS cantidad,
+                    CAST(COALESCE(d.precio_unitario, 0) AS DECIMAL(14,4)) AS precio_unitario,
+                    CAST(COALESCE(d.subtotal, c.monto_total) AS DECIMAL(14,2)) AS subtotal_linea,
+                    CAST(c.monto_total AS DECIMAL(14,2)) AS monto_documento,
+                    CAST(COALESCE(pagos.total_depositos, 0) AS DECIMAL(14,2)) AS depositos_documento,
+                    CAST(c.saldo AS DECIMAL(14,2)) AS saldo_documento,
+                    c.estado
+                FROM tesoreria_cxc c
+                INNER JOIN terceros t ON t.id = c.id_cliente
+                LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+                LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
+                LEFT JOIN items i ON i.id = d.id_item
+                LEFT JOIN (
+                    SELECT m.id_origen AS cxc_id, ROUND(SUM(m.monto), 2) AS total_depositos
+                    FROM tesoreria_movimientos m
+                    WHERE m.origen = 'CXC'
+                      AND m.tipo = 'COBRO'
+                      AND m.estado = 'CONFIRMADO'
+                      AND m.deleted_at IS NULL
+                    GROUP BY m.id_origen
+                ) pagos ON pagos.cxc_id = c.id
+                WHERE {$where}
+                ORDER BY fecha_atencion DESC, c.id DESC, d.id ASC
+                LIMIT :limite OFFSET :offset";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => (int) $count->fetchColumn(),
+            'resumen' => $this->resumenEstadoCuenta($f),
+        ];
+    }
+
+    public function estadoCuentaPorProducto(array $f, int $limite = 200): array
+    {
+        [$where, $params] = $this->buildEstadoCuentaWhere($f);
+
+        $sql = "SELECT
+                    COALESCE(i.nombre, 'Sin producto asociado') AS producto,
+                    CAST(ROUND(SUM(COALESCE(d.cantidad, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
+                    CAST(ROUND(SUM(COALESCE(d.subtotal, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(
+                        CASE
+                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.subtotal, 0) / dt.total_subtotal)
+                            ELSE c.saldo
+                        END
+                    ), 2) AS DECIMAL(14,2)) AS total_saldo
+                FROM tesoreria_cxc c
+                INNER JOIN terceros t ON t.id = c.id_cliente
+                LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+                LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
+                LEFT JOIN (
+                    SELECT dd.id_documento_venta, SUM(COALESCE(dd.subtotal, 0)) AS total_subtotal
+                    FROM ventas_documentos_detalle dd
+                    WHERE dd.deleted_at IS NULL
+                    GROUP BY dd.id_documento_venta
+                ) dt ON dt.id_documento_venta = v.id
+                LEFT JOIN items i ON i.id = d.id_item
+                WHERE {$where}
+                GROUP BY i.id, i.nombre
+                ORDER BY total_saldo DESC
+                LIMIT :limite";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function resumenEstadoCuenta(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta'],
+        ];
+
+        $whereBase = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+        ];
+
+        if (!empty($f['id_cliente'])) {
+            $whereBase[] = 'c.id_cliente = :id_cliente';
+            $params['id_cliente'] = (int) $f['id_cliente'];
+        }
+
+        if (!empty($f['estado'])) {
+            $whereBase[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+
+        if (!empty($f['id_item'])) {
+            $whereBase[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = c.id_documento_venta AND d2.deleted_at IS NULL AND d2.id_item = :id_item)';
+            $params['id_item'] = (int) $f['id_item'];
+        }
+
+        $where = implode(' AND ', $whereBase);
+        $sql = "SELECT
+                    CAST(ROUND(SUM(c.monto_total), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(c.monto_pagado), 2) AS DECIMAL(14,2)) AS total_pagado,
+                    CAST(ROUND(SUM(c.saldo), 2) AS DECIMAL(14,2)) AS total_saldo,
+                    COUNT(*) AS total_documentos
+                FROM tesoreria_cxc c
+                WHERE {$where}";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_facturado' => 0,
+            'total_pagado' => 0,
+            'total_saldo' => 0,
+            'total_documentos' => 0,
+        ];
+    }
+
+    /**
+     * @return array{0:string,1:array<string,mixed>}
+     */
+    private function buildEstadoCuentaWhere(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta'],
+        ];
+
+        $where = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+        ];
+
+        if (!empty($f['id_cliente'])) {
+            $where[] = 'c.id_cliente = :id_cliente';
+            $params['id_cliente'] = (int) $f['id_cliente'];
+        }
+
+        if (!empty($f['estado'])) {
+            $where[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+
+        if (!empty($f['id_item'])) {
+            $where[] = 'd.id_item = :id_item';
+            $params['id_item'] = (int) $f['id_item'];
+        }
+
+        return [implode(' AND ', $where), $params];
+    }
+
 }
