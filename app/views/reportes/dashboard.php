@@ -123,6 +123,22 @@ $almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados
                     </div>
                 </a>
             </div>
+
+            <?php if (tiene_permiso('reportes.tesoreria.ver')): ?>
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a class="card border-0 shadow-sm h-100 text-decoration-none widget-link-card transition-hover" href="<?php echo e(route_url('reportes/estado_cuenta')); ?>">
+                    <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">estado de cuenta cte/distrib.</div>
+                            <div class="h6 mb-0 fw-bold text-dark">Ver reporte detallado</div>
+                        </div>
+                        <div class="text-light">
+                            <i class="bi bi-arrow-right-circle-fill fs-3 text-primary opacity-50"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>

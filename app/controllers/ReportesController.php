@@ -230,6 +230,38 @@ class ReportesController extends Controlador
         ]);
     }
 
+    public function estado_cuenta(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.tesoreria.ver');
+        $this->registrarAuditoria('estado_cuenta');
+
+        [$pagina, $tamano] = $this->paginacion();
+        $f = $this->filtrosPeriodo();
+        $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
+        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
+        $f['estado'] = strtoupper(trim((string) ($_GET['estado'] ?? '')));
+        $f['vista'] = trim((string) ($_GET['vista'] ?? 'DETALLE'));
+        if (!in_array($f['estado'], ['', 'PENDIENTE', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'], true)) {
+            $f['estado'] = '';
+        }
+        if (!in_array($f['vista'], ['DETALLE', 'PRODUCTO'], true)) {
+            $f['vista'] = 'DETALLE';
+        }
+
+        $detalle = $this->tesoreria->estadoCuentaClientes($f, $pagina, $tamano);
+        $porProducto = $this->tesoreria->estadoCuentaPorProducto($f, 200);
+
+        $this->render('reportes/estado_cuenta', [
+            'ruta_actual' => 'reportes/estado_cuenta',
+            'filtros' => $f,
+            'detalle' => $detalle,
+            'porProducto' => $porProducto,
+            'pagina' => $pagina,
+            'tamano' => $tamano,
+        ]);
+    }
+
     private function filtrosPeriodo(): array
     {
         $fechaDesde = trim((string) ($_GET['fecha_desde'] ?? ''));
