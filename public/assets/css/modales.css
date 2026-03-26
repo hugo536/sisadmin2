@@ -142,34 +142,78 @@
 }
 
 @media (max-width: 767.98px) {
+    /* Forzamos el centrado absoluto en la pantalla del celular */
     .modal-dialog {
-        margin: 0;
-        max-width: 100%;
-        width: 100%;
-        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100% - 2rem); /* Calcula la altura total restando el margen */
+        margin: 1rem auto; /* Centrado horizontal con 1rem de espacio libre */
     }
 
+    /* Aseguramos la forma de la tarjeta */
     .modal-content {
-        border-radius: 0;
-        min-height: 100dvh;
+        border-radius: 1.25rem !important; /* Bordes bien redondeados */
+        width: 100%;
+        border: none !important;
+        box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15) !important; /* Sombra elegante */
     }
 
+    /* Ajustamos el padding para que el contenido respire bien */
     .modal-header,
     .modal-body,
     .modal-footer {
-        padding-left: 0.9rem;
-        padding-right: 0.9rem;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
     }
 
     .modal-body {
-        padding-bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
-    }
-
-    .modal-dialog-scrollable .modal-body {
-        -webkit-overflow-scrolling: touch;
+        padding-bottom: 1rem;
     }
 
     .modal-header .modal-title {
-        font-size: 1rem;
+        font-size: 1.05rem;
+    }
+}
+
+/* --- 6. CABECERAS ADAPTATIVAS (Blanco en Móvil, Color Tema en PC) --- */
+.modal-header-adaptative {
+    background-color: transparent;
+    border-bottom: 0;
+}
+
+.modal-header-adaptative .modal-title,
+.modal-header-adaptative .bi {
+    color: #212529; /* Texto oscuro en móvil */
+}
+
+.modal-header-adaptative .btn-close {
+    background-color: #f8f9fa !important;
+    border-radius: 50% !important;
+    padding: 0.6rem !important;
+    background-image: var(--bs-btn-close-bg) !important; /* X normal negra */
+}
+
+@media (min-width: 768px) {
+    .modal-header-adaptative {
+        background-color: var(--primary-color) !important;
+        border-top-left-radius: 0.75rem;
+        border-top-right-radius: 0.75rem;
+        padding-bottom: 1.5rem !important;
+    }
+    
+    .modal-header-adaptative .modal-title,
+    .modal-header-adaptative .bi {
+        color: #ffffff !important; /* Texto blanco en PC */
+    }
+    
+    .modal-header-adaptative .btn-close {
+        background-color: transparent !important;
+        /* Usamos el SVG blanco que ya tienes definido en tu CSS para bg-primary */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    }
+    
+    .modal-header-adaptative .btn-close:hover {
+        background-color: #dc3545 !important;
     }
 }

@@ -5,6 +5,7 @@ $preciosMatriz = $precios_matriz ?? [];
 $presentacionesHabilitadas = $presentaciones_habilitadas ?? true;
 $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) === 0)) ? 'volumen' : 'acuerdo';
 ?>
+
 <div class="container-fluid p-4" id="acuerdosComercialesApp"
      data-url-clientes-disponibles="<?php echo e(route_url('comercial/clientesDisponiblesAjax')); ?>"
      data-url-crear-acuerdo="<?php echo e(route_url('comercial/crearLista')); ?>"
@@ -32,15 +33,12 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
     </div>
 
     <div class="row g-4">
-        
         <div class="col-lg-4 col-xl-3 mb-3 mb-lg-0">
-            
             <button class="btn btn-outline-primary w-100 d-lg-none mb-3 shadow-sm bg-white" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarClientesMenu">
                 <i class="bi bi-people-fill me-2"></i> Cambiar Cliente / Acuerdo
             </button>
 
             <div class="offcanvas-lg offcanvas-end border-0 shadow-sm rounded-3" tabindex="-1" id="sidebarClientesMenu">
-                
                 <div class="offcanvas-header bg-light border-bottom d-lg-none">
                     <h6 class="offcanvas-title fw-bold mb-0 text-primary">
                         <i class="bi bi-people-fill me-2"></i>Seleccionar Cliente
@@ -216,7 +214,6 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                                 </td>
                                             </tr>
                                             <?php endforeach; ?>
-
                                         <?php else: ?>
                                             <?php foreach ($preciosMatriz as $row): ?>
                                             <tr data-id-detalle="<?php echo (int)$row['id']; ?>" class="mobile-expandable-row">
@@ -255,9 +252,9 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
 
 <div class="modal fade" id="modalVincularCliente" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>Vincular Cliente</h5>
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white"><i class="bi bi-link-45deg me-2"></i>Vincular Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="formVincularCliente">
@@ -281,108 +278,71 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
 </div>
 
 <div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <form id="formAgregarEscalaVolumen" class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-bar-chart-steps me-2"></i>Agregar Escala por Volumen</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Presentación</label>
-                        <select class="form-select" id="selectItemVolumen" required></select>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label">Cantidad Mínima</label>
-                        <input type="number" min="0.0001" step="0.0001" class="form-control" id="inputCantidadMinimaVolumen" required>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label">Precio Unitario</label>
-                        <div class="input-group">
-                            <span class="input-group-text">S/</span>
-                            <input type="number" min="0" step="0.0001" class="form-control" id="inputPrecioUnitarioVolumen" required>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" type="submit">Agregar Escala</button>
-            </div>
-        </form>
-<div class="modal fade" id="modalAgregarEscalaVolumen" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow-lg rounded-4" style="height: auto !important; min-height: 0 !important; display: block;">
-            <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
-                <h5 class="modal-title fw-bold text-dark">
-                    <i class="bi bi-bar-chart-steps text-primary me-2"></i>Agregar Escala por Volumen
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header modal-header-adaptative pt-4 px-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-bar-chart-steps me-2"></i>Agregar Escala por Volumen
                 </h5>
-                <button type="button" class="btn-close bg-light rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <form id="formAgregarEscalaVolumen" class="m-0">
                 <div class="modal-body px-4 pt-3 pb-4">
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Presentación</label>
-                        <select class="form-select form-select-lg" id="selectItemVolumen" required></select>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Cantidad Mínima</label>
-                        <input type="number" min="0.0001" step="0.0001" class="form-control form-control-lg" id="inputCantidadMinimaVolumen" required>
-                    </div>
-                    <div>
-                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Precio Unitario</label>
-                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
-                            <span class="input-group-text bg-white border-0 text-muted fw-bold ps-3">S/</span>
-                            <input type="number" min="0" step="0.0001" class="form-control border-0 px-2 fw-bold text-primary fs-5 shadow-none" id="inputPrecioUnitarioVolumen" placeholder="0.0000" required>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase">Presentación</label>
+                            <select class="form-select form-select-lg" id="selectItemVolumen" required></select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold small text-muted text-uppercase">Cantidad Mínima</label>
+                            <input type="number" min="0.0001" step="0.0001" class="form-control form-control-lg" id="inputCantidadMinimaVolumen" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold small text-muted text-uppercase">Precio Unitario</label>
+                            <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
+                                <span class="input-group-text bg-white border-0 text-muted fw-bold ps-3">S/</span>
+                                <input type="number" min="0" step="0.0001" class="form-control border-0 px-2 fw-bold text-primary fs-5 shadow-none" id="inputPrecioUnitarioVolumen" placeholder="0.0000" required>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 py-3 px-4 d-flex justify-content-between">
+                <div class="modal-footer bg-light border-top-0 py-3 px-4 d-flex justify-content-between">
                     <button class="btn btn-link text-muted text-decoration-none fw-semibold px-0" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary px-4 fw-bold shadow-sm rounded-pill" type="submit">Agregar a la lista</button>
+                    <button class="btn btn-primary px-4 fw-bold shadow-sm rounded-pill" type="submit">Agregar Escala</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="modalAgregarProducto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        
-        <div class="modal-content border-0 shadow-lg rounded-4" style="height: auto !important; min-height: 0 !important; display: block;">
-            
-            <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
-                <h5 class="modal-title fw-bold text-dark">
-                    <i class="bi bi-box-seam text-primary me-2"></i>Agregar Producto
+<div class="modal fade" id="modalAgregarProducto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+             <div class="modal-header modal-header-adaptative pt-4 px-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-box-seam me-2"></i>Agregar Producto
                 </h5>
-                <button type="button" class="btn-close bg-light rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            
             <form id="formAgregarProductoAcuerdo" class="m-0">
                 <div class="modal-body px-4 pt-3 pb-4">
-                    
                     <div class="mb-4">
-                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Presentación</label>
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Presentación</label>
                         <select class="form-select form-select-lg" id="selectPresentacionAcuerdo" required></select>
                     </div>
-                    
                     <div>
-                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing: 0.5px;">Precio Inicial</label>
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Precio Inicial</label>
                         <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden border">
                             <span class="input-group-text bg-white border-0 text-muted fw-bold ps-3">S/</span>
                             <input type="number" min="0" step="0.0001" class="form-control border-0 px-2 fw-bold text-primary fs-5 shadow-none" id="inputPrecioInicialAcuerdo" placeholder="0.0000" required>
                         </div>
                     </div>
-                    
                 </div>
-                
-                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 py-3 px-4 d-flex justify-content-between">
+                <div class="modal-footer bg-light border-top-0 py-3 px-4 d-flex justify-content-between">
                     <button class="btn btn-link text-muted text-decoration-none fw-semibold px-0" type="button" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-primary px-4 fw-bold shadow-sm rounded-pill" type="submit">Agregar a la lista</button>
                 </div>
             </form>
-            
         </div>
     </div>
 </div>
