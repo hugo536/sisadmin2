@@ -111,7 +111,6 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Seleccione un proveedor válido.');
             }
 
-            // AGREGAR ESTO: Validación de Fecha en el Backend
             if (empty($fechaEntrega)) {
                 throw new RuntimeException('La fecha de entrega estimada es obligatoria.');
             }
@@ -141,7 +140,7 @@ class ComprasController extends Controlador
                 if ($idCentroCosto > 0 && !$this->centroCostoModel->existe($idCentroCosto)) {
                     throw new RuntimeException('Uno de los centros de costo seleccionados no es válido.');
                 }
-                $total += $cantidad * $costo;
+                $total += $cantidadBase * $costo; // Ajuste por si acaso, ahora se calcula sobre la base
             }
 
             // Llamar al Modelo
@@ -231,30 +230,30 @@ class ComprasController extends Controlador
         try {
             $payload = $this->leerJson();
             $idOrden = (int) ($payload['id_orden'] ?? 0);
-            $idAlmacen = (int) ($payload['id_almacen'] ?? 0);
-            $distribucion = is_array($payload['distribucion'] ?? null) ? $payload['distribucion'] : [];
+            
+            // Recibimos los nuevos parámetros configurados en JS
+            $detalleIngreso = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
+            $cerrarForzado = !empty($payload['cerrar_forzado']); // Convertimos a booleano
+            
             $userId = $this->obtenerUsuarioId();
 
             if ($idOrden <= 0) {
                 throw new RuntimeException('Debe seleccionar una orden válida.');
             }
 
-            if (empty($distribucion)) {
-                if ($idAlmacen <= 0) {
-                    throw new RuntimeException('Debe seleccionar un almacén de destino.');
-                }
-                $distribucion = [[
-                    'id_almacen' => $idAlmacen,
-                    'cantidad' => 0,
-                ]];
+            if (empty($detalleIngreso)) {
+                throw new RuntimeException('Debe proporcionar el detalle de productos a ingresar.');
             }
 
+            // Llamamos a la nueva función del modelo con los 4 parámetros
             $idRecepcion = $this->recepcionModel->registrarRecepcion(
                 $idOrden,
-                $distribucion,
+                $detalleIngreso,
+                $cerrarForzado,
                 $userId
             );
 
+            // Generamos la CxP (Cuentas por Pagar) enlazada a esta recepción
             $this->tesoreriaCxpModel->crearDesdeRecepcion($idRecepcion, $userId);
 
             json_response([
