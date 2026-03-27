@@ -148,7 +148,7 @@
                                     <select class="form-select bg-light" id="tipo_operacion" name="tipo_operacion" required>
                                         <option value="">Seleccione...</option>
                                         <option value="RECEPCION_VACIO">📥 Recepción de envases vacíos (del cliente)</option>
-                                        <option value="PRESTAMO_ENVASE">📤 Préstamo / Entrega manual al cliente</option>
+                                        <option value="ENTREGA_LLENO">📤 Préstamo / Entrega manual al cliente</option>
                                         <option value="AJUSTE_CLIENTE">⚠️ Ajuste (Roto/Perdido por el cliente)</option>
                                     </select>
                                 </div>
@@ -168,6 +168,11 @@
                                 <div class="col-md-6">
                                     <label for="cantidad" class="form-label text-muted small fw-bold mb-1">Cantidad Física <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="cantidad" name="cantidad" min="1" required placeholder="Ej. 50">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="fecha_movimiento" class="form-label text-muted small fw-bold mb-1">Fecha y hora de movimiento <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control" id="fecha_movimiento" name="fecha_movimiento" required>
                                 </div>
 
                                 <div class="col-md-6" id="grupo_almacen_envases">
@@ -220,6 +225,7 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Operación</th>
+                                <th>Fecha</th>
                                 <th class="text-center">Cantidad</th>
                                 <th>Observaciones</th>
                             </tr>

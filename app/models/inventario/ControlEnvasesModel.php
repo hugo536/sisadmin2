@@ -10,19 +10,49 @@ class ControlEnvasesModel extends Modelo {
         parent::__construct(); 
     }
 
-    public function registrarMovimiento($id_tercero, $id_item_envase, $tipo_operacion, $cantidad, $id_venta = null, $observaciones = '') {
-        $sql = "INSERT INTO cta_cte_envases 
-                (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones) 
-                VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones)";
-        
+    public function registrarMovimiento(
+        int $id_tercero,
+        int $id_item_envase,
+        string $tipo_operacion,
+        int $cantidad,
+        ?int $id_venta = null,
+        string $observaciones = '',
+        ?string $fechaMovimiento = null
+    ): bool {
+        $columnasTabla = $this->obtenerColumnasTablaEnvases();
+
+        $columnas = ['id_tercero', 'id_item_envase', 'tipo_operacion', 'cantidad', 'id_venta', 'observaciones'];
+        $valores = [':id_tercero', ':id_item_envase', ':tipo_operacion', ':cantidad', ':id_venta', ':observaciones'];
+        $binds = [
+            ':id_tercero' => [$id_tercero, PDO::PARAM_INT],
+            ':id_item_envase' => [$id_item_envase, PDO::PARAM_INT],
+            ':tipo_operacion' => [$tipo_operacion, PDO::PARAM_STR],
+            ':cantidad' => [$cantidad, PDO::PARAM_INT],
+            ':id_venta' => [$id_venta, PDO::PARAM_INT],
+            ':observaciones' => [$observaciones, PDO::PARAM_STR],
+        ];
+
+        if ($fechaMovimiento !== null && isset($columnasTabla['fecha_movimiento'])) {
+            $columnas[] = 'fecha_movimiento';
+            $valores[] = ':fecha_movimiento';
+            $binds[':fecha_movimiento'] = [$fechaMovimiento, PDO::PARAM_STR];
+        } elseif ($fechaMovimiento !== null && isset($columnasTabla['fecha'])) {
+            $columnas[] = 'fecha';
+            $valores[] = ':fecha';
+            $binds[':fecha'] = [$fechaMovimiento, PDO::PARAM_STR];
+        } elseif ($fechaMovimiento !== null && isset($columnasTabla['created_at'])) {
+            $columnas[] = 'created_at';
+            $valores[] = ':created_at';
+            $binds[':created_at'] = [$fechaMovimiento, PDO::PARAM_STR];
+        }
+
+        $sql = "INSERT INTO cta_cte_envases (" . implode(', ', $columnas) . ")
+                VALUES (" . implode(', ', $valores) . ")";
+
         $stmt = $this->db->prepare($sql);
-        
-        $stmt->bindParam(':id_tercero', $id_tercero, PDO::PARAM_INT);
-        $stmt->bindParam(':id_item_envase', $id_item_envase, PDO::PARAM_INT);
-        $stmt->bindParam(':tipo_operacion', $tipo_operacion, PDO::PARAM_STR);
-        $stmt->bindParam(':cantidad', $cantidad, PDO::PARAM_INT);
-        $stmt->bindParam(':id_venta', $id_venta, PDO::PARAM_INT);
-        $stmt->bindParam(':observaciones', $observaciones, PDO::PARAM_STR);
+        foreach ($binds as $placeholder => [$valor, $tipoParam]) {
+            $stmt->bindValue($placeholder, $valor, $tipoParam);
+        }
 
         return $stmt->execute();
     }
@@ -35,7 +65,8 @@ class ControlEnvasesModel extends Modelo {
         ?int $idVenta,
         string $observaciones,
         int $idUsuario,
-        int $idAlmacen
+        int $idAlmacen,
+        ?string $fechaMovimiento = null
     ): bool {
         $tipoOperacion = trim($tipoOperacion);
         $observaciones = trim($observaciones);
@@ -54,7 +85,8 @@ class ControlEnvasesModel extends Modelo {
                 $tipoOperacion,
                 $cantidad,
                 $idVenta,
-                ($observaciones !== '' ? $observaciones . ' | ' : '') . 'OP:' . $operacionUuid
+                ($observaciones !== '' ? $observaciones . ' | ' : '') . 'OP:' . $operacionUuid,
+                $fechaMovimiento
             );
 
             if (!$ok) {
@@ -195,9 +227,16 @@ class ControlEnvasesModel extends Modelo {
 
         $selectId = $idCol ? "{$idCol} AS id" : "0 AS id";
         $selectObs = isset($columnas['observaciones']) ? "observaciones" : "'' AS observaciones";
+        $selectFecha = "NULL AS fecha_movimiento";
+        foreach (['fecha_movimiento', 'fecha', 'created_at'] as $candidataFecha) {
+            if (isset($columnas[$candidataFecha])) {
+                $selectFecha = "{$candidataFecha} AS fecha_movimiento";
+                break;
+            }
+        }
         $orderBy = $orderCol ? "{$orderCol} DESC" : "tipo_operacion ASC";
 
-        $sql = "SELECT {$selectId}, tipo_operacion, cantidad, {$selectObs}
+        $sql = "SELECT {$selectId}, tipo_operacion, cantidad, {$selectObs}, {$selectFecha}
                 FROM cta_cte_envases
                 WHERE id_tercero = :id_tercero
                   AND id_item_envase = :id_item_envase

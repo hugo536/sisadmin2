@@ -36,6 +36,17 @@
 
         // 3. ENVIAR FORMULARIO POR AJAX (Para mantener la experiencia SPA)
         const form = document.getElementById('formMovimientoEnvase');
+        const inputFechaMovimiento = document.getElementById('fecha_movimiento');
+        if (inputFechaMovimiento && !inputFechaMovimiento.value) {
+            const ahora = new Date();
+            const yyyy = ahora.getFullYear();
+            const mm = String(ahora.getMonth() + 1).padStart(2, '0');
+            const dd = String(ahora.getDate()).padStart(2, '0');
+            const hh = String(ahora.getHours()).padStart(2, '0');
+            const min = String(ahora.getMinutes()).padStart(2, '0');
+            inputFechaMovimiento.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        }
+
         if (form && !form.dataset.eventBound) {
             form.dataset.eventBound = 'true'; // Evitar que el evento se duplique
             const selectTipo = document.getElementById('tipo_operacion');
@@ -149,7 +160,7 @@
                     // Preparamos los textos
                     document.getElementById('historialClienteNombre').textContent = 'Cliente: ' + nombreCliente;
                     const tbody = document.getElementById('tablaHistorialBody');
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted mb-0">Cargando historial...</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted mb-0">Cargando historial...</p></td></tr>';
                     
                     try {
                         // Usamos getOrCreateInstance que es más seguro en Bootstrap 5
@@ -170,7 +181,7 @@
                         tbody.innerHTML = ''; 
                         
                         if (datos.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No hay movimientos detallados para mostrar.</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos detallados para mostrar.</td></tr>';
                             return;
                         }
 
@@ -183,10 +194,21 @@
                             else if (mov.tipo_operacion === 'ENTREGA_LLENO') { badgeClass = 'bg-primary'; icon = '📤'; nombreOperacion = 'Préstamo / Entrega'; } 
                             else if (mov.tipo_operacion === 'AJUSTE_CLIENTE' || mov.tipo_operacion === 'MERMA_PLANTA') { badgeClass = 'bg-warning text-dark'; icon = '⚠️'; nombreOperacion = 'Ajuste / Merma'; }
 
+                            const fecha = mov.fecha_movimiento
+                                ? new Date(String(mov.fecha_movimiento).replace(' ', 'T')).toLocaleString('es-PE', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })
+                                : '—';
+
                             tbody.innerHTML += `
                                 <tr>
                                     <td class="text-muted small">#${mov.id}</td>
                                     <td><span class="badge ${badgeClass} px-2 py-1">${icon} ${nombreOperacion}</span></td>
+                                    <td class="small text-muted">${fecha}</td>
                                     <td class="text-center fw-bold text-dark">${mov.cantidad}</td>
                                     <td class="small text-muted text-break">${mov.observaciones || '<span class="text-light-subtle">Sin observaciones</span>'}</td>
                                 </tr>
@@ -194,7 +216,7 @@
                         });
                         
                     } catch (error) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle fs-4 d-block mb-2"></i> Ocurrió un error al cargar la información.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle fs-4 d-block mb-2"></i> Ocurrió un error al cargar la información.</td></tr>';
                     }
                 }
             });

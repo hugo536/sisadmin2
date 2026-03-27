@@ -52,10 +52,11 @@ class EnvasesController extends Controlador
             $cantidad = (int)($_POST['cantidad'] ?? 0);
             $obs = $_POST['observaciones'] ?? '';
             $id_almacen = (int)($_POST['id_almacen'] ?? 0);
+            $fecha_movimiento = trim((string)($_POST['fecha_movimiento'] ?? ''));
             $idUsuario = (int)($_SESSION['id'] ?? 0);
 
             // 2. Validamos que no vengan vacíos
-            if ($id_tercero === 0 || $id_item === 0 || $tipo === '' || $cantidad <= 0) {
+            if ($id_tercero === 0 || $id_item === 0 || $tipo === '' || $cantidad <= 0 || $fecha_movimiento === '') {
                 http_response_code(400); // Bad Request
                 echo "Faltan datos obligatorios";
                 return;
@@ -70,6 +71,13 @@ class EnvasesController extends Controlador
                     return;
                 }
 
+                $fechaMovimientoSql = DateTime::createFromFormat('Y-m-d\TH:i', $fecha_movimiento);
+                if (!$fechaMovimientoSql instanceof DateTime) {
+                    http_response_code(400);
+                    echo "Fecha de movimiento inválida";
+                    return;
+                }
+
                 $exito = $this->envasesModel->registrarMovimientoConKardex(
                     $id_tercero,
                     $id_item,
@@ -78,7 +86,8 @@ class EnvasesController extends Controlador
                     null,
                     $obs,
                     $idUsuario,
-                    $id_almacen
+                    $id_almacen,
+                    $fechaMovimientoSql->format('Y-m-d H:i:s')
                 );
 
                 if ($exito) {
