@@ -286,21 +286,21 @@ $estadoLabels = [
 
 <template id="templateFilaVenta">
     <tr class="border-bottom">
-        <td class="ps-3 py-3 align-top">
+        <td class="ps-3 py-3 align-top" data-label="Producto">
             <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required></select>
         </td>
-        <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock">0.00</td>
-        <td class="align-top py-3 px-2">
+        <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock" data-label="Stock Disponible">0.00</td>
+        <td class="align-top py-3 px-2" data-label="Cantidad">
             <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-primary shadow-none border-secondary-subtle" min="0.01" step="0.01" value="1" required>
         </td>
-        <td class="align-top py-3 px-2">
+        <td class="align-top py-3 px-2" data-label="Precio Unit.">
             <div class="input-group input-group-sm">
                 <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle">S/</span>
                 <input type="number" class="form-control border-start-0 text-end detalle-precio shadow-none border-secondary-subtle" min="0" step="0.01" value="0.00" required>
             </div>
         </td>
-        <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6">S/ 0.00</td>
-        <td class="text-center align-top py-3">
+        <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6" data-label="Subtotal">S/ 0.00</td>
+        <td class="text-center align-top py-3" data-label="Acción">
             <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" data-bs-toggle="tooltip" title="Quitar fila" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="bi bi-trash-fill"></i>
             </button>
