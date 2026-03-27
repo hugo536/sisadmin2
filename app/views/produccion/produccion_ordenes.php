@@ -86,6 +86,93 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         white-space: normal; /* Permite que el texto baje de línea */
         line-height: 1.2;
     }
+
+    /* ========================================================================= */
+    /* MODALES DE ÓRDENES: COMPORTAMIENTO CONSISTENTE EN MOBILE / TABLET / PC    */
+    /* ========================================================================= */
+    #modalPlanificarOP .modal-content,
+    #modalEditarOP .modal-content,
+    #modalDetalleOP .modal-content,
+    #modalPlanificadorProduccion .modal-content,
+    #modalEjecutarOP .modal-content {
+        max-height: calc(100dvh - 2rem);
+    }
+
+    #modalEjecutarOP .modal-content {
+        height: calc(100dvh - 2rem);
+    }
+
+    #modalEjecutarOP #formEjecutarOrden {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    #modalPlanificarOP .modal-body,
+    #modalEditarOP .modal-body,
+    #modalDetalleOP .modal-body,
+    #modalPlanificadorProduccion .modal-body {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    #modalEjecutarOP .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: 1rem;
+    }
+
+    #modalEjecutarOP .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+    }
+
+    @media (max-width: 991.98px) {
+        #modalPlanificarOP .modal-dialog,
+        #modalEditarOP .modal-dialog,
+        #modalDetalleOP .modal-dialog,
+        #modalPlanificadorProduccion .modal-dialog,
+        #modalEjecutarOP .modal-dialog {
+            margin: 0.5rem auto;
+            width: calc(100% - 1rem);
+            max-width: none;
+        }
+
+        #modalPlanificarOP .modal-content,
+        #modalEditarOP .modal-content,
+        #modalDetalleOP .modal-content,
+        #modalPlanificadorProduccion .modal-content,
+        #modalEjecutarOP .modal-content {
+            max-height: calc(100dvh - 1rem);
+            border-radius: 0.9rem;
+        }
+
+        #modalEjecutarOP .modal-content {
+            height: calc(100dvh - 1rem);
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        #modalEjecutarOP .nav-link {
+            font-size: 0.95rem;
+            padding-left: 0.6rem;
+            padding-right: 0.6rem;
+        }
+
+        #modalEjecutarOP .modal-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        #modalEjecutarOP .modal-footer .btn {
+            flex: 1 1 100%;
+        }
+    }
 </style>
 
 <div class="container-fluid p-4" id="ordenesProduccionApp">
