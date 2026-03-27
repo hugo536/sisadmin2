@@ -289,7 +289,7 @@
     }
 
     /* =========================================================
-       MAGIA MÓVIL: Tarjetas Expandibles (Acordeón)
+       MAGIA MÓVIL: Tarjetas Expandibles (Acordeón Manual)
        ========================================================= */
     .table-pro.erp-mobile-cards .mobile-expandable-row {
         cursor: pointer;
@@ -318,5 +318,63 @@
     @keyframes fadeInMobile {
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =========================================================
+       PARCHE BULLETPROOF: ACORDEÓN INVENTARIO MÓVIL
+       ========================================================= */
+    /* Ocultamos las columnas 1, 3, 4, 6 y 7 por defecto si la fila NO está expandida */
+    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(1),
+    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(3),
+    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(4),
+    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(6),
+    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(7) {
+        display: none !important;
+    }
+
+    /* Indicador visual de que la tarjeta es clickeable */
+    #tablaInventarioStock.erp-mobile-cards tbody tr {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    #tablaInventarioStock.erp-mobile-cards tbody tr:active {
+        background-color: #f8f9fa !important;
+    }
+
+    /* Efecto de aparición suave cuando se expande */
+    #tablaInventarioStock.erp-mobile-cards tbody tr.expanded td {
+        animation: fadeInMobile 0.25s ease forwards;
+    }
+
+    /* =========================================================
+       PARCHE BULLETPROOF: ACORDEÓN ÍTEMS Y SERVICIOS MÓVIL
+       ========================================================= */
+    /* Ocultamos las columnas 1 (SKU), 3 (Tipo), 5 (Estado) y 6 (Acciones) */
+    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(1),
+    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(3),
+    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(5),
+    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(6) {
+        display: none !important;
+    }
+
+    /* Quitar borde inferior del último elemento visible para limpiar la tarjeta cerrada */
+    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(4) {
+        border-bottom: none !important;
+    }
+
+    /* Indicador visual de que la tarjeta es clickeable */
+    #itemsTable.erp-mobile-cards tbody tr {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    #itemsTable.erp-mobile-cards tbody tr:active {
+        background-color: #f8f9fa !important;
+    }
+
+    /* Efecto de aparición suave cuando se expande */
+    #itemsTable.erp-mobile-cards tbody tr.expanded td {
+        animation: fadeInMobile 0.25s ease forwards;
     }
 }

@@ -204,10 +204,11 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <td class="text-end">
                                         <div class="d-flex flex-column align-items-end w-100">
                                             <span class="fw-bold fs-6 text-dark mb-1"><?php echo $stockFormateado; ?></span>
+                                            
                                             <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
-                                                <div class="d-flex flex-column align-items-end" style="gap: 3px;">
+                                                <div class="d-flex flex-wrap justify-content-end mt-1" style="gap: 4px;">
                                                     <?php foreach ($stock['desglose'] as $d): ?>
-                                                        <span class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium text-wrap text-end" style="font-size: 0.7rem; max-width: 100%;">
+                                                        <span class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium text-wrap text-center" style="font-size: 0.7rem;">
                                                             <?php echo e($d['texto']); ?>
                                                         </span>
                                                     <?php endforeach; ?>
