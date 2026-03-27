@@ -388,65 +388,166 @@
 
 
     /* =========================================================
-       PARCHE: TABLAS CON FORMULARIOS EN MODALES (VENTAS, DESPACHOS Y PRODUCCIÓN)
-       ========================================================= */
-    /* Cambiar de Flexbox (lado a lado) a Bloque (apilado vertical) */
+   PARCHE: TABLAS CON FORMULARIOS EN MODALES (VENTAS Y DESPACHO)
+   ========================================================= */
+@media (max-width: 767.98px) {
     #tablaDetalleVenta.erp-mobile-cards tbody td,
-    #tablaDetalleDespacho.erp-mobile-cards tbody td,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td {
+    #tablaDetalleDespacho.erp-mobile-cards tbody td {
         display: block !important;
         text-align: left !important;
         padding-bottom: 12px !important;
     }
-
-    /* Poner el label (Producto, Cantidad, etc.) encima del input */
     #tablaDetalleVenta.erp-mobile-cards tbody td::before,
-    #tablaDetalleDespacho.erp-mobile-cards tbody td::before,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td::before,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td::before {
+    #tablaDetalleDespacho.erp-mobile-cards tbody td::before {
         display: block !important;
         width: 100% !important;
-        max-width: 100% !important;
         margin-bottom: 6px !important;
         color: var(--erp-primary) !important;
     }
-
-    /* Darle el 100% de ancho a los inputs para que no se aplasten */
     #tablaDetalleVenta.erp-mobile-cards tbody td select,
     #tablaDetalleVenta.erp-mobile-cards tbody td input,
     #tablaDetalleVenta.erp-mobile-cards tbody td .input-group,
     #tablaDetalleDespacho.erp-mobile-cards tbody td select,
-    #tablaDetalleDespacho.erp-mobile-cards tbody td input,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td select,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td input,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td .input-group,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td select,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td input,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td .input-group {
+    #tablaDetalleDespacho.erp-mobile-cards tbody td input {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #tablaDetalleVenta.erp-mobile-cards tbody td.text-end,
+    #tablaDetalleVenta.erp-mobile-cards tbody td.text-center,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-end,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-center {
+        text-align: left !important;
+    }
+}
+
+/* =========================================================
+   PARCHE EXCLUSIVO: TABLAS DINÁMICAS DE PRODUCCIÓN
+   ========================================================= */
+@media (max-width: 767.98px) {
+    /* 1. Destruimos la estructura de tabla tradicional */
+    #tablaConsumosDynamic, #tablaIngresosDynamic, 
+    #tablaConsumosDynamic tbody, #tablaIngresosDynamic tbody {
+        display: block !important;
+        width: 100% !important;
+        border: none !important;
+    }
+    
+    /* 2. Ocultamos la cabecera original */
+    #tablaConsumosDynamic thead, #tablaIngresosDynamic thead {
+        display: none !important;
+    }
+
+    /* 3. Convertimos cada fila (TR) en una tarjeta */
+    #tablaConsumosDynamic tbody tr, #tablaIngresosDynamic tbody tr {
+        display: block !important;
+        background-color: #fff;
+        border: 1px solid var(--erp-table-border-color) !important;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* 4. Convertimos cada celda (TD) en un bloque ocupando el 100% */
+    #tablaConsumosDynamic tbody td, #tablaIngresosDynamic tbody td {
+        display: block !important;
+        width: 100% !important;
+        text-align: left !important;
+        border: none !important;
+        padding: 5px 0 10px 0 !important;
+    }
+
+    /* 5. Inyectamos los títulos según el número de columna (nth-child) */
+    #tablaConsumosDynamic tbody td::before, 
+    #tablaIngresosDynamic tbody td::before {
+        display: block !important;
+        font-weight: bold;
+        color: var(--erp-primary);
+        margin-bottom: 5px;
+        font-size: 0.85rem;
+    }
+
+    /* Textos para Consumos */
+    #tablaConsumosDynamic tbody td:nth-child(1)::before { content: "Insumo (ID / Nombre):"; }
+    #tablaConsumosDynamic tbody td:nth-child(2)::before { content: "Almacén Origen:"; }
+    #tablaConsumosDynamic tbody td:nth-child(3)::before { content: "Cantidad:"; }
+    #tablaConsumosDynamic tbody td:nth-child(4)::before { content: "Lote (Opcional):"; }
+
+    /* Textos para Ingresos */
+    #tablaIngresosDynamic tbody td:nth-child(1)::before { content: "Almacén Destino:"; }
+    #tablaIngresosDynamic tbody td:nth-child(2)::before { content: "Cantidad Producida:"; }
+    #tablaIngresosDynamic tbody td:nth-child(3)::before { content: "Lote Asignado:"; }
+    #tablaIngresosDynamic tbody td:nth-child(4)::before { content: "F. Vencimiento:"; }
+
+    /* 6. Hacemos que los inputs no se aplasten */
+    #tablaConsumosDynamic tbody td input, #tablaConsumosDynamic tbody td select,
+    #tablaIngresosDynamic tbody td input, #tablaIngresosDynamic tbody td select {
         width: 100% !important;
         max-width: 100% !important;
     }
 
-    /* Alinear a la izquierda textos que en PC van a la derecha/centro */
-    #tablaDetalleVenta.erp-mobile-cards tbody td.text-end,
-    #tablaDetalleVenta.erp-mobile-cards tbody td.text-center,
-    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-end,
-    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-center,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td.text-end,
-    #tablaConsumosDynamic.erp-mobile-cards tbody td.text-center,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td.text-end,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td.text-center {
-        text-align: left !important;
-    }
-    
-    /* El botón de "Quitar fila" centrado al final de la tarjeta */
-    #tablaConsumosDynamic.erp-mobile-cards tbody td:last-child,
-    #tablaIngresosDynamic.erp-mobile-cards tbody td:last-child {
+    /* 7. Centrar el botón "Quitar" y borrarle el título */
+    #tablaConsumosDynamic tbody td:last-child, 
+    #tablaIngresosDynamic tbody td:last-child {
         display: flex !important;
         justify-content: center !important;
-        margin-top: 10px;
-        padding-top: 15px !important;
         border-top: 1px dashed var(--erp-table-border-color) !important;
+        margin-top: 5px;
+        padding-top: 15px !important;
     }
+    #tablaConsumosDynamic tbody td:last-child::before, 
+    #tablaIngresosDynamic tbody td:last-child::before {
+        content: none !important;
+    }
+}
+
+/* =========================================================
+   PARCHE: PESTAÑAS (TABS) RESPONSIVAS EN MÓVILES (PRODUCCIÓN)
+   ========================================================= */
+@media (max-width: 767.98px) {
+    /* 1. Ocultar la barra de scroll y quitar bordes sobrantes */
+    .nav-tabs-custom {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: hidden !important; /* Adiós scrollbar */
+        border-bottom: 2px solid var(--erp-table-border-color);
+        margin-bottom: 1rem !important;
+    }
+    
+    /* 2. Forzar a que cada pestaña ocupe exactamente el 50% */
+    .nav-tabs-custom .nav-item {
+        flex: 1 1 50%;
+    }
+    
+    /* 3. Estilo de "App Móvil" para el botón (Icono arriba, texto centrado) */
+    .nav-tabs-custom .nav-link {
+        width: 100%;
+        text-align: center;
+        font-size: 0.75rem; /* Letra un poco más pequeña */
+        padding: 8px 4px;
+        white-space: normal; /* Permite que el texto baje a una segunda línea */
+        border: none !important;
+        border-bottom: 3px solid transparent !important;
+        border-radius: 0;
+        line-height: 1.2;
+    }
+
+    /* 4. Colocar el icono centrado arriba del texto */
+    .nav-tabs-custom .nav-link i {
+        display: block;
+        margin-right: 0 !important;
+        margin-bottom: 4px;
+        font-size: 1.2rem;
+    }
+
+    /* 5. Estilos para cuando la pestaña está activa (Subrayado del color correcto) */
+    .nav-tabs-custom .nav-link.active.text-danger {
+        border-bottom-color: #dc3545 !important;
+        background-color: rgba(220, 53, 69, 0.04) !important;
+    }
+    .nav-tabs-custom .nav-link.active.text-success {
+        border-bottom-color: #198754 !important;
+        background-color: rgba(25, 135, 84, 0.04) !important;
+    }
+}
 }
