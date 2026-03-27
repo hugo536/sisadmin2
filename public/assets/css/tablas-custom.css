@@ -377,4 +377,45 @@
     #itemsTable.erp-mobile-cards tbody tr.expanded td {
         animation: fadeInMobile 0.25s ease forwards;
     }
+
+    /* =========================================================
+   PARCHE: TABLAS CON FORMULARIOS EN MODALES (VENTAS Y DESPACHOS)
+   ========================================================= */
+@media (max-width: 767.98px) {
+    /* Cambiar de Flexbox (lado a lado) a Bloque (apilado vertical) */
+    #tablaDetalleVenta.erp-mobile-cards tbody td,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td {
+        display: block !important;
+        text-align: left !important;
+        padding-bottom: 12px !important;
+    }
+
+    /* Poner el label (Producto, Cantidad, etc.) encima del input */
+    #tablaDetalleVenta.erp-mobile-cards tbody td::before,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td::before {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 6px !important;
+        color: var(--erp-primary) !important; /* Azul para resaltar la etiqueta */
+    }
+
+    /* Darle el 100% de ancho a los inputs para que no se aplasten */
+    #tablaDetalleVenta.erp-mobile-cards tbody td select,
+    #tablaDetalleVenta.erp-mobile-cards tbody td input,
+    #tablaDetalleVenta.erp-mobile-cards tbody td .input-group,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td select,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td input {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Alinear a la izquierda textos que en PC van a la derecha/centro para mantener el orden */
+    #tablaDetalleVenta.erp-mobile-cards tbody td.text-end,
+    #tablaDetalleVenta.erp-mobile-cards tbody td.text-center,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-end,
+    #tablaDetalleDespacho.erp-mobile-cards tbody td.text-center {
+        text-align: left !important;
+    }
+}
 }
