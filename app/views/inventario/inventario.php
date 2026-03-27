@@ -136,13 +136,13 @@ $tipoItemLabel = static function (string $tipo): string {
                        ]'>
                     <thead class="inventario-sticky-thead border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">SKU</th>
+                            <th class="ps-4 text-secondary fw-semibold col-mobile-hide">SKU</th>
                             <th class="text-secondary fw-semibold">Producto</th>
-                            <th class="text-secondary fw-semibold">Almacén</th>
-                            <th class="text-secondary fw-semibold">Lote</th>
+                            <th class="text-secondary fw-semibold col-mobile-hide">Almacén</th>
+                            <th class="text-secondary fw-semibold col-mobile-hide">Lote</th>
                             <th class="text-end text-secondary fw-semibold">Stock Actual</th>
-                            <th class="text-center text-secondary fw-semibold">Situación / Alertas</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
+                            <th class="text-center text-secondary fw-semibold col-mobile-hide">Situación / Alertas</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold col-mobile-hide">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -175,17 +175,15 @@ $tipoItemLabel = static function (string $tipo): string {
                                     data-categoria="<?php echo (int) $idCategoria; ?>"
                                     data-tipo-item="<?php echo e($tipoItem); ?>"
                                     data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
-                                    data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom">
+                                    data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom mobile-expandable-row">
                                     
-                                    <td class="ps-4 fw-bold text-primary"><?php echo e($sku); ?></td>
+                                    <td class="ps-4 fw-bold text-primary col-mobile-hide"><?php echo e($sku); ?></td>
+                                    
                                     <td class="text-dark">
-                                        <!-- El contenedor ahora usa align-items-md-start y text-md-start para alinearse a la izquierda en PC -->
                                         <div class="d-flex flex-column align-items-end align-items-md-start w-100 text-end text-md-start">
                                             <span class="fw-bold mb-2 text-wrap" style="word-break: break-word;">
                                                 <?php echo e($itemNombreCompleto); ?>
                                             </span>
-                                            
-                                            <!-- Aquí también usamos justify-content-md-start para los badges (etiquetas) -->
                                             <div class="d-flex flex-wrap justify-content-end justify-content-md-start gap-1">
                                                 <?php if ($categoriaNombre !== ''): ?>
                                                     <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
@@ -199,13 +197,13 @@ $tipoItemLabel = static function (string $tipo): string {
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
-                                    <td class="text-muted"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
+                                    
+                                    <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
+                                    <td class="text-muted col-mobile-hide"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
                                     <td class="text-end">
                                         <div class="d-flex flex-column align-items-end w-100">
                                             <span class="fw-bold fs-6 text-dark mb-1"><?php echo $stockFormateado; ?></span>
-                                            
                                             <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
                                                 <div class="d-flex flex-column align-items-end" style="gap: 3px;">
                                                     <?php foreach ($stock['desglose'] as $d): ?>
@@ -217,7 +215,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td class="text-center">
+                                    
+                                    <td class="text-center col-mobile-hide">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                             <?php echo e($badgeTexto); ?>
                                         </span>
@@ -226,7 +225,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <?php endif; ?>
                                     </td>
                                     
-                                    <td class="text-end pe-4">
+                                    <td class="text-end pe-4 col-mobile-hide">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
                                             <span class="badge rounded-pill me-2 <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"

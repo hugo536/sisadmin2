@@ -316,6 +316,7 @@
 
   function initTablaStock() {
     if (!tablaStock || typeof window.ERPTable === 'undefined' || !window.ERPTable.createTableManager) return;
+    
     stockTableManager = window.ERPTable.createTableManager({
       tableSelector: tablaStock,
       rowsSelector: 'tbody tr[data-search]',
@@ -332,6 +333,30 @@
       infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`,
       emptyText: 'Mostrando 0-0 de 0 resultados'
     }).init();
+
+    // PARCHE: Re-inyectar la clase que ERPTable borra al inicializarse
+    const trs = tablaStock.querySelectorAll('tbody tr');
+    trs.forEach(tr => {
+        tr.classList.add('mobile-expandable-row');
+    });
+
+    // LÓGICA DE ACORDEÓN PARA MÓVIL
+    const tbody = tablaStock.querySelector('tbody');
+    if (tbody) {
+        // Evitamos duplicar el evento si usas navegación tipo SPA
+        if (!tbody.dataset.accordionBound) {
+            tbody.addEventListener('click', (e) => {
+                const tr = e.target.closest('tr.mobile-expandable-row');
+                
+                // Ignorar el clic si tocó un botón, enlace o input (como el botón del "Ojo")
+                if (!tr || e.target.closest('button, a, input, select')) return;
+                
+                // Alternar la visibilidad
+                tr.classList.toggle('expanded');
+            });
+            tbody.dataset.accordionBound = 'true';
+        }
+    }
   }
 
   function aplicarFiltroAlmacenServidor() {
