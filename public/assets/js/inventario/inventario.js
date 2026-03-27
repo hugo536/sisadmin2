@@ -340,23 +340,8 @@
         tr.classList.add('mobile-expandable-row');
     });
 
-    // LÓGICA DE ACORDEÓN PARA MÓVIL
-    const tbody = tablaStock.querySelector('tbody');
-    if (tbody) {
-        // Evitamos duplicar el evento si usas navegación tipo SPA
-        if (!tbody.dataset.accordionBound) {
-            tbody.addEventListener('click', (e) => {
-                const tr = e.target.closest('tr.mobile-expandable-row');
-                
-                // Ignorar el clic si tocó un botón, enlace o input (como el botón del "Ojo")
-                if (!tr || e.target.closest('button, a, input, select')) return;
-                
-                // Alternar la visibilidad
-                tr.classList.toggle('expanded');
-            });
-            tbody.dataset.accordionBound = 'true';
-        }
-    }
+    // El acordeón móvil se maneja de forma global en cards_acordeon.js
+    // para mantener el mismo comportamiento que Acuerdos Comerciales.
   }
 
   function aplicarFiltroAlmacenServidor() {

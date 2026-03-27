@@ -192,7 +192,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     data-categoria="<?php echo $idCategoria; ?>" 
                                     data-tipo="<?php echo e($tipo); ?>" 
                                     data-estado="<?php echo $estado; ?>"
-                                    data-id="<?php echo $id; ?>">
+                                    data-id="<?php echo $id; ?>"
+                                    class="mobile-expandable-row">
                                     
                                     <td class="fw-semibold text-secondary"><?php echo e($sku); ?></td>
                                     <td>
