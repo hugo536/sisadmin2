@@ -823,7 +823,7 @@
                     : `<button type="button" class="btn-icon text-muted opacity-50" title="${escapeHtml(item.motivo_no_eliminar)}" disabled aria-disabled="true"><i class="bi bi-trash3"></i></button>`;
 
                 return `
-                    <tr data-id="${item.id}">
+                    <tr data-id="${item.id}" class="mobile-expandable-row">
                         <td class="fw-semibold text-secondary">${escapeHtml(item.sku)}</td>
                         <td>
                             <div class="fw-bold text-dark d-inline-flex align-items-center gap-1">
