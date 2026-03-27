@@ -98,6 +98,23 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
         max-height: calc(100dvh - 2rem);
     }
 
+
+    #modalEjecutarOP .modal-content {
+        height: calc(100dvh - 2rem);
+    }
+
+    #modalEjecutarOP #formEjecutarOrden {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    #modalPlanificarOP .modal-body,
+    #modalEditarOP .modal-body,
+    #modalDetalleOP .modal-body,
+    #modalPlanificadorProduccion .modal-body {
+=======
     #modalPlanificarOP .modal-body,
     #modalEditarOP .modal-body,
     #modalDetalleOP .modal-body,
@@ -108,6 +125,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     }
 
     #modalEjecutarOP .modal-body {
+
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding-bottom: 1rem;
     }
 
@@ -136,6 +158,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
             max-height: calc(100dvh - 1rem);
             border-radius: 0.9rem;
         }
+
+        #modalEjecutarOP .modal-content {
+            height: calc(100dvh - 1rem);
+        }
+
     }
 
     @media (max-width: 767.98px) {
