@@ -23,7 +23,7 @@ class ProduccionOrdenesModel extends Modelo
                    LEFT JOIN items p ON p.id = r.id_producto
                    WHERE DATE(o.fecha_programada) >= :desde
                      AND DATE(o.fecha_programada) <= :hasta
-                     AND o.estado IN (0, 1)
+                     AND o.estado IN (0, 1, 2)
                      AND o.deleted_at IS NULL
                    ORDER BY DATE(o.fecha_programada) ASC, o.id ASC';
 

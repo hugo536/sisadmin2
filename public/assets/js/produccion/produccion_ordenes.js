@@ -977,12 +977,20 @@ function initPlanificadorOperaciones() {
                             const producto = op.producto || '-';
                             const codigoLimpio = op.codigo ? op.codigo.replace('OP-', '') : '-'; 
                             const cantidad = Number(op.cantidad || 0).toFixed(2);
-                            const badgeColor = op.estado === 1 ? 'bg-warning text-dark' : 'bg-secondary text-white';
+                            const badgeColor = op.estado === 2
+                                ? 'bg-success text-white'
+                                : (op.estado === 1 ? 'bg-warning text-dark' : 'bg-secondary text-white');
+                            const estadoTexto = op.estado === 2
+                                ? 'Ejecutada'
+                                : (op.estado === 1 ? 'Proceso' : 'Borrador');
+                            const bordeEstado = op.estado === 2
+                                ? 'border-success'
+                                : (op.estado === 1 ? 'border-warning' : 'border-secondary');
                             
-                            return `<div class="mini-card-op small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm border-start border-4 ${op.estado == 1 ? 'border-warning' : 'border-secondary'}" style="min-height: 60px;">
+                            return `<div class="mini-card-op small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm border-start border-4 ${bordeEstado}" style="min-height: 60px;">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="fw-bold text-primary" style="font-size:0.7rem;"><i class="bi bi-tag-fill me-1"></i>${codigoLimpio}</span>
-                                            <span class="badge ${badgeColor} py-1 px-2" style="font-size:0.6rem;">${op.estado === 1 ? 'Proceso' : 'Borrador'}</span>
+                                            <span class="badge ${badgeColor} py-1 px-2" style="font-size:0.6rem;">${estadoTexto}</span>
                                         </div>
                                         <div class="op-product-name" title="${producto}">${producto}</div>
                                         <div class="text-muted mt-1" style="font-size:0.75rem;"><i class="bi bi-box-seam me-1"></i>Plan: <span class="fw-bold text-dark">${cantidad}</span></div>
@@ -999,7 +1007,11 @@ function initPlanificadorOperaciones() {
                             tooltipText.push(`• ${codigoLimpio}: ${op.producto} (${Number(op.cantidad||0).toFixed(2)})`);
                             
                             if (index < 2) {
-                                const bgColor = op.estado === 1 ? 'bg-warning-subtle border-warning text-warning-emphasis' : 'bg-light border-secondary-subtle text-secondary';
+                                const bgColor = op.estado === 2
+                                    ? 'bg-success-subtle border-success text-success-emphasis'
+                                    : (op.estado === 1
+                                        ? 'bg-warning-subtle border-warning text-warning-emphasis'
+                                        : 'bg-light border-secondary-subtle text-secondary');
                                 
                                 resumenHtml += `<div class="border rounded px-1 mb-1 text-start ${bgColor}" style="font-size: 0.65rem; padding: 4px 2px;" title="${op.producto}">
                                     <span class="d-block op-product-name-mes fw-bold opacity-100 text-center">${op.producto}</span>
