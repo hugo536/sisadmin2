@@ -1,5 +1,9 @@
 <?php
 $centros = $centros ?? [];
+// Generamos un token CSRF si no existe en la sesión (Buena práctica de seguridad)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 ?>
 <div class="container-fluid p-4">
     
@@ -12,7 +16,7 @@ $centros = $centros ?? [];
         </div>
 
         <div class="d-flex gap-2">
-            <?php if (tiene_permiso('conta.centros_costo.gestionar')): // Validación de tu manual ?>
+            <?php if (tiene_permiso('conta.centros_costo.gestionar')): ?>
                 <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCentroCosto" id="btnNuevoCentroCosto">
                     <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Centro de Costo
                 </button>
@@ -51,7 +55,7 @@ $centros = $centros ?? [];
                                 <?php 
                                     $esActivo = ((int)$c['estado'] === 1); 
                                 ?>
-                                <tr class="border-bottom">
+                                <tr class="border-bottom fila-datos">
                                     <td class="ps-4 fw-semibold text-primary pt-3"><?php echo e($c['codigo']); ?></td>
                                     <td class="fw-semibold text-dark pt-3"><?php echo e($c['nombre']); ?></td>
                                     <td class="text-center pt-3">
@@ -72,13 +76,20 @@ $centros = $centros ?? [];
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr>
+                            <tr id="filaVaciaInicial">
                                 <td colspan="4" class="text-center text-muted py-5">
                                     <i class="bi bi-diagram-2 fs-1 d-block mb-2 text-light"></i>
                                     No hay centros de costo registrados.
                                 </td>
                             </tr>
                         <?php endif; ?>
+                        
+                        <tr id="filaSinResultados" style="display: none;">
+                            <td colspan="4" class="text-center text-muted py-5">
+                                <i class="bi bi-search fs-2 d-block mb-2 text-light"></i>
+                                No se encontraron coincidencias para tu búsqueda.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -96,7 +107,11 @@ $centros = $centros ?? [];
             </div>
             
             <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <form method="post" action="<?php echo e(route_url('contabilidad/guardar_centro_costo')); ?>" id="formCentroCosto" autocomplete="off">
+                
+                <form id="formCentroCosto" autocomplete="off" data-url="<?php echo e(route_url('contabilidad/guardar_centro_costo')); ?>">
+                    
+                    <input type="hidden" name="csrf_token" value="<?php echo e($_SESSION['csrf_token'] ?? ''); ?>">
+                    
                     <input type="hidden" name="id" id="cc_id" value="0">
 
                     <div class="card border-0 shadow-sm mb-3">
@@ -123,11 +138,15 @@ $centros = $centros ?? [];
 
                     <div class="d-flex justify-content-end pt-2 mt-3">
                         <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Guardar</button>
+                        
+                        <button type="submit" class="btn btn-primary px-4 fw-bold" id="btnGuardarCC">
+                            <i class="bi bi-save me-2"></i>Guardar
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
 <script src="<?php echo e(base_url()); ?>/assets/js/contabilidad/centros_costo.js"></script>

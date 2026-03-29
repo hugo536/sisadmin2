@@ -16,7 +16,6 @@ class CentroCostoController extends Controlador
         $this->centroCostoModel = new CentroCostoModel();
     }
 
-    // Antes era centros_costo()
     public function index(): void
     {
         AuthMiddleware::handle();
@@ -28,17 +27,48 @@ class CentroCostoController extends Controlador
         ]);
     }
 
-    // Antes era guardar_centro_costo()
     public function guardar(): void
     {
         AuthMiddleware::handle();
         require_permiso('conta.centros_costo.gestionar');
         
+        // 1. Le decimos al navegador que vamos a devolver un JSON, no un HTML
+        header('Content-Type: application/json; charset=utf-8');
+
+        // 2. NUEVA MEJORA: Validación del Token CSRF
+        $tokenEnviado = $_POST['csrf_token'] ?? '';
+        $tokenGuardado = $_SESSION['csrf_token'] ?? '';
+
+        // Comparamos los tokens de forma segura
+        if (empty($tokenEnviado) || !hash_equals($tokenGuardado, $tokenEnviado)) {
+            http_response_code(403); // Error de prohibido
+            echo json_encode([
+                'status' => 'error', 
+                'message' => 'Sesión caducada o token de seguridad inválido. Por favor, recarga la página.'
+            ]);
+            exit; // Detenemos la ejecución aquí mismo
+        }
+        
+        // 3. Bloque Try-Catch adaptado para AJAX
         try {
+            // Mandamos a guardar los datos al modelo
             $this->centroCostoModel->guardar($_POST, $this->uid());
-            redirect('contabilidad/centros_costo?ok=1');
+            
+            // Si todo sale bien, devolvemos un JSON de éxito
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'El Centro de Costo se guardó correctamente.'
+            ]);
+            exit;
+
         } catch (Throwable $e) {
-            redirect('contabilidad/centros_costo?error=' . urlencode($e->getMessage()));
+            // Si el modelo lanza un error (ej: Código duplicado) lo atrapamos aquí
+            http_response_code(400); // Error de solicitud incorrecta
+            echo json_encode([
+                'status' => 'error', 
+                'message' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 

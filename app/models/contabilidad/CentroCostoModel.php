@@ -21,7 +21,6 @@ class CentroCostoModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    // --- NUEVO MÉTODO AÑADIDO ---
     /**
      * Obtiene la lista de todos los centros de costo activos
      * para usarlos en selects (como en el Inventario o Compras).
@@ -37,7 +36,6 @@ class CentroCostoModel extends Modelo
         $stmt = $this->db()->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
-    // ----------------------------
 
     public function guardar(array $data, int $userId): int
     {
@@ -47,8 +45,22 @@ class CentroCostoModel extends Modelo
         $estado = (int)($data['estado'] ?? 1) === 1 ? 1 : 0;
 
         if ($codigo === '' || $nombre === '') {
-            throw new RuntimeException('Código y nombre son obligatorios.');
+            throw new RuntimeException('El código y el nombre son obligatorios.');
         }
+
+        // 👇 NUEVA MEJORA: Validación de códigos duplicados 👇
+        // Verificamos si existe otro centro de costo con el mismo código,
+        // excluyendo el ID actual (por si estamos editando el mismo registro)
+        $stmtCheck = $this->db()->prepare('SELECT 1 FROM conta_centros_costo WHERE codigo = :codigo AND id != :id AND deleted_at IS NULL LIMIT 1');
+        $stmtCheck->execute([
+            'codigo' => $codigo, 
+            'id' => $id
+        ]);
+        
+        if ($stmtCheck->fetchColumn()) {
+            throw new RuntimeException("El código '{$codigo}' ya está siendo utilizado por otro Centro de Costo.");
+        }
+        // 👆 FIN DE LA MEJORA 👆
 
         if ($id > 0) {
             $stmt = $this->db()->prepare('UPDATE conta_centros_costo SET codigo = :codigo, nombre = :nombre, estado = :estado, updated_by = :user, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL');
@@ -56,15 +68,14 @@ class CentroCostoModel extends Modelo
             return $id;
         }
 
-        // 👇 ESTA ES LA PARTE QUE CORREGIMOS 👇
         $stmt = $this->db()->prepare('INSERT INTO conta_centros_costo (codigo, nombre, estado, created_by, updated_by, created_at, updated_at) VALUES (:codigo, :nombre, :estado, :user_created, :user_updated, NOW(), NOW())');
         
         $stmt->execute([
             'codigo' => $codigo, 
             'nombre' => $nombre, 
             'estado' => $estado, 
-            'user_created' => $userId, // Pasamos el valor para created_by
-            'user_updated' => $userId  // Pasamos el valor para updated_by
+            'user_created' => $userId, 
+            'user_updated' => $userId  
         ]);
         
         return (int)$this->db()->lastInsertId();
