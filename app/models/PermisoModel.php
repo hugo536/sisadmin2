@@ -173,6 +173,7 @@ class PermisoModel extends Modelo
             ['slug' => 'conta.reportes.ver', 'nombre' => 'Ver Reportes Contables', 'modulo' => 'CONTABILIDAD'],
             ['slug' => 'conta.conciliacion.gestionar', 'nombre' => 'Gestionar Conciliación Bancaria', 'modulo' => 'CONTABILIDAD'],
             ['slug' => 'conta.centros_costo.gestionar', 'nombre' => 'Gestionar Centros de Costo', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.prorrateo.gestionar', 'nombre' => 'Gestionar Reglas de Prorrateo', 'modulo' => 'CONTABILIDAD'],
             ['slug' => 'activos.gestionar', 'nombre' => 'Gestionar Activos Fijos', 'modulo' => 'CONTABILIDAD'],
             ['slug' => 'conta.depreciacion.ejecutar', 'nombre' => 'Ejecutar Depreciación', 'modulo' => 'CONTABILIDAD'],
             ['slug' => 'conta.cierre.mensual', 'nombre' => 'Ejecutar Cierre Mensual', 'modulo' => 'CONTABILIDAD'],

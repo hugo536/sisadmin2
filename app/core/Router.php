@@ -95,6 +95,12 @@ class Router
             } elseif ($accion === 'guardar_centro_costo') {
                 $controlador_clase = 'CentroCostoController';
                 $accion = 'guardar'; 
+            } elseif ($accion === 'prorrateos') {
+                $controlador_clase = 'ProrrateoController';
+                $accion = 'index';
+            } elseif ($accion === 'guardar_prorrateo') {
+                $controlador_clase = 'ProrrateoController';
+                $accion = 'guardar';
             } elseif ($accion === 'asientos') {
                 $controlador_clase = 'AsientoController';
                 $accion = 'index';
