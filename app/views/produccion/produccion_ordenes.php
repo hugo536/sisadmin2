@@ -18,9 +18,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     /* ========================================================================= */
     
     .planificador-scroll-area {
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: auto;
         -webkit-overflow-scrolling: touch;
+        max-height: min(62vh, 640px);
         padding-bottom: 15px;
     }
 
@@ -96,6 +96,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     #modalPlanificadorProduccion .modal-content,
     #modalEjecutarOP .modal-content {
         max-height: calc(100dvh - 2rem);
+        display: flex;
+        flex-direction: column;
     }
 
 
@@ -113,19 +115,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     #modalPlanificarOP .modal-body,
     #modalEditarOP .modal-body,
     #modalDetalleOP .modal-body,
-    #modalPlanificadorProduccion .modal-body {
-=======
-    #modalPlanificarOP .modal-body,
-    #modalEditarOP .modal-body,
-    #modalDetalleOP .modal-body,
     #modalPlanificadorProduccion .modal-body,
     #modalEjecutarOP .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
         overscroll-behavior: contain;
     }
 
     #modalEjecutarOP .modal-body {
-
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
