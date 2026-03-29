@@ -22,9 +22,29 @@ class InventarioModel extends Modelo
             // VISTA GLOBAL INTELIGENTE PARA ÍTEMS
             $selectAlmacen   = "0 AS id_almacen, 
                                 CASE 
-                                    WHEN COUNT(DISTINCT s.id_almacen) = 1 AND MAX(s.id_almacen) = 0 THEN 'Sin Ubicación Física'
-                                    WHEN COUNT(DISTINCT s.id_almacen) = 1 THEN MAX(a.nombre) 
-                                    WHEN COUNT(DISTINCT s.id_almacen) > 1 THEN 'Múltiples Almacenes'
+                                    WHEN COUNT(DISTINCT CASE 
+                                                            WHEN s.stock_actual > 0 
+                                                                 AND (s.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                            THEN s.id_almacen 
+                                                        END) = 1
+                                         AND MAX(CASE WHEN s.stock_actual > 0 THEN s.id_almacen END) = 0
+                                        THEN 'Sin Ubicación Física'
+                                    WHEN COUNT(DISTINCT CASE 
+                                                            WHEN s.stock_actual > 0 
+                                                                 AND (s.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                            THEN s.id_almacen 
+                                                        END) = 1
+                                        THEN COALESCE(MAX(CASE 
+                                                             WHEN s.stock_actual > 0
+                                                                  AND a.estado = 1 AND a.deleted_at IS NULL
+                                                             THEN a.nombre 
+                                                         END), 'Sin Ubicación Física')
+                                    WHEN COUNT(DISTINCT CASE 
+                                                            WHEN s.stock_actual > 0 
+                                                                 AND (s.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                            THEN s.id_almacen 
+                                                        END) > 1 
+                                        THEN 'Múltiples Almacenes'
                                     ELSE 'Sin Ubicación Física' 
                                 END AS almacen_nombre, 
                                 COALESCE(
@@ -75,9 +95,29 @@ class InventarioModel extends Modelo
                 // VISTA GLOBAL INTELIGENTE PARA PACKS
                 $selectAlmacenPack = "0 AS id_almacen, 
                                       CASE 
-                                          WHEN COUNT(DISTINCT sp.id_almacen) = 1 AND MAX(sp.id_almacen) = 0 THEN 'Sin Ubicación Física'
-                                          WHEN COUNT(DISTINCT sp.id_almacen) = 1 THEN MAX(a.nombre) 
-                                          WHEN COUNT(DISTINCT sp.id_almacen) > 1 THEN 'Múltiples Almacenes'
+                                          WHEN COUNT(DISTINCT CASE 
+                                                                  WHEN sp.stock_actual > 0 
+                                                                       AND (sp.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                                  THEN sp.id_almacen 
+                                                              END) = 1
+                                               AND MAX(CASE WHEN sp.stock_actual > 0 THEN sp.id_almacen END) = 0
+                                              THEN 'Sin Ubicación Física'
+                                          WHEN COUNT(DISTINCT CASE 
+                                                                  WHEN sp.stock_actual > 0 
+                                                                       AND (sp.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                                  THEN sp.id_almacen 
+                                                              END) = 1
+                                              THEN COALESCE(MAX(CASE 
+                                                                   WHEN sp.stock_actual > 0
+                                                                        AND a.estado = 1 AND a.deleted_at IS NULL
+                                                                   THEN a.nombre 
+                                                               END), 'Sin Ubicación Física')
+                                          WHEN COUNT(DISTINCT CASE 
+                                                                  WHEN sp.stock_actual > 0 
+                                                                       AND (sp.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
+                                                                  THEN sp.id_almacen 
+                                                              END) > 1
+                                              THEN 'Múltiples Almacenes'
                                           ELSE 'Sin Ubicación Física' 
                                       END AS almacen_nombre, 
                                       COALESCE(
