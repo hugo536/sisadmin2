@@ -287,6 +287,10 @@ class VentasDespachoModel extends Modelo
                 $envasesReceta = $this->obtenerEnvasesRetornablesDesdeHistoricoProduccion($db, $idProducto);
             }
 
+            if ($envasesReceta === []) {
+                $envasesReceta = $this->obtenerEnvaseDirectoDelItem($db, $idProducto);
+            }
+
             foreach ($envasesReceta as $envase) {
                 $idItemEnvase = (int) ($envase['id_item_envase'] ?? 0);
                 $factor = (float) ($envase['factor_envase'] ?? 0);
@@ -310,7 +314,13 @@ class VentasDespachoModel extends Modelo
         // 2. Preparar SOLO la consulta de Cuenta Corriente (No tocamos el Kardex físico aquí)
         $operacionUuid = bin2hex(random_bytes(8));
         
-        $stmtCtaCte = $db->prepare('INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones) VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones)');
+        $usaFechaMovimiento = $this->ctaCteEnvasesTieneColumna($db, 'fecha_movimiento');
+        $sqlCtaCte = 'INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones';
+        $sqlCtaCte .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
+        $sqlCtaCte .= ') VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones';
+        $sqlCtaCte .= $usaFechaMovimiento ? ', NOW()' : '';
+        $sqlCtaCte .= ')';
+        $stmtCtaCte = $db->prepare($sqlCtaCte);
         
         // 3. Ejecutar las salidas (Cuenta Corriente) por cada envase identificado
         foreach ($ajustesPorEnvase as $idItemEnvase => $cantidadAjuste) {
@@ -384,6 +394,36 @@ class VentasDespachoModel extends Modelo
         $stmt->execute(['id_producto' => $idProducto]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function obtenerEnvaseDirectoDelItem(PDO $db, int $idProducto): array
+    {
+        if ($idProducto <= 0) {
+            return [];
+        }
+
+        $stmt = $db->prepare('SELECT id AS id_item_envase,
+                                     1.0 AS factor_envase
+                              FROM items
+                              WHERE id = :id_producto
+                                AND deleted_at IS NULL
+                                AND es_envase_retornable = 1
+                              LIMIT 1');
+        $stmt->execute(['id_producto' => $idProducto]);
+
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ? [$fila] : [];
+    }
+
+    private function ctaCteEnvasesTieneColumna(PDO $db, string $columna): bool
+    {
+        if ($columna === '') {
+            return false;
+        }
+
+        $stmt = $db->prepare('SHOW COLUMNS FROM cta_cte_envases LIKE :columna');
+        $stmt->execute(['columna' => $columna]);
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     private function generarCodigo(PDO $db): string
