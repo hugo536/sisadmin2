@@ -542,6 +542,7 @@ function initModalEjecucion() {
             const idReceta = btnAbrir.getAttribute('data-receta') || '';
             const planificada = parseFloat(btnAbrir.getAttribute('data-planificada')) || 0;
             const idAlmacenPlanta = parseInt(btnAbrir.getAttribute('data-id-almacen-planta') || '0', 10) || 0;
+            const idCentroCostoReceta = parseInt(btnAbrir.getAttribute('data-receta-centro-costo') || '0', 10) || 0;
             
             document.getElementById('execIdOrden').value = idOrden;
             document.getElementById('lblExecCodigo').textContent = codigo;
@@ -561,10 +562,12 @@ function initModalEjecucion() {
             const inputInicio = document.getElementById('execFechaInicio');
             const inputFin = document.getElementById('execFechaFin');
             const inputParada = document.getElementById('execHorasParada');
+            const selectCentroCosto = document.getElementById('execCentroCosto');
 
             if (inputInicio) inputInicio.value = localDatetime;
             if (inputFin) inputFin.value = localDatetime;
             if (inputParada) inputParada.value = '';
+            if (selectCentroCosto) selectCentroCosto.value = idCentroCostoReceta > 0 ? String(idCentroCostoReceta) : '';
             window.calcularTiempoNetoOP();
 
             const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');

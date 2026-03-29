@@ -6,6 +6,7 @@ CREATE TABLE `produccion_recetas` (
   `id_producto` INT(11) NOT NULL,
   `codigo` VARCHAR(30) NOT NULL,
   `version` INT(11) NOT NULL DEFAULT 1,
+  `id_centro_costo` INT(11) DEFAULT NULL,
   `descripcion` VARCHAR(255) DEFAULT NULL,
   `rendimiento_base` DECIMAL(14,4) NOT NULL DEFAULT 1.0000,
   `unidad_rendimiento` VARCHAR(10) DEFAULT 'UND',
@@ -20,8 +21,10 @@ CREATE TABLE `produccion_recetas` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_recetas_codigo` (`codigo`),
   KEY `idx_recetas_producto_estado` (`id_producto`, `estado`),
+  KEY `idx_recetas_centro_costo` (`id_centro_costo`),
   KEY `idx_recetas_deleted_at` (`deleted_at`),
-  CONSTRAINT `fk_recetas_producto` FOREIGN KEY (`id_producto`) REFERENCES `items` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT `fk_recetas_producto` FOREIGN KEY (`id_producto`) REFERENCES `items` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_recetas_centro_costo` FOREIGN KEY (`id_centro_costo`) REFERENCES `conta_centros_costo` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `produccion_recetas_detalle` (

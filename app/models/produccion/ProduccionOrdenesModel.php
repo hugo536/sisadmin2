@@ -117,6 +117,7 @@ class ProduccionOrdenesModel extends Modelo
                        COALESCE(r.costo_md_teorico, 0) AS costo_md_teorico_unit,
                        COALESCE(r.costo_mod_teorico, 0) AS costo_mod_teorico_unit,
                        COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico_unit,
+                       r.id_centro_costo AS receta_id_centro_costo,
                        p.nombre AS producto_nombre,
                        p.requiere_lote, p.requiere_vencimiento, p.unidad_base 
                 FROM produccion_ordenes o

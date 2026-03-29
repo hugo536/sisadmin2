@@ -1,6 +1,7 @@
 <?php
 $recetas = $recetas ?? [];
 $parametrosCatalogo = $parametros_catalogo ?? [];
+$centrosCosto = $centros_costo ?? [];
 // Recibimos la nueva variable del controlador
 $conceptosOperativos = $conceptos_operativos ?? [];
 ?>
@@ -285,6 +286,20 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                 <div class="col-3">
                                     <label class="form-label small text-muted fw-bold mb-1" for="newDescripcion">Descripción / Observaciones</label>
                                     <input type="text" class="form-control shadow-none border-secondary-subtle" id="newDescripcion" name="descripcion" placeholder="Ej: Fórmula inicial de producción...">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newCentroCosto">Centro de costos</label>
+                                    <select class="form-select shadow-none border-secondary-subtle" id="newCentroCosto" name="id_centro_costo">
+                                        <option value="">Sin centro de costos predeterminado</option>
+                                        <?php foreach ($centrosCosto as $centro): ?>
+                                            <?php if ((int) ($centro['estado'] ?? 0) !== 1) continue; ?>
+                                            <option value="<?php echo (int) ($centro['id'] ?? 0); ?>">
+                                                <?php echo e((string) ($centro['codigo'] ?? '')); ?> - <?php echo e((string) ($centro['nombre'] ?? '')); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="form-text">Se sugerirá automáticamente al ejecutar la producción.</div>
                                 </div>
                             </div>
                         </div>
