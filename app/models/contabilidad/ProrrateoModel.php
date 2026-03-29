@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
+// Ya no necesitamos requerir el CentroCostoModel aquí, el Controlador se encarga de eso
 
 class ProrrateoModel extends Modelo
 {
@@ -55,11 +55,7 @@ class ProrrateoModel extends Modelo
         return $reglas;
     }
 
-    public function listarCentrosActivos(): array
-    {
-        $centroCostoModel = new CentroCostoModel();
-        return $centroCostoModel->listarActivos();
-    }
+    // ❌ Función listarCentrosActivos() ELIMINADA (Ya lo maneja el Controlador)
 
     public function guardar(array $data, int $userId): int
     {
@@ -69,17 +65,28 @@ class ProrrateoModel extends Modelo
         $estado = (int)($data['estado'] ?? 1) === 1 ? 1 : 0;
         $detalles = is_array($data['detalles'] ?? null) ? $data['detalles'] : [];
 
+        // Validaciones iniciales
         if ($nombre === '') {
             throw new RuntimeException('El nombre de la regla es obligatorio.');
         }
-
         if ($centroOrigenId <= 0) {
             throw new RuntimeException('Debe seleccionar un centro de costo de origen válido.');
         }
-
         if (count($detalles) === 0) {
             throw new RuntimeException('Debe definir al menos un centro de costo destino.');
         }
+
+        // 👇 NUEVA MEJORA: Validar Duplicidad de Reglas
+        // Evitamos que exista más de una regla activa para el mismo Centro de Origen
+        $stmtCheck = $this->db()->prepare('SELECT 1 FROM conta_prorrateo_reglas WHERE centro_origen_id = :origen_id AND id != :id AND deleted_at IS NULL LIMIT 1');
+        $stmtCheck->execute([
+            'origen_id' => $centroOrigenId, 
+            'id' => $id
+        ]);
+        if ($stmtCheck->fetchColumn()) {
+            throw new RuntimeException('Ya existe una regla de prorrateo configurada para este Centro de Costo origen.');
+        }
+        // 👆 FIN DE LA MEJORA 👆
 
         $db = $this->db();
         $db->beginTransaction();
@@ -117,9 +124,11 @@ class ProrrateoModel extends Modelo
                 $id = (int)$db->lastInsertId();
             }
 
+            // Limpiamos los detalles viejos (si los hay)
             $stmtDel = $db->prepare('DELETE FROM conta_prorrateo_detalles WHERE regla_id = :regla_id');
             $stmtDel->execute(['regla_id' => $id]);
 
+            // Insertamos los detalles nuevos
             $stmtIns = $db->prepare('INSERT INTO conta_prorrateo_detalles
                 (regla_id, centro_destino_id, porcentaje)
                 VALUES (:regla_id, :centro_destino_id, :porcentaje)');
@@ -131,7 +140,6 @@ class ProrrateoModel extends Modelo
                 if ($centroDestinoId <= 0) {
                     throw new RuntimeException('Todos los destinos deben tener un centro de costo válido.');
                 }
-
                 if ($porcentaje <= 0) {
                     throw new RuntimeException('Todos los porcentajes deben ser mayores a 0.');
                 }
