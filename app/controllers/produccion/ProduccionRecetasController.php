@@ -205,6 +205,7 @@ class ProduccionRecetasController extends Controlador
                         'codigo' => $codigoIngresado,
                         'version' => (int) ($_POST['version'] ?? 1),
                         'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
+                        'id_almacen_planta' => (int) ($_POST['id_almacen_planta'] ?? 0),
                         'descripcion' => (string) ($_POST['descripcion'] ?? ''),
                         'rendimiento_base' => $this->parseDecimal($_POST['rendimiento_base'] ?? 1),
                         'unidad_rendimiento' => (string) ($_POST['unidad_rendimiento'] ?? 'UND'),
@@ -293,6 +294,7 @@ class ProduccionRecetasController extends Controlador
             'items_stockeables' => [],
             'parametros_catalogo' => $this->produccionRecetasModel->listarParametrosCatalogo(),
             'centros_costo' => $this->produccionRecetasModel->listarCentrosCosto(),
+            'almacenes_planta' => $this->produccionRecetasModel->listarAlmacenesActivosPorTipo('Planta'),
             
             // Reemplazamos los activos fijos por los nuevos Conceptos Operativos (MOD y CIF)
             'conceptos_operativos' => $this->produccionRecetasModel->listarConceptosOperativos(),

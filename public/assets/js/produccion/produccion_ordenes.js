@@ -178,7 +178,22 @@ function initMotorCalculoYGuardadoGlobal() {
     });
 
     document.addEventListener('change', function(e) {
-        if (e.target.id === 'newRecetaOP' || e.target.name === 'modo_planificacion') window.calcularPlanificacionOP();
+        if (e.target.id === 'newRecetaOP') {
+            const selectReceta = e.target;
+            const option = selectReceta.options[selectReceta.selectedIndex];
+            const idAlmacenPlanta = option ? String(option.getAttribute('data-id-almacen-planta') || '') : '';
+            const selectPlanta = document.getElementById('newAlmacenPlanta');
+            if (selectPlanta && idAlmacenPlanta) {
+                if (selectPlanta.tomselect) {
+                    selectPlanta.tomselect.setValue(idAlmacenPlanta, true);
+                } else {
+                    selectPlanta.value = idAlmacenPlanta;
+                }
+            }
+            window.calcularPlanificacionOP();
+            return;
+        }
+        if (e.target.name === 'modo_planificacion') window.calcularPlanificacionOP();
     });
 
     // Delegación Global del Envío del Formulario (Con soporte para SUB-RECETAS)

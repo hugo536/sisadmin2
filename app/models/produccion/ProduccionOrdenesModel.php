@@ -292,7 +292,8 @@ class ProduccionOrdenesModel extends Modelo
     {
         $sql = 'SELECT r.id, r.codigo, r.version, i.nombre AS producto_nombre,
                        r.rendimiento_base, 
-                       r.tiempo_produccion_horas AS tiempo_estimado_horas
+                       r.tiempo_produccion_horas AS tiempo_estimado_horas,
+                       r.id_almacen_planta
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
                 WHERE r.estado = 1 AND r.deleted_at IS NULL
