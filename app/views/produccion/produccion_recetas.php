@@ -2,6 +2,7 @@
 $recetas = $recetas ?? [];
 $parametrosCatalogo = $parametros_catalogo ?? [];
 $centrosCosto = $centros_costo ?? [];
+$almacenesPlanta = $almacenes_planta ?? [];
 // Recibimos la nueva variable del controlador
 $conceptosOperativos = $conceptos_operativos ?? [];
 ?>
@@ -300,6 +301,19 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                         <?php endforeach; ?>
                                     </select>
                                     <div class="form-text">Se sugerirá automáticamente al ejecutar la producción.</div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-bold mb-1" for="newAlmacenPlantaReceta">Planta de trabajo predeterminada</label>
+                                    <select class="form-select shadow-none border-secondary-subtle" id="newAlmacenPlantaReceta" name="id_almacen_planta">
+                                        <option value="">Sin planta predeterminada</option>
+                                        <?php foreach ($almacenesPlanta as $a): ?>
+                                            <option value="<?php echo (int) ($a['id'] ?? 0); ?>">
+                                                <?php echo e((string) ($a['nombre'] ?? '')); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="form-text">Esta planta se cargará por defecto al planificar una OP con esta receta.</div>
                                 </div>
                             </div>
                         </div>

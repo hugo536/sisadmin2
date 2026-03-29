@@ -185,6 +185,9 @@ function initFormularioRecetas() {
 
         const selectCentroCosto = document.getElementById('newCentroCosto');
         if (selectCentroCosto) selectCentroCosto.value = '';
+
+        const selectAlmacenPlanta = document.getElementById('newAlmacenPlantaReceta');
+        if (selectAlmacenPlanta) selectAlmacenPlanta.value = '';
         
         const hiddenIdProd = document.getElementById('newIdProductoHidden');
         if (hiddenIdProd) hiddenIdProd.value = '';
@@ -494,6 +497,7 @@ function initFormularioRecetas() {
             const inputRendimiento = document.getElementById('newRendimientoBase');
             const inputTiempo = document.getElementById('newTiempoProduccionHoras');
             const selectCentroCosto = document.getElementById('newCentroCosto');
+            const selectAlmacenPlanta = document.getElementById('newAlmacenPlantaReceta');
             
             if(inputCodigo) {
                 inputCodigo.value = data.codigo || '';
@@ -513,6 +517,7 @@ function initFormularioRecetas() {
             if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base || 1).toFixed(4);
             if (inputTiempo) inputTiempo.value = parseNumero(data.tiempo_produccion_horas || 1).toFixed(4);
             if (selectCentroCosto) selectCentroCosto.value = String(data.id_centro_costo || '');
+            if (selectAlmacenPlanta) selectAlmacenPlanta.value = String(data.id_almacen_planta || '');
 
             if(hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
@@ -539,6 +544,7 @@ function initFormularioRecetas() {
             const inputRendimiento = document.getElementById('newRendimientoBase');
             const inputTiempo = document.getElementById('newTiempoProduccionHoras');
             const selectCentroCosto = document.getElementById('newCentroCosto');
+            const selectAlmacenPlanta = document.getElementById('newAlmacenPlantaReceta');
             
             if (inputCodigo) {
                 inputCodigo.value = data.codigo || '';
@@ -559,6 +565,7 @@ function initFormularioRecetas() {
             if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base || 1).toFixed(4);
             if (inputTiempo) inputTiempo.value = parseNumero(data.tiempo_produccion_horas || 1).toFixed(4);
             if (selectCentroCosto) selectCentroCosto.value = String(data.id_centro_costo || '');
+            if (selectAlmacenPlanta) selectAlmacenPlanta.value = String(data.id_almacen_planta || '');
 
             const containerSelect = document.getElementById('productoSelectContainer');
             const containerDisplay = document.getElementById('productoDisplayContainer');
@@ -707,7 +714,8 @@ function initAccionesRecetaPendiente() {
                     unidad: btn.getAttribute('data-unidad') || 'UND',
                     rendimiento_base: 1,
                     tiempo_produccion_horas: 1,
-                    id_centro_costo: ''
+                    id_centro_costo: '',
+                    id_almacen_planta: ''
                 });
             }
             

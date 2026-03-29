@@ -494,7 +494,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php foreach ($recetasActivas as $r): ?>
                                             <option value="<?php echo (int) $r['id']; ?>"
                                                     data-rendimiento="<?php echo (float) ($r['rendimiento_base'] ?? 1); ?>" 
-                                                    data-tiempo="<?php echo (float) ($r['tiempo_estimado_horas'] ?? 1); ?>">
+                                                    data-tiempo="<?php echo (float) ($r['tiempo_estimado_horas'] ?? 1); ?>"
+                                                    data-id-almacen-planta="<?php echo (int) ($r['id_almacen_planta'] ?? 0); ?>">
                                                 <?php echo e((string) $r['codigo']); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
                                             </option>
                                         <?php endforeach; ?>
