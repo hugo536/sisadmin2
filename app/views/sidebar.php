@@ -62,7 +62,7 @@ function renderSidebarInner(
     $menuCostosId       = 'menuCostos_' . $navId;
     $menuGastosId       = 'menuGastos_' . $navId;
  
-    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable'];
+    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'contabilidad/prorrateos'];
     $menuRutasCostos       = ['reportes/costos_produccion', 'costos/configuracion', 'costos/cierres', 'costos/alertas'];
  
     $renderBadge = static function (string $badgeKey) use ($sidebarBadges): void {
@@ -376,6 +376,9 @@ function renderSidebarInner(
                 </a>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/centros_costo') ?>" href="<?= e(route_url('contabilidad/centros_costo')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-bullseye"></i></span><span class="sb-link-text">Centros de costo</span>
+                </a>
+                <a class="sb-link sb-sub<?= $activo('contabilidad/prorrateos') ?>" href="<?= e(route_url('contabilidad/prorrateos')) ?>">
+                    <span class="sb-link-icon"><i class="bi bi-pie-chart"></i></span><span class="sb-link-text">Reglas de prorrateo</span>
                 </a>
                 <a class="sb-link sb-sub<?= $activo('conciliacion/index') ?>" href="<?= e(route_url('conciliacion/index')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-link-45deg"></i></span><span class="sb-link-text">Conciliación bancaria</span>
