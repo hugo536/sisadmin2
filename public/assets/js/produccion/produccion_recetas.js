@@ -182,6 +182,9 @@ function initFormularioRecetas() {
 
         const hiddenIdBase = document.getElementById('newIdRecetaBase');
         if (hiddenIdBase) hiddenIdBase.value = '0';
+
+        const selectCentroCosto = document.getElementById('newCentroCosto');
+        if (selectCentroCosto) selectCentroCosto.value = '';
         
         const hiddenIdProd = document.getElementById('newIdProductoHidden');
         if (hiddenIdProd) hiddenIdProd.value = '';
@@ -490,6 +493,7 @@ function initFormularioRecetas() {
             const inputUnidad = document.getElementById('newUnidadRendimiento');
             const inputRendimiento = document.getElementById('newRendimientoBase');
             const inputTiempo = document.getElementById('newTiempoProduccionHoras');
+            const selectCentroCosto = document.getElementById('newCentroCosto');
             
             if(inputCodigo) {
                 inputCodigo.value = data.codigo || '';
@@ -508,6 +512,7 @@ function initFormularioRecetas() {
             }
             if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base || 1).toFixed(4);
             if (inputTiempo) inputTiempo.value = parseNumero(data.tiempo_produccion_horas || 1).toFixed(4);
+            if (selectCentroCosto) selectCentroCosto.value = String(data.id_centro_costo || '');
 
             if(hiddenIdProd) hiddenIdProd.value = data.id_producto || '';
 
@@ -533,6 +538,7 @@ function initFormularioRecetas() {
             const inputUnidad = document.getElementById('newUnidadRendimiento');
             const inputRendimiento = document.getElementById('newRendimientoBase');
             const inputTiempo = document.getElementById('newTiempoProduccionHoras');
+            const selectCentroCosto = document.getElementById('newCentroCosto');
             
             if (inputCodigo) {
                 inputCodigo.value = data.codigo || '';
@@ -552,6 +558,7 @@ function initFormularioRecetas() {
             }
             if (inputRendimiento) inputRendimiento.value = parseNumero(data.rendimiento_base || 1).toFixed(4);
             if (inputTiempo) inputTiempo.value = parseNumero(data.tiempo_produccion_horas || 1).toFixed(4);
+            if (selectCentroCosto) selectCentroCosto.value = String(data.id_centro_costo || '');
 
             const containerSelect = document.getElementById('productoSelectContainer');
             const containerDisplay = document.getElementById('productoDisplayContainer');
@@ -699,7 +706,8 @@ function initAccionesRecetaPendiente() {
                     producto_nombre: btn.getAttribute('data-producto') || '',
                     unidad: btn.getAttribute('data-unidad') || 'UND',
                     rendimiento_base: 1,
-                    tiempo_produccion_horas: 1
+                    tiempo_produccion_horas: 1,
+                    id_centro_costo: ''
                 });
             }
             

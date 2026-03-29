@@ -321,6 +321,7 @@ class ProduccionRecetasModel extends Modelo
         return [
             'id' => (int) $receta['id'],
             'id_producto' => (int) $receta['id_producto'],
+            'id_centro_costo' => (int) ($receta['id_centro_costo'] ?? 0),
             'producto_nombre' => (string) $receta['producto_nombre'], // <-- Nuevo
             'codigo' => (string) ($receta['codigo'] ?? ''),
             'version' => (int) ($receta['version'] ?? 1),
@@ -341,6 +342,7 @@ class ProduccionRecetasModel extends Modelo
         $codigo = trim((string) ($payload['codigo'] ?? ''));
         $version = max(1, (int) ($payload['version'] ?? 1));
         $descripcion = trim((string) ($payload['descripcion'] ?? ''));
+        $idCentroCosto = (int) ($payload['id_centro_costo'] ?? 0);
         $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
         $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
         $tiempoProduccionHoras = (float) ($payload['tiempo_produccion_horas'] ?? 1);
@@ -388,6 +390,7 @@ class ProduccionRecetasModel extends Modelo
             if ($idRecetaPendiente > 0) {
                 $stmt = $db->prepare('UPDATE produccion_recetas
                                       SET version = :version,
+                                          id_centro_costo = :id_centro_costo,
                                           descripcion = :descripcion,
                                           rendimiento_base = :rendimiento_base,
                                           unidad_rendimiento = :unidad_rendimiento,
@@ -398,6 +401,7 @@ class ProduccionRecetasModel extends Modelo
                                       WHERE id = :id_receta');
                 $stmt->execute([
                     'version' => $version,
+                    'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
                     'descripcion' => $descripcion !== '' ? $descripcion : null,
                     'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                     'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
@@ -414,11 +418,11 @@ class ProduccionRecetasModel extends Modelo
                 }
 
                 $stmt = $db->prepare('INSERT INTO produccion_recetas
-                                        (id_producto, codigo, version, descripcion,
+                                        (id_producto, codigo, version, id_centro_costo, descripcion,
                                          rendimiento_base, unidad_rendimiento, tiempo_produccion_horas,
                                          costo_teorico_unitario, estado, created_by, updated_by)
                                       VALUES
-                                        (:id_producto, :codigo, :version, :descripcion,
+                                        (:id_producto, :codigo, :version, :id_centro_costo, :descripcion,
                                          :rendimiento_base, :unidad_rendimiento, :tiempo_produccion_horas,
                                          :costo_unitario, 1, :created_by, :updated_by)');
 
@@ -426,6 +430,7 @@ class ProduccionRecetasModel extends Modelo
                     'id_producto' => $idProducto,
                     'codigo' => $codigo,
                     'version' => $version,
+                    'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
                     'descripcion' => $descripcion !== '' ? $descripcion : null,
                     'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
                     'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
@@ -740,6 +745,7 @@ class ProduccionRecetasModel extends Modelo
             'id_producto' => (int) $receta['id_producto'],
             'codigo' => $this->generarCodigoVersion((string) $receta['codigo'], $siguienteVersion),
             'version' => $siguienteVersion,
+            'id_centro_costo' => (int) ($receta['id_centro_costo'] ?? 0),
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
             'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
             'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
@@ -784,6 +790,7 @@ class ProduccionRecetasModel extends Modelo
         $recetaActivaFila = $this->obtenerRecetaPorId($idRecetaActiva);
 
         $normalizadoActiva = [
+            'id_centro_costo' => (int) ($recetaActivaFila['id_centro_costo'] ?? 0),
             'descripcion' => trim((string) ($recetaActivaFila['descripcion'] ?? '')),
             'rendimiento_base' => number_format((float) ($recetaActivaFila['rendimiento_base'] ?? 0), 4, '.', ''),
             'unidad_rendimiento' => trim((string) ($recetaActivaFila['unidad_rendimiento'] ?? '')),
@@ -795,6 +802,7 @@ class ProduccionRecetasModel extends Modelo
         ];
 
         $normalizadoPayload = [
+            'id_centro_costo' => (int) ($payload['id_centro_costo'] ?? 0),
             'descripcion' => trim((string) ($payload['descripcion'] ?? '')),
             'rendimiento_base' => number_format((float) ($payload['rendimiento_base'] ?? 0), 4, '.', ''),
             'unidad_rendimiento' => trim((string) ($payload['unidad_rendimiento'] ?? '')),
@@ -815,6 +823,7 @@ class ProduccionRecetasModel extends Modelo
             'id_producto' => (int) $recetaBase['id_producto'],
             'codigo' => $this->generarCodigoVersion((string) $recetaBase['codigo'], $siguienteVersion),
             'version' => $siguienteVersion,
+            'id_centro_costo' => (int) $normalizadoPayload['id_centro_costo'],
             'descripcion' => $normalizadoPayload['descripcion'],
             'rendimiento_base' => (float) $normalizadoPayload['rendimiento_base'],
             'unidad_rendimiento' => $normalizadoPayload['unidad_rendimiento'],
@@ -1042,5 +1051,14 @@ class ProduccionRecetasModel extends Modelo
     {
         $sql = 'SELECT id, tipo, nombre FROM produccion_conceptos_cif WHERE estado = 1 ORDER BY tipo DESC, nombre ASC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarCentrosCosto(): array
+    {
+        $stmt = $this->db()->query('SELECT id, codigo, nombre, estado
+                                    FROM conta_centros_costo
+                                    WHERE deleted_at IS NULL
+                                    ORDER BY nombre ASC');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

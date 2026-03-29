@@ -347,6 +347,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         data-req-venc="<?php echo (int) ($orden['requiere_vencimiento'] ?? 0); ?>"
                                                         data-unidad="<?php echo e((string) ($orden['unidad_base'] ?? 'UND')); ?>"
                                                         data-id-almacen-planta="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
+                                                        data-receta-centro-costo="<?php echo (int) ($orden['receta_id_centro_costo'] ?? 0); ?>"
                                                         title="<?php echo $estado === 1 ? 'Continuar Producción' : 'Ejecutar Producción'; ?>">
                                                     <i class="bi bi-play-fill"></i>
                                                     <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
