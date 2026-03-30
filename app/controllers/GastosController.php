@@ -154,7 +154,8 @@ class GastosController extends Controlador
             'filtros' => $filtros,
             'conceptos' => $this->conceptoModel->listarActivos(),
             'proveedores' => $this->proveedorModel->listarActivos(),
-            'centrosCosto' => $this->centroCostoModel->listar(),
+            // 👇 PEQUEÑA MEJORA: Solo enviamos los centros activos al formulario
+            'centrosCosto' => $this->centroCostoModel->listarActivos(),
         ]);
     }
 

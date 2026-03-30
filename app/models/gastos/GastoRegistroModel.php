@@ -118,7 +118,7 @@ class GastoRegistroModel extends Modelo
             $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
             $stmtFin->execute([
                 'id_cxp' => $idCxp,
-                'id_asiento' => $idAsiento, // Si este sigue siendo 0 después, revisaremos ContaAsientoModel
+                'id_asiento' => $idAsiento,
                 'user' => $userId,
                 'id' => $idRegistro,
             ]);
@@ -150,9 +150,10 @@ class GastoRegistroModel extends Modelo
         }
 
         try {
-            $stmt = $db->prepare('SELECT id, estado, id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+            $stmt = $db->prepare('SELECT id, estado, id_cxp, id_asiento FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
             $stmt->execute(['id' => $id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
             if (!$row) {
                 throw new RuntimeException('No se encontró el registro de gasto.');
             }
@@ -169,11 +170,13 @@ class GastoRegistroModel extends Modelo
                 throw new RuntimeException('No se puede anular un gasto que ya está pagado.');
             }
 
+            // 1. Anular el registro maestro del gasto
             $db->prepare('UPDATE gastos_registros
                 SET estado = "ANULADO", updated_by = :user, updated_at = NOW()
                 WHERE id = :id')
                 ->execute(['id' => $id, 'user' => $userId]);
 
+            // 2. Anular la Cuenta por Pagar (CXP) en Tesorería
             $idCxp = (int) ($row['id_cxp'] ?? 0);
             if ($idCxp > 0) {
                 $db->prepare('UPDATE tesoreria_cxp
@@ -181,6 +184,16 @@ class GastoRegistroModel extends Modelo
                     WHERE id = :id')
                     ->execute(['id' => $idCxp, 'user' => $userId]);
             }
+
+            // 👇 NUEVA MEJORA: Anular el Asiento Contable (Para evitar descuadres) 👇
+            $idAsiento = (int) ($row['id_asiento'] ?? 0);
+            if ($idAsiento > 0) {
+                $db->prepare('UPDATE conta_asientos
+                    SET estado = 0, updated_by = :user, updated_at = NOW()
+                    WHERE id = :id')
+                    ->execute(['id' => $idAsiento, 'user' => $userId]);
+            }
+            // 👆 FIN DE LA MEJORA 👆
 
             if ($localTx) {
                 $db->commit();
