@@ -421,9 +421,18 @@ class VentasDespachoModel extends Modelo
             return false;
         }
 
-        $stmt = $db->prepare('SHOW COLUMNS FROM cta_cte_envases LIKE :columna');
-        $stmt->execute(['columna' => $columna]);
-        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $db->prepare('SELECT 1
+                              FROM information_schema.COLUMNS
+                              WHERE TABLE_SCHEMA = DATABASE()
+                                AND TABLE_NAME = :tabla
+                                AND COLUMN_NAME = :columna
+                              LIMIT 1');
+        $stmt->execute([
+            'tabla' => 'cta_cte_envases',
+            'columna' => $columna,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     private function generarCodigo(PDO $db): string
