@@ -255,25 +255,30 @@ class ReportesController extends Controlador
         // ==========================================
         $accion = $_GET['accion'] ?? '';
         if ($accion === 'imprimir_estado_cuenta') {
-            
-            // 1. Obtenemos los datos de la empresa
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
             $empresaModel = new EmpresaModel();
             $config = $empresaModel->obtener();
-            
-            // 2. Traemos TODOS los registros sin paginación
+
+            // Traemos TODOS los registros sin paginación para el PDF.
             $detalle = $this->tesoreria->historialEstadoCuenta($f, 1, 999999);
-            
-            // 3. ¡EL TRUCO! 
-            // Limpiamos cualquier cosa que el sistema haya intentado cargar antes
-            ob_clean(); 
-            
-            // Requerimos el archivo directamente en lugar de usar $this->render()
-            // para evitar que se cargue el layout de la página (menús, sidebar, etc.)
+
+            // Capturamos la vista HTML y la convertimos a PDF, igual que en ventas.
+            ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta.php';
-            
-            // Matamos el proceso para que no intente cargar nada más
-            exit; 
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('Estado_Cuenta.pdf', ['Attachment' => false]);
+            return;
         }
         // ==========================================
 
