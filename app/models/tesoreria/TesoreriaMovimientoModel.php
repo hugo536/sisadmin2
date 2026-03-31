@@ -107,7 +107,10 @@ class TesoreriaMovimientoModel extends Modelo
     public function registrar(array $data, int $userId): int
     {
         $db = $this->db();
-        $db->beginTransaction();
+        $localTx = !$db->inTransaction();
+        if ($localTx) {
+            $db->beginTransaction();
+        }
 
         try {
             $origen = strtoupper(trim((string) $data['origen']));
@@ -227,11 +230,15 @@ class TesoreriaMovimientoModel extends Modelo
                 'id_centro_costo'    => $idCentroCosto
             ], $userId);
 
-            $db->commit();
+            if ($localTx) {
+                $db->commit();
+            }
             return $idMovimiento;
-            
+
         } catch (Throwable $e) {
-            if ($db->inTransaction()) $db->rollBack();
+            if ($localTx && $db->inTransaction()) {
+                $db->rollBack();
+            }
             throw $e;
         }
     }
@@ -255,7 +262,9 @@ class TesoreriaMovimientoModel extends Modelo
             $idsAplicados = [];
 
             foreach ($idsOrigen as $idOrigen) {
-                if ($restante <= 0) break;
+                if ($restante <= 0) {
+                    break;
+                }
 
                 $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
                 $stmtSaldo = $db->prepare("SELECT saldo FROM $tabla WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE");
@@ -284,6 +293,10 @@ class TesoreriaMovimientoModel extends Modelo
                 $restante = round($restante - $montoAPagarAqui, 4);
                 $movimientosCount++;
                 $idsAplicados[] = (int)$idOrigen;
+            }
+
+            if ($restante > 0) {
+                throw new RuntimeException('El monto excede el saldo pendiente disponible para aplicar en modo FIFO.');
             }
 
             if ($localTx) {
