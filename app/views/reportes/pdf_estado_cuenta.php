@@ -54,29 +54,12 @@
 </head>
 <body>
 
-    <div class="cabecera">
-        <div class="logo-container">
-            <?php if (!empty($config['ruta_logo'])): ?>
-                <img src="<?php echo base_url() . '/' . ltrim($config['ruta_logo'], '/'); ?>" class="logo-img" alt="Logo">
-            <?php else: ?>
-                <h2><?php echo htmlspecialchars($config['nombre_empresa'] ?? 'EMPRESA'); ?></h2>
-            <?php endif; ?>
-        </div>
-
-        <div class="datos-empresa">
-            <h2><?php echo htmlspecialchars($config['nombre_empresa'] ?? 'EMPRESA NO CONFIGURADA'); ?></h2>
-            <strong>RUC:</strong> <?php echo htmlspecialchars($config['ruc'] ?? '-'); ?><br>
-            <?php echo htmlspecialchars($config['direccion'] ?? '-'); ?><br>
-            <strong>Telf:</strong> <?php echo htmlspecialchars($config['telefono'] ?? '-'); ?> | 
-            <strong>Email:</strong> <?php echo htmlspecialchars($config['email'] ?? '-'); ?>
-        </div>
-        <div class="clear"></div>
-    </div>
-
     <div class="titulo-doc">
         ESTADO DE CUENTA
     </div>
 
+    <?php $res = $detalle['resumen'] ?? []; ?>
+    
     <table class="info-cliente">
         <tr>
             <td class="label">CLIENTE:</td>
@@ -141,8 +124,11 @@
         </tbody>
     </table>
 
-    <?php $res = $detalle['resumen'] ?? []; ?>
     <table class="resumen-tabla">
+        <tr>
+            <th>SALDO ANTERIOR:</th>
+            <td>S/ <?php echo number_format((float)($res['saldo_anterior'] ?? 0), 2); ?></td>
+        </tr>
         <tr>
             <th>TOTAL CARGOS:</th>
             <td>S/ <?php echo number_format((float)($res['total_facturado'] ?? 0), 2); ?></td>
