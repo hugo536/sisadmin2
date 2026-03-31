@@ -31,12 +31,12 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                     <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
                 <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Cliente/Distribuidor</label>
-                    <input type="number" min="0" name="id_cliente" class="form-control bg-light" placeholder="Todos" value="<?php echo (int)($filtros['id_cliente'] ?? 0) > 0 ? (int)$filtros['id_cliente'] : ''; ?>">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente/Distribuidor</label>
+                    <input type="search" name="cliente" class="form-control bg-light" placeholder="Nombre del cliente" value="<?php echo e((string)($filtros['cliente'] ?? '')); ?>">
                 </div>
                 <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Producto</label>
-                    <input type="number" min="0" name="id_item" class="form-control bg-light" placeholder="Todos" value="<?php echo (int)($filtros['id_item'] ?? 0) > 0 ? (int)$filtros['id_item'] : ''; ?>">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto</label>
+                    <input type="search" name="producto" class="form-control bg-light" placeholder="Nombre del producto" value="<?php echo e((string)($filtros['producto'] ?? '')); ?>">
                 </div>
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Estado deuda</label>
@@ -56,6 +56,11 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                         <option value="DETALLE" <?php echo $vista === 'DETALLE' ? 'selected' : ''; ?>>Detalle</option>
                         <option value="PRODUCTO" <?php echo $vista === 'PRODUCTO' ? 'selected' : ''; ?>>Resumen por Producto</option>
                     </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
                 </div>
             </form>
         </div>
@@ -234,11 +239,18 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     fields.forEach(function (field) {
-        const isTextLike = field.matches('input[type="number"], input[type="text"], input[type="search"]');
-        field.addEventListener(isTextLike ? 'input' : 'change', autoSubmit);
+        const isTextLike = field.matches('input[type="text"], input[type="search"]');
         if (isTextLike) {
-            field.addEventListener('change', autoSubmit);
+            field.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    form.submit();
+                }
+            });
+            return;
         }
+
+        field.addEventListener('change', autoSubmit);
     });
 });
 </script>

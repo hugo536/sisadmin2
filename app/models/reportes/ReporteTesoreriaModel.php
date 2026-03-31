@@ -224,9 +224,9 @@ class ReporteTesoreriaModel extends Modelo
             'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
         ];
 
-        if (!empty($f['id_cliente'])) {
-            $whereBase[] = 'c.id_cliente = :id_cliente';
-            $params['id_cliente'] = (int) $f['id_cliente'];
+        if (!empty($f['cliente'])) {
+            $whereBase[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $params['cliente'] = '%' . (string) $f['cliente'] . '%';
         }
 
         if (!empty($f['estado'])) {
@@ -234,9 +234,16 @@ class ReporteTesoreriaModel extends Modelo
             $params['estado'] = (string) $f['estado'];
         }
 
-        if (!empty($f['id_item'])) {
-            $whereBase[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = c.id_documento_venta AND d2.deleted_at IS NULL AND d2.id_item = :id_item)';
-            $params['id_item'] = (int) $f['id_item'];
+        if (!empty($f['producto'])) {
+            $whereBase[] = 'EXISTS (
+                SELECT 1
+                FROM ventas_documentos_detalle d2
+                INNER JOIN items i2 ON i2.id = d2.id_item
+                WHERE d2.id_documento_venta = c.id_documento_venta
+                  AND d2.deleted_at IS NULL
+                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
+            )';
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
         }
 
         $where = implode(' AND ', $whereBase);
@@ -246,6 +253,7 @@ class ReporteTesoreriaModel extends Modelo
                     CAST(ROUND(SUM(c.saldo), 2) AS DECIMAL(14,2)) AS total_saldo,
                     COUNT(*) AS total_documentos
                 FROM tesoreria_cxc c
+                INNER JOIN terceros t ON t.id = c.id_cliente
                 WHERE {$where}";
 
         $stmt = $this->db()->prepare($sql);
@@ -277,9 +285,9 @@ class ReporteTesoreriaModel extends Modelo
             'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
         ];
 
-        if (!empty($f['id_cliente'])) {
-            $where[] = 'c.id_cliente = :id_cliente';
-            $params['id_cliente'] = (int) $f['id_cliente'];
+        if (!empty($f['cliente'])) {
+            $where[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $params['cliente'] = '%' . (string) $f['cliente'] . '%';
         }
 
         if (!empty($f['estado'])) {
@@ -287,9 +295,9 @@ class ReporteTesoreriaModel extends Modelo
             $params['estado'] = (string) $f['estado'];
         }
 
-        if (!empty($f['id_item'])) {
-            $where[] = 'd.id_item = :id_item';
-            $params['id_item'] = (int) $f['id_item'];
+        if (!empty($f['producto'])) {
+            $where[] = "COALESCE(NULLIF(TRIM(i.nombre), ''), '') LIKE :producto";
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
         }
 
         return [implode(' AND ', $where), $params];

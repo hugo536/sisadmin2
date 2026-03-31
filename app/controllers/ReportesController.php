@@ -238,8 +238,8 @@ class ReportesController extends Controlador
 
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
-        $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
-        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
+        $f['cliente'] = trim((string) ($_GET['cliente'] ?? ''));
+        $f['producto'] = trim((string) ($_GET['producto'] ?? ''));
         $f['estado'] = strtoupper(trim((string) ($_GET['estado'] ?? '')));
         $f['vista'] = trim((string) ($_GET['vista'] ?? 'DETALLE'));
         if (!in_array($f['estado'], ['', 'PENDIENTE', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'], true)) {
