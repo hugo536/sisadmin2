@@ -21,7 +21,8 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
-            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/estado_cuenta')); ?>" id="estadoCuentaFiltrosForm">
+            <form class="row g-2 align-items-end" method="get" action="<?php echo e(base_url() . '/'); ?>" id="estadoCuentaFiltrosForm">
+                <input type="hidden" name="ruta" value="reportes/estado_cuenta">
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde</label>
                     <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
