@@ -242,6 +242,7 @@ class ReportesController extends Controlador
         $f['producto'] = trim((string) ($_GET['producto'] ?? ''));
         $f['estado'] = strtoupper(trim((string) ($_GET['estado'] ?? '')));
         $f['vista'] = trim((string) ($_GET['vista'] ?? 'DETALLE'));
+        
         if (!in_array($f['estado'], ['', 'PENDIENTE', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'], true)) {
             $f['estado'] = '';
         }
@@ -249,7 +250,34 @@ class ReportesController extends Controlador
             $f['vista'] = 'DETALLE';
         }
 
-        $detalle = $this->tesoreria->estadoCuentaClientes($f, $pagina, $tamano);
+        // ==========================================
+        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN
+        // ==========================================
+        $accion = $_GET['accion'] ?? '';
+        if ($accion === 'imprimir_estado_cuenta') {
+            
+            // 1. Obtenemos los datos de la empresa
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            $empresaModel = new EmpresaModel();
+            $config = $empresaModel->obtener();
+            
+            // 2. Traemos TODOS los registros sin paginación
+            $detalle = $this->tesoreria->historialEstadoCuenta($f, 1, 999999);
+            
+            // 3. ¡EL TRUCO! 
+            // Limpiamos cualquier cosa que el sistema haya intentado cargar antes
+            ob_clean(); 
+            
+            // Requerimos el archivo directamente en lugar de usar $this->render()
+            // para evitar que se cargue el layout de la página (menús, sidebar, etc.)
+            require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta.php';
+            
+            // Matamos el proceso para que no intente cargar nada más
+            exit; 
+        }
+        // ==========================================
+
+        $detalle = $this->tesoreria->historialEstadoCuenta($f, $pagina, $tamano);
         $porProducto = $this->tesoreria->estadoCuentaPorProducto($f, 200);
 
         $this->render('reportes/estado_cuenta', [

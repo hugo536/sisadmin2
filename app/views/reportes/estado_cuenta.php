@@ -9,58 +9,54 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
     : 'Periodo filtrado';
 ?>
 
-<div class="container-fluid p-4" id="reportesEstadoCuentaApp">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
+<div class="container-fluid p-4" id="reportesEstadoCuentaApp" data-url-index="<?php echo e(base_url() . '/'); ?>">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-journal-text me-2 text-primary"></i> Estado de Cuenta Clientes / Distribuidores
+                <i class="bi bi-journal-text me-2 text-primary"></i> Estado de Cuenta
             </h1>
-            <p class="text-muted small mb-0 ms-1">Consulta fechas de atención, productos, cantidades, precios, depósitos y saldo pendiente.</p>
+            <p class="text-muted small mb-0 ms-1">Historial cronológico de cargos y abonos por cliente.</p>
         </div>
+        <button type="button" class="btn btn-danger shadow-sm fw-semibold" id="btnExportarPdf">
+            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Exportar PDF
+        </button>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
             <form class="row g-2 align-items-end" method="get" action="<?php echo e(base_url() . '/'); ?>" id="estadoCuentaFiltrosForm">
                 <input type="hidden" name="ruta" value="reportes/estado_cuenta">
+                
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde</label>
                     <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
                 </div>
+                
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente/Distribuidor</label>
-                    <input type="search" name="cliente" class="form-control bg-light" placeholder="Nombre del cliente" value="<?php echo e((string)($filtros['cliente'] ?? '')); ?>">
+                
+                <div class="col-12 col-md-4">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" name="cliente" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar por nombre..." value="<?php echo e((string)($filtros['cliente'] ?? '')); ?>">
+                    </div>
                 </div>
+                
                 <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto</label>
-                    <input type="search" name="producto" class="form-control bg-light" placeholder="Nombre del producto" value="<?php echo e((string)($filtros['producto'] ?? '')); ?>">
-                </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Estado deuda</label>
-                    <select name="estado" class="form-select bg-light">
-                        <?php $estadoSel = (string)($filtros['estado'] ?? ''); ?>
-                        <option value="" <?php echo $estadoSel === '' ? 'selected' : ''; ?>>Todos</option>
-                        <option value="PENDIENTE" <?php echo $estadoSel === 'PENDIENTE' ? 'selected' : ''; ?>>PENDIENTE</option>
-                        <option value="PARCIAL" <?php echo $estadoSel === 'PARCIAL' ? 'selected' : ''; ?>>PARCIAL</option>
-                        <option value="PAGADA" <?php echo $estadoSel === 'PAGADA' ? 'selected' : ''; ?>>PAGADA</option>
-                        <option value="VENCIDA" <?php echo $estadoSel === 'VENCIDA' ? 'selected' : ''; ?>>VENCIDA</option>
-                        <option value="ANULADA" <?php echo $estadoSel === 'ANULADA' ? 'selected' : ''; ?>>ANULADA</option>
-                    </select>
-                </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Vista</label>
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo de Vista</label>
                     <select name="vista" class="form-select bg-light">
-                        <option value="DETALLE" <?php echo $vista === 'DETALLE' ? 'selected' : ''; ?>>Detalle</option>
+                        <option value="DETALLE" <?php echo $vista === 'DETALLE' ? 'selected' : ''; ?>>Historial General</option>
                         <option value="PRODUCTO" <?php echo $vista === 'PRODUCTO' ? 'selected' : ''; ?>>Resumen por Producto</option>
                     </select>
                 </div>
+                
                 <div class="col-12 col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search me-1"></i> Filtrar
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        <i class="bi bi-funnel-fill me-1"></i> Filtrar
                     </button>
                 </div>
             </form>
@@ -71,7 +67,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="col-12 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="small text-muted text-uppercase">Total Documentos</div>
+                    <div class="small text-muted text-uppercase">Total Movimientos</div>
                     <div class="h4 fw-bold mb-0"><?php echo (int) ($resumen['total_documentos'] ?? 0); ?></div>
                     <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
@@ -80,8 +76,8 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="col-12 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="small text-muted text-uppercase">Total Facturado</div>
-                    <div class="h4 fw-bold mb-0 text-primary">S/ <?php echo number_format((float)($resumen['total_facturado'] ?? 0), 2); ?></div>
+                    <div class="small text-muted text-uppercase">Total Cargos (Deuda)</div>
+                    <div class="h4 fw-bold mb-0 text-danger">S/ <?php echo number_format((float)($resumen['total_facturado'] ?? 0), 2); ?></div>
                     <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
@@ -89,7 +85,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="col-12 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="small text-muted text-uppercase">Total Depósitos</div>
+                    <div class="small text-muted text-uppercase">Total Abonos (Pagos)</div>
                     <div class="h4 fw-bold mb-0 text-success">S/ <?php echo number_format((float)($resumen['total_pagado'] ?? 0), 2); ?></div>
                     <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
@@ -98,8 +94,8 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="col-12 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="small text-muted text-uppercase">Saldo Pendiente</div>
-                    <div class="h4 fw-bold mb-0 text-danger">S/ <?php echo number_format((float)($resumen['total_saldo'] ?? 0), 2); ?></div>
+                    <div class="small text-muted text-uppercase">Saldo Pendiente Final</div>
+                    <div class="h4 fw-bold mb-0 text-primary">S/ <?php echo number_format((float)($resumen['total_saldo'] ?? 0), 2); ?></div>
                     <div class="small text-muted mt-1"><?php echo e($periodoResumen); ?></div>
                 </div>
             </div>
@@ -121,12 +117,12 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                            data-erp-table="true"
                            data-search-input="#filtroEstadoCuentaProducto"
                            data-rows-per-page="15">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th class="ps-4">Producto</th>
-                                <th class="text-end">Cantidad</th>
-                                <th class="text-end">Total facturado</th>
-                                <th class="text-end pe-4">Saldo deuda</th>
+                                <th class="text-end">Cantidad Vendida</th>
+                                <th class="text-end">Total Facturado</th>
+                                <th class="text-end pe-4">Deuda Pendiente</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -154,10 +150,10 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
     <?php else: ?>
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check me-2 text-primary"></i>Detalle de atención y deuda</h5>
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de Movimientos</h5>
                 <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaDetalle" placeholder="Buscar cliente/producto...">
+                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaDetalle" placeholder="Filtrar en tabla...">
                 </div>
             </div>
             <div class="card-body p-0">
@@ -166,50 +162,47 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                            data-erp-table="true"
                            data-search-input="#filtroEstadoCuentaDetalle"
                            data-rows-per-page="15">
-                        <thead>
+                        <thead class="table-dark">
                             <tr>
-                                <th class="ps-4">Fecha atención</th>
-                                <th>Cliente/Distribuidor</th>
+                                <th class="ps-4">Fecha</th>
+                                <th>Cliente / Distribuidor</th>
                                 <th>Documento</th>
-                                <th>Producto</th>
-                                <th class="text-end">Cantidad</th>
-                                <th class="text-end">Precio</th>
-                                <th class="text-end">Depósitos</th>
-                                <th class="text-end">Saldo deuda</th>
-                                <th class="text-center pe-4">Estado</th>
+                                <th>Concepto</th>
+                                <th class="text-end pe-4">Monto (+ / -)</th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php $rows = $detalle['rows'] ?? []; ?>
                         <?php if (empty($rows)): ?>
-                            <tr class="empty-msg-row"><td colspan="9" class="text-center text-muted py-5">Sin resultados para los filtros.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>Sin movimientos registrados.</td></tr>
                         <?php else: ?>
                             <?php foreach ($rows as $row): ?>
                                 <?php
-                                $estado = strtoupper((string)($row['estado'] ?? ''));
-                                $badge = match ($estado) {
-                                    'PAGADA' => 'bg-success-subtle text-success border-success-subtle',
-                                    'PARCIAL' => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
-                                    'VENCIDA' => 'bg-danger-subtle text-danger border-danger-subtle',
-                                    'ANULADA' => 'bg-secondary-subtle text-secondary border-secondary-subtle',
-                                    default => 'bg-info-subtle text-info border-info-subtle',
-                                };
-                                $search = mb_strtolower(trim((string)($row['cliente'] ?? '') . ' ' . (string)($row['documento'] ?? '') . ' ' . (string)($row['producto'] ?? '')));
+                                $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
+                                $fechaFmt = !empty($row['fecha_atencion']) ? date('d-m-Y', strtotime($row['fecha_atencion'])) : '';
+                                $search = mb_strtolower(trim(($row['cliente'] ?? '') . ' ' . ($row['documento'] ?? '') . ' ' . ($row['producto'] ?? '')));
                                 ?>
-                                <tr data-search="<?php echo e($search); ?>">
-                                    <?php
-                                    $fechaAtencion = trim((string)($row['fecha_atencion'] ?? ''));
-                                    $fechaAtencionFmt = $fechaAtencion !== '' ? date('d-m-Y', strtotime($fechaAtencion)) : '';
-                                    ?>
-                                    <td class="ps-4"><?php echo e($fechaAtencionFmt); ?></td>
-                                    <td class="fw-semibold"><?php echo e((string)($row['cliente'] ?? '')); ?></td>
+                                <tr data-search="<?php echo e($search); ?>" class="<?php echo !$esCargo ? 'table-success bg-opacity-10' : ''; ?>">
+                                    <td class="ps-4 text-muted"><?php echo e($fechaFmt); ?></td>
+                                    <td class="fw-semibold text-truncate" style="max-width: 200px;"><?php echo e((string)($row['cliente'] ?? '')); ?></td>
                                     <td><?php echo e((string)($row['documento'] ?? '')); ?></td>
-                                    <td><?php echo e((string)($row['producto'] ?? 'Sin producto asociado')); ?></td>
-                                    <td class="text-end"><?php echo number_format((float)($row['cantidad'] ?? 0), 2); ?></td>
-                                    <td class="text-end">S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 2); ?></td>
-                                    <td class="text-end text-success fw-semibold">S/ <?php echo number_format((float)($row['depositos_documento'] ?? 0), 2); ?></td>
-                                    <td class="text-end text-danger fw-bold">S/ <?php echo number_format((float)($row['saldo_documento'] ?? 0), 2); ?></td>
-                                    <td class="text-center pe-4"><span class="badge border <?php echo e($badge); ?>"><?php echo e($estado === '' ? 'PENDIENTE' : $estado); ?></span></td>
+                                    
+                                    <td>
+                                        <?php if($esCargo): ?>
+                                            <span class="text-dark fw-medium"><?php echo e((string)($row['producto'] ?? '')); ?></span> <br>
+                                            <small class="text-muted"><?php echo number_format((float)($row['cantidad'] ?? 0), 2); ?> x S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 2); ?></small>
+                                        <?php else: ?>
+                                            <span class="badge bg-success"><i class="bi bi-cash me-1"></i> Depósito / Pago</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    
+                                    <td class="text-end fw-bold pe-4">
+                                        <?php if($esCargo): ?>
+                                            <span class="text-danger">+ S/ <?php echo number_format((float)($row['monto_transaccion'] ?? 0), 2); ?></span>
+                                        <?php else: ?>
+                                            <span class="text-success">- S/ <?php echo number_format((float)($row['monto_transaccion'] ?? 0), 2); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -224,34 +217,3 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         </div>
     <?php endif; ?>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('estadoCuentaFiltrosForm');
-    if (!form) return;
-
-    const fields = form.querySelectorAll('input[name], select[name]');
-    let timer = null;
-    const autoSubmit = function () {
-        if (timer) window.clearTimeout(timer);
-        timer = window.setTimeout(function () {
-            form.submit();
-        }, 450);
-    };
-
-    fields.forEach(function (field) {
-        const isTextLike = field.matches('input[type="text"], input[type="search"]');
-        if (isTextLike) {
-            field.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    form.submit();
-                }
-            });
-            return;
-        }
-
-        field.addEventListener('change', autoSubmit);
-    });
-});
-</script>

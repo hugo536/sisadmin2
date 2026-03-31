@@ -108,7 +108,6 @@ class ReporteTesoreriaModel extends Modelo
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
 
-
     public function estadoCuentaClientes(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
@@ -171,6 +170,101 @@ class ReporteTesoreriaModel extends Modelo
             'resumen' => $this->resumenEstadoCuenta($f),
         ];
     }
+
+    // ==========================================
+    // NUEVO MÉTODO HISTORIAL (EL QUE FALTABA)
+    // ==========================================
+    public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        
+        // Obtenemos el WHERE original y los parámetros
+        [$where, $params] = $this->buildEstadoCuentaWhere($f);
+        
+        // Creamos la tabla temporal (CTE) llamada TargetCXC.
+        $cte = "
+            WITH TargetCXC AS (
+                SELECT c.*, t.nombre_completo AS cliente_nombre
+                FROM tesoreria_cxc c
+                INNER JOIN terceros t ON t.id = c.id_cliente
+                WHERE {$where}
+            )
+        ";
+
+        // Consulta principal que une Cargos (Productos) y Abonos (Depósitos)
+        $sql = $cte . "
+            SELECT 
+                'CARGO' AS tipo_transaccion,
+                DATE(COALESCE(v.fecha_emision, c.fecha_emision)) AS fecha_atencion,
+                c.cliente_nombre AS cliente,
+                COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
+                COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
+                CAST(COALESCE(d.cantidad, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST(COALESCE(d.precio_unitario, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS monto_transaccion,
+                c.estado
+            FROM TargetCXC c
+            LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+            LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
+            LEFT JOIN items i ON i.id = d.id_item
+
+            UNION ALL
+
+            SELECT 
+                'ABONO' AS tipo_transaccion,
+                DATE(m.fecha) AS fecha_atencion,
+                c.cliente_nombre AS cliente,
+                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
+                'Abono / Depósito del cliente' AS producto,
+                1.00 AS cantidad,
+                CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
+                c.estado
+            FROM tesoreria_movimientos m
+            INNER JOIN TargetCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
+            WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+            
+            ORDER BY fecha_atencion DESC, tipo_transaccion ASC
+            LIMIT :limite OFFSET :offset
+        ";
+
+        $countSql = $cte . "
+            SELECT SUM(conteos) FROM (
+                SELECT COUNT(*) AS conteos 
+                FROM TargetCXC c
+                LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = c.id_documento_venta AND d.deleted_at IS NULL
+                
+                UNION ALL
+                
+                SELECT COUNT(*) AS conteos 
+                FROM tesoreria_movimientos m
+                INNER JOIN TargetCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
+                WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+            ) AS total
+        ";
+
+        $countStmt = $this->db()->prepare($countSql);
+        foreach ($params as $k => $v) {
+            $countStmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $totalRows = (int) $countStmt->fetchColumn();
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $totalRows,
+            'resumen' => $this->resumenEstadoCuenta($f),
+        ];
+    }
+    // ==========================================
 
     public function estadoCuentaPorProducto(array $f, int $limite = 200): array
     {
@@ -270,9 +364,6 @@ class ReporteTesoreriaModel extends Modelo
         ];
     }
 
-    /**
-     * @return array{0:string,1:array<string,mixed>}
-     */
     private function buildEstadoCuentaWhere(array $f): array
     {
         $params = [
@@ -302,5 +393,4 @@ class ReporteTesoreriaModel extends Modelo
 
         return [implode(' AND ', $where), $params];
     }
-
 }
