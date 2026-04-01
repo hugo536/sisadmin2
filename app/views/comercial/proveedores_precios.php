@@ -99,11 +99,13 @@ $preciosMatriz = $precios_matriz ?? [];
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($preciosMatriz as $row): ?>
-                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
+                                            <tr data-id-detalle="<?php echo (int)$row['id']; ?>" data-id-item="<?php echo (int)$row['id_item']; ?>">
                                                 <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
                                                 <td class="fw-semibold text-dark"><?php echo e($row['producto_nombre']); ?></td>
-                                                <td class="text-secondary small fw-medium">
-                                                    <?php echo e($row['unidad_nombre'] ?? 'Unidad Base'); ?>
+                                                <td>
+                                                    <select class="form-select form-select-sm js-unidad-proveedor" data-original="<?php echo (int)($row['id_unidad_conversion'] ?? 0); ?>">
+                                                        <option value="">Unidad Base (x 1)</option>
+                                                    </select>
                                                 </td>
                                                 <td>
                                                     <div class="input-group input-group-sm" style="max-width: 140px;">

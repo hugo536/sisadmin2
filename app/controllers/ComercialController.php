@@ -255,13 +255,27 @@ class ComercialController extends Controlador {
         }
 
         $idDetalle = (int)($_POST['id_detalle'] ?? 0);
-        $precio = (float)($_POST['precio_recomendado'] ?? -1);
-        if ($idDetalle <= 0 || $precio < 0) {
+        $precio = isset($_POST['precio_recomendado']) ? (float)$_POST['precio_recomendado'] : null;
+        $idUnidad = array_key_exists('id_unidad', $_POST) && $_POST['id_unidad'] !== '' ? (int)$_POST['id_unidad'] : null;
+
+        if ($idDetalle <= 0 || ($precio === null && !array_key_exists('id_unidad', $_POST))) {
             json_response(['success' => false, 'message' => 'Datos inválidos'], 422);
             return;
         }
 
-        $ok = $this->listaPrecioModel->actualizarPrecioProveedor($idDetalle, $precio);
+        $ok = true;
+        if ($precio !== null) {
+            if ($precio < 0) {
+                json_response(['success' => false, 'message' => 'El precio no puede ser negativo'], 422);
+                return;
+            }
+            $ok = $this->listaPrecioModel->actualizarPrecioProveedor($idDetalle, $precio) && $ok;
+        }
+
+        if (array_key_exists('id_unidad', $_POST)) {
+            $ok = $this->listaPrecioModel->actualizarUnidadProveedor($idDetalle, $idUnidad) && $ok;
+        }
+
         json_response(['success' => $ok]);
     }
 
