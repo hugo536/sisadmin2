@@ -380,72 +380,66 @@ class TesoreriaMovimientoModel extends Modelo
                 (
                     SELECT u.tipo
                     FROM (
-                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        SELECT m.id_cuenta, m.fecha, m.created_at, m.id, m.tipo, m.monto
                         FROM tesoreria_movimientos m
-                        WHERE m.id_cuenta = c.id
-                          AND m.estado = "CONFIRMADO"
+                        WHERE m.estado = "CONFIRMADO"
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_destino = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_origen = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                     ) u
+                    WHERE u.id_cuenta = c.id
                     ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
                     LIMIT 1
                 ) AS ultimo_tipo,
                 (
                     SELECT u.monto
                     FROM (
-                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        SELECT m.id_cuenta, m.fecha, m.created_at, m.id, m.tipo, m.monto
                         FROM tesoreria_movimientos m
-                        WHERE m.id_cuenta = c.id
-                          AND m.estado = "CONFIRMADO"
+                        WHERE m.estado = "CONFIRMADO"
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_destino = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_origen = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                     ) u
+                    WHERE u.id_cuenta = c.id
                     ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
                     LIMIT 1
                 ) AS ultimo_monto,
                 (
                     SELECT u.fecha
                     FROM (
-                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        SELECT m.id_cuenta, m.fecha, m.created_at, m.id, m.tipo, m.monto
                         FROM tesoreria_movimientos m
-                        WHERE m.id_cuenta = c.id
-                          AND m.estado = "CONFIRMADO"
+                        WHERE m.estado = "CONFIRMADO"
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_destino = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
                         FROM tesoreria_transferencias t
-                        WHERE t.id_cuenta_origen = c.id
-                          AND t.estado = "CONFIRMADA"
+                        WHERE t.estado = "CONFIRMADA"
                           AND t.deleted_at IS NULL
                     ) u
+                    WHERE u.id_cuenta = c.id
                     ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
                     LIMIT 1
                 ) AS ultimo_fecha
