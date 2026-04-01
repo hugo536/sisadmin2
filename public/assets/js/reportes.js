@@ -55,12 +55,14 @@
     }
 
     // --- Lógica de Auto-Filtrado (Mejora la UX) ---
-    formEstadoCuenta.querySelectorAll('input, select').forEach(field => {
+    const filtrosAutoSubmit = formEstadoCuenta.querySelectorAll('[name="fecha_desde"], [name="fecha_hasta"], [name="vista"]');
+
+    filtrosAutoSubmit.forEach((field) => {
       const tipo = String(field.type || '').toLowerCase();
 
       field.addEventListener('change', () => autoSubmitEstadoCuenta());
 
-      if (tipo === 'date' || tipo === 'search' || tipo === 'text') {
+      if (tipo === 'date') {
         field.addEventListener('input', () => autoSubmitEstadoCuenta());
       }
     });
