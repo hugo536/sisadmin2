@@ -24,15 +24,8 @@
       };
     })();
 
-    if (filtroClienteEstadoCuenta && typeof TomSelect !== 'undefined' && !filtroClienteEstadoCuenta.tomselect) {
-      new TomSelect(filtroClienteEstadoCuenta, {
-        create: false,
-        allowEmptyOption: true,
-        plugins: ['clear_button'],
-        placeholder: 'Buscar por nombre...',
-        sortField: { field: 'text', direction: 'asc' },
-        onChange: () => autoSubmitEstadoCuenta()
-      });
+    if (filtroClienteEstadoCuenta) {
+      filtroClienteEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
     }
     
     // --- Lógica del botón Exportar PDF ---

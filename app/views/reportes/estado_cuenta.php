@@ -41,7 +41,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                 
                 <div class="col-12 col-md-4">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
-                    <select name="cliente" id="filtroClienteEstadoCuenta" class="form-select bg-light" placeholder="Buscar por nombre...">
+                    <select name="cliente" id="filtroClienteEstadoCuenta" class="form-select bg-light">
                         <option value="">Todos</option>
                         <?php foreach ($clientesEstadoCuenta as $clienteNombre): ?>
                             <option value="<?php echo e($clienteNombre); ?>" <?php echo (string)($filtros['cliente'] ?? '') === $clienteNombre ? 'selected' : ''; ?>>
