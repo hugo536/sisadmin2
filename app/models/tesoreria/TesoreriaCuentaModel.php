@@ -284,8 +284,11 @@ class TesoreriaCuentaModel extends Modelo
         $totalMov = (int) $stmtMov->fetchColumn();
 
         // --- NUEVO: Validar que no tenga transferencias tampoco ---
-        $stmtTrf = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_transferencias WHERE (id_cuenta_origen = :id OR id_cuenta_destino = :id) AND deleted_at IS NULL');
-        $stmtTrf->execute(['id' => $id]);
+        $stmtTrf = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_transferencias WHERE (id_cuenta_origen = :id_origen OR id_cuenta_destino = :id_destino) AND deleted_at IS NULL');
+        $stmtTrf->execute([
+            'id_origen' => $id,
+            'id_destino' => $id,
+        ]);
         $totalTrf = (int) $stmtTrf->fetchColumn();
 
         if ($totalMov > 0 || $totalTrf > 0) {
