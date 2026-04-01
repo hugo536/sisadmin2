@@ -334,9 +334,19 @@ class ReporteTesoreriaModel extends Modelo
             'c.deleted_at IS NULL',
             'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
         ];
+        
+        // --- NUEVO: Construcción de WHERE para Saldo Anterior (< fd) ---
+        $whereAnterior = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) < :fd_anterior',
+        ];
+        $params['fd_anterior'] = $f['fecha_desde'];
+        // ---------------------------------------------------------------
 
         if (!empty($f['cliente'])) {
-            $whereBase[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $condicionCliente = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $whereBase[] = $condicionCliente;
+            $whereAnterior[] = $condicionCliente;
             $params['cliente'] = '%' . (string) $f['cliente'] . '%';
         }
 
@@ -358,6 +368,9 @@ class ReporteTesoreriaModel extends Modelo
         }
 
         $where = implode(' AND ', $whereBase);
+        $whereAnt = implode(' AND ', $whereAnterior);
+
+        // 1. OBTENEMOS EL RESUMEN DEL PERIODO ACTUAL
         $sql = "SELECT
                     CAST(ROUND(SUM(c.monto_total), 2) AS DECIMAL(14,2)) AS total_facturado,
                     CAST(ROUND(SUM(c.monto_pagado), 2) AS DECIMAL(14,2)) AS total_pagado,
@@ -369,16 +382,42 @@ class ReporteTesoreriaModel extends Modelo
 
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
-            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            // Pasamos los parámetros normales para la consulta principal
+            if ($k !== 'fd_anterior') {
+                $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
         }
         $stmt->execute();
-
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+        $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
             'total_facturado' => 0,
             'total_pagado' => 0,
             'total_saldo' => 0,
             'total_documentos' => 0,
         ];
+
+        // 2. OBTENEMOS EL SALDO ANTERIOR A LA FECHA 'DESDE'
+        $sqlAnterior = "
+            SELECT 
+                (COALESCE(SUM(c.monto_total), 0) - COALESCE(SUM(c.monto_pagado), 0)) AS saldo_anterior
+            FROM tesoreria_cxc c
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            WHERE {$whereAnt}
+        ";
+        
+        $stmtAnt = $this->db()->prepare($sqlAnterior);
+        foreach ($params as $k => $v) {
+            // Pasamos solo los parámetros necesarios para el saldo anterior (fd_anterior, y cliente si existe)
+            if (in_array($k, ['fd_anterior', 'cliente'])) {
+                $stmtAnt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+        }
+        $stmtAnt->execute();
+        $saldoAnt = (float) $stmtAnt->fetchColumn();
+
+        // Agregamos el Saldo Anterior al arreglo que retorna
+        $resumen['saldo_anterior'] = $saldoAnt;
+
+        return $resumen;
     }
 
     private function buildEstadoCuentaWhere(array $f): array
