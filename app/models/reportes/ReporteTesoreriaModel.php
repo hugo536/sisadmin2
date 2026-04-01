@@ -182,6 +182,7 @@ class ReporteTesoreriaModel extends Modelo
         $offset = ($pagina - 1) * $tamano;
         $cantidadExpr = $this->cantidadVentasDetalleExpr('d', '1');
         $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
+        $precioExprZero = $this->precioUnitarioVentasDetalleExpr('d', '0');
         
         // Obtenemos el WHERE original y los parámetros
         [$where, $params] = $this->buildEstadoCuentaWhere($f);
@@ -205,11 +206,11 @@ class ReporteTesoreriaModel extends Modelo
                 COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
                 COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
                 CAST({$cantidadExpr} AS DECIMAL(14,2)) AS cantidad,
-                CAST(COALESCE(d.costo_unitario_pactado, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(COALESCE({$precioExprZero}, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(
                     CASE
                         WHEN d.id IS NULL THEN c.monto_total
-                        ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
+                        ELSE ({$cantidadExprZero} * {$precioExprZero})
                     END
                 AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
@@ -280,6 +281,7 @@ class ReporteTesoreriaModel extends Modelo
     {
         [$where, $params] = $this->buildEstadoCuentaWhere($f);
         $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
+        $precioExprZero = $this->precioUnitarioVentasDetalleExpr('d', '0');
 
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
@@ -287,13 +289,13 @@ class ReporteTesoreriaModel extends Modelo
                     CAST(ROUND(SUM(
                         CASE
                             WHEN d.id IS NULL THEN c.monto_total
-                            ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
+                            ELSE ({$cantidadExprZero} * {$precioExprZero})
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_facturado,
                     CAST(ROUND(SUM(
                         CASE
                             WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (
-                                ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
+                                ({$cantidadExprZero} * {$precioExprZero}) / dt.total_subtotal
                             )
                             ELSE c.saldo
                         END
@@ -499,6 +501,25 @@ class ReporteTesoreriaModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    }
+
+
+    private function precioUnitarioVentasDetalleExpr(string $alias, string $default = '0'): string
+    {
+        $hasPrecioUnitario = $this->tableColumnExists('ventas_documentos_detalle', 'precio_unitario');
+        $hasCostoPactado = $this->tableColumnExists('ventas_documentos_detalle', 'costo_unitario_pactado');
+
+        if ($hasPrecioUnitario && $hasCostoPactado) {
+            return "COALESCE({$alias}.precio_unitario, {$alias}.costo_unitario_pactado, {$default})";
+        }
+        if ($hasPrecioUnitario) {
+            return "COALESCE({$alias}.precio_unitario, {$default})";
+        }
+        if ($hasCostoPactado) {
+            return "COALESCE({$alias}.costo_unitario_pactado, {$default})";
+        }
+
+        return $default;
     }
 
     private function cantidadVentasDetalleExpr(string $alias, string $default = '0'): string
