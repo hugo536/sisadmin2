@@ -22,9 +22,6 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </h1>
             <p class="text-muted small mb-0 ms-1">Historial cronológico de cargos y abonos por cliente.</p>
         </div>
-        <button type="button" class="btn btn-danger shadow-sm fw-semibold" id="btnExportarPdf">
-            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Exportar PDF
-        </button>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
@@ -63,8 +60,8 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                 </div>
                 
                 <div class="col-12 col-md-2">
-                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
-                        <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                    <button type="button" class="btn btn-danger w-100 shadow-sm fw-semibold" id="btnExportarPdf">
+                        <i class="bi bi-file-earmark-pdf-fill me-2"></i>Exportar PDF
                     </button>
                 </div>
             </form>

@@ -16,6 +16,13 @@
   const formEstadoCuenta = document.getElementById('estadoCuentaFiltrosForm');
   if (formEstadoCuenta) {
     const filtroClienteEstadoCuenta = document.getElementById('filtroClienteEstadoCuenta');
+    const autoSubmitEstadoCuenta = (() => {
+      let timer = null;
+      return (delay = 350) => {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => formEstadoCuenta.requestSubmit(), delay);
+      };
+    })();
 
     if (filtroClienteEstadoCuenta && typeof TomSelect !== 'undefined' && !filtroClienteEstadoCuenta.tomselect) {
       new TomSelect(filtroClienteEstadoCuenta, {
@@ -23,7 +30,8 @@
         allowEmptyOption: true,
         plugins: ['clear_button'],
         placeholder: 'Buscar por nombre...',
-        sortField: { field: 'text', direction: 'asc' }
+        sortField: { field: 'text', direction: 'asc' },
+        onChange: () => autoSubmitEstadoCuenta()
       });
     }
     
@@ -47,22 +55,13 @@
     }
 
     // --- Lógica de Auto-Filtrado (Mejora la UX) ---
-    let timer = null;
     formEstadoCuenta.querySelectorAll('input, select').forEach(field => {
-      // Para cajas de texto/búsqueda, filtramos al presionar Enter
-      if (field.type === 'search' || field.type === 'text') {
-        field.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            formEstadoCuenta.submit();
-          }
-        });
-      } else {
-        // Para fechas y selects, filtramos automáticamente al cambiar con un ligero retraso
-        field.addEventListener('change', () => {
-          if (timer) window.clearTimeout(timer);
-          timer = window.setTimeout(() => formEstadoCuenta.submit(), 450);
-        });
+      const tipo = String(field.type || '').toLowerCase();
+
+      field.addEventListener('change', () => autoSubmitEstadoCuenta());
+
+      if (tipo === 'date' || tipo === 'search' || tipo === 'text') {
+        field.addEventListener('input', () => autoSubmitEstadoCuenta());
       }
     });
   }
