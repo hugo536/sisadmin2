@@ -323,6 +323,150 @@ class ReporteTesoreriaModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     }
 
+    public function historialEstadoCuentaProveedores(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        [$where, $params] = $this->buildEstadoCuentaProveedoresWhere($f);
+
+        $cte = "
+            WITH TargetCXP AS (
+                SELECT c.*, t.nombre_completo AS proveedor_nombre
+                FROM tesoreria_cxp c
+                INNER JOIN terceros t ON t.id = c.id_proveedor
+                WHERE {$where}
+            )
+        ";
+
+        $sql = $cte . "
+            SELECT
+                'CARGO' AS tipo_transaccion,
+                DATE(COALESCE(co.fecha_emision, c.fecha_emision)) AS fecha_atencion,
+                c.proveedor_nombre AS proveedor,
+                COALESCE(NULLIF(TRIM(co.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXP-', c.id)) AS documento,
+                COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
+                CAST(COALESCE(d.cantidad, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST(COALESCE(d.precio_unitario, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS monto_transaccion,
+                c.estado
+            FROM TargetCXP c
+            LEFT JOIN compras_ordenes co ON co.id = c.id_documento_compra AND co.deleted_at IS NULL
+            LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
+            LEFT JOIN items i ON i.id = d.id_item
+
+            UNION ALL
+
+            SELECT
+                'ABONO' AS tipo_transaccion,
+                DATE(m.fecha) AS fecha_atencion,
+                c.proveedor_nombre AS proveedor,
+                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
+                'Pago / Abono al proveedor' AS producto,
+                1.00 AS cantidad,
+                CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
+                c.estado
+            FROM tesoreria_movimientos m
+            INNER JOIN TargetCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
+            WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+
+            ORDER BY fecha_atencion DESC, tipo_transaccion ASC
+            LIMIT :limite OFFSET :offset
+        ";
+
+        $countSql = $cte . "
+            SELECT SUM(conteos) FROM (
+                SELECT COUNT(*) AS conteos
+                FROM TargetCXP c
+                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = c.id_documento_compra AND d.deleted_at IS NULL
+
+                UNION ALL
+
+                SELECT COUNT(*) AS conteos
+                FROM tesoreria_movimientos m
+                INNER JOIN TargetCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
+                WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+            ) AS total
+        ";
+
+        $countStmt = $this->db()->prepare($countSql);
+        foreach ($params as $k => $v) {
+            $countStmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $totalRows = (int) $countStmt->fetchColumn();
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $totalRows,
+            'resumen' => $this->resumenEstadoCuentaProveedores($f),
+        ];
+    }
+
+    public function estadoCuentaProveedoresPorProducto(array $f, int $limite = 200): array
+    {
+        [$where, $params] = $this->buildEstadoCuentaProveedoresWhere($f);
+
+        $sql = "SELECT
+                    COALESCE(i.nombre, 'Sin producto asociado') AS producto,
+                    CAST(ROUND(SUM(COALESCE(d.cantidad, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
+                    CAST(ROUND(SUM(COALESCE(d.total_linea, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(
+                        CASE
+                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.total_linea, 0) / dt.total_subtotal)
+                            ELSE c.saldo
+                        END
+                    ), 2) AS DECIMAL(14,2)) AS total_saldo
+                FROM tesoreria_cxp c
+                INNER JOIN terceros t ON t.id = c.id_proveedor
+                LEFT JOIN compras_ordenes co ON co.id = c.id_documento_compra AND co.deleted_at IS NULL
+                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
+                LEFT JOIN (
+                    SELECT dd.id_orden, SUM(COALESCE(dd.total_linea, 0)) AS total_subtotal
+                    FROM compras_ordenes_detalle dd
+                    WHERE dd.deleted_at IS NULL
+                    GROUP BY dd.id_orden
+                ) dt ON dt.id_orden = co.id
+                LEFT JOIN items i ON i.id = d.id_item
+                WHERE {$where}
+                GROUP BY i.id, i.nombre
+                ORDER BY total_saldo DESC
+                LIMIT :limite";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarProveedoresEstadoCuenta(int $limite = 1000): array
+    {
+        $sql = "SELECT DISTINCT
+                    COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Proveedor #', c.id_proveedor)) AS proveedor
+                FROM tesoreria_cxp c
+                INNER JOIN terceros t ON t.id = c.id_proveedor
+                WHERE c.deleted_at IS NULL
+                ORDER BY proveedor ASC
+                LIMIT :limite";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':limite', max(1, $limite), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    }
+
     private function resumenEstadoCuenta(array $f): array
     {
         $params = [
@@ -444,6 +588,133 @@ class ReporteTesoreriaModel extends Modelo
 
         if (!empty($f['producto'])) {
             $where[] = "COALESCE(NULLIF(TRIM(i.nombre), ''), '') LIKE :producto";
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
+        }
+
+        return [implode(' AND ', $where), $params];
+    }
+
+    private function resumenEstadoCuentaProveedores(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta'],
+        ];
+
+        $whereBase = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+        ];
+
+        $whereAnterior = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) < :fd_anterior',
+        ];
+        $params['fd_anterior'] = $f['fecha_desde'];
+
+        if (!empty($f['proveedor'])) {
+            $condicionProveedor = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :proveedor";
+            $whereBase[] = $condicionProveedor;
+            $whereAnterior[] = $condicionProveedor;
+            $params['proveedor'] = '%' . (string) $f['proveedor'] . '%';
+        }
+
+        if (!empty($f['estado'])) {
+            $whereBase[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+
+        if (!empty($f['producto'])) {
+            $whereBase[] = 'EXISTS (
+                SELECT 1
+                FROM compras_ordenes_detalle d2
+                INNER JOIN items i2 ON i2.id = d2.id_item
+                WHERE d2.id_orden = c.id_documento_compra
+                  AND d2.deleted_at IS NULL
+                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
+            )';
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
+        }
+
+        $where = implode(' AND ', $whereBase);
+        $whereAnt = implode(' AND ', $whereAnterior);
+
+        $sql = "SELECT
+                    CAST(ROUND(SUM(c.monto_total), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(c.monto_pagado), 2) AS DECIMAL(14,2)) AS total_pagado,
+                    CAST(ROUND(SUM(c.saldo), 2) AS DECIMAL(14,2)) AS total_saldo,
+                    COUNT(*) AS total_documentos
+                FROM tesoreria_cxp c
+                INNER JOIN terceros t ON t.id = c.id_proveedor
+                WHERE {$where}";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            if ($k !== 'fd_anterior') {
+                $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+        }
+        $stmt->execute();
+        $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_facturado' => 0,
+            'total_pagado' => 0,
+            'total_saldo' => 0,
+            'total_documentos' => 0,
+        ];
+
+        $sqlAnterior = "
+            SELECT
+                (COALESCE(SUM(c.monto_total), 0) - COALESCE(SUM(c.monto_pagado), 0)) AS saldo_anterior
+            FROM tesoreria_cxp c
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            WHERE {$whereAnt}
+        ";
+
+        $stmtAnt = $this->db()->prepare($sqlAnterior);
+        foreach ($params as $k => $v) {
+            if (in_array($k, ['fd_anterior', 'proveedor'], true)) {
+                $stmtAnt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+        }
+        $stmtAnt->execute();
+        $saldoAnt = (float) $stmtAnt->fetchColumn();
+
+        $resumen['saldo_anterior'] = $saldoAnt;
+
+        return $resumen;
+    }
+
+    private function buildEstadoCuentaProveedoresWhere(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta'],
+        ];
+
+        $where = [
+            'c.deleted_at IS NULL',
+            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+        ];
+
+        if (!empty($f['proveedor'])) {
+            $where[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :proveedor";
+            $params['proveedor'] = '%' . (string) $f['proveedor'] . '%';
+        }
+
+        if (!empty($f['estado'])) {
+            $where[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+
+        if (!empty($f['producto'])) {
+            $where[] = "EXISTS (
+                SELECT 1
+                FROM compras_ordenes_detalle d2
+                INNER JOIN items i2 ON i2.id = d2.id_item
+                WHERE d2.id_orden = c.id_documento_compra
+                  AND d2.deleted_at IS NULL
+                  AND COALESCE(NULLIF(TRIM(i2.nombre), ''), '') LIKE :producto
+            )";
             $params['producto'] = '%' . (string) $f['producto'] . '%';
         }
 

@@ -296,6 +296,66 @@ class ReportesController extends Controlador
         ]);
     }
 
+    public function estado_cuenta_proveedores(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.tesoreria.ver');
+        $this->registrarAuditoria('estado_cuenta_proveedores');
+
+        [$pagina, $tamano] = $this->paginacion();
+        $f = $this->filtrosPeriodo();
+        $f['proveedor'] = trim((string) ($_GET['proveedor'] ?? ''));
+        $f['producto'] = trim((string) ($_GET['producto'] ?? ''));
+        $f['estado'] = strtoupper(trim((string) ($_GET['estado'] ?? '')));
+        $f['vista'] = trim((string) ($_GET['vista'] ?? 'DETALLE'));
+
+        if (!in_array($f['estado'], ['', 'PENDIENTE', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'], true)) {
+            $f['estado'] = '';
+        }
+        if (!in_array($f['vista'], ['DETALLE', 'PRODUCTO'], true)) {
+            $f['vista'] = 'DETALLE';
+        }
+
+        $accion = $_GET['accion'] ?? '';
+        if ($accion === 'imprimir_estado_cuenta_proveedores') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            $empresaModel = new EmpresaModel();
+            $config = $empresaModel->obtener();
+
+            $detalle = $this->tesoreria->historialEstadoCuentaProveedores($f, 1, 999999);
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta_proveedores.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('Estado_Cuenta_Proveedores.pdf', ['Attachment' => false]);
+            return;
+        }
+
+        $detalle = $this->tesoreria->historialEstadoCuentaProveedores($f, $pagina, $tamano);
+        $porProducto = $this->tesoreria->estadoCuentaProveedoresPorProducto($f, 200);
+
+        $this->render('reportes/estado_cuenta_proveedores', [
+            'ruta_actual' => 'reportes/estado_cuenta_proveedores',
+            'filtros' => $f,
+            'detalle' => $detalle,
+            'porProducto' => $porProducto,
+            'proveedoresEstadoCuenta' => $this->tesoreria->listarProveedoresEstadoCuenta(),
+            'pagina' => $pagina,
+            'tamano' => $tamano,
+        ]);
+    }
+
     private function filtrosPeriodo(): array
     {
         $fechaDesde = trim((string) ($_GET['fecha_desde'] ?? ''));

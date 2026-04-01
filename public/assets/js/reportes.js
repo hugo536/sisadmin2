@@ -12,10 +12,14 @@
     });
   });
 
-  // 2. LÓGICA ESPECÍFICA PARA EL ESTADO DE CUENTA
-  const formEstadoCuenta = document.getElementById('estadoCuentaFiltrosForm');
-  if (formEstadoCuenta) {
-    const filtroClienteEstadoCuenta = document.getElementById('filtroClienteEstadoCuenta');
+  // 2. LÓGICA ESPECÍFICA PARA ESTADOS DE CUENTA (CLIENTES / PROVEEDORES)
+  const initEstadoCuenta = ({ formId, terceroSelectId, btnPdfId, pdfAction }) => {
+    const formEstadoCuenta = document.getElementById(formId);
+    if (!formEstadoCuenta) {
+      return;
+    }
+
+    const filtroTerceroEstadoCuenta = document.getElementById(terceroSelectId);
     const submitEstadoCuentaFiltros = () => {
       const params = new URLSearchParams(new FormData(formEstadoCuenta));
       const baseUrl = formEstadoCuenta.action.split('?')[0];
@@ -42,19 +46,19 @@
       submitEstadoCuentaFiltros();
     });
 
-    if (filtroClienteEstadoCuenta) {
-      filtroClienteEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
+    if (filtroTerceroEstadoCuenta) {
+      filtroTerceroEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
     }
     
     // --- Lógica del botón Exportar PDF ---
-    const btnExportarPdf = document.getElementById('btnExportarPdf');
+    const btnExportarPdf = document.getElementById(btnPdfId);
     if (btnExportarPdf) {
       btnExportarPdf.addEventListener('click', () => {
-        // Recolectamos todos los filtros seleccionados (fechas, cliente, etc.)
+        // Recolectamos todos los filtros seleccionados (fechas, tercero, etc.)
         const params = new URLSearchParams(new FormData(formEstadoCuenta));
         
         // Agregamos el parámetro que le dirá a tu PHP que genere el PDF
-        params.set('accion', 'imprimir_estado_cuenta'); 
+        params.set('accion', pdfAction);
         
         // Construimos la URL limpia
         const baseUrl = formEstadoCuenta.action.split('?')[0]; 
@@ -77,6 +81,20 @@
         field.addEventListener('input', () => autoSubmitEstadoCuenta());
       }
     });
-  }
+  };
+
+  initEstadoCuenta({
+    formId: 'estadoCuentaFiltrosForm',
+    terceroSelectId: 'filtroClienteEstadoCuenta',
+    btnPdfId: 'btnExportarPdf',
+    pdfAction: 'imprimir_estado_cuenta'
+  });
+
+  initEstadoCuenta({
+    formId: 'estadoCuentaProveedoresFiltrosForm',
+    terceroSelectId: 'filtroProveedorEstadoCuenta',
+    btnPdfId: 'btnExportarPdfProveedores',
+    pdfAction: 'imprimir_estado_cuenta_proveedores'
+  });
 
 })();
