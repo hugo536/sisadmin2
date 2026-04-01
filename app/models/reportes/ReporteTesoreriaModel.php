@@ -306,6 +306,23 @@ class ReporteTesoreriaModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function listarClientesEstadoCuenta(int $limite = 1000): array
+    {
+        $sql = "SELECT DISTINCT
+                    COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Cliente #', c.id_cliente)) AS cliente
+                FROM tesoreria_cxc c
+                INNER JOIN terceros t ON t.id = c.id_cliente
+                WHERE c.deleted_at IS NULL
+                ORDER BY cliente ASC
+                LIMIT :limite";
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':limite', max(1, $limite), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    }
+
     private function resumenEstadoCuenta(array $f): array
     {
         $params = [

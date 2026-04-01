@@ -2,6 +2,10 @@
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $detalle = is_array($detalle ?? null) ? $detalle : ['rows' => [], 'total' => 0, 'resumen' => []];
 $porProducto = is_array($porProducto ?? null) ? $porProducto : [];
+$clientesEstadoCuenta = array_values(array_filter(array_map(
+    static fn($item): string => trim((string)$item),
+    is_array($clientesEstadoCuenta ?? null) ? $clientesEstadoCuenta : []
+), static fn(string $nombre): bool => $nombre !== ''));
 $resumen = is_array($detalle['resumen'] ?? null) ? $detalle['resumen'] : [];
 $vista = (string) ($filtros['vista'] ?? 'DETALLE');
 $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($filtros['fecha_hasta'] ?? '') !== ''
@@ -40,10 +44,14 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                 
                 <div class="col-12 col-md-4">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" name="cliente" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar por nombre..." value="<?php echo e((string)($filtros['cliente'] ?? '')); ?>">
-                    </div>
+                    <select name="cliente" id="filtroClienteEstadoCuenta" class="form-select bg-light" placeholder="Buscar por nombre...">
+                        <option value="">Todos</option>
+                        <?php foreach ($clientesEstadoCuenta as $clienteNombre): ?>
+                            <option value="<?php echo e($clienteNombre); ?>" <?php echo (string)($filtros['cliente'] ?? '') === $clienteNombre ? 'selected' : ''; ?>>
+                                <?php echo e($clienteNombre); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 
                 <div class="col-12 col-md-2">
