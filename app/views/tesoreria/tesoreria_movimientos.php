@@ -90,8 +90,8 @@ if (!empty($_GET['error'])) {
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4">
             <h6 class="fw-bold text-dark mb-0">
-                <i class="bi bi-bank me-2 text-primary"></i>Resumen rápido Caja/Banco 
-                <span class="text-muted fw-normal small ms-2">(Saldo teórico del día)</span>
+                <i class="bi bi-bank me-2 text-primary"></i>Resumen rápido Caja/Banco
+                <span class="text-muted fw-normal small ms-2">(Saldo actual + último movimiento)</span>
             </h6>
         </div>
         <div class="card-body p-0">
@@ -101,24 +101,35 @@ if (!empty($_GET['error'])) {
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Cuenta</th>
                             <th class="text-center text-secondary fw-semibold">Moneda</th>
-                            <th class="text-end text-success fw-semibold">Ingresos</th>
-                            <th class="text-end text-danger fw-semibold">Egresos</th>
-                            <th class="text-end pe-4 text-primary fw-bold">Saldo Teórico</th>
+                            <th class="text-end text-success fw-semibold">Últ. Ingreso</th>
+                            <th class="text-end text-danger fw-semibold">Últ. Egreso</th>
+                            <th class="text-end text-primary fw-bold">Fecha Últ. Mov.</th>
+                            <th class="text-end pe-4 text-primary fw-bold">Saldo Actual</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($resumenCuentas)): ?>
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">No hay saldos registrados.</td>
+                                <td colspan="6" class="text-center text-muted py-4">No hay saldos registrados.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($resumenCuentas as $r): ?>
+                                <?php
+                                    $ultimoTipo = strtoupper((string) ($r['ultimo_tipo'] ?? ''));
+                                    $ultimoMonto = (float) ($r['ultimo_monto'] ?? 0);
+                                    $ultimoFecha = (string) ($r['ultimo_fecha'] ?? '');
+                                ?>
                                 <tr class="border-bottom">
                                     <td class="ps-4 fw-medium text-dark"><?php echo e((string) ($r['codigo'] ?? '') . ' - ' . (string) ($r['nombre'] ?? '')); ?></td>
                                     <td class="text-center text-muted"><?php echo e((string) ($r['moneda'] ?? '')); ?></td>
-                                    <td class="text-end text-success">+ <?php echo number_format((float) ($r['ingresos'] ?? 0), 2); ?></td>
-                                    <td class="text-end text-danger">- <?php echo number_format((float) ($r['egresos'] ?? 0), 2); ?></td>
-                                    <td class="text-end pe-4 fw-bold fs-6"><?php echo number_format((float) ($r['saldo_teorico'] ?? 0), 2); ?></td>
+                                    <td class="text-end text-success">
+                                        <?php echo $ultimoTipo === 'COBRO' ? '+ ' . number_format($ultimoMonto, 2) : '—'; ?>
+                                    </td>
+                                    <td class="text-end text-danger">
+                                        <?php echo $ultimoTipo === 'PAGO' ? '- ' . number_format($ultimoMonto, 2) : '—'; ?>
+                                    </td>
+                                    <td class="text-end text-muted small"><?php echo e($ultimoFecha !== '' ? $ultimoFecha : '—'); ?></td>
+                                    <td class="text-end pe-4 fw-bold fs-6"><?php echo number_format((float) ($r['saldo_actual'] ?? 0), 2); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

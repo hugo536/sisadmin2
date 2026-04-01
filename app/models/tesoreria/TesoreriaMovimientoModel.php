@@ -367,26 +367,88 @@ class TesoreriaMovimientoModel extends Modelo
     {
         $sql = 'SELECT c.id, c.codigo, c.nombre, c.moneda,
                 (
-                    -- Ingresos = COBROS normales + TRANSFERENCIAS ENTRANTES
-                    COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "COBRO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
-                    COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_destino = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
-                ) AS ingresos,
+                    COALESCE(c.saldo_inicial, 0)
+                    + COALESCE((SELECT SUM(CASE WHEN m.tipo = "COBRO" THEN m.monto WHEN m.tipo = "PAGO" THEN -m.monto ELSE 0 END)
+                                FROM tesoreria_movimientos m
+                                WHERE m.id_cuenta = c.id AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL), 0)
+                    + COALESCE((SELECT SUM(CASE WHEN t.id_cuenta_destino = c.id THEN t.monto WHEN t.id_cuenta_origen = c.id THEN -t.monto ELSE 0 END)
+                                FROM tesoreria_transferencias t
+                                WHERE (t.id_cuenta_origen = c.id OR t.id_cuenta_destino = c.id)
+                                  AND t.estado = "CONFIRMADA"
+                                  AND t.deleted_at IS NULL), 0)
+                ) AS saldo_actual,
                 (
-                    -- Egresos = PAGOS normales + TRANSFERENCIAS SALIENTES
-                    COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "PAGO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
-                    COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_origen = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
-                ) AS egresos,
+                    SELECT u.tipo
+                    FROM (
+                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        FROM tesoreria_movimientos m
+                        WHERE m.id_cuenta = c.id
+                          AND m.estado = "CONFIRMADO"
+                          AND m.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_destino = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_origen = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                    ) u
+                    ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
+                    LIMIT 1
+                ) AS ultimo_tipo,
                 (
-                    -- Saldo = Ingresos - Egresos
-                    (
-                        COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "COBRO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
-                        COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_destino = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
-                    ) - 
-                    (
-                        COALESCE((SELECT SUM(m.monto) FROM tesoreria_movimientos m WHERE m.id_cuenta = c.id AND m.tipo = "PAGO" AND m.estado = "CONFIRMADO" AND m.deleted_at IS NULL AND DATE(m.fecha) = CURDATE()), 0) +
-                        COALESCE((SELECT SUM(t.monto) FROM tesoreria_transferencias t WHERE t.id_cuenta_origen = c.id AND t.estado = "CONFIRMADA" AND t.deleted_at IS NULL AND DATE(t.fecha) = CURDATE()), 0)
-                    )
-                ) AS saldo_teorico
+                    SELECT u.monto
+                    FROM (
+                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        FROM tesoreria_movimientos m
+                        WHERE m.id_cuenta = c.id
+                          AND m.estado = "CONFIRMADO"
+                          AND m.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_destino = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_origen = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                    ) u
+                    ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
+                    LIMIT 1
+                ) AS ultimo_monto,
+                (
+                    SELECT u.fecha
+                    FROM (
+                        SELECT m.fecha, m.created_at, m.id, m.tipo, m.monto
+                        FROM tesoreria_movimientos m
+                        WHERE m.id_cuenta = c.id
+                          AND m.estado = "CONFIRMADO"
+                          AND m.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "COBRO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_destino = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                        UNION ALL
+                        SELECT t.fecha, t.created_at, t.id, "PAGO" AS tipo, t.monto
+                        FROM tesoreria_transferencias t
+                        WHERE t.id_cuenta_origen = c.id
+                          AND t.estado = "CONFIRMADA"
+                          AND t.deleted_at IS NULL
+                    ) u
+                    ORDER BY u.fecha DESC, u.created_at DESC, u.id DESC
+                    LIMIT 1
+                ) AS ultimo_fecha
                 FROM tesoreria_cuentas c
                 WHERE c.deleted_at IS NULL AND c.estado = 1
                 ORDER BY c.nombre ASC';
