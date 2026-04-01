@@ -15,6 +15,17 @@
   // 2. LÓGICA ESPECÍFICA PARA EL ESTADO DE CUENTA
   const formEstadoCuenta = document.getElementById('estadoCuentaFiltrosForm');
   if (formEstadoCuenta) {
+    const filtroClienteEstadoCuenta = document.getElementById('filtroClienteEstadoCuenta');
+
+    if (filtroClienteEstadoCuenta && typeof TomSelect !== 'undefined' && !filtroClienteEstadoCuenta.tomselect) {
+      new TomSelect(filtroClienteEstadoCuenta, {
+        create: false,
+        allowEmptyOption: true,
+        plugins: ['clear_button'],
+        placeholder: 'Buscar por nombre...',
+        sortField: { field: 'text', direction: 'asc' }
+      });
+    }
     
     // --- Lógica del botón Exportar PDF ---
     const btnExportarPdf = document.getElementById('btnExportarPdf');

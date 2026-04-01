@@ -290,6 +290,7 @@ class ReportesController extends Controlador
             'filtros' => $f,
             'detalle' => $detalle,
             'porProducto' => $porProducto,
+            'clientesEstadoCuenta' => $this->tesoreria->listarClientesEstadoCuenta(),
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
