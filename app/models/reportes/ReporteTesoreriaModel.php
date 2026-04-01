@@ -530,6 +530,11 @@ class ReporteTesoreriaModel extends Modelo
         }
 
         return $default;
+        if ($this->tableColumnExists('ventas_documentos_detalle', 'cantidad_conversion')) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+
+        return "COALESCE({$alias}.cantidad_solicitada, {$default})";
     }
 
     private function cantidadComprasDetalleExpr(string $alias, string $default = '0'): string
@@ -561,6 +566,11 @@ class ReporteTesoreriaModel extends Modelo
         }
 
         return $default;
+        if ($this->tableColumnExists('compras_ordenes_detalle', 'cantidad_conversion')) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+
+        return "COALESCE({$alias}.cantidad_solicitada, {$default})";
     }
 
     private function tableColumnExists(string $table, string $column): bool
