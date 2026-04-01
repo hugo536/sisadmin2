@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 class ReporteTesoreriaModel extends Modelo
 {
+    /** @var array<string,bool> */
+    private array $columnExistsCache = [];
+
     public function contarCxcVencida(): int
     {
         return (int) $this->db()->query("SELECT COUNT(*) FROM tesoreria_cxc WHERE deleted_at IS NULL AND saldo > 0 AND fecha_vencimiento < CURDATE()")->fetchColumn();
@@ -177,6 +180,8 @@ class ReporteTesoreriaModel extends Modelo
     public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
+        $cantidadExpr = $this->cantidadVentasDetalleExpr('d', '1');
+        $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
         
         // Obtenemos el WHERE original y los parámetros
         [$where, $params] = $this->buildEstadoCuentaWhere($f);
@@ -199,12 +204,12 @@ class ReporteTesoreriaModel extends Modelo
                 c.cliente_nombre AS cliente,
                 COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
                 COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
-                CAST(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST({$cantidadExpr} AS DECIMAL(14,2)) AS cantidad,
                 CAST(COALESCE(d.costo_unitario_pactado, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(
                     CASE
                         WHEN d.id IS NULL THEN c.monto_total
-                        ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                        ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
                     END
                 AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
@@ -274,20 +279,21 @@ class ReporteTesoreriaModel extends Modelo
     public function estadoCuentaPorProducto(array $f, int $limite = 200): array
     {
         [$where, $params] = $this->buildEstadoCuentaWhere($f);
+        $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
 
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
-                    CAST(ROUND(SUM(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
+                    CAST(ROUND(SUM({$cantidadExprZero}), 2) AS DECIMAL(14,2)) AS total_cantidad,
                     CAST(ROUND(SUM(
                         CASE
                             WHEN d.id IS NULL THEN c.monto_total
-                            ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                            ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_facturado,
                     CAST(ROUND(SUM(
                         CASE
                             WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (
-                                (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
+                                ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
                             )
                             ELSE c.saldo
                         END
@@ -338,6 +344,8 @@ class ReporteTesoreriaModel extends Modelo
     public function historialEstadoCuentaProveedores(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
+        $cantidadExpr = $this->cantidadComprasDetalleExpr('d', '1');
+        $cantidadExprZero = $this->cantidadComprasDetalleExpr('d', '0');
         [$where, $params] = $this->buildEstadoCuentaProveedoresWhere($f);
 
         $cte = "
@@ -356,12 +364,12 @@ class ReporteTesoreriaModel extends Modelo
                 c.proveedor_nombre AS proveedor,
                 COALESCE(NULLIF(TRIM(co.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXP-', c.id)) AS documento,
                 COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
-                CAST(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST({$cantidadExpr} AS DECIMAL(14,2)) AS cantidad,
                 CAST(COALESCE(d.costo_unitario_pactado, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(
                     CASE
                         WHEN d.id IS NULL THEN c.monto_total
-                        ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                        ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
                     END
                 AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
@@ -430,20 +438,22 @@ class ReporteTesoreriaModel extends Modelo
     public function estadoCuentaProveedoresPorProducto(array $f, int $limite = 200): array
     {
         [$where, $params] = $this->buildEstadoCuentaProveedoresWhere($f);
+        $cantidadExprZero = $this->cantidadComprasDetalleExpr('d', '0');
+        $cantidadExprZeroDetalle = $this->cantidadComprasDetalleExpr('dd', '0');
 
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
-                    CAST(ROUND(SUM(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
+                    CAST(ROUND(SUM({$cantidadExprZero}), 2) AS DECIMAL(14,2)) AS total_cantidad,
                     CAST(ROUND(SUM(
                         CASE
                             WHEN d.id IS NULL THEN c.monto_total
-                            ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                            ELSE ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0))
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_facturado,
                     CAST(ROUND(SUM(
                         CASE
                             WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (
-                                (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
+                                ({$cantidadExprZero} * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
                             )
                             ELSE c.saldo
                         END
@@ -453,7 +463,7 @@ class ReporteTesoreriaModel extends Modelo
                 LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
                 LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
                 LEFT JOIN (
-                    SELECT dd.id_orden, SUM(COALESCE(dd.cantidad_conversion, dd.cantidad_solicitada, 0) * COALESCE(dd.costo_unitario_pactado, 0)) AS total_subtotal
+                    SELECT dd.id_orden, SUM({$cantidadExprZeroDetalle} * COALESCE(dd.costo_unitario_pactado, 0)) AS total_subtotal
                     FROM compras_ordenes_detalle dd
                     WHERE dd.deleted_at IS NULL
                     GROUP BY dd.id_orden
@@ -489,6 +499,45 @@ class ReporteTesoreriaModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    }
+
+    private function cantidadVentasDetalleExpr(string $alias, string $default = '0'): string
+    {
+        if ($this->tableColumnExists('ventas_documentos_detalle', 'cantidad_conversion')) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+
+        return "COALESCE({$alias}.cantidad_solicitada, {$default})";
+    }
+
+    private function cantidadComprasDetalleExpr(string $alias, string $default = '0'): string
+    {
+        if ($this->tableColumnExists('compras_ordenes_detalle', 'cantidad_conversion')) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+
+        return "COALESCE({$alias}.cantidad_solicitada, {$default})";
+    }
+
+    private function tableColumnExists(string $table, string $column): bool
+    {
+        $cacheKey = $table . '.' . $column;
+        if (array_key_exists($cacheKey, $this->columnExistsCache)) {
+            return $this->columnExistsCache[$cacheKey];
+        }
+
+        $sql = "SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = :table
+                  AND COLUMN_NAME = :column";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'table' => $table,
+            'column' => $column,
+        ]);
+
+        $this->columnExistsCache[$cacheKey] = ((int) $stmt->fetchColumn()) > 0;
+        return $this->columnExistsCache[$cacheKey];
     }
 
     private function resumenEstadoCuenta(array $f): array
