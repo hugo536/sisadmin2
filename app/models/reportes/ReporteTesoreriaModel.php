@@ -349,7 +349,7 @@ class ReporteTesoreriaModel extends Modelo
                 CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM TargetCXP c
-            LEFT JOIN compras_ordenes co ON co.id = c.id_documento_compra AND co.deleted_at IS NULL
+            LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
             LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
 
@@ -377,7 +377,7 @@ class ReporteTesoreriaModel extends Modelo
             SELECT SUM(conteos) FROM (
                 SELECT COUNT(*) AS conteos
                 FROM TargetCXP c
-                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = c.id_documento_compra AND d.deleted_at IS NULL
+                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = c.id_orden_compra AND d.deleted_at IS NULL
 
                 UNION ALL
 
@@ -426,7 +426,7 @@ class ReporteTesoreriaModel extends Modelo
                     ), 2) AS DECIMAL(14,2)) AS total_saldo
                 FROM tesoreria_cxp c
                 INNER JOIN terceros t ON t.id = c.id_proveedor
-                LEFT JOIN compras_ordenes co ON co.id = c.id_documento_compra AND co.deleted_at IS NULL
+                LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
                 LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
                 LEFT JOIN (
                     SELECT dd.id_orden, SUM(COALESCE(dd.total_linea, 0)) AS total_subtotal
@@ -629,7 +629,7 @@ class ReporteTesoreriaModel extends Modelo
                 SELECT 1
                 FROM compras_ordenes_detalle d2
                 INNER JOIN items i2 ON i2.id = d2.id_item
-                WHERE d2.id_orden = c.id_documento_compra
+                WHERE d2.id_orden = c.id_orden_compra
                   AND d2.deleted_at IS NULL
                   AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
             )';
@@ -711,7 +711,7 @@ class ReporteTesoreriaModel extends Modelo
                 SELECT 1
                 FROM compras_ordenes_detalle d2
                 INNER JOIN items i2 ON i2.id = d2.id_item
-                WHERE d2.id_orden = c.id_documento_compra
+                WHERE d2.id_orden = c.id_orden_compra
                   AND d2.deleted_at IS NULL
                   AND COALESCE(NULLIF(TRIM(i2.nombre), ''), '') LIKE :producto
             )";
