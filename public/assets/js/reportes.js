@@ -16,13 +16,31 @@
   const formEstadoCuenta = document.getElementById('estadoCuentaFiltrosForm');
   if (formEstadoCuenta) {
     const filtroClienteEstadoCuenta = document.getElementById('filtroClienteEstadoCuenta');
+    const submitEstadoCuentaFiltros = () => {
+      const params = new URLSearchParams(new FormData(formEstadoCuenta));
+      const baseUrl = formEstadoCuenta.action.split('?')[0];
+      const destino = new URL(baseUrl, window.location.origin);
+      destino.search = params.toString();
+
+      if (typeof window.navigateWithoutReload === 'function') {
+        window.navigateWithoutReload(destino, true);
+      } else {
+        window.location.href = destino.toString();
+      }
+    };
+
     const autoSubmitEstadoCuenta = (() => {
       let timer = null;
       return (delay = 350) => {
         if (timer) window.clearTimeout(timer);
-        timer = window.setTimeout(() => formEstadoCuenta.requestSubmit(), delay);
+        timer = window.setTimeout(() => submitEstadoCuentaFiltros(), delay);
       };
     })();
+
+    formEstadoCuenta.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitEstadoCuentaFiltros();
+    });
 
     if (filtroClienteEstadoCuenta) {
       filtroClienteEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
