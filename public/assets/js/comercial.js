@@ -608,7 +608,7 @@ function initComercialProveedorApp() {
         agregarProducto: app.dataset.urlAgregarProducto,
         actualizarPrecio: app.dataset.urlActualizarPrecio,
         eliminarPrecio: app.dataset.urlEliminarPrecio,
-        unidadesItem: app.dataset.urlUnidadesItem, // NUEVA URL AJAX
+        unidadesItem: app.dataset.urlUnidadesItem,
     };
 
     const tabla = document.getElementById('tablaMatrizProveedor');
@@ -627,17 +627,15 @@ function initComercialProveedorApp() {
     const selectProducto = document.getElementById('selectProductoProveedor');
     const inputPrecio = document.getElementById('inputPrecioProveedor');
     const btnAgregar = document.getElementById('btnAgregarProductoProveedor');
-    
-    // NUEVAS CONSTANTES PARA UNIDAD
     const selectUnidad = document.getElementById('selectUnidadProveedor');
-    const contenedorUnidad = document.getElementById('contenedorUnidadProveedor');
 
     const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
     const modalAgregar = modalAgregarEl ? new bootstrap.Modal(modalAgregarEl) : null;
 
+    const cacheUnidades = new Map();
     const getAcuerdoId = () => (tabla ? parseInt(tabla.dataset.idAcuerdo || '0', 10) || 0 : 0);
     const withParam = (url, key, value) => `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
-    
+
     const postForm = async (url, payload) => {
         const fd = new FormData();
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
@@ -656,6 +654,16 @@ function initComercialProveedorApp() {
         }
     };
 
+    const obtenerUnidadesItem = async (idItem) => {
+        if (!idItem) return [];
+        if (cacheUnidades.has(idItem)) return cacheUnidades.get(idItem);
+        const res = await fetch(withParam(urls.unidadesItem, 'id_item', idItem), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        const data = (json.success && Array.isArray(json.data)) ? json.data : [];
+        cacheUnidades.set(idItem, data);
+        return data;
+    };
+
     const renderRows = (matriz) => {
         if (!tbody) return;
         if (!Array.isArray(matriz) || matriz.length === 0) {
@@ -665,15 +673,36 @@ function initComercialProveedorApp() {
             return;
         }
         tbody.innerHTML = matriz.map((item) => `
-            <tr data-id-detalle="${item.id}">
+            <tr data-id-detalle="${item.id}" data-id-item="${item.id_item}">
                 <td class="ps-4"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
                 <td class="fw-semibold text-dark">${item.producto_nombre || ''}</td>
-                <td class="text-secondary small fw-medium">${item.unidad_nombre || 'Unidad Base'}</td> <td><div class="input-group input-group-sm" style="max-width: 140px;">
+                <td>
+                    <select class="form-select form-select-sm js-unidad-proveedor" data-original="${parseInt(item.id_unidad_conversion || 0, 10)}">
+                        <option value="">Unidad Base (x 1)</option>
+                    </select>
+                </td>
+                <td><div class="input-group input-group-sm" style="max-width: 140px;">
                     <span class="input-group-text bg-light border-end-0">S/</span>
                     <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-proveedor" value="${parseFloat(item.precio_recomendado).toFixed(4)}" data-original="${parseFloat(item.precio_recomendado).toFixed(4)}">
                 </div></td>
                 <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger border-0 js-eliminar-precio-proveedor" type="button"><i class="bi bi-trash"></i></button></td>
             </tr>`).join('');
+    };
+
+    const hidratarUnidadesTabla = async () => {
+        if (!tbody) return;
+        const filas = Array.from(tbody.querySelectorAll('tr[data-id-item]'));
+        await Promise.all(filas.map(async (fila) => {
+            const select = fila.querySelector('.js-unidad-proveedor');
+            const idItem = parseInt(fila.dataset.idItem || '0', 10);
+            if (!select || !idItem) return;
+            const unidades = await obtenerUnidadesItem(idItem);
+            const opciones = ['<option value="">Unidad Base (x 1)</option>']
+                .concat(unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`))
+                .join('');
+            select.innerHTML = opciones;
+            select.value = select.dataset.original === '0' ? '' : (select.dataset.original || '');
+        }));
     };
 
     const cargarMatriz = async (idAcuerdo) => {
@@ -685,13 +714,12 @@ function initComercialProveedorApp() {
         if (titulo) titulo.textContent = json.acuerdo.proveedor_nombre;
         if (resumen) resumen.textContent = `${totalProductos} productos configurados`;
         renderRows(json.matriz || []);
+        await hidratarUnidadesTabla();
 
         const sidebarItem = document.querySelector(`.proveedor-sidebar-item[data-id-acuerdo="${idAcuerdo}"]`);
         if (sidebarItem) {
             const counterText = sidebarItem.querySelector('small');
-            if (counterText) {
-                counterText.textContent = `${totalProductos} productos`;
-            }
+            if (counterText) counterText.textContent = `${totalProductos} productos`;
             const dotEl = sidebarItem.querySelector('.rounded-circle');
             if (dotEl && json.acuerdo) {
                 const isActive = parseInt(json.acuerdo.estado, 10) === 1;
@@ -750,45 +778,25 @@ function initComercialProveedorApp() {
                 const res = await fetch(withParam(urls.itemsDisponibles, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const json = await res.json();
                 selectProducto.innerHTML = `<option value="">Seleccione...</option>${(json.data || []).map(i => `<option value="${i.id}">${i.producto_nombre}</option>`).join('')}`;
-                
-                // Reiniciar campos
                 inputPrecio.value = '';
-                selectUnidad.innerHTML = '<option value="">Seleccione producto primero...</option>';
-                contenedorUnidad.classList.add('d-none');
-                selectUnidad.required = false;
-
+                selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
                 modalAgregar?.show();
             } catch (err) { Swal.fire('Error', err.message, 'error'); }
         });
     }
 
-    // NUEVO EVENTO: Cargar unidades cuando cambia el producto
     if (selectProducto && selectUnidad) {
         selectProducto.addEventListener('change', async () => {
-            const idItem = selectProducto.value;
-            if (!idItem) {
-                contenedorUnidad.classList.add('d-none');
-                selectUnidad.required = false;
-                return;
-            }
-
+            const idItem = parseInt(selectProducto.value || '0', 10);
+            selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
+            if (!idItem) return;
             try {
-                selectUnidad.innerHTML = '<option value="">Cargando...</option>';
-                const res = await fetch(withParam(urls.unidadesItem, 'id_item', idItem), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const json = await res.json();
-                
-                if (json.success && json.data && json.data.length > 0) {
-                    const opciones = json.data.map(u => `<option value="${u.id}">${u.nombre} (x ${u.factor_conversion})</option>`).join('');
-                    selectUnidad.innerHTML = `<option value="">Unidad Base (x 1)</option>${opciones}`;
-                    contenedorUnidad.classList.remove('d-none');
-                    // selectUnidad.required = true; // Opcional: Si quieres forzar a que elijan
-                } else {
-                    selectUnidad.innerHTML = '<option value="">Solo Unidad Base</option>';
-                    contenedorUnidad.classList.add('d-none');
-                    selectUnidad.required = false;
+                const unidades = await obtenerUnidadesItem(idItem);
+                if (unidades.length > 0) {
+                    selectUnidad.innerHTML += unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`).join('');
                 }
             } catch (err) {
-                console.error("Error al cargar unidades:", err);
+                console.error('Error buscando las unidades:', err);
             }
         });
     }
@@ -801,7 +809,7 @@ function initComercialProveedorApp() {
                 await postForm(urls.agregarProducto, {
                     id_acuerdo: idAcuerdo,
                     id_item: selectProducto.value,
-                    id_unidad: selectUnidad && !contenedorUnidad.classList.contains('d-none') ? selectUnidad.value : '', // SE ENVÍA LA UNIDAD
+                    id_unidad: selectUnidad?.value || '',
                     precio_recomendado: inputPrecio.value,
                 });
                 modalAgregar?.hide();
@@ -812,16 +820,29 @@ function initComercialProveedorApp() {
 
     if (tbody) {
         tbody.addEventListener('change', async (e) => {
-            if (!e.target.classList.contains('js-precio-proveedor')) return;
             const fila = e.target.closest('tr');
             const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
             if (!idDetalle) return;
-            try {
-                await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_recomendado: e.target.value });
-                e.target.dataset.original = e.target.value;
-            } catch (err) {
-                e.target.value = e.target.dataset.original || '0.0000';
-                Swal.fire('Error', err.message, 'error');
+
+            if (e.target.classList.contains('js-precio-proveedor')) {
+                try {
+                    await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_recomendado: e.target.value });
+                    e.target.dataset.original = e.target.value;
+                } catch (err) {
+                    e.target.value = e.target.dataset.original || '0.0000';
+                    Swal.fire('Error', err.message, 'error');
+                }
+                return;
+            }
+
+            if (e.target.classList.contains('js-unidad-proveedor')) {
+                try {
+                    await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, id_unidad: e.target.value });
+                    e.target.dataset.original = e.target.value || '0';
+                } catch (err) {
+                    e.target.value = e.target.dataset.original === '0' ? '' : e.target.dataset.original;
+                    Swal.fire('Error', err.message, 'error');
+                }
             }
         });
 
@@ -840,44 +861,7 @@ function initComercialProveedorApp() {
         });
     }
 
-    // CARGAR UNIDADES CUANDO CAMBIA EL PRODUCTO (A prueba de fallos)
-    if (selectProducto && selectUnidad) {
-        selectProducto.addEventListener('change', async () => {
-            const idItem = selectProducto.value;
-            
-            // 1. Por defecto, siempre lo regresamos a Unidad Base
-            selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
-            
-            if (!idItem) return;
-
-            try {
-                selectUnidad.innerHTML = '<option value="">Buscando unidades...</option>';
-                
-                // 2. Ruta de respaldo para evitar errores 404
-                const rutaSegura = urls.unidadesItem && urls.unidadesItem.includes('comercial') 
-                    ? withParam(urls.unidadesItem, 'id_item', idItem) 
-                    : `?ruta=comercial/obtenerUnidadesItemAjax&id_item=${idItem}`;
-                
-                const res = await fetch(rutaSegura, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const json = await res.json();
-                
-                // 3. Dibujamos las opciones en el select
-                let opcionesHTML = '<option value="">Unidad Base (x 1)</option>';
-                
-                if (json.success && json.data && json.data.length > 0) {
-                    opcionesHTML += json.data.map(u => 
-                        `<option value="${u.id}">${u.nombre} (Factor: ${parseFloat(u.factor_conversion)})</option>`
-                    ).join('');
-                }
-                
-                selectUnidad.innerHTML = opcionesHTML;
-                
-            } catch (err) {
-                console.error("Error buscando las unidades:", err);
-                selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
-            }
-        });
-    }
+    hidratarUnidadesTabla().catch(() => null);
 }
 
 if (document.readyState === 'loading') {

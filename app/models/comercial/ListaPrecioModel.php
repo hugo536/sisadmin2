@@ -462,7 +462,7 @@ class ListaPrecioModel extends Modelo {
                 INNER JOIN items i ON i.id = capp.id_item
                 LEFT JOIN item_sabores s ON s.id = i.id_sabor
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
-                LEFT JOIN item_unidades_conversion uc ON uc.id = capp.id_unidad_conversion
+                LEFT JOIN items_unidades uc ON uc.id = capp.id_unidad_conversion
                 WHERE capp.id_acuerdo_proveedor = :id_acuerdo
                 ORDER BY i.nombre ASC";
 
@@ -538,6 +538,21 @@ class ListaPrecioModel extends Modelo {
                 WHERE id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([':precio' => $precio, ':id' => $idDetalle]);
+    }
+
+    public function actualizarUnidadProveedor(int $idDetalle, ?int $idUnidad): bool {
+        if ($idDetalle <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
+            return false;
+        }
+
+        $sql = "UPDATE comercial_acuerdos_proveedor_precios
+                SET id_unidad_conversion = :id_unidad
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':id_unidad' => $idUnidad,
+            ':id' => $idDetalle,
+        ]);
     }
 
     public function eliminarPrecioProveedor(int $idDetalle): bool {
@@ -662,12 +677,12 @@ class ListaPrecioModel extends Modelo {
     }
 
     public function obtenerUnidadesPorItem(int $idItem): array {
-        if (!$this->tablaExiste('item_unidades_conversion')) {
+        if (!$this->tablaExiste('items_unidades')) {
             return [];
         }
 
         $sql = "SELECT id, nombre, factor_conversion 
-                FROM item_unidades_conversion 
+                FROM items_unidades 
                 WHERE id_item = :id_item AND estado = 1
                 ORDER BY factor_conversion ASC";
         
