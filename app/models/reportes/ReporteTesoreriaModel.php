@@ -199,9 +199,14 @@ class ReporteTesoreriaModel extends Modelo
                 c.cliente_nombre AS cliente,
                 COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
                 COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
-                CAST(COALESCE(d.cantidad, 1) AS DECIMAL(14,2)) AS cantidad,
-                CAST(COALESCE(d.precio_unitario, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
-                CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS monto_transaccion,
+                CAST(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST(COALESCE(d.costo_unitario_pactado, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(
+                    CASE
+                        WHEN d.id IS NULL THEN c.monto_total
+                        ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                    END
+                AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM TargetCXC c
             LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
@@ -272,11 +277,18 @@ class ReporteTesoreriaModel extends Modelo
 
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
-                    CAST(ROUND(SUM(COALESCE(d.cantidad, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
-                    CAST(ROUND(SUM(COALESCE(d.total_linea, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
                     CAST(ROUND(SUM(
                         CASE
-                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.total_linea, 0) / dt.total_subtotal)
+                            WHEN d.id IS NULL THEN c.monto_total
+                            ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                        END
+                    ), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(
+                        CASE
+                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (
+                                (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
+                            )
                             ELSE c.saldo
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_saldo
@@ -344,9 +356,14 @@ class ReporteTesoreriaModel extends Modelo
                 c.proveedor_nombre AS proveedor,
                 COALESCE(NULLIF(TRIM(co.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXP-', c.id)) AS documento,
                 COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
-                CAST(COALESCE(d.cantidad, 1) AS DECIMAL(14,2)) AS cantidad,
-                CAST(COALESCE(d.precio_unitario, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
-                CAST(COALESCE(d.total_linea, c.monto_total) AS DECIMAL(14,2)) AS monto_transaccion,
+                CAST(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 1) AS DECIMAL(14,2)) AS cantidad,
+                CAST(COALESCE(d.costo_unitario_pactado, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(
+                    CASE
+                        WHEN d.id IS NULL THEN c.monto_total
+                        ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                    END
+                AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM TargetCXP c
             LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
@@ -416,11 +433,18 @@ class ReporteTesoreriaModel extends Modelo
 
         $sql = "SELECT
                     COALESCE(i.nombre, 'Sin producto asociado') AS producto,
-                    CAST(ROUND(SUM(COALESCE(d.cantidad, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
-                    CAST(ROUND(SUM(COALESCE(d.total_linea, c.monto_total)), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0)), 2) AS DECIMAL(14,2)) AS total_cantidad,
                     CAST(ROUND(SUM(
                         CASE
-                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (COALESCE(d.total_linea, 0) / dt.total_subtotal)
+                            WHEN d.id IS NULL THEN c.monto_total
+                            ELSE (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0))
+                        END
+                    ), 2) AS DECIMAL(14,2)) AS total_facturado,
+                    CAST(ROUND(SUM(
+                        CASE
+                            WHEN COALESCE(dt.total_subtotal, 0) > 0 AND d.id IS NOT NULL THEN c.saldo * (
+                                (COALESCE(d.cantidad_conversion, d.cantidad_solicitada, 0) * COALESCE(d.costo_unitario_pactado, 0)) / dt.total_subtotal
+                            )
                             ELSE c.saldo
                         END
                     ), 2) AS DECIMAL(14,2)) AS total_saldo
@@ -429,7 +453,7 @@ class ReporteTesoreriaModel extends Modelo
                 LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
                 LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
                 LEFT JOIN (
-                    SELECT dd.id_orden, SUM(COALESCE(dd.total_linea, 0)) AS total_subtotal
+                    SELECT dd.id_orden, SUM(COALESCE(dd.cantidad_conversion, dd.cantidad_solicitada, 0) * COALESCE(dd.costo_unitario_pactado, 0)) AS total_subtotal
                     FROM compras_ordenes_detalle dd
                     WHERE dd.deleted_at IS NULL
                     GROUP BY dd.id_orden
