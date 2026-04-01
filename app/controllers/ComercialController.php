@@ -223,6 +223,10 @@ class ComercialController extends Controlador {
 
         $idAcuerdo = (int)($_POST['id_acuerdo'] ?? 0);
         $idItem = (int)($_POST['id_item'] ?? 0);
+        
+        // NUEVO: Capturar el id_unidad (si viene vacío o 0, lo dejamos como null)
+        $idUnidad = !empty($_POST['id_unidad']) ? (int)$_POST['id_unidad'] : null; 
+        
         $precio = (float)($_POST['precio_recomendado'] ?? 0);
 
         if ($idAcuerdo <= 0 || $idItem <= 0 || $precio <= 0) {
@@ -231,14 +235,16 @@ class ComercialController extends Controlador {
         }
 
         try {
-            $ok = $this->listaPrecioModel->agregarPrecioProveedor($idAcuerdo, $idItem, $precio);
+            // NUEVO: Pasamos la variable $idUnidad a la función del modelo
+            $ok = $this->listaPrecioModel->agregarPrecioProveedor($idAcuerdo, $idItem, $idUnidad, $precio);
             if (!$ok) {
                 json_response(['success' => false, 'message' => 'No se pudo guardar la recomendación. Verifica si las tablas existen.'], 409);
                 return;
             }
             json_response(['success' => $ok]);
         } catch (PDOException $e) {
-            json_response(['success' => false, 'message' => 'El producto ya está vinculado al proveedor.'], 409);
+            // Cambié un poco el mensaje de error para reflejar que evalúa también la unidad
+            json_response(['success' => false, 'message' => 'El producto con esa unidad ya está vinculado al proveedor.'], 409);
         }
     }
 
@@ -283,12 +289,18 @@ class ComercialController extends Controlador {
 
         $idProveedor = (int)($_GET['id_proveedor'] ?? 0);
         $idItem = (int)($_GET['id_item'] ?? 0);
+        
+        // NUEVO: Capturar el id_unidad desde la petición GET
+        $idUnidad = !empty($_GET['id_unidad']) ? (int)$_GET['id_unidad'] : null;
+
         if ($idProveedor <= 0 || $idItem <= 0) {
             json_response(['success' => false, 'message' => 'Parámetros inválidos'], 422);
             return;
         }
 
-        $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor($idProveedor, $idItem);
+        // NUEVO: Pasamos $idUnidad al modelo para que busque el precio de esa presentación
+        $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor($idProveedor, $idItem, $idUnidad);
+        
         json_response([
             'success' => true,
             'encontrado' => $precio !== null,
@@ -570,5 +582,28 @@ class ComercialController extends Controlador {
 
     private function esPeticionAjax() {
         return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+    }
+
+    public function obtenerUnidadesItemAjax() {
+        if (!$this->esPeticionAjax()) {
+            json_response(['success' => false, 'message' => 'Petición inválida'], 400);
+            return;
+        }
+
+        $idItem = (int)($_GET['id_item'] ?? 0);
+        
+        if ($idItem <= 0) {
+            json_response(['success' => false, 'message' => 'Item inválido'], 422);
+            return;
+        }
+
+        // Aquí llamas al modelo donde pusiste la función del Paso 1
+        // (Ajusta $this->listaPrecioModel según cómo se llame en tu controlador)
+        $unidades = $this->listaPrecioModel->obtenerUnidadesPorItem($idItem);
+
+        json_response([
+            'success' => true,
+            'data' => $unidades
+        ]);
     }
 }

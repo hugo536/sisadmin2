@@ -12,7 +12,8 @@ $preciosMatriz = $precios_matriz ?? [];
      data-url-agregar-producto="<?php echo e(route_url('comercial/agregarProductoProveedorAjax')); ?>"
      data-url-actualizar-precio="<?php echo e(route_url('comercial/actualizarPrecioProveedorAjax')); ?>"
      data-url-eliminar-precio="<?php echo e(route_url('comercial/eliminarPrecioProveedorAjax')); ?>"
-     data-url-unidades-item="<?php echo e(route_url('compras/obtenerUnidadesItemAjax')); ?>"> <div class="d-flex justify-content-between align-items-center mb-4">
+     data-url-unidades-item="<?php echo e(route_url('comercial/obtenerUnidadesItemAjax')); ?>">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 fw-bold mb-1 d-flex align-items-center text-dark">
                 <i class="bi bi-truck me-2 text-primary"></i> Acuerdos con Proveedores
@@ -83,7 +84,8 @@ $preciosMatriz = $precios_matriz ?? [];
                                     <tr>
                                         <th class="ps-4 col-w-120">Código</th>
                                         <th>Producto</th>
-                                        <th class="col-w-150">Unidad / Present.</th> <th class="col-w-220">Precio Recomendado</th>
+                                        <th class="col-w-150">Unidad / Present.</th> 
+                                        <th class="col-w-220">Precio Recomendado</th>
                                         <th class="text-end pe-4 col-w-90">Acciones</th>
                                     </tr>
                                 </thead>
@@ -100,11 +102,9 @@ $preciosMatriz = $precios_matriz ?? [];
                                             <tr data-id-detalle="<?php echo (int)$row['id']; ?>">
                                                 <td class="ps-4"><span class="badge bg-light text-dark border"><?php echo e($row['codigo_presentacion'] ?: 'N/A'); ?></span></td>
                                                 <td class="fw-semibold text-dark"><?php echo e($row['producto_nombre']); ?></td>
-                                                
                                                 <td class="text-secondary small fw-medium">
                                                     <?php echo e($row['unidad_nombre'] ?? 'Unidad Base'); ?>
                                                 </td>
-
                                                 <td>
                                                     <div class="input-group input-group-sm" style="max-width: 140px;">
                                                         <span class="input-group-text bg-light border-end-0">S/</span>
@@ -164,12 +164,12 @@ $preciosMatriz = $precios_matriz ?? [];
                         <select class="form-select" id="selectProductoProveedor" required></select>
                     </div>
                     
-                    <div class="mb-3 d-none" id="contenedorUnidadProveedor">
-                        <label class="form-label">Unidad de Compra</label>
-                        <select class="form-select" id="selectUnidadProveedor">
-                            <option value="">Cargando unidades...</option>
+                    <div class="mb-3" id="contenedorUnidadProveedor">
+                        <label class="form-label fw-bold text-primary">Unidad de Compra</label>
+                        <select class="form-select border-primary" id="selectUnidadProveedor">
+                            <option value="">Unidad Base (x 1)</option>
                         </select>
-                        <div class="form-text small text-muted">Selecciona en qué presentación aplica este precio.</div>
+                        <div class="form-text small text-muted">¿Para qué presentación es este precio?</div>
                     </div>
 
                     <div>
@@ -179,7 +179,7 @@ $preciosMatriz = $precios_matriz ?? [];
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Agregar</button>
+                    <button class="btn btn-primary" type="submit">Agregar Precio</button>
                 </div>
             </form>
         </div>

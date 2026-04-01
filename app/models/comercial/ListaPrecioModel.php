@@ -449,17 +449,20 @@ class ListaPrecioModel extends Modelo {
         $sql = "SELECT
                     capp.id,
                     capp.id_item,
+                    capp.id_unidad_conversion, -- NUEVO CAMPO
                     capp.precio_recomendado,
                     capp.estado,
                     i.sku AS codigo_presentacion,
                     1 AS factor,
                     i.nombre AS item_nombre,
                     s.nombre AS sabor_nombre,
-                    ip.nombre AS presentacion_nombre
+                    ip.nombre AS presentacion_nombre,
+                    uc.nombre AS unidad_nombre -- NUEVO CAMPO (Nombre de la unidad)
                 FROM comercial_acuerdos_proveedor_precios capp
                 INNER JOIN items i ON i.id = capp.id_item
                 LEFT JOIN item_sabores s ON s.id = i.id_sabor
                 LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
+                LEFT JOIN item_unidades_conversion uc ON uc.id = capp.id_unidad_conversion
                 WHERE capp.id_acuerdo_proveedor = :id_acuerdo
                 ORDER BY i.nombre ASC";
 
@@ -507,17 +510,20 @@ class ListaPrecioModel extends Modelo {
         return $rows;
     }
 
-    public function agregarPrecioProveedor(int $idAcuerdo, int $idItem, float $precio): bool {
+    // Agregamos ?int $idUnidad como parámetro
+    public function agregarPrecioProveedor(int $idAcuerdo, int $idItem, ?int $idUnidad, float $precio): bool {
         if ($idAcuerdo <= 0 || $idItem <= 0 || $precio <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
             return false;
         }
 
-        $sql = "INSERT INTO comercial_acuerdos_proveedor_precios (id_acuerdo_proveedor, id_item, precio_recomendado, estado)
-                VALUES (:id_acuerdo, :id_item, :precio, 1)";
+        // Modificamos el INSERT para incluir id_unidad_conversion
+        $sql = "INSERT INTO comercial_acuerdos_proveedor_precios (id_acuerdo_proveedor, id_item, id_unidad_conversion, precio_recomendado, estado)
+                VALUES (:id_acuerdo, :id_item, :id_unidad, :precio, 1)";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
             ':id_acuerdo' => $idAcuerdo,
             ':id_item' => $idItem,
+            ':id_unidad' => $idUnidad, // Puede ser null si es unidad base
             ':precio' => $precio,
         ]);
     }
@@ -544,11 +550,13 @@ class ListaPrecioModel extends Modelo {
         return $stmt->execute([':id' => $idDetalle]);
     }
 
-    public function obtenerPrecioRecomendadoProveedor(int $idProveedor, int $idItem): ?float {
+    // Agregamos el parámetro ?int $idUnidad = null
+    public function obtenerPrecioRecomendadoProveedor(int $idProveedor, int $idItem, ?int $idUnidad = null): ?float {
         if ($idProveedor <= 0 || $idItem <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor') || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
             return null;
         }
 
+        // Filtramos para que coincida exactamente con la unidad solicitada
         $sql = "SELECT capp.precio_recomendado
                 FROM comercial_acuerdos_proveedor_precios capp
                 INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
@@ -556,12 +564,15 @@ class ListaPrecioModel extends Modelo {
                   AND capv.estado = 1
                   AND capp.estado = 1
                   AND capp.id_item = :id_item
+                  AND (capp.id_unidad_conversion = :id_unidad OR (capp.id_unidad_conversion IS NULL AND :id_unidad_null IS NULL))
                 ORDER BY capp.id DESC
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             ':id_proveedor' => $idProveedor,
             ':id_item' => $idItem,
+            ':id_unidad' => $idUnidad,
+            ':id_unidad_null' => $idUnidad // Truco de PDO para evitar error si enviamos null dos veces
         ]);
         $valor = $stmt->fetchColumn();
         if ($valor === false) {
@@ -648,5 +659,20 @@ class ListaPrecioModel extends Modelo {
         
         $cache[$tabla] = (bool)$stmt->fetchColumn();
         return $cache[$tabla];
+    }
+
+    public function obtenerUnidadesPorItem(int $idItem): array {
+        if (!$this->tablaExiste('item_unidades_conversion')) {
+            return [];
+        }
+
+        $sql = "SELECT id, nombre, factor_conversion 
+                FROM item_unidades_conversion 
+                WHERE id_item = :id_item AND estado = 1
+                ORDER BY factor_conversion ASC";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id_item' => $idItem]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
