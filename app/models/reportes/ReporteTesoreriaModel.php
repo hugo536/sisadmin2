@@ -503,6 +503,33 @@ class ReporteTesoreriaModel extends Modelo
 
     private function cantidadVentasDetalleExpr(string $alias, string $default = '0'): string
     {
+        $hasCantidadConversion = $this->tableColumnExists('ventas_documentos_detalle', 'cantidad_conversion');
+        $hasCantidadSolicitada = $this->tableColumnExists('ventas_documentos_detalle', 'cantidad_solicitada');
+        $hasCantidad = $this->tableColumnExists('ventas_documentos_detalle', 'cantidad');
+
+        if ($hasCantidadConversion && $hasCantidadSolicitada && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadConversion && $hasCantidadSolicitada) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+        if ($hasCantidadConversion && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadSolicitada && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_solicitada, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadConversion) {
+            return "COALESCE({$alias}.cantidad_conversion, {$default})";
+        }
+        if ($hasCantidadSolicitada) {
+            return "COALESCE({$alias}.cantidad_solicitada, {$default})";
+        }
+        if ($hasCantidad) {
+            return "COALESCE({$alias}.cantidad, {$default})";
+        }
+
+        return $default;
         if ($this->tableColumnExists('ventas_documentos_detalle', 'cantidad_conversion')) {
             return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
         }
@@ -512,6 +539,33 @@ class ReporteTesoreriaModel extends Modelo
 
     private function cantidadComprasDetalleExpr(string $alias, string $default = '0'): string
     {
+        $hasCantidadConversion = $this->tableColumnExists('compras_ordenes_detalle', 'cantidad_conversion');
+        $hasCantidadSolicitada = $this->tableColumnExists('compras_ordenes_detalle', 'cantidad_solicitada');
+        $hasCantidad = $this->tableColumnExists('compras_ordenes_detalle', 'cantidad');
+
+        if ($hasCantidadConversion && $hasCantidadSolicitada && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadConversion && $hasCantidadSolicitada) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
+        }
+        if ($hasCantidadConversion && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadSolicitada && $hasCantidad) {
+            return "COALESCE({$alias}.cantidad_solicitada, {$alias}.cantidad, {$default})";
+        }
+        if ($hasCantidadConversion) {
+            return "COALESCE({$alias}.cantidad_conversion, {$default})";
+        }
+        if ($hasCantidadSolicitada) {
+            return "COALESCE({$alias}.cantidad_solicitada, {$default})";
+        }
+        if ($hasCantidad) {
+            return "COALESCE({$alias}.cantidad, {$default})";
+        }
+
+        return $default;
         if ($this->tableColumnExists('compras_ordenes_detalle', 'cantidad_conversion')) {
             return "COALESCE({$alias}.cantidad_conversion, {$alias}.cantidad_solicitada, {$default})";
         }
