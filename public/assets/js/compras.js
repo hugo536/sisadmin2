@@ -80,6 +80,8 @@
     const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
     const selectTemplateAlmacen = document.getElementById('recepcionAlmacen');
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
+    const DECIMALES_RECEPCION = 4;
+    const EPSILON_RECEPCION = 0.0001;
 
     let ordenEnEdicionId = 0;
     let modalSoloLecturaActiva = false;
@@ -89,6 +91,10 @@
         const parsedId = Number(id || 0);
         ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
         ordenId.value = String(ordenEnEdicionId);
+    }
+
+    function formatearCantidadRecepcion(valor) {
+        return Number(valor || 0).toFixed(DECIMALES_RECEPCION);
     }
 
     function recargarPagina() {
@@ -584,11 +590,11 @@
                 </select>
             </td>
             <td class="text-center align-middle">
-                <span class="badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2 shadow-sm">${Number(linea.cantidad_pendiente).toFixed(2)} ${linea.unidad_base}</span>
+                <span class="badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2 shadow-sm">${formatearCantidadRecepcion(linea.cantidad_pendiente)} ${linea.unidad_base}</span>
             </td>
             <td class="align-middle px-2">
                 <input type="number" class="form-control form-control-sm text-center recepcion-cantidad fw-bold text-primary shadow-none border-secondary-subtle mx-auto"
-                       min="0" step="0.01" value="${Number(linea.cantidad_pendiente).toFixed(2)}" style="max-width: 110px;">
+                       min="0" step="0.0001" value="${formatearCantidadRecepcion(linea.cantidad_pendiente)}" style="max-width: 110px;">
             </td>
             <td class="text-center align-middle">
                 <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-recepcion d-none d-inline-flex align-items-center justify-content-center transition-all p-0" title="Quitar línea" style="width: 34px; height: 34px;">
@@ -627,14 +633,14 @@
             filas.forEach(f => sumaCargada += parseFloat(f.querySelector('.recepcion-cantidad').value || 0));
 
             const badge = filas[0].querySelector('.badge-pendiente-rec');
-            if (sumaCargada > pendienteGlobal) {
+            if ((sumaCargada - pendienteGlobal) > EPSILON_RECEPCION) {
                 filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.add('is-invalid'));
                 badge.className = "badge bg-danger text-white badge-pendiente-rec rounded-pill px-3 py-2";
-                badge.textContent = `Excedido (Máx: ${pendienteGlobal})`;
+                badge.textContent = `Excedido (Máx: ${formatearCantidadRecepcion(pendienteGlobal)})`;
             } else {
                 filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.remove('is-invalid'));
                 badge.className = "badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2";
-                badge.textContent = `${pendienteGlobal.toFixed(2)} ${linea.unidad_base}`;
+                badge.textContent = `${formatearCantidadRecepcion(pendienteGlobal)} ${linea.unidad_base}`;
             }
         };
 
@@ -886,7 +892,7 @@
 
             filas.forEach(f => {
                 const pendiente = parseFloat(f.dataset.pendienteTotal);
-                if (resumenPorItem[f.dataset.idDetalle] < pendiente - 0.001) esParcial = true;
+                if (resumenPorItem[f.dataset.idDetalle] < pendiente - EPSILON_RECEPCION) esParcial = true;
             });
 
             if (esParcial && !cerrarForzadoRecepcion.checked) {
