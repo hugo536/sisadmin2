@@ -41,6 +41,19 @@
     </style>
 </head>
 <body>
+    <?php
+        $tipoDocumentoCliente = strtoupper(trim((string) ($venta['cliente_doc_tipo'] ?? '')));
+        $labelDocumentoCliente = $tipoDocumentoCliente !== '' ? $tipoDocumentoCliente : 'RUC/DNI';
+        $pesoTotal = 0.0;
+        foreach (($venta['detalle'] ?? []) as $lineaPeso) {
+            $cantidadDespachada = (float) ($lineaPeso['cantidad_despachada'] ?? 0);
+            if ($cantidadDespachada <= 0) {
+                continue;
+            }
+            $pesoItem = (float) ($lineaPeso['peso_kg'] ?? 0);
+            $pesoTotal += ($pesoItem * $cantidadDespachada);
+        }
+    ?>
 
     <div class="cabecera">
         <div class="logo-container">
@@ -68,36 +81,39 @@
     <table class="info-cliente">
         <tr>
             <td class="label">CLIENTE:</td>
-            <td colspan="3"><strong><?php echo htmlspecialchars($venta['cliente'] ?? 'Consumidor Final'); ?></strong></td>
+            <td colspan="5"><strong><?php echo htmlspecialchars($venta['cliente'] ?? 'Consumidor Final'); ?></strong></td>
         </tr>
         <tr>
-            <td class="label">RUC/DNI:</td>
+            <td class="label"><?php echo htmlspecialchars($labelDocumentoCliente); ?>:</td>
             <td><?php echo htmlspecialchars($venta['cliente_doc'] ?? 'S/D'); ?></td>
             <td class="label">FECHA EMISIÓN:</td>
             <td><?php echo date('d/m/Y', strtotime($venta['fecha_emision'])); ?></td>
+            <td class="label">PESO:</td>
+            <td><?php echo number_format($pesoTotal, 2); ?> kg</td>
         </tr>
         <tr>
             <td class="label">DIRECCIÓN:</td>
-            <td colspan="3"><?php echo htmlspecialchars($venta['cliente_direccion'] ?? 'No registrada'); ?></td>
+            <td colspan="5"><?php echo htmlspecialchars($venta['cliente_direccion'] ?? 'No registrada'); ?></td>
         </tr>
     </table>
 
     <table class="detalle-tabla">
         <thead>
             <tr>
-                <th style="width: 15%;">CÓDIGO</th>
+                <th style="width: 10%;">NRO</th>
                 <th style="width: 65%;">DESCRIPCIÓN DEL PRODUCTO</th>
-                <th style="width: 20%;">CANT. ENTREGADA</th>
+                <th style="width: 25%;">CANT. ENTREGADA</th>
             </tr>
         </thead>
         <tbody>
+            <?php $contadorItems = 1; ?>
             <?php foreach ($venta['detalle'] as $item): ?>
                 <?php 
                     // Solo mostramos las filas que realmente tienen algo despachado
                     if ($item['cantidad_despachada'] <= 0) continue; 
                 ?>
                 <tr>
-                    <td class="text-center"><?php echo htmlspecialchars($item['sku']); ?></td>
+                    <td class="text-center"><?php echo $contadorItems++; ?></td>
                     <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
                     <td class="text-center" style="font-size: 14px;">
                         <strong><?php echo number_format($item['cantidad_despachada'], 2); ?></strong>
