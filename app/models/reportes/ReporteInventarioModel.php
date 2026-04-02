@@ -3,14 +3,20 @@ declare(strict_types=1);
 
 class ReporteInventarioModel extends Modelo
 {
+    private function costoUnitarioExpr(string $stockAlias = 's', string $itemAlias = 'i'): string
+    {
+        return "COALESCE(NULLIF({$stockAlias}.costo_promedio, 0), NULLIF({$itemAlias}.ultimo_costo_compra, 0), NULLIF({$itemAlias}.costo_referencial, 0), 0)";
+    }
+
     public function resumenValorizacionDashboard(int $limiteTop = 8): array
     {
         $limiteTop = max(3, min(20, $limiteTop));
+        $costoExpr = $this->costoUnitarioExpr('s', 'i');
 
         $totalInventario = (float) $this->db()->query(
             'SELECT COALESCE(SUM(
                         CASE
-                            WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0)
+                            WHEN s.stock_actual > 0 THEN s.stock_actual * ' . $costoExpr . '
                             ELSE 0
                         END
                     ), 0)
@@ -26,8 +32,8 @@ class ReporteInventarioModel extends Modelo
                             i.sku,
                             i.nombre,
                             SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual ELSE 0 END) AS stock_total,
-                            COALESCE(NULLIF(i.costo_referencial, 0), 0) AS costo_ref,
-                            SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) AS valor_total
+                            ' . $costoExpr . ' AS costo_ref,
+                            SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * ' . $costoExpr . ' ELSE 0 END) AS valor_total
                      FROM inventario_stock s
                      INNER JOIN items i ON i.id = s.id_item
                      LEFT JOIN almacenes a ON a.id = s.id_almacen
@@ -46,7 +52,7 @@ class ReporteInventarioModel extends Modelo
         $sqlAlmacenes = 'SELECT COALESCE(a.id, 0) AS id_almacen,
                                 COALESCE(a.nombre, "Sin Ubicación Física") AS almacen,
                                 SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual ELSE 0 END) AS stock_total,
-                                SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) AS valor_total
+                                SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * ' . $costoExpr . ' ELSE 0 END) AS valor_total
                          FROM inventario_stock s
                          INNER JOIN items i ON i.id = s.id_item
                          LEFT JOIN almacenes a ON a.id = s.id_almacen
@@ -69,7 +75,7 @@ class ReporteInventarioModel extends Modelo
                   AND i.deleted_at IS NULL
                   AND (a.id IS NULL OR a.deleted_at IS NULL)
                 GROUP BY i.id
-                HAVING SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * COALESCE(NULLIF(i.costo_referencial, 0), 0) ELSE 0 END) > 0
+                HAVING SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * ' . $costoExpr . ' ELSE 0 END) > 0
              ) t'
         )->fetchColumn();
 
@@ -96,6 +102,7 @@ class ReporteInventarioModel extends Modelo
     public function stockActual(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
+        $costoExpr = $this->costoUnitarioExpr('s', 'i');
         $where = ['s.deleted_at IS NULL', 'i.deleted_at IS NULL', 'a.deleted_at IS NULL'];
         $params = [];
 
@@ -110,6 +117,8 @@ class ReporteInventarioModel extends Modelo
         $count->execute($params);
 
         $sql = "SELECT s.id_item, i.nombre AS item, a.nombre AS almacen, s.stock_actual, i.stock_minimo, i.unidad_base AS unidad, i.estado,
+                       ROUND({$costoExpr}, 4) AS costo_unitario,
+                       ROUND(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END, 4) AS valor_total,
                        CASE WHEN s.stock_actual <= i.stock_minimo THEN 'CRITICO' ELSE 'OK' END AS alerta
                 FROM inventario_stock s
                 INNER JOIN items i ON i.id = s.id_item
@@ -123,7 +132,21 @@ class ReporteInventarioModel extends Modelo
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
+        $sqlTotales = "SELECT ROUND(SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END), 4) AS valor_total,
+                              COUNT(*) AS registros
+                       FROM inventario_stock s
+                       INNER JOIN items i ON i.id=s.id_item
+                       INNER JOIN almacenes a ON a.id=s.id_almacen
+                       WHERE {$whereSql}";
+        $stmtTotales = $this->db()->prepare($sqlTotales);
+        $stmtTotales->execute($params);
+        $totales = $stmtTotales->fetch(PDO::FETCH_ASSOC) ?: ['valor_total' => 0, 'registros' => 0];
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => (int) $count->fetchColumn(),
+            'valor_total' => (float) ($totales['valor_total'] ?? 0),
+        ];
     }
 
     public function kardex(array $f, int $pagina, int $tamano): array
