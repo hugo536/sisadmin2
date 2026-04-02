@@ -565,13 +565,12 @@ class ListaPrecioModel extends Modelo {
         return $stmt->execute([':id' => $idDetalle]);
     }
 
-    // Agregamos el parámetro ?int $idUnidad = null
     public function obtenerPrecioRecomendadoProveedor(int $idProveedor, int $idItem, ?int $idUnidad = null): ?float {
         if ($idProveedor <= 0 || $idItem <= 0 || !$this->tablaExiste('comercial_acuerdos_proveedor') || !$this->tablaExiste('comercial_acuerdos_proveedor_precios')) {
             return null;
         }
 
-        // Filtramos para que coincida exactamente con la unidad solicitada
+        // Si se envía unidad, prioriza coincidencia exacta y luego permite fallback a registro sin unidad.
         $sql = "SELECT capp.precio_recomendado
                 FROM comercial_acuerdos_proveedor_precios capp
                 INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
@@ -579,15 +578,22 @@ class ListaPrecioModel extends Modelo {
                   AND capv.estado = 1
                   AND capp.estado = 1
                   AND capp.id_item = :id_item
-                  AND (capp.id_unidad_conversion = :id_unidad OR (capp.id_unidad_conversion IS NULL AND :id_unidad_null IS NULL))
-                ORDER BY capp.id DESC
+                  AND (
+                        (:id_unidad_filtro IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad_match OR capp.id_unidad_conversion IS NULL))
+                        OR
+                        (:id_unidad_filtro IS NULL AND capp.id_unidad_conversion IS NULL)
+                  )
+                ORDER BY CASE WHEN :id_unidad_orden IS NOT NULL AND capp.id_unidad_conversion = :id_unidad_orden_match THEN 0 ELSE 1 END,
+                         capp.id DESC
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             ':id_proveedor' => $idProveedor,
             ':id_item' => $idItem,
-            ':id_unidad' => $idUnidad,
-            ':id_unidad_null' => $idUnidad // Truco de PDO para evitar error si enviamos null dos veces
+            ':id_unidad_filtro' => $idUnidad,
+            ':id_unidad_match' => $idUnidad,
+            ':id_unidad_orden' => $idUnidad,
+            ':id_unidad_orden_match' => $idUnidad,
         ]);
         $valor = $stmt->fetchColumn();
         if ($valor === false) {
