@@ -370,8 +370,12 @@
             
             if (!esBorrador) {
                 const cantDespachada = Number(item.cantidad_despachada || 0);
+                const cantCancelada = Number(item.cantidad_cancelada || 0);
                 const infoDespacho = document.createElement('div');
-                infoDespacho.innerHTML = `<span class="badge ${cantDespachada < item.cantidad ? 'bg-warning text-dark' : 'bg-success'} mt-1">Entregado: ${cantDespachada}</span>`;
+                infoDespacho.innerHTML = `
+                    <span class="badge ${cantDespachada < item.cantidad ? 'bg-warning text-dark' : 'bg-success'} mt-1">Entregado: ${cantDespachada}</span>
+                    ${cantCancelada > 0.0001 ? `<span class="badge bg-danger ms-1 mt-1">Cancelado: ${cantCancelada}</span>` : ''}
+                `;
                 inputCantidad.parentElement.appendChild(infoDespacho);
             } else {
                 validarCantidadVsStock(filaReal); 
@@ -856,6 +860,17 @@
                 const despachando = resumenPorItem[id] || 0;
                 if (despachando < pendiente - 0.01) esParcial = true;
             });
+
+            if (esParcial && cerrarForzado.checked) {
+                const resp = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Cerrar pedido de forma forzada',
+                    text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, cerrar pedido'
+                });
+                if (!resp.isConfirmed) return;
+            }
 
             if (esParcial && !cerrarForzado.checked) {
                 const resp = await Swal.fire({

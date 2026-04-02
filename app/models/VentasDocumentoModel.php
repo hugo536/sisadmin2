@@ -92,10 +92,13 @@ class VentasDocumentoModel extends Modelo
         $stmtDetalle->execute(['id_documento' => $idDocumento]);
         $detalle = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        $estadoDocumento = (int) ($venta['estado'] ?? 0);
         foreach ($detalle as &$linea) {
             $cantidad = (float) ($linea['cantidad'] ?? 0);
             $despachada = (float) ($linea['cantidad_despachada'] ?? 0);
-            $linea['cantidad_pendiente'] = max(0, $cantidad - $despachada);
+            $pendiente = max(0, $cantidad - $despachada);
+            $linea['cantidad_pendiente'] = $pendiente;
+            $linea['cantidad_cancelada'] = ($estadoDocumento === 3 && $pendiente > 0.0001) ? $pendiente : 0;
         }
         unset($linea);
 
