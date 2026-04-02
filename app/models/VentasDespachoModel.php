@@ -435,6 +435,248 @@ class VentasDespachoModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
+    public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId): void
+    {
+        if ($idDocumento <= 0) throw new RuntimeException('Documento inválido para devolución.');
+        if ($userId <= 0) throw new RuntimeException('Usuario inválido para registrar devolución.');
+        if (trim($motivo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
+        if (trim($resolucion) === '') throw new RuntimeException('Debe indicar la resolución de la devolución.');
+        if (empty($detalle)) throw new RuntimeException('Debe agregar al menos una línea en la devolución.');
+
+        $db = $this->db();
+        $this->asegurarTablasDevolucion($db);
+        $db->beginTransaction();
+
+        try {
+            $stmtDoc = $db->prepare('SELECT id, codigo, id_cliente, estado
+                                     FROM ventas_documentos
+                                     WHERE id = :id
+                                       AND deleted_at IS NULL
+                                     LIMIT 1');
+            $stmtDoc->execute(['id' => $idDocumento]);
+            $documento = $stmtDoc->fetch(PDO::FETCH_ASSOC);
+            if (!$documento) throw new RuntimeException('El pedido no existe.');
+
+            $estado = (int) ($documento['estado'] ?? 0);
+            if (!in_array($estado, [2, 3], true)) {
+                throw new RuntimeException('Solo se pueden registrar devoluciones en pedidos aprobados o cerrados.');
+            }
+
+            $idCliente = (int) ($documento['id_cliente'] ?? 0);
+            if ($idCliente <= 0) throw new RuntimeException('El pedido no tiene cliente válido.');
+
+            $stmtAlm = $db->prepare('SELECT id_almacen
+                                     FROM ventas_despachos
+                                     WHERE id_documento_venta = :id
+                                     ORDER BY id DESC
+                                     LIMIT 1');
+            $stmtAlm->execute(['id' => $idDocumento]);
+            $idAlmacenDestino = (int) $stmtAlm->fetchColumn();
+            if ($idAlmacenDestino <= 0) {
+                $idAlmacenDestino = (int) $db->query('SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1')->fetchColumn();
+            }
+            if ($idAlmacenDestino <= 0) throw new RuntimeException('No existe un almacén activo para registrar el retorno.');
+
+            $stmtCab = $db->prepare('INSERT INTO ventas_devoluciones
+                (id_documento_venta, id_cliente, motivo, tipo_resolucion, total_devuelto, created_by, updated_by, created_at, updated_at)
+                VALUES
+                (:id_documento, :id_cliente, :motivo, :resolucion, 0, :user, :user, NOW(), NOW())');
+            $stmtCab->execute([
+                'id_documento' => $idDocumento,
+                'id_cliente' => $idCliente,
+                'motivo' => trim($motivo),
+                'resolucion' => trim($resolucion),
+                'user' => $userId,
+            ]);
+            $idDevolucion = (int) $db->lastInsertId();
+
+            require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
+            $inventarioModel = new InventarioModel();
+
+            $stmtDetVenta = $db->prepare('SELECT id, id_item, cantidad_despachada
+                                          FROM ventas_documentos_detalle
+                                          WHERE id = :id_detalle
+                                            AND id_documento_venta = :id_documento
+                                            AND deleted_at IS NULL
+                                          LIMIT 1');
+            $stmtInsDet = $db->prepare('INSERT INTO ventas_devoluciones_detalle
+                (id_devolucion, id_documento_detalle, id_item, cantidad, costo_unitario, subtotal, created_at)
+                VALUES
+                (:id_devolucion, :id_documento_detalle, :id_item, :cantidad, :costo_unitario, :subtotal, NOW())');
+            $stmtUpdDet = $db->prepare('UPDATE ventas_documentos_detalle
+                                        SET cantidad_despachada = GREATEST(cantidad_despachada - :cantidad, 0),
+                                            updated_at = NOW()
+                                        WHERE id = :id_detalle');
+
+            $acumulado = [];
+            $totalDevuelto = 0.0;
+            foreach ($detalle as $linea) {
+                $idDetalle = (int) ($linea['id_documento_detalle'] ?? 0);
+                $idItem = (int) ($linea['id_item'] ?? 0);
+                $cantidad = (float) ($linea['cantidad'] ?? 0);
+                $costo = max(0.0, (float) ($linea['costo_unitario'] ?? 0));
+
+                if ($idDetalle <= 0 || $idItem <= 0 || $cantidad <= 0) {
+                    throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
+                }
+
+                $stmtDetVenta->execute([
+                    'id_detalle' => $idDetalle,
+                    'id_documento' => $idDocumento,
+                ]);
+                $detVenta = $stmtDetVenta->fetch(PDO::FETCH_ASSOC);
+                if (!$detVenta) throw new RuntimeException('No se encontró una línea del pedido asociada a la devolución.');
+                if ((int) ($detVenta['id_item'] ?? 0) !== $idItem) {
+                    throw new RuntimeException('El ítem de la devolución no coincide con el detalle del pedido.');
+                }
+
+                $acumulado[$idDetalle] = ($acumulado[$idDetalle] ?? 0.0) + $cantidad;
+                $despachado = (float) ($detVenta['cantidad_despachada'] ?? 0);
+                if ($acumulado[$idDetalle] > $despachado + 0.0001) {
+                    throw new RuntimeException('No puede devolver más cantidad que la ya despachada.');
+                }
+
+                $subtotal = round($cantidad * $costo, 4);
+                $totalDevuelto += $subtotal;
+
+                $stmtInsDet->execute([
+                    'id_devolucion' => $idDevolucion,
+                    'id_documento_detalle' => $idDetalle,
+                    'id_item' => $idItem,
+                    'cantidad' => $cantidad,
+                    'costo_unitario' => $costo,
+                    'subtotal' => $subtotal,
+                ]);
+
+                $stmtUpdDet->execute([
+                    'cantidad' => $cantidad,
+                    'id_detalle' => $idDetalle,
+                ]);
+
+                $inventarioModel->registrarMovimiento([
+                    'tipo_movimiento' => 'AJ+',
+                    'tipo_registro' => 'item',
+                    'id_item' => $idItem,
+                    'id_almacen_destino' => $idAlmacenDestino,
+                    'cantidad' => $cantidad,
+                    'costo_unitario' => $costo,
+                    'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . trim($motivo),
+                    'created_by' => $userId,
+                ]);
+            }
+
+            $db->prepare('UPDATE ventas_devoluciones
+                          SET total_devuelto = :total,
+                              updated_by = :user,
+                              updated_at = NOW()
+                          WHERE id = :id')
+                ->execute([
+                    'total' => round($totalDevuelto, 4),
+                    'user' => $userId,
+                    'id' => $idDevolucion,
+                ]);
+
+            $db->prepare('UPDATE ventas_documentos
+                          SET estado = 2,
+                              updated_by = :user,
+                              updated_at = NOW()
+                          WHERE id = :id')
+                ->execute([
+                    'id' => $idDocumento,
+                    'user' => $userId,
+                ]);
+
+            $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $resolucion, $totalDevuelto, $userId);
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
+        }
+    }
+
+    private function aplicarAjusteCxcPorDevolucion(PDO $db, int $idDocumento, string $resolucion, float $totalDevuelto, int $userId): void
+    {
+        if ($totalDevuelto <= 0) return;
+        if (trim(strtolower($resolucion)) !== 'descuento_cxc') return;
+
+        $stmt = $db->prepare('SELECT id, monto_total, monto_pagado
+                              FROM tesoreria_cxc
+                              WHERE id_documento_venta = :id_documento
+                                AND deleted_at IS NULL
+                                AND estado <> "ANULADA"
+                              ORDER BY id DESC
+                              LIMIT 1
+                              FOR UPDATE');
+        $stmt->execute(['id_documento' => $idDocumento]);
+        $cxc = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cxc) return;
+
+        $montoTotalActual = (float) ($cxc['monto_total'] ?? 0);
+        $montoPagadoActual = (float) ($cxc['monto_pagado'] ?? 0);
+        $nuevoMontoTotal = max(0.0, $montoTotalActual - $totalDevuelto);
+        $nuevoPagado = min($montoPagadoActual, $nuevoMontoTotal);
+        $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
+
+        $estado = 'PENDIENTE';
+        if ($nuevoSaldo <= 0.00001) $estado = 'PAGADA';
+        elseif ($nuevoPagado > 0) $estado = 'PARCIAL';
+
+        $db->prepare('UPDATE tesoreria_cxc
+                      SET monto_total = :monto_total,
+                          monto_pagado = :monto_pagado,
+                          saldo = :saldo,
+                          estado = :estado,
+                          updated_by = :user,
+                          updated_at = NOW()
+                      WHERE id = :id')
+            ->execute([
+                'monto_total' => round($nuevoMontoTotal, 4),
+                'monto_pagado' => round($nuevoPagado, 4),
+                'saldo' => round($nuevoSaldo, 4),
+                'estado' => $estado,
+                'user' => $userId,
+                'id' => (int) ($cxc['id'] ?? 0),
+            ]);
+    }
+
+    private function asegurarTablasDevolucion(PDO $db): void
+    {
+        $db->exec('CREATE TABLE IF NOT EXISTS ventas_devoluciones (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            id_documento_venta INT NOT NULL,
+            id_cliente INT NOT NULL,
+            motivo VARCHAR(180) NOT NULL,
+            tipo_resolucion VARCHAR(40) NOT NULL,
+            total_devuelto DECIMAL(14,4) NOT NULL DEFAULT 0,
+            created_by INT NOT NULL,
+            updated_by INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            deleted_at DATETIME NULL,
+            INDEX idx_vdev_doc (id_documento_venta),
+            INDEX idx_vdev_cliente (id_cliente),
+            CONSTRAINT fk_vdev_doc FOREIGN KEY (id_documento_venta) REFERENCES ventas_documentos(id),
+            CONSTRAINT fk_vdev_cliente FOREIGN KEY (id_cliente) REFERENCES terceros(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $db->exec('CREATE TABLE IF NOT EXISTS ventas_devoluciones_detalle (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            id_devolucion INT NOT NULL,
+            id_documento_detalle INT NOT NULL,
+            id_item INT NOT NULL,
+            cantidad DECIMAL(14,4) NOT NULL,
+            costo_unitario DECIMAL(14,4) NOT NULL DEFAULT 0,
+            subtotal DECIMAL(14,4) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_vdevd_devolucion (id_devolucion),
+            INDEX idx_vdevd_doc_detalle (id_documento_detalle),
+            INDEX idx_vdevd_item (id_item),
+            CONSTRAINT fk_vdevd_devolucion FOREIGN KEY (id_devolucion) REFERENCES ventas_devoluciones(id),
+            CONSTRAINT fk_vdevd_doc_detalle FOREIGN KEY (id_documento_detalle) REFERENCES ventas_documentos_detalle(id),
+            CONSTRAINT fk_vdevd_item FOREIGN KEY (id_item) REFERENCES items(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+
     private function generarCodigo(PDO $db): string
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_despachos')->fetchColumn() + 1;

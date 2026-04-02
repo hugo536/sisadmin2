@@ -94,6 +94,8 @@
     const modalVenta = new bootstrap.Modal(modalVentaEl);
     const modalDespachoEl = document.getElementById('modalDespacho');
     const modalDespacho = new bootstrap.Modal(modalDespachoEl);
+    const modalDevolucionVentaEl = document.getElementById('modalDevolucionVenta');
+    const modalDevolucionVenta = modalDevolucionVentaEl ? new bootstrap.Modal(modalDevolucionVentaEl) : null;
 
     const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
     const templateFilaVenta = document.getElementById('templateFilaVenta');
@@ -108,6 +110,11 @@
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
+    const tbodyDevolucionVenta = document.querySelector('#tablaDetalleDevolucionVenta tbody');
+    const devolucionVentaDocumentoId = document.getElementById('devolucionVentaDocumentoId');
+    const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
+    const devolucionVentaResolucion = document.getElementById('devolucionVentaResolucion');
+    const devolucionVentaTotal = document.getElementById('devolucionVentaTotal');
 
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     const filtroEstado = document.getElementById('filtroEstado');
@@ -475,6 +482,76 @@
             }
         });
         modalDespacho.show();
+    }
+
+    async function abrirModalDevolucionVenta(idDocumento) {
+        if (!modalDevolucionVenta || !tbodyDevolucionVenta) return;
+
+        const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
+        const venta = payload.data || {};
+
+        devolucionVentaDocumentoId.value = venta.id || 0;
+        devolucionVentaMotivo.value = '';
+        tbodyDevolucionVenta.innerHTML = '';
+        devolucionVentaTotal.textContent = 'S/ 0.00';
+
+        let hayLineas = false;
+        (venta.detalle || []).forEach((linea) => {
+            const despachada = Number(linea.cantidad_despachada || 0);
+            if (despachada <= 0.0001) return;
+            hayLineas = true;
+
+            const tr = document.createElement('tr');
+            tr.dataset.idDetalle = linea.id;
+            tr.dataset.idItem = linea.id_item;
+            tr.dataset.maxCantidad = despachada;
+            tr.dataset.precio = Number(linea.precio_unitario || 0);
+
+            tr.innerHTML = `
+                <td class="align-middle py-3 ps-3">
+                    <div class="fw-bold text-dark" style="font-size:0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                </td>
+                <td class="text-center align-middle">
+                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">${despachada.toFixed(2)}</span>
+                </td>
+                <td class="text-center align-middle fw-semibold">S/ ${Number(linea.precio_unitario || 0).toFixed(2)}</td>
+                <td class="text-center align-middle">
+                    <input type="number" class="form-control form-control-sm text-center input-devolver-venta mx-auto" min="0" step="0.01" value="0" style="max-width:95px;">
+                </td>
+                <td class="text-end align-middle pe-4 fw-bold monto-linea-devolucion">S/ 0.00</td>
+            `;
+            tbodyDevolucionVenta.appendChild(tr);
+        });
+
+        if (!hayLineas) {
+            Swal.fire('Aviso', 'Este pedido no tiene cantidades despachadas para devolver.', 'info');
+            return;
+        }
+
+        recalcularTotalDevolucionVenta();
+        modalDevolucionVenta.show();
+    }
+
+    function recalcularTotalDevolucionVenta() {
+        if (!tbodyDevolucionVenta || !devolucionVentaTotal) return;
+        let total = 0;
+
+        tbodyDevolucionVenta.querySelectorAll('tr').forEach((tr) => {
+            const input = tr.querySelector('.input-devolver-venta');
+            const max = Number(tr.dataset.maxCantidad || 0);
+            const precio = Number(tr.dataset.precio || 0);
+            let cantidad = Number(input.value || 0);
+
+            if (cantidad < 0) cantidad = 0;
+            if (cantidad > max) cantidad = max;
+            input.value = cantidad.toFixed(2);
+
+            const subtotal = cantidad * precio;
+            total += subtotal;
+            tr.querySelector('.monto-linea-devolucion').textContent = `S/ ${subtotal.toFixed(2)}`;
+        });
+
+        devolucionVentaTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
 
     function agregarFilaDespacho(linea, filaReferencia = null) {
@@ -887,6 +964,49 @@
 
         if (btn.classList.contains('btn-despachar')) {
             try { await abrirModalDespacho(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        }
+
+        if (btn.classList.contains('btn-devolucion')) {
+            try { await abrirModalDevolucionVenta(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
+        }
+    });
+
+    tbodyDevolucionVenta?.addEventListener('input', (e) => {
+        if (!e.target.classList.contains('input-devolver-venta')) return;
+        recalcularTotalDevolucionVenta();
+    });
+
+    document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click', async () => {
+        try {
+            if (!devolucionVentaMotivo?.value) throw new Error('Seleccione un motivo de devolución.');
+
+            const detalle = [];
+            tbodyDevolucionVenta?.querySelectorAll('tr').forEach((tr) => {
+                const cantidad = Number(tr.querySelector('.input-devolver-venta')?.value || 0);
+                if (cantidad <= 0) return;
+
+                detalle.push({
+                    id_documento_detalle: Number(tr.dataset.idDetalle || 0),
+                    id_item: Number(tr.dataset.idItem || 0),
+                    cantidad,
+                    costo_unitario: Number(tr.dataset.precio || 0),
+                });
+            });
+
+            if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
+
+            const payload = await postJson(`${urls.index}&accion=guardar_devolucion`, {
+                id_documento: Number(devolucionVentaDocumentoId?.value || 0),
+                motivo: devolucionVentaMotivo.value,
+                resolucion: devolucionVentaResolucion?.value || 'descuento_cxc',
+                detalle,
+            });
+
+            await Swal.fire('Éxito', payload.mensaje, 'success');
+            modalDevolucionVenta?.hide();
+            recargarTabla();
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
         }
     });
 })();

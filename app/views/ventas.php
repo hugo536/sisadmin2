@@ -106,6 +106,11 @@ $estadoLabels = [
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                             <?php elseif ($estado === 2): ?> 
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
+                                            <?php elseif ($estado === 3): ?>
+                                                <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                             <?php else: ?> 
@@ -279,6 +284,72 @@ $estadoLabels = [
                         <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDevolucionVenta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-arrow-return-left me-2"></i>Registrar Devolución de Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <input type="hidden" id="devolucionVentaDocumentoId" value="0">
+
+                <div class="row mb-4 g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
+                        <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
+                            <option value="">Seleccione un motivo...</option>
+                            <option value="Producto defectuoso">Producto defectuoso o dañado</option>
+                            <option value="Producto incorrecto">Producto incorrecto entregado</option>
+                            <option value="Error de despacho">Error de despacho / cantidad</option>
+                            <option value="Cliente rechaza pedido">Cliente rechaza pedido</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Resolución Comercial <span class="text-danger">*</span></label>
+                        <select id="devolucionVentaResolucion" class="form-select border-warning-subtle" required>
+                            <option value="descuento_cxc" selected>Nota de Crédito (Descontar de CxC)</option>
+                            <option value="reembolso_dinero">Reembolso al cliente</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-bordered" id="tablaDetalleDevolucionVenta">
+                                <thead class="table-secondary text-dark">
+                                    <tr>
+                                        <th class="ps-3 border-bottom-0">Producto / Ítem</th>
+                                        <th class="text-center border-bottom-0 col-w-150">Cant. Despachada</th>
+                                        <th class="text-center border-bottom-0 col-w-150">Precio Unit.</th>
+                                        <th class="text-center border-bottom-0 col-w-140">Cantidad</th>
+                                        <th class="text-end pe-4 border-bottom-0 col-w-150">Monto Devuelto</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white"></tbody>
+                                <tfoot class="bg-light border-top">
+                                    <tr>
+                                        <td colspan="4" class="text-end fw-bold py-3 text-secondary">TOTAL A DEVOLVER:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-warning-emphasis pe-4" id="devolucionVentaTotal">S/ 0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-white border-top-0">
+                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-warning text-dark fw-bold px-4" id="btnConfirmarDevolucionVenta">
+                    <i class="bi bi-check-circle-fill me-2"></i>Procesar Devolución
+                </button>
             </div>
         </div>
     </div>
