@@ -191,18 +191,33 @@ class VentasDespachoModel extends Modelo
             
             $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
 
-            if ($nuevoEstado === 3) {
-                $db->prepare('UPDATE ventas_documentos
-                              SET estado = :estado,
-                                  updated_by = :user,
-                                  updated_at = NOW()
-                              WHERE id = :id
-                                AND deleted_at IS NULL')
-                    ->execute([
-                        'estado' => $nuevoEstado,
-                        'user' => $userId,
-                        'id' => $idDocumento,
-                    ]);
+            $sqlUpdateDocumento = 'UPDATE ventas_documentos
+                                   SET estado = :estado,
+                                       updated_by = :user,
+                                       updated_at = NOW()';
+            $paramsUpdateDocumento = [
+                'estado' => $nuevoEstado,
+                'user' => $userId,
+                'id' => $idDocumento,
+            ];
+
+            if ($cerrarForzado && $pendienteTotal > 0.001) {
+                $notaCierre = sprintf(
+                    '[CIERRE FORZADO %s | SALDO CANCELADO: %.3f]',
+                    date('Y-m-d H:i:s'),
+                    $pendienteTotal
+                );
+                $sqlUpdateDocumento .= ', observaciones = TRIM(CONCAT(COALESCE(observaciones, \'\'), CASE WHEN COALESCE(observaciones, \'\') = \'\' THEN \'\' ELSE \' \' END, :nota_cierre))';
+                $paramsUpdateDocumento['nota_cierre'] = $notaCierre;
+            }
+
+            $sqlUpdateDocumento .= ' WHERE id = :id
+                                      AND deleted_at IS NULL';
+
+            $db->prepare($sqlUpdateDocumento)->execute($paramsUpdateDocumento);
+
+            if ($cerrarForzado && $pendienteTotal > 0.001) {
+                $this->ajustarMontosDocumentoYCxcPorCierreForzado($db, $idDocumento, $userId);
             }
 
             $db->commit();
@@ -260,6 +275,106 @@ class VentasDespachoModel extends Modelo
         $stmt->execute(['id_documento' => $idDocumento]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    private function ajustarMontosDocumentoYCxcPorCierreForzado(PDO $db, int $idDocumento, int $userId): void
+    {
+        $stmtDoc = $db->prepare('SELECT id, tipo_impuesto
+                                 FROM ventas_documentos
+                                 WHERE id = :id
+                                   AND deleted_at IS NULL
+                                 LIMIT 1
+                                 FOR UPDATE');
+        $stmtDoc->execute(['id' => $idDocumento]);
+        $doc = $stmtDoc->fetch(PDO::FETCH_ASSOC);
+        if (!$doc) {
+            return;
+        }
+
+        $stmtTotales = $db->prepare('SELECT COALESCE(SUM(cantidad_despachada * precio_unitario), 0) AS total_despachado
+                                     FROM ventas_documentos_detalle
+                                     WHERE id_documento_venta = :id_documento
+                                       AND deleted_at IS NULL');
+        $stmtTotales->execute(['id_documento' => $idDocumento]);
+        $totalLineas = (float) ($stmtTotales->fetchColumn() ?: 0);
+
+        $tipoImpuesto = trim((string) ($doc['tipo_impuesto'] ?? 'incluido'));
+        $subtotal = 0.0;
+        $igv = 0.0;
+        $totalFinal = 0.0;
+
+        if ($tipoImpuesto === 'incluido') {
+            $totalFinal = $totalLineas;
+            $subtotal = $totalFinal / 1.18;
+            $igv = $totalFinal - $subtotal;
+        } elseif ($tipoImpuesto === 'mas_igv') {
+            $subtotal = $totalLineas;
+            $igv = $subtotal * 0.18;
+            $totalFinal = $subtotal + $igv;
+        } else {
+            $subtotal = $totalLineas;
+            $igv = 0.0;
+            $totalFinal = $subtotal;
+        }
+
+        $db->prepare('UPDATE ventas_documentos
+                      SET subtotal = :subtotal,
+                          igv_monto = :igv,
+                          total = :total,
+                          updated_by = :user,
+                          updated_at = NOW()
+                      WHERE id = :id
+                        AND deleted_at IS NULL')
+            ->execute([
+                'subtotal' => round($subtotal, 4),
+                'igv' => round($igv, 4),
+                'total' => round($totalFinal, 2),
+                'user' => $userId,
+                'id' => $idDocumento,
+            ]);
+
+        $stmtCxc = $db->prepare('SELECT id, monto_pagado
+                                 FROM tesoreria_cxc
+                                 WHERE id_documento_venta = :id_documento
+                                   AND deleted_at IS NULL
+                                   AND estado <> "ANULADA"
+                                 ORDER BY id DESC
+                                 LIMIT 1
+                                 FOR UPDATE');
+        $stmtCxc->execute(['id_documento' => $idDocumento]);
+        $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
+        if (!$cxc) {
+            return;
+        }
+
+        $montoPagado = (float) ($cxc['monto_pagado'] ?? 0);
+        $nuevoMontoTotal = round($totalFinal, 2);
+        $nuevoMontoPagado = min($montoPagado, $nuevoMontoTotal);
+        $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoMontoPagado);
+
+        $estado = 'PENDIENTE';
+        if ($nuevoSaldo <= 0.00001) {
+            $estado = 'PAGADA';
+        } elseif ($nuevoMontoPagado > 0.00001) {
+            $estado = 'PARCIAL';
+        }
+
+        $db->prepare('UPDATE tesoreria_cxc
+                      SET monto_total = :monto_total,
+                          monto_pagado = :monto_pagado,
+                          saldo = :saldo,
+                          estado = :estado,
+                          updated_by = :user,
+                          updated_at = NOW()
+                      WHERE id = :id')
+            ->execute([
+                'monto_total' => $nuevoMontoTotal,
+                'monto_pagado' => round($nuevoMontoPagado, 2),
+                'saldo' => round($nuevoSaldo, 2),
+                'estado' => $estado,
+                'user' => $userId,
+                'id' => (int) ($cxc['id'] ?? 0),
+            ]);
     }
 
 

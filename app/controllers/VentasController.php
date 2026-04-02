@@ -326,7 +326,7 @@ class VentasController extends Controlador
             $data = $this->leerJson(); // BUG FIX: Usamos el helper en lugar de file_get_contents
             
             $idDocumento = (int) ($data['id_documento'] ?? 0);
-            $cerrarForzado = (bool) ($data['cerrar_forzado'] ?? false);
+            $cerrarForzado = filter_var(($data['cerrar_forzado'] ?? false), FILTER_VALIDATE_BOOLEAN);
             $observaciones = trim($data['observaciones'] ?? '');
             $detalle = $data['detalle'] ?? [];
 
