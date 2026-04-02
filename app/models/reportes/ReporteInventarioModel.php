@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 class ReporteInventarioModel extends Modelo
 {
+    public function listarAlmacenesActivos(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM almacenes
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function costoUnitarioExpr(string $stockAlias = 's', string $itemAlias = 'i'): string
     {
         return "COALESCE(NULLIF({$stockAlias}.costo_promedio, 0), NULLIF({$itemAlias}.ultimo_costo_compra, 0), NULLIF({$itemAlias}.costo_referencial, 0), 0)";

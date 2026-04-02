@@ -24,7 +24,15 @@
                 </div>
                 <div class="col-6 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Almacén</label>
-                    <input type="number" name="id_almacen" class="form-control bg-light" placeholder="Todos..." value="<?php echo ($filtros['id_almacen'] ?? 0) > 0 ? (int)$filtros['id_almacen'] : ''; ?>">
+                    <select name="id_almacen" class="form-select bg-light">
+                        <option value="">Todos...</option>
+                        <?php foreach (($almacenes ?? []) as $almacen): ?>
+                            <?php $idAlmacen = (int) ($almacen['id'] ?? 0); ?>
+                            <option value="<?php echo $idAlmacen; ?>" <?php echo ((int) ($filtros['id_almacen'] ?? 0) === $idAlmacen) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($almacen['nombre'] ?? ('Almacén #' . $idAlmacen))); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="col-6 col-md-2 d-flex align-items-center pb-2">
                     <div class="form-check form-switch ms-2">

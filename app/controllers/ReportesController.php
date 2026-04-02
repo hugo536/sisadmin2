@@ -71,6 +71,7 @@ class ReportesController extends Controlador
         $this->render('reportes/inventario', [
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
+            'almacenes' => $this->inventario->listarAlmacenesActivos(),
             'stock' => $this->inventario->stockActual($f, $pagina, $tamano),
             'kardex' => $this->inventario->kardex($f, $pagina, $tamano),
             'vencimientos' => $this->inventario->vencimientos($f, $pagina, $tamano),
