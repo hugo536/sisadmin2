@@ -276,7 +276,7 @@
 
                         const items = (json.data || []).map(prod => ({
                             id: prod.id,
-                            text: `${prod.sku || ''} - ${prod.nombre}`,
+                            text: `${prod.nombre || ''}`,
                             stock: parseFloat(prod.stock_actual || 0),
                             precio: parseFloat(prod.precio_venta || 0)
                         }));
@@ -316,7 +316,6 @@
                     return `<div class="py-2 d-flex justify-content-between align-items-center">
                         <div>
                             <div class="fw-bold text-dark">${escape(data.text)}</div>
-                            <div class="small text-muted">${escape(data.sku || 'Sin SKU')}</div>
                         </div>
                         <div class="text-end">
                             <div class="small ${stockColor}">Stock: ${stockLabel}</div>
@@ -330,7 +329,7 @@
         if (item) {
             tom.addOption({
                 id: item.id_item,
-                text: `${item.sku || ''} - ${item.item_nombre}`,
+                text: `${item.item_nombre || ''}`,
                 stock: Number(item.stock_actual || 0), 
                 precio: Number(item.precio_unitario)
             });
@@ -509,7 +508,7 @@
 
             tr.innerHTML = `
                 <td class="align-middle py-3 ps-3">
-                    <div class="fw-bold text-dark" style="font-size:0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                    <div class="fw-bold text-dark" style="font-size:0.95rem;">${linea.item_nombre || ''}</div>
                 </td>
                 <td class="text-center align-middle">
                     <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">${despachada.toFixed(2)}</span>
@@ -572,7 +571,6 @@
         const tr = document.createElement('tr');
         tr.dataset.idDetalle = linea.id;
         tr.dataset.idItem = linea.id_item;
-        tr.dataset.sku = linea.sku || '';
         tr.dataset.pendienteTotal = linea.cantidad_pendiente;
 
         if (almacenesDisp.length === 0) {
@@ -581,7 +579,7 @@
 
         tr.innerHTML = `
             <td class="align-middle py-3">
-                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
                 
                 <div class="small text-muted d-flex align-items-center gap-2 mt-1">
                     <span>Pedido Original: <strong class="text-dark">${Number(linea.cantidad)}</strong></span>
