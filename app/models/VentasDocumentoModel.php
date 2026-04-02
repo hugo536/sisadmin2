@@ -56,6 +56,7 @@ class VentasDocumentoModel extends Modelo
         $sql = 'SELECT v.id, v.codigo, v.id_cliente, 
                        v.tipo_operacion, v.tipo_impuesto,
                        t.nombre_completo AS cliente, 
+                       t.tipo_documento AS cliente_doc_tipo,
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
                        v.fecha_emision, v.observaciones, v.subtotal, v.total, v.estado
@@ -81,6 +82,7 @@ class VentasDocumentoModel extends Modelo
                               d.precio_unitario,
                               d.total_linea AS subtotal,
                               d.cantidad_despachada,
+                              i.peso_kg,
                               (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item) AS stock_actual
                        FROM ventas_documentos_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
