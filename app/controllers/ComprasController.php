@@ -39,6 +39,32 @@ class ComprasController extends Controlador
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
 
+        // Guardar Devolución AJAX
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
+            try {
+                $payload = $this->leerJson();
+                $userId = $this->obtenerUsuarioId();
+
+                if (empty($payload['id_orden']) || empty($payload['motivo']) || empty($payload['detalle'])) {
+                    throw new RuntimeException('Faltan datos obligatorios para la devolución.');
+                }
+
+                // Llamamos a una nueva función en el modelo
+                $this->ordenModel->registrarDevolucion(
+                    (int) $payload['id_orden'], 
+                    $payload['motivo'], 
+                    $payload['resolucion'], 
+                    $payload['detalle'], 
+                    $userId
+                );
+
+                json_response(['ok' => true, 'mensaje' => 'Devolución registrada correctamente. La cuenta por pagar y el inventario han sido actualizados.']);
+            } catch (Throwable $e) {
+                json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+            }
+            return;
+        }
+
         // Listar AJAX
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response([
@@ -126,10 +152,9 @@ class ComprasController extends Controlador
             $idOrden = (int) ($payload['id'] ?? 0);
             $idProveedor = (int) ($payload['id_proveedor'] ?? 0);
             
-            // Convertir string vacío a NULL para la base de datos
             $fechaEntrega = !empty($payload['fecha_entrega']) ? trim((string) $payload['fecha_entrega']) : null;
-            
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
+            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido')); // NUEVO
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
             if ($idProveedor <= 0 || !$this->ordenModel->proveedorEsValido($idProveedor)) {
@@ -144,8 +169,8 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem.');
             }
 
-            // Recalcular total en backend para evitar manipulación en frontend
-            $total = 0.0;
+            // Recalcular la suma de líneas en backend
+            $sumaLineas = 0.0;
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
@@ -165,18 +190,39 @@ class ComprasController extends Controlador
                 if ($idCentroCosto > 0 && !$this->centroCostoModel->existe($idCentroCosto)) {
                     throw new RuntimeException('Uno de los centros de costo seleccionados no es válido.');
                 }
-                $total += $cantidad * $costo;
+                $sumaLineas += ($cantidad * $costo);
             }
 
-            // Llamar al Modelo
+            // LÓGICA DE IMPUESTOS EN BACKEND
+            $subtotal = 0.0;
+            $igvMonto = 0.0;
+            $totalFinal = 0.0;
+
+            if ($tipoImpuesto === 'incluido') {
+                $totalFinal = $sumaLineas;
+                $subtotal = $totalFinal / 1.18;
+                $igvMonto = $totalFinal - $subtotal;
+            } elseif ($tipoImpuesto === 'mas_igv') {
+                $subtotal = $sumaLineas;
+                $igvMonto = $subtotal * 0.18;
+                $totalFinal = $subtotal + $igvMonto;
+            } else { // exonerado
+                $subtotal = $sumaLineas;
+                $igvMonto = 0.0;
+                $totalFinal = $subtotal;
+            }
+
+            // Llamar al Modelo enviando los nuevos campos
             $id = $this->ordenModel->crearOActualizar([
                 'id' => $idOrden,
                 'id_proveedor' => $idProveedor,
                 'fecha_entrega' => $fechaEntrega,
                 'observaciones' => $observaciones,
-                'subtotal' => round($total, 2), // Asumimos subtotal = total (sin impuestos por ahora)
-                'total' => round($total, 2),
-                'estado' => 0, // Siempre se guarda como Borrador al editar/crear
+                'tipo_impuesto' => $tipoImpuesto,       // <-- NUEVO
+                'subtotal' => round($subtotal, 4),      // <-- ACTUALIZADO
+                'igv_monto' => round($igvMonto, 4),     // <-- NUEVO
+                'total' => round($totalFinal, 2),       // <-- ACTUALIZADO
+                'estado' => 0, 
             ], $detalle, $userId);
 
             json_response(['ok' => true, 'mensaje' => 'Orden guardada correctamente.', 'id' => $id]);
@@ -312,5 +358,44 @@ class ComprasController extends Controlador
             throw new RuntimeException('La sesión ha expirado o es inválida.');
         }
         return $id;
+    }
+
+    public function precioSugeridoAjax(): void
+    {
+        // Aseguramos que la respuesta sea JSON
+        header('Content-Type: application/json');
+
+        // Capturamos los datos que envía tu fetch en JS
+        $idProveedor = (int)($_GET['id_proveedor'] ?? 0);
+        $idItem      = (int)($_GET['id_item'] ?? 0);
+        $idUnidad    = !empty($_GET['id_unidad']) ? (int)$_GET['id_unidad'] : null;
+
+        if ($idProveedor <= 0 || $idItem <= 0) {
+            echo json_encode([
+                'ok' => false, 
+                'mensaje' => 'Proveedor o ítem no válidos.'
+            ]);
+            exit;
+        }
+
+        try {
+            // Instanciamos el modelo que editamos en el paso anterior
+            $modelo = new ComprasOrdenModel();
+            
+            // Llamamos a la nueva función
+            $precio = $modelo->obtenerPrecioProveedor($idProveedor, $idItem, $idUnidad);
+
+            echo json_encode([
+                'ok'                 => true,
+                'encontrado'         => $precio > 0,
+                'precio_recomendado' => $precio
+            ]);
+        } catch (Throwable $e) {
+            echo json_encode([
+                'ok' => false, 
+                'mensaje' => 'Error al obtener precio sugerido: ' . $e->getMessage()
+            ]);
+        }
+        exit;
     }
 }

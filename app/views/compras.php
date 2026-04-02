@@ -17,13 +17,13 @@ $estadoLabels = [
 ?>
 
 <div class="container-fluid p-4" id="comprasApp"
-     data-url-index="<?php echo e(route_url('compras/index')); ?>"
+     data-url-index="<?php echo e(route_url('compras')); ?>"
      data-url-guardar="<?php echo e(route_url('compras/guardar')); ?>"
      data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
      data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
      data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>"
-     data-url-unidades-item="<?php echo e(route_url('compras/index')); ?>"
-     data-url-precio-sugerido="<?php echo e(route_url('compras/index')); ?>">
+     data-url-unidades-item="<?php echo e(route_url('compras')); ?>"
+     data-url-precio-sugerido="<?php echo e(route_url('compras')); ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -108,19 +108,25 @@ $estadoLabels = [
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                            <?php if ($estado === 0): ?> <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
+                                            <?php if ($estado === 0): ?> 
+                                                <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
-                                            <?php elseif ($estado === 2): ?> <button class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
+                                            <?php elseif ($estado === 2): ?> 
+                                                <button class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
-                                            <?php else: ?> <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                            <?php elseif ($estado === 3): ?> 
+                                                <button class="btn btn-sm btn-light text-warning border-0 btn-devolver rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución/Ajuste"><i class="bi bi-arrow-return-left fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                            <?php else: ?> 
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -151,7 +157,7 @@ $estadoLabels = [
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
                             <div class="row g-3 align-items-end">
                                 
-                                <div class="col-md-5">
+                                <div class="col-md-3">
                                     <label for="idProveedor" class="form-label text-muted small fw-bold mb-1">Proveedor <span class="text-danger">*</span></label>
                                     <select id="idProveedor" class="form-select" required>
                                         <option value="">Seleccione...</option>
@@ -167,12 +173,20 @@ $estadoLabels = [
                                     <label for="fechaEntrega" class="form-label text-muted small fw-bold mb-1">Fecha Entrega Est. <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" id="fechaEntrega" required>
                                 </div>
-                                
-                                <div class="col-md-4">
+
+                                <div class="col-md-3">
+                                    <label for="tipoImpuesto" class="form-label text-muted small fw-bold mb-1">Impuestos <span class="text-danger">*</span></label>
+                                    <select id="tipoImpuesto" class="form-select" required>
+                                        <option value="incluido" selected>Incluyen IGV</option>
+                                        <option value="mas_igv">NO incluyen IGV (+18%)</option>
+                                        <option value="exonerado">Exonerado (0%)</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3">
                                     <label for="observaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
                                     <input type="text" class="form-control" id="observaciones" maxlength="180" placeholder="Opcional">
-                                </div>
-                                
+                                </div>        
                             </div>
                         </div>
                     </div>
@@ -198,11 +212,23 @@ $estadoLabels = [
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="3" class="ps-3 py-3 align-middle">
+                                            <td colspan="3" class="ps-3 py-3 align-middle border-bottom-0">
                                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFila">
                                                     <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
                                                 </button>
                                             </td>
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">SUBTOTAL:</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ordenSubtotal">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">IGV (18%):</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ordenIgv">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
                                             <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
                                             <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ordenTotal">S/ 0.00</td>
                                             <td></td>
@@ -212,7 +238,7 @@ $estadoLabels = [
                             </div>
                         </div>
                     </div>
-                    <div class="form-text mt-2 ms-2"><i class="bi bi-info-circle me-1 text-primary"></i> Los costos ingresados deben incluir impuestos.</div>
+                    <div class="form-text mt-2 ms-2"><i class="bi bi-info-circle me-1 text-primary"></i> Asegúrese de revisar la configuración de impuestos.</div>
                 </form>
             </div>
             <div class="modal-footer bg-white border-top-0">
@@ -285,6 +311,73 @@ $estadoLabels = [
     </div>
 </div>
 
+<div class="modal fade" id="modalDevolucionCompra" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-arrow-return-left me-2"></i>Registrar Devolución o Ajuste</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <input type="hidden" id="devolucionOrdenId" value="0">
+                
+                <div class="row mb-4 g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
+                        <select id="devolucionMotivo" class="form-select border-warning-subtle" required>
+                            <option value="">Seleccione un motivo...</option>
+                            <option value="Error de conteo / Auditoría">Error de conteo al recibir (Auditoría)</option>
+                            <option value="Producto defectuoso / Garantía">Producto defectuoso o dañado (Garantía)</option>
+                            <option value="Vencimiento corto">Fecha de vencimiento muy corta</option>
+                            <option value="Producto incorrecto">Llegó un producto diferente al solicitado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Resolución con el Proveedor <span class="text-danger">*</span></label>
+                        <select id="devolucionResolucion" class="form-select border-warning-subtle" required>
+                            <option value="descuento_cxp" selected>Nota de Crédito (Descontar de la deuda / Saldo a favor)</option>
+                            <option value="reembolso_dinero">Reembolso en efectivo / Transferencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-bordered" id="tablaDetalleDevolucion">
+                                <thead class="table-secondary text-dark">
+                                    <tr>
+                                        <th class="ps-3 border-bottom-0">Producto / Ítem</th>
+                                        <th class="text-center border-bottom-0 col-w-150">Cant. Recibida</th>
+                                        <th class="text-center border-bottom-0 col-w-150">Costo Compra</th>
+                                        <th class="text-center border-bottom-0 col-w-180">Unidad de Devolución</th>
+                                        <th class="text-center border-bottom-0 col-w-140">Cantidad</th>
+                                        <th class="text-end pe-4 border-bottom-0 col-w-150">Costo Recuperado</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white"></tbody>
+                                <tfoot class="bg-light border-top">
+                                    <tr>
+                                        <td colspan="5" class="text-end fw-bold py-3 text-secondary">TOTAL A RECUPERAR:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-warning-emphasis pe-4" id="devolucionTotal">S/ 0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-white border-top-0">
+                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-warning text-dark fw-bold px-4" id="btnConfirmarDevolucion">
+                    <i class="bi bi-check-circle-fill me-2"></i>Procesar Devolución
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <template id="templateFilaDetalle">
     <tr class="border-bottom">
         <td class="ps-3 py-3 align-top">
@@ -296,7 +389,7 @@ $estadoLabels = [
                                 data-unidad-base="<?php echo e((string) ($item['unidad_base'] ?? 'UND')); ?>"
                                 data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>"
                                 data-costo-referencial="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
-                            <?php echo htmlspecialchars((string) ($item['sku'] ?? '') . ' - ' . (string) ($item['nombre'] ?? '')); ?>
+                            <?php echo htmlspecialchars((string) ($item['nombre'] ?? '')); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

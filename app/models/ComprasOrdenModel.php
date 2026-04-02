@@ -133,7 +133,9 @@ class ComprasOrdenModel extends Modelo
                               SET id_proveedor = :id_proveedor,
                                   fecha_entrega_estimada = :fecha_entrega,
                                   observaciones = :observaciones,
+                                  tipo_impuesto = :tipo_impuesto,
                                   subtotal = :subtotal,
+                                  igv_monto = :igv_monto,
                                   total = :total,
                                   estado = :estado,
                                   updated_by = :updated_by,
@@ -146,7 +148,9 @@ class ComprasOrdenModel extends Modelo
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_entrega' => $fechaEntrega,
                     'observaciones' => $cabecera['observaciones'] ?: null,
+                    'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
+                    'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
                     'updated_by' => $userId,
@@ -164,7 +168,9 @@ class ComprasOrdenModel extends Modelo
                                 fecha_emision,
                                 fecha_entrega_estimada,
                                 observaciones,
+                                tipo_impuesto,
                                 subtotal,
+                                igv_monto,
                                 total,
                                 estado,
                                 created_by,
@@ -177,7 +183,9 @@ class ComprasOrdenModel extends Modelo
                                 NOW(),
                                 :fecha_entrega,
                                 :observaciones,
+                                :tipo_impuesto,
                                 :subtotal,
+                                :igv_monto,
                                 :total,
                                 :estado,
                                 :created_by,
@@ -191,7 +199,9 @@ class ComprasOrdenModel extends Modelo
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_entrega' => $fechaEntrega,
                     'observaciones' => $cabecera['observaciones'] ?: null,
+                    'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
+                    'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
                     'created_by' => $userId,
@@ -440,5 +450,139 @@ class ComprasOrdenModel extends Modelo
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM compras_ordenes')->fetchColumn() + 1;
         return sprintf('OC-%s-%05d', date('Ymd'), $correlativo);
+    }
+
+    /**
+     * Obtiene el precio pactado con un proveedor específico.
+     * Si no existe un acuerdo, devuelve el costo referencial por defecto del ítem.
+     */
+    public function obtenerPrecioProveedor(int $idProveedor, int $idItem, ?int $idUnidad = null): float
+    {
+        if ($idProveedor <= 0 || $idItem <= 0) {
+            return 0.0;
+        }
+
+        // 1. Buscamos si existe un precio recomendado en los acuerdos
+        $sqlAcuerdo = "SELECT capp.precio_recomendado
+                       FROM comercial_acuerdos_proveedor_precios capp
+                       INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
+                       WHERE capv.id_tercero = :id_proveedor
+                         AND capv.estado = 1
+                         AND capp.estado = 1
+                         AND capp.id_item = :id_item
+                         AND (
+                               (:id_unidad_1 IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad_2 OR capp.id_unidad_conversion IS NULL))
+                               OR
+                               (:id_unidad_3 IS NULL AND capp.id_unidad_conversion IS NULL)
+                         )
+                       ORDER BY CASE WHEN :id_unidad_4 IS NOT NULL AND capp.id_unidad_conversion = :id_unidad_5 THEN 0 ELSE 1 END,
+                                capp.id DESC
+                       LIMIT 1";
+
+        try {
+            $stmt = $this->db()->prepare($sqlAcuerdo);
+            $stmt->execute([
+                ':id_proveedor' => $idProveedor,
+                ':id_item'      => $idItem,
+                ':id_unidad_1'  => $idUnidad,
+                ':id_unidad_2'  => $idUnidad,
+                ':id_unidad_3'  => $idUnidad,
+                ':id_unidad_4'  => $idUnidad,
+                ':id_unidad_5'  => $idUnidad,
+            ]);
+            
+            $precioPactado = $stmt->fetchColumn();
+
+            // Si encontró un precio en los acuerdos, lo devolvemos
+            if ($precioPactado !== false) {
+                return (float)$precioPactado;
+            }
+
+            // 2. FALLBACK: Si el proveedor no tiene este ítem en sus acuerdos, 
+            // traemos el costo referencial base del ítem como sugerencia.
+            $stmtItem = $this->db()->prepare("SELECT costo_referencial FROM items WHERE id = :id");
+            $stmtItem->execute([':id' => $idItem]);
+            $costoReferencial = $stmtItem->fetchColumn();
+
+            return $costoReferencial !== false ? (float)$costoReferencial : 0.0;
+
+        } catch (Throwable $e) {
+            // En caso de error de base de datos, retornamos 0 para no romper la app
+            return 0.0;
+        }
+    }
+
+    public function registrarDevolucion(int $idOrden, string $motivo, string $resolucion, array $detalle, int $userId): void
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            // 1. Obtener info de la orden para saber el proveedor
+            $stmtOrd = $db->prepare("SELECT id_proveedor FROM compras_ordenes WHERE id = ?");
+            $stmtOrd->execute([$idOrden]);
+            $idProveedor = (int) $stmtOrd->fetchColumn();
+
+            if (!$idProveedor) {
+                throw new RuntimeException("La orden no existe.");
+            }
+
+            $totalDevuelto = 0.0;
+
+            // 2. Crear cabecera de la devolución
+            $sqlDev = "INSERT INTO compras_devoluciones (id_orden, id_proveedor, motivo, tipo_resolucion, total_devuelto, created_by) 
+                       VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)"; // Total temporal 0
+            
+            $db->prepare($sqlDev)->execute([
+                'id_orden' => $idOrden,
+                'id_proveedor' => $idProveedor,
+                'motivo' => trim($motivo),
+                'resolucion' => trim($resolucion),
+                'user' => $userId
+            ]);
+            
+            $idDevolucion = (int) $db->lastInsertId();
+
+            // 3. Insertar detalle y sumar el total
+            $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
+                       VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
+            $stmtDet = $db->prepare($sqlDet);
+
+            foreach ($detalle as $linea) {
+                $subtotalLinea = (float)$linea['cantidad_base'] * (float)$linea['costo_base'];
+                $totalDevuelto += $subtotalLinea;
+
+                $stmtDet->execute([
+                    'id_dev' => $idDevolucion,
+                    'id_item' => $linea['id_item'],
+                    'id_unidad' => $linea['id_unidad'] ?: null,
+                    'cant' => $linea['cantidad_input'],
+                    'cant_base' => $linea['cantidad_base'],
+                    'costo' => $linea['costo_base'],
+                    'subtotal' => $subtotalLinea
+                ]);
+
+                // 4. DESCONTAR LA CANTIDAD RECIBIDA DE LA ORDEN ORIGINAL (Para que el sistema sepa que ya no la tenemos)
+                $db->prepare("UPDATE compras_ordenes_detalle 
+                              SET cantidad_recibida = cantidad_recibida - :cant_base 
+                              WHERE id = :id_doc_det")
+                   ->execute([
+                       'cant_base' => $linea['cantidad_base'], 
+                       'id_doc_det' => $linea['id_documento_detalle']
+                   ]);
+                
+                // IMPORTANTE: Aquí iría tu query de KARDEX para sacar la mercadería del almacén físico.
+                // Ejemplo: $this->kardexModel->registrarSalidaDevolucion($linea['id_item'], $linea['cantidad_base']);
+            }
+
+            // 5. Actualizar el total recuperado en la cabecera
+            $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
+               ->execute([$totalDevuelto, $idDevolucion]);
+
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 }

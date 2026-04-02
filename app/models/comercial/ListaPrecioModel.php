@@ -570,7 +570,7 @@ class ListaPrecioModel extends Modelo {
             return null;
         }
 
-        // Si se envía unidad, prioriza coincidencia exacta y luego permite fallback a registro sin unidad.
+        // Buscamos coincidencia EXACTA de la unidad solicitada
         $sql = "SELECT capp.precio_recomendado
                 FROM comercial_acuerdos_proveedor_precios capp
                 INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
@@ -579,26 +579,32 @@ class ListaPrecioModel extends Modelo {
                   AND capp.estado = 1
                   AND capp.id_item = :id_item
                   AND (
-                        (:id_unidad IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad OR capp.id_unidad_conversion IS NULL))
+                        (:id_unidad_1 IS NOT NULL AND capp.id_unidad_conversion = :id_unidad_2)
                         OR
-                        (:id_unidad IS NULL AND capp.id_unidad_conversion IS NULL)
+                        (:id_unidad_3 IS NULL AND capp.id_unidad_conversion IS NULL)
                   )
-                ORDER BY CASE WHEN :id_unidad IS NOT NULL AND capp.id_unidad_conversion = :id_unidad THEN 0 ELSE 1 END,
-                         capp.id DESC
+                ORDER BY capp.id DESC
                 LIMIT 1";
+                
         $stmt = $this->db->prepare($sql);
+        
         $stmt->execute([
             ':id_proveedor' => $idProveedor,
-            ':id_item' => $idItem,
-            ':id_unidad' => $idUnidad,
+            ':id_item'      => $idItem,
+            ':id_unidad_1'  => $idUnidad,
+            ':id_unidad_2'  => $idUnidad,
+            ':id_unidad_3'  => $idUnidad,
         ]);
+        
         $valor = $stmt->fetchColumn();
+        
         if ($valor === false) {
             return null;
         }
+        
         return (float)$valor;
     }
-
+    
     private function construirNombreCliente(array $row): string {
         $comercial = trim((string)($row['nombre_comercial'] ?? ''));
         $persona = trim((string)($row['nombre'] ?? '') . ' ' . (string)($row['apellido'] ?? ''));

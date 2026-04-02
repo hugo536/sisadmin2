@@ -1337,86 +1337,119 @@ class InventarioModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function registrarDevolucionSobrantePlantaPorPeso(array $datos): array
+    public function registrarDevolucion(int $idOrden, string $motivo, string $resolucion, array $detalle, int $userId): void
     {
-        $idItem = (int) ($datos['id_item'] ?? 0);
-        $idAlmacenPlanta = (int) ($datos['id_almacen_planta'] ?? 0);
-        $idAlmacenGeneral = (int) ($datos['id_almacen_general'] ?? 0);
-        $pesoDevolucion = (float) ($datos['peso_devolucion'] ?? 0);
-        $stockTeoricoPlanta = (float) ($datos['stock_teorico_planta'] ?? 0);
-        $costoUnitario = (float) ($datos['costo_unitario'] ?? 0);
-        $createdBy = (int) ($datos['created_by'] ?? 0);
-        $referencia = trim((string) ($datos['referencia'] ?? ''));
-        $lote = trim((string) ($datos['lote'] ?? ''));
-        $fechaVencimiento = trim((string) ($datos['fecha_vencimiento'] ?? ''));
-
-        if ($idItem <= 0 || $idAlmacenPlanta <= 0 || $idAlmacenGeneral <= 0 || $createdBy <= 0) {
-            throw new InvalidArgumentException('Datos incompletos para devolver sobrantes de planta.');
-        }
-        if ($idAlmacenPlanta === $idAlmacenGeneral) {
-            throw new InvalidArgumentException('El almacén planta y general deben ser distintos.');
-        }
-        if ($pesoDevolucion <= 0 || $stockTeoricoPlanta < 0) {
-            throw new InvalidArgumentException('Peso de devolución o stock teórico inválido.');
-        }
-        if ($pesoDevolucion > $stockTeoricoPlanta) {
-            throw new InvalidArgumentException('La devolución no puede ser mayor al stock teórico de planta.');
-        }
-
-        $merma = max(0.0, $stockTeoricoPlanta - $pesoDevolucion);
-        $uuid = bin2hex(random_bytes(16));
-        $refBase = $referencia !== '' ? $referencia : 'Devolución por peso de sobrantes de planta';
-
         $db = $this->db();
-        $iniciaTransaccion = !$db->inTransaction();
-        if ($iniciaTransaccion) {
-            $db->beginTransaction();
-        }
+        $db->beginTransaction();
 
         try {
-            $idMovDevolucion = $this->registrarMovimiento([
-                'tipo_movimiento' => 'TRF',
-                'id_item' => $idItem,
-                'id_almacen_origen' => $idAlmacenPlanta,
-                'id_almacen_destino' => $idAlmacenGeneral,
-                'cantidad' => $pesoDevolucion,
-                'lote' => $lote,
-                'fecha_vencimiento' => $fechaVencimiento !== '' ? $fechaVencimiento : null,
-                'costo_unitario' => $costoUnitario,
-                'referencia' => $refBase . ' | Tipo: Devolución sobrante planta',
-                'created_by' => $createdBy,
-                'operacion_uuid' => $uuid,
+            // 1. Obtener info de la orden para saber el proveedor y el código
+            $stmtOrd = $db->prepare("SELECT codigo, id_proveedor FROM compras_ordenes WHERE id = ?");
+            $stmtOrd->execute([$idOrden]);
+            $ordenData = $stmtOrd->fetch(PDO::FETCH_ASSOC);
+
+            if (!$ordenData) {
+                throw new RuntimeException("La orden no existe.");
+            }
+            $idProveedor = (int) $ordenData['id_proveedor'];
+            $codigoOrden = $ordenData['codigo'];
+
+            // 2. Buscar en qué almacén se guardó esta mercancía (Buscamos la última recepción)
+            $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
+            $stmtAlmacen->execute([$idOrden]);
+            $idAlmacenOrigen = (int) $stmtAlmacen->fetchColumn();
+            
+            if ($idAlmacenOrigen <= 0) {
+                // Fallback de seguridad por si no hay historial de almacén
+                $stmtFallback = $db->query("SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL LIMIT 1");
+                $idAlmacenOrigen = (int) $stmtFallback->fetchColumn();
+                if ($idAlmacenOrigen <= 0) {
+                    throw new RuntimeException("No se encontró un almacén válido para extraer la mercadería de la devolución.");
+                }
+            }
+
+            // 3. Crear cabecera de la devolución
+            $totalDevuelto = 0.0;
+            $sqlDev = "INSERT INTO compras_devoluciones (id_orden, id_proveedor, motivo, tipo_resolucion, total_devuelto, created_by) 
+                       VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)"; 
+            
+            $db->prepare($sqlDev)->execute([
+                'id_orden' => $idOrden,
+                'id_proveedor' => $idProveedor,
+                'motivo' => trim($motivo),
+                'resolucion' => trim($resolucion),
+                'user' => $userId
             ]);
+            $idDevolucion = (int) $db->lastInsertId();
 
-            $idMovMerma = null;
-            if ($merma > 0) {
-                $idMovMerma = $this->registrarMovimiento([
-                    'tipo_movimiento' => 'SALIDA_MERMA_PLANTA',
-                    'id_item' => $idItem,
-                    'id_almacen_origen' => $idAlmacenPlanta,
-                    'id_almacen_destino' => 0,
-                    'cantidad' => $merma,
-                    'lote' => $lote,
-                    'costo_unitario' => $costoUnitario,
-                    'referencia' => $refBase . ' | Conciliación diferida: merma planta',
-                    'created_by' => $createdBy,
-                    'operacion_uuid' => $uuid,
+            // === INSTANCIAMOS TU MODELO DE INVENTARIO ===
+            require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
+            $inventarioModel = new InventarioModel();
+
+            $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
+                       VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
+            $stmtDet = $db->prepare($sqlDet);
+
+            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle SET cantidad_recibida = cantidad_recibida - :cant_base WHERE id = :id_doc_det");
+            $stmtCentroCosto = $db->prepare("SELECT id_centro_costo FROM compras_ordenes_detalle WHERE id = ?");
+
+            foreach ($detalle as $linea) {
+                $subtotalLinea = (float)$linea['cantidad_base'] * (float)$linea['costo_base'];
+                $totalDevuelto += $subtotalLinea;
+
+                // A. Insertar detalle de la devolución
+                $stmtDet->execute([
+                    'id_dev' => $idDevolucion,
+                    'id_item' => $linea['id_item'],
+                    'id_unidad' => $linea['id_unidad'] ?: null,
+                    'cant' => $linea['cantidad_input'],
+                    'cant_base' => $linea['cantidad_base'],
+                    'costo' => $linea['costo_base'],
+                    'subtotal' => $subtotalLinea
                 ]);
+
+                // B. Descontar la cantidad de la orden original para que quede "Pendiente" de reposición
+                $stmtUpdateOrdenDet->execute([
+                    'cant_base' => $linea['cantidad_base'], 
+                    'id_doc_det' => $linea['id_documento_detalle']
+                ]);
+
+                // Obtener el centro de costo original de la compra
+                $stmtCentroCosto->execute([$linea['id_documento_detalle']]);
+                $idCentroCosto = $stmtCentroCosto->fetchColumn();
+
+                // C. !!! EL REGISTRO MÁGICO EN EL KARDEX Y ALMACÉN !!!
+                $datosMovimiento = [
+                    'tipo_movimiento' => 'AJ-', // Ajuste Negativo (Salida)
+                    'tipo_registro' => 'item',
+                    'id_item' => $linea['id_item'],
+                    'id_item_unidad' => $linea['id_unidad'] ?: 0,
+                    'id_almacen_origen' => $idAlmacenOrigen,
+                    'cantidad' => $linea['cantidad_base'],
+                    'costo_unitario' => $linea['costo_base'],
+                    'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . $motivo,
+                    'id_centro_costo' => $idCentroCosto ? (int)$idCentroCosto : null,
+                    'created_by' => $userId,
+                ];
+                
+                // Esto llamará a tu consumirStockAtomico() de forma segura
+                $inventarioModel->registrarMovimiento($datosMovimiento);
             }
 
-            if ($iniciaTransaccion) {
-                $db->commit();
-            }
+            // 4. Actualizar el total de dinero a recuperar
+            $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
+               ->execute([$totalDevuelto, $idDevolucion]);
 
-            return [
-                'id_mov_devolucion' => $idMovDevolucion,
-                'id_mov_merma' => $idMovMerma,
-                'cantidad_devolucion' => round($pesoDevolucion, 4),
-                'cantidad_merma' => round($merma, 4),
-                'operacion_uuid' => $uuid,
-            ];
+            // 5. Opcional: Podrías cambiar el estado de la orden de vuelta a 'Parcial' (Estado 2) 
+            // para que el usuario pueda recepcionar nuevamente el repuesto.
+            $db->prepare("UPDATE compras_ordenes SET estado = 2, updated_at = NOW() WHERE id = ?")
+               ->execute([$idOrden]);
+
+            $db->commit();
+            
+            
         } catch (Throwable $e) {
-            if ($iniciaTransaccion && $db->inTransaction()) {
+            if ($db->inTransaction()) {
                 $db->rollBack();
             }
             throw $e;

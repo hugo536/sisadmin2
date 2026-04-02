@@ -1,4 +1,14 @@
 (async function initCompras() {
+
+    const modalDevolucionEl = document.getElementById('modalDevolucionCompra');
+    const modalDevolucion = modalDevolucionEl ? new bootstrap.Modal(modalDevolucionEl) : null;
+    const devolucionOrdenId = document.getElementById('devolucionOrdenId');
+    const devolucionMotivo = document.getElementById('devolucionMotivo');
+    const devolucionResolucion = document.getElementById('devolucionResolucion');
+    const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
+    const devolucionTotal = document.getElementById('devolucionTotal');
+    const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
+    
     // 1. Verificación vital: si no estamos en compras, salimos de inmediato
     const app = document.getElementById('comprasApp');
     if (!app) return;
@@ -48,6 +58,9 @@
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
     const formOrden = document.getElementById('formOrdenCompra');
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
+    const ordenSubtotal = document.getElementById('ordenSubtotal');
+    const ordenIgv = document.getElementById('ordenIgv');
     const ordenId = document.getElementById('ordenId');
     const idProveedor = document.getElementById('idProveedor');
     const fechaEntrega = document.getElementById('fechaEntrega');
@@ -167,7 +180,12 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         const json = await parseJsonSafe(res);
-        if (!res.ok || !json.ok || !json.encontrado) return;
+        
+        if (!res.ok || !json.ok || !json.encontrado) {
+            inputCosto.value = "0.0000";
+            recalcularFila(fila);
+            return;
+        }
 
         inputCosto.value = Number(json.precio_recomendado).toFixed(4);
         recalcularFila(fila);
@@ -227,12 +245,38 @@
     }
 
     function recalcularTotalGeneral() {
-        let total = 0;
+        let sumaLineas = 0;
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const item = filaToPayload(fila);
-            total += item.cantidad * item.costo_unitario;
+            sumaLineas += item.cantidad * item.costo_unitario;
         });
-        ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
+
+        let subtotal = 0;
+        let igv = 0;
+        let total = 0;
+        const tipo = tipoImpuesto ? tipoImpuesto.value : 'incluido';
+
+        if (tipo === 'incluido') {
+            total = sumaLineas;
+            subtotal = total / 1.18;
+            igv = total - subtotal;
+        } else if (tipo === 'mas_igv') {
+            subtotal = sumaLineas;
+            igv = subtotal * 0.18;
+            total = subtotal + igv;
+        } else { // exonerado
+            subtotal = sumaLineas;
+            igv = 0;
+            total = subtotal;
+        }
+
+        if (ordenSubtotal) ordenSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+        if (ordenIgv) ordenIgv.textContent = `S/ ${igv.toFixed(2)}`;
+        if (ordenTotal) ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
+    }
+
+    if (tipoImpuesto) {
+        tipoImpuesto.addEventListener('change', recalcularTotalGeneral);
     }
 
     async function actualizarUnidadPorItem(fila, itemGuardado = null) {
@@ -484,6 +528,14 @@
         setModoSoloLectura(false, 0);
     }
 
+    // Helper interno para no duplicar código
+    async function getJson(url) {
+        const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const payload = await res.json();
+        if (!res.ok || !payload.ok) throw new Error(payload.mensaje || 'Error del servidor');
+        return payload;
+    }
+
     // --- LÓGICA RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
     async function abrirModalRecepcion(idOrden) {
         try {
@@ -507,14 +559,6 @@
         }
     }
 
-    // Helper interno para no duplicar código
-    async function getJson(url) {
-        const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        const payload = await res.json();
-        if (!res.ok || !payload.ok) throw new Error(payload.mensaje || 'Error del servidor');
-        return payload;
-    }
-
     function agregarFilaRecepcion(linea, filaReferencia = null) {
         const tr = document.createElement('tr');
         tr.dataset.idDetalle = linea.id;
@@ -526,7 +570,7 @@
 
         tr.innerHTML = `
             <td class="align-middle py-3 ps-3">
-                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.sku || ''} - ${linea.item_nombre || ''}</div>
+                <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
                 <div class="small text-muted d-flex align-items-center gap-2 mt-1">
                     <span>Pedido: <strong class="text-dark">${Number(linea.cantidad_unidad).toFixed(2)} ${linea.unidad_nombre}</strong> ${factorHtml}</span>
                 </div>
@@ -613,6 +657,156 @@
         return tr;
     }
 
+    // --- LÓGICA DEVOLUCIONES ---
+    async function abrirModalDevolucion(idOrden) {
+        try {
+            const separador = urls.index.includes('?') ? '&' : '?';
+            const res = await getJson(`${urls.index}${separador}accion=ver&id=${idOrden}`);
+            const orden = res.data;
+
+            devolucionOrdenId.value = orden.id;
+            devolucionMotivo.value = '';
+            tbodyDevolucion.innerHTML = '';
+            devolucionTotal.textContent = 'S/ 0.00';
+
+            const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
+            let lineasRecibidas = 0;
+
+            // Almacenamos las promesas para cargar las unidades en paralelo
+            const promesasLineas = [];
+
+            detalle.forEach((linea) => {
+                const recibido = parseFloat(linea.cantidad_recibida || 0);
+                if (recibido > 0.0001) {
+                    lineasRecibidas++;
+                    promesasLineas.push(agregarFilaDevolucion(linea, recibido));
+                }
+            });
+
+            if (lineasRecibidas === 0) {
+                Swal.fire('Aviso', 'Esta orden no tiene productos recepcionados para devolver.', 'info');
+                return;
+            }
+
+            await Promise.all(promesasLineas);
+            modalDevolucion.show();
+        } catch (error) {
+            Swal.fire('Error', error.message || 'No se pudo preparar la devolución.', 'error');
+        }
+    }
+
+    async function agregarFilaDevolucion(linea, cantRecibidaBase) {
+        const tr = document.createElement('tr');
+        
+        // 1. EXTRAER EL COSTO REAL DE LA ORDEN DE COMPRA
+        const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
+        const costoCompra = parseFloat(linea.costo_unitario || 0); 
+        // Costo por unidad base real con el que entró al Kardex
+        const costoBaseReal = costoCompra / factorCompra;
+
+        tr.dataset.idDetalle = linea.id;
+        tr.dataset.idItem = linea.id_item;
+        tr.dataset.costoBase = costoBaseReal; // <-- GUARDAMOS EL COSTO BASE REAL
+        tr.dataset.maxBase = cantRecibidaBase; 
+
+        tr.innerHTML = `
+            <td class="align-middle py-3 ps-3">
+                <div class="fw-bold text-dark" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
+                <small class="text-muted dev-info-conversion">Unidad base: ${linea.unidad_base}</small>
+            </td>
+            <td class="text-center align-middle">
+                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fw-bold">
+                    ${cantRecibidaBase.toFixed(2)} ${linea.unidad_base}
+                </span>
+            </td>
+            <td class="text-center align-middle">
+                <div class="fw-semibold text-secondary">S/ ${costoCompra.toFixed(2)}</div>
+                <small style="font-size: 0.75em;" class="text-muted">x ${linea.unidad_nombre}</small>
+            </td>
+            <td class="align-middle px-2">
+                <select class="form-select form-select-sm shadow-none dev-select-unidad border-warning-subtle">
+                    <option value="" data-factor="1">Unidad Base (${linea.unidad_base})</option>
+                </select>
+            </td>
+            <td class="align-middle px-2">
+                <input type="number" class="form-control form-control-sm text-center input-devolver fw-bold text-warning-emphasis border-warning mx-auto shadow-none"
+                       min="0" step="0.01" value="0.00" style="max-width: 100px;">
+            </td>
+            <td class="text-end align-middle pe-4 fw-bold text-dark subtotal-fila-dev">
+                S/ 0.00
+            </td>
+        `;
+
+        tbodyDevolucion.appendChild(tr);
+
+        const selectUnidad = tr.querySelector('.dev-select-unidad');
+        const inputCant = tr.querySelector('.input-devolver');
+        const tdSubtotal = tr.querySelector('.subtotal-fila-dev');
+        const infoConv = tr.querySelector('.dev-info-conversion');
+
+        try {
+            const unidades = await obtenerUnidadesItem(Number(linea.id_item));
+            unidades.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.dataset.factor = u.factor_conversion;
+                opt.textContent = `${u.nombre} (x ${parseFloat(u.factor_conversion)})`;
+                selectUnidad.appendChild(opt);
+            });
+            
+            // Si la compró en Caja, le sugerimos devolver en Caja
+            if (linea.id_item_unidad) {
+                selectUnidad.value = String(linea.id_item_unidad);
+            }
+        } catch (e) {
+            console.warn("No se pudieron cargar unidades para el ítem", linea.id_item);
+        }
+
+        const recalcularLinea = () => {
+            let cantInput = parseFloat(inputCant.value || 0);
+            const factorSeleccionado = parseFloat(selectUnidad.options[selectUnidad.selectedIndex]?.dataset.factor || 1);
+            
+            let cantBaseCalculada = cantInput * factorSeleccionado;
+            
+            // Validar que no devuelva más de lo que recibió
+            if (cantBaseCalculada > cantRecibidaBase) {
+                cantInput = cantRecibidaBase / factorSeleccionado;
+                cantBaseCalculada = cantRecibidaBase;
+                inputCant.value = cantInput.toFixed(2); 
+                inputCant.classList.add('is-invalid', 'border-danger');
+            } else {
+                inputCant.classList.remove('is-invalid', 'border-danger');
+            }
+
+            // Usamos el costo base real que calculamos arriba
+            const subtotal = cantBaseCalculada * costoBaseReal;
+            tdSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+            
+            if (factorSeleccionado > 1) {
+                infoConv.innerHTML = `Saldrán: <strong>${cantBaseCalculada.toFixed(2)} ${linea.unidad_base}</strong>`;
+            } else {
+                infoConv.textContent = `Unidad base: ${linea.unidad_base}`;
+            }
+
+            recalcularTotalDevolucion();
+        };
+
+        inputCant.addEventListener('input', recalcularLinea);
+        selectUnidad.addEventListener('change', recalcularLinea);
+    }
+
+    function recalcularTotalDevolucion() {
+        let total = 0;
+        tbodyDevolucion.querySelectorAll('tr').forEach((fila) => {
+            const cant = parseFloat(fila.querySelector('.input-devolver').value || 0);
+            const selectU = fila.querySelector('.dev-select-unidad');
+            const factor = parseFloat(selectU.options[selectU.selectedIndex]?.dataset.factor || 1);
+            const costoBase = parseFloat(fila.dataset.costoBase || 0);
+            total += (cant * factor) * costoBase;
+        });
+        devolucionTotal.textContent = `S/ ${total.toFixed(2)}`;
+    }
+
     // --- EVENTOS PRINCIPALES ---
     btnGuardarOrden.addEventListener('click', async () => {
         if (!idProveedor.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
@@ -652,6 +846,7 @@
                 id_proveedor: Number(idProveedor.value),
                 fecha_entrega: fechaEntrega.value,
                 observaciones: observaciones.value,
+                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
                 detalle,
             };
 
@@ -717,6 +912,57 @@
         }
     });
 
+    if (btnConfirmarDevolucion) {
+        btnConfirmarDevolucion.addEventListener('click', async () => {
+            if (!devolucionMotivo.value) return Swal.fire('Aviso', 'Seleccione un motivo.', 'warning');
+            
+            const detalle = [];
+            let totalDevolverBase = 0;
+
+            tbodyDevolucion.querySelectorAll('tr').forEach(tr => {
+                const cant = parseFloat(tr.querySelector('.input-devolver').value || 0);
+                if (cant > 0) {
+                    const selectU = tr.querySelector('.dev-select-unidad');
+                    const factor = parseFloat(selectU.options[selectU.selectedIndex]?.dataset.factor || 1);
+                    
+                    detalle.push({
+                        id_documento_detalle: Number(tr.dataset.idDetalle),
+                        id_item: Number(tr.dataset.idItem),
+                        id_unidad: selectU.value ? Number(selectU.value) : null,
+                        factor: factor,
+                        cantidad_input: cant,
+                        cantidad_base: cant * factor,
+                        costo_base: parseFloat(tr.dataset.costoBase)
+                    });
+                    totalDevolverBase += (cant * factor);
+                }
+            });
+
+            if (detalle.length === 0 || totalDevolverBase <= 0) {
+                return Swal.fire('Aviso', 'Ingrese al menos una cantidad a devolver mayor a cero.', 'warning');
+            }
+
+            try {
+                const separador = urls.index.includes('?') ? '&' : '?';
+                const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
+
+                const payload = {
+                    id_orden: Number(devolucionOrdenId.value),
+                    motivo: devolucionMotivo.value,
+                    resolucion: devolucionResolucion.value,
+                    detalle: detalle
+                };
+
+                const res = await postJson(urlPost, payload, btnConfirmarDevolucion);
+                await Swal.fire('Éxito', res.mensaje, 'success');
+                modalDevolucion.hide();
+                recargarPagina();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        });
+    }
+
     tbodyTabla.addEventListener('click', async (e) => {
         const target = e.target.closest('button');
         if (!target) return;
@@ -741,6 +987,7 @@
 
                     fechaEntrega.value = d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
+                    if (tipoImpuesto && d.tipo_impuesto) tipoImpuesto.value = d.tipo_impuesto;
 
                     if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
                     else agregarFila();
@@ -794,6 +1041,12 @@
 
         if (target.classList.contains('btn-recepcionar')) {
             abrirModalRecepcion(id);
+            return;
+        }
+
+        if (target.classList.contains('btn-devolver')) {
+            abrirModalDevolucion(id);
+            return;
         }
     });
 
