@@ -50,7 +50,7 @@
         return false;
     }
 
-    // --- 1. CLIENTES (Tom Select con AJAX - robusto ante carga tardía CDN/fallback) ---
+    // --- 1. CLIENTES (Tom Select con AJAX) ---
     let tomSelectCliente = null;
     const idClienteEl = document.getElementById('idCliente');
     const tomSelectListo = await esperarTomSelect();
@@ -104,6 +104,11 @@
     const idCliente = document.getElementById('idCliente');
     const fechaEmision = document.getElementById('fechaEmision');
     const ventaObservaciones = document.getElementById('ventaObservaciones');
+    
+    // --- VARIABLES DE IMPUESTOS ---
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
+    const ventaSubtotal = document.getElementById('ventaSubtotal');
+    const ventaIgv = document.getElementById('ventaIgv');
     const ventaTotal = document.getElementById('ventaTotal');
 
     const tbodyDespacho = document.querySelector('#tablaDetalleDespacho tbody');
@@ -142,7 +147,7 @@
         return payload;
     }
 
-    // --- LÓGICA VENTA (CALCULOS) ---
+    // --- LÓGICA VENTA (CALCULOS E IMPUESTOS) ---
     function filaVentaPayload(fila) {
         return {
             id_item: Number(fila.querySelector('.detalle-item').value || 0),
@@ -152,14 +157,42 @@
     }
 
     function recalcularTotalVenta() {
-        let total = 0;
+        let sumaLineas = 0;
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
             const data = filaVentaPayload(fila);
             const subtotal = data.cantidad * data.precio_unitario;
-            total += subtotal;
+            sumaLineas += subtotal;
             fila.querySelector('.detalle-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
         });
-        ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
+
+        // --- CÁLCULO DEL IGV ---
+        let subtotal = 0;
+        let igv = 0;
+        let total = 0;
+        const tipo = tipoImpuesto ? tipoImpuesto.value : 'incluido';
+
+        if (tipo === 'incluido') {
+            total = sumaLineas;
+            subtotal = total / 1.18;
+            igv = total - subtotal;
+        } else if (tipo === 'mas_igv') {
+            subtotal = sumaLineas;
+            igv = subtotal * 0.18;
+            total = subtotal + igv;
+        } else { // exonerado
+            subtotal = sumaLineas;
+            igv = 0;
+            total = subtotal;
+        }
+
+        if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+        if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
+        if (ventaTotal) ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
+    }
+
+    // Evento para recalcular si cambia el tipo de impuesto
+    if (tipoImpuesto) {
+        tipoImpuesto.addEventListener('change', recalcularTotalVenta);
     }
 
     function obtenerItemsSeleccionados(excluirFila = null) {
@@ -204,12 +237,10 @@
         
         const inputPrecio = fila.querySelector('.detalle-precio');
         
-        // Consultamos al backend si hay un precio oficial para esta cantidad
         const precioNuevo = await obtenerPrecioItem(idItem, cantidad > 0 ? cantidad : 1);
         
         if (precioNuevo === null) return;
         
-        // SOLUCIÓN: Solo sobreescribimos si el backend devuelve un precio válido (mayor a 0).
         if (precioNuevo > 0) {
             inputPrecio.value = precioNuevo.toFixed(2);
         }
@@ -217,7 +248,6 @@
         recalcularTotalVenta();
     }
 
-    // Le agregamos el parámetro "esBorrador" que por defecto es true
     async function agregarFilaVenta(item = null, esBorrador = true) {
         const fragment = templateFilaVenta.content.cloneNode(true);
         const fila = fragment.querySelector('tr');
@@ -229,13 +259,12 @@
         const selectItem = filaReal.querySelector('.detalle-item');
         const btnQuitar = filaReal.querySelector('.btn-quitar-fila');
 
-        // --- NUEVO: SI NO ES BORRADOR, BLOQUEAMOS TODO ---
         if (!esBorrador) {
             inputCantidad.readOnly = true;
             inputCantidad.classList.add('bg-light', 'border-0');
             inputPrecio.readOnly = true;
             inputPrecio.classList.add('bg-light', 'border-0');
-            if (btnQuitar) btnQuitar.style.display = 'none'; // Ocultamos el basurero
+            if (btnQuitar) btnQuitar.style.display = 'none';
         }
 
         inputCantidad.addEventListener('input', async () => {
@@ -263,7 +292,6 @@
             searchField: 'text',
             placeholder: "Buscar producto...",
             dropdownParent: 'body',
-            /* ... (mantén el mismo código de 'load', 'onChange' y 'render' que ya tienes aquí adentro) ... */
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;
@@ -305,7 +333,7 @@
             render: {
                 no_results: () => {
                     if (estadoBusquedaItems.tieneAcuerdo && estadoBusquedaItems.listaVacia) {
-                        return '<div class="no-results">Lista de productos vacía para este cliente/distribuidor</div>';
+                        return '<div class="no-results">Lista de productos vacía para este cliente</div>';
                     }
                     return '<div class="no-results">No se encontraron productos disponibles</div>';
                 },
@@ -314,9 +342,7 @@
                     const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
                     const stockLabel = data.stock <= 0 ? 'SIN STOCK' : data.stock;
                     return `<div class="py-2 d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-bold text-dark">${escape(data.text)}</div>
-                        </div>
+                        <div><div class="fw-bold text-dark">${escape(data.text)}</div></div>
                         <div class="text-end">
                             <div class="small ${stockColor}">Stock: ${stockLabel}</div>
                             <div class="fw-bold text-primary">S/ ${escape(Number(data.precio).toFixed(2))}</div>
@@ -335,7 +361,6 @@
             });
             tom.setValue(item.id_item);
             
-            // Si no es borrador, bloqueamos el select de TomSelect
             if (!esBorrador) tom.disable(); 
 
             inputCantidad.value = Number(item.cantidad || 0).toFixed(2);
@@ -343,7 +368,6 @@
             
             filaReal.querySelector('.detalle-stock').textContent = Number(item.stock_actual || 0).toFixed(2);
             
-            // --- NUEVO: Mostrar "Entregado: X" si el pedido ya está cerrado/despachado ---
             if (!esBorrador) {
                 const cantDespachada = Number(item.cantidad_despachada || 0);
                 const infoDespacho = document.createElement('div');
@@ -356,14 +380,9 @@
 
         if (!item && esBorrador) {
             setTimeout(() => {
-                // 'center' asegura que la fila quede en medio de la pantalla
                 filaReal.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // Hacemos focus automáticamente para que el usuario solo empiece a teclear
-                if (tom) {
-                    tom.focus(); 
-                }
-            }, 100); // Aumentamos un poquito el tiempo para que el DOM se asiente
+                if (tom) tom.focus(); 
+            }, 100);
         }
 
         recalcularTotalVenta();
@@ -377,8 +396,19 @@
         }
         fechaEmision.value = new Date().toISOString().split('T')[0];
         ventaObservaciones.value = '';
+        if (tipoImpuesto) {
+            tipoImpuesto.value = 'incluido';
+            tipoImpuesto.disabled = false;
+        }
+
+        tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) select.tomselect.destroy();
+        });
+
         tbodyVenta.innerHTML = '';
-        ventaTotal.textContent = 'S/ 0.00';
+        if (ventaSubtotal) ventaSubtotal.textContent = 'S/ 0.00';
+        if (ventaIgv) ventaIgv.textContent = 'S/ 0.00';
+        if (ventaTotal) ventaTotal.textContent = 'S/ 0.00';
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
@@ -451,6 +481,7 @@
                 id_cliente: Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0),
                 fecha_emision: fechaEmision.value,
                 observaciones: ventaObservaciones.value,
+                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido', // <-- ENVIAMOS EL IMPUESTO
                 detalle,
             });
 
@@ -463,9 +494,8 @@
     });
 
     // ==========================================
-    // --- 4. LÓGICA DESPACHO MULTI-ALMACÉN ---
+    // --- LÓGICA DESPACHO MULTI-ALMACÉN ---
     // ==========================================
-    
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
@@ -483,6 +513,9 @@
         modalDespacho.show();
     }
 
+    // ==========================================
+    // --- LÓGICA DEVOLUCIÓN DE VENTA ---
+    // ==========================================
     async function abrirModalDevolucionVenta(idDocumento) {
         if (!modalDevolucionVenta || !tbodyDevolucionVenta) return;
 
@@ -714,7 +747,6 @@
 
         btnSplit.addEventListener('click', () => {
             const filas = obtenerFilasGrupo();
-            
             const almacenesConStock = (linea.almacenes_disponibles || []).filter(alm => parseFloat(alm.stock_actual) > 0).length;
 
             if (almacenesConStock <= 1 || filas.length >= almacenesConStock) {
@@ -878,14 +910,12 @@
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
-                // Evaluamos si es borrador ANTES de hacer el resto
                 const esBorrador = Number(venta.estado) === 0;
                 
                 const nombreCliente = tr.querySelector('td:nth-child(2)').textContent;
                 if (tomSelectCliente) {
                     tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
                     tomSelectCliente.setValue(venta.id_cliente);
-                    // Bloqueamos el select si no es borrador
                     if (!esBorrador) tomSelectCliente.disable();
                     else tomSelectCliente.enable();
                 } else {
@@ -900,11 +930,15 @@
                 inputFecha.value = venta.fecha_emision || '';
                 inputObs.value = venta.observaciones || '';
                 
-                // Bloqueamos cabecera si no es borrador
+                // Setear el tipo de impuesto si existe
+                if (tipoImpuesto) {
+                    tipoImpuesto.value = venta.tipo_impuesto || 'incluido';
+                    tipoImpuesto.disabled = !esBorrador;
+                }
+                
                 inputFecha.readOnly = !esBorrador;
                 inputObs.readOnly = !esBorrador;
 
-                // Ocultamos el botón "Agregar Producto" global si no es borrador
                 const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
                 if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
 

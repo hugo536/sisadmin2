@@ -197,6 +197,10 @@ class VentasController extends Controlador
             $idCliente = (int) ($payload['id_cliente'] ?? 0);
             $fechaEmision = !empty($payload['fecha_emision']) ? trim((string) $payload['fecha_emision']) : null;
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
+            
+            // <-- NUEVO: Capturamos el tipo de impuesto del frontend
+            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido')); 
+            
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
             if ($idCliente <= 0 || !$this->documentoModel->clienteEsValido($idCliente)) {
@@ -207,10 +211,10 @@ class VentasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem al pedido.');
             }
 
-            $total = 0.0;
             $itemsUnicos = [];
-            $cantidadesPorItem = [];
 
+            // Solo hacemos validaciones de integridad básicas aquí. 
+            // Las sumas y el IGV las hará el Modelo por seguridad.
             foreach ($detalle as $linea) {
                 $idItem = (int) ($linea['id_item'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
@@ -231,31 +235,15 @@ class VentasController extends Controlador
                 if ($precio < 0) {
                     throw new RuntimeException('El precio no puede ser negativo.');
                 }
-
-                $cantidadesPorItem[$idItem] = ($cantidadesPorItem[$idItem] ?? 0.0) + $cantidad;
-                $total += $cantidad * $precio;
             }
 
-            // ==========================================
-            // CÓDIGO COMENTADO: Validación de Stock
-            // Esto permite guardar el pedido sin importar si la cantidad supera el stock.
-            // ==========================================
-            /*
-            foreach ($cantidadesPorItem as $idItem => $cantidadSolicitada) {
-                $stockActual = $this->documentoModel->obtenerStockDisponibleItem((int) $idItem);
-                if ($cantidadSolicitada > $stockActual) {
-                    throw new RuntimeException('No puede registrar cantidades mayores al stock disponible.');
-                }
-            }
-            */
-
+            // Pasamos la cabecera limpia al modelo
             $id = $this->documentoModel->crearOActualizar([
                 'id' => (int) ($payload['id'] ?? 0),
                 'id_cliente' => $idCliente,
                 'fecha_emision' => $fechaEmision, 
                 'observaciones' => $observaciones,
-                'subtotal' => round($total, 2), 
-                'total' => round($total, 2),
+                'tipo_impuesto' => $tipoImpuesto, // <-- NUEVO: Lo pasamos al modelo
             ], $detalle, $userId);
 
             json_response(['ok' => true, 'mensaje' => 'Pedido guardado correctamente.', 'id' => $id]);

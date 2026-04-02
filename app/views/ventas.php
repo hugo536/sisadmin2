@@ -152,23 +152,30 @@ $estadoLabels = [
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
                             <div class="row g-3 align-items-end">
-                                
-                                <div class="col-md-5">
-                                    <label for="idCliente" class="form-label text-muted small fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
-                                    <select id="idCliente" class="form-select" required></select>
-                                </div>
-                                
-                                <div class="col-md-3">
-                                    <label for="fechaEmision" class="form-label text-muted small fw-bold mb-1">Fecha Emisión</label>
-                                    <input type="date" class="form-control" id="fechaEmision" value="<?php echo date('Y-m-d'); ?>">
-                                </div>
-                                
-                                <div class="col-md-4">
-                                    <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
-                                    <input type="text" class="form-control" id="ventaObservaciones" maxlength="180" placeholder="Opcional">
-                                </div>
-                                
+                            <div class="col-md-4">
+                                <label for="idCliente" class="form-label text-muted small fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
+                                <select id="idCliente" class="form-select shadow-none" required></select>
                             </div>
+                            
+                            <div class="col-md-2">
+                                <label for="fechaEmision" class="form-label text-muted small fw-bold mb-1">Fecha Emisión</label>
+                                <input type="date" class="form-control shadow-none" id="fechaEmision" value="<?php echo date('Y-m-d'); ?>">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="tipoImpuesto" class="form-label text-muted small fw-bold mb-1">Impuestos <span class="text-danger">*</span></label>
+                                <select id="tipoImpuesto" class="form-select shadow-none" required>
+                                    <option value="incluido" selected>Incluyen IGV (Boleta/Factura)</option>
+                                    <option value="mas_igv">NO incluyen IGV (+18%)</option>
+                                    <option value="exonerado">Exonerado (0%)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
+                                <input type="text" class="form-control shadow-none" id="ventaObservaciones" maxlength="180" placeholder="Opcional">
+                            </div>
+                        </div>
                         </div>
                     </div>
 
@@ -193,12 +200,23 @@ $estadoLabels = [
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="3" class="ps-3 py-3 align-middle">
+                                            <td colspan="3" class="ps-3 py-3 align-middle border-bottom-0">
                                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
                                                     <i class="bi bi-plus-lg me-1"></i>Agregar Producto
                                                 </button>
                                             </td>
-                                            
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">SUBTOTAL:</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ventaSubtotal">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">IGV (18%):</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ventaIgv">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
                                             <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL PEDIDO:</td>
                                             <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ventaTotal">S/ 0.00</td>
                                             <td></td>

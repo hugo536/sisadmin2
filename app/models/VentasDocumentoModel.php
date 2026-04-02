@@ -115,6 +115,37 @@ class VentasDocumentoModel extends Modelo
         try {
             $idDocumento = (int) ($cabecera['id'] ?? 0);
             $fechaEmision = !empty($cabecera['fecha_emision']) ? $cabecera['fecha_emision'] : date('Y-m-d');
+            $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'incluido')); // <-- NUEVO
+
+            // 1. RECALCULAR TOTALES POR SEGURIDAD
+            $sumaLineas = 0.0;
+            foreach ($detalle as $linea) {
+                $cantidad = (float) ($linea['cantidad'] ?? 0);
+                $precio = (float) ($linea['precio_unitario'] ?? 0);
+                if ($cantidad <= 0 || $precio < 0) {
+                    throw new RuntimeException('Hay líneas con cantidad o precio inválido.');
+                }
+                $sumaLineas += ($cantidad * $precio);
+            }
+
+            // 2. LÓGICA DE IMPUESTOS EN BACKEND
+            $subtotal = 0.0;
+            $igvMonto = 0.0;
+            $totalFinal = 0.0;
+
+            if ($tipoImpuesto === 'incluido') {
+                $totalFinal = $sumaLineas;
+                $subtotal = $totalFinal / 1.18;
+                $igvMonto = $totalFinal - $subtotal;
+            } elseif ($tipoImpuesto === 'mas_igv') {
+                $subtotal = $sumaLineas;
+                $igvMonto = $subtotal * 0.18;
+                $totalFinal = $subtotal + $igvMonto;
+            } else { // exonerado
+                $subtotal = $sumaLineas;
+                $igvMonto = 0.0;
+                $totalFinal = $subtotal;
+            }
 
             if ($idDocumento > 0) {
                 $actual = $this->obtener($idDocumento);
@@ -130,7 +161,9 @@ class VentasDocumentoModel extends Modelo
                               SET id_cliente = :id_cliente,
                                   fecha_emision = :fecha_emision,
                                   observaciones = :observaciones,
+                                  tipo_impuesto = :tipo_impuesto,
                                   subtotal = :subtotal,
+                                  igv_monto = :igv_monto,
                                   total = :total,
                                   updated_by = :updated_by,
                                   updated_at = NOW()
@@ -142,8 +175,10 @@ class VentasDocumentoModel extends Modelo
                     'id_cliente' => (int) $cabecera['id_cliente'],
                     'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
-                    'subtotal' => (float) $cabecera['subtotal'],
-                    'total' => (float) $cabecera['total'],
+                    'tipo_impuesto' => $tipoImpuesto,
+                    'subtotal' => round($subtotal, 4),
+                    'igv_monto' => round($igvMonto, 4),
+                    'total' => round($totalFinal, 2),
                     'updated_by' => $userId,
                 ]);
 
@@ -155,29 +190,13 @@ class VentasDocumentoModel extends Modelo
                 $codigo = $this->generarCodigo($db);
                 
                 $sqlInsert = 'INSERT INTO ventas_documentos (
-                                codigo,
-                                id_cliente,
-                                fecha_emision,
-                                observaciones,
-                                subtotal,
-                                total,
-                                estado,
-                                created_by,
-                                updated_by,
-                                created_at,
-                                updated_at
+                                codigo, id_cliente, fecha_emision, observaciones,
+                                tipo_impuesto, subtotal, igv_monto, total, estado,
+                                created_by, updated_by, created_at, updated_at
                               ) VALUES (
-                                :codigo,
-                                :id_cliente,
-                                :fecha_emision,
-                                :observaciones,
-                                :subtotal,
-                                :total,
-                                0,
-                                :created_by,
-                                :updated_by,
-                                NOW(),
-                                NOW()
+                                :codigo, :id_cliente, :fecha_emision, :observaciones,
+                                :tipo_impuesto, :subtotal, :igv_monto, :total, 0,
+                                :created_by, :updated_by, NOW(), NOW()
                               )';
 
                 $db->prepare($sqlInsert)->execute([
@@ -185,8 +204,10 @@ class VentasDocumentoModel extends Modelo
                     'id_cliente' => (int) $cabecera['id_cliente'],
                     'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
-                    'subtotal' => (float) $cabecera['subtotal'],
-                    'total' => (float) $cabecera['total'],
+                    'tipo_impuesto' => $tipoImpuesto,
+                    'subtotal' => round($subtotal, 4),
+                    'igv_monto' => round($igvMonto, 4),
+                    'total' => round($totalFinal, 2),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -195,35 +216,17 @@ class VentasDocumentoModel extends Modelo
             }
 
             $sqlDet = 'INSERT INTO ventas_documentos_detalle (
-                            id_documento_venta,
-                            id_item,
-                            cantidad,
-                            precio_unitario,
-                            total_linea,
-                            created_by,
-                            updated_by,
-                            created_at,
-                            updated_at
+                            id_documento_venta, id_item, cantidad, precio_unitario, total_linea,
+                            created_by, updated_by, created_at, updated_at
                         ) VALUES (
-                            :id_documento,
-                            :id_item,
-                            :cantidad,
-                            :precio_unitario,
-                            :total_linea,
-                            :created_by,
-                            :updated_by,
-                            NOW(),
-                            NOW()
+                            :id_documento, :id_item, :cantidad, :precio_unitario, :total_linea,
+                            :created_by, :updated_by, NOW(), NOW()
                         )';
 
             $stmtDet = $db->prepare($sqlDet);
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
-
-                if ($cantidad <= 0 || $precio < 0) {
-                    throw new RuntimeException('Hay líneas con cantidad/precio inválido.');
-                }
 
                 $stmtDet->execute([
                     'id_documento' => $idDocumento,
