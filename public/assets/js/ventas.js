@@ -156,72 +156,71 @@
             precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0),
         };
     }
+   
+    function recalcularTotalVenta() {
+    let sumaLineas = 0;
+    const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
 
-   function recalcularTotalVenta() {
-        let sumaLineas = 0;
-        
-        // 1. Verificamos si es donación ANTES de recorrer las filas
-        const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
+    tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+        const data = filaVentaPayload(fila);
+        const subtotalLinea = data.cantidad * data.precio_unitario;
+        sumaLineas += subtotalLinea;
 
-        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
-            const data = filaVentaPayload(fila);
-            const subtotal = data.cantidad * data.precio_unitario;
-            sumaLineas += subtotal;
-            
-            // 2. Modificamos visualmente la celda del subtotal en la fila
-            const celdaSubtotal = fila.querySelector('.detalle-subtotal');
-            if (esDonacion) {
-                // Si es donación: Tachamos el valor referencial y mostramos S/ 0.00 en verde
-                celdaSubtotal.innerHTML = `
-                    <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
-                        <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
-                        <span class="text-success fw-bold mt-1">S/ 0.00</span>
-                    </div>
-                `;
-            } else {
-                // Si es venta normal: Mostramos el subtotal estándar
-                celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
-            }
-        });
-
-        let subtotal = 0;
-        let igv = 0;
-        let total = 0;
-        
-        const tipo = tipoImpuesto ? tipoImpuesto.value : 'exonerado';
+        const celdaSubtotal = fila.querySelector('.detalle-subtotal');
+        if (!celdaSubtotal) return;
 
         if (esDonacion) {
-            subtotal = 0;
-            igv = 0;
-            total = 0;
-            if (ventaTotal) {
-                ventaTotal.classList.remove('text-primary');
-                ventaTotal.classList.add('text-success');
-            }
+            celdaSubtotal.innerHTML = `
+                <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
+                    <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotalLinea.toFixed(2)}</span>
+                    <span class="text-success fw-bold mt-1">S/ 0.00</span>
+                </div>
+            `;
         } else {
-            if (ventaTotal) {
-                ventaTotal.classList.add('text-primary');
-                ventaTotal.classList.remove('text-success');
-            }
-            if (tipo === 'incluido') {
-                total = sumaLineas;
-                subtotal = total / 1.18;
-                igv = total - subtotal;
-            } else if (tipo === 'mas_igv') {
-                subtotal = sumaLineas;
-                igv = subtotal * 0.18;
-                total = subtotal + igv;
-            } else { // exonerado
-                subtotal = sumaLineas;
-                igv = 0;
-                total = subtotal;
-            }
+            celdaSubtotal.textContent = `S/ ${subtotalLinea.toFixed(2)}`;
+        }
+    });
+
+    let subtotal = 0;
+    let igv = 0;
+    let total = 0;
+
+    const tipo = tipoImpuesto ? tipoImpuesto.value : 'exonerado';
+
+    if (esDonacion) {
+        subtotal = 0;
+        igv = 0;
+        total = 0;
+
+        if (ventaTotal) {
+            ventaTotal.classList.remove('text-primary');
+            ventaTotal.classList.add('text-success');
+        }
+    } else {
+        if (ventaTotal) {
+            ventaTotal.classList.add('text-primary');
+            ventaTotal.classList.remove('text-success');
         }
 
-        if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
-        if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
-        if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
+        if (tipo === 'incluido') {
+            total = sumaLineas;
+            subtotal = total / 1.18;
+            igv = total - subtotal;
+        } else if (tipo === 'mas_igv') {
+            subtotal = sumaLineas;
+            igv = subtotal * 0.18;
+            total = subtotal + igv;
+        } else {
+            subtotal = sumaLineas;
+            igv = 0;
+            total = subtotal;
+        }
     }
+
+    if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+    if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
+    if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
+}
 
     // --- EVENTOS CAMBIO DE TIPO E IMPUESTO ---
     if (tipoImpuesto) {

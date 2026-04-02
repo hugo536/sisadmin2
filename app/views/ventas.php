@@ -210,36 +210,29 @@ $estadoLabels = [
                                     </thead>
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
-                                    <tr>
-                                        <td colspan="2" class="ps-3 py-3 align-middle border-bottom-0">
-                                            <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
-                                                <i class="bi bi-plus-lg me-1"></i>Agregar Producto
-                                            </button>
-                                        </td>
-                                        <td colspan="4" class="pe-4 py-3 align-middle border-bottom-0">
-                                            <div class="d-flex flex-wrap justify-content-end align-items-center gap-3 gap-md-4">
-                                                <div class="d-flex flex-column text-end">
-                                                    <span class="text-muted small fw-bold mb-1">SUBTOTAL</span>
-                                                    <span class="text-dark fw-bold" id="ventaSubtotal">S/ 0.00</span>
-                                                </div>
-                                                
-                                                <div class="vr d-none d-sm-block bg-secondary opacity-25" style="width: 2px;"></div>
-                                                
-                                                <div class="d-flex flex-column text-end">
-                                                    <span class="text-muted small fw-bold mb-1">IGV (18%)</span>
-                                                    <span class="text-dark fw-bold" id="ventaIgv">S/ 0.00</span>
-                                                </div>
-                                                
-                                                <div class="vr d-none d-sm-block bg-secondary opacity-25" style="width: 2px;"></div>
-                                                
-                                                <div class="d-flex flex-column text-end">
-                                                    <span class="text-secondary small fw-bold mb-1">TOTAL PEDIDO</span>
-                                                    <span class="text-primary fw-bold fs-5 lh-1" id="ventaTotal">S/ 0.00</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tfoot>
+                                        <tr>
+                                            <td colspan="3" class="ps-3 py-3 align-middle border-bottom-0">
+                                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
+                                                    <i class="bi bi-plus-lg me-1"></i>Agregar Producto
+                                                </button>
+                                            </td>
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">SUBTOTAL:</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ventaSubtotal">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
+                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">IGV (18%):</td>
+                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ventaIgv">S/ 0.00</td>
+                                            <td class="border-bottom-0"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="border-0"></td>
+                                            <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL PEDIDO:</td>
+                                            <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ventaTotal">S/ 0.00</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>
