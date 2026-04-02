@@ -167,7 +167,11 @@ class ReporteInventarioModel extends Modelo
         $params = ['fecha_desde' => $f['fecha_desde'], 'fecha_hasta' => $f['fecha_hasta']];
 
         if (!empty($f['id_item'])) { $where[] = 'm.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
-        if (!empty($f['id_almacen'])) { $where[] = '(m.id_almacen_origen = :id_almacen OR m.id_almacen_destino = :id_almacen)'; $params['id_almacen'] = (int) $f['id_almacen']; }
+        if (!empty($f['id_almacen'])) {
+            $where[] = '(m.id_almacen_origen = :id_almacen_origen OR m.id_almacen_destino = :id_almacen_destino)';
+            $params['id_almacen_origen'] = (int) $f['id_almacen'];
+            $params['id_almacen_destino'] = (int) $f['id_almacen'];
+        }
         if (!empty($f['tipo_movimiento'])) { $where[] = 'm.tipo_movimiento = :tipo'; $params['tipo'] = (string) $f['tipo_movimiento']; }
 
         $whereSql = implode(' AND ', $where);

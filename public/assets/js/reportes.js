@@ -97,4 +97,52 @@
     pdfAction: 'imprimir_estado_cuenta_proveedores'
   });
 
+  // 3. LÓGICA PARA FILTROS DE REPORTE DE INVENTARIO (auto-submit)
+  const initReporteInventarioFiltros = () => {
+    const appInventario = document.getElementById('reportesInventarioApp');
+    if (!appInventario) return;
+
+    const formInventario = appInventario.querySelector('form[action*="reportes/inventario"]');
+    if (!formInventario) return;
+
+    const submitInventarioFiltros = () => {
+      if (formInventario.requestSubmit) {
+        formInventario.requestSubmit();
+        return;
+      }
+      formInventario.submit();
+    };
+
+    const autoSubmitInventario = (() => {
+      let timer = null;
+      return (delay = 250) => {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => submitInventarioFiltros(), delay);
+      };
+    })();
+
+    const filtroAlmacen = formInventario.querySelector('select[name="id_almacen"]');
+    const filtroBajoMinimo = formInventario.querySelector('input[name="solo_bajo_minimo"]');
+    const fechaDesde = formInventario.querySelector('input[name="fecha_desde"]');
+    const fechaHasta = formInventario.querySelector('input[name="fecha_hasta"]');
+
+    if (filtroAlmacen) {
+      filtroAlmacen.addEventListener('change', () => autoSubmitInventario());
+    }
+
+    if (filtroBajoMinimo) {
+      filtroBajoMinimo.addEventListener('change', () => autoSubmitInventario());
+    }
+
+    if (fechaDesde) {
+      fechaDesde.addEventListener('change', () => autoSubmitInventario());
+    }
+
+    if (fechaHasta) {
+      fechaHasta.addEventListener('change', () => autoSubmitInventario());
+    }
+  };
+
+  initReporteInventarioFiltros();
+
 })();
