@@ -609,6 +609,23 @@ class ListaPrecioModel extends Modelo {
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
+
+                  AND capp.estado = 1
+                  AND capp.id_item = :id_item
+                  AND (
+                        (:id_unidad IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad OR capp.id_unidad_conversion IS NULL))
+                        OR
+                        (:id_unidad IS NULL AND capp.id_unidad_conversion IS NULL)
+                  )
+                ORDER BY CASE WHEN :id_unidad IS NOT NULL AND capp.id_unidad_conversion = :id_unidad THEN 0 ELSE 1 END,
+                         capp.id DESC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            ':id_proveedor' => $idProveedor,
+            ':id_item' => $idItem,
+            ':id_unidad' => $idUnidad,
+        ]);
         $valor = $stmt->fetchColumn();
         if ($valor === false) {
             return null;
