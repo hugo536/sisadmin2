@@ -60,6 +60,8 @@
                             <th class="ps-4 text-secondary fw-semibold">Ítem</th>
                             <th class="text-secondary fw-semibold">Almacén</th>
                             <th class="text-end text-secondary fw-semibold">Stock</th>
+                            <th class="text-end text-secondary fw-semibold">C/U</th>
+                            <th class="text-end text-secondary fw-semibold">Valor</th>
                             <th class="text-end text-secondary fw-semibold">Mínimo</th>
                             <th class="text-center text-secondary fw-semibold">Unidad</th>
                             <th class="text-center pe-4 text-secondary fw-semibold">Alerta</th>
@@ -67,19 +69,23 @@
                     </thead>
                     <tbody>
                         <?php if(empty($stock['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock.</td></tr>
                         <?php else: ?>
                             <?php foreach (($stock['rows'] ?? []) as $r): ?>
                                 <?php 
                                     // Lógica visual básica para alertas
                                     $alertaTexto = (string)$r['alerta'];
-                                    $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false;
+                                    $esCritico = stripos($alertaTexto, 'bajo') !== false
+                                        || stripos($alertaTexto, 'crítico') !== false
+                                        || stripos($alertaTexto, 'critico') !== false;
                                     $alertaClase = $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['almacen'])); ?>">
                                     <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
                                     <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
                                     <td class="text-end fw-bold <?php echo $esCritico ? 'text-danger' : 'text-success'; ?>"><?php echo e((string)$r['stock_actual']); ?></td>
+                                    <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
+                                    <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
                                     <td class="text-end text-muted"><?php echo e((string)$r['stock_minimo']); ?></td>
                                     <td class="text-center"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['unidad']); ?></span></td>
                                     <td class="text-center pe-4">
@@ -92,7 +98,14 @@
                 </table>
             </div>
             <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaRepStockPaginationInfo">Cargando...</small>
+                <small class="text-muted fw-semibold" id="tablaRepStockPaginationInfo">
+                    Cargando...
+                    <?php if (!empty($stock['valor_total'])): ?>
+                        <span class="ms-2 badge bg-success-subtle text-success border border-success-subtle">
+                            Valor total filtrado: S/ <?php echo number_format((float)($stock['valor_total'] ?? 0), 2); ?>
+                        </span>
+                    <?php endif; ?>
+                </small>
                 <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepStockPaginationControls"></ul></nav>
             </div>
         </div>
