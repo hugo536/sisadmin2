@@ -54,10 +54,10 @@ class ComprasRecepcionModel extends Modelo
 
             $sqlMov = 'INSERT INTO inventario_movimientos (
                         tipo_movimiento, id_item, id_item_unidad,
-                        id_almacen_origen, id_almacen_destino, cantidad, referencia, created_by
+                        id_almacen_origen, id_almacen_destino, cantidad, costo_unitario, costo_total, referencia, created_by
                        ) VALUES (
                         :tipo_movimiento, :id_item, :id_item_unidad,
-                        :id_almacen_origen, :id_almacen_destino, :cantidad_base, :referencia, :created_by
+                        :id_almacen_origen, :id_almacen_destino, :cantidad_base, :costo_unitario_base, :costo_total, :referencia, :created_by
                        )';
             $stmtMov = $db->prepare($sqlMov);
 
@@ -80,13 +80,20 @@ class ComprasRecepcionModel extends Modelo
 
                 $idItem = (int) $original['id_item'];
                 $idItemUnidad = $original['id_item_unidad'] ? (int) $original['id_item_unidad'] : null;
+                $factor = (float) ($original['factor_conversion_aplicado'] ?? 1);
+                if ($factor <= 0) {
+                    $factor = 1;
+                }
+                $costoPactado = (float) ($original['costo_unitario_pactado'] ?? 0);
+                $costoUnitarioBase = $factor > 0 ? ($costoPactado / $factor) : $costoPactado;
+                $costoTotal = $cantidadBase * $costoUnitarioBase;
 
                 $stmtDet->execute([
                     'id_recepcion' => $idRecepcion,
                     'id_item' => $idItem,
                     'id_item_unidad' => $idItemUnidad,
                     'cantidad_base' => $cantidadBase,
-                    'costo_unitario' => (float) $original['costo_unitario_pactado'],
+                    'costo_unitario' => $costoUnitarioBase,
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -102,6 +109,8 @@ class ComprasRecepcionModel extends Modelo
                     'id_almacen_origen' => null,
                     'id_almacen_destino' => $idAlmacen,
                     'cantidad_base' => $cantidadBase,
+                    'costo_unitario_base' => $costoUnitarioBase,
+                    'costo_total' => $costoTotal,
                     'referencia' => $referencia,
                     'created_by' => $userId,
                 ]);

@@ -153,13 +153,17 @@
         if (modalSoloLecturaActiva) return;
         const idProv = Number(idProveedor.value || 0);
         const inputItem = fila.querySelector('.detalle-item');
+        const inputUnidad = fila.querySelector('.detalle-unidad-compra');
         const inputCosto = fila.querySelector('.detalle-costo');
         const idItem = Number(inputItem?.value || 0);
+        const idUnidad = inputUnidad && !inputUnidad.classList.contains('d-none')
+            ? Number(inputUnidad.value || 0)
+            : 0;
 
         if (idProv <= 0 || idItem <= 0 || !urls.precioSugerido) return;
 
         const separador = urls.precioSugerido.includes('?') ? '&' : '?';
-        const res = await fetch(`${urls.precioSugerido}${separador}accion=precio_sugerido_proveedor&id_proveedor=${idProv}&id_item=${idItem}`, {
+        const res = await fetch(`${urls.precioSugerido}${separador}accion=precio_sugerido_proveedor&id_proveedor=${idProv}&id_item=${idItem}&id_unidad=${idUnidad}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         const json = await parseJsonSafe(res);
@@ -216,8 +220,8 @@
     }
 
     function recalcularFila(fila) {
-        const { cantidad_base, costo_unitario } = filaToPayload(fila);
-        const subtotal = cantidad_base * costo_unitario;
+        const { cantidad, costo_unitario } = filaToPayload(fila);
+        const subtotal = cantidad * costo_unitario;
         fila.querySelector('.detalle-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
         recalcularTotalGeneral();
     }
@@ -226,7 +230,7 @@
         let total = 0;
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const item = filaToPayload(fila);
-            total += item.cantidad_base * item.costo_unitario;
+            total += item.cantidad * item.costo_unitario;
         });
         ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
@@ -278,6 +282,10 @@
             } else if (inputUnidad.options.length > 1) {
                 inputUnidad.selectedIndex = 1;
             }
+
+            if (!itemGuardado) {
+                await aplicarPrecioSugeridoProveedor(fila);
+            }
         } catch (error) {
             console.error(error);
             Swal.fire('Atención', 'No se pudieron cargar las unidades de este ítem.', 'warning');
@@ -314,6 +322,10 @@
             input.addEventListener('input', () => recalcularFila(fila));
             input.addEventListener('change', () => recalcularFila(fila));
         });
+        inputUnidad.addEventListener('change', async () => {
+            await aplicarPrecioSugeridoProveedor(fila);
+            recalcularFila(fila);
+        });
 
         if (inputCentroCosto) {
             inputCentroCosto.addEventListener('change', () => {
@@ -348,7 +360,6 @@
             }
 
             await actualizarUnidadPorItem(fila, null);
-            await aplicarPrecioSugeridoProveedor(fila);
         };
 
         if (tomSelectItem) {
