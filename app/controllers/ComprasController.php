@@ -66,24 +66,31 @@ class ComprasController extends Controlador
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_sugerido_proveedor') {
-            $idProveedor = (int) ($_GET['id_proveedor'] ?? 0);
-            $idItem = (int) ($_GET['id_item'] ?? 0);
-            $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
-            if ($idProveedor <= 0 || $idItem <= 0) {
-                json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
-                return;
-            }
+            try {
+                $idProveedor = (int) ($_GET['id_proveedor'] ?? 0);
+                $idItem = (int) ($_GET['id_item'] ?? 0);
+                $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
+                if ($idProveedor <= 0 || $idItem <= 0) {
+                    json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
+                    return;
+                }
 
-            $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor(
-                $idProveedor,
-                $idItem,
-                $idUnidad > 0 ? $idUnidad : null
-            );
-            json_response([
-                'ok' => true,
-                'encontrado' => $precio !== null,
-                'precio_recomendado' => $precio,
-            ]);
+                $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor(
+                    $idProveedor,
+                    $idItem,
+                    $idUnidad > 0 ? $idUnidad : null
+                );
+                json_response([
+                    'ok' => true,
+                    'encontrado' => $precio !== null,
+                    'precio_recomendado' => $precio,
+                ]);
+            } catch (Throwable $e) {
+                json_response([
+                    'ok' => false,
+                    'mensaje' => 'No se pudo obtener el precio sugerido del proveedor.',
+                ], 500);
+            }
             return;
         }
 

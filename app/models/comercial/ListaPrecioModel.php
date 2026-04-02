@@ -570,12 +570,46 @@ class ListaPrecioModel extends Modelo {
             return null;
         }
 
-        // Si se envía unidad, prioriza coincidencia exacta y luego permite fallback a registro sin unidad.
+        $tieneColEstado = $this->tablaTieneColumna('comercial_acuerdos_proveedor_precios', 'estado');
+        $tieneColUnidad = $this->tablaTieneColumna('comercial_acuerdos_proveedor_precios', 'id_unidad_conversion');
+
+        // Compatibilidad de esquema: en BD antiguas puede no existir id_unidad_conversion o estado.
         $sql = "SELECT capp.precio_recomendado
                 FROM comercial_acuerdos_proveedor_precios capp
                 INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
                 WHERE capv.id_tercero = :id_proveedor
                   AND capv.estado = 1
+                  AND capp.id_item = :id_item";
+
+        if ($tieneColEstado) {
+            $sql .= " AND capp.estado = 1";
+        }
+
+        $params = [
+            ':id_proveedor' => $idProveedor,
+            ':id_item' => $idItem,
+        ];
+
+        if ($tieneColUnidad) {
+            // Si se envía unidad, prioriza coincidencia exacta y luego fallback a registro sin unidad.
+            $sql .= " AND (
+                            (:id_unidad IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad OR capp.id_unidad_conversion IS NULL))
+                            OR
+                            (:id_unidad IS NULL AND capp.id_unidad_conversion IS NULL)
+                      )
+                      ORDER BY CASE WHEN :id_unidad IS NOT NULL AND capp.id_unidad_conversion = :id_unidad THEN 0 ELSE 1 END,
+                               capp.id DESC";
+            $params[':id_unidad'] = $idUnidad;
+        } else {
+            // Sin columna de unidad en la tabla: usar último precio activo del item/proveedor.
+            $sql .= " ORDER BY capp.id DESC";
+        }
+
+        $sql .= " LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
                   AND capp.estado = 1
                   AND capp.id_item = :id_item
                   AND (
@@ -677,6 +711,33 @@ class ListaPrecioModel extends Modelo {
         
         $cache[$tabla] = (bool)$stmt->fetchColumn();
         return $cache[$tabla];
+    }
+
+    /**
+     * Verifica si una columna existe en una tabla de la base de datos actual.
+     */
+    private function tablaTieneColumna(string $tabla, string $columna): bool {
+        static $cache = [];
+
+        $tabla = trim($tabla);
+        $columna = trim($columna);
+        if ($tabla === '' || $columna === '') {
+            return false;
+        }
+
+        $clave = $tabla . '::' . $columna;
+        if (array_key_exists($clave, $cache)) {
+            return $cache[$clave];
+        }
+
+        $stmt = $this->db->prepare('SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = :tabla AND column_name = :columna LIMIT 1');
+        $stmt->execute([
+            ':tabla' => $tabla,
+            ':columna' => $columna,
+        ]);
+
+        $cache[$clave] = (bool)$stmt->fetchColumn();
+        return $cache[$clave];
     }
 
     public function obtenerUnidadesPorItem(int $idItem): array {
