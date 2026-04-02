@@ -579,6 +579,12 @@ class ListaPrecioModel extends Modelo {
                   AND capp.estado = 1
                   AND capp.id_item = :id_item
                   AND (
+                        (:id_unidad_filtro IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad_match OR capp.id_unidad_conversion IS NULL))
+                        OR
+                        (:id_unidad_filtro IS NULL AND capp.id_unidad_conversion IS NULL)
+                  )
+                ORDER BY CASE WHEN :id_unidad_orden IS NOT NULL AND capp.id_unidad_conversion = :id_unidad_orden_match THEN 0 ELSE 1 END,
+
                         (:id_unidad IS NOT NULL AND (capp.id_unidad_conversion = :id_unidad OR capp.id_unidad_conversion IS NULL))
                         OR
                         (:id_unidad IS NULL AND capp.id_unidad_conversion IS NULL)
@@ -590,7 +596,14 @@ class ListaPrecioModel extends Modelo {
         $stmt->execute([
             ':id_proveedor' => $idProveedor,
             ':id_item' => $idItem,
+
+            ':id_unidad_filtro' => $idUnidad,
+            ':id_unidad_match' => $idUnidad,
+            ':id_unidad_orden' => $idUnidad,
+            ':id_unidad_orden_match' => $idUnidad,
+
             ':id_unidad' => $idUnidad,
+
         ]);
         $valor = $stmt->fetchColumn();
         if ($valor === false) {
