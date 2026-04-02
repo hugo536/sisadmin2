@@ -68,12 +68,17 @@ class ComprasController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_sugerido_proveedor') {
             $idProveedor = (int) ($_GET['id_proveedor'] ?? 0);
             $idItem = (int) ($_GET['id_item'] ?? 0);
+            $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
             if ($idProveedor <= 0 || $idItem <= 0) {
                 json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
                 return;
             }
 
-            $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor($idProveedor, $idItem);
+            $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor(
+                $idProveedor,
+                $idItem,
+                $idUnidad > 0 ? $idUnidad : null
+            );
             json_response([
                 'ok' => true,
                 'encontrado' => $precio !== null,
@@ -160,7 +165,7 @@ class ComprasController extends Controlador
                 if ($idCentroCosto > 0 && !$this->centroCostoModel->existe($idCentroCosto)) {
                     throw new RuntimeException('Uno de los centros de costo seleccionados no es válido.');
                 }
-                $total += $cantidadBase * $costo; // Ajuste por si acaso, ahora se calcula sobre la base
+                $total += $cantidad * $costo;
             }
 
             // Llamar al Modelo
