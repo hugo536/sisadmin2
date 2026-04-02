@@ -82,6 +82,34 @@ class VentasController extends Controlador
             return;
         }
 
+        // Guardar devolución de venta (AJAX)
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
+            try {
+                $payload = $this->leerJson();
+                $userId = $this->obtenerUsuarioId();
+
+                if (empty($payload['id_documento']) || empty($payload['motivo']) || empty($payload['detalle'])) {
+                    throw new RuntimeException('Faltan datos obligatorios para la devolución.');
+                }
+
+                $this->despachoModel->registrarDevolucion(
+                    (int) ($payload['id_documento'] ?? 0),
+                    (string) ($payload['motivo'] ?? ''),
+                    (string) ($payload['resolucion'] ?? ''),
+                    is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [],
+                    $userId
+                );
+
+                json_response([
+                    'ok' => true,
+                    'mensaje' => 'Devolución de venta registrada correctamente. Se actualizó inventario, kardex y cuentas por cobrar.'
+                ]);
+            } catch (Throwable $e) {
+                json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+            }
+            return;
+        }
+
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {
             $idCliente = (int) ($_GET['id_cliente'] ?? 0);
             $idItem = (int) ($_GET['id_item'] ?? 0);
