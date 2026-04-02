@@ -124,7 +124,7 @@ class VentasController extends Controlador
 
         // 5. Renderizado de Vista Principal
 
-        // --- NUEVO: Generar PDF (Profesional) ---
+        // --- Generar PDF (Profesional) ---
         if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
             $id = (int) ($_GET['id'] ?? 0);
             if ($id <= 0) {
@@ -137,8 +137,8 @@ class VentasController extends Controlador
                 die('El pedido no existe.');
             }
 
-            // --- NUEVO: Obtenemos los datos de la empresa ---
-            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php'; // <-- Agrega la subcarpeta correcta aquí
+            // Obtenemos los datos de la empresa
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php'; 
             $empresaModel = new EmpresaModel();
             $config = $empresaModel->obtener();
 
@@ -198,8 +198,9 @@ class VentasController extends Controlador
             $fechaEmision = !empty($payload['fecha_emision']) ? trim((string) $payload['fecha_emision']) : null;
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             
-            // <-- NUEVO: Capturamos el tipo de impuesto del frontend
-            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido')); 
+            // CAMBIO AQUÍ: Ahora el fallback del backend también es 'exonerado'
+            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'exonerado')); 
+            $tipoOperacion = trim((string) ($payload['tipo_operacion'] ?? 'VENTA')); 
             
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
@@ -213,8 +214,6 @@ class VentasController extends Controlador
 
             $itemsUnicos = [];
 
-            // Solo hacemos validaciones de integridad básicas aquí. 
-            // Las sumas y el IGV las hará el Modelo por seguridad.
             foreach ($detalle as $linea) {
                 $idItem = (int) ($linea['id_item'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
@@ -237,13 +236,14 @@ class VentasController extends Controlador
                 }
             }
 
-            // Pasamos la cabecera limpia al modelo
+            // Pasamos la cabecera limpia al modelo incluyendo "tipo_operacion"
             $id = $this->documentoModel->crearOActualizar([
                 'id' => (int) ($payload['id'] ?? 0),
                 'id_cliente' => $idCliente,
                 'fecha_emision' => $fechaEmision, 
                 'observaciones' => $observaciones,
-                'tipo_impuesto' => $tipoImpuesto, // <-- NUEVO: Lo pasamos al modelo
+                'tipo_impuesto' => $tipoImpuesto,
+                'tipo_operacion' => $tipoOperacion, // <-- Se envía al modelo
             ], $detalle, $userId);
 
             json_response(['ok' => true, 'mensaje' => 'Pedido guardado correctamente.', 'id' => $id]);
@@ -272,12 +272,20 @@ class VentasController extends Controlador
                 throw new RuntimeException('Pedido inválido.');
             }
 
+            // 1. Obtenemos los datos actuales de la venta ANTES de aprobarla
+            $venta = $this->documentoModel->obtener($idDocumento);
+
+            // 2. Aprobamos el pedido
             $ok = $this->documentoModel->aprobar($idDocumento, $userId);
             if (!$ok) {
                 throw new RuntimeException('No se pudo aprobar. Verifique que el pedido esté en borrador.');
             }
 
-            $this->tesoreriaCxcModel->crearDesdeVenta($idDocumento, $userId);
+            // 3. LÓGICA DE DONACIÓN: Solo generamos deuda si NO es una donación
+            $tipoOperacion = $venta['tipo_operacion'] ?? 'VENTA';
+            if ($tipoOperacion !== 'DONACION') {
+                $this->tesoreriaCxcModel->crearDesdeVenta($idDocumento, $userId);
+            }
 
             json_response(['ok' => true, 'mensaje' => 'Pedido aprobado correctamente.']);
         } catch (Throwable $e) {
@@ -313,9 +321,7 @@ class VentasController extends Controlador
 
     public function despachar(): void
     {
-        // BUG FIX: Se agregó el AuthMiddleware y el formato estandarizado
         AuthMiddleware::handle();
-        // require_permiso('ventas.despachar'); // Descomenta esta línea si tienes este permiso configurado
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Acceso denegado'], 400);
@@ -323,7 +329,7 @@ class VentasController extends Controlador
         }
 
         try {
-            $data = $this->leerJson(); // BUG FIX: Usamos el helper en lugar de file_get_contents
+            $data = $this->leerJson(); 
             
             $idDocumento = (int) ($data['id_documento'] ?? 0);
             $cerrarForzado = filter_var(($data['cerrar_forzado'] ?? false), FILTER_VALIDATE_BOOLEAN);
@@ -344,7 +350,7 @@ class VentasController extends Controlador
                 }
             }
 
-            $userId = $this->obtenerUsuarioId(); // BUG FIX: Usamos el helper seguro para el ID
+            $userId = $this->obtenerUsuarioId(); 
 
             $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId);
             
@@ -374,6 +380,4 @@ class VentasController extends Controlador
         }
         return $id;
     }
-
-    
 }

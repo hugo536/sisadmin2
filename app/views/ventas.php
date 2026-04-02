@@ -151,32 +151,43 @@ $estadoLabels = [
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
+                            
                             <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
-                                <label for="idCliente" class="form-label text-muted small fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
-                                <select id="idCliente" class="form-select shadow-none" required></select>
-                            </div>
-                            
-                            <div class="col-md-2">
-                                <label for="fechaEmision" class="form-label text-muted small fw-bold mb-1">Fecha Emisión</label>
-                                <input type="date" class="form-control shadow-none" id="fechaEmision" value="<?php echo date('Y-m-d'); ?>">
-                            </div>
+                                <div class="col-md-3">
+                                    <label for="tipoOperacion" class="form-label text-muted small fw-bold mb-1">Tipo Operación <span class="text-danger">*</span></label>
+                                    <select id="tipoOperacion" name="tipo_operacion" class="form-select shadow-none border-primary-subtle" required>
+                                        <option value="VENTA" selected>Venta Comercial</option>
+                                        <option value="DONACION">Donación / Muestra Gratuita</option>
+                                    </select>
+                                </div>
 
-                            <div class="col-md-3">
-                                <label for="tipoImpuesto" class="form-label text-muted small fw-bold mb-1">Impuestos <span class="text-danger">*</span></label>
-                                <select id="tipoImpuesto" class="form-select shadow-none" required>
-                                    <option value="incluido" selected>Incluyen IGV (Boleta/Factura)</option>
-                                    <option value="mas_igv">NO incluyen IGV (+18%)</option>
-                                    <option value="exonerado">Exonerado (0%)</option>
-                                </select>
+                                <div class="col-md-4">
+                                    <label for="idCliente" class="form-label text-muted small fw-bold mb-1">Cliente / Beneficiario <span class="text-danger">*</span></label>
+                                    <select id="idCliente" class="form-select shadow-none" required></select>
+                                </div>
+                                
+                                <div class="col-md-2">
+                                    <label for="fechaEmision" class="form-label text-muted small fw-bold mb-1">Fecha Emisión</label>
+                                    <input type="date" class="form-control shadow-none" id="fechaEmision" value="<?php echo date('Y-m-d'); ?>">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label for="tipoImpuesto" class="form-label text-muted small fw-bold mb-1">Impuestos <span class="text-danger">*</span></label>
+                                    <select id="tipoImpuesto" class="form-select shadow-none" required>
+                                        <option value="incluido" selected>Incluyen IGV (Boleta/Factura)</option>
+                                        <option value="mas_igv">NO incluyen IGV (+18%)</option>
+                                        <option value="exonerado">Exonerado (0%)</option>
+                                    </select>
+                                </div>
                             </div>
                             
-                            <div class="col-md-3">
-                                <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
-                                <input type="text" class="form-control shadow-none" id="ventaObservaciones" maxlength="180" placeholder="Opcional">
+                            <div class="row g-3 mt-1">
+                                <div class="col-12">
+                                    <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Motivo</label>
+                                    <input type="text" class="form-control shadow-none" id="ventaObservaciones" maxlength="180" placeholder="Ej: Donación para evento benéfico local">
+                                </div>
                             </div>
-                        </div>
-                        </div>
+                            </div>
                     </div>
 
                     <div class="card border-0 shadow-sm">

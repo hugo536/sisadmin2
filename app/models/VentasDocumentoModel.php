@@ -8,6 +8,7 @@ class VentasDocumentoModel extends Modelo
     {
         $sql = 'SELECT v.id,
                        v.codigo,
+                       v.tipo_operacion,
                        v.id_cliente,
                        t.nombre_completo AS cliente,
                        v.fecha_emision,
@@ -52,8 +53,8 @@ class VentasDocumentoModel extends Modelo
 
     public function obtener(int $idDocumento): array
     {
-        // AÑADIMOS EL LEFT JOIN PARA TRAER LOS DATOS DEL TERCERO (CLIENTE)
         $sql = 'SELECT v.id, v.codigo, v.id_cliente, 
+                       v.tipo_operacion, v.tipo_impuesto,
                        t.nombre_completo AS cliente, 
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
@@ -72,7 +73,6 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
-        // MODIFICACIÓN AQUÍ: Agregamos una subconsulta para traer el stock_actual real
         $sqlDetalle = 'SELECT d.id,
                               d.id_item,
                               i.sku,
@@ -118,7 +118,10 @@ class VentasDocumentoModel extends Modelo
         try {
             $idDocumento = (int) ($cabecera['id'] ?? 0);
             $fechaEmision = !empty($cabecera['fecha_emision']) ? $cabecera['fecha_emision'] : date('Y-m-d');
-            $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'incluido')); // <-- NUEVO
+            
+            // MODIFICACIÓN: Aquí aseguramos el fallback a 'exonerado'
+            $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'exonerado'));
+            $tipoOperacion = trim((string) ($cabecera['tipo_operacion'] ?? 'VENTA'));
 
             // 1. RECALCULAR TOTALES POR SEGURIDAD
             $sumaLineas = 0.0;
@@ -136,18 +139,26 @@ class VentasDocumentoModel extends Modelo
             $igvMonto = 0.0;
             $totalFinal = 0.0;
 
-            if ($tipoImpuesto === 'incluido') {
-                $totalFinal = $sumaLineas;
-                $subtotal = $totalFinal / 1.18;
-                $igvMonto = $totalFinal - $subtotal;
-            } elseif ($tipoImpuesto === 'mas_igv') {
-                $subtotal = $sumaLineas;
-                $igvMonto = $subtotal * 0.18;
-                $totalFinal = $subtotal + $igvMonto;
-            } else { // exonerado
-                $subtotal = $sumaLineas;
+            if ($tipoOperacion === 'DONACION') {
+                // BLINDAJE: Si es donación, la cabecera siempre es cero.
+                $subtotal = 0.0;
                 $igvMonto = 0.0;
-                $totalFinal = $subtotal;
+                $totalFinal = 0.0;
+                $tipoImpuesto = 'exonerado';
+            } else {
+                if ($tipoImpuesto === 'incluido') {
+                    $totalFinal = $sumaLineas;
+                    $subtotal = $totalFinal / 1.18;
+                    $igvMonto = $totalFinal - $subtotal;
+                } elseif ($tipoImpuesto === 'mas_igv') {
+                    $subtotal = $sumaLineas;
+                    $igvMonto = $subtotal * 0.18;
+                    $totalFinal = $subtotal + $igvMonto;
+                } else { // exonerado
+                    $subtotal = $sumaLineas;
+                    $igvMonto = 0.0;
+                    $totalFinal = $subtotal;
+                }
             }
 
             if ($idDocumento > 0) {
@@ -165,6 +176,7 @@ class VentasDocumentoModel extends Modelo
                                   fecha_emision = :fecha_emision,
                                   observaciones = :observaciones,
                                   tipo_impuesto = :tipo_impuesto,
+                                  tipo_operacion = :tipo_operacion,
                                   subtotal = :subtotal,
                                   igv_monto = :igv_monto,
                                   total = :total,
@@ -179,6 +191,7 @@ class VentasDocumentoModel extends Modelo
                     'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $tipoImpuesto,
+                    'tipo_operacion' => $tipoOperacion,
                     'subtotal' => round($subtotal, 4),
                     'igv_monto' => round($igvMonto, 4),
                     'total' => round($totalFinal, 2),
@@ -193,17 +206,18 @@ class VentasDocumentoModel extends Modelo
                 $codigo = $this->generarCodigo($db);
                 
                 $sqlInsert = 'INSERT INTO ventas_documentos (
-                                codigo, id_cliente, fecha_emision, observaciones,
+                                codigo, tipo_operacion, id_cliente, fecha_emision, observaciones,
                                 tipo_impuesto, subtotal, igv_monto, total, estado,
                                 created_by, updated_by, created_at, updated_at
                               ) VALUES (
-                                :codigo, :id_cliente, :fecha_emision, :observaciones,
+                                :codigo, :tipo_operacion, :id_cliente, :fecha_emision, :observaciones,
                                 :tipo_impuesto, :subtotal, :igv_monto, :total, 0,
                                 :created_by, :updated_by, NOW(), NOW()
                               )';
 
                 $db->prepare($sqlInsert)->execute([
                     'codigo' => $codigo,
+                    'tipo_operacion' => $tipoOperacion,
                     'id_cliente' => (int) $cabecera['id_cliente'],
                     'fecha_emision' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
@@ -236,7 +250,7 @@ class VentasDocumentoModel extends Modelo
                     'id_item' => (int) ($linea['id_item'] ?? 0),
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
-                    'total_linea' => round($cantidad * $precio, 2),
+                    'total_linea' => round($cantidad * $precio, 2), 
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -567,18 +581,11 @@ class VentasDocumentoModel extends Modelo
         return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Registra el despacho de mercadería (Salida de Almacén)
-     * Actúa como puente hacia el modelo especializado de despachos
-     * para mantener la lógica centralizada y soportar multi-almacén.
-     */
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId): void
     {
-        // Instanciamos el modelo especializado que contiene la lógica multi-almacén
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
-        // Le pasamos la responsabilidad al método robusto que ya arreglamos
         $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId);
     }
 }

@@ -42,8 +42,11 @@
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-person-lines-fill me-2 text-info"></i>Ventas por cliente</h5>
+        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                <i class="bi bi-person-lines-fill me-2 text-info"></i>Ventas por cliente
+                <span class="badge bg-light text-secondary border ms-3 fw-normal" style="font-size: 0.75rem;">Solo ventas comerciales</span>
+            </h5>
             <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasCliente" placeholder="Buscar cliente...">
@@ -89,8 +92,11 @@
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-star-fill me-2 text-warning"></i>Top productos vendidos</h5>
+        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                <i class="bi bi-star-fill me-2 text-warning"></i>Top productos vendidos
+                <span class="badge bg-light text-secondary border ms-3 fw-normal" style="font-size: 0.75rem;">Solo ventas comerciales</span>
+            </h5>
             <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasProd" placeholder="Buscar producto...">
@@ -132,8 +138,11 @@
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-truck me-2 text-danger"></i>Pendientes de despacho</h5>
+        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                <i class="bi bi-truck me-2 text-danger"></i>Pendientes de despacho
+                <span class="badge bg-light text-secondary border ms-3 fw-normal" style="font-size: 0.75rem;">Incluye donaciones</span>
+            </h5>
             <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasPendientes" placeholder="Buscar doc o cliente...">
@@ -161,6 +170,8 @@
                             <?php foreach (($pendientes['rows'] ?? []) as $r): ?>
                                 <?php 
                                     $dias = (int)($r['dias_desde_emision'] ?? 0);
+                                    $esDonacion = ($r['tipo_operacion'] ?? '') === 'DONACION'; // <-- NUEVO: Verificamos si es donación
+                                    
                                     if ($dias >= 7) {
                                         $badgeDias = 'bg-danger-subtle text-danger border-danger-subtle';
                                     } elseif ($dias >= 3) {
@@ -169,8 +180,13 @@
                                         $badgeDias = 'bg-success-subtle text-success border-success-subtle';
                                     }
                                 ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['documento'] . ' ' . (string)$r['cliente'])); ?>">
-                                    <td class="ps-4 fw-bold text-primary"><?php echo e((string)$r['documento']); ?></td>
+                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['documento'] . ' ' . (string)$r['cliente'] . ($esDonacion ? ' donacion' : ''))); ?>">
+                                    <td class="ps-4 fw-bold text-primary">
+                                        <?php echo e((string)$r['documento']); ?>
+                                        <?php if($esDonacion): ?>
+                                            <br><span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-0 mt-1" style="font-size: 0.65rem;">DONACIÓN</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="fw-semibold text-dark"><?php echo e((string)$r['cliente']); ?></td>
                                     <td class="text-end fw-bold text-danger"><?php echo number_format((float)($r['saldo_despachar'] ?? 0), 2); ?></td>
                                     <td class="text-muted small"><i class="bi bi-building me-1"></i><?php echo e((string)$r['almacen']); ?></td>

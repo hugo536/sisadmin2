@@ -5,6 +5,7 @@ class ReporteVentasModel extends Modelo
 {
     public function contarPorDespachar(): int
     {
+        // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
         $sql = "SELECT COUNT(*)
                 FROM ventas_documentos v
                 WHERE v.deleted_at IS NULL AND v.estado IN (1,2)
@@ -20,7 +21,10 @@ class ReporteVentasModel extends Modelo
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+        
+        // MODIFICACIÓN: Agregamos v.tipo_operacion = 'VENTA' para que no sume clientes a los que se les donó
+        $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+        
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         $w = implode(' AND ', $where);
@@ -50,7 +54,10 @@ class ReporteVentasModel extends Modelo
     public function topProductos(array $f, int $limite = 10): array
     {
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $where = ['v.deleted_at IS NULL', 'd.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+        
+        // MODIFICACIÓN: Agregamos v.tipo_operacion = 'VENTA' para que la donación no infle el ranking de productos
+        $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'd.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+        
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         $w = implode(' AND ', $where);
@@ -76,6 +83,8 @@ class ReporteVentasModel extends Modelo
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        
+        // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
         $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (1,2)'];
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         $w = implode(' AND ', $where);

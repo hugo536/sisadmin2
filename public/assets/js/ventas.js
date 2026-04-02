@@ -105,7 +105,8 @@
     const fechaEmision = document.getElementById('fechaEmision');
     const ventaObservaciones = document.getElementById('ventaObservaciones');
     
-    // --- VARIABLES DE IMPUESTOS ---
+    // --- VARIABLES DE VENTA/DONACIÓN ---
+    const tipoOperacion = document.getElementById('tipoOperacion');
     const tipoImpuesto = document.getElementById('tipoImpuesto');
     const ventaSubtotal = document.getElementById('ventaSubtotal');
     const ventaIgv = document.getElementById('ventaIgv');
@@ -165,34 +166,66 @@
             fila.querySelector('.detalle-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
         });
 
-        // --- CÁLCULO DEL IGV ---
         let subtotal = 0;
         let igv = 0;
         let total = 0;
-        const tipo = tipoImpuesto ? tipoImpuesto.value : 'incluido';
+        
+        // MODIFICACIÓN: Fallback a 'exonerado' en caso de que no exista el elemento (por consistencia)
+        const tipo = tipoImpuesto ? tipoImpuesto.value : 'exonerado';
+        const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
 
-        if (tipo === 'incluido') {
-            total = sumaLineas;
-            subtotal = total / 1.18;
-            igv = total - subtotal;
-        } else if (tipo === 'mas_igv') {
-            subtotal = sumaLineas;
-            igv = subtotal * 0.18;
-            total = subtotal + igv;
-        } else { // exonerado
-            subtotal = sumaLineas;
+        if (esDonacion) {
+            subtotal = 0;
             igv = 0;
-            total = subtotal;
+            total = 0;
+            if (ventaTotal) {
+                ventaTotal.classList.remove('text-primary');
+                ventaTotal.classList.add('text-success');
+            }
+        } else {
+            if (ventaTotal) {
+                ventaTotal.classList.add('text-primary');
+                ventaTotal.classList.remove('text-success');
+            }
+            if (tipo === 'incluido') {
+                total = sumaLineas;
+                subtotal = total / 1.18;
+                igv = total - subtotal;
+            } else if (tipo === 'mas_igv') {
+                subtotal = sumaLineas;
+                igv = subtotal * 0.18;
+                total = subtotal + igv;
+            } else { // exonerado
+                subtotal = sumaLineas;
+                igv = 0;
+                total = subtotal;
+            }
         }
 
         if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
         if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
-        if (ventaTotal) ventaTotal.textContent = `S/ ${total.toFixed(2)}`;
+        if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
     }
 
-    // Evento para recalcular si cambia el tipo de impuesto
+    // --- EVENTOS CAMBIO DE TIPO E IMPUESTO ---
     if (tipoImpuesto) {
         tipoImpuesto.addEventListener('change', recalcularTotalVenta);
+    }
+    
+    if (tipoOperacion) {
+        tipoOperacion.addEventListener('change', () => {
+            if (tipoOperacion.value === 'DONACION') {
+                if (tipoImpuesto) {
+                    tipoImpuesto.value = 'exonerado';
+                    tipoImpuesto.disabled = true; // Bloquea el impuesto
+                }
+            } else {
+                if (tipoImpuesto && !tipoImpuesto.hasAttribute('data-readonly')) {
+                    tipoImpuesto.disabled = false;
+                }
+            }
+            recalcularTotalVenta();
+        });
     }
 
     function obtenerItemsSeleccionados(excluirFila = null) {
@@ -400,9 +433,15 @@
         }
         fechaEmision.value = new Date().toISOString().split('T')[0];
         ventaObservaciones.value = '';
+        
+        if (tipoOperacion) {
+            tipoOperacion.value = 'VENTA';
+            tipoOperacion.disabled = false;
+        }
         if (tipoImpuesto) {
-            tipoImpuesto.value = 'incluido';
+            tipoImpuesto.value = 'exonerado'; // <-- Mantenemos 'exonerado' como pediste anteriormente
             tipoImpuesto.disabled = false;
+            tipoImpuesto.removeAttribute('data-readonly');
         }
 
         tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
@@ -412,7 +451,11 @@
         tbodyVenta.innerHTML = '';
         if (ventaSubtotal) ventaSubtotal.textContent = 'S/ 0.00';
         if (ventaIgv) ventaIgv.textContent = 'S/ 0.00';
-        if (ventaTotal) ventaTotal.textContent = 'S/ 0.00';
+        if (ventaTotal) {
+            ventaTotal.textContent = 'S/ 0.00';
+            ventaTotal.classList.add('text-primary');
+            ventaTotal.classList.remove('text-success');
+        }
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
@@ -483,9 +526,11 @@
             const payload = await postJson(urls.guardar, {
                 id: Number(ventaId.value || 0),
                 id_cliente: Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0),
+                tipo_operacion: tipoOperacion ? tipoOperacion.value : 'VENTA', 
                 fecha_emision: fechaEmision.value,
                 observaciones: ventaObservaciones.value,
-                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido', // <-- ENVIAMOS EL IMPUESTO
+                // MODIFICACIÓN: Si en el guardado no se mandó un impuesto, asumirá 'exonerado'
+                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'exonerado',
                 detalle,
             });
 
@@ -945,10 +990,19 @@
                 inputFecha.value = venta.fecha_emision || '';
                 inputObs.value = venta.observaciones || '';
                 
-                // Setear el tipo de impuesto si existe
+                // --- CARGAR TIPO OPERACIÓN E IMPUESTO ---
+                if (tipoOperacion) {
+                    tipoOperacion.value = venta.tipo_operacion || 'VENTA';
+                    tipoOperacion.disabled = !esBorrador;
+                }
                 if (tipoImpuesto) {
-                    tipoImpuesto.value = venta.tipo_impuesto || 'incluido';
-                    tipoImpuesto.disabled = !esBorrador;
+                    // MODIFICACIÓN: Si es antiguo o vacío, asume 'exonerado' de forma segura
+                    tipoImpuesto.value = venta.tipo_impuesto || 'exonerado';
+                    if (!esBorrador || (tipoOperacion && tipoOperacion.value === 'DONACION')) {
+                        tipoImpuesto.disabled = true;
+                    } else {
+                        tipoImpuesto.disabled = false;
+                    }
                 }
                 
                 inputFecha.readOnly = !esBorrador;

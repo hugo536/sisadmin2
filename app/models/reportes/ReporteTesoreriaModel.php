@@ -625,15 +625,17 @@ class ReporteTesoreriaModel extends Modelo
         $whereBase = [
             'c.deleted_at IS NULL',
             'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+            // NUEVO: Filtro para los cálculos de la cabecera
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
         ];
         
-        // --- NUEVO: Construcción de WHERE para Saldo Anterior (< fd) ---
         $whereAnterior = [
             'c.deleted_at IS NULL',
             'DATE(c.fecha_emision) < :fd_anterior',
+            // NUEVO: Filtro para que las donaciones no alteren el saldo histórico
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
         ];
         $params['fd_anterior'] = $f['fecha_desde'];
-        // ---------------------------------------------------------------
 
         if (!empty($f['cliente'])) {
             $condicionCliente = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
@@ -674,7 +676,6 @@ class ReporteTesoreriaModel extends Modelo
 
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
-            // Pasamos los parámetros normales para la consulta principal
             if ($k !== 'fd_anterior') {
                 $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
@@ -698,7 +699,6 @@ class ReporteTesoreriaModel extends Modelo
         
         $stmtAnt = $this->db()->prepare($sqlAnterior);
         foreach ($params as $k => $v) {
-            // Pasamos solo los parámetros necesarios para el saldo anterior (fd_anterior, y cliente si existe)
             if (in_array($k, ['fd_anterior', 'cliente'])) {
                 $stmtAnt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
@@ -706,7 +706,6 @@ class ReporteTesoreriaModel extends Modelo
         $stmtAnt->execute();
         $saldoAnt = (float) $stmtAnt->fetchColumn();
 
-        // Agregamos el Saldo Anterior al arreglo que retorna
         $resumen['saldo_anterior'] = $saldoAnt;
 
         return $resumen;
@@ -722,6 +721,8 @@ class ReporteTesoreriaModel extends Modelo
         $where = [
             'c.deleted_at IS NULL',
             'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+            // NUEVO: Candado maestro para ocultar cualquier donación que se haya colado a CxC
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
         ];
 
         if (!empty($f['cliente'])) {
