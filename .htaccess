@@ -1,0 +1,17 @@
+Options -Indexes
+RewriteEngine On
+
+# -------------------------
+# BLOQUEO DE RUTAS CRÍTICAS
+# -------------------------
+RewriteRule ^\.env$ - [F,L]
+RewriteRule ^app(/|$) - [F,L]
+RewriteRule ^storage(/|$) - [F,L]
+RewriteRule ^vendor(/|$) - [F,L]
+RewriteRule ^node_modules(/|$) - [F,L]
+
+# -------------------------
+# REDIRECCIÓN A /public
+# -------------------------
+RewriteCond %{REQUEST_URI} !^/SISADMIN2/public/
+RewriteRule ^(.*)$ public/$1 [L]

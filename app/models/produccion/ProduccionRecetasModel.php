@@ -1,0 +1,1074 @@
+<?php
+declare(strict_types=1);
+
+class ProduccionRecetasModel extends Modelo
+{
+    public function listarRecetas(): array
+    {
+        $sql = "SELECT
+                    r.id,
+                    COALESCE(r.codigo, CONCAT('BORRADOR-ITEM-', LPAD(i.id, 6, '0'))) AS codigo,
+                    COALESCE(r.version, 1) AS version,
+                    COALESCE(r.descripcion, 'Fórmula pendiente de definición.') AS descripcion,
+                    COALESCE(r.estado, 0) AS estado,
+                    r.created_at,
+                    COALESCE(r.rendimiento_base, 1) AS rendimiento_base,
+                    COALESCE(r.unidad_rendimiento, i.unidad_base, 'UND') AS unidad_rendimiento,
+                    COALESCE(r.costo_md_teorico, 0) AS costo_md_teorico,
+                    COALESCE(r.costo_mod_teorico, 0) AS costo_mod_teorico,
+                    COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico,
+                    COALESCE(r.costo_teorico_unitario, 0) AS costo_teorico,
+                    i.id AS id_producto,
+                    i.sku AS producto_sku,
+                    i.nombre AS producto_nombre,
+                    i.unidad_base,
+                    i.requiere_formula_bom,
+                    CASE
+                        WHEN r.id IS NULL THEN 0
+                        ELSE (
+                            SELECT COUNT(*)
+                            FROM produccion_recetas_detalle d
+                            WHERE d.id_receta = r.id
+                              AND d.deleted_at IS NULL
+                        )
+                    END AS total_insumos
+                FROM items i
+                LEFT JOIN produccion_recetas r ON r.id = (
+                    SELECT pr.id
+                    FROM produccion_recetas pr
+                    WHERE pr.id_producto = i.id
+                      AND pr.deleted_at IS NULL
+                    ORDER BY pr.estado DESC, pr.version DESC
+                    LIMIT 1
+                )
+                WHERE i.deleted_at IS NULL
+                  AND (
+                      i.requiere_formula_bom = 1
+                      OR r.id IS NOT NULL
+                  )
+                ORDER BY i.nombre ASC";
+
+        $stmt = $this->db()->query($sql);
+        $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Generamos la variable "sin_receta" en memoria (CPU), aliviando a la Base de Datos
+        foreach ($resultados as &$fila) {
+            $requiereBom = (int) ($fila['requiere_formula_bom'] ?? 0) === 1;
+            $tieneReceta = (int) ($fila['id'] ?? 0) > 0;
+            $totalInsumos = (int) ($fila['total_insumos'] ?? 0);
+
+            $fila['sin_receta'] = ($requiereBom && (!$tieneReceta || $totalInsumos === 0)) ? 1 : 0;
+            $fila['bom_desactivada'] = $requiereBom ? 0 : 1;
+        }
+
+        return $resultados;
+    }
+
+    public function listarRecetasActivas(): array
+    {
+        $sql = 'SELECT r.id, r.codigo, r.version, i.nombre AS producto_nombre, r.id_almacen_planta
+                FROM produccion_recetas r
+                INNER JOIN items i ON i.id = r.id_producto
+                WHERE r.estado = 1
+                  AND r.deleted_at IS NULL
+                ORDER BY i.nombre ASC';
+
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
+    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
+    public function buscarInsumosStockeables(string $termino, bool $soloConBom = false, int $limite = 30): array
+    {
+        $busqueda = '%' . $termino . '%';
+        
+        // NUEVO: Filtro condicional
+        $filtroBom = $soloConBom ? ' AND requiere_formula_bom = 1' : '';
+        
+        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
+                FROM items
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND tipo_item <> "servicio"
+                  ' . $filtroBom . '
+                  AND (nombre LIKE :termino_nombre OR sku LIKE :termino_sku)
+                ORDER BY nombre ASC
+                LIMIT ' . (int)$limite;
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'termino_nombre' => $busqueda,
+            'termino_sku' => $busqueda
+        ]);
+        
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Calculamos el costo dinámico en un loop rápido (Máximo 30 iteraciones)
+        // Esto es muchísimo más eficiente que agrupar toda la tabla en un JOIN
+        foreach ($items as &$item) {
+            $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
+        }
+
+        return $items;
+    }
+
+    // Se mantiene por retrocompatibilidad, pero ahora usa la lógica rápida
+    public function listarItemsStockeables(): array
+    {
+        $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
+                FROM items
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND controla_stock = 1
+                ORDER BY nombre ASC';
+
+        $stmt = $this->db()->query($sql);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($items as &$item) {
+            $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
+        }
+
+        return $items;
+    }
+
+    public function listarAlmacenesActivos(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM almacenes
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarAlmacenesActivosPorTipo(string $tipo): array
+    {
+        $tipo = trim($tipo);
+        if ($tipo === '') {
+            return [];
+        }
+
+        $stmt = $this->db()->prepare('SELECT id, nombre
+                                      FROM almacenes
+                                      WHERE estado = 1
+                                        AND deleted_at IS NULL
+                                        AND tipo = :tipo
+                                      ORDER BY nombre ASC');
+        $stmt->execute(['tipo' => $tipo]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarParametrosCatalogo(): array
+    {
+        $sql = 'SELECT id, nombre, unidad_medida, descripcion 
+                FROM produccion_parametros_catalogo 
+                ORDER BY nombre ASC';
+
+        $stmt = $this->db()->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarActivosFijosParaCif(): array
+    {
+        try {
+            $stmt = $this->db()->query('SELECT id,
+                                               codigo_activo,
+                                               nombre,
+                                               depreciacion_acumulada,
+                                               (COALESCE(depreciacion_acumulada, 0) / 240) AS tasa_depreciacion_hora
+                                        FROM activos_fijos
+                                        WHERE deleted_at IS NULL
+                                          AND estado = "ACTIVO"
+                                        ORDER BY nombre ASC');
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function crearParametroCatalogo(array $data): int
+    {
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $unidadMedida = trim((string) ($data['unidad_medida'] ?? ''));
+        $descripcion = trim((string) ($data['descripcion'] ?? ''));
+
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del parámetro es obligatorio.');
+        }
+
+        $stmt = $this->db()->prepare('INSERT INTO produccion_parametros_catalogo (nombre, unidad_medida, descripcion)
+                                      VALUES (:nombre, :unidad_medida, :descripcion)');
+        $stmt->execute([
+            'nombre' => $nombre,
+            'unidad_medida' => $unidadMedida !== '' ? $unidadMedida : null,
+            'descripcion' => $descripcion !== '' ? $descripcion : null,
+        ]);
+
+        return (int) $this->db()->lastInsertId();
+    }
+
+    public function actualizarParametroCatalogo(int $id, array $data): bool
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Parámetro inválido.');
+        }
+
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $unidadMedida = trim((string) ($data['unidad_medida'] ?? ''));
+        $descripcion = trim((string) ($data['descripcion'] ?? ''));
+
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del parámetro es obligatorio.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE produccion_parametros_catalogo
+                                      SET nombre = :nombre,
+                                          unidad_medida = :unidad_medida,
+                                          descripcion = :descripcion
+                                      WHERE id = :id');
+
+        return $stmt->execute([
+            'id' => $id,
+            'nombre' => $nombre,
+            'unidad_medida' => $unidadMedida !== '' ? $unidadMedida : null,
+            'descripcion' => $descripcion !== '' ? $descripcion : null,
+        ]);
+    }
+
+    public function eliminarParametroCatalogo(int $id): bool
+    {
+        if ($id <= 0) {
+            throw new RuntimeException('Parámetro inválido.');
+        }
+
+        $stmtUso = $this->db()->prepare('SELECT COUNT(*) FROM produccion_recetas_parametros WHERE id_parametro = :id');
+        $stmtUso->execute(['id' => $id]);
+        if ((int) $stmtUso->fetchColumn() > 0) {
+            throw new RuntimeException('No se puede eliminar el parámetro porque está asociado a recetas.');
+        }
+
+        $stmt = $this->db()->prepare('DELETE FROM produccion_parametros_catalogo WHERE id = :id');
+        return $stmt->execute(['id' => $id]);
+    }
+
+    public function obtenerParametrosReceta(int $idReceta): array
+    {
+        $sql = 'SELECT id_parametro, valor_objetivo, margen_tolerancia 
+                FROM produccion_recetas_parametros 
+                WHERE id_receta = :id_receta';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarVersionesReceta(int $idRecetaBase): array
+    {
+        $recetaBase = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($recetaBase === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $codigoBase = $this->limpiarCodigoVersion((string) ($recetaBase['codigo'] ?? ''));
+
+        $stmt = $this->db()->prepare('SELECT id, codigo, version, estado
+                                      FROM produccion_recetas
+                                      WHERE id_producto = :id_producto
+                                        AND deleted_at IS NULL
+                                      ORDER BY version DESC, id DESC');
+        $stmt->execute(['id_producto' => (int) $recetaBase['id_producto']]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $versiones = [];
+        foreach ($rows as $row) {
+            $codigo = (string) ($row['codigo'] ?? '');
+            if ($this->limpiarCodigoVersion($codigo) !== $codigoBase) {
+                continue;
+            }
+
+            $versiones[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'codigo' => $codigo,
+                'version' => (int) ($row['version'] ?? 1),
+                'estado' => (int) ($row['estado'] ?? 0),
+            ];
+        }
+
+        return $versiones;
+    }
+
+    public function obtenerRecetaVersionParaEdicion(int $idReceta): array
+    {
+        // Añadido el JOIN para traer el nombre del producto destino
+        $sql = 'SELECT r.*, i.nombre AS producto_nombre 
+                FROM produccion_recetas r 
+                INNER JOIN items i ON i.id = r.id_producto 
+                WHERE r.id = :id LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idReceta]);
+        $receta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$receta) {
+            throw new RuntimeException('La receta no existe.');
+        }
+
+        return [
+            'id' => (int) $receta['id'],
+            'id_producto' => (int) $receta['id_producto'],
+            'id_centro_costo' => (int) ($receta['id_centro_costo'] ?? 0),
+            'id_almacen_planta' => (int) ($receta['id_almacen_planta'] ?? 0),
+            'producto_nombre' => (string) $receta['producto_nombre'], // <-- Nuevo
+            'codigo' => (string) ($receta['codigo'] ?? ''),
+            'version' => (int) ($receta['version'] ?? 1),
+            'descripcion' => (string) ($receta['descripcion'] ?? ''),
+            'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
+            'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
+            'tiempo_produccion_horas' => (float) ($receta['tiempo_produccion_horas'] ?? 1),
+            'detalles' => $this->obtenerDetalleRecetaVersion($idReceta),
+            'parametros' => $this->obtenerParametrosReceta($idReceta),
+            'mano_obra' => $this->obtenerModReceta($idReceta),
+            'cif' => $this->obtenerCifReceta($idReceta),
+        ];
+    }
+
+    public function crearReceta(array $payload, int $userId): int
+    {
+        $idProducto = (int) ($payload['id_producto'] ?? 0);
+        $codigo = trim((string) ($payload['codigo'] ?? ''));
+        $version = max(1, (int) ($payload['version'] ?? 1));
+        $descripcion = trim((string) ($payload['descripcion'] ?? ''));
+        $idCentroCosto = (int) ($payload['id_centro_costo'] ?? 0);
+        $idAlmacenPlanta = (int) ($payload['id_almacen_planta'] ?? 0);
+        $rendimientoBase = (float) ($payload['rendimiento_base'] ?? 0);
+        $unidadRendimiento = trim((string) ($payload['unidad_rendimiento'] ?? ''));
+        $tiempoProduccionHoras = (float) ($payload['tiempo_produccion_horas'] ?? 1);
+
+        $detalles = is_array($payload['detalles'] ?? null) ? $payload['detalles'] : [];
+        $parametros = is_array($payload['parametros'] ?? null) ? $payload['parametros'] : [];
+        $manoObra = is_array($payload['mano_obra'] ?? null) ? $payload['mano_obra'] : [];
+        $cif = is_array($payload['cif'] ?? null) ? $payload['cif'] : [];
+
+        if ($idProducto <= 0 || $codigo === '' || $detalles === [] || $rendimientoBase <= 0) {
+            throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle de insumos.');
+        }
+
+        $insumosUtilizados = [];
+        foreach ($detalles as $detalle) {
+            $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+            if ($idInsumo <= 0) continue;
+            if ($idInsumo === $idProducto) {
+                throw new RuntimeException('No se puede usar el mismo producto destino como insumo de su propia receta.');
+            }
+            if (isset($insumosUtilizados[$idInsumo])) {
+                throw new RuntimeException('No se permiten insumos repetidos en la misma receta.');
+            }
+            $insumosUtilizados[$idInsumo] = true;
+        }
+
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            $costoUnitarioTeorico = 0.0;
+
+            $stmtPendiente = $db->prepare('SELECT r.id
+                                           FROM produccion_recetas r
+                                           LEFT JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
+                                           WHERE r.codigo = :codigo
+                                             AND r.id_producto = :id_producto
+                                             AND r.deleted_at IS NULL
+                                           GROUP BY r.id
+                                           HAVING COUNT(d.id) = 0
+                                           LIMIT 1');
+            $stmtPendiente->execute(['codigo' => $codigo, 'id_producto' => $idProducto]);
+            $idRecetaPendiente = (int) ($stmtPendiente->fetchColumn() ?: 0);
+
+            if ($idRecetaPendiente > 0) {
+                $stmt = $db->prepare('UPDATE produccion_recetas
+                                      SET version = :version,
+                                          id_centro_costo = :id_centro_costo,
+                                          id_almacen_planta = :id_almacen_planta,
+                                          descripcion = :descripcion,
+                                          rendimiento_base = :rendimiento_base,
+                                          unidad_rendimiento = :unidad_rendimiento,
+                                          tiempo_produccion_horas = :tiempo_produccion_horas,
+                                          estado = 1,
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by
+                                      WHERE id = :id_receta');
+                $stmt->execute([
+                    'version' => $version,
+                    'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
+                    'id_almacen_planta' => $idAlmacenPlanta > 0 ? $idAlmacenPlanta : null,
+                    'descripcion' => $descripcion !== '' ? $descripcion : null,
+                    'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
+                    'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'tiempo_produccion_horas' => number_format(max(0.0001, $tiempoProduccionHoras), 4, '.', ''),
+                    'updated_by' => $userId,
+                    'id_receta' => $idRecetaPendiente,
+                ]);
+                $idReceta = $idRecetaPendiente;
+            } else {
+                $stmtExiste = $db->prepare('SELECT id FROM produccion_recetas WHERE codigo = :codigo AND deleted_at IS NULL LIMIT 1');
+                $stmtExiste->execute(['codigo' => $codigo]);
+                if ((int) ($stmtExiste->fetchColumn() ?: 0) > 0) {
+                    throw new RuntimeException('Ya existe una receta con ese código. Use "Nueva Versión" o cambie el código.');
+                }
+
+                $stmt = $db->prepare('INSERT INTO produccion_recetas
+                                        (id_producto, codigo, version, id_centro_costo, id_almacen_planta, descripcion,
+                                         rendimiento_base, unidad_rendimiento, tiempo_produccion_horas,
+                                         costo_teorico_unitario, estado, created_by, updated_by)
+                                      VALUES
+                                        (:id_producto, :codigo, :version, :id_centro_costo, :id_almacen_planta, :descripcion,
+                                         :rendimiento_base, :unidad_rendimiento, :tiempo_produccion_horas,
+                                         :costo_unitario, 1, :created_by, :updated_by)');
+
+                $stmt->execute([
+                    'id_producto' => $idProducto,
+                    'codigo' => $codigo,
+                    'version' => $version,
+                    'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
+                    'id_almacen_planta' => $idAlmacenPlanta > 0 ? $idAlmacenPlanta : null,
+                    'descripcion' => $descripcion !== '' ? $descripcion : null,
+                    'rendimiento_base' => number_format($rendimientoBase, 4, '.', ''),
+                    'unidad_rendimiento' => $unidadRendimiento !== '' ? $unidadRendimiento : null,
+                    'tiempo_produccion_horas' => number_format(max(0.0001, $tiempoProduccionHoras), 4, '.', ''),
+                    'costo_unitario' => number_format($costoUnitarioTeorico, 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                $idReceta = (int) $db->lastInsertId();
+            }
+
+            $db->prepare('DELETE FROM produccion_recetas_detalle WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_parametros WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_mod WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+            $db->prepare('DELETE FROM produccion_recetas_cif WHERE id_receta = :id_receta')->execute(['id_receta' => $idReceta]);
+
+            $stmtDesactivar = $db->prepare('UPDATE produccion_recetas
+                                            SET estado = 0,
+                                                updated_at = NOW(),
+                                                updated_by = :updated_by
+                                            WHERE id_producto = :id_producto
+                                              AND id <> :id_receta
+                                              AND deleted_at IS NULL');
+            $stmtDesactivar->execute([
+                'updated_by' => $userId,
+                'id_producto' => $idProducto,
+                'id_receta' => $idReceta,
+            ]);
+
+            $stmtDet = $db->prepare('INSERT INTO produccion_recetas_detalle
+                                        (id_receta, id_insumo, etapa, cantidad_por_unidad, merma_porcentaje, costo_unitario, created_by, updated_by)
+                                     VALUES
+                                        (:id_receta, :id_insumo, :etapa, :cantidad_por_unidad, :merma_porcentaje, :costo_unitario, :created_by, :updated_by)');
+            foreach ($detalles as $detalle) {
+                $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+                $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
+                $merma = (float) ($detalle['merma_porcentaje'] ?? 0);
+                $etapa = trim((string) ($detalle['etapa'] ?? 'General'));
+                $costoUnitario = isset($detalle['costo_unitario']) ? (float) $detalle['costo_unitario'] : $this->obtenerCostoReferencial($idInsumo);
+                if ($idInsumo <= 0 || $cantidad <= 0) {
+                    throw new RuntimeException('Detalle de receta inválido.');
+                }
+                $stmtDet->execute([
+                    'id_receta' => $idReceta,
+                    'id_insumo' => $idInsumo,
+                    'etapa' => $etapa,
+                    'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
+                    'merma_porcentaje' => number_format($merma, 2, '.', ''),
+                    'costo_unitario' => number_format(max(0, $costoUnitario), 4, '.', ''),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            }
+
+            if (!empty($parametros)) {
+                $stmtParam = $db->prepare('INSERT INTO produccion_recetas_parametros (id_receta, id_parametro, valor_objetivo)
+                                           VALUES (:id_receta, :id_parametro, :valor_objetivo)');
+                foreach ($parametros as $param) {
+                    $idParametro = (int) ($param['id_parametro'] ?? 0);
+                    $valorObjetivo = $param['valor_objetivo'] ?? '';
+                    if ($idParametro > 0 && $valorObjetivo !== '') {
+                        $stmtParam->execute([
+                            'id_receta' => $idReceta,
+                            'id_parametro' => $idParametro,
+                            'valor_objetivo' => number_format((float) $valorObjetivo, 4, '.', ''),
+                        ]);
+                    }
+                }
+            }
+
+            $this->guardarModReceta($db, $idReceta, $manoObra);
+            $this->guardarCifReceta($db, $idReceta, $cif);
+
+            $this->calcularCostoTeorico($idReceta);
+
+            $stmtCostoReceta = $db->prepare('SELECT costo_teorico_unitario FROM produccion_recetas WHERE id = :id LIMIT 1');
+            $stmtCostoReceta->execute(['id' => $idReceta]);
+            $costoUnitarioTeorico = (float) ($stmtCostoReceta->fetchColumn() ?: 0);
+
+            $stmtUpdateItem = $db->prepare('UPDATE items
+                                            SET costo_referencial = :costo,
+                                                updated_at = NOW(),
+                                                updated_by = :user
+                                            WHERE id = :id');
+            $stmtUpdateItem->execute([
+                'costo' => number_format($costoUnitarioTeorico, 4, '.', ''),
+                'user' => $userId,
+                'id' => $idProducto,
+            ]);
+
+            $db->commit();
+            return $idReceta;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public function calcularCostoTeorico(int $idReceta): void
+    {
+        if ($idReceta <= 0) {
+            throw new RuntimeException('Receta inválida para cálculo de costo teórico.');
+        }
+
+        $db = $this->db();
+
+        // 1. Costo de Materia Prima y Empaque (MD) - Ya estaba perfecto (Considera la merma)
+        $stmtMd = $db->prepare('SELECT COALESCE(SUM((cantidad_por_unidad * (1 + (merma_porcentaje / 100))) * costo_unitario), 0)
+                                FROM produccion_recetas_detalle
+                                WHERE id_receta = :id_receta
+                                  AND deleted_at IS NULL');
+        $stmtMd->execute(['id_receta' => $idReceta]);
+        $costoMD = (float) ($stmtMd->fetchColumn() ?: 0);
+
+        // 2. Costo de Mano de Obra Directa (MOD) - CORREGIDO: Ahora multiplica Horas x Costo por Hora
+        $stmtMod = $db->prepare('SELECT COALESCE(SUM(horas_estimadas * costo_hora_estimado), 0)
+                                 FROM produccion_recetas_mod
+                                 WHERE id_receta = :id_receta');
+        $stmtMod->execute(['id_receta' => $idReceta]);
+        $costoMOD = (float) ($stmtMod->fetchColumn() ?: 0);
+
+        // 3. Costos Indirectos de Fabricación (CIF) - Ya estaba perfecto
+        $stmtCif = $db->prepare('SELECT COALESCE(SUM(costo_estimado), 0)
+                                 FROM produccion_recetas_cif
+                                 WHERE id_receta = :id_receta');
+        $stmtCif->execute(['id_receta' => $idReceta]);
+        $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
+
+        // 4. Rendimiento (Para sacar el costo unitario)
+        $stmtRec = $db->prepare('SELECT rendimiento_base
+                                 FROM produccion_recetas
+                                 WHERE id = :id_receta
+                                   AND deleted_at IS NULL
+                                 LIMIT 1');
+        $stmtRec->execute(['id_receta' => $idReceta]);
+        $filaRec = $stmtRec->fetch(PDO::FETCH_ASSOC) ?: [];
+        $rendimientoBase = (float) ($filaRec['rendimiento_base'] ?? 0);
+        
+        if ($rendimientoBase <= 0) {
+            throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
+        }
+
+        // 5. Cálculo Final y Actualización
+        $costoTotal = $costoMD + $costoMOD + $costoCIF;
+        $costoUnitario = $costoTotal / $rendimientoBase;
+
+        $stmtUpd = $db->prepare('UPDATE produccion_recetas
+                                 SET costo_md_teorico = :costo_md,
+                                     costo_mod_teorico = :costo_mod,
+                                     costo_cif_teorico = :costo_cif,
+                                     costo_teorico_unitario = :costo_unitario,
+                                     updated_at = NOW()
+                                 WHERE id = :id_receta');
+        $stmtUpd->execute([
+            'costo_md' => number_format($costoMD, 4, '.', ''),
+            'costo_mod' => number_format($costoMOD, 4, '.', ''),
+            'costo_cif' => number_format($costoCIF, 4, '.', ''),
+            'costo_unitario' => number_format($costoUnitario, 4, '.', ''),
+            'id_receta' => $idReceta,
+        ]);
+    }
+
+
+    private function obtenerModReceta(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT perfil_puesto, horas_estimadas, costo_hora_estimado
+                                      FROM produccion_recetas_mod
+                                      WHERE id_receta = :id_receta
+                                      ORDER BY id ASC');
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function obtenerCifReceta(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT id_activo, concepto, costo_estimado
+                                      FROM produccion_recetas_cif
+                                      WHERE id_receta = :id_receta
+                                      ORDER BY id ASC');
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function calcularCostoModTeorico(array $manoObra): float
+    {
+        $total = 0.0;
+        foreach ($manoObra as $fila) {
+            $costoBase = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($costoBase > 0) {
+                $total += $costoBase;
+            }
+        }
+
+        return $total;
+    }
+
+    private function calcularCostoCifTeorico(array $cif): float
+    {
+        $total = 0.0;
+        foreach ($cif as $fila) {
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($costo > 0) {
+                $total += $costo;
+            }
+        }
+
+        return $total;
+    }
+
+    private function guardarModReceta(PDO $db, int $idReceta, array $manoObra): void
+    {
+        if ($manoObra === []) {
+            return;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_recetas_mod
+                                (id_receta, perfil_puesto, horas_estimadas, costo_hora_estimado)
+                              VALUES
+                                (:id_receta, :perfil_puesto, :horas_estimadas, :costo_hora_estimado)');
+
+        foreach ($manoObra as $fila) {
+            $perfil = trim((string) ($fila['perfil_puesto'] ?? ''));
+            $horas = (float) ($fila['horas_estimadas'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($perfil === '' || $horas <= 0 || $costoHora <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_receta' => $idReceta,
+                'perfil_puesto' => $perfil,
+                'horas_estimadas' => number_format($horas, 4, '.', ''),
+                'costo_hora_estimado' => number_format($costoHora, 4, '.', ''),
+            ]);
+        }
+    }
+
+    private function guardarCifReceta(PDO $db, int $idReceta, array $cif): void
+    {
+        if ($cif === []) {
+            return;
+        }
+
+        $stmt = $db->prepare('INSERT INTO produccion_recetas_cif
+                                (id_receta, id_activo, concepto, costo_estimado)
+                              VALUES
+                                (:id_receta, :id_activo, :concepto, :costo_estimado)');
+
+        foreach ($cif as $fila) {
+            $concepto = trim((string) ($fila['concepto'] ?? ''));
+            $idActivo = (int) ($fila['id_activo'] ?? 0);
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($concepto === '' || $costo <= 0) {
+                continue;
+            }
+
+            $stmt->execute([
+                'id_receta' => $idReceta,
+                'id_activo' => $idActivo > 0 ? $idActivo : null,
+                'concepto' => $concepto,
+                'costo_estimado' => number_format($costo, 4, '.', ''),
+            ]);
+        }
+    }
+
+    private function obtenerCostoReferencial(int $idItem): float
+    {
+        // 1. Primero buscamos el costo fijo en el ítem
+        $stmt = $this->db()->prepare('SELECT costo_referencial FROM items WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $idItem]);
+        $costoFijo = (float)($stmt->fetchColumn() ?: 0);
+        if ($costoFijo > 0) return $costoFijo;
+
+        // 2. Si no hay, buscamos el costo de su última receta (Si es producto terminado)
+        $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario 
+                                         FROM produccion_recetas 
+                                         WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL 
+                                         ORDER BY id DESC LIMIT 1');
+        $stmtRec->execute(['id' => $idItem]);
+        $costoReceta = (float)($stmtRec->fetchColumn() ?: 0);
+        if ($costoReceta > 0) return $costoReceta;
+
+        // 3. Si no hay receta, buscamos el último costo al que se compró o movió
+        $stmtMov = $this->db()->prepare('SELECT costo_unitario 
+                                         FROM inventario_movimientos 
+                                         WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 
+                                         ORDER BY id DESC LIMIT 1');
+        $stmtMov->execute(['id' => $idItem]);
+        return (float)($stmtMov->fetchColumn() ?: 0);
+    }
+
+    public function crearNuevaVersion(int $idRecetaBase, int $userId): int
+    {
+        $receta = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($receta === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $detalles = $this->obtenerDetalleReceta($idRecetaBase);
+        if ($detalles === []) {
+            throw new RuntimeException('La receta base no tiene detalles.');
+        }
+
+        $parametrosOld = $this->obtenerParametrosReceta($idRecetaBase);
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int) $receta['id_producto']);
+
+        return $this->crearReceta([
+            'id_producto' => (int) $receta['id_producto'],
+            'codigo' => $this->generarCodigoVersion((string) $receta['codigo'], $siguienteVersion),
+            'version' => $siguienteVersion,
+            'id_centro_costo' => (int) ($receta['id_centro_costo'] ?? 0),
+            'id_almacen_planta' => (int) ($receta['id_almacen_planta'] ?? 0),
+            'descripcion' => (string) ($receta['descripcion'] ?? ''),
+            'rendimiento_base' => (float) ($receta['rendimiento_base'] ?? 0),
+            'unidad_rendimiento' => (string) ($receta['unidad_rendimiento'] ?? ''),
+            'tiempo_produccion_horas' => (float) ($receta['tiempo_produccion_horas'] ?? 1),
+            'detalles' => array_map(static fn (array $d): array => [
+                'id_insumo' => (int) $d['id_insumo'],
+                'etapa' => (string) ($d['etapa'] ?? ''),
+                'cantidad_por_unidad' => (float) $d['cantidad_por_unidad'],
+                'merma_porcentaje' => (float) $d['merma_porcentaje'],
+            ], $detalles),
+
+            'parametros' => array_map(static fn (array $p): array => [
+                'id_parametro' => (int) $p['id_parametro'],
+                'valor_objetivo' => (float) $p['valor_objetivo']
+            ], $parametrosOld),
+
+        ], $userId);
+    }
+
+    public function crearNuevaVersionDesdePayload(int $idRecetaBase, array $payload, int $userId): int
+    {
+        $recetaBase = $this->obtenerRecetaPorId($idRecetaBase);
+        if ($recetaBase === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $idProductoPayload = (int) ($payload['id_producto'] ?? 0);
+        if ($idProductoPayload !== (int) $recetaBase['id_producto']) {
+            throw new RuntimeException('No se puede cambiar el producto destino al crear una versión.');
+        }
+
+        // --- LÓGICA DE TRAZABILIDAD ---
+        // Buscamos cuál es la receta ACTIVA actualmente para compararla con lo que envían.
+        // Esto permite cargar la v.1 y guardarla como v.5, porque la v.1 es distinta a la v.4 (activa).
+        $stmtActiva = $this->db()->prepare('SELECT id FROM produccion_recetas WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmtActiva->execute(['id' => $idProductoPayload]);
+        $idRecetaActiva = (int) ($stmtActiva->fetchColumn() ?: $idRecetaBase);
+
+        $detallesActiva = $this->obtenerDetalleRecetaVersion($idRecetaActiva);
+        $parametrosActiva = $this->obtenerParametrosReceta($idRecetaActiva);
+
+        $recetaActivaFila = $this->obtenerRecetaPorId($idRecetaActiva);
+
+        $normalizadoActiva = [
+            'id_centro_costo' => (int) ($recetaActivaFila['id_centro_costo'] ?? 0),
+            'id_almacen_planta' => (int) ($recetaActivaFila['id_almacen_planta'] ?? 0),
+            'descripcion' => trim((string) ($recetaActivaFila['descripcion'] ?? '')),
+            'rendimiento_base' => number_format((float) ($recetaActivaFila['rendimiento_base'] ?? 0), 4, '.', ''),
+            'unidad_rendimiento' => trim((string) ($recetaActivaFila['unidad_rendimiento'] ?? '')),
+            'tiempo_produccion_horas' => number_format((float) ($recetaActivaFila['tiempo_produccion_horas'] ?? 1), 4, '.', ''),
+            'detalles' => $this->normalizarDetallesComparacion($detallesActiva),
+            'parametros' => $this->normalizarParametrosComparacion($parametrosActiva),
+            'mano_obra' => $this->normalizarModComparacion($this->obtenerModReceta($idRecetaActiva)),
+            'cif' => $this->normalizarCifComparacion($this->obtenerCifReceta($idRecetaActiva)),
+        ];
+
+        $normalizadoPayload = [
+            'id_centro_costo' => (int) ($payload['id_centro_costo'] ?? 0),
+            'id_almacen_planta' => (int) ($payload['id_almacen_planta'] ?? 0),
+            'descripcion' => trim((string) ($payload['descripcion'] ?? '')),
+            'rendimiento_base' => number_format((float) ($payload['rendimiento_base'] ?? 0), 4, '.', ''),
+            'unidad_rendimiento' => trim((string) ($payload['unidad_rendimiento'] ?? '')),
+            'tiempo_produccion_horas' => number_format((float) ($payload['tiempo_produccion_horas'] ?? 1), 4, '.', ''),
+            'detalles' => $this->normalizarDetallesComparacion((array) ($payload['detalles'] ?? [])),
+            'parametros' => $this->normalizarParametrosComparacion((array) ($payload['parametros'] ?? [])),
+            'mano_obra' => $this->normalizarModComparacion((array) ($payload['mano_obra'] ?? [])),
+            'cif' => $this->normalizarCifComparacion((array) ($payload['cif'] ?? [])),
+        ];
+
+        if ($normalizadoActiva === $normalizadoPayload) {
+            throw new RuntimeException('La fórmula ingresada es exactamente igual a la versión activa actual. No se generó una nueva versión.');
+        }
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int) $recetaBase['id_producto']);
+
+        return $this->crearReceta([
+            'id_producto' => (int) $recetaBase['id_producto'],
+            'codigo' => $this->generarCodigoVersion((string) $recetaBase['codigo'], $siguienteVersion),
+            'version' => $siguienteVersion,
+            'id_centro_costo' => (int) $normalizadoPayload['id_centro_costo'],
+            'id_almacen_planta' => (int) $normalizadoPayload['id_almacen_planta'],
+            'descripcion' => $normalizadoPayload['descripcion'],
+            'rendimiento_base' => (float) $normalizadoPayload['rendimiento_base'],
+            'unidad_rendimiento' => $normalizadoPayload['unidad_rendimiento'],
+            'tiempo_produccion_horas' => (float) $normalizadoPayload['tiempo_produccion_horas'],
+            'detalles' => (array) ($payload['detalles'] ?? []),
+            'parametros' => (array) ($payload['parametros'] ?? []),
+            'mano_obra' => (array) ($payload['mano_obra'] ?? []),
+            'cif' => (array) ($payload['cif'] ?? []),
+        ], $userId);
+    }
+
+    private function obtenerDetalleRecetaVersion(int $idReceta): array
+    {
+        // Añadido el JOIN para traer el nombre del insumo y arreglar el "Insumo ID: 32"
+        $sql = 'SELECT d.id_insumo,
+                       d.etapa,
+                       d.cantidad_por_unidad,
+                       d.merma_porcentaje,
+                       d.costo_unitario,
+                       i.nombre AS insumo_nombre 
+                FROM produccion_recetas_detalle d
+                INNER JOIN items i ON i.id = d.id_insumo
+                WHERE d.id_receta = :id_receta
+                  AND d.deleted_at IS NULL
+                ORDER BY d.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_receta' => $idReceta]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function normalizarDetallesComparacion(array $detalles): array
+    {
+        $normalizados = [];
+        foreach ($detalles as $detalle) {
+            $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+            $cantidad = (float) ($detalle['cantidad_por_unidad'] ?? 0);
+            if ($idInsumo <= 0 || $cantidad <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_insumo' => $idInsumo,
+                'etapa' => trim((string) ($detalle['etapa'] ?? 'General')),
+                'cantidad_por_unidad' => number_format($cantidad, 4, '.', ''),
+                'merma_porcentaje' => number_format((float) ($detalle['merma_porcentaje'] ?? 0), 4, '.', ''),
+                'costo_unitario' => number_format((float) ($detalle['costo_unitario'] ?? 0), 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => [$a['id_insumo'], $a['etapa']] <=> [$b['id_insumo'], $b['etapa']]);
+        return $normalizados;
+    }
+
+    private function normalizarParametrosComparacion(array $parametros): array
+    {
+        $normalizados = [];
+        foreach ($parametros as $parametro) {
+            $idParametro = (int) ($parametro['id_parametro'] ?? 0);
+            if ($idParametro <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_parametro' => $idParametro,
+                'valor_objetivo' => number_format((float) ($parametro['valor_objetivo'] ?? 0), 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => $a['id_parametro'] <=> $b['id_parametro']);
+        return $normalizados;
+    }
+
+
+    private function normalizarModComparacion(array $manoObra): array
+    {
+        $normalizados = [];
+        foreach ($manoObra as $fila) {
+            $perfil = trim((string) ($fila['perfil_puesto'] ?? ''));
+            $horas = (float) ($fila['horas_estimadas'] ?? 0);
+            $costoHora = (float) ($fila['costo_hora_estimado'] ?? 0);
+            if ($perfil === '' || $horas <= 0 || $costoHora <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'perfil_puesto' => mb_strtolower($perfil),
+                'horas_estimadas' => number_format($horas, 4, '.', ''),
+                'costo_hora_estimado' => number_format($costoHora, 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => $a['perfil_puesto'] <=> $b['perfil_puesto']);
+        return $normalizados;
+    }
+
+    private function normalizarCifComparacion(array $cif): array
+    {
+        $normalizados = [];
+        foreach ($cif as $fila) {
+            $concepto = trim((string) ($fila['concepto'] ?? ''));
+            $costo = (float) ($fila['costo_estimado'] ?? 0);
+            if ($concepto === '' || $costo <= 0) {
+                continue;
+            }
+
+            $normalizados[] = [
+                'id_activo' => (int) ($fila['id_activo'] ?? 0),
+                'concepto' => mb_strtolower($concepto),
+                'costo_estimado' => number_format($costo, 4, '.', ''),
+            ];
+        }
+
+        usort($normalizados, static fn (array $a, array $b): int => [$a['concepto'], $a['id_activo']] <=> [$b['concepto'], $b['id_activo']]);
+        return $normalizados;
+    }
+
+    private function limpiarCodigoVersion(string $codigo): string
+    {
+        return (string) preg_replace('/-V\d+$/', '', trim($codigo));
+    }
+
+    private function obtenerRecetaPorId(int $idReceta): array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM produccion_recetas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id' => $idReceta]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: [];
+    }
+
+    private function obtenerSiguienteVersion(int $idProducto): int
+    {
+        $stmt = $this->db()->prepare('SELECT COALESCE(MAX(version), 0) + 1 FROM produccion_recetas WHERE id_producto = :id_producto AND deleted_at IS NULL');
+        $stmt->execute(['id_producto' => $idProducto]);
+        return max(1, (int) $stmt->fetchColumn());
+    }
+
+    private function generarCodigoVersion(string $codigoBase, int $version): string
+    {
+        $codigoLimpio = $this->limpiarCodigoVersion($codigoBase);
+        return sprintf('%s-V%d', $codigoLimpio ?: 'REC', $version);
+    }
+
+    private function obtenerUnidadPorDefecto(int $idItem): ?int
+    {
+        $stmt = $this->db()->prepare('SELECT id_item_unidad 
+                                      FROM inventario_movimientos 
+                                      WHERE id_item = :id_item 
+                                        AND id_item_unidad IS NOT NULL 
+                                      ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id_item' => $idItem]);
+        $val = $stmt->fetchColumn();
+        return $val ? (int) $val : null;
+    }
+
+    public function obtenerDatosParaNuevaVersion(int $idRecetaBase): array
+    {
+        $receta = $this->obtenerRecetaVersionParaEdicion($idRecetaBase);
+        if ($receta === []) {
+            throw new RuntimeException('La receta base no existe.');
+        }
+
+        $siguienteVersion = $this->obtenerSiguienteVersion((int)$receta['id_producto']);
+        $unidadBaseProducto = $this->obtenerUnidadPrincipalItem((int) $receta['id_producto']);
+
+        return [
+            'id'                  => $receta['id'],
+            'id_producto'         => $receta['id_producto'],
+            'producto_nombre'     => $receta['producto_nombre'],
+            'version'             => $siguienteVersion,
+            'codigo'              => $this->generarCodigoVersion($receta['codigo'], $siguienteVersion),
+            'descripcion'         => $receta['descripcion'],
+            'id_almacen_planta'   => $receta['id_almacen_planta'] ?? 0,
+            'rendimiento_base'    => $receta['rendimiento_base'],
+            'unidad_rendimiento'  => $unidadBaseProducto,
+            'tiempo_produccion_horas' => $receta['tiempo_produccion_horas'] ?? 1,
+            'detalles'            => $receta['detalles'],
+            'parametros'          => $receta['parametros'],
+            'mano_obra'           => $receta['mano_obra'],
+            'cif'                 => $receta['cif'],
+            'es_nueva_version'    => true,
+        ];
+    }
+
+    private function obtenerUnidadPrincipalItem(int $idItem): string
+    {
+        $stmt = $this->db()->prepare('SELECT COALESCE(unidad_base, "UND") FROM items WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $idItem]);
+        $unidad = trim((string) $stmt->fetchColumn());
+        return $unidad !== '' ? $unidad : 'UND';
+    }
+
+    public function obtenerSiguienteCodigoReceta(): string
+    {
+        // Buscamos el último código base (ignorando las versiones con -V)
+        // Asumimos un prefijo "REC-"
+        $sql = "SELECT codigo 
+                FROM produccion_recetas 
+                WHERE codigo LIKE 'REC-%' 
+                  AND deleted_at IS NULL 
+                ORDER BY id DESC 
+                LIMIT 1";
+                
+        $stmt = $this->db()->query($sql);
+        $ultimoCodigo = $stmt->fetchColumn();
+
+        // Si no hay ninguna receta registrada, devolvemos el código inicial
+        if (!$ultimoCodigo) {
+            return 'REC-0001';
+        }
+
+        // Limpiamos el código por si trajo una versión (ej. REC-0005-V2 -> REC-0005)
+        $codigoBase = $this->limpiarCodigoVersion((string)$ultimoCodigo);
+
+        // Extraemos el número después del guion
+        $partes = explode('-', $codigoBase);
+        $numero = isset($partes[1]) ? (int) $partes[1] : 0;
+        
+        $siguienteNumero = $numero + 1;
+
+        // Formateamos con ceros a la izquierda (ej. REC-0006)
+        return sprintf('REC-%04d', $siguienteNumero);
+    }
+
+    public function listarConceptosOperativos(): array
+    {
+        $sql = 'SELECT id, tipo, nombre FROM produccion_conceptos_cif WHERE estado = 1 ORDER BY tipo DESC, nombre ASC';
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function listarCentrosCosto(): array
+    {
+        $stmt = $this->db()->query('SELECT id, codigo, nombre, estado
+                                    FROM conta_centros_costo
+                                    WHERE deleted_at IS NULL
+                                    ORDER BY nombre ASC');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+}

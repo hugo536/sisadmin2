@@ -1,0 +1,219 @@
+/* =======================================================
+   ESTÁNDAR GLOBAL DE MODALES Y COMPONENTES INTERNOS
+   ======================================================= */
+
+/* --- 1. APARIENCIA GENERAL DEL MODAL Y ENCABEZADO --- */
+.modal-content {
+    border: none !important;
+    border-radius: 0.75rem; /* Bordes más redondeados (12px) */
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    overflow: hidden; /* CRÍTICO: Asegura que el encabezado azul no se salga de las esquinas redondeadas */
+}
+
+/* Estandarización del Encabezado (La zona que señalaste en rojo) */
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* Encabezados con fondo de color */
+.modal-header.bg-primary, 
+.modal-header.bg-dark, 
+.modal-header.bg-secondary {
+    border-bottom: none;
+}
+
+/* Forzamos al bg-primary a usar tu color de tema global */
+.modal-header.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+/* Título del modal */
+.modal-header .modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+}
+
+/* Botón de Cerrar (X) para encabezados de color o clase btn-close-white */
+.modal-header.bg-primary .btn-close,
+.modal-header.bg-secondary .btn-close,
+.modal-header.bg-dark .btn-close,
+.modal-header .btn-close-white {
+    opacity: 0.8;
+    transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+    border-radius: 50% !important;
+    background-color: transparent !important; 
+    
+    /* CRÍTICO: La 'X' (stroke) ahora es BLANCA (%23ffffff) para un contraste perfecto */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    
+    background-size: 0.95rem;
+    filter: none !important;
+    box-shadow: none !important;
+}
+
+/* Efecto Hover: Fondo rojo y opacidad al 100% */
+.modal-header.bg-primary .btn-close:hover,
+.modal-header.bg-secondary .btn-close:hover,
+.modal-header.bg-dark .btn-close:hover,
+.modal-header .btn-close-white:hover {
+    opacity: 1;
+    background-color: #dc3545 !important; /* Rojo sólido moderno */
+    transform: rotate(90deg); /* El giro elegante */
+}
+
+/* Efecto Focus: Anillo blanco sutil en lugar del negro por defecto */
+.modal-header.bg-primary .btn-close:focus,
+.modal-header.bg-secondary .btn-close:focus,
+.modal-header.bg-dark .btn-close:focus,
+.modal-header .btn-close-white:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+}
+
+/* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES --- */
+/* Uso: <table class="table table-pro table-pastel"> */
+.table-pastel thead th {
+    background-color: #f8f9fa !important; /* Gris pastel muy suave */
+    color: #495057 !important;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-bottom: 2px solid #e9ecef;
+    letter-spacing: 0.3px;
+}
+
+.table-pastel tbody tr {
+    border-bottom: 1px solid #e9ecef;
+    background-color: #ffffff;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.table-pastel tbody tr:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Fila activa (seleccionada) */
+.table-pastel tbody tr.table-active {
+    background-color: #eef2f6 !important;
+    border-left: 3px solid var(--primary-color); /* Indicador dinámico según el tema */
+}
+
+/* Fila protegida/bloqueada */
+.table-pastel tbody tr.table-protected {
+    background-color: #f1f3f5 !important;
+    opacity: 0.8;
+}
+
+
+/* --- 3. TARJETAS SUTILES PARA FORMULARIOS (.modal-pastel-card) --- */
+.modal-pastel-card {
+    border: 1px solid #e9ecef !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.02) !important;
+    border-radius: 0.5rem;
+}
+
+.modal-pastel-card .card-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #e9ecef !important;
+    font-size: 0.95rem;
+}
+
+/* Colores pastel para iconos de tarjetas */
+.modal-pastel-card .header-icon-primary { color: #6ea8fe; }
+.modal-pastel-card .header-icon-success { color: #75b798; }
+.modal-pastel-card .header-icon-secondary { color: #adb5bd; }
+.modal-pastel-card .header-icon-warning { color: #ffc107; }
+.modal-pastel-card .header-icon-danger { color: #ea868f; }
+
+
+/* --- 4. FONDOS Y UTILIDADES AUXILIARES --- */
+.bg-pastel-light {
+    background-color: #f8f9fa !important;
+    border-color: #e9ecef !important;
+}
+
+/* --- 5. RESPONSIVE DE MODALES --- */
+@media (max-width: 991.98px) {
+    .modal-dialog {
+        margin: 0.75rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* Forzamos el centrado absoluto en la pantalla del celular */
+    .modal-dialog {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100% - 2rem); /* Calcula la altura total restando el margen */
+        margin: 1rem auto; /* Centrado horizontal con 1rem de espacio libre */
+    }
+
+    /* Aseguramos la forma de la tarjeta */
+    .modal-content {
+        border-radius: 1.25rem !important; /* Bordes bien redondeados */
+        width: 100%;
+        border: none !important;
+        box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15) !important; /* Sombra elegante */
+    }
+
+    /* Ajustamos el padding para que el contenido respire bien */
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+
+    .modal-body {
+        padding-bottom: 1rem;
+    }
+
+    .modal-header .modal-title {
+        font-size: 1.05rem;
+    }
+}
+
+/* --- 6. CABECERAS ADAPTATIVAS (Blanco en Móvil, Color Tema en PC) --- */
+.modal-header-adaptative {
+    background-color: transparent;
+    border-bottom: 0;
+}
+
+.modal-header-adaptative .modal-title,
+.modal-header-adaptative .bi {
+    color: #212529; /* Texto oscuro en móvil */
+}
+
+.modal-header-adaptative .btn-close {
+    background-color: #f8f9fa !important;
+    border-radius: 50% !important;
+    padding: 0.6rem !important;
+    background-image: var(--bs-btn-close-bg) !important; /* X normal negra */
+}
+
+@media (min-width: 768px) {
+    .modal-header-adaptative {
+        background-color: var(--primary-color) !important;
+        border-top-left-radius: 0.75rem;
+        border-top-right-radius: 0.75rem;
+        padding-bottom: 1.5rem !important;
+    }
+    
+    .modal-header-adaptative .modal-title,
+    .modal-header-adaptative .bi {
+        color: #ffffff !important; /* Texto blanco en PC */
+    }
+    
+    .modal-header-adaptative .btn-close {
+        background-color: transparent !important;
+        /* Usamos el SVG blanco que ya tienes definido en tu CSS para bg-primary */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M2 2l12 12M14 2L2 14'/%3E%3C/svg%3E") !important;
+    }
+    
+    .modal-header-adaptative .btn-close:hover {
+        background-color: #dc3545 !important;
+    }
+}

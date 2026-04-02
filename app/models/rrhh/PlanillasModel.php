@@ -1,0 +1,1133 @@
+<?php
+declare(strict_types=1);
+
+require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
+
+class PlanillasModel extends Modelo
+{
+    private function resolverPagoDiario(float $sueldoBasico, string $tipoPago): float
+    {
+        $tipoPagoEmpleado = strtoupper(trim($tipoPago));
+
+        if ($tipoPagoEmpleado === 'SEMANAL') {
+            return $sueldoBasico;
+        }
+
+        if ($tipoPagoEmpleado === 'QUINCENAL') {
+            return $sueldoBasico / 15;
+        }
+
+        return $sueldoBasico / 30;
+    }
+
+    public function obtenerLotesRecientes(int $limite = 10): array
+    {
+        $sql = "SELECT id, referencia, nombre, fecha_inicio, fecha_fin, estado, total_neto 
+                FROM rrhh_nominas 
+                ORDER BY ID DESC LIMIT :limite";
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerLotePorId(int $idLote): ?array
+    {
+        $sql = "SELECT * FROM rrhh_nominas WHERE id = :id";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idLote]);
+        
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $resultado ?: null;
+    }
+
+    public function obtenerDetallesLote(int $idLote): array
+    {
+        // 1. Obtenemos el estado del Lote actual
+        $lote = $this->obtenerLotePorId($idLote);
+        
+        // 2. MAGIA: Si el lote es un borrador, hacemos el cálculo en tiempo real
+        if ($lote && strtoupper(trim((string)$lote['estado'])) === 'BORRADOR') {
+            return $this->calcularNominaEnMemoria($lote);
+        }
+
+        // 3. Si el lote ya está Aprobado o Pagado, devolvemos la data congelada de la BD
+        $sql = "SELECT
+                    nd.id,
+                    nd.id_tercero,
+                    t.nombre_completo,
+                    t.numero_documento,
+                    te.cargo,
+                    te.tipo_pago AS frecuencia,
+                    nd.dias_pagados,
+                    nd.dias_falta,
+                    nd.sueldo_base_calculado,
+                    nd.total_percepciones,
+                    nd.total_deducciones,
+                    nd.neto_a_pagar,
+                    nd.metodos_pago_json,
+                    (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
+                    (nd.dias_pagados * 8) AS horas_acumuladas,
+                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
+                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos,
+                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
+                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.categoria = 'Horas Extras') AS pago_horas_extras
+                    ,(SELECT GROUP_CONCAT(CONCAT(nc.tipo, '::', COALESCE(nc.categoria, 'Sin categoría'), '::', COALESCE(nc.descripcion, ''), '::', FORMAT(nc.monto, 2)) SEPARATOR '||')
+                      FROM rrhh_nominas_conceptos nc
+                      WHERE nc.id_detalle_nomina = nd.id AND nc.es_automatico = 0) AS movimientos_manuales
+                FROM rrhh_nominas_detalles nd
+                INNER JOIN terceros t ON t.id = nd.id_tercero
+                INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                WHERE nd.id_nomina = :id_nomina
+                ORDER BY t.nombre_completo ASC";
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_nomina' => $idLote]);
+        
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (empty($detalles)) {
+            return [];
+        }
+
+        // FASE 1: Obtener las cuentas bancarias de los empleados para la Dispersión (Tesorería)
+        $idsTerceros = array_unique(array_column($detalles, 'id_tercero'));
+        $placeholders = implode(',', array_fill(0, count($idsTerceros), '?'));
+        
+        $sqlCuentas = "SELECT id, tercero_id, entidad, tipo_cuenta, numero_cuenta, cci, billetera_digital 
+                       FROM terceros_cuentas_bancarias 
+                       WHERE tercero_id IN ($placeholders) AND estado = 1";
+
+        $stmtCuentas = $this->db()->prepare($sqlCuentas);
+        $stmtCuentas->execute(array_values($idsTerceros));
+        $cuentas = $stmtCuentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaCuentas = [];
+        $cuentasVistas = [];
+        foreach ($cuentas as $cta) {
+            $terceroId = (int) ($cta['tercero_id'] ?? 0);
+            if ($terceroId <= 0) {
+                continue;
+            }
+
+            $entidad = trim((string) ($cta['entidad'] ?? ''));
+            $numeroCuenta = trim((string) ($cta['numero_cuenta'] ?? ''));
+            $cci = trim((string) ($cta['cci'] ?? ''));
+
+            if ($numeroCuenta === '-') {
+                $numeroCuenta = '';
+            }
+            if ($cci === '-') {
+                $cci = '';
+            }
+
+            if ($entidad === '' || ($numeroCuenta === '' && $cci === '')) {
+                continue;
+            }
+
+            $dedupeKey = mb_strtolower($entidad . '|' . $numeroCuenta . '|' . $cci . '|' . (string)($cta['tipo_cuenta'] ?? '') . '|' . (string)($cta['billetera_digital'] ?? 0));
+            if (isset($cuentasVistas[$terceroId][$dedupeKey])) {
+                continue;
+            }
+            $cuentasVistas[$terceroId][$dedupeKey] = true;
+
+            $cta['entidad'] = $entidad;
+            $cta['numero_cuenta'] = $numeroCuenta;
+            $cta['cci'] = $cci;
+            $cta['numero_mostrar'] = $numeroCuenta !== '' ? $numeroCuenta : $cci;
+
+            $mapaCuentas[$terceroId][] = $cta;
+        }
+
+        foreach ($detalles as &$det) {
+            $det['cuentas_bancarias'] = $mapaCuentas[$det['id_tercero']] ?? [];
+        }
+        unset($det);
+
+        return $detalles;
+    }
+
+    public function calcularNominaEnMemoria(array $lote): array
+    {
+        $db = $this->db();
+        $idLote = (int) $lote['id'];
+        $frecuencia = strtoupper((string)($lote['frecuencia'] ?? 'TODOS'));
+        $fechaInicio = $lote['fecha_inicio'];
+        $fechaFin = $lote['fecha_fin'];
+
+        // Instanciamos el modelo de asistencia para usar sus reglas estrictas de horarios
+        require_once BASE_PATH . '/app/models/rrhh/AsistenciaModel.php';
+        $asistenciaModel = new AsistenciaModel();
+
+        $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
+                   FROM terceros t
+                   INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                   WHERE t.es_empleado = 1 AND t.deleted_at IS NULL";
+        
+        $paramsEmp = [];
+        if ($frecuencia !== 'TODOS') {
+            $sqlEmp .= " AND UPPER(te.tipo_pago) = :frecuencia";
+            $paramsEmp['frecuencia'] = $frecuencia;
+        }
+        
+        $stmtEmp = $db->prepare($sqlEmp);
+        $stmtEmp->execute($paramsEmp);
+        $empleadosActivos = $stmtEmp->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $stmtCheck = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina");
+        $stmtCheck->execute(['id_nomina' => $idLote]);
+        $detallesExistentes = $stmtCheck->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaDetalles = [];
+        foreach ($detallesExistentes as $det) {
+            $mapaDetalles[$det['id_tercero']] = $det['id'];
+        }
+
+        $stmtInsertDetalle = $db->prepare("INSERT INTO rrhh_nominas_detalles 
+            (id_nomina, id_tercero, dias_pagados, dias_falta, minutos_tardanza, sueldo_base_calculado, total_percepciones, total_deducciones, neto_a_pagar) 
+            VALUES (:id_nomina, :id_tercero, 0, 0, 0, 0, 0, 0, 0)");
+
+        $empleadosProcesar = [];
+        foreach ($empleadosActivos as $emp) {
+            $idTercero = $emp['id'];
+            if (!isset($mapaDetalles[$idTercero])) {
+                $stmtInsertDetalle->execute(['id_nomina' => $idLote, 'id_tercero' => $idTercero]);
+                $idDetalle = (int) $db->lastInsertId();
+                $mapaDetalles[$idTercero] = $idDetalle;
+            } else {
+                $idDetalle = $mapaDetalles[$idTercero];
+            }
+            $emp['id_detalle'] = $idDetalle;
+            $empleadosProcesar[] = $emp;
+        }
+
+        // LEEMOS TODA LA ASISTENCIA Y APLICAMOS LA REGLA ESTRICTA EN MEMORIA
+        $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida,
+                                 marcas_ingresos, marcas_salidas,
+                                 estado_asistencia, minutos_tardanza, horas_trabajadas,
+                                 horas_extras
+                          FROM asistencia_registros
+                          WHERE fecha BETWEEN :desde AND :hasta
+                          AND (id_nomina_pago IS NULL OR id_nomina_pago = :id_lote)";
+        $stmtAsist = $db->prepare($sqlAsistencia);
+        $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin, 'id_lote' => $idLote]);
+        $registrosAsistencia = $stmtAsist->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaAsistencia = [];
+        foreach ($registrosAsistencia as $ar) {
+            $idT = (int)$ar['id_tercero'];
+            $fecha = $ar['fecha'];
+
+            // Recalcular en vivo desde marcas para que los BORRADOR reflejen
+            // inmediatamente cambios de tolerancia/reglas RRHH.
+            $marcasDia = [];
+            if (!empty($ar['marcas_ingresos'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
+            } elseif (!empty($ar['hora_ingreso'])) {
+                $marcasDia[] = (string)$ar['hora_ingreso'];
+            }
+
+            if (!empty($ar['marcas_salidas'])) {
+                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
+            } elseif (!empty($ar['hora_salida'])) {
+                $marcasDia[] = (string)$ar['hora_salida'];
+            }
+
+            $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== ''));
+            sort($marcasDia);
+
+            if (!empty($marcasDia)) {
+                $resumenVivo = $asistenciaModel->calcularResumenDesdeMarcas($idT, $fecha, $marcasDia);
+                $ar['estado_asistencia'] = $resumenVivo['estado_asistencia'] ?? $ar['estado_asistencia'];
+                $ar['minutos_tardanza'] = (int)($resumenVivo['minutos_tardanza'] ?? $ar['minutos_tardanza']);
+                $ar['horas_trabajadas'] = (float)($resumenVivo['horas_trabajadas'] ?? $ar['horas_trabajadas']);
+                $ar['horas_extras'] = (float)($resumenVivo['horas_extras'] ?? $ar['horas_extras']);
+            }
+            
+            if (!isset($mapaAsistencia[$idT])) {
+                $mapaAsistencia[$idT] = [
+                    'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
+                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0,
+                    'tiene_conflicto' => false
+                ];
+            }
+
+            $estado = strtoupper((string)$ar['estado_asistencia']);
+
+            // --- VALIDACIÓN ESTRICTA DE TRAMOS ---
+            $ingresos = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
+            $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
+            
+            $turno = $asistenciaModel->obtenerTurnoEfectivoPorFecha($idT, $fecha);
+            $tramosEsperados = 0;
+            if ($turno) {
+                if (!empty($turno['t1_entrada'])) $tramosEsperados++;
+                if (!empty($turno['t2_entrada'])) $tramosEsperados++;
+                if (!empty($turno['t3_entrada'])) $tramosEsperados++;
+            }
+            if ($tramosEsperados === 0) $tramosEsperados = 1;
+
+            $tramosReales = count($ingresos);
+            $diaCompleto = ($tramosReales === $tramosEsperados) && (count($ingresos) === count($salidas)) && ($tramosReales > 0);
+
+            $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION']);
+
+            // ¡Sobreescribimos el estado de la BD si descubrimos que le faltan tramos!
+            if (!$diaCompleto && !$esJustificada && count($ingresos) > 0) {
+                $estado = 'INCOMPLETO'; 
+            }
+            // ------------------------------------
+
+            if ($estado === 'INCOMPLETO') {
+                $mapaAsistencia[$idT]['tiene_conflicto'] = true;
+            }
+
+            if (in_array($estado, ['PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA'])) {
+                $mapaAsistencia[$idT]['asistidos']++;
+                $mapaAsistencia[$idT]['horas_trabajadas'] += (float) ($ar['horas_trabajadas'] ?? 0);
+                $mapaAsistencia[$idT]['horas_extras'] += (float) ($ar['horas_extras'] ?? 0);
+            } elseif (in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO'])) {
+                $mapaAsistencia[$idT]['justificados']++;
+            } elseif ($estado === 'FALTA') {
+                $mapaAsistencia[$idT]['faltas']++;
+            }
+            
+            $mapaAsistencia[$idT]['tardanzas'] += (int) $ar['minutos_tardanza'];
+        }
+
+        // Obtener configuración RRHH para saber si se pagan horas extras
+        $configRRHH = ['pagar_salida_tarde' => 0, 'pagar_llegada_temprano' => 0];
+        try {
+            $stmtConf = $db->query("SELECT * FROM rrhh_configuracion WHERE id = 1 LIMIT 1");
+            if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) {
+                $configRRHH = $rowConf;
+            }
+        } catch (Exception $e) {
+            // Usa defaults si la tabla no existe
+        }
+
+        $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
+        $adelantosPendientes = $db->query($sqlAdelantos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $mapaAdelantos = [];
+        foreach ($adelantosPendientes as $ad) {
+            $mapaAdelantos[$ad['id_tercero']][] = $ad;
+        }
+
+        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.categoria, nc.descripcion, nc.monto 
+                        FROM rrhh_nominas_conceptos nc
+                        INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                        WHERE nd.id_nomina = :id_nomina AND nc.es_automatico = 0";
+        $stmtMan = $db->prepare($sqlManuales);
+        $stmtMan->execute(['id_nomina' => $idLote]);
+        $conceptosManuales = $stmtMan->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $mapaManuales = [];
+        foreach ($conceptosManuales as $cm) {
+            $idD = $cm['id_detalle_nomina'];
+            if (!isset($mapaManuales[$idD])) {
+                $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
+            }
+            if (!isset($mapaManuales[$idD]['movimientos'])) {
+                $mapaManuales[$idD]['movimientos'] = [];
+            }
+            if ($cm['tipo'] === 'PERCEPCION') {
+                $mapaManuales[$idD]['percepciones'] += $cm['monto'];
+                $mapaManuales[$idD]['bonos'] += $cm['monto'];
+            } else {
+                $mapaManuales[$idD]['deducciones'] += $cm['monto'];
+            }
+            $categoria = trim((string)($cm['categoria'] ?? 'Sin categoría'));
+            $descripcion = trim((string)($cm['descripcion'] ?? ''));
+            $tipoLabel = strtoupper((string)$cm['tipo']) === 'PERCEPCION' ? 'Percepción' : 'Deducción';
+            $llaveMovimiento = strtoupper((string)$cm['tipo']) . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
+            if (!isset($mapaManuales[$idD]['movimientos'][$llaveMovimiento])) {
+                $mapaManuales[$idD]['movimientos'][$llaveMovimiento] = [
+                    'tipo' => $tipoLabel,
+                    'categoria' => $categoria,
+                    'descripcion' => $descripcion,
+                    'monto' => 0.0,
+                ];
+            }
+            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] += (float) $cm['monto'];
+            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] = round((float) $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'], 2);
+        }
+
+        $resultados = [];
+        foreach ($empleadosProcesar as $emp) {
+            $idTercero = $emp['id'];
+            $idDetalle = $emp['id_detalle'];
+            
+            $asis = $mapaAsistencia[$idTercero] ?? [
+                'asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 
+                'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false
+            ];
+            
+            $tieneConflicto = $asis['tiene_conflicto'];
+            $diasPagados = $asis['asistidos'] + $asis['justificados'];
+            $horasAcumuladas = $asis['horas_trabajadas'];
+            
+            $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
+            $pagoPorHora = $pagoDiario / 8;
+
+            // REGLA: Si hay conflicto, bloqueamos el cálculo.
+            if ($tieneConflicto) {
+                $sueldoBaseCalculado = 0;
+                $diasPagados = 0; // Ocultamos los días para que no haya dudas
+                $horasAcumuladas = 0;
+            } else {
+                $sueldoBaseCalculado = $pagoDiario * $diasPagados;
+            }
+
+            $valorMinuto = $pagoPorHora / 60;
+            $descuentoTardanzas = $tieneConflicto ? 0 : ($valorMinuto * $asis['tardanzas']);
+
+            // PAGO DE HORAS EXTRAS: Se pagan al mismo valor por hora (1x)
+            // Las horas extras ya están filtradas por las reglas de configuración
+            // (minutos_minimos_extra, minutos_gracia_salida) en AsistenciaModel
+            $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
+            $pagoHorasExtras = 0;
+            if ((int)($configRRHH['pagar_salida_tarde'] ?? 0) === 1 && $horasExtras > 0) {
+                $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
+            }
+
+            $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
+
+            $totalPercepciones = $sueldoBaseCalculado + $pagoHorasExtras + $manuales['percepciones'];
+            $deduccionesPrevias = $descuentoTardanzas + $manuales['deducciones'];
+            
+            $netoTemporal = $totalPercepciones - $deduccionesPrevias;
+            
+            $descuentoAdelanto = 0;
+            $adelantosAplicados = [];
+            // No cobramos adelantos si hay conflicto (porque su neto sería 0)
+            if (!$tieneConflicto && isset($mapaAdelantos[$idTercero]) && $netoTemporal > 0) {
+                foreach ($mapaAdelantos[$idTercero] as &$ad) {
+                    if ($netoTemporal <= 0) break;
+                    $aDescontar = min($netoTemporal, (float)$ad['saldo_pendiente']);
+                    $descuentoAdelanto += $aDescontar;
+                    $netoTemporal -= $aDescontar;
+                    $adelantosAplicados[] = ['id' => $ad['id'], 'monto' => $aDescontar];
+                    $ad['saldo_pendiente'] -= $aDescontar;
+                }
+            }
+
+            $totalDeducciones = round($deduccionesPrevias + $descuentoAdelanto, 1);
+            $totalPercepciones = round($totalPercepciones, 1);
+            $netoFinal = round($totalPercepciones - $totalDeducciones, 1);
+
+            $resultados[] = [
+                'id' => $idDetalle,
+                'id_tercero' => $idTercero,
+                'nombre_completo' => $emp['nombre_completo'],
+                'numero_documento' => $emp['numero_documento'],
+                'cargo' => $emp['cargo'],
+                'frecuencia' => $emp['tipo_pago'],
+                'dias_pagados' => $diasPagados,
+                'dias_falta' => $asis['faltas'],
+                'minutos_tardanza' => $asis['tardanzas'],
+                'pago_por_hora' => round($pagoPorHora, 2),
+                'horas_acumuladas' => round($horasAcumuladas, 2),
+                'horas_extras' => round($horasExtras, 2),
+                'pago_horas_extras' => $pagoHorasExtras,
+                'sueldo_base_calculado' => round($sueldoBaseCalculado, 2),
+                'total_percepciones' => round($totalPercepciones, 2),
+                'total_deducciones' => round($totalDeducciones, 2),
+                'neto_a_pagar' => round(max(0, $netoFinal), 2),
+                'monto_bonos' => round($manuales['bonos'], 2),
+                'movimientos_manuales' => array_values($manuales['movimientos'] ?? []),
+                'descuento_tardanzas' => round($descuentoTardanzas, 2),
+                'descuento_adelanto' => round($descuentoAdelanto, 2),
+                'adelantos_aplicados' => json_encode($adelantosAplicados),
+                'metodos_pago_json' => null,
+                'cuentas_bancarias' => [],
+                'tiene_conflicto' => $tieneConflicto
+            ];
+        }
+
+        return $resultados;
+    }
+
+    public function generarLoteNomina(array $datos, int $userId): int
+    {
+        $db = $this->db();
+        $frecuencia = strtoupper((string)($datos['frecuencia'] ?? 'TODOS'));
+        $fechaInicio = (string) ($datos['fecha_inicio'] ?? '');
+        $fechaFin = (string) ($datos['fecha_fin'] ?? '');
+        $observaciones = !empty($datos['observaciones']) ? $datos['observaciones'] : null;
+        
+        $nombreLote = "NOM - " . date('d/m/Y', strtotime($fechaInicio)) . " al " . date('d/m/Y', strtotime($fechaFin));
+
+        try {
+            $db->beginTransaction();
+
+            $stmtLote = $db->prepare("INSERT INTO rrhh_nominas 
+                (referencia, nombre, fecha_inicio, fecha_fin, frecuencia, estado, observaciones, created_by) 
+                VALUES (:referencia, :nombre, :fecha_inicio, :fecha_fin, :frecuencia, 'BORRADOR', :observaciones, :created_by)");
+            
+            $referencia = 'NOM-' . date('Ym') . '-' . rand(1000, 9999);
+            
+            $stmtLote->execute([
+                'referencia' => $referencia,
+                'nombre' => $nombreLote,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'frecuencia' => $frecuencia,
+                'observaciones' => $observaciones,
+                'created_by' => $userId
+            ]);
+            
+            $idLote = (int) $db->lastInsertId();
+            $db->commit();
+            return $idLote;
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error al generar Lote: " . $e->getMessage());
+            throw new Exception("Error al generar el encabezado de la nómina.");
+        }
+    }
+
+    public function agregarConceptoManual(array $datos): bool
+    {
+        $db = $this->db();
+        try {
+            $movimientos = $datos['movimientos'] ?? null;
+            if (!is_array($movimientos) || empty($movimientos)) {
+                $movimientos = [[
+                    'tipo_concepto' => $datos['tipo_concepto'] ?? '',
+                    'categoria_concepto' => $datos['categoria_concepto'] ?? '',
+                    'descripcion' => $datos['descripcion'] ?? '',
+                    'monto' => $datos['monto'] ?? 0,
+                ]];
+            }
+
+            $idDetalle = (int) ($datos['id_detalle_nomina'] ?? 0);
+            if ($idDetalle <= 0) {
+                throw new InvalidArgumentException('Detalle de nómina inválido.');
+            }
+
+            $stmtDetalle = $db->prepare('SELECT nd.id_nomina, n.estado
+                                         FROM rrhh_nominas_detalles nd
+                                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                                         WHERE nd.id = :id_detalle
+                                         LIMIT 1');
+            $stmtDetalle->execute(['id_detalle' => $idDetalle]);
+            $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
+            if (!$detalle || strtoupper(trim((string) ($detalle['estado'] ?? ''))) !== 'BORRADOR') {
+                throw new InvalidArgumentException('Solo se pueden editar movimientos en lotes BORRADOR.');
+            }
+
+            $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico)
+                VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
+
+            $db->beginTransaction();
+
+            $db->prepare('DELETE FROM rrhh_nominas_conceptos
+                          WHERE id_detalle_nomina = :id_detalle
+                            AND es_automatico = 0')
+               ->execute(['id_detalle' => $idDetalle]);
+
+            $vistos = [];
+            foreach ($movimientos as $mov) {
+                $tipo = strtoupper(trim((string)($mov['tipo_concepto'] ?? '')));
+                $categoria = trim((string)($mov['categoria_concepto'] ?? ''));
+                $descripcion = trim((string)($mov['descripcion'] ?? ''));
+                $monto = (float)($mov['monto'] ?? 0);
+
+                if (!in_array($tipo, ['PERCEPCION', 'DEDUCCION'], true) || $categoria === '' || $descripcion === '' || $monto <= 0) {
+                    throw new InvalidArgumentException('Movimiento manual inválido.');
+                }
+
+                $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
+                if (isset($vistos[$llave])) {
+                    throw new InvalidArgumentException('Hay movimientos repetidos en el formulario.');
+                }
+                $vistos[$llave] = true;
+
+                $stmt->execute([
+                    'id_detalle' => $idDetalle,
+                    'tipo' => $tipo,
+                    'categoria' => $categoria,
+                    'descripcion' => $descripcion,
+                    'monto' => $monto
+                ]);
+            }
+
+            $db->commit();
+            return true;
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("Error al agregar concepto manual: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function obtenerMovimientosManualesDetalle(int $idDetalle): array
+    {
+        $sql = 'SELECT nc.tipo, nc.categoria, nc.descripcion, nc.monto
+                FROM rrhh_nominas_conceptos nc
+                INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                WHERE nc.id_detalle_nomina = :id_detalle
+                  AND nc.es_automatico = 0
+                  AND UPPER(TRIM(n.estado)) = "BORRADOR"
+                ORDER BY nc.id ASC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_detalle' => $idDetalle]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function aprobarLote(int $idLote): bool
+    {
+        $db = $this->db();
+        try {
+            $db->beginTransaction();
+
+            $lote = $this->obtenerLotePorId($idLote);
+            if (!$lote || strtoupper(trim((string) $lote['estado'])) !== 'BORRADOR') {
+                throw new Exception("El lote no es válido o ya fue aprobado.");
+            }
+
+            $nominaCalculada = $this->calcularNominaEnMemoria($lote);
+
+            $stmtDelAuto = $db->prepare("DELETE FROM rrhh_nominas_conceptos 
+                                         WHERE es_automatico = 1 AND id_detalle_nomina IN (
+                                            SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina
+                                         )");
+            $stmtDelAuto->execute(['id_nomina' => $idLote]);
+
+            $stmtUpdateDet = $db->prepare("UPDATE rrhh_nominas_detalles 
+                SET dias_pagados = :dp, dias_falta = :df, minutos_tardanza = :mt, 
+                    sueldo_base_calculado = :sbc, total_percepciones = :tp, total_deducciones = :td, neto_a_pagar = :neto
+                WHERE id = :id");
+
+            $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
+                VALUES (:id_det, :tipo, :cat, :desc, :monto, 1)");
+                
+            $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
+                SET id_nomina_pago = :id_lote 
+                WHERE id_tercero = :id_tercero 
+                  AND fecha BETWEEN :desde AND :hasta 
+                  AND id_nomina_pago IS NULL");
+                  
+            $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos 
+                SET saldo_pendiente = saldo_pendiente - :descuento,
+                    estado = IF(saldo_pendiente - :descuento <= 0, 'PAGADO', 'PENDIENTE')
+                WHERE id = :id_adelanto");
+
+            $loteBruto = 0; $loteDeducciones = 0; $loteNeto = 0;
+            $idsValidos = []; 
+
+            foreach ($nominaCalculada as $calc) {
+                if ($calc['neto_a_pagar'] <= 0 && $calc['dias_pagados'] == 0 && $calc['monto_bonos'] == 0) {
+                    continue;
+                }
+
+                $idsValidos[] = $calc['id']; 
+
+                $stmtUpdateDet->execute([
+                    'dp' => $calc['dias_pagados'],
+                    'df' => $calc['dias_falta'],
+                    'mt' => $calc['minutos_tardanza'],
+                    'sbc' => $calc['sueldo_base_calculado'],
+                    'tp' => $calc['total_percepciones'],
+                    'td' => $calc['total_deducciones'],
+                    'neto' => $calc['neto_a_pagar'],
+                    'id' => $calc['id']
+                ]);
+
+                $stmtMarcarAsistencia->execute([
+                    'id_lote' => $idLote,
+                    'id_tercero' => $calc['id_tercero'],
+                    'desde' => $lote['fecha_inicio'],
+                    'hasta' => $lote['fecha_fin']
+                ]);
+
+                if ($calc['sueldo_base_calculado'] > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Sueldo Base',
+                        'desc' => 'Sueldo proporcional a ' . $calc['dias_pagados'] . ' días', 'monto' => $calc['sueldo_base_calculado']
+                    ]);
+                }
+
+                if (($calc['pago_horas_extras'] ?? 0) > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Horas Extras',
+                        'desc' => 'Pago por ' . $calc['horas_extras'] . ' horas extras', 'monto' => $calc['pago_horas_extras']
+                    ]);
+                }
+
+                if ($calc['descuento_tardanzas'] > 0) {
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Tardanza',
+                        'desc' => 'Descuento por ' . $calc['minutos_tardanza'] . ' minutos', 'monto' => $calc['descuento_tardanzas']
+                    ]);
+                }
+
+                if ($calc['descuento_adelanto'] > 0) {
+                    $adelantos = json_decode($calc['adelantos_aplicados'], true);
+                    foreach ($adelantos as $ad) {
+                        $stmtPagarAdelanto->execute([
+                            'descuento' => $ad['monto'],
+                            'id_adelanto' => $ad['id']
+                        ]);
+                    }
+                    $stmtConcepto->execute([
+                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo',
+                        'desc' => 'Cobro automático de adelanto/préstamo', 'monto' => $calc['descuento_adelanto']
+                    ]);
+                }
+
+                $loteBruto += $calc['total_percepciones'];
+                $loteDeducciones += $calc['total_deducciones'];
+                $loteNeto += $calc['neto_a_pagar'];
+            }
+
+            if (!empty($idsValidos)) {
+                $placeholders = implode(',', array_fill(0, count($idsValidos), '?'));
+                $stmtDelHuerfanos = $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ? AND id NOT IN ($placeholders)");
+                $stmtDelHuerfanos->execute(array_merge([$idLote], $idsValidos));
+            } else {
+                $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ?")->execute([$idLote]);
+            }
+
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
+                SET estado = 'APROBADO', total_bruto = :tb, total_deducciones = :td, total_neto = :tn, cantidad_empleados = :cant
+                WHERE id = :id");
+            $stmtUpdateLote->execute([
+                'tb' => $loteBruto, 'td' => $loteDeducciones, 'tn' => $loteNeto,
+                'cant' => count($idsValidos), 'id' => $idLote
+            ]);
+
+            $db->commit();
+            return true;
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error al aprobar lote: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function pagarLoteNomina(array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        $idLote = (int) $datos['id_lote'];
+        
+        try {
+            $db->beginTransaction();
+
+            $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
+            $stmtLote->execute(['id' => $idLote]);
+            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
+
+            if (!$lote || $lote['estado'] !== 'APROBADO') {
+                throw new Exception("El lote no existe o no está en estado APROBADO.");
+            }
+
+            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
+                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
+                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                WHERE c.id = :id_cuenta
+                  AND c.deleted_at IS NULL
+                FOR UPDATE");
+            $stmtCuenta->execute(['id_cuenta' => $datos['id_cuenta']]);
+            $cuenta = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cuenta || (float)$cuenta['saldo_actual'] < (float)$lote['total_neto']) {
+                throw new Exception("Saldo insuficiente en la cuenta de tesorería seleccionada.");
+            }
+
+            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
+                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, referencia, observaciones, estado, created_by) 
+                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by)");
+            
+            $stmtMov->execute([
+                'id_lote' => $idLote,
+                'id_cuenta' => $datos['id_cuenta'],
+                'fecha' => $datos['fecha_pago'],
+                'moneda' => $cuenta['moneda'] ?? 'PEN',
+                'monto' => $lote['total_neto'],
+                'referencia' => $datos['referencia'] ?? null,
+                'observaciones' => "Pago de Lote de Nómina: " . $lote['nombre'],
+                'created_by' => $userId
+            ]);
+
+            $idMovimiento = (int) $db->lastInsertId();
+
+            $contaModel = new ContaAsientoModel();
+            $contaModel->registrarAutomaticoTesoreria($db, [
+                'id_movimiento' => $idMovimiento,
+                'tipo' => 'PAGO',
+                'fecha' => (string) $datos['fecha_pago'],
+                'monto' => (float) $lote['total_neto'],
+                'id_cuenta_tesoreria' => (int) $datos['id_cuenta'],
+                'id_tercero' => 0,
+                'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
+            ], $userId);
+
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
+                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta, referencia_pago = :ref 
+                WHERE id = :id_lote");
+            
+            $stmtUpdateLote->execute([
+                'fecha' => $datos['fecha_pago'],
+                'id_cuenta' => $datos['id_cuenta'],
+                'ref' => $datos['referencia'] ?? null,
+                'id_lote' => $idLote
+            ]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error en pagarLoteNomina: " . $e->getMessage());
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    public function obtenerDatosBoletaPdf(int $idDetalle): ?array
+    {
+        $sqlCabecera = "SELECT 
+                            nd.*,
+                            t.nombre_completo, 
+                            t.numero_documento,
+                            te.cargo, 
+                            te.sueldo_basico,
+                            n.referencia AS referencia_lote, 
+                            n.nombre AS nombre_lote, 
+                            n.fecha_inicio, 
+                            n.fecha_fin, 
+                            n.fecha_pago,
+                            n.estado AS estado_lote
+                        FROM rrhh_nominas_detalles nd
+                        INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                        INNER JOIN terceros t ON t.id = nd.id_tercero
+                        INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                        WHERE nd.id = :id_detalle";
+        
+        $stmtC = $this->db()->prepare($sqlCabecera);
+        $stmtC->execute(['id_detalle' => $idDetalle]);
+        $boleta = $stmtC->fetch(PDO::FETCH_ASSOC);
+
+        if (!$boleta) {
+            return null;
+        }
+
+        $sqlConceptos = "SELECT tipo, categoria, descripcion, monto, es_automatico 
+                         FROM rrhh_nominas_conceptos 
+                         WHERE id_detalle_nomina = :id_detalle 
+                         ORDER BY tipo DESC, id ASC";
+                         
+        $stmtConc = $this->db()->prepare($sqlConceptos);
+        $stmtConc->execute(['id_detalle' => $idDetalle]);
+        
+        $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return $boleta;
+    }
+
+    public function pagarLoteNominaMixto(array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        $idLote = (int) $datos['id_lote'];
+        $pagos = $datos['pagos'] ?? [];
+        $fechaPago = date('Y-m-d');
+
+        try {
+            $db->beginTransaction();
+
+            $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
+            $stmtLote->execute(['id' => $idLote]);
+            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
+
+            if (!$lote || $lote['estado'] !== 'APROBADO') {
+                throw new Exception("El lote no existe o no está en estado APROBADO.");
+            }
+
+            $stmtDetalle = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id = :id_detalle AND id_nomina = :id_lote LIMIT 1");
+            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
+                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
+                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                WHERE c.id = :id_cuenta
+                  AND c.deleted_at IS NULL
+                FOR UPDATE");
+
+            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                VALUES ('PAGO', :id_tercero, 'LOTE_NOMINA', :id_lote, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())");
+
+            $stmtMetodoPago = $db->prepare("SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL");
+            $stmtMetodoPago->execute();
+            $metodosDisponibles = [];
+            foreach (($stmtMetodoPago->fetchAll(PDO::FETCH_ASSOC) ?: []) as $metodoRow) {
+                $nombreMetodo = strtoupper(trim((string) ($metodoRow['nombre'] ?? '')));
+                if ($nombreMetodo !== '') {
+                    $metodosDisponibles[$nombreMetodo] = (int) ($metodoRow['id'] ?? 0);
+                }
+            }
+
+            $idMetodoEfectivo = (int) ($metodosDisponibles['EFECTIVO'] ?? 0);
+            $idMetodoTransferencia = (int) (
+                $metodosDisponibles['TRANSFERENCIA']
+                ?? $metodosDisponibles['TRANSFERENCIA BANCARIA']
+                ?? 0
+            );
+
+            if ($idMetodoEfectivo <= 0 || $idMetodoTransferencia <= 0) {
+                throw new Exception('Configura los métodos de pago "Efectivo" y "Transferencia" en Tesorería para poder dispersar nómina.');
+            }
+            
+            $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
+            
+            $pagosProcesables = [];
+            $totalesPorCuenta = [];
+
+            foreach ($pagos as $idDetalle => $pago) {
+                $idDetalle = (int) $idDetalle;
+                $monto = (float) ($pago['monto'] ?? 0);
+                if ($monto <= 0) {
+                    continue;
+                }
+
+                $idCuenta = (int) ($pago['id_cuenta_origen'] ?? 0);
+                $metodo = strtoupper(trim((string) ($pago['metodo'] ?? 'EFECTIVO')));
+
+                if ($idCuenta <= 0) {
+                    throw new Exception("Por favor seleccione la cuenta origen para todos los empleados.");
+                }
+
+                $stmtDetalle->execute([
+                    'id_detalle' => $idDetalle,
+                    'id_lote' => $idLote,
+                ]);
+                $detalleRow = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
+                if (!$detalleRow) {
+                    throw new Exception("El detalle #{$idDetalle} no pertenece al lote seleccionado.");
+                }
+
+                $idTercero = (int) ($detalleRow['id_tercero'] ?? 0);
+                if ($idTercero <= 0) {
+                    throw new Exception("El detalle #{$idDetalle} no tiene un tercero válido asociado.");
+                }
+
+                $idMetodoPago = str_starts_with($metodo, 'BANCO_') ? $idMetodoTransferencia : $idMetodoEfectivo;
+
+                $pagosProcesables[] = [
+                    'id_detalle' => $idDetalle,
+                    'id_tercero' => $idTercero,
+                    'id_cuenta' => $idCuenta,
+                    'id_metodo_pago' => $idMetodoPago,
+                    'metodo' => $metodo,
+                    'monto' => $monto,
+                ];
+                $totalesPorCuenta[$idCuenta] = ($totalesPorCuenta[$idCuenta] ?? 0.0) + $monto;
+            }
+
+            if (empty($pagosProcesables)) {
+                throw new Exception('No hay pagos válidos para procesar en este lote.');
+            }
+
+            $cuentasInfo = [];
+            foreach ($totalesPorCuenta as $idCuenta => $montoCuenta) {
+                $stmtCuenta->execute(['id_cuenta' => $idCuenta]);
+                $cuentaBD = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
+
+                if (!$cuentaBD || (float) $cuentaBD['saldo_actual'] < (float) $montoCuenta) {
+                    // MEJORAMOS EL MENSAJE PARA QUE VEAS POR QUÉ FALLA
+                    throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'. Se necesitan S/ " . number_format($montoCuenta, 2) . " pero solo hay S/ " . number_format((float)$cuentaBD['saldo_actual'], 2));
+                }
+
+                $cuentasInfo[$idCuenta] = $cuentaBD;
+            }
+
+            foreach ($pagosProcesables as $item) {
+                $metodoLimpio = str_starts_with($item['metodo'], 'BANCO_')
+                    ? 'Transferencia Bancaria'
+                    : 'Efectivo';
+
+                $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$item['id_detalle']} | Vía: {$metodoLimpio}";
+
+                $stmtMov->execute([
+                    'id_tercero' => $item['id_tercero'],
+                    'id_lote' => $idLote,
+                    'id_cuenta' => $item['id_cuenta'],
+                    'id_metodo_pago' => $item['id_metodo_pago'],
+                    'fecha' => $fechaPago,
+                    'moneda' => $cuentasInfo[$item['id_cuenta']]['moneda'],
+                    'monto' => $item['monto'],
+                    'observaciones' => $observacion,
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+
+                $idMovimiento = (int) $db->lastInsertId();
+
+                $contaModel = new ContaAsientoModel();
+                $contaModel->registrarAutomaticoTesoreria($db, [
+                    'id_movimiento' => $idMovimiento,
+                    'tipo' => 'PAGO',
+                    'fecha' => (string) $fechaPago,
+                    'monto' => (float) $item['monto'],
+                    'id_cuenta_tesoreria' => (int) $item['id_cuenta'],
+                    'id_tercero' => 0,
+                    'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
+                ], $userId);
+
+                $metodoJson = json_encode([
+                    'metodo' => $item['metodo'],
+                    'id_cuenta_origen' => $item['id_cuenta'],
+                    'monto' => $item['monto'],
+                ], JSON_UNESCAPED_UNICODE);
+
+                $stmtUpdateDetalle->execute([
+                    'json' => $metodoJson,
+                    'id_detalle' => $item['id_detalle'],
+                ]);
+            }
+
+            $idCuentaRef = (int) $pagosProcesables[0]['id_cuenta'];
+
+            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas
+                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta
+                WHERE id = :id_lote");
+            $stmtUpdateLote->execute([
+                'fecha' => $fechaPago,
+                'id_cuenta' => $idCuentaRef,
+                'id_lote' => $idLote,
+            ]);
+
+            $db->commit();
+            return true;
+        } catch (Exception $e) {
+            $db->rollBack();
+            error_log("Error en pagarLoteNominaMixto: " . $e->getMessage());
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    public function obtenerBoletasMasivasPdf(int $idLote): array
+    {
+        // 1. Obtenemos a todos los empleados del lote que tengan algo que cobrar
+        $sqlCabecera = "SELECT 
+                            nd.*,
+                            t.nombre_completo, t.numero_documento, te.cargo, te.sueldo_basico,
+                            n.referencia AS referencia_lote, n.nombre AS nombre_lote, 
+                            n.fecha_inicio, n.fecha_fin, n.fecha_pago, n.estado AS estado_lote
+                        FROM rrhh_nominas_detalles nd
+                        INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                        INNER JOIN terceros t ON t.id = nd.id_tercero
+                        INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                        WHERE nd.id_nomina = :id_lote AND nd.neto_a_pagar > 0
+                        ORDER BY t.nombre_completo ASC";
+        
+        $stmtC = $this->db()->prepare($sqlCabecera);
+        $stmtC->execute(['id_lote' => $idLote]);
+        $boletas = $stmtC->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (empty($boletas)) return [];
+
+        // 2. Obtenemos TODOS los conceptos de este lote de un solo golpe
+        $sqlConceptos = "SELECT nc.* FROM rrhh_nominas_conceptos nc
+                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                         WHERE nd.id_nomina = :id_lote 
+                         ORDER BY nc.tipo DESC, nc.id ASC";
+                         
+        $stmtConc = $this->db()->prepare($sqlConceptos);
+        $stmtConc->execute(['id_lote' => $idLote]);
+        $conceptos = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 3. Agrupamos los conceptos por el ID del detalle
+        $conceptosAgrupados = [];
+        foreach ($conceptos as $c) {
+            $conceptosAgrupados[$c['id_detalle_nomina']][] = $c;
+        }
+
+        $diasSemana = [
+            'MONDAY' => 'LUNES',
+            'TUESDAY' => 'MARTES',
+            'WEDNESDAY' => 'MIERCOLES',
+            'THURSDAY' => 'JUEVES',
+            'FRIDAY' => 'VIERNES',
+            'SATURDAY' => 'SABADO',
+            'SUNDAY' => 'DOMINGO',
+        ];
+
+        $sqlAsistencia = "SELECT fecha, estado_asistencia, horas_trabajadas, horas_extras
+                         FROM asistencia_registros
+                         WHERE id_tercero = :id_tercero
+                           AND fecha BETWEEN :fecha_inicio AND :fecha_fin";
+        $stmtAsistencia = $this->db()->prepare($sqlAsistencia);
+
+        // 4. Armamos el arreglo final
+        foreach ($boletas as &$b) {
+            $b['conceptos'] = $conceptosAgrupados[$b['id']] ?? [];
+
+            $stmtAsistencia->execute([
+                'id_tercero' => (int) $b['id_tercero'],
+                'fecha_inicio' => $b['fecha_inicio'],
+                'fecha_fin' => $b['fecha_fin'],
+            ]);
+            $asistencias = $stmtAsistencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            $asistenciaPorFecha = [];
+            foreach ($asistencias as $asistencia) {
+                $asistenciaPorFecha[$asistencia['fecha']] = [
+                    'estado' => strtoupper((string) ($asistencia['estado_asistencia'] ?? '')),
+                    'horas_normales' => round((float) ($asistencia['horas_trabajadas'] ?? 0), 2),
+                    'horas_extras' => round((float) ($asistencia['horas_extras'] ?? 0), 2),
+                ];
+            }
+
+            $resumenDias = [];
+            $fechaCursor = new DateTime((string) $b['fecha_inicio']);
+            $fechaFin = new DateTime((string) $b['fecha_fin']);
+            while ($fechaCursor <= $fechaFin) {
+                $fechaIso = $fechaCursor->format('Y-m-d');
+                $diaClave = strtoupper($fechaCursor->format('l'));
+                $rowAsistencia = $asistenciaPorFecha[$fechaIso] ?? null;
+                $horasNormales = (float) ($rowAsistencia['horas_normales'] ?? 0);
+                $horasExtras = (float) ($rowAsistencia['horas_extras'] ?? 0);
+
+                $resumenDias[] = [
+                    'fecha' => $fechaIso,
+                    'dia' => $diasSemana[$diaClave] ?? strtoupper($diaClave),
+                    'horas_normales' => $horasNormales,
+                    'horas_extras' => $horasExtras,
+                ];
+                $fechaCursor->modify('+1 day');
+            }
+
+            $b['resumen_dias'] = $resumenDias;
+        }
+        unset($b);
+
+        return $boletas;
+    }
+}

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `configuracion_impuestos` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `codigo` VARCHAR(20) NOT NULL,
+  `nombre` VARCHAR(120) NOT NULL,
+  `porcentaje` DECIMAL(8,4) NOT NULL DEFAULT 0.0000,
+  `tipo` ENUM('VENTA','COMPRA','AMBOS') NOT NULL DEFAULT 'VENTA',
+  `es_default` TINYINT(1) NOT NULL DEFAULT 0,
+  `estado` TINYINT(1) NOT NULL DEFAULT 1,
+  `observaciones` VARCHAR(255) DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_by` INT UNSIGNED DEFAULT NULL,
+  `updated_by` INT UNSIGNED DEFAULT NULL,
+  `deleted_by` INT UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_impuestos_codigo` (`codigo`),
+  KEY `idx_impuestos_tipo_estado` (`tipo`,`estado`),
+  KEY `idx_impuestos_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

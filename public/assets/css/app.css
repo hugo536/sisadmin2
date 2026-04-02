@@ -1,0 +1,624 @@
+/* ==========================================================================
+   CSS GLOBAL (LIMPIO, SIN REDUNDANCIAS) — LISTO PARA COPIAR
+   - Variables de tema (default/dark/blue)
+   - Layout base (app-container/main-content) + fix sidebar offcanvas mobile
+   - Componentes: card, botones, forms, badges, avatar
+   ========================================================================== */
+
+/* =======================
+   THEME TOKENS
+   ======================= */
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary-color: #64748b;
+
+  --bg-body: #f1f5f9;
+  --bg-card: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #94a3b8;
+
+  --sidebar-width: 280px;
+  --sidebar-gradient: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --sidebar-text: #cbd5e1;
+  --sidebar-muted: #94a3b8;
+  --sidebar-icon: #94a3b8;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-card-border: rgba(255, 255, 255, 0.12);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: rgba(37, 99, 235, 0.18);
+  --sidebar-active-color: #93c5fd;
+  --sidebar-footer-bg: rgba(15, 23, 42, 0.4);
+  --sidebar-scroll: rgba(255, 255, 255, 0.2);
+
+  --success-bg: #dcfce7;
+  --success-text: #166534;
+  --success-border: #bbf7d0;
+  --danger-bg: #fee2e2;
+  --danger-text: #991b1b;
+  --danger-border: #fecaca;
+}
+
+body[data-theme="dark"] {
+  --primary-color: #7c3aed;
+  --primary-hover: #6d28d9;
+  --bg-body: #0b1120;
+  --bg-card: #111827;
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+
+  --sidebar-gradient: linear-gradient(180deg, #111827 0%, #030712 100%);
+  --sidebar-text: #d1d5db;
+  --sidebar-muted: #9ca3af;
+  --sidebar-icon: #9ca3af;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.03);
+  --sidebar-card-border: rgba(255, 255, 255, 0.1);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: rgba(124, 58, 237, 0.25);
+  --sidebar-active-color: #ddd6fe;
+  --sidebar-footer-bg: rgba(3, 7, 18, 0.55);
+}
+
+body[data-theme="blue"] {
+  --primary-color: #1d4ed8;
+  --primary-hover: #1e40af;
+  --bg-body: #eef4ff;
+  --bg-card: #ffffff;
+  --text-main: #172554;
+  --text-muted: #64748b;
+
+  --sidebar-gradient: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  --sidebar-text: #dbeafe;
+  --sidebar-muted: #bfdbfe;
+  --sidebar-icon: #bfdbfe;
+  --sidebar-border: rgba(255, 255, 255, 0.14);
+  --sidebar-card-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-card-border: rgba(255, 255, 255, 0.2);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-active-bg: rgba(147, 197, 253, 0.25);
+  --sidebar-active-color: #eff6ff;
+  --sidebar-footer-bg: rgba(30, 58, 138, 0.45);
+}
+
+/* =======================
+   BASE
+   ======================= */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-mobile-trigger {
+  position: fixed;
+  left: .8rem;
+  top: .8rem;
+  z-index: 1060;
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Desktop: deja espacio para sidebar fijo */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width);
+  min-width: 0;
+  transition: margin-left 0.3s ease;
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: 84px;
+}
+
+/* Mobile/Tablet: sidebar es offcanvas, NO se reserva espacio */
+@media (max-width: 991.98px) {
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* =======================
+   CARDS GLOBALES
+   ======================= */
+.card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  background: var(--bg-card);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  background: transparent;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+/* =======================
+   BUTTONS GLOBALES
+   ======================= */
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-icon-sm {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =======================
+   FORMS GLOBALES
+   ======================= */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.sku-lockable:disabled,
+.sku-lockable[readonly] {
+  background-color: #eef2f6;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.item-autoidentity-hint {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.2rem;
+}
+
+/* =======================
+   BADGES GLOBALES
+   ======================= */
+.badge-status {
+  padding: 0.35em 0.8em;
+  border-radius: 30px;
+  font-size: 0.75em;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-active {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.status-inactive {
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+/* =======================
+   AVATAR / UI UTILS
+   ======================= */
+.avatar-circle {
+  width: 38px;
+  height: 38px;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.op-stock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+}
+
+.op-stock-dot.is-ok {
+  background-color: #16a34a;
+}
+
+.op-stock-dot.is-danger {
+  background-color: #dc2626;
+}
+
+.btn-aprovisionar-alert {
+  animation: aprovisionarPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes aprovisionarPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.35); }
+}
+
+.btn-new-user{
+  border-radius: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: .6rem .9rem;
+}
+
+@media (max-width: 575.98px){
+  .btn-new-user{ padding: .55rem .65rem; }
+}
+
+/* =======================
+   DASHBOARD
+   ======================= */
+.dashboard-page .dashboard-pill {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.dashboard-stat-card {
+  border-radius: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1) !important;
+}
+
+.dashboard-stat-card .dashboard-stat-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.dashboard-stat-card.stat-items .dashboard-stat-icon { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+.dashboard-stat-card.stat-terceros .dashboard-stat-icon { background: rgba(16, 185, 129, 0.15); color: #047857; }
+.dashboard-stat-card.stat-usuarios .dashboard-stat-icon { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+
+/* =======================
+   EXPEDIENTE DIGITAL TERCEROS
+   ======================= */
+.terceros-perfil-page {
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
+}
+
+.terceros-perfil-header {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.terceros-back-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terceros-profile-card {
+  top: 20px;
+  z-index: 1;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.terceros-avatar-lg {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  font-size: 2.5rem;
+}
+
+.terceros-content-card {
+  min-height: 600px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.terceros-docs-layout,
+.terceros-docs-sidebar,
+.terceros-visor-panel {
+  min-height: 600px;
+}
+
+.doc-item {
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.doc-item:hover {
+  background-color: #f8fafc;
+  transform: translateX(2px);
+}
+
+.doc-date {
+  font-size: 0.7rem;
+}
+
+.terceros-visor-panel {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.18) 0%, rgba(226, 232, 240, 0.2) 100%) !important;
+}
+
+.terceros-visor-image {
+  max-height: 95%;
+  max-width: 95%;
+}
+
+@media (max-width: 991.98px) {
+  .terceros-perfil-header { flex-direction: column; align-items: flex-start !important; gap: 0.85rem; }
+  .terceros-profile-card { position: static !important; }
+}
+
+/* =======================
+   CAJAS Y BANCOS / NAVEGACIÓN
+   ======================= */
+.cajas-bancos-page #cbFiltersForm .input-group-text { border-right: 0; }
+.cajas-bancos-page #cbFiltersForm input.form-control { border-left: 0; }
+
+/* Navegación sutil */
+.nav-tabs-pro .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+}
+.nav-tabs-pro .nav-link:hover { border-color: #e9ecef; }
+.nav-tabs-pro .nav-link.active {
+    color: #0d6efd !important;
+    border-bottom: 3px solid #0d6efd;
+    background-color: transparent;
+}
+
+/* Utilitarios */
+@media (min-width: 768px) { .border-end-md { border-right: 1px solid #dee2e6 !important; } }
+.border-dashed { border-style: dashed !important; }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+.transition-all { transition: all 0.2s ease-in-out; }
+.cursor-pointer { cursor: pointer; }
+
+/* =======================
+   RESPONSIVE GLOBAL HARDENING
+   - Evita overflow horizontal en móviles/tablets.
+   - Mejora legibilidad y usabilidad táctil.
+   ======================= */
+.card,
+.card-body,
+.card-header,
+.main-content > div,
+.container,
+.container-fluid {
+  min-width: 0;
+}
+
+.card-body {
+  overflow-wrap: anywhere;
+}
+
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+}
+
+img,
+svg,
+canvas,
+video,
+iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.btn-group,
+.btn-toolbar {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar-mobile-trigger {
+    top: .65rem;
+    left: .65rem;
+    width: 42px;
+    height: 42px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+  }
+
+  .main-content > .p-3,
+  .main-content > .p-4,
+  .main-content > .p-lg-4 {
+    padding-top: 3.8rem !important;
+  }
+
+  .card-header {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  body {
+    font-size: 0.95rem;
+  }
+
+  h1, .h1 { font-size: 1.45rem; }
+  h2, .h2 { font-size: 1.3rem; }
+  h3, .h3 { font-size: 1.15rem; }
+
+  .main-content > .p-3,
+  .main-content > .p-4,
+  .main-content > .p-lg-4 {
+    padding-inline: .75rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .card {
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: .9rem;
+  }
+
+  .btn {
+    min-height: 38px;
+  }
+
+  .btn-group > .btn,
+  .btn-toolbar > .btn,
+  .btn-toolbar > .btn-group {
+    margin-bottom: .4rem;
+  }
+
+  .input-group {
+    flex-wrap: nowrap;
+  }
+
+  .input-group.w-auto {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  [class*="col-"] > .input-group[style*="max-width"],
+  .input-group[style*="max-width"] {
+    max-width: 100% !important;
+  }
+
+  .nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-tabs .nav-link {
+    flex: 0 0 auto;
+  }
+}
+
+
+/* =========================================================
+   FIX GLOBALES: TOMSELECT Y NATIVOS EN MODO SOLO LECTURA
+   ========================================================= */
+
+/* Ajustes TomSelect Base */
+.ts-control input {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: auto !important;
+    line-height: normal !important;
+}
+.ts-control input::placeholder { line-height: normal !important; }
+.ts-wrapper .ts-control {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: nowrap !important;
+  overflow: hidden;
+}
+.ts-wrapper.single.full .ts-control > input { display: inline-block !important; min-width: 0.75rem; }
+.ts-wrapper.form-select, .ts-wrapper.form-control {
+  padding: 0 !important;
+  border: 1px solid var(--bs-border-color, #dee2e6) !important;
+  border-radius: 0.375rem !important;
+  background-color: var(--bs-body-bg, #fff);
+}
+.ts-wrapper.form-select .ts-control, .ts-wrapper.form-control .ts-control {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ts-wrapper.form-select.focus, .ts-wrapper.form-control.focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  border: none !important;
+}
+
+/* 1. Quitar la transparencia fantasma de TomSelect */
+.ts-wrapper.disabled { opacity: 1 !important; }
+
+/* 2. Darle el color gris de fondo y texto oscuro a TomSelect bloqueado */
+.ts-wrapper.disabled .ts-control {
+    background-color: var(--bg-body, #f1f5f9) !important;
+    color: var(--text-main, #1e293b) !important;
+    border-color: #dee2e6 !important;
+    cursor: not-allowed !important;
+}
+
+/* 3. Asegurar que los inputs y selects nativos bloqueados sean idénticos al TomSelect */
+.form-control:disabled, 
+.form-control[readonly], 
+.form-select:disabled {
+    background-color: var(--bg-body, #f1f5f9) !important;
+    color: var(--text-main, #1e293b) !important;
+    border-color: #dee2e6 !important;
+    opacity: 1 !important;
+}
+
+/* Fix específico Compras: en solo lectura mantener texto en negro fuerte */
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .single,
+#modalOrdenCompra.modal-orden-solo-lectura .form-control:disabled,
+#modalOrdenCompra.modal-orden-solo-lectura .form-control[readonly],
+#modalOrdenCompra.modal-orden-solo-lectura .form-select:disabled {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    cursor: default !important;
+}
+
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > .item,
+#modalOrdenCompra.modal-orden-solo-lectura .ts-wrapper.disabled .ts-control > input {
+    color: #212529 !important;
+    -webkit-text-fill-color: #212529 !important;
+    opacity: 1 !important;
+}
+
+/* Quitar el cursor de prohibido */
+.ts-wrapper.disabled .ts-control, 
+.ts-wrapper.disabled,
+input[disabled], select[disabled] {
+    cursor: default !important; 
+}
