@@ -458,7 +458,7 @@ class TercerosController extends Controlador
             'documentos' => $documentos,
             'hijos_empleado' => $hijosEmpleado,
             'departamentos_list' => $departamentos,
-            'ruta_actual' => 'terceros'
+            'ruta_actual' => 'terceros/perfil'
         ]);
     }
 
