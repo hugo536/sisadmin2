@@ -518,18 +518,40 @@ class ComprasOrdenModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // 1. Obtener info de la orden para saber el proveedor
-            $stmtOrd = $db->prepare("SELECT id_proveedor FROM compras_ordenes WHERE id = ?");
+            // 1) Obtener cabecera de la orden
+            $stmtOrd = $db->prepare("SELECT codigo, id_proveedor FROM compras_ordenes WHERE id = ?");
             $stmtOrd->execute([$idOrden]);
-            $idProveedor = (int) $stmtOrd->fetchColumn();
+            $ordenData = $stmtOrd->fetch(PDO::FETCH_ASSOC);
+            $idProveedor = (int) ($ordenData['id_proveedor'] ?? 0);
+            $codigoOrden = (string) ($ordenData['codigo'] ?? '');
 
             if (!$idProveedor) {
                 throw new RuntimeException("La orden no existe.");
             }
 
+            if (trim($motivo) === '') {
+                throw new RuntimeException('Debe indicar el motivo de la devolución.');
+            }
+            if (trim($resolucion) === '') {
+                throw new RuntimeException('Debe indicar cómo se resolverá la devolución con el proveedor.');
+            }
+
+            // 2) Obtener almacén de la última recepción para generar salida de inventario consistente.
+            $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
+            $stmtAlmacen->execute([$idOrden]);
+            $idAlmacenOrigen = (int) $stmtAlmacen->fetchColumn();
+
+            if ($idAlmacenOrigen <= 0) {
+                $stmtFallback = $db->query("SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1");
+                $idAlmacenOrigen = (int) $stmtFallback->fetchColumn();
+            }
+            if ($idAlmacenOrigen <= 0) {
+                throw new RuntimeException('No existe un almacén activo para procesar la salida de la devolución.');
+            }
+
             $totalDevuelto = 0.0;
 
-            // 2. Crear cabecera de la devolución
+            // 3) Crear cabecera de devolución
             $sqlDev = "INSERT INTO compras_devoluciones (id_orden, id_proveedor, motivo, tipo_resolucion, total_devuelto, created_by) 
                        VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)"; // Total temporal 0
             
@@ -543,46 +565,157 @@ class ComprasOrdenModel extends Modelo
             
             $idDevolucion = (int) $db->lastInsertId();
 
-            // 3. Insertar detalle y sumar el total
+            // 4) Dependencias necesarias para vincular inventario/kardex.
+            require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
+            $inventarioModel = new InventarioModel();
+
+            // 5) Insertar detalle + validar contra lo realmente recepcionado + salida de inventario
             $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
                        VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
             $stmtDet = $db->prepare($sqlDet);
+            $stmtOrdenDetalle = $db->prepare("SELECT id_item, COALESCE(cantidad_recibida, 0) AS cantidad_recibida, id_centro_costo 
+                                              FROM compras_ordenes_detalle 
+                                              WHERE id = :id_det AND id_orden = :id_orden AND deleted_at IS NULL
+                                              LIMIT 1");
+            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle 
+                                                SET cantidad_recibida = cantidad_recibida - :cant_base
+                                                WHERE id = :id_doc_det");
 
             foreach ($detalle as $linea) {
-                $subtotalLinea = (float)$linea['cantidad_base'] * (float)$linea['costo_base'];
+                $idDetalleOrden = (int) ($linea['id_documento_detalle'] ?? 0);
+                $idItemLinea = (int) ($linea['id_item'] ?? 0);
+                $cantidadInput = (float) ($linea['cantidad_input'] ?? 0);
+                $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
+                $costoBase = (float) ($linea['costo_base'] ?? 0);
+
+                if ($idDetalleOrden <= 0 || $idItemLinea <= 0 || $cantidadInput <= 0 || $cantidadBase <= 0) {
+                    throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
+                }
+                if ($costoBase < 0) {
+                    throw new RuntimeException('El costo de devolución no puede ser negativo.');
+                }
+
+                $stmtOrdenDetalle->execute([
+                    'id_det' => $idDetalleOrden,
+                    'id_orden' => $idOrden,
+                ]);
+                $ordenDet = $stmtOrdenDetalle->fetch(PDO::FETCH_ASSOC);
+                if (!$ordenDet) {
+                    throw new RuntimeException('No se encontró una línea de orden asociada a la devolución.');
+                }
+                if ((int) ($ordenDet['id_item'] ?? 0) !== $idItemLinea) {
+                    throw new RuntimeException('La línea de devolución no coincide con el ítem de la orden.');
+                }
+
+                $cantidadRecibidaActual = (float) ($ordenDet['cantidad_recibida'] ?? 0);
+                if ($cantidadBase > $cantidadRecibidaActual + 0.00001) {
+                    throw new RuntimeException('No puede devolver más cantidad que la ya recepcionada.');
+                }
+
+                $subtotalLinea = $cantidadBase * $costoBase;
                 $totalDevuelto += $subtotalLinea;
 
                 $stmtDet->execute([
                     'id_dev' => $idDevolucion,
-                    'id_item' => $linea['id_item'],
-                    'id_unidad' => $linea['id_unidad'] ?: null,
-                    'cant' => $linea['cantidad_input'],
-                    'cant_base' => $linea['cantidad_base'],
-                    'costo' => $linea['costo_base'],
+                    'id_item' => $idItemLinea,
+                    'id_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : null,
+                    'cant' => $cantidadInput,
+                    'cant_base' => $cantidadBase,
+                    'costo' => $costoBase,
                     'subtotal' => $subtotalLinea
                 ]);
 
-                // 4. DESCONTAR LA CANTIDAD RECIBIDA DE LA ORDEN ORIGINAL (Para que el sistema sepa que ya no la tenemos)
-                $db->prepare("UPDATE compras_ordenes_detalle 
-                              SET cantidad_recibida = cantidad_recibida - :cant_base 
-                              WHERE id = :id_doc_det")
-                   ->execute([
-                       'cant_base' => $linea['cantidad_base'], 
-                       'id_doc_det' => $linea['id_documento_detalle']
-                   ]);
-                
-                // IMPORTANTE: Aquí iría tu query de KARDEX para sacar la mercadería del almacén físico.
-                // Ejemplo: $this->kardexModel->registrarSalidaDevolucion($linea['id_item'], $linea['cantidad_base']);
+                $stmtUpdateOrdenDet->execute([
+                    'cant_base' => $cantidadBase,
+                    'id_doc_det' => $idDetalleOrden,
+                ]);
+
+                $inventarioModel->registrarMovimiento([
+                    'tipo_movimiento' => 'AJ-',
+                    'tipo_registro' => 'item',
+                    'id_item' => $idItemLinea,
+                    'id_item_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : 0,
+                    'id_almacen_origen' => $idAlmacenOrigen,
+                    'cantidad' => $cantidadBase,
+                    'costo_unitario' => $costoBase,
+                    'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . trim($motivo),
+                    'id_centro_costo' => !empty($ordenDet['id_centro_costo']) ? (int) $ordenDet['id_centro_costo'] : null,
+                    'created_by' => $userId,
+                ]);
             }
 
-            // 5. Actualizar el total recuperado en la cabecera
+            // 6) Actualizar total en cabecera
             $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
                ->execute([$totalDevuelto, $idDevolucion]);
+
+            // 7) Ajustar estado de la orden a parcial para permitir reposición futura.
+            $db->prepare("UPDATE compras_ordenes SET estado = 2, updated_at = NOW() WHERE id = ?")
+               ->execute([$idOrden]);
+
+            // 8) Vincular con Tesorería (CxP) según resolución seleccionada.
+            $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
 
             $db->commit();
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
         }
+    }
+
+    private function aplicarAjusteCxpPorDevolucion(PDO $db, int $idOrden, string $resolucion, float $totalDevuelto, int $userId): void
+    {
+        if ($totalDevuelto <= 0) {
+            return;
+        }
+
+        // Solo descontamos deuda automáticamente cuando la resolución sea nota de crédito.
+        if (trim(strtolower($resolucion)) !== 'descuento_cxp') {
+            return;
+        }
+
+        $stmtCxp = $db->prepare('SELECT id, monto_total, monto_pagado
+                                 FROM tesoreria_cxp
+                                 WHERE id_orden_compra = :id_orden
+                                   AND deleted_at IS NULL
+                                   AND estado <> "ANULADA"
+                                 ORDER BY id DESC
+                                 LIMIT 1
+                                 FOR UPDATE');
+        $stmtCxp->execute(['id_orden' => $idOrden]);
+        $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
+        if (!$cxp) {
+            return;
+        }
+
+        $idCxp = (int) ($cxp['id'] ?? 0);
+        $montoTotalActual = (float) ($cxp['monto_total'] ?? 0);
+        $montoPagadoActual = (float) ($cxp['monto_pagado'] ?? 0);
+        $nuevoMontoTotal = max(0.0, $montoTotalActual - $totalDevuelto);
+        $nuevoPagado = min($montoPagadoActual, $nuevoMontoTotal);
+        $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
+
+        $nuevoEstado = 'PENDIENTE';
+        if ($nuevoSaldo <= 0.00001) {
+            $nuevoEstado = 'PAGADA';
+        } elseif ($nuevoPagado > 0) {
+            $nuevoEstado = 'PARCIAL';
+        }
+
+        $stmtUpd = $db->prepare('UPDATE tesoreria_cxp
+                                 SET monto_total = :monto_total,
+                                     monto_pagado = :monto_pagado,
+                                     saldo = :saldo,
+                                     estado = :estado,
+                                     updated_by = :user,
+                                     updated_at = NOW()
+                                 WHERE id = :id');
+        $stmtUpd->execute([
+            'monto_total' => round($nuevoMontoTotal, 4),
+            'monto_pagado' => round($nuevoPagado, 4),
+            'saldo' => round($nuevoSaldo, 4),
+            'estado' => $nuevoEstado,
+            'user' => $userId,
+            'id' => $idCxp,
+        ]);
     }
 }
