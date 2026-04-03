@@ -127,6 +127,13 @@ class VentasController extends Controlador
         // --- Generar PDF (Profesional) ---
         if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
             $id = (int) ($_GET['id'] ?? 0);
+            $paginas = (int) ($_GET['paginas'] ?? 1);
+            if ($paginas < 1) {
+                $paginas = 1;
+            } elseif ($paginas > 20) {
+                $paginas = 20;
+            }
+
             if ($id <= 0) {
                 die('ID de pedido inválido.');
             }
@@ -156,7 +163,32 @@ class VentasController extends Controlador
             // 1. Capturamos el HTML
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_pedido.php';
-            $html = ob_get_clean();
+            $htmlBase = (string) ob_get_clean();
+
+            if ($paginas === 1) {
+                $html = $htmlBase;
+            } else {
+                $headHtml = '';
+                $bodyHtml = $htmlBase;
+
+                if (preg_match('/<head[^>]*>(.*?)<\/head>/is', $htmlBase, $headMatch) === 1) {
+                    $headHtml = (string) ($headMatch[1] ?? '');
+                }
+                if (preg_match('/<body[^>]*>(.*?)<\/body>/is', $htmlBase, $bodyMatch) === 1) {
+                    $bodyHtml = (string) ($bodyMatch[1] ?? '');
+                }
+
+                $bloques = [];
+                for ($i = 1; $i <= $paginas; $i++) {
+                    $claseSalto = $i < $paginas ? ' class="copia-pdf"' : '';
+                    $bloques[] = '<section' . $claseSalto . '>' . $bodyHtml . '</section>';
+                }
+
+                $html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' . $headHtml
+                    . '<style>.copia-pdf{page-break-after:always;}</style></head><body>'
+                    . implode('', $bloques)
+                    . '</body></html>';
+            }
 
             // 2. Cargamos el HTML en Dompdf
             $dompdf->loadHtml($html);
