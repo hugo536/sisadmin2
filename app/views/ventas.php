@@ -391,6 +391,31 @@ $estadoLabels = [
     </div>
 </div>
 
+<div class="modal fade" id="modalImpresionPedido" tabindex="-1" aria-labelledby="modalImpresionPedidoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0">
+                <h5 class="modal-title fw-bold" id="modalImpresionPedidoLabel">
+                    <i class="bi bi-printer me-2"></i>Imprimir pedido
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">¿Cuántas hojas/copias del pedido deseas generar en el PDF?</p>
+                <label for="cantidadPaginasPedido" class="form-label fw-semibold">Cantidad de hojas</label>
+                <input type="number" class="form-control shadow-none" id="cantidadPaginasPedido" min="1" max="20" step="1" value="1">
+                <small class="text-muted d-block mt-2">Mínimo 1 y máximo 20 hojas.</small>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnConfirmarImpresionPedido">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Generar PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <template id="templateFilaVenta">
     <tr class="border-bottom">
         <td class="ps-3 py-3 align-top" data-label="Producto">
@@ -416,13 +441,42 @@ $estadoLabels = [
 </template>
 
 <script>
-    // Función para imprimir el PDF
+    let pedidoIdPendienteImpresion = 0;
+
+    // Función para abrir el modal y pedir cantidad de hojas
     function imprimirPedido(id) {
         const app = document.getElementById('ventasApp');
         if (!app) return;
-        const baseUrl = app.dataset.urlIndex;
-        
-        // Abrimos la ruta de imprimir en una nueva pestaña
-        window.open(`${baseUrl}&accion=imprimir&id=${id}`, '_blank');
+
+        pedidoIdPendienteImpresion = Number(id) || 0;
+
+        const inputPaginas = document.getElementById('cantidadPaginasPedido');
+        if (inputPaginas) inputPaginas.value = 1;
+
+        const modalEl = document.getElementById('modalImpresionPedido');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnConfirmar = document.getElementById('btnConfirmarImpresionPedido');
+        if (!btnConfirmar) return;
+
+        btnConfirmar.addEventListener('click', () => {
+            const app = document.getElementById('ventasApp');
+            const inputPaginas = document.getElementById('cantidadPaginasPedido');
+            if (!app || !inputPaginas || pedidoIdPendienteImpresion <= 0) return;
+
+            const baseUrl = app.dataset.urlIndex;
+            const paginas = Math.max(1, Math.min(20, Number(inputPaginas.value) || 1));
+
+            const modalEl = document.getElementById('modalImpresionPedido');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+
+            window.open(`${baseUrl}&accion=imprimir&id=${pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
+        });
+    });
 </script>
