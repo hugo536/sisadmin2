@@ -139,7 +139,7 @@ $centros_costo = $centros_costo ?? [];
 </div>
 
 <div class="modal fade" id="modalPrestamoNuevo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <form class="modal-content border-0 shadow-lg" method="post" action="<?php echo e(route_url('tesoreria/guardar_prestamo')); ?>">
             <div class="modal-header">
                 <h5 class="modal-title fw-bold"><i class="bi bi-bank me-2 text-primary"></i>Registrar nuevo préstamo</h5>
@@ -227,7 +227,7 @@ $centros_costo = $centros_costo ?? [];
 </div>
 
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <form class="modal-content border-0 shadow-lg js-form-confirm" method="post" id="formPago" action="<?php echo e(route_url('tesoreria/registrar_pago_prestamo')); ?>">
             <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold"><i class="bi bi-credit-card me-2 text-warning"></i>Registrar pago de cuota</h5>

@@ -555,7 +555,7 @@ $conceptosOperativos = $conceptos_operativos ?? [];
 </div>
 
 <div class="modal fade" id="modalGestionParametrosCatalogo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-light border-bottom-0 pb-3">
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders me-2 text-info"></i>Catálogo de Parámetros (IPC)</h5>
