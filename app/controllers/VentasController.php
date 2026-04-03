@@ -127,6 +127,13 @@ class VentasController extends Controlador
         // --- Generar PDF (Profesional) ---
         if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
             $id = (int) ($_GET['id'] ?? 0);
+            $paginas = (int) ($_GET['paginas'] ?? 1);
+            if ($paginas < 1) {
+                $paginas = 1;
+            } elseif ($paginas > 20) {
+                $paginas = 20;
+            }
+
             if ($id <= 0) {
                 die('ID de pedido inválido.');
             }
@@ -156,7 +163,14 @@ class VentasController extends Controlador
             // 1. Capturamos el HTML
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_pedido.php';
-            $html = ob_get_clean();
+            $htmlBase = (string) ob_get_clean();
+            $html = '';
+            for ($i = 1; $i <= $paginas; $i++) {
+                if ($i > 1) {
+                    $html .= '<div style="page-break-before: always;"></div>';
+                }
+                $html .= $htmlBase;
+            }
 
             // 2. Cargamos el HTML en Dompdf
             $dompdf->loadHtml($html);
