@@ -268,7 +268,7 @@
                             </div>`;
                 },
                 item: function(item, escape) {
-                    return `<div>${escape(item.sku || '')} - ${escape(item.nombre_full || item.nombre || '')}</div>`;
+                    return `<div>${escape(item.nombre_full || item.nombre || '')}</div>`;
                 }
             },
             onChange: function(value) {
