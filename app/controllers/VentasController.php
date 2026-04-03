@@ -188,6 +188,12 @@ class VentasController extends Controlador
                     . '<style>.copia-pdf{page-break-after:always;}</style></head><body>'
                     . implode('', $bloques)
                     . '</body></html>';
+            $html = '';
+            for ($i = 1; $i <= $paginas; $i++) {
+                if ($i > 1) {
+                    $html .= '<div style="page-break-before: always;"></div>';
+                }
+                $html .= $htmlBase;
             }
 
             // 2. Cargamos el HTML en Dompdf
