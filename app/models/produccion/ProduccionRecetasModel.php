@@ -717,7 +717,7 @@ class ProduccionRecetasModel extends Modelo
             throw new RuntimeException('La receta base no existe.');
         }
 
-        $detalles = $this->obtenerDetalleReceta($idRecetaBase);
+        $detalles = $this->obtenerDetalleRecetaVersion($idRecetaBase);
         if ($detalles === []) {
             throw new RuntimeException('La receta base no tiene detalles.');
         }
