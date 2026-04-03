@@ -262,8 +262,7 @@
                     const nota = (item.nota || '').trim();
                     const etiquetaTipo = item.tipo_registro === 'pack' ? '<span class="badge bg-primary-subtle text-primary ms-1">Pack</span>' : '<span class="badge bg-secondary-subtle text-secondary ms-1">Ítem</span>';
                     return `<div class="py-1">
-                                <span class="fw-bold d-block">${escape(item.sku || '')}${etiquetaTipo}</span>
-                                <span class="text-muted small d-block">${escape(item.nombre_full || item.nombre || '')}</span>
+                                <span class="fw-bold d-block">${escape(item.nombre_full || item.nombre || '')}${etiquetaTipo}</span>
                                 ${nota ? `<span class="text-primary-emphasis small fst-italic">${escape(nota)}</span>` : ''}
                             </div>`;
                 },
