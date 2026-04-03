@@ -15,6 +15,9 @@ class ComprasRecepcionModel extends Modelo
                 throw new RuntimeException('La orden no existe o no está en estado válido para recepcionar.');
             }
 
+            // Usamos la fecha en que se emitió la orden como la fecha del documento real
+            $fechaDocumento = $orden['fecha_emision'] ?? date('Y-m-d'); 
+
             if (!$this->proveedorActivo($db, (int) $orden['id_proveedor'])) {
                 throw new RuntimeException('No se puede recepcionar: el proveedor está inactivo.');
             }
@@ -52,12 +55,13 @@ class ComprasRecepcionModel extends Modelo
                        )';
             $stmtDet = $db->prepare($sqlDet);
 
+            // <-- SE AÑADIÓ LA COLUMNA fecha_documento AL SQL -->
             $sqlMov = 'INSERT INTO inventario_movimientos (
                         tipo_movimiento, id_item, id_item_unidad,
-                        id_almacen_origen, id_almacen_destino, cantidad, costo_unitario, costo_total, referencia, created_by
+                        id_almacen_origen, id_almacen_destino, cantidad, costo_unitario, costo_total, referencia, created_by, fecha_documento
                        ) VALUES (
                         :tipo_movimiento, :id_item, :id_item_unidad,
-                        :id_almacen_origen, :id_almacen_destino, :cantidad_base, :costo_unitario_base, :costo_total, :referencia, :created_by
+                        :id_almacen_origen, :id_almacen_destino, :cantidad_base, :costo_unitario_base, :costo_total, :referencia, :created_by, :fecha_documento
                        )';
             $stmtMov = $db->prepare($sqlMov);
 
@@ -69,9 +73,8 @@ class ComprasRecepcionModel extends Modelo
             foreach ($detalleIngreso as $linea) {
                 $idDetalleOrden = (int) $linea['id_documento_detalle'];
                 $idAlmacen = (int) $linea['id_almacen'];
-                $cantidadBase = (float) $linea['cantidad']; // Ya viene en unidad base desde el JS
+                $cantidadBase = (float) $linea['cantidad']; 
                 
-                // Obtener datos originales del ítem desde la orden
                 $stmtOriginal = $db->prepare('SELECT id_item, id_item_unidad, costo_unitario_pactado, factor_conversion_aplicado, unidad_nombre, COALESCE(cantidad_base_solicitada, cantidad_solicitada) as cant_total FROM compras_ordenes_detalle WHERE id = ?');
                 $stmtOriginal->execute([$idDetalleOrden]);
                 $original = $stmtOriginal->fetch(PDO::FETCH_ASSOC);
@@ -98,7 +101,6 @@ class ComprasRecepcionModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                // Generar referencia descriptiva para el movimiento de inventario
                 $codigoOrdenStr = (string) ($orden['codigo'] ?? $idOrden);
                 $referencia = 'Recepción ' . $codigo . ' - OC ' . $codigoOrdenStr . ' | Ingreso: ' . $cantidadBase . ' UND';
 
@@ -113,6 +115,7 @@ class ComprasRecepcionModel extends Modelo
                     'costo_total' => $costoTotal,
                     'referencia' => $referencia,
                     'created_by' => $userId,
+                    'fecha_documento' => $fechaDocumento, // <-- AQUÍ ENVIAMOS LA FECHA A LA BASE DE DATOS
                 ]);
 
                 $this->actualizarStock($db, $idItem, $idAlmacen, $cantidadBase);
@@ -123,14 +126,10 @@ class ComprasRecepcionModel extends Modelo
                 ]);
             }
 
-            // Verificar si aún quedan pendientes por recepcionar
-            // Restamos la cantidad solicitada menos la cantidad recibida.
             $stmtPendientes = $db->prepare('SELECT COUNT(*) FROM compras_ordenes_detalle WHERE id_orden = :id_orden AND (COALESCE(cantidad_base_solicitada, cantidad_solicitada) - COALESCE(cantidad_recibida, 0)) > 0.001 AND deleted_at IS NULL');
             $stmtPendientes->execute(['id_orden' => $idOrden]);
             $pendientes = (int) $stmtPendientes->fetchColumn();
 
-            // Si ya no hay pendientes (se recibió todo), o si el usuario forzó el cierre, el estado pasa a 3 (Recepcionada/Cerrada). 
-            // Si aún hay saldo pendiente, se mantiene en 2 (Aprobada / Parcial)
             $nuevoEstado = ($pendientes === 0 || $cerrarForzado) ? 3 : 2;
 
             $db->prepare('UPDATE compras_ordenes SET estado = :estado, updated_by = :user, updated_at = NOW() WHERE id = :id_orden AND deleted_at IS NULL')
@@ -146,19 +145,22 @@ class ComprasRecepcionModel extends Modelo
         }
     }
 
+    private function obtenerOrdenAprobada(PDO $db, int $idOrden): array
+    {
+        // <-- SE AÑADIÓ LA COLUMNA fecha_emision AL SELECT -->
+        $sql = 'SELECT id, codigo, id_proveedor, total, estado, fecha_emision 
+                FROM compras_ordenes 
+                WHERE id = :id AND estado = 2 AND deleted_at IS NULL 
+                LIMIT 1';
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['id' => $idOrden]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function listarAlmacenesActivos(): array
     {
         $sql = 'SELECT id, nombre FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    private function obtenerOrdenAprobada(PDO $db, int $idOrden): array
-    {
-        // Permitimos recepcionar órdenes en estado 2 (Aprobada/Parcial)
-        $sql = 'SELECT id, codigo, id_proveedor, total, estado FROM compras_ordenes WHERE id = :id AND estado = 2 AND deleted_at IS NULL LIMIT 1';
-        $stmt = $db->prepare($sql);
-        $stmt->execute(['id' => $idOrden]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function proveedorActivo(PDO $db, int $idProveedor): bool

@@ -99,12 +99,20 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                         <?php 
                             $tipoMov = strtoupper(trim((string) ($mov['tipo_movimiento'] ?? ''))); 
                             
-                            // Creamos la cadena para que el buscador funcione
-                            $searchStr = strtolower(($mov['created_at'] ?? '') . ' ' . $tipoMov . ' ' . ($mov['sku'] ?? '') . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . ($mov['referencia'] ?? ''));
+                            // NUEVA LÓGICA DE FECHAS:
+                            // Obtenemos ambas fechas. Si tu base de datos lo llama diferente, cambia 'fecha_documento'
+                            $fechaDocumento = trim((string) ($mov['fecha_documento'] ?? ''));
+                            $fechaCreacion = trim((string) ($mov['created_at'] ?? ''));
+                            
+                            // Si hay fecha de documento, usamos esa. Si no, usamos la del sistema.
+                            $fechaMostrar = !empty($fechaDocumento) ? $fechaDocumento : $fechaCreacion;
+                            
+                            // Creamos la cadena para que el buscador funcione usando la nueva fecha
+                            $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['sku'] ?? '') . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . ($mov['referencia'] ?? ''));
                         ?>
                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                             <td class="ps-4 text-muted align-top pt-3">
-                                <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e((string) ($mov['created_at'] ?? '')); ?>
+                                <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($fechaMostrar); ?>
                             </td>
                             <td class="align-top pt-3 text-center">
                                 <?php if (in_array($tipoMov, $tiposEntrada, true)): ?>
@@ -174,4 +182,3 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
     </div>
 </div>
 <script src="<?php echo e(asset_url('js/inventario/inventario_kardex.js')); ?>"></script>
-

@@ -51,7 +51,6 @@ class ProduccionRecetasModel extends Modelo
         $stmt = $this->db()->query($sql);
         $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // Generamos la variable "sin_receta" en memoria (CPU), aliviando a la Base de Datos
         foreach ($resultados as &$fila) {
             $requiereBom = (int) ($fila['requiere_formula_bom'] ?? 0) === 1;
             $tieneReceta = (int) ($fila['id'] ?? 0) > 0;
@@ -77,13 +76,9 @@ class ProduccionRecetasModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
-    // NUEVA FUNCIÓN OPTIMIZADA: Para el buscador AJAX del Tom Select
     public function buscarInsumosStockeables(string $termino, bool $soloConBom = false, int $limite = 30): array
     {
         $busqueda = '%' . $termino . '%';
-        
-        // NUEVO: Filtro condicional
         $filtroBom = $soloConBom ? ' AND requiere_formula_bom = 1' : '';
         
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
@@ -104,8 +99,6 @@ class ProduccionRecetasModel extends Modelo
         
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // Calculamos el costo dinámico en un loop rápido (Máximo 30 iteraciones)
-        // Esto es muchísimo más eficiente que agrupar toda la tabla en un JOIN
         foreach ($items as &$item) {
             $item['costo_calculado'] = $this->obtenerCostoReferencial((int)$item['id']);
         }
@@ -113,7 +106,6 @@ class ProduccionRecetasModel extends Modelo
         return $items;
     }
 
-    // Se mantiene por retrocompatibilidad, pero ahora usa la lógica rápida
     public function listarItemsStockeables(): array
     {
         $sql = 'SELECT id, sku, nombre, tipo_item, requiere_lote, costo_referencial
@@ -305,7 +297,6 @@ class ProduccionRecetasModel extends Modelo
 
     public function obtenerRecetaVersionParaEdicion(int $idReceta): array
     {
-        // Añadido el JOIN para traer el nombre del producto destino
         $sql = 'SELECT r.*, i.nombre AS producto_nombre 
                 FROM produccion_recetas r 
                 INNER JOIN items i ON i.id = r.id_producto 
@@ -323,7 +314,7 @@ class ProduccionRecetasModel extends Modelo
             'id_producto' => (int) $receta['id_producto'],
             'id_centro_costo' => (int) ($receta['id_centro_costo'] ?? 0),
             'id_almacen_planta' => (int) ($receta['id_almacen_planta'] ?? 0),
-            'producto_nombre' => (string) $receta['producto_nombre'], // <-- Nuevo
+            'producto_nombre' => (string) $receta['producto_nombre'],
             'codigo' => (string) ($receta['codigo'] ?? ''),
             'version' => (int) ($receta['version'] ?? 1),
             'descripcion' => (string) ($receta['descripcion'] ?? ''),
@@ -545,7 +536,6 @@ class ProduccionRecetasModel extends Modelo
 
         $db = $this->db();
 
-        // 1. Costo de Materia Prima y Empaque (MD) - Ya estaba perfecto (Considera la merma)
         $stmtMd = $db->prepare('SELECT COALESCE(SUM((cantidad_por_unidad * (1 + (merma_porcentaje / 100))) * costo_unitario), 0)
                                 FROM produccion_recetas_detalle
                                 WHERE id_receta = :id_receta
@@ -553,21 +543,18 @@ class ProduccionRecetasModel extends Modelo
         $stmtMd->execute(['id_receta' => $idReceta]);
         $costoMD = (float) ($stmtMd->fetchColumn() ?: 0);
 
-        // 2. Costo de Mano de Obra Directa (MOD) - CORREGIDO: Ahora multiplica Horas x Costo por Hora
         $stmtMod = $db->prepare('SELECT COALESCE(SUM(horas_estimadas * costo_hora_estimado), 0)
                                  FROM produccion_recetas_mod
                                  WHERE id_receta = :id_receta');
         $stmtMod->execute(['id_receta' => $idReceta]);
         $costoMOD = (float) ($stmtMod->fetchColumn() ?: 0);
 
-        // 3. Costos Indirectos de Fabricación (CIF) - Ya estaba perfecto
         $stmtCif = $db->prepare('SELECT COALESCE(SUM(costo_estimado), 0)
                                  FROM produccion_recetas_cif
                                  WHERE id_receta = :id_receta');
         $stmtCif->execute(['id_receta' => $idReceta]);
         $costoCIF = (float) ($stmtCif->fetchColumn() ?: 0);
 
-        // 4. Rendimiento (Para sacar el costo unitario)
         $stmtRec = $db->prepare('SELECT rendimiento_base
                                  FROM produccion_recetas
                                  WHERE id = :id_receta
@@ -581,7 +568,6 @@ class ProduccionRecetasModel extends Modelo
             throw new RuntimeException('La receta no tiene rendimiento base válido para costeo.');
         }
 
-        // 5. Cálculo Final y Actualización
         $costoTotal = $costoMD + $costoMOD + $costoCIF;
         $costoUnitario = $costoTotal / $rendimientoBase;
 
@@ -600,7 +586,6 @@ class ProduccionRecetasModel extends Modelo
             'id_receta' => $idReceta,
         ]);
     }
-
 
     private function obtenerModReceta(int $idReceta): array
     {
@@ -631,7 +616,6 @@ class ProduccionRecetasModel extends Modelo
                 $total += $costoBase;
             }
         }
-
         return $total;
     }
 
@@ -644,7 +628,6 @@ class ProduccionRecetasModel extends Modelo
                 $total += $costo;
             }
         }
-
         return $total;
     }
 
@@ -706,13 +689,11 @@ class ProduccionRecetasModel extends Modelo
 
     private function obtenerCostoReferencial(int $idItem): float
     {
-        // 1. Primero buscamos el costo fijo en el ítem
         $stmt = $this->db()->prepare('SELECT costo_referencial FROM items WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $idItem]);
         $costoFijo = (float)($stmt->fetchColumn() ?: 0);
         if ($costoFijo > 0) return $costoFijo;
 
-        // 2. Si no hay, buscamos el costo de su última receta (Si es producto terminado)
         $stmtRec = $this->db()->prepare('SELECT costo_teorico_unitario 
                                          FROM produccion_recetas 
                                          WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL 
@@ -721,7 +702,6 @@ class ProduccionRecetasModel extends Modelo
         $costoReceta = (float)($stmtRec->fetchColumn() ?: 0);
         if ($costoReceta > 0) return $costoReceta;
 
-        // 3. Si no hay receta, buscamos el último costo al que se compró o movió
         $stmtMov = $this->db()->prepare('SELECT costo_unitario 
                                          FROM inventario_movimientos 
                                          WHERE id_item = :id AND costo_unitario IS NOT NULL AND costo_unitario > 0 
@@ -783,9 +763,6 @@ class ProduccionRecetasModel extends Modelo
             throw new RuntimeException('No se puede cambiar el producto destino al crear una versión.');
         }
 
-        // --- LÓGICA DE TRAZABILIDAD ---
-        // Buscamos cuál es la receta ACTIVA actualmente para compararla con lo que envían.
-        // Esto permite cargar la v.1 y guardarla como v.5, porque la v.1 es distinta a la v.4 (activa).
         $stmtActiva = $this->db()->prepare('SELECT id FROM produccion_recetas WHERE id_producto = :id AND estado = 1 AND deleted_at IS NULL LIMIT 1');
         $stmtActiva->execute(['id' => $idProductoPayload]);
         $idRecetaActiva = (int) ($stmtActiva->fetchColumn() ?: $idRecetaBase);
@@ -846,7 +823,6 @@ class ProduccionRecetasModel extends Modelo
 
     private function obtenerDetalleRecetaVersion(int $idReceta): array
     {
-        // Añadido el JOIN para traer el nombre del insumo y arreglar el "Insumo ID: 32"
         $sql = 'SELECT d.id_insumo,
                        d.etapa,
                        d.cantidad_por_unidad,
@@ -1027,8 +1003,6 @@ class ProduccionRecetasModel extends Modelo
 
     public function obtenerSiguienteCodigoReceta(): string
     {
-        // Buscamos el último código base (ignorando las versiones con -V)
-        // Asumimos un prefijo "REC-"
         $sql = "SELECT codigo 
                 FROM produccion_recetas 
                 WHERE codigo LIKE 'REC-%' 
@@ -1039,21 +1013,17 @@ class ProduccionRecetasModel extends Modelo
         $stmt = $this->db()->query($sql);
         $ultimoCodigo = $stmt->fetchColumn();
 
-        // Si no hay ninguna receta registrada, devolvemos el código inicial
         if (!$ultimoCodigo) {
             return 'REC-0001';
         }
 
-        // Limpiamos el código por si trajo una versión (ej. REC-0005-V2 -> REC-0005)
         $codigoBase = $this->limpiarCodigoVersion((string)$ultimoCodigo);
 
-        // Extraemos el número después del guion
         $partes = explode('-', $codigoBase);
         $numero = isset($partes[1]) ? (int) $partes[1] : 0;
         
         $siguienteNumero = $numero + 1;
 
-        // Formateamos con ceros a la izquierda (ej. REC-0006)
         return sprintf('REC-%04d', $siguienteNumero);
     }
 

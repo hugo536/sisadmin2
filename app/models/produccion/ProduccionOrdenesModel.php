@@ -441,7 +441,7 @@ class ProduccionOrdenesModel extends Modelo
         ?string $fechaInicio = null, 
         ?string $fechaFin = null, 
         float $horasParada = 0.0,
-        int $idCentroCosto = 0 // <--- NUEVO PARÁMETRO
+        int $idCentroCosto = 0 
     ): void {
         if ($idOrden <= 0 || empty($consumos) || empty($ingresos)) {
             throw new RuntimeException('Faltan datos de consumos o ingresos para ejecutar la orden.');
@@ -458,6 +458,9 @@ class ProduccionOrdenesModel extends Modelo
 
             $inventarioModel = new InventarioModel(); 
             $costoTotalConsumo = 0.0;
+            
+            // Usamos la fecha de fin de producción (o la actual) como la fecha real del Kardex
+            $fechaDocumento = substr((string) ($fechaFin ?? date('Y-m-d')), 0, 10);
 
             // 1. REGISTRAR CONSUMOS (MD)
             $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento FROM items WHERE id = :id LIMIT 1');
@@ -506,7 +509,8 @@ class ProduccionOrdenesModel extends Modelo
                         'referencia' => 'OP ' . $orden['codigo'] . ' consumo',
                         'lote' => $lote,
                         'costo_unitario' => $costoUnitario,
-                        'created_by' => $userId
+                        'created_by' => $userId,
+                        'fecha_documento' => $fechaDocumento // <-- AQUÍ SE GUARDA LA FECHA
                     ]);
                 }
             }
@@ -537,16 +541,14 @@ class ProduccionOrdenesModel extends Modelo
             $costoModReal = $netHours * $tarifaMod;
             $costoCifReal = $netHours * $tarifaCif;
 
-            // Limpiamos registros manuales viejos si existían
             $db->prepare('DELETE FROM produccion_ordenes_mod WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
             $db->prepare('DELETE FROM produccion_ordenes_cif WHERE id_orden = :id_orden')->execute(['id_orden' => $idOrden]);
 
-            // Guardamos el desglose para el visualizador (Permitiendo id_empleado NULL si la BD lo permite)
             if ($costoModReal > 0) {
                 try {
                     $db->prepare('INSERT INTO produccion_ordenes_mod (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod) VALUES (?, NULL, ?, ?, ?)')
                        ->execute([$idOrden, $netHours, $tarifaMod, $costoModReal]);
-                } catch (Throwable $e) {} // Ignoramos error si la DB antigua exige FK, el total global se guardará igual
+                } catch (Throwable $e) {} 
             }
 
             if ($costoCifReal > 0) {
@@ -609,7 +611,8 @@ class ProduccionOrdenesModel extends Modelo
                         'lote' => $lote,
                         'fecha_vencimiento' => $fechaVencimiento, 
                         'costo_unitario' => $costoUnitarioIngreso,
-                        'created_by' => $userId
+                        'created_by' => $userId,
+                        'fecha_documento' => $fechaDocumento // <-- AQUÍ SE GUARDA LA FECHA
                     ]);
                 }
             }
@@ -654,13 +657,12 @@ class ProduccionOrdenesModel extends Modelo
             $itemModel = new ItemModel();
             $itemModel->actualizarCostoReferencial((int) $orden['id_producto'], $costoUnitarioIngreso, $userId);
 
-            // Solo registramos asiento automático cuando existe costo valorizado.
             if ($costoRealTotal > 0) {
                 $asientoModel = new ContaAsientoModel();
                 $asientoModel->registrarAutomaticoProduccion($db, [
                     'id_orden' => $idOrden,
                     'codigo_orden' => (string) ($orden['codigo'] ?? ''),
-                    'fecha' => substr((string) ($fechaFin ?? date('Y-m-d H:i:s')), 0, 10),
+                    'fecha' => $fechaDocumento, // Se usa la misma fecha en el asiento contable
                     'costo_md' => $costoTotalConsumo,
                     'costo_mod' => $costoModReal,
                     'costo_cif' => $costoCifReal,
@@ -743,6 +745,7 @@ class ProduccionOrdenesModel extends Modelo
                     'referencia' => 'OP ' . $orden['codigo'] . ' avance teórico ' . $fecha . ($nota !== '' ? (' | ' . $nota) : ''),
                     'costo_unitario' => $costoUnitario,
                     'created_by' => $userId,
+                    'fecha_documento' => $fecha // <-- AQUÍ AGREGAMOS LA FECHA DE LA OPERACIÓN
                 ]);
 
                 $lineas++;

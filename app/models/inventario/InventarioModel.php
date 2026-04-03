@@ -423,55 +423,6 @@ class InventarioModel extends Modelo
         ];
     }
 
-    public function obtenerKardex(array $filtros = []): array
-    {
-        $sql = 'SELECT m.id,
-                       m.created_at,
-                       m.tipo_movimiento,
-                       m.cantidad,
-                       m.referencia,
-                       i.sku,
-                       i.nombre AS item_nombre,
-                       ao.nombre AS almacen_origen,
-                       ad.nombre AS almacen_destino,
-                       u.nombre_completo AS usuario
-                FROM inventario_movimientos m
-                INNER JOIN items i ON i.id = m.id_item
-                LEFT JOIN almacenes ao ON ao.id = m.id_almacen_origen
-                LEFT JOIN almacenes ad ON ad.id = m.id_almacen_destino
-                LEFT JOIN usuarios u ON u.id = m.created_by
-                WHERE 1=1';
-
-        $params = [];
-
-        if (!empty($filtros['id_item'])) {
-            $sql .= ' AND m.id_item = :id_item';
-            $params['id_item'] = (int) $filtros['id_item'];
-        }
-
-        if (!empty($filtros['fecha_desde'])) {
-            $sql .= ' AND DATE(m.created_at) >= :fecha_desde';
-            $params['fecha_desde'] = (string) $filtros['fecha_desde'];
-        }
-
-        if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND DATE(m.created_at) <= :fecha_hasta';
-            $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
-        }
-
-        if (!empty($filtros['lote'])) {
-            $sql .= ' AND m.referencia LIKE :lote';
-            $params['lote'] = '%Lote: ' . (string) $filtros['lote'] . '%';
-        }
-
-        $sql .= ' ORDER BY m.created_at DESC LIMIT 1000';
-
-        $stmt = $this->db()->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
     public function registrarMovimiento(array $datos): int
     {
         // 1. SANEAMIENTO Y ASIGNACIÓN BÁSICA
@@ -508,8 +459,8 @@ class InventarioModel extends Modelo
         }
 
         // Definir el sentido del movimiento para simplificar validaciones
-        $esEntrada = in_array($tipo, ['INI', 'AJ+', 'COM', 'PROD'], true); // Agregué COM y PROD como ejemplos de entrada
-        $esSalida = in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true);         // Agregué VEN como ejemplo de salida
+        $esEntrada = in_array($tipo, ['INI', 'AJ+', 'COM', 'PROD'], true); 
+        $esSalida = in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true);         
         $esTransferencia = $tipo === 'TRF';
 
         if ($esEntrada) {
@@ -578,11 +529,14 @@ class InventarioModel extends Modelo
                 }
             }
 
-            // A. Registrar el movimiento (Agregamos costo_promedio_resultante al SQL)
+            // --- NUEVO: Extraer la fecha del documento si viene en los datos ---
+            $fechaDoc = !empty($datos['fecha_documento']) ? trim((string) $datos['fecha_documento']) : null;
+
+            // A. Registrar el movimiento (Agregamos costo_promedio_resultante y fecha_documento al SQL)
             $sqlMovimiento = 'INSERT INTO inventario_movimientos 
-                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by, costo_promedio_resultante)
+                                (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by, costo_promedio_resultante, fecha_documento)
                               VALUES 
-                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :id_centro_costo, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by, :costo_promedio_resultante)';
+                                (:id_item, :id_item_unidad, :id_almacen_origen, :id_almacen_destino, :id_centro_costo, :tipo_movimiento, :cantidad, :costo_unitario, :costo_total, :referencia, :created_by, :costo_promedio_resultante, :fecha_documento)';
             $stmtMov = $db->prepare($sqlMovimiento);
             $stmtMov->execute([
                 'id_item' => $idItemMovimiento,
@@ -597,6 +551,7 @@ class InventarioModel extends Modelo
                 'referencia' => $referenciaFinal !== '' ? $referenciaFinal : null,
                 'created_by' => $createdBy,
                 'costo_promedio_resultante' => $nuevoCostoPromedio, // <-- GUARDAMOS LA FOTO DEL COSTO
+                'fecha_documento' => $fechaDoc, // <-- AQUÍ SE GUARDA LA FECHA REAL
             ]);
             
             $idMovimiento = (int) $db->lastInsertId();
@@ -1032,7 +987,7 @@ class InventarioModel extends Modelo
     private function obtenerVencimientoLote(PDO $db, int $idItem, int $idAlmacen, string $lote): ?string
     {
         if ($lote === '') return null;
-       
+        
         $sql = 'SELECT fecha_vencimiento FROM inventario_lotes
                 WHERE id_item = :id_item AND id_almacen = :id_almacen AND lote = :lote LIMIT 1';
         $stmt = $db->prepare($sql);
@@ -1320,7 +1275,6 @@ class InventarioModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    // Añadir esta función al final de InventarioModel.php
     public function obtenerAlmacenesConStockPorItem(int $idItem): array
     {
         $sql = "SELECT a.id, a.nombre, s.stock_actual
@@ -1382,10 +1336,6 @@ class InventarioModel extends Modelo
             ]);
             $idDevolucion = (int) $db->lastInsertId();
 
-            // === INSTANCIAMOS TU MODELO DE INVENTARIO ===
-            require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
-            $inventarioModel = new InventarioModel();
-
             $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
                        VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
             $stmtDet = $db->prepare($sqlDet);
@@ -1432,8 +1382,8 @@ class InventarioModel extends Modelo
                     'created_by' => $userId,
                 ];
                 
-                // Esto llamará a tu consumirStockAtomico() de forma segura
-                $inventarioModel->registrarMovimiento($datosMovimiento);
+                // Llamamos a registrarMovimiento de esta misma clase
+                $this->registrarMovimiento($datosMovimiento);
             }
 
             // 4. Actualizar el total de dinero a recuperar

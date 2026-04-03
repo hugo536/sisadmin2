@@ -536,7 +536,7 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException('Debe indicar cómo se resolverá la devolución con el proveedor.');
             }
 
-            // 2) Obtener almacén de la última recepción para generar salida de inventario consistente.
+            // 2) Obtener almacén de la última recepción
             $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
             $stmtAlmacen->execute([$idOrden]);
             $idAlmacenOrigen = (int) $stmtAlmacen->fetchColumn();
@@ -553,7 +553,7 @@ class ComprasOrdenModel extends Modelo
 
             // 3) Crear cabecera de devolución
             $sqlDev = "INSERT INTO compras_devoluciones (id_orden, id_proveedor, motivo, tipo_resolucion, total_devuelto, created_by) 
-                       VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)"; // Total temporal 0
+                       VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)";
             
             $db->prepare($sqlDev)->execute([
                 'id_orden' => $idOrden,
@@ -641,6 +641,7 @@ class ComprasOrdenModel extends Modelo
                     'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . trim($motivo),
                     'id_centro_costo' => !empty($ordenDet['id_centro_costo']) ? (int) $ordenDet['id_centro_costo'] : null,
                     'created_by' => $userId,
+                    'fecha_documento' => date('Y-m-d'), // <-- AQUÍ AGREGAMOS LA FECHA
                 ]);
             }
 
@@ -648,11 +649,11 @@ class ComprasOrdenModel extends Modelo
             $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
                ->execute([$totalDevuelto, $idDevolucion]);
 
-            // 7) Ajustar estado de la orden a parcial para permitir reposición futura.
+            // 7) Ajustar estado de la orden
             $db->prepare("UPDATE compras_ordenes SET estado = 2, updated_at = NOW() WHERE id = ?")
                ->execute([$idOrden]);
 
-            // 8) Vincular con Tesorería (CxP) según resolución seleccionada.
+            // 8) Vincular con Tesorería (CxP)
             $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
 
             $db->commit();

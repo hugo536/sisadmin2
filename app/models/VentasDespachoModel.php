@@ -32,6 +32,9 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('Solo se puede despachar pedidos aprobados.');
             }
 
+            // Usamos la fecha del pedido para el Kardex
+            $fechaDocumento = $documento['fecha_emision'] ?? date('Y-m-d');
+
             $detalles = $this->obtenerDetallePendiente($db, $idDocumento);
             if ($detalles === []) {
                 throw new RuntimeException('El pedido no tiene líneas pendientes por despachar.');
@@ -43,11 +46,7 @@ class VentasDespachoModel extends Modelo
             }
 
             // 2. AGRUPAR LÍNEAS POR ALMACÉN
-            // Esto es crucial para crear una "Guía de Despacho" (cabecera) por cada almacén involucrado.
             $despachosAgrupados = [];
-            
-            // También llevaremos un control temporal de lo que estamos validando para no exceder el pendiente
-            // si un mismo item se despacha desde 2 almacenes a la vez.
             $cantidadesAcumuladasItem = []; 
 
             foreach ($lineas as $linea) {
@@ -56,7 +55,7 @@ class VentasDespachoModel extends Modelo
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
 
                 if ($idDetalle <= 0 || $idAlmacenLinea <= 0 || $cantidad <= 0) {
-                    continue; // Ignorar líneas mal formadas o vacías
+                    continue; 
                 }
 
                 if (!isset($mapaDetalle[$idDetalle])) {
@@ -65,7 +64,6 @@ class VentasDespachoModel extends Modelo
 
                 $detalle = $mapaDetalle[$idDetalle];
                 
-                // Acumulamos para validar contra el pendiente global del item
                 $cantidadesAcumuladasItem[$idDetalle] = ($cantidadesAcumuladasItem[$idDetalle] ?? 0) + $cantidad;
                 $pendiente = (float) ($detalle['cantidad_pendiente'] ?? 0);
                 
@@ -73,18 +71,16 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('La suma de cantidades a despachar excede el pendiente del ítem ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
-                // Validamos el stock físico en ESE almacén específico
                 $stockActual = $this->obtenerStockItem($db, (int) $detalle['id_item'], $idAlmacenLinea);
                 if ($cantidad > $stockActual) {
                     throw new RuntimeException('Stock insuficiente para ' . ($detalle['item_nombre'] ?? '') . ' en el almacén seleccionado. Disponible: ' . number_format($stockActual, 2));
                 }
 
-                // Agrupamos la línea válida bajo su ID de almacén
                 $despachosAgrupados[$idAlmacenLinea][] = [
                     'id_documento_detalle' => $idDetalle,
                     'id_item' => (int) $detalle['id_item'],
                     'cantidad' => $cantidad,
-                    'id_almacen' => $idAlmacenLinea // <--- ¡Asegúrate de agregar esta línea!
+                    'id_almacen' => $idAlmacenLinea 
                 ];
             }
 
@@ -92,7 +88,6 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('No hay cantidades válidas para despachar.');
             }
 
-            // Prepared Statements para reutilizar en el bucle
             $stmtInsertDespacho = $db->prepare('INSERT INTO ventas_despachos (
                                             codigo, id_documento_venta, id_almacen, fecha_despacho, documento_referencia, created_by, created_at
                                         ) VALUES (
@@ -120,14 +115,14 @@ class VentasDespachoModel extends Modelo
                                            WHERE id_item = :id_item
                                              AND id_almacen = :id_almacen');
 
+            // --- AÑADIMOS fecha_documento AL COMANDO SQL DEL KARDEX ---
             $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
-                                        (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at)
+                                        (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
                                      VALUES
-                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, NOW())');
+                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, NOW(), :fecha_documento)');
 
             // 3. PROCESAR CADA ALMACÉN Y SUS LÍNEAS
             foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
-                // Generamos una cabecera de despacho por cada almacén
                 $codigoDespacho = $this->generarCodigo($db);
                 
                 $stmtInsertDespacho->execute([
@@ -141,33 +136,29 @@ class VentasDespachoModel extends Modelo
                 $idDespacho = (int) $db->lastInsertId();
 
                 foreach ($lineasAlmacen as $lineaValida) {
-                    // 1. Insertar detalle despacho
                     $stmtDetalle->execute([
                         'id_despacho' => $idDespacho,
                         'id_item' => $lineaValida['id_item'],
                         'cantidad' => $lineaValida['cantidad'],
                     ]);
 
-                    // 2. Actualizar acumulado en documento origen
                     $stmtUpdateDocDetalle->execute([
                         'cantidad' => $lineaValida['cantidad'],
                         'id_detalle' => $lineaValida['id_documento_detalle']
                     ]);
 
-                    // 3. Asegurar registro de stock
                     $stmtStock->execute([
                         'id_item' => $lineaValida['id_item'],
                         'id_almacen' => $idAlmacenFisico,
                     ]);
 
-                    // 4. Descontar stock físico
                     $stmtDescuento->execute([
                         'cantidad' => $lineaValida['cantidad'],
                         'id_item' => $lineaValida['id_item'],
                         'id_almacen' => $idAlmacenFisico,
                     ]);
 
-                    // 5. Registrar Kardex
+                    // --- PASAMOS LA FECHA REAL AL KARDEX ---
                     $stmtMov->execute([
                         'id_item' => $lineaValida['id_item'],
                         'id_almacen_origen' => $idAlmacenFisico,
@@ -175,6 +166,7 @@ class VentasDespachoModel extends Modelo
                         'cantidad' => $lineaValida['cantidad'],
                         'referencia' => 'Despacho ' . $codigoDespacho,
                         'created_by' => $userId,
+                        'fecha_documento' => $fechaDocumento, // <--- MAGIA AQUÍ
                     ]);
                 }
                 $this->registrarAjusteEnvasesPorDespacho(
@@ -186,7 +178,7 @@ class VentasDespachoModel extends Modelo
                 );
             }
 
-            // 4. Verificar si se completó todo el pedido (después de procesar todos los almacenes)
+            // 4. Verificar si se completó todo el pedido
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
             
             $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
@@ -231,7 +223,8 @@ class VentasDespachoModel extends Modelo
 
     private function obtenerDocumento(PDO $db, int $idDocumento): array
     {
-        $stmt = $db->prepare('SELECT id, id_cliente, estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        // Añadimos fecha_emision a la consulta
+        $stmt = $db->prepare('SELECT id, id_cliente, estado, fecha_emision FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmt->execute(['id' => $idDocumento]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
@@ -563,7 +556,8 @@ class VentasDespachoModel extends Modelo
         $db->beginTransaction();
 
         try {
-            $stmtDoc = $db->prepare('SELECT id, codigo, id_cliente, estado
+            // AÑADIMOS fecha_emision
+            $stmtDoc = $db->prepare('SELECT id, codigo, id_cliente, estado, fecha_emision
                                      FROM ventas_documentos
                                      WHERE id = :id
                                        AND deleted_at IS NULL
@@ -579,6 +573,9 @@ class VentasDespachoModel extends Modelo
 
             $idCliente = (int) ($documento['id_cliente'] ?? 0);
             if ($idCliente <= 0) throw new RuntimeException('El pedido no tiene cliente válido.');
+
+            // Usamos la fecha del pedido
+            $fechaDocumento = $documento['fecha_emision'] ?? date('Y-m-d');
 
             $stmtAlm = $db->prepare('SELECT id_almacen
                                      FROM ventas_despachos
@@ -677,6 +674,7 @@ class VentasDespachoModel extends Modelo
                     'costo_unitario' => $costo,
                     'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . trim($motivo),
                     'created_by' => $userId,
+                    'fecha_documento' => $fechaDocumento // <-- AQUÍ PASAMOS LA FECHA REAL
                 ]);
             }
 
