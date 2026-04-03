@@ -164,6 +164,30 @@ class VentasController extends Controlador
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_pedido.php';
             $htmlBase = (string) ob_get_clean();
+
+            if ($paginas === 1) {
+                $html = $htmlBase;
+            } else {
+                $headHtml = '';
+                $bodyHtml = $htmlBase;
+
+                if (preg_match('/<head[^>]*>(.*?)<\/head>/is', $htmlBase, $headMatch) === 1) {
+                    $headHtml = (string) ($headMatch[1] ?? '');
+                }
+                if (preg_match('/<body[^>]*>(.*?)<\/body>/is', $htmlBase, $bodyMatch) === 1) {
+                    $bodyHtml = (string) ($bodyMatch[1] ?? '');
+                }
+
+                $bloques = [];
+                for ($i = 1; $i <= $paginas; $i++) {
+                    $claseSalto = $i < $paginas ? ' class="copia-pdf"' : '';
+                    $bloques[] = '<section' . $claseSalto . '>' . $bodyHtml . '</section>';
+                }
+
+                $html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' . $headHtml
+                    . '<style>.copia-pdf{page-break-after:always;}</style></head><body>'
+                    . implode('', $bloques)
+                    . '</body></html>';
             $html = '';
             for ($i = 1; $i <= $paginas; $i++) {
                 if ($i > 1) {
