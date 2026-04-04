@@ -33,15 +33,24 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     // --- FUNCIONES DE UTILIDAD (Tus funciones originales) ---
-    function getBaseUrl() {
-        const path = window.location.pathname || '';
-        const index = path.indexOf('/items/packs');
-        return index >= 0 ? path.substring(0, index) + '/items/packs' : '/items/packs';
-    }
-
     function buildUrl(action, params = null) {
-        const base = getBaseUrl();
-        const url = new URL(base + '/' + action, window.location.origin);
+        const currentUrl = new URL(window.location.href);
+        let url;
+
+        // Modo query-string (ej: /?ruta=items/packs)
+        if (currentUrl.searchParams.has('ruta')) {
+            const rutaActual = currentUrl.searchParams.get('ruta') || 'items/packs';
+            const rutaBase = rutaActual.split('/').slice(0, 2).join('/') || 'items/packs';
+            url = new URL(currentUrl.origin + currentUrl.pathname);
+            url.searchParams.set('ruta', `${rutaBase}/${action}`);
+        } else {
+            // Modo URL amigable (ej: /items/packs)
+            const path = currentUrl.pathname || '';
+            const index = path.indexOf('/items/packs');
+            const base = index >= 0 ? path.substring(0, index) + '/items/packs' : '/items/packs';
+            url = new URL(base + '/' + action, currentUrl.origin);
+        }
+
         if (params && typeof params === 'object') {
             Object.keys(params).forEach((key) => {
                 url.searchParams.set(key, String(params[key]));
