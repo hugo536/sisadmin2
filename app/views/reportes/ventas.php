@@ -32,12 +32,63 @@
                         <option value="0" <?php echo ($filtros['estado'] ?? '') === '0' ? 'selected' : ''; ?>>Anuladas</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-2">
+                <div class="col-6 col-md-2">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Agrupar por</label>
+                    <select name="agrupacion" class="form-select bg-light">
+                        <option value="diaria" <?php echo ($filtros['agrupacion'] ?? 'diaria') === 'diaria' ? 'selected' : ''; ?>>Día</option>
+                        <option value="semanal" <?php echo ($filtros['agrupacion'] ?? '') === 'semanal' ? 'selected' : ''; ?>>Semana</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-12 col-lg-2">
                     <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
                         <i class="bi bi-funnel-fill me-2"></i>Filtrar
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                <i class="bi bi-graph-up-arrow me-2 text-success"></i>Ventas <?php echo (($filtros['agrupacion'] ?? 'diaria') === 'semanal') ? 'semanales' : 'diarias'; ?>
+            </h5>
+            <span class="badge bg-light text-secondary border">Últimos 12 periodos</span>
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-3">
+                <div class="col-12 col-lg-7">
+                    <div class="border rounded-3 p-3 bg-light-subtle">
+                        <canvas id="ventasPeriodoChart" aria-label="Gráfico de ventas por periodo" role="img" height="180"></canvas>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-5">
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Periodo</th>
+                                    <th class="text-end">Documentos</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($porPeriodo)): ?>
+                                    <tr><td colspan="3" class="text-center text-muted py-3">Sin datos para el rango seleccionado.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($porPeriodo as $r): ?>
+                                        <tr>
+                                            <td class="fw-semibold"><?php echo e((string)($r['etiqueta'] ?? '-')); ?></td>
+                                            <td class="text-end"><?php echo e((string)($r['documentos'] ?? '0')); ?></td>
+                                            <td class="text-end fw-bold">S/ <?php echo number_format((float)($r['total_vendido'] ?? 0), 2); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -207,3 +258,56 @@
     </div>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const chartData = <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>;
+    if (!Array.isArray(chartData) || chartData.length === 0) return;
+    if (typeof window.Chart === 'undefined') return;
+
+    const el = document.getElementById('ventasPeriodoChart');
+    if (!el) return;
+
+    const labels = chartData.map(r => String(r.etiqueta ?? ''));
+    const data = chartData.map(r => Number(r.total_vendido ?? 0));
+
+    new Chart(el, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Total vendido (S/)',
+                data,
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25,135,84,.15)',
+                tension: .25,
+                fill: true,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const val = Number(ctx.parsed.y ?? 0);
+                            return `S/ ${val.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback(value) { return `S/ ${Number(value).toFixed(0)}`; }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
