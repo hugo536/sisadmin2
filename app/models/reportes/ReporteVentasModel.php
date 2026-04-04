@@ -62,9 +62,12 @@ class ReporteVentasModel extends Modelo
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         $w = implode(' AND ', $where);
 
+        /* * MODIFICACIÓN APLICADA Y CONFIRMADA:
+         * Usamos (d.cantidad * d.precio_unitario) basándonos en la estructura real de la tabla.
+         */
         $sql = "SELECT i.nombre AS producto,
                        ROUND(SUM(d.cantidad),2) AS total_cantidad,
-                       ROUND(SUM(d.subtotal),2) AS total_monto
+                       ROUND(SUM(d.cantidad * d.precio_unitario),2) AS total_monto 
                 FROM ventas_documentos v
                 INNER JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id
                 INNER JOIN items i ON i.id = d.id_item
@@ -72,12 +75,14 @@ class ReporteVentasModel extends Modelo
                 GROUP BY d.id_item, i.nombre
                 ORDER BY total_monto DESC
                 LIMIT :limite";
+                
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+    
 
     public function pendientesDespacho(array $f, int $pagina, int $tamano): array
     {
@@ -92,19 +97,24 @@ class ReporteVentasModel extends Modelo
         $count = $this->db()->prepare("SELECT COUNT(*) FROM ventas_documentos v WHERE {$w}");
         $count->execute($params);
 
+        /* * MODIFICACIÓN APLICADA:
+         * 1. Retiramos el LEFT JOIN a la tabla almacenes ya que el almacén se define al despachar.
+         * 2. Enviamos el texto 'Por asignar' como valor de la columna `almacen`.
+         * 3. Retiramos a.nombre del GROUP BY.
+         */
         $sql = "SELECT v.codigo AS documento, t.nombre_completo AS cliente,
                        ROUND(COALESCE(SUM(d.cantidad - d.cantidad_despachada),0),2) AS saldo_despachar,
-                       a.nombre AS almacen,
+                       'Por asignar' AS almacen,
                        DATEDIFF(CURDATE(), DATE(v.fecha_emision)) AS dias_desde_emision
                 FROM ventas_documentos v
                 INNER JOIN terceros t ON t.id = v.id_cliente
                 INNER JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
-                LEFT JOIN almacenes a ON a.id = v.id_almacen
                 WHERE {$w}
-                GROUP BY v.id, v.codigo, t.nombre_completo, a.nombre, v.fecha_emision
+                GROUP BY v.id, v.codigo, t.nombre_completo, v.fecha_emision
                 HAVING saldo_despachar > 0
                 ORDER BY dias_desde_emision DESC
                 LIMIT :limite OFFSET :offset";
+                
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
