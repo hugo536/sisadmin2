@@ -32,19 +32,17 @@
     const templateFila = document.getElementById('templateFilaComponente');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-    // --- FUNCIONES DE UTILIDAD (Tus funciones originales) ---
+    // --- FUNCIONES AUXILIARES ---
     function buildUrl(action, params = null) {
         const currentUrl = new URL(window.location.href);
         let url;
 
-        // Modo query-string (ej: /?ruta=items/packs)
         if (currentUrl.searchParams.has('ruta')) {
             const rutaActual = currentUrl.searchParams.get('ruta') || 'items/packs';
             const rutaBase = rutaActual.split('/').slice(0, 2).join('/') || 'items/packs';
             url = new URL(currentUrl.origin + currentUrl.pathname);
             url.searchParams.set('ruta', `${rutaBase}/${action}`);
         } else {
-            // Modo URL amigable (ej: /items/packs)
             const path = currentUrl.pathname || '';
             const index = path.indexOf('/items/packs');
             const base = index >= 0 ? path.substring(0, index) + '/items/packs' : '/items/packs';
@@ -83,8 +81,8 @@
     function limpiarFormulario() {
         inputCantidad.value = '1';
         checkBonificacion.checked = false;
-        if (window.jQuery && window.jQuery.fn.select2) {
-            window.jQuery(selectComponente).val('').trigger('change');
+        if (window.tomSelectInstance) {
+            window.tomSelectInstance.clear(); // Limpia TomSelect profesionalmente
         } else {
             selectComponente.value = '';
         }
@@ -92,7 +90,6 @@
 
     // --- LÓGICA DE INTERFAZ ---
 
-    // A. Búsqueda en la lista izquierda
     if (inputBuscar) {
         inputBuscar.addEventListener('input', function () {
             const termino = this.value.trim().toLowerCase();
@@ -102,38 +99,32 @@
         });
     }
 
-    // B. Clic en "Nuevo Pack"
     if (btnNuevoPack) {
         btnNuevoPack.addEventListener('click', () => {
-            // Quitar selección de la lista
             listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
 
-            // Resetear formulario padre
             idPackSeleccionadoInput.value = '0';
             inputNombrePack.value = '';
             inputPrecioPack.value = '';
             lblEstadoPack.textContent = 'Nuevo Combo';
             lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle mb-2';
 
-            // Bloquear sección de componentes hasta que se guarde el padre
+            // Bloquear sección de componentes
             seccionComponentes.style.opacity = '0.5';
             seccionComponentes.style.pointerEvents = 'none';
             renderFilaVacia('Guarda el Combo primero para añadir componentes.');
 
-            // Mostrar panel
             panelVacio.classList.add('d-none');
             panelConfiguracion.classList.remove('d-none');
             panelConfiguracion.classList.add('d-flex');
         });
     }
 
-    // C. Clic en un Pack Existente
     listaPacks.forEach((btn) => {
         btn.addEventListener('click', () => {
             listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
             btn.classList.add('active', 'bg-primary-subtle', 'border-primary');
 
-            // Cargar datos en el formulario padre
             idPackSeleccionadoInput.value = btn.dataset.id || '0';
             inputNombrePack.value = btn.dataset.nombre || '';
             inputPrecioPack.value = Number(btn.dataset.precio || 0).toFixed(2);
@@ -153,7 +144,6 @@
         });
     });
 
-    // D. Botón cerrar panel en móviles
     if (btnCerrarPanelMobile) {
         btnCerrarPanelMobile.addEventListener('click', () => {
             panelConfiguracion.classList.add('d-none');
@@ -165,7 +155,7 @@
 
     // --- PETICIONES AL SERVIDOR ---
 
-    // 1. Guardar el Pack Padre (Nombre y Precio)
+    // 1. Guardar el Pack Padre (Nombre y Precio) SIN RECARGAR
     formPackPadre.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -185,21 +175,84 @@
                 body: body.toString(),
             });
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (err) {
+                throw new Error("El servidor respondió con un error fatal. Revisa la base de datos.");
+            }
+
             if (!response.ok || !data.ok) throw new Error(data.mensaje || 'Error al guardar el combo');
 
             toastSuccess('Combo guardado correctamente');
+
+            const idGuardado = String(data.id);
+            const nombreGuardado = inputNombrePack.value.trim();
+            const precioGuardado = Number(inputPrecioPack.value).toFixed(2);
             
-            // Si era nuevo, recargamos la página para que aparezca en la lista izquierda
-            if (idPackSeleccionadoInput.value === '0') {
-                setTimeout(() => window.location.reload(), 1200);
+            let btnLista = listaPacks.find(btn => btn.dataset.id === idGuardado);
+
+            if (btnLista) {
+                // Actualizar botón existente
+                btnLista.dataset.nombre = nombreGuardado;
+                btnLista.dataset.precio = precioGuardado;
+                btnLista.querySelector('.fw-bold.text-dark').textContent = nombreGuardado;
+                btnLista.querySelector('.badge.bg-primary').textContent = `S/ ${precioGuardado}`;
+            } else {
+                // Crear botón nuevo
+                const listaContenedor = document.getElementById('listaPacks');
+                const msjVacio = listaContenedor.querySelector('.text-center.text-muted');
+                if(msjVacio) msjVacio.remove();
+
+                btnLista = document.createElement('button');
+                btnLista.type = 'button';
+                btnLista.className = 'list-group-item list-group-item-action p-3 pack-item-btn';
+                btnLista.dataset.id = idGuardado;
+                btnLista.dataset.nombre = nombreGuardado;
+                btnLista.dataset.precio = precioGuardado;
+                
+                btnLista.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="fw-bold text-dark">${nombreGuardado}</div>
+                        <span class="badge bg-primary rounded-pill">S/ ${precioGuardado}</span>
+                    </div>
+                    <div class="small text-muted mt-1"><i class="bi bi-upc-scan me-1"></i>SIN-SKU</div>
+                `;
+
+                btnLista.addEventListener('click', () => {
+                    listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
+                    btnLista.classList.add('active', 'bg-primary-subtle', 'border-primary');
+
+                    idPackSeleccionadoInput.value = btnLista.dataset.id || '0';
+                    inputNombrePack.value = btnLista.dataset.nombre || '';
+                    inputPrecioPack.value = Number(btnLista.dataset.precio || 0).toFixed(2);
+                    
+                    lblEstadoPack.textContent = 'Editando Combo';
+                    lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
+
+                    seccionComponentes.style.opacity = '1';
+                    seccionComponentes.style.pointerEvents = 'auto';
+
+                    panelVacio.classList.add('d-none');
+                    panelConfiguracion.classList.remove('d-none');
+                    panelConfiguracion.classList.add('d-flex');
+
+                    cargarComponentesDelPack(idPackSeleccionadoInput.value);
+                });
+
+                listaContenedor.prepend(btnLista);
+                listaPacks.push(btnLista);
             }
+
+            // Seleccionar automáticamente
+            btnLista.click();
+
         } catch (error) {
             toastError(error.message);
         }
     });
 
-    // 2. Guardar un Componente (Tu código original)
+    // 2. Guardar Componentes
     formAgregar.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -246,7 +299,7 @@
         }
     });
 
-    // --- CARGA DE TABLAS Y SELECTS ---
+    // --- CARGA DE TABLAS ---
 
     function dibujarFilaEnTabla(data) {
         if (tbodyComponentes.contains(filaVacia)) {
@@ -323,6 +376,23 @@
         }
     }
 
+    // --- LÓGICA DE TOM SELECT ---
+    
+    // 1. Inicializamos Tom Select
+    if (selectComponente) {
+        window.tomSelectInstance = new TomSelect(selectComponente, {
+            create: false,
+            sortField: {
+                field: "text",
+                direction: "asc"
+            },
+            placeholder: 'Buscar producto, envase o insumo...',
+            allowEmptyOption: true,
+            maxOptions: 100
+        });
+    }
+
+    // 2. Cargamos los datos desde la BD y llenamos Tom Select
     async function cargarComponentesDisponibles(termino = '') {
         try {
             const response = await fetch(buildUrl('buscar_componentes', { q: termino }), {
@@ -332,37 +402,26 @@
             if (!response.ok || !data.ok) throw new Error(data.mensaje || 'Error al cargar ítems.');
 
             const items = Array.isArray(data.items) ? data.items : [];
-            const valorActual = selectComponente.value;
 
-            selectComponente.innerHTML = '<option value="">Buscar producto, envase o insumo...</option>';
-            items.forEach((item) => {
-                const option = document.createElement('option');
-                option.value = String(item.id);
-                option.textContent = `${item.nombre} (${item.sku || 'SIN-SKU'})`;
-                selectComponente.appendChild(option);
-            });
+            if (window.tomSelectInstance) {
+                // Vaciamos opciones anteriores
+                window.tomSelectInstance.clearOptions();
+                
+                // Creamos las nuevas opciones (indicando el tipo de ítem)
+                const opciones = items.map(item => ({
+                    value: String(item.id),
+                    text: `${item.nombre} (${item.sku || 'SIN-SKU'}) - [${(item.tipo_item || 'Ítem').toUpperCase()}]`
+                }));
 
-            if ([...selectComponente.options].some((opt) => opt.value === valorActual)) {
-                selectComponente.value = valorActual;
-            }
-
-            if (window.jQuery && window.jQuery.fn.select2) {
-                window.jQuery(selectComponente).trigger('change.select2');
+                // Las añadimos al Tom Select
+                window.tomSelectInstance.addOptions(opciones);
+                window.tomSelectInstance.refreshOptions(false);
             }
         } catch (error) {
-            console.error('Error al poblar select:', error.message);
+            console.error('Error al poblar Tom Select:', error.message);
         }
     }
 
-    // Inicializar select2 y cargar opciones disponibles
-    if (window.jQuery && window.jQuery.fn.select2) {
-        window.jQuery(selectComponente).select2({
-            placeholder: 'Buscar producto, envase o insumo...',
-            allowClear: true,
-            width: '100%',
-        });
-    }
-    
-    // Llamada inicial para poblar el select
+    // Ejecutamos la carga inicial de los productos para el select
     cargarComponentesDisponibles('');
 })();

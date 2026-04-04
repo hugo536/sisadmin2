@@ -178,4 +178,6 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
         })
     });
 </script>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script src="<?= e(asset_url('js/items/packs.js')) ?>?v=<?= time() ?>"></script>
