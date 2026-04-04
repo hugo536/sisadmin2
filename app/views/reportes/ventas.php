@@ -270,11 +270,8 @@
 <script>
 (() => {
     const chartData = <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>;
-    if (!Array.isArray(chartData) || chartData.length === 0) return;
-    if (typeof window.Chart === 'undefined') return;
-
     const el = document.getElementById('ventasPeriodoChart');
-    if (!el) return;
+    if (!el || !Array.isArray(chartData) || chartData.length === 0 || typeof window.Chart === 'undefined') return;
 
     const labels = chartData.map(r => String(r.etiqueta ?? ''));
     const data = chartData.map(r => Number(r.total_vendido ?? 0));
@@ -282,22 +279,17 @@
 
     new Chart(el, {
         type: tipoGrafico,
-
-    new Chart(el, {
-        type: 'line',
         data: {
             labels,
             datasets: [{
                 label: 'Total vendido (S/)',
                 data,
                 borderColor: '#198754',
-                backgroundColor: 'rgba(25,135,84,.15)',
+                backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
                 tension: .25,
                 fill: tipoGrafico === 'line',
                 pointRadius: tipoGrafico === 'line' ? 3 : 0,
                 borderRadius: tipoGrafico === 'bar' ? 6 : 0,
-                fill: true,
-                pointRadius: 3,
             }]
         },
         options: {
