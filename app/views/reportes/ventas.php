@@ -11,7 +11,8 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
-            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>">
+            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>" id="formFiltrosReporteVentas">
+                <input type="hidden" name="ruta" value="reportes/ventas">
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde <span class="text-danger">*</span></label>
                     <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
@@ -267,6 +268,24 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const form = document.getElementById('formFiltrosReporteVentas');
+    if (!form) return;
+
+    form.addEventListener('submit', () => {
+        let rutaInput = form.querySelector('input[name="ruta"]');
+        if (!rutaInput) {
+            rutaInput = document.createElement('input');
+            rutaInput.type = 'hidden';
+            rutaInput.name = 'ruta';
+            form.appendChild(rutaInput);
+        }
+        rutaInput.value = 'reportes/ventas';
+    });
+})();
+
+</script>
 <script>
 (() => {
     const chartData = <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>;
