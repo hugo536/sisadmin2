@@ -14,10 +14,22 @@ class PacksModel
 
     public function obtenerTodosLosPacks(): array
     {
+        $skuExpr = $this->tieneColumna('precios_presentaciones', 'codigo_presentacion')
+            ? 'p.codigo_presentacion'
+            : 'i.sku';
+
+        $nombreExpr = $this->tieneColumna('precios_presentaciones', 'nombre_manual')
+            ? "COALESCE(NULLIF(TRIM(p.nombre_manual), ''), i.nombre)"
+            : 'i.nombre';
+
+        $precioExpr = $this->tieneColumna('precios_presentaciones', 'precio_x_menor')
+            ? 'COALESCE(NULLIF(p.precio_x_menor, 0), i.precio_venta, 0)'
+            : 'COALESCE(i.precio_venta, 0)';
+
         $sql = "SELECT p.id,
-                       p.codigo_presentacion AS sku,
-                       COALESCE(NULLIF(TRIM(p.nombre_manual), ''), i.nombre) AS nombre,
-                       COALESCE(NULLIF(p.precio_x_menor, 0), i.precio_venta, 0) AS precio_venta
+                       {$skuExpr} AS sku,
+                       {$nombreExpr} AS nombre,
+                       {$precioExpr} AS precio_venta
                 FROM precios_presentaciones p
                 INNER JOIN items i ON i.id = p.id_item
                 WHERE p.estado = 1
@@ -163,5 +175,23 @@ class PacksModel
         if (!$stmt->fetchColumn()) {
             throw new RuntimeException('Solo puedes agregar ítems de tipo semielaborado o insumo.');
         }
+    }
+
+    private function tieneColumna(string $tabla, string $columna): bool
+    {
+        $sql = 'SELECT 1
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = :tabla
+                  AND COLUMN_NAME = :columna
+                LIMIT 1';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'tabla' => $tabla,
+            'columna' => $columna,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
     }
 }
