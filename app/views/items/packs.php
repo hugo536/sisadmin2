@@ -13,7 +13,7 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-boxes me-2 text-primary"></i> <?= htmlspecialchars($titulo) ?>
             </h1>
-            <p class="text-muted small mb-0 ms-1">Configuración de recetas comerciales, promociones y kits de venta.</p>
+            <p class="text-muted small mb-0 ms-1">Crea y configura recetas comerciales, promociones y kits de venta.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="<?= e(route_url('items')) ?>" class="btn btn-light shadow-sm text-secondary fw-semibold border">
@@ -26,19 +26,20 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
         
         <div class="col-lg-4 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-bottom p-3">
-                    <h6 class="fw-bold text-dark mb-2">Catálogo de Packs</h6>
+                <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-dark mb-0">Catálogo de Packs</h6>
+                    <button class="btn btn-sm btn-primary fw-bold shadow-sm" id="btnNuevoPack">
+                        <i class="bi bi-plus-lg me-1"></i>Nuevo
+                    </button>
+                </div>
+                <div class="p-2 bg-light border-bottom">
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0 shadow-none" id="buscarPack" placeholder="Buscar combo o pack...">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-white border-start-0 ps-0 shadow-none" id="buscarPack" placeholder="Buscar combo o pack...">
                     </div>
                 </div>
                 
                 <div class="card-body p-0" style="max-height: 600px; overflow-y: auto;">
-                    <div class="p-3 bg-info-subtle border-bottom border-info-subtle text-info-emphasis small">
-                        <i class="bi bi-info-circle-fill me-1"></i> Para que un ítem aparezca aquí, debe ser creado en el Maestro de Ítems con el tipo <strong>"Pack/Combo"</strong>.
-                    </div>
-
                     <div class="list-group list-group-flush" id="listaPacks">
                         <?php if(!empty($packs)): ?>
                             <?php foreach($packs as $pack): ?>
@@ -56,7 +57,7 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                         <?php else: ?>
                             <div class="p-4 text-center text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2 text-light"></i>
-                                <small>No hay ítems configurados como Pack.</small>
+                                <small>Crea tu primer combo haciendo clic en "Nuevo".</small>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -71,33 +72,45 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                     <div class="bg-light rounded-circle p-4 mb-3">
                         <i class="bi bi-diagram-3 text-secondary" style="font-size: 3rem;"></i>
                     </div>
-                    <h5 class="fw-bold text-dark">Selecciona un Pack</h5>
-                    <p class="mb-0">Haz clic en un combo de la lista izquierda para configurar sus componentes (BOM Comercial).</p>
+                    <h5 class="fw-bold text-dark">Crea o Selecciona un Pack</h5>
+                    <p class="mb-0">Haz clic en "Nuevo" para inventar un combo, o selecciona uno existente para editarlo.</p>
                 </div>
 
-                <div id="panelConfiguracion" class="d-none">
-                    <div class="card-header bg-white border-bottom p-4">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-2">Configurando Receta</span>
-                                <h5 class="fw-bold text-dark mb-0" id="lblNombrePack">Nombre del Pack</h5>
+                <div id="panelConfiguracion" class="d-none flex-column h-100">
+                    
+                    <form id="formPackPadre" class="card-header bg-white border-bottom p-4">
+                        <input type="hidden" id="idPackSeleccionado" value="0">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" id="lblEstadoPack">Nuevo Combo</span>
+                            <button type="button" class="btn-close d-lg-none" aria-label="Cerrar" id="btnCerrarPanelMobile"></button>
+                        </div>
+
+                        <div class="row g-3 align-items-start">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-bold mb-1">Nombre del Combo <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control fw-bold shadow-none border-primary-subtle" id="inputNombrePack" placeholder="Ej. BIDÓN NUEVO LLENO 20L" required>
                             </div>
-                            <div class="text-end">
-                                <small class="text-muted d-block fw-bold mb-1">Precio de Venta (Público)</small>
-                                <span class="fs-4 fw-bold text-success" id="lblPrecioPack">S/ 0.00</span>
+                            <div class="col-md-3">
+                                <label class="form-label text-muted small fw-bold mb-1">Precio Público (S/) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control fw-bold text-success shadow-none border-success-subtle" id="inputPrecioPack" step="0.01" min="0" placeholder="25.00" required>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary fw-bold w-100 shadow-sm" id="btnGuardarPack">
+                                    <i class="bi bi-save me-1"></i>Guardar
+                                </button>
                             </div>
                         </div>
-                    </div>
+                    </form>
 
-                    <div class="card-body p-4 bg-light">
+                    <div class="card-body p-4 bg-light" id="seccionComponentes" style="opacity: 0.5; pointer-events: none;">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-link-45deg me-1"></i>Componentes del Combo</h6>
+                        
                         <form id="formAgregarComponente" class="row g-2 align-items-end mb-4 p-3 bg-white border border-secondary-subtle rounded-3 shadow-sm">
-                            <input type="hidden" id="idPackSeleccionado" value="0">
-                            
                             <div class="col-md-6">
                                 <label class="form-label text-muted small fw-bold mb-1">Buscar Componente <span class="text-danger">*</span></label>
                                 <select class="form-select shadow-none" id="selectComponente" required>
                                     <option value="">Buscar producto, envase o insumo...</option>
-                                    </select>
+                                </select>
                             </div>
                             
                             <div class="col-md-2">
@@ -106,15 +119,15 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                             </div>
 
                             <div class="col-md-2 d-flex align-items-center h-100">
-                                <div class="form-check form-switch w-100 mt-2 p-2 border border-secondary-subtle rounded text-center bg-light" data-bs-toggle="tooltip" title="Si es activo, no se considera en el cálculo de costo interno.">
+                                <div class="form-check form-switch w-100 mt-2 p-2 border border-secondary-subtle rounded text-center bg-light" data-bs-toggle="tooltip" title="Al marcarlo, sabes que es un regalo para el cliente">
                                     <input class="form-check-input ms-0 me-2" type="checkbox" id="checkBonificacion">
-                                    <label class="form-check-label small fw-bold text-dark" for="checkBonificacion">Bonificación</label>
+                                    <label class="form-check-label small fw-bold text-dark" for="checkBonificacion">Regalo</label>
                                 </div>
                             </div>
                             
                             <div class="col-md-2 text-end">
-                                <button type="submit" class="btn btn-primary fw-bold w-100 shadow-sm">
-                                    <i class="bi bi-plus-lg me-1"></i>Añadir
+                                <button type="submit" class="btn btn-dark fw-bold w-100 shadow-sm">
+                                    Añadir
                                 </button>
                             </div>
                         </form>
@@ -126,11 +139,11 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                                         <th class="ps-4 text-secondary fw-semibold">Ítem Componente</th>
                                         <th class="text-center text-secondary fw-semibold">Cantidad</th>
                                         <th class="text-center text-secondary fw-semibold">Tipo</th>
-                                        <th class="text-center text-secondary fw-semibold">Acciones</th>
+                                        <th class="text-center text-secondary fw-semibold">Quitar</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr id="filaVacia"><td colspan="4" class="text-center text-muted py-4">No hay componentes asignados a este pack.</td></tr>
+                                    <tr id="filaVacia"><td colspan="4" class="text-center text-muted py-4">Guarda el Combo primero para añadir componentes.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -158,7 +171,6 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
 </template>
 
 <script>
-    // Inicializar tooltips
     document.addEventListener("DOMContentLoaded", function(){
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

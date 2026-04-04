@@ -33,6 +33,39 @@ class PacksController extends Controlador
         $this->render('items/packs', $datos);
     }
 
+    /**
+     * NUEVA FUNCIÓN: Guarda el nombre y precio del Combo en la tabla items
+     */
+    public function guardar_pack_padre(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('items.editar');
+
+        if (!es_ajax() || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            json_response(['ok' => false, 'mensaje' => 'Petición inválida.'], 400);
+            return;
+        }
+
+        $csrf = (string) ($_POST['csrf_token'] ?? '');
+        if (!hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $csrf)) {
+            json_response(['ok' => false, 'mensaje' => 'Error de seguridad (CSRF).'], 403);
+            return;
+        }
+
+        $payload = [
+            'id' => (int) ($_POST['id'] ?? 0),
+            'nombre' => trim((string) ($_POST['nombre'] ?? '')),
+            'precio_venta' => (float) str_replace(',', '.', (string) ($_POST['precio_venta'] ?? 0)),
+        ];
+
+        try {
+            $idPack = $this->packsModel->guardarPackPadre($payload);
+            json_response(['ok' => true, 'mensaje' => 'Combo guardado correctamente.', 'id' => $idPack]);
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 422);
+        }
+    }
+
     public function buscar_componentes(): void
     {
         AuthMiddleware::handle();

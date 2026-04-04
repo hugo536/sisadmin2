@@ -12,29 +12,17 @@ class PacksModel
         $this->db = Conexion::get();
     }
 
+    /**
+     * 1. Obtiene los Combos/Packs para la lista izquierda
+     * Ahora lee de la tabla 'items' donde el tipo sea 'pack'
+     */
     public function obtenerTodosLosPacks(): array
     {
-        $skuExpr = $this->tieneColumna('precios_presentaciones', 'codigo_presentacion')
-            ? 'p.codigo_presentacion'
-            : 'i.sku';
-
-        $nombreExpr = $this->tieneColumna('precios_presentaciones', 'nombre_manual')
-            ? "COALESCE(NULLIF(TRIM(p.nombre_manual), ''), i.nombre)"
-            : 'i.nombre';
-
-        $precioExpr = $this->tieneColumna('precios_presentaciones', 'precio_x_menor')
-            ? 'COALESCE(NULLIF(p.precio_x_menor, 0), i.precio_venta, 0)'
-            : 'COALESCE(i.precio_venta, 0)';
-
-        $sql = "SELECT p.id,
-                       {$skuExpr} AS sku,
-                       {$nombreExpr} AS nombre,
-                       {$precioExpr} AS precio_venta
-                FROM precios_presentaciones p
-                INNER JOIN items i ON i.id = p.id_item
-                WHERE p.estado = 1
-                  AND p.deleted_at IS NULL
-                  AND i.deleted_at IS NULL
+        $sql = "SELECT id, sku, nombre, precio_venta 
+                FROM items 
+                WHERE estado = 1 
+                  AND deleted_at IS NULL 
+                  AND LOWER(tipo_item) = 'pack'
                 ORDER BY nombre ASC";
 
         $stmt = $this->db->prepare($sql);
@@ -43,50 +31,88 @@ class PacksModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function buscarComponentes(string $termino): array
+    /**
+     * 2. Guarda el Pack Padre (Nombre y Precio) en la tabla items
+     */
+    public function guardarPackPadre(array $payload): int
     {
-        $sql = "SELECT i.id,
-                       i.nombre,
-                       i.sku,
-                       i.unidad_base,
-                       i.tipo_item
-                FROM items i
-                WHERE i.estado = 1
-                  AND i.deleted_at IS NULL
-                  AND LOWER(i.tipo_item) IN ('semielaborado', 'insumo')";
+        $id = (int) ($payload['id'] ?? 0);
+        $nombre = trim((string) ($payload['nombre'] ?? ''));
+        $precioVenta = (float) ($payload['precio_venta'] ?? 0);
 
-        if ($termino !== '') {
-            $sql .= " AND (
-                        i.nombre LIKE :termino
-                        OR i.sku LIKE :termino
-                        OR i.tipo_item LIKE :termino
-                      )";
+        if ($nombre === '') {
+            throw new RuntimeException('El nombre del combo es obligatorio.');
         }
 
-        $sql .= ' ORDER BY i.nombre ASC LIMIT 50';
+        if ($id > 0) {
+            // Actualizar pack existente
+            $sql = "UPDATE items SET nombre = :nombre, precio_venta = :precio_venta WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                'nombre' => $nombre,
+                'precio_venta' => $precioVenta,
+                'id' => $id
+            ]);
+            return $id;
+        } else {
+            // Crear pack nuevo (se genera un SKU temporal)
+            $skuNuevo = 'PACK-' . time();
+            $sql = "INSERT INTO items (nombre, sku, precio_venta, tipo_item, estado) 
+                    VALUES (:nombre, :sku, :precio_venta, 'pack', 1)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                'nombre' => $nombre,
+                'sku' => $skuNuevo,
+                'precio_venta' => $precioVenta
+            ]);
+            return (int) $this->db->lastInsertId();
+        }
+    }
+
+    /**
+     * 3. Busca los productos para añadir al combo
+     * CORRECCIÓN: Permite buscar productos terminados y material de empaque
+     */
+    public function buscarComponentes(string $termino): array
+    {
+        // Excluimos los que son tipo 'pack' para no meter un combo dentro de otro combo
+        $sql = "SELECT id, nombre, sku, unidad_base, tipo_item
+                FROM items
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                  AND LOWER(tipo_item) != 'pack'";
+
+        if ($termino !== '') {
+            $sql .= " AND (nombre LIKE :termino OR sku LIKE :termino OR tipo_item LIKE :termino)";
+        }
+
+        $sql .= ' ORDER BY nombre ASC LIMIT 50';
 
         $stmt = $this->db->prepare($sql);
         if ($termino !== '') {
-            $busqueda = '%' . $termino . '%';
-            $stmt->bindValue(':termino', $busqueda, PDO::PARAM_STR);
+            $stmt->bindValue(':termino', '%' . $termino . '%', PDO::PARAM_STR);
         }
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /**
+     * 4. Obtiene la receta interna del pack
+     */
     public function obtenerComponentesPorPack(int $idPack): array
     {
+        // Asumimos que crearemos una tabla 'items_pack_detalle'
         $sql = "SELECT d.id AS id_detalle,
-                       d.id_item,
+                       d.id_item_componente AS id_item,
                        i.nombre AS nombre_item,
                        d.cantidad,
                        COALESCE(d.es_bonificacion, 0) AS es_bonificacion,
                        i.unidad_base
-                FROM precios_presentaciones_detalle d
-                INNER JOIN items i ON i.id = d.id_item
-                WHERE d.id_presentacion = :id_pack
-                ORDER BY d.id DESC";
+                FROM items_pack_detalle d
+                INNER JOIN items i ON i.id = d.id_item_componente
+                WHERE d.id_item_pack = :id_pack
+                ORDER BY d.id ASC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_pack', $idPack, PDO::PARAM_INT);
@@ -95,103 +121,54 @@ class PacksModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /**
+     * 5. Añade un componente a la receta
+     */
     public function agregarComponente(array $payload): int
     {
         $idPack = (int) ($payload['id_pack'] ?? 0);
         $idItem = (int) ($payload['id_item'] ?? 0);
         $cantidad = (float) ($payload['cantidad'] ?? 0);
         $esBonificacion = (int) ($payload['es_bonificacion'] ?? 0);
-        $usuarioId = (int) ($payload['usuario_id'] ?? 0);
 
         if ($idPack <= 0 || $idItem <= 0 || $cantidad <= 0) {
             throw new RuntimeException('Datos inválidos para agregar el componente.');
         }
 
-        $this->validarPackExiste($idPack);
-        $this->validarComponentePermitido($idItem);
-
-        $sqlExiste = 'SELECT id FROM precios_presentaciones_detalle WHERE id_presentacion = :id_pack AND id_item = :id_item LIMIT 1';
+        // Verificamos que el componente no esté ya en este pack
+        $sqlExiste = 'SELECT id FROM items_pack_detalle WHERE id_item_pack = :id_pack AND id_item_componente = :id_item LIMIT 1';
         $stmtExiste = $this->db->prepare($sqlExiste);
         $stmtExiste->execute(['id_pack' => $idPack, 'id_item' => $idItem]);
+        
         if ($stmtExiste->fetchColumn()) {
-            throw new RuntimeException('El componente ya existe en este pack.');
+            throw new RuntimeException('El componente ya existe en este combo.');
         }
 
-        $sql = 'INSERT INTO precios_presentaciones_detalle
-                    (id_presentacion, id_item, cantidad, es_bonificacion, created_by, updated_by)
-                VALUES
-                    (:id_presentacion, :id_item, :cantidad, :es_bonificacion, :created_by, :updated_by)';
+        // Insertamos
+        $sql = 'INSERT INTO items_pack_detalle (id_item_pack, id_item_componente, cantidad, es_bonificacion)
+                VALUES (:id_pack, :id_item, :cantidad, :es_bonificacion)';
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
-            'id_presentacion' => $idPack,
+            'id_pack' => $idPack,
             'id_item' => $idItem,
             'cantidad' => $cantidad,
-            'es_bonificacion' => $esBonificacion,
-            'created_by' => $usuarioId > 0 ? $usuarioId : null,
-            'updated_by' => $usuarioId > 0 ? $usuarioId : null,
+            'es_bonificacion' => $esBonificacion
         ]);
 
         return (int) $this->db->lastInsertId();
     }
 
+    /**
+     * 6. Elimina un componente de la receta
+     */
     public function eliminarComponente(int $idDetalle): bool
     {
-        $sql = 'DELETE FROM precios_presentaciones_detalle WHERE id = :id';
+        $sql = 'DELETE FROM items_pack_detalle WHERE id = :id';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id', $idDetalle, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->rowCount() > 0;
-    }
-
-    private function validarPackExiste(int $idPack): void
-    {
-        $sql = 'SELECT id
-                FROM precios_presentaciones
-                WHERE id = :id_pack AND estado = 1 AND deleted_at IS NULL
-                LIMIT 1';
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['id_pack' => $idPack]);
-
-        if (!$stmt->fetchColumn()) {
-            throw new RuntimeException('El pack seleccionado no existe o está inactivo.');
-        }
-    }
-
-    private function validarComponentePermitido(int $idItem): void
-    {
-        $sql = "SELECT id
-                FROM items
-                WHERE id = :id_item
-                  AND estado = 1
-                  AND deleted_at IS NULL
-                  AND LOWER(tipo_item) IN ('semielaborado', 'insumo')
-                LIMIT 1";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['id_item' => $idItem]);
-
-        if (!$stmt->fetchColumn()) {
-            throw new RuntimeException('Solo puedes agregar ítems de tipo semielaborado o insumo.');
-        }
-    }
-
-    private function tieneColumna(string $tabla, string $columna): bool
-    {
-        $sql = 'SELECT 1
-                FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = :tabla
-                  AND COLUMN_NAME = :columna
-                LIMIT 1';
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            'tabla' => $tabla,
-            'columna' => $columna,
-        ]);
-
-        return (bool) $stmt->fetchColumn();
     }
 }
