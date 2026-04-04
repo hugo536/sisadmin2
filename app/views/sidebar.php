@@ -54,6 +54,7 @@ function renderSidebarInner(
     callable $grupoActivo,
     callable $linkGrupoActivo
 ): void {
+    $menuItemsId        = 'menuItems_' . $navId;
     $menuRRHHId         = 'menuRRHH_' . $navId;
     $menuComercialId    = 'menuComercial_' . $navId;
     $menuTesoreriaId    = 'menuTesoreria_' . $navId;
@@ -70,7 +71,7 @@ function renderSidebarInner(
         $badgeValue = trim((string) $sidebarBadges[$badgeKey]);
         if ($badgeValue === '') return;
         echo '<span class="sb-badge ms-auto" aria-label="Pendientes ' . htmlspecialchars($badgeValue) . '">'
-           . htmlspecialchars($badgeValue) . '</span>';
+            . htmlspecialchars($badgeValue) . '</span>';
     };
 ?>
     <div class="sb-header">
@@ -139,10 +140,25 @@ function renderSidebarInner(
         <?php endif; ?>
  
         <?php if (tiene_permiso('items.ver')): ?>
-        <a class="sb-link<?= $activo('items') ?>" href="<?= e(route_url('items')) ?>" data-tooltip="Ítems / Productos">
+        <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['items', 'items/packs']) ?>"
+            type="button" data-bs-toggle="collapse"
+            data-bs-target="#<?= htmlspecialchars($menuItemsId) ?>"
+            aria-expanded="<?= $grupoActivo(['items', 'items/packs']) ? 'true' : 'false' ?>"
+            data-tooltip="Catálogo e Ítems">
             <span class="sb-link-icon"><i class="bi bi-box-seam"></i></span>
-            <span class="sb-link-text">Ítems / Productos</span>
-        </a>
+            <span class="sb-link-text">Catálogo e Ítems</span>
+            <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
+        </button>
+        <div class="collapse<?= $grupoActivo(['items', 'items/packs']) ?>" id="<?= htmlspecialchars($menuItemsId) ?>" data-menu-key="items" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
+            <div class="sb-submenu">
+                <a class="sb-link sb-sub<?= $activo('items') ?>" href="<?= e(route_url('items')) ?>">
+                    <span class="sb-link-icon"><i class="bi bi-list-ul"></i></span><span class="sb-link-text">Maestro de Ítems</span>
+                </a>
+                <a class="sb-link sb-sub<?= $activo('items/packs') ?>" href="<?= e(route_url('items/packs')) ?>">
+                    <span class="sb-link-icon"><i class="bi bi-boxes"></i></span><span class="sb-link-text">Packs y Combos</span>
+                </a>
+            </div>
+        </div>
         <?php endif; ?>
  
         <?php if (tiene_permiso('inventario.ver')): ?>

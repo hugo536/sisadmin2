@@ -140,11 +140,20 @@ class Router
         }
 
         // Rutas de ITEMS
-        if ($modulo === 'items' && $accion === 'perfil') {
-            $controlador_clase = 'ItemPerfilController';
-            $accion = $partes[2] ?? 'index';
-            if ($accion === '') {
-                $accion = 'index';
+        if ($modulo === 'items') {
+            if ($accion === 'perfil') {
+                $controlador_clase = 'ItemPerfilController';
+                $accion = $partes[2] ?? 'index';
+                if ($accion === '') {
+                    $accion = 'index';
+                }
+            } elseif ($accion === 'packs') {
+                // 👇 NUEVA REGLA PARA PACKS Y COMBOS 👇
+                $controlador_clase = 'PacksController';
+                $accion = $partes[2] ?? 'index'; // Si la URL es items/packs/guardar, la acción será 'guardar'
+                if ($accion === '') {
+                    $accion = 'index';
+                }
             }
         }
 
