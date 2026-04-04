@@ -282,6 +282,9 @@
 
     new Chart(el, {
         type: tipoGrafico,
+
+    new Chart(el, {
+        type: 'line',
         data: {
             labels,
             datasets: [{
@@ -293,6 +296,8 @@
                 fill: tipoGrafico === 'line',
                 pointRadius: tipoGrafico === 'line' ? 3 : 0,
                 borderRadius: tipoGrafico === 'bar' ? 6 : 0,
+                fill: true,
+                pointRadius: 3,
             }]
         },
         options: {
