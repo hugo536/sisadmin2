@@ -113,4 +113,53 @@ class ReporteVentasModel extends Modelo
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
+
+    public function ventasPorPeriodo(array $f, string $agrupacion = 'diaria', int $limite = 12): array
+    {
+        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+
+        if (!empty($f['id_cliente'])) {
+            $where[] = 'v.id_cliente = :id_cliente';
+            $params['id_cliente'] = (int) $f['id_cliente'];
+        }
+        if ($f['estado'] !== '' && $f['estado'] !== null) {
+            $where[] = 'v.estado = :estado';
+            $params['estado'] = (int) $f['estado'];
+        }
+
+        $w = implode(' AND ', $where);
+
+        if ($agrupacion === 'semanal') {
+            $sql = "SELECT YEAR(v.fecha_emision) AS periodo_anio,
+                           WEEK(v.fecha_emision, 1) AS periodo_semana,
+                           CONCAT(YEAR(v.fecha_emision), '-S', LPAD(WEEK(v.fecha_emision, 1), 2, '0')) AS etiqueta,
+                           ROUND(SUM(v.total), 2) AS total_vendido,
+                           COUNT(*) AS documentos
+                    FROM ventas_documentos v
+                    WHERE {$w}
+                    GROUP BY YEAR(v.fecha_emision), WEEK(v.fecha_emision, 1)
+                    ORDER BY periodo_anio DESC, periodo_semana DESC
+                    LIMIT :limite";
+        } else {
+            $sql = "SELECT DATE(v.fecha_emision) AS periodo_fecha,
+                           DATE_FORMAT(DATE(v.fecha_emision), '%Y-%m-%d') AS etiqueta,
+                           ROUND(SUM(v.total), 2) AS total_vendido,
+                           COUNT(*) AS documentos
+                    FROM ventas_documentos v
+                    WHERE {$w}
+                    GROUP BY DATE(v.fecha_emision)
+                    ORDER BY periodo_fecha DESC
+                    LIMIT :limite";
+        }
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
 }

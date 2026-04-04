@@ -16,6 +16,9 @@ $almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados
                 <i class="bi bi-speedometer2 me-2 text-primary"></i> Dashboard
             </h1>
             <p class="text-muted small mb-0 ms-1">Resumen general del sistema y próximos cumpleaños del equipo.</p>
+            <a href="<?php echo e(route_url('reportes/ventas')); ?>" class="btn btn-sm btn-outline-primary mt-2">
+                <i class="bi bi-bar-chart-line-fill me-1"></i>Ir a gráfico de ventas
+            </a>
         </div>
         <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle px-3 py-2 rounded-pill shadow-sm">
             <i class="bi bi-activity me-2"></i>Panel en tiempo real

@@ -109,6 +109,8 @@ class ReportesController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
+        $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
+        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
 
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
@@ -116,6 +118,7 @@ class ReportesController extends Controlador
             'porCliente' => $this->ventas->ventasPorCliente($f, $pagina, $tamano),
             'pendientes' => $this->ventas->pendientesDespacho($f, $pagina, $tamano),
             'topProductos' => $this->ventas->topProductos($f, 10),
+            'porPeriodo' => $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 12),
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
