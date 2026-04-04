@@ -379,6 +379,7 @@ class VentasDocumentoModel extends Modelo
         $params = [];
         $cantidad = $cantidad > 0 ? $cantidad : 1.0;
         $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
+        $subqueryPrecioPresentacion = $this->resolverSubqueryPrecioPresentacion('i.id');
         
         if ($idAlmacen > 0) {
             $stockSql = "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = ? LIMIT 1)";
@@ -415,6 +416,7 @@ class VentasDocumentoModel extends Modelo
                                 ORDER BY ipv.cantidad_minima DESC
                                 LIMIT 1
                             ),
+                            {$subqueryPrecioPresentacion},
                             i.precio_venta,
                             0
                         ) AS precio_venta,
@@ -490,6 +492,25 @@ class VentasDocumentoModel extends Modelo
             ];
         }
 
+        if ($this->tablaExiste('precios_presentaciones')) {
+            $sqlPresentacion = 'SELECT ' . $this->resolverCampoPrecioPresentacion('pp') . '
+                                FROM precios_presentaciones pp
+                                WHERE pp.id_item = :id_item
+                                  AND pp.estado = 1
+                                  AND pp.deleted_at IS NULL
+                                ORDER BY pp.id DESC
+                                LIMIT 1';
+            $stmtPresentacion = $this->db()->prepare($sqlPresentacion);
+            $stmtPresentacion->execute(['id_item' => $idItem]);
+            $precioPresentacion = $stmtPresentacion->fetchColumn();
+            if ($precioPresentacion !== false) {
+                return [
+                    'precio' => (float) $precioPresentacion,
+                    'origen' => 'presentacion',
+                ];
+            }
+        }
+
         $stmtBase = $this->db()->prepare('SELECT COALESCE(precio_venta, 0) FROM items WHERE id = :id_item LIMIT 1');
         $stmtBase->execute(['id_item' => $idItem]);
 
@@ -544,6 +565,58 @@ class VentasDocumentoModel extends Modelo
         $cache[$tabla] = (bool) $stmt->fetchColumn();
 
         return $cache[$tabla];
+    }
+
+    private function resolverSubqueryPrecioPresentacion(string $itemIdSql): string
+    {
+        if (!$this->tablaExiste('precios_presentaciones')) {
+            return 'NULL';
+        }
+
+        $campoPrecio = $this->resolverCampoPrecioPresentacion('pp');
+
+        return "(SELECT {$campoPrecio}
+                 FROM precios_presentaciones pp
+                 WHERE pp.id_item = {$itemIdSql}
+                   AND pp.estado = 1
+                   AND pp.deleted_at IS NULL
+                 ORDER BY pp.id DESC
+                 LIMIT 1)";
+    }
+
+    private function resolverCampoPrecioPresentacion(string $alias): string
+    {
+        if ($this->columnaExiste('precios_presentaciones', 'precio_venta')) {
+            return "COALESCE({$alias}.precio_venta, 0)";
+        }
+        if ($this->columnaExiste('precios_presentaciones', 'precio_x_menor')) {
+            return "COALESCE({$alias}.precio_x_menor, 0)";
+        }
+
+        return '0';
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        static $cache = [];
+        $key = $tabla . '.' . $columna;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1
+                                      FROM information_schema.columns
+                                      WHERE table_schema = DATABASE()
+                                        AND table_name = :tabla
+                                        AND column_name = :columna
+                                      LIMIT 1');
+        $stmt->execute([
+            'tabla' => $tabla,
+            'columna' => $columna,
+        ]);
+        $cache[$key] = (bool) $stmt->fetchColumn();
+
+        return $cache[$key];
     }
 
     public function listarAlmacenesActivos(): array
