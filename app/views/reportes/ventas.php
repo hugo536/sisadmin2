@@ -11,7 +11,8 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
-            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>">
+            <form class="row g-2 align-items-end" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>" id="formFiltrosReporteVentas">
+                <input type="hidden" name="ruta" value="reportes/ventas">
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde <span class="text-danger">*</span></label>
                     <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
@@ -269,12 +270,27 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 (() => {
-    const chartData = <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>;
-    if (!Array.isArray(chartData) || chartData.length === 0) return;
-    if (typeof window.Chart === 'undefined') return;
+    const form = document.getElementById('formFiltrosReporteVentas');
+    if (!form) return;
 
+    form.addEventListener('submit', () => {
+        let rutaInput = form.querySelector('input[name="ruta"]');
+        if (!rutaInput) {
+            rutaInput = document.createElement('input');
+            rutaInput.type = 'hidden';
+            rutaInput.name = 'ruta';
+            form.appendChild(rutaInput);
+        }
+        rutaInput.value = 'reportes/ventas';
+    });
+})();
+
+</script>
+<script>
+(() => {
+    const chartData = <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>;
     const el = document.getElementById('ventasPeriodoChart');
-    if (!el) return;
+    if (!el || !Array.isArray(chartData) || chartData.length === 0 || typeof window.Chart === 'undefined') return;
 
     const labels = chartData.map(r => String(r.etiqueta ?? ''));
     const data = chartData.map(r => Number(r.total_vendido ?? 0));
@@ -282,22 +298,17 @@
 
     new Chart(el, {
         type: tipoGrafico,
-
-    new Chart(el, {
-        type: 'line',
         data: {
             labels,
             datasets: [{
                 label: 'Total vendido (S/)',
                 data,
                 borderColor: '#198754',
-                backgroundColor: 'rgba(25,135,84,.15)',
+                backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
                 tension: .25,
                 fill: tipoGrafico === 'line',
                 pointRadius: tipoGrafico === 'line' ? 3 : 0,
                 borderRadius: tipoGrafico === 'bar' ? 6 : 0,
-                fill: true,
-                pointRadius: 3,
             }]
         },
         options: {
