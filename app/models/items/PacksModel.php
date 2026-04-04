@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/core/Database.php';
+require_once BASE_PATH . '/app/config/Conexion.php';
 
 class PacksModel
 {
@@ -9,7 +9,7 @@ class PacksModel
 
     public function __construct()
     {
-        $this->db = Database::getInstance()->getConnection();
+        $this->db = Conexion::get();
     }
 
     public function obtenerTodosLosPacks(): array
