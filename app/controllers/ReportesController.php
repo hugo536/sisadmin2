@@ -8,6 +8,7 @@ require_once BASE_PATH . '/app/models/reportes/ReporteVentasModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteProduccionModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
+require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 
 class ReportesController extends Controlador
 {
@@ -17,6 +18,7 @@ class ReportesController extends Controlador
     private ReporteProduccionModel $produccion;
     private ReporteTesoreriaModel $tesoreria;
     private UsuariosModel $usuariosModel;
+    private VentasDocumentoModel $ventasDocumentoModel;
 
     public function __construct()
     {
@@ -26,6 +28,7 @@ class ReportesController extends Controlador
         $this->produccion = new ReporteProduccionModel();
         $this->tesoreria = new ReporteTesoreriaModel();
         $this->usuariosModel = new UsuariosModel();
+        $this->ventasDocumentoModel = new VentasDocumentoModel();
     }
 
     public function dashboard(): void
@@ -105,9 +108,21 @@ class ReportesController extends Controlador
         AuthMiddleware::handle();
         require_permiso('reportes.ventas.ver');
         $this->registrarAuditoria('ventas');
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarClientes($q)]);
+            return;
+        }
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_productos') {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarItems($q, 0, 0, 1, 40)]);
+            return;
+        }
+
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
+        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
         $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
@@ -115,6 +130,8 @@ class ReportesController extends Controlador
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
+            'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200),
+            'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
             'porCliente' => $this->ventas->ventasPorCliente($f, $pagina, $tamano),
             'pendientes' => $this->ventas->pendientesDespacho($f, $pagina, $tamano),
             'topProductos' => $this->ventas->topProductos($f, 10),

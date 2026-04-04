@@ -26,6 +26,10 @@ class ReporteVentasModel extends Modelo
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
+        if (!empty($f['id_item'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
+            $params['id_item'] = (int) $f['id_item'];
+        }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         $w = implode(' AND ', $where);
 
@@ -59,6 +63,7 @@ class ReporteVentasModel extends Modelo
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'd.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
+        if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         $w = implode(' AND ', $where);
 
@@ -92,6 +97,10 @@ class ReporteVentasModel extends Modelo
         // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
         $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (1,2)'];
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
+        if (!empty($f['id_item'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = v.id AND d2.id_item = :id_item AND d2.deleted_at IS NULL)';
+            $params['id_item'] = (int) $f['id_item'];
+        }
         $w = implode(' AND ', $where);
 
         $count = $this->db()->prepare("SELECT COUNT(*) FROM ventas_documentos v WHERE {$w}");
@@ -132,6 +141,10 @@ class ReporteVentasModel extends Modelo
         if (!empty($f['id_cliente'])) {
             $where[] = 'v.id_cliente = :id_cliente';
             $params['id_cliente'] = (int) $f['id_cliente'];
+        }
+        if (!empty($f['id_item'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
+            $params['id_item'] = (int) $f['id_item'];
         }
         if ($f['estado'] !== '' && $f['estado'] !== null) {
             $where[] = 'v.estado = :estado';

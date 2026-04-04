@@ -21,9 +21,27 @@
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Hasta <span class="text-danger">*</span></label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Cliente</label>
-                    <input type="number" name="id_cliente" class="form-control bg-light" placeholder="Todos..." value="<?php echo ($filtros['id_cliente'] ?? 0) > 0 ? (int)$filtros['id_cliente'] : ''; ?>">
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente</label>
+                    <select name="id_cliente" id="filtroVentasCliente" class="form-select bg-light" placeholder="Todos...">
+                        <option value="">Todos...</option>
+                        <?php foreach (($clientesFiltro ?? []) as $cli): ?>
+                            <option value="<?php echo (int) ($cli['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_cliente'] ?? 0) === (int)($cli['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($cli['nombre_completo'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto</label>
+                    <select name="id_item" id="filtroVentasProducto" class="form-select bg-light" placeholder="Todos...">
+                        <option value="">Todos...</option>
+                        <?php foreach (($productosFiltro ?? []) as $item): ?>
+                            <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_item'] ?? 0) === (int)($item['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($item['nombre'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="col-6 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Estado</label>
@@ -40,7 +58,7 @@
                         <option value="semanal" <?php echo ($filtros['agrupacion'] ?? '') === 'semanal' ? 'selected' : ''; ?>>Semana</option>
                     </select>
                 </div>
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-md-1">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Gráfico</label>
                     <select name="tipo_grafico" class="form-select bg-light">
                         <option value="barras" <?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'barras' ? 'selected' : ''; ?>>Barras</option>
@@ -270,21 +288,99 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 (() => {
-    const form = document.getElementById('formFiltrosReporteVentas');
-    if (!form) return;
-
-    form.addEventListener('submit', () => {
-        let rutaInput = form.querySelector('input[name="ruta"]');
-        if (!rutaInput) {
-            rutaInput = document.createElement('input');
-            rutaInput.type = 'hidden';
-            rutaInput.name = 'ruta';
-            form.appendChild(rutaInput);
+    async function esperarTomSelect(maxIntentos = 20, esperaMs = 120) {
+        for (let i = 0; i < maxIntentos; i++) {
+            if (typeof window.TomSelect !== 'undefined') return true;
+            await new Promise(resolve => setTimeout(resolve, esperaMs));
         }
-        rutaInput.value = 'reportes/ventas';
-    });
-})();
+        return false;
+    }
 
+    async function inicializarFiltrosVentas() {
+        const form = document.getElementById('formFiltrosReporteVentas');
+        if (!form || form.dataset.jsInicializado === '1') return;
+        form.dataset.jsInicializado = '1';
+
+        const clienteSelect = document.getElementById('filtroVentasCliente');
+        const productoSelect = document.getElementById('filtroVentasProducto');
+        const tomListo = await esperarTomSelect();
+        if (tomListo && clienteSelect && !clienteSelect.tomselect) {
+            new TomSelect(clienteSelect, {
+                valueField: 'id',
+                labelField: 'nombre_completo',
+                searchField: ['nombre_completo', 'num_doc'],
+                placeholder: 'Buscar cliente...',
+                maxOptions: 50,
+                create: false,
+                load(query, callback) {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('ruta', 'reportes/ventas');
+                    u.searchParams.set('accion', 'buscar_clientes');
+                    u.searchParams.set('q', query || '');
+                    fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(r => callback(Array.isArray(r?.data) ? r.data : []))
+                        .catch(() => callback());
+                }
+            });
+        }
+        if (tomListo && productoSelect && !productoSelect.tomselect) {
+            new TomSelect(productoSelect, {
+                valueField: 'id',
+                labelField: 'nombre',
+                searchField: ['nombre', 'sku'],
+                placeholder: 'Buscar producto...',
+                maxOptions: 50,
+                create: false,
+                load(query, callback) {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('ruta', 'reportes/ventas');
+                    u.searchParams.set('accion', 'buscar_productos');
+                    u.searchParams.set('q', query || '');
+                    fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(r => callback(Array.isArray(r?.data) ? r.data : []))
+                        .catch(() => callback());
+                }
+            });
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const data = new FormData(form);
+            data.set('ruta', 'reportes/ventas');
+            const params = new URLSearchParams(data);
+            const url = `${window.location.pathname}?${params.toString()}`;
+
+            try {
+                const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const nuevo = doc.getElementById('reportesVentasApp');
+                const actual = document.getElementById('reportesVentasApp');
+                if (!nuevo || !actual) {
+                    window.location.href = url;
+                    return;
+                }
+                actual.innerHTML = nuevo.innerHTML;
+                window.history.pushState({}, '', url);
+
+                doc.querySelectorAll('script').forEach((script) => {
+                    if (!script.textContent || !script.textContent.trim()) return;
+                    const s = document.createElement('script');
+                    s.textContent = script.textContent;
+                    document.body.appendChild(s);
+                    s.remove();
+                });
+            } catch (e) {
+                window.location.href = url;
+            }
+        });
+    }
+
+    inicializarFiltrosVentas();
+})();
 </script>
 <script>
 (() => {
