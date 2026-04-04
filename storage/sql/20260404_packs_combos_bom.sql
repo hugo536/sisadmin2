@@ -1,6 +1,32 @@
 -- Packs y Combos (BOM Comercial)
 -- Script idempotente para MySQL/MariaDB.
 
+-- 0) Asegura tablas base si aún no existen.
+CREATE TABLE IF NOT EXISTS precios_presentaciones (
+    id INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(150) NOT NULL COMMENT 'Nombre del Pack o Combo',
+    estado TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=Activo, 0=Inactivo',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by INT NULL,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    updated_by INT NULL,
+    deleted_at DATETIME NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS precios_presentaciones_detalle (
+    id INT NOT NULL AUTO_INCREMENT,
+    id_presentacion INT NOT NULL COMMENT 'FK a precios_presentaciones',
+    id_item INT NOT NULL COMMENT 'FK a items (El producto que va dentro del pack)',
+    cantidad DECIMAL(14,4) NOT NULL DEFAULT 1.0000,
+    es_bonificacion TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by INT NULL,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    updated_by INT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- 1) Columnas requeridas en detalle de packs.
 ALTER TABLE precios_presentaciones_detalle
     ADD COLUMN IF NOT EXISTS es_bonificacion TINYINT(1) NOT NULL DEFAULT 0 AFTER cantidad,
@@ -85,7 +111,109 @@ PREPARE stmt_idx_items_componentes_pack FROM @sql_idx_items_componentes_pack;
 EXECUTE stmt_idx_items_componentes_pack;
 DEALLOCATE PREPARE stmt_idx_items_componentes_pack;
 
--- 4) Foráneas de auditoría a usuarios (opcional, si existe tabla usuarios.id).
+-- 4) Foráneas principales de detalle.
+SET @has_fk_ppd_presentacion := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'precios_presentaciones_detalle'
+      AND constraint_name = 'fk_ppd_presentacion'
+);
+SET @sql_fk_ppd_presentacion := IF(@has_fk_ppd_presentacion = 0,
+    'ALTER TABLE precios_presentaciones_detalle ADD CONSTRAINT fk_ppd_presentacion FOREIGN KEY (id_presentacion) REFERENCES precios_presentaciones(id) ON DELETE CASCADE',
+    'SELECT 1'
+);
+PREPARE stmt_fk_ppd_presentacion FROM @sql_fk_ppd_presentacion;
+EXECUTE stmt_fk_ppd_presentacion;
+DEALLOCATE PREPARE stmt_fk_ppd_presentacion;
+
+SET @has_fk_ppd_item := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'precios_presentaciones_detalle'
+      AND constraint_name = 'fk_ppd_item'
+);
+SET @sql_fk_ppd_item := IF(@has_fk_ppd_item = 0,
+    'ALTER TABLE precios_presentaciones_detalle ADD CONSTRAINT fk_ppd_item FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE',
+    'SELECT 1'
+);
+PREPARE stmt_fk_ppd_item FROM @sql_fk_ppd_item;
+EXECUTE stmt_fk_ppd_item;
+DEALLOCATE PREPARE stmt_fk_ppd_item;
+
+-- 5) Foráneas de auditoría a usuarios (solo si existe usuarios.id y se alinea el tipo).
+SET @usuarios_id_coltype := (
+    SELECT COLUMN_TYPE
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'usuarios'
+      AND column_name = 'id'
+    LIMIT 1
+);
+
+SET @sql_align_pp_created_by := IF(@usuarios_id_coltype IS NULL,
+    'SELECT 1',
+    CONCAT('ALTER TABLE precios_presentaciones MODIFY COLUMN created_by ', @usuarios_id_coltype, ' NULL')
+);
+PREPARE stmt_align_pp_created_by FROM @sql_align_pp_created_by;
+EXECUTE stmt_align_pp_created_by;
+DEALLOCATE PREPARE stmt_align_pp_created_by;
+
+SET @sql_align_pp_updated_by := IF(@usuarios_id_coltype IS NULL,
+    'SELECT 1',
+    CONCAT('ALTER TABLE precios_presentaciones MODIFY COLUMN updated_by ', @usuarios_id_coltype, ' NULL')
+);
+PREPARE stmt_align_pp_updated_by FROM @sql_align_pp_updated_by;
+EXECUTE stmt_align_pp_updated_by;
+DEALLOCATE PREPARE stmt_align_pp_updated_by;
+
+SET @sql_align_ppd_created_by := IF(@usuarios_id_coltype IS NULL,
+    'SELECT 1',
+    CONCAT('ALTER TABLE precios_presentaciones_detalle MODIFY COLUMN created_by ', @usuarios_id_coltype, ' NULL')
+);
+PREPARE stmt_align_ppd_created_by FROM @sql_align_ppd_created_by;
+EXECUTE stmt_align_ppd_created_by;
+DEALLOCATE PREPARE stmt_align_ppd_created_by;
+
+SET @sql_align_ppd_updated_by := IF(@usuarios_id_coltype IS NULL,
+    'SELECT 1',
+    CONCAT('ALTER TABLE precios_presentaciones_detalle MODIFY COLUMN updated_by ', @usuarios_id_coltype, ' NULL')
+);
+PREPARE stmt_align_ppd_updated_by FROM @sql_align_ppd_updated_by;
+EXECUTE stmt_align_ppd_updated_by;
+DEALLOCATE PREPARE stmt_align_ppd_updated_by;
+
+SET @has_fk_pp_created_by := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'precios_presentaciones'
+      AND constraint_name = 'fk_pp_created_by'
+);
+SET @sql_fk_pp_created_by := IF(@has_fk_pp_created_by = 0 AND @usuarios_id_coltype IS NOT NULL,
+    'ALTER TABLE precios_presentaciones ADD CONSTRAINT fk_pp_created_by FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE',
+    'SELECT 1'
+);
+PREPARE stmt_fk_pp_created_by FROM @sql_fk_pp_created_by;
+EXECUTE stmt_fk_pp_created_by;
+DEALLOCATE PREPARE stmt_fk_pp_created_by;
+
+SET @has_fk_pp_updated_by := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'precios_presentaciones'
+      AND constraint_name = 'fk_pp_updated_by'
+);
+SET @sql_fk_pp_updated_by := IF(@has_fk_pp_updated_by = 0 AND @usuarios_id_coltype IS NOT NULL,
+    'ALTER TABLE precios_presentaciones ADD CONSTRAINT fk_pp_updated_by FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE',
+    'SELECT 1'
+);
+PREPARE stmt_fk_pp_updated_by FROM @sql_fk_pp_updated_by;
+EXECUTE stmt_fk_pp_updated_by;
+DEALLOCATE PREPARE stmt_fk_pp_updated_by;
+
 SET @has_fk_ppd_created_by := (
     SELECT COUNT(*)
     FROM information_schema.table_constraints
@@ -93,7 +221,7 @@ SET @has_fk_ppd_created_by := (
       AND table_name = 'precios_presentaciones_detalle'
       AND constraint_name = 'fk_ppd_created_by'
 );
-SET @sql_fk_ppd_created_by := IF(@has_fk_ppd_created_by = 0,
+SET @sql_fk_ppd_created_by := IF(@has_fk_ppd_created_by = 0 AND @usuarios_id_coltype IS NOT NULL,
     'ALTER TABLE precios_presentaciones_detalle ADD CONSTRAINT fk_ppd_created_by FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE',
     'SELECT 1'
 );
@@ -108,7 +236,7 @@ SET @has_fk_ppd_updated_by := (
       AND table_name = 'precios_presentaciones_detalle'
       AND constraint_name = 'fk_ppd_updated_by'
 );
-SET @sql_fk_ppd_updated_by := IF(@has_fk_ppd_updated_by = 0,
+SET @sql_fk_ppd_updated_by := IF(@has_fk_ppd_updated_by = 0 AND @usuarios_id_coltype IS NOT NULL,
     'ALTER TABLE precios_presentaciones_detalle ADD CONSTRAINT fk_ppd_updated_by FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE',
     'SELECT 1'
 );
