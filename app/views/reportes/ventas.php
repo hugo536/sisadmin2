@@ -39,6 +39,13 @@
                         <option value="semanal" <?php echo ($filtros['agrupacion'] ?? '') === 'semanal' ? 'selected' : ''; ?>>Semana</option>
                     </select>
                 </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Gráfico</label>
+                    <select name="tipo_grafico" class="form-select bg-light">
+                        <option value="barras" <?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'barras' ? 'selected' : ''; ?>>Barras</option>
+                        <option value="linea" <?php echo ($filtros['tipo_grafico'] ?? '') === 'linea' ? 'selected' : ''; ?>>Línea</option>
+                    </select>
+                </div>
                 <div class="col-12 col-md-12 col-lg-2">
                     <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
                         <i class="bi bi-funnel-fill me-2"></i>Filtrar
@@ -271,6 +278,10 @@
 
     const labels = chartData.map(r => String(r.etiqueta ?? ''));
     const data = chartData.map(r => Number(r.total_vendido ?? 0));
+    const tipoGrafico = <?php echo json_encode(($filtros['tipo_grafico'] ?? 'barras') === 'linea' ? 'line' : 'bar'); ?>;
+
+    new Chart(el, {
+        type: tipoGrafico,
 
     new Chart(el, {
         type: 'line',
@@ -282,6 +293,9 @@
                 borderColor: '#198754',
                 backgroundColor: 'rgba(25,135,84,.15)',
                 tension: .25,
+                fill: tipoGrafico === 'line',
+                pointRadius: tipoGrafico === 'line' ? 3 : 0,
+                borderRadius: tipoGrafico === 'bar' ? 6 : 0,
                 fill: true,
                 pointRadius: 3,
             }]

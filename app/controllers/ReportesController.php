@@ -110,6 +110,7 @@ class ReportesController extends Controlador
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
         $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
+        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
 
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
