@@ -4,6 +4,8 @@ $packs = $packs ?? [];
 $titulo = $titulo ?? 'Packs y Combos Comerciales';
 ?>
 
+<meta name="csrf-token" content="<?= e((string) ($csrf_token ?? '')) ?>">
+
 <div class="container-fluid p-4" id="packsApp">
     
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-4 fade-in">
