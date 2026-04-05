@@ -5,13 +5,12 @@
         btnNuevaVenta.addEventListener('click', async () => {
             try {
                 limpiarModalVenta();
-                await agregarFilaVenta(); // Agrega una fila vacía inicial
+                await agregarFilaVenta(); 
                 
                 const btnGuardar = document.getElementById('btnGuardarVenta');
                 btnGuardar.style.display = 'block';
                 btnGuardar.textContent = 'Guardar Pedido';
 
-                // Mostrar alerta de borrador también al crear nuevo
                 if (!document.getElementById('alertaBorradorInfo')) {
                     const tablaDetalle = document.getElementById('tablaDetalleVenta');
                     const alertaHTML = `
@@ -150,8 +149,12 @@
 
     // --- LÓGICA VENTA (CALCULOS E IMPUESTOS) ---
     function filaVentaPayload(fila) {
+        const selectElement = fila.querySelector('.detalle-item');
+        // MODIFICACIÓN CLAVE: Extraemos el valor directamente de TomSelect si está activo
+        const idValue = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
+
         return {
-            id_item: Number(fila.querySelector('.detalle-item').value || 0),
+            id_item: idValue || '',
             cantidad: parseFloat(fila.querySelector('.detalle-cantidad').value || 0),
             precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0),
         };
@@ -159,8 +162,6 @@
    
     function recalcularTotalVenta() {
         let sumaLineas = 0;
-        
-        // 1. Verificamos si es donación ANTES de recorrer las filas
         const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
 
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
@@ -168,10 +169,8 @@
             const subtotal = data.cantidad * data.precio_unitario;
             sumaLineas += subtotal;
             
-            // 2. Modificamos visualmente la celda del subtotal en la fila
             const celdaSubtotal = fila.querySelector('.detalle-subtotal');
             if (esDonacion) {
-                // Si es donación: Tachamos el valor referencial y mostramos S/ 0.00 en verde
                 celdaSubtotal.innerHTML = `
                     <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
                         <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
@@ -179,7 +178,6 @@
                     </div>
                 `;
             } else {
-                // Si es venta normal: Mostramos el subtotal estándar
                 celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
             }
         });
@@ -187,7 +185,6 @@
         let subtotal = 0;
         let igv = 0;
         let total = 0;
-        
         const tipo = tipoImpuesto ? tipoImpuesto.value : 'exonerado';
 
         if (esDonacion) {
@@ -211,7 +208,7 @@
                 subtotal = sumaLineas;
                 igv = subtotal * 0.18;
                 total = subtotal + igv;
-            } else { // exonerado
+            } else { 
                 subtotal = sumaLineas;
                 igv = 0;
                 total = subtotal;
@@ -223,7 +220,6 @@
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
     }
 
-    // --- EVENTOS CAMBIO DE TIPO E IMPUESTO ---
     if (tipoImpuesto) {
         tipoImpuesto.addEventListener('change', recalcularTotalVenta);
     }
@@ -233,7 +229,7 @@
             if (tipoOperacion.value === 'DONACION') {
                 if (tipoImpuesto) {
                     tipoImpuesto.value = 'exonerado';
-                    tipoImpuesto.disabled = true; // Bloquea el impuesto
+                    tipoImpuesto.disabled = true;
                 }
             } else {
                 if (tipoImpuesto && !tipoImpuesto.hasAttribute('data-readonly')) {
@@ -248,8 +244,9 @@
         const seleccionados = new Set();
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
             if (fila === excluirFila) return;
-            const idItem = Number(fila.querySelector('.detalle-item')?.value || 0);
-            if (idItem > 0) seleccionados.add(idItem);
+            const selectEl = fila.querySelector('.detalle-item');
+            const idItem = selectEl && selectEl.tomselect ? selectEl.tomselect.getValue() : (selectEl?.value || '');
+            if (idItem !== '') seleccionados.add(idItem);
         });
         return seleccionados;
     }
@@ -280,12 +277,12 @@
     }
 
     async function refrescarPrecioFila(fila) {
-        const idItem = Number(fila.querySelector('.detalle-item').value || 0);
+        const selectEl = fila.querySelector('.detalle-item');
+        const idItem = selectEl && selectEl.tomselect ? selectEl.tomselect.getValue() : (selectEl?.value || '');
         if (!idItem) return;
         const cantidad = Number(fila.querySelector('.detalle-cantidad').value || 0);
         
         const inputPrecio = fila.querySelector('.detalle-precio');
-        
         const precioNuevo = await obtenerPrecioItem(idItem, cantidad > 0 ? cantidad : 1);
         
         if (precioNuevo === null) return;
@@ -293,7 +290,6 @@
         if (precioNuevo > 0) {
             inputPrecio.value = precioNuevo.toFixed(2);
         }
-        
         recalcularTotalVenta();
     }
 
@@ -363,8 +359,8 @@
             onChange: function(value) {
                 const selectedOption = this.options[value];
                 if (selectedOption) {
-                    const idSeleccionado = Number(value || 0);
-                    const repetido = idSeleccionado > 0 && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
+                    const idSeleccionado = value || '';
+                    const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
                     if (repetido) {
                         this.clear(true);
                         filaReal.querySelector('.detalle-stock').textContent = '0.00';
@@ -403,7 +399,7 @@
 
         if (item) {
             tom.addOption({
-                id: item.id_item,
+                id: item.id_item, 
                 text: `${item.item_nombre || ''}`,
                 stock: Number(item.stock_actual || 0), 
                 precio: Number(item.precio_unitario)
@@ -455,7 +451,7 @@
             tipoOperacion.disabled = false;
         }
         if (tipoImpuesto) {
-            tipoImpuesto.value = 'exonerado'; // <-- Mantenemos 'exonerado' como pediste anteriormente
+            tipoImpuesto.value = 'exonerado';
             tipoImpuesto.disabled = false;
             tipoImpuesto.removeAttribute('data-readonly');
         }
@@ -505,16 +501,24 @@
 
     document.getElementById('btnGuardarVenta')?.addEventListener('click', async () => {
         try {
-            const detalle = [...tbodyVenta.querySelectorAll('tr')].map((fila) => filaVentaPayload(fila));
-            if (!detalle.length) throw new Error('Debe agregar al menos un producto.');
-
+            const filasArray = [...tbodyVenta.querySelectorAll('tr')];
+            if (filasArray.length === 0) throw new Error('Debe agregar al menos un producto.');
+            
+            const detalle = filasArray.map((fila) => filaVentaPayload(fila));
             const ids = new Set();
             let excedeStock = false; 
 
-            for (const fila of tbodyVenta.querySelectorAll('tr')) {
-                const data = filaVentaPayload(fila);
-                if (data.id_item <= 0) throw new Error('Seleccione un producto en todas las filas.');
-                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos en el pedido.');
+            // Validaciones con la nueva data segura
+            for (let i = 0; i < filasArray.length; i++) {
+                const fila = filasArray[i];
+                const data = detalle[i];
+                
+                if (!data.id_item || data.id_item === '0') {
+                    throw new Error('Seleccione un producto en todas las filas.');
+                }
+                if (ids.has(data.id_item)) {
+                    throw new Error('No se permiten productos repetidos en el pedido.');
+                }
                 ids.add(data.id_item);
                 
                 if (!validarCantidadVsStock(fila)) {
@@ -545,9 +549,8 @@
                 tipo_operacion: tipoOperacion ? tipoOperacion.value : 'VENTA', 
                 fecha_emision: fechaEmision.value,
                 observaciones: ventaObservaciones.value,
-                // MODIFICACIÓN: Si en el guardado no se mandó un impuesto, asumirá 'exonerado'
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'exonerado',
-                detalle,
+                detalle: detalle,
             });
 
             await Swal.fire('Guardado', payload.mensaje, 'success');
@@ -655,6 +658,9 @@
         let opcionesHTML = '<option value="">Seleccione...</option>';
         let disabledState = '';
         const almacenesDisp = linea.almacenes_disponibles || [];
+        
+        let mejorAlmacenId = '';
+        let maxStock = -1;
 
         if (almacenesDisp.length === 0) {
             opcionesHTML = '<option value="">Sin stock en ningún almacén</option>';
@@ -663,6 +669,12 @@
             almacenesDisp.forEach(alm => {
                 const stockDisponible = Number.parseFloat(alm.stock_actual || 0) || 0;
                 opcionesHTML += `<option value="${alm.id}" data-stock="${stockDisponible}">${alm.nombre} (Dispo: ${stockDisponible})</option>`;
+                
+                // Encontramos el almacén con el stock más alto para autoseleccionarlo
+                if (stockDisponible > maxStock) {
+                    maxStock = stockDisponible;
+                    mejorAlmacenId = alm.id;
+                }
             });
         }
 
@@ -848,6 +860,16 @@
         });
 
         actualizarModoGrupo();
+
+        // ¡LA MAGIA DE LA AUTOSELECCIÓN!
+        // Si es la fila principal (no fue dividida por el usuario) y hay un almacén sugerido, lo preseleccionamos
+        if (!filaReferencia && mejorAlmacenId) {
+            selectAlmacen.value = mejorAlmacenId;
+            // Simulamos el evento "change" para que la función de arriba haga su magia y autocompleta la cantidad
+            setTimeout(() => {
+                selectAlmacen.dispatchEvent(new Event('change'));
+            }, 50);
+        }
     }
 
     function validarGrupoItem(idDetalle) {
@@ -1006,13 +1028,11 @@
                 inputFecha.value = venta.fecha_emision || '';
                 inputObs.value = venta.observaciones || '';
                 
-                // --- CARGAR TIPO OPERACIÓN E IMPUESTO ---
                 if (tipoOperacion) {
                     tipoOperacion.value = venta.tipo_operacion || 'VENTA';
                     tipoOperacion.disabled = !esBorrador;
                 }
                 if (tipoImpuesto) {
-                    // MODIFICACIÓN: Si es antiguo o vacío, asume 'exonerado' de forma segura
                     tipoImpuesto.value = venta.tipo_impuesto || 'exonerado';
                     if (!esBorrador || (tipoOperacion && tipoOperacion.value === 'DONACION')) {
                         tipoImpuesto.disabled = true;
@@ -1104,7 +1124,7 @@
 
                 detalle.push({
                     id_documento_detalle: Number(tr.dataset.idDetalle || 0),
-                    id_item: Number(tr.dataset.idItem || 0),
+                    id_item: tr.dataset.idItem || '',
                     cantidad,
                     costo_unitario: Number(tr.dataset.precio || 0),
                 });

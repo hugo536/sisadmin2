@@ -441,14 +441,16 @@ $estadoLabels = [
 </template>
 
 <script>
-    let pedidoIdPendienteImpresion = 0;
+    // Usamos window.pedidoIdPendienteImpresion para evitar el error de "already declared" en SPAs
+    window.pedidoIdPendienteImpresion = window.pedidoIdPendienteImpresion || 0;
 
     // Función para abrir el modal y pedir cantidad de hojas
-    function imprimirPedido(id) {
+    // La asignamos a window para que también sea accesible globalmente
+    window.imprimirPedido = function(id) {
         const app = document.getElementById('ventasApp');
         if (!app) return;
 
-        pedidoIdPendienteImpresion = Number(id) || 0;
+        window.pedidoIdPendienteImpresion = Number(id) || 0;
 
         const inputPaginas = document.getElementById('cantidadPaginasPedido');
         if (inputPaginas) inputPaginas.value = 1;
@@ -457,16 +459,21 @@ $estadoLabels = [
         if (!modalEl || typeof bootstrap === 'undefined') return;
 
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
+    }; // <-- EL PUNTO Y COMA SALVADOR
 
-    document.addEventListener('DOMContentLoaded', () => {
+    // Usamos una función anónima autoejecutable para aislar los event listeners
+    (function() {
         const btnConfirmar = document.getElementById('btnConfirmarImpresionPedido');
         if (!btnConfirmar) return;
 
-        btnConfirmar.addEventListener('click', () => {
+        // Clonamos el botón para quitar todos sus listeners anteriores
+        const nuevoBtnConfirmar = btnConfirmar.cloneNode(true);
+        btnConfirmar.parentNode.replaceChild(nuevoBtnConfirmar, btnConfirmar);
+
+        nuevoBtnConfirmar.addEventListener('click', () => {
             const app = document.getElementById('ventasApp');
             const inputPaginas = document.getElementById('cantidadPaginasPedido');
-            if (!app || !inputPaginas || pedidoIdPendienteImpresion <= 0) return;
+            if (!app || !inputPaginas || window.pedidoIdPendienteImpresion <= 0) return;
 
             const baseUrl = app.dataset.urlIndex;
             const paginas = Math.max(1, Math.min(20, Number(inputPaginas.value) || 1));
@@ -476,7 +483,7 @@ $estadoLabels = [
                 bootstrap.Modal.getOrCreateInstance(modalEl).hide();
             }
 
-            window.open(`${baseUrl}&accion=imprimir&id=${pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
+            window.open(`${baseUrl}&accion=imprimir&id=${window.pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
         });
-    });
+    })();
 </script>

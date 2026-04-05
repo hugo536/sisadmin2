@@ -87,10 +87,10 @@ class InventarioModel extends Modelo
         if ($tablaPacksDisponible) {
             if ($idAlmacen > 0) {
                 $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
-                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen}) AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
+                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.referencia LIKE CONCAT('Pack: PACK-', p.id, '%') AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen})";
                 $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = {$idAlmacen}";
                 $whereExtraPack    = "AND sp.id IS NOT NULL";
-                $groupByPack       = "";
+                $groupByPack       = "GROUP BY p.id, p.nombre, p.estado";
             } else {
                 // VISTA GLOBAL INTELIGENTE PARA PACKS
                 $selectAlmacenPack = "0 AS id_almacen, 
@@ -129,25 +129,24 @@ class InventarioModel extends Modelo
                                               END
                                           ), 0
                                       ) AS stock_actual,";
-                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND m.referencia LIKE CONCAT('Pack: ', p.codigo_presentacion, '%')";
+                $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.referencia LIKE CONCAT('Pack: PACK-', p.id, '%')";
                 $joinsExtraPack    = "LEFT JOIN inventario_stock sp ON sp.id_pack = p.id\nLEFT JOIN almacenes a ON a.id = sp.id_almacen";
                 $whereExtraPack    = "";
-                $groupByPack       = "GROUP BY p.id, p.codigo_presentacion, p.nombre_manual, i.nombre, i.id_categoria, i.tipo_item, c.nombre, sbr.nombre, prs.nombre, p.factor, p.estado, p.stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta";
+                $groupByPack       = "GROUP BY p.id, p.nombre, p.estado";
             }
 
             $sql .= " UNION ALL
-                      SELECT p.id AS id_item, p.codigo_presentacion AS sku,
-                             COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre,
-                             COALESCE(p.nombre_manual, CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))) AS item_nombre_base,
-                             'Pack Comercial' AS item_descripcion, p.estado AS item_estado, i.id_categoria, i.tipo_item, COALESCE(c.nombre, '') AS categoria_nombre, p.stock_minimo AS stock_minimo, p.requiere_vencimiento, p.dias_vencimiento_alerta AS dias_alerta_vencimiento, 1 AS controla_stock, 0 AS requiere_factor_conversion, 0 AS permite_decimales, 'pack' AS tipo_registro,
+                      SELECT p.id AS id_item, CONCAT('PACK-', p.id) AS sku,
+                             p.nombre AS item_nombre,
+                             p.nombre AS item_nombre_base,
+                             'Pack Comercial' AS item_descripcion, p.estado AS item_estado, 
+                             NULL AS id_categoria, 'combo' AS tipo_item, '' AS categoria_nombre, 
+                             0 AS stock_minimo, 0 AS requiere_vencimiento, 0 AS dias_alerta_vencimiento, 
+                             1 AS controla_stock, 0 AS requiere_factor_conversion, 0 AS permite_decimales, 'pack' AS tipo_registro,
                              {$selectAlmacenPack}
                              NULL AS lote_actual, NULL AS proximo_vencimiento,
                              ({$subqueryMovPack}) AS ultimo_movimiento
                       FROM precios_presentaciones p
-                      LEFT JOIN items i ON i.id = p.id_item
-                      LEFT JOIN categorias c ON c.id = i.id_categoria
-                      LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
-                      LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                       {$joinsExtraPack}
                       WHERE p.estado = 1 AND p.deleted_at IS NULL {$whereExtraPack}
                       {$groupByPack}";
@@ -160,14 +159,13 @@ class InventarioModel extends Modelo
         $stmt->execute($params);
         $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 5. ANEXAR DESGLOSE MASIVO (Permite al Frontend usar su convertidor)
+        // 5. ANEXAR DESGLOSE MASIVO
         if (empty($resultados)) {
             return [];
         }
 
         $itemsParaDesglose = [];
         foreach ($resultados as $fila) {
-            // Evaluamos siempre que pida conversión, incluso si el stock parece 0
             if ($fila['tipo_registro'] === 'item' && (int) ($fila['requiere_factor_conversion'] ?? 0) === 1) {
                 $itemsParaDesglose[] = (int)$fila['id_item'];
             }
@@ -241,31 +239,23 @@ class InventarioModel extends Modelo
         if ($tablaPacksDisponible) {
             $sql .= " UNION ALL
                       SELECT p.id,
-                             p.codigo_presentacion AS sku,
-                             COALESCE(p.nombre_manual, i.nombre) AS nombre,
-                             i.unidad_base,
+                             CONCAT('PACK-', p.id) AS sku,
+                             p.nombre AS nombre,
+                             'UND' AS unidad_base,
                              'pack' AS tipo,
                              'pack' AS tipo_registro,
                              0 AS requiere_lote,
                              0 AS requiere_vencimiento,
-                             COALESCE(
-                                 p.nombre_manual,
-                                 CONCAT(i.nombre, ' x ', CAST(p.factor AS UNSIGNED))
-                             ) AS nombre_full,
-                             COALESCE(NULLIF(TRIM(p.nota_pack), ''), '') AS nota,
+                             p.nombre AS nombre_full,
+                             '' AS nota,
                              CONCAT('pack:', p.id) AS value
                       FROM precios_presentaciones p
-                      INNER JOIN items i ON i.id = p.id_item
-                      LEFT JOIN item_sabores s ON s.id = i.id_sabor
-                      LEFT JOIN item_presentaciones ip ON ip.id = i.id_presentacion
                       WHERE p.estado = 1
                         AND p.deleted_at IS NULL
                         {$filtroStockPacks}
                         AND (
-                            p.codigo_presentacion LIKE :termino_sku_pack
-                            OR p.nombre_manual LIKE :termino_nombre_pack
-                            OR i.nombre LIKE :termino_nombre_base_pack
-                            OR p.nota_pack LIKE :termino_nota_pack
+                            CONCAT('PACK-', p.id) LIKE :termino_sku_pack
+                            OR p.nombre LIKE :termino_nombre_pack
                         )";
         }
 
@@ -278,8 +268,6 @@ class InventarioModel extends Modelo
         if ($tablaPacksDisponible) {
             $stmt->bindValue(':termino_sku_pack', $busqueda, PDO::PARAM_STR);
             $stmt->bindValue(':termino_nombre_pack', $busqueda, PDO::PARAM_STR);
-            $stmt->bindValue(':termino_nombre_base_pack', $busqueda, PDO::PARAM_STR);
-            $stmt->bindValue(':termino_nota_pack', $busqueda, PDO::PARAM_STR);
         }
 
         if ($soloConStock && $idAlmacen > 0) {
@@ -448,7 +436,6 @@ class InventarioModel extends Modelo
 
         // 2. VALIDACIONES DE REGLAS DE NEGOCIO
         if ($idRegistro <= 0 || $createdBy <= 0 || $cantidad <= 0) {
-            // Permitimos cantidad 0 solo si es INI, pero tú tenías validación de >= 0 para INI y > 0 para el resto
             if ($tipo !== 'INI' || $cantidad < 0) {
                 throw new InvalidArgumentException('Datos incompletos o cantidad inválida para registrar el movimiento.');
             }
@@ -458,7 +445,6 @@ class InventarioModel extends Modelo
             throw new InvalidArgumentException('Para movimiento INI el costo unitario debe ser mayor o igual a 0.');
         }
 
-        // Definir el sentido del movimiento para simplificar validaciones
         $esEntrada = in_array($tipo, ['INI', 'AJ+', 'COM', 'PROD'], true); 
         $esSalida = in_array($tipo, ['AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA'], true);         
         $esTransferencia = $tipo === 'TRF';
@@ -469,7 +455,6 @@ class InventarioModel extends Modelo
         } elseif ($esSalida) {
             if ($idAlmacenOrigen <= 0) throw new InvalidArgumentException('Debe seleccionar almacén de origen para salidas.');
             
-            // --- ACTUALIZACIÓN: Exigir Centro de Costo también para Mermas/Pérdidas ---
             if (in_array($tipo, ['CON', 'AJ-', 'SALIDA_MERMA_PLANTA'], true) && $idCentroCosto === null) {
                 throw new InvalidArgumentException('Para salidas por consumo o pérdidas, debe asignar a qué Centro de Costos irá el gasto.');
             }
@@ -480,10 +465,10 @@ class InventarioModel extends Modelo
             }
         }
 
-        // 3. CONSULTAS PREVIAS (Fuera de la transacción para no bloquear la BD)
+        // 3. CONSULTAS PREVIAS
         $db = $this->db();
         $configRegistro = $esPack ? $this->obtenerConfiguracionPack($db, $idRegistro) : $this->obtenerConfiguracionItem($db, $idRegistro);
-        $idItemMovimiento = $esPack ? (int) ($configRegistro['id_item_base'] ?? 0) : $idRegistro;
+        $idItemMovimiento = $esPack ? $idRegistro : $idRegistro;
 
         if ($idItemMovimiento <= 0) {
             throw new RuntimeException('No se pudo identificar el ítem base para registrar el movimiento.');
@@ -496,11 +481,10 @@ class InventarioModel extends Modelo
         if ($requiereVenc && $esEntrada && $fechaVencimiento === '') throw new InvalidArgumentException('El registro requiere fecha de vencimiento para entradas.');
         if ($fechaVencimiento !== '' && !$this->esFechaValida($fechaVencimiento)) throw new InvalidArgumentException('Formato de fecha de vencimiento inválido (YYYY-MM-DD).');
 
-        // Construir referencia
         $costoTotal = $cantidad * $costoUnitario;
         $referenciaFinal = $this->construirReferencia($referencia, $lote, $fechaVencimiento, $costoUnitario, $costoTotal);
         if ($esPack) {
-            $prefix = 'Pack: ' . ($configRegistro['codigo_presentacion'] ?? 'PACK-' . $idRegistro);
+            $prefix = 'Pack: PACK-' . $idRegistro;
             $referenciaFinal = $referenciaFinal !== '' ? "$prefix | $referenciaFinal" : $prefix;
         }
 
@@ -516,23 +500,18 @@ class InventarioModel extends Modelo
         if ($iniciaTransaccion) $db->beginTransaction();
 
         try {
-            // ---> NUEVA LÓGICA DE COSTOS AQUÍ <---
             $nuevoCostoPromedio = null;
             if (!$esPack) {
                 if ($esEntrada && $costoUnitario > 0) {
-                    // Si entra mercadería, recalculamos el Costo Promedio Ponderado
                     $nuevoCostoPromedio = $this->procesarCostosIngreso($db, $idItemMovimiento, $idAlmacenDestino, $cantidad, $costoUnitario);
                 } else {
-                    // Si es salida o transferencia (o entrada a costo 0), mantenemos el costo histórico actual para el Kardex
                     $idAlmacenConsulta = $esSalida ? $idAlmacenOrigen : ($esTransferencia ? $idAlmacenOrigen : $idAlmacenDestino);
                     $nuevoCostoPromedio = $this->obtenerCostoPromedioActual($db, $idItemMovimiento, $idAlmacenConsulta);
                 }
             }
 
-            // --- NUEVO: Extraer la fecha del documento si viene en los datos ---
             $fechaDoc = !empty($datos['fecha_documento']) ? trim((string) $datos['fecha_documento']) : null;
 
-            // A. Registrar el movimiento (Agregamos costo_promedio_resultante y fecha_documento al SQL)
             $sqlMovimiento = 'INSERT INTO inventario_movimientos 
                                 (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by, costo_promedio_resultante, fecha_documento)
                               VALUES 
@@ -550,39 +529,32 @@ class InventarioModel extends Modelo
                 'costo_total' => $costoTotal > 0 ? number_format($costoTotal, 4, '.', '') : null,
                 'referencia' => $referenciaFinal !== '' ? $referenciaFinal : null,
                 'created_by' => $createdBy,
-                'costo_promedio_resultante' => $nuevoCostoPromedio, // <-- GUARDAMOS LA FOTO DEL COSTO
-                'fecha_documento' => $fechaDoc, // <-- AQUÍ SE GUARDA LA FECHA REAL
+                'costo_promedio_resultante' => $nuevoCostoPromedio,
+                'fecha_documento' => $fechaDoc,
             ]);
             
             $idMovimiento = (int) $db->lastInsertId();
 
-            // B. Actualizar Stocks según el sentido del movimiento
             if ($esSalida || $esTransferencia) {
-                // RESTAR DE ORIGEN (atómico para evitar condiciones de carrera)
                 if ($esPack) {
                     $this->consumirStockPackAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                 } else {
                     $this->consumirStockAtomico($db, $idRegistro, $idAlmacenOrigen, $cantidad);
                     
-                    // Verificamos si hay stock "fantasma" atrapado en lotes antiguos
                     $stockEnLotes = $this->obtenerTotalStockLotes($db, $idRegistro, $idAlmacenOrigen);
                     
-                    // Entramos si requiere lote, si enviaron un lote manual, O si hay fantasmas por limpiar
                     if ($requiereLote || $lote !== '' || $stockEnLotes > 0) {
-                        // Pasamos $requiereLote para indicarle si debe ser "Estricto" o "Auto-limpiante"
                         $this->decrementarStockLote($db, $idRegistro, $idAlmacenOrigen, $lote, $cantidad, $requiereLote);
                     }
                 }
             }
 
             if ($esEntrada || $esTransferencia) {
-                // SUMAR A DESTINO
                 if ($esPack) {
                     $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad);
                 } else {
                     $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad);
                     
-                    // Si es transferencia y no hay vencimiento, heredar del lote origen
                     if ($esTransferencia && $lote !== '' && $fechaVencimiento === '') {
                         $fechaVencimiento = $this->obtenerVencimientoLote($db, $idRegistro, $idAlmacenOrigen, $lote);
                     }
@@ -967,12 +939,12 @@ class InventarioModel extends Modelo
             throw new RuntimeException('No existe la tabla de presentaciones comerciales en esta base de datos.');
         }
 
-        $sql = 'SELECT p.id, p.id_item AS id_item_base, p.codigo_presentacion, 1 AS controla_stock, 0 AS requiere_lote, 0 AS requiere_vencimiento
+        $sql = "SELECT p.id, 0 AS id_item_base, CONCAT('PACK-', p.id) AS codigo_presentacion, 1 AS controla_stock, 0 AS requiere_lote, 0 AS requiere_vencimiento
                 FROM precios_presentaciones p
                 WHERE p.id = :id_pack
                   AND p.estado = 1
                   AND p.deleted_at IS NULL
-                LIMIT 1';
+                LIMIT 1";
         $stmt = $db->prepare($sql);
         $stmt->execute(['id_pack' => $idPack]);
         $pack = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1017,7 +989,6 @@ class InventarioModel extends Modelo
         ]);
     }
 
-    // Agregamos el parámetro $esEstricto al final
     private function decrementarStockLote(PDO $db, int $idItem, int $idAlmacen, string $lote, float $cantidad, bool $esEstricto = true): void
     {
         if ($lote !== '') {
@@ -1055,9 +1026,6 @@ class InventarioModel extends Modelo
             $pendiente -= $consumo;
         }
 
-        // --- LÓGICA AUTO-LIMPIANTE ---
-        // Si es estricto (aún exige lote), no perdonamos que falte stock.
-        // Si NO es estricto (ya apagaste el lote), no lanzamos error y dejamos que limpie lo que pueda.
         if ($esEstricto && $pendiente > 0) {
             throw new RuntimeException('Stock de lotes insuficiente en este almacén para realizar la salida.');
         }
@@ -1284,10 +1252,30 @@ class InventarioModel extends Modelo
                   AND s.stock_actual > 0 
                   AND a.estado = 1 
                   AND a.deleted_at IS NULL
-                ORDER BY a.nombre ASC";
+                ORDER BY s.stock_actual DESC, a.nombre ASC"; // <-- Ordenado de mayor a menor stock
                 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerAlmacenesConStockPorPack(int $idPack): array
+    {
+        // Esta consulta busca qué almacenes tienen TODOS los componentes para armar el pack
+        $sql = "SELECT a.id, a.nombre,
+                       MIN(FLOOR(COALESCE(s.stock_actual, 0) / ppd.cantidad)) AS stock_actual
+                FROM almacenes a
+                CROSS JOIN precios_presentaciones_detalle ppd
+                LEFT JOIN inventario_stock s ON s.id_item = ppd.id_item AND s.id_almacen = a.id
+                WHERE ppd.id_presentacion = :id_pack
+                  AND a.estado = 1 
+                  AND a.deleted_at IS NULL
+                GROUP BY a.id, a.nombre
+                HAVING stock_actual > 0
+                ORDER BY stock_actual DESC, a.nombre ASC";
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_pack' => $idPack]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

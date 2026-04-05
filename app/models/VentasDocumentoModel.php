@@ -74,11 +74,15 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
-        // Calculamos el stock dinámico de los packs en caso estén editando un pedido
         $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
 
+        // BLINDAJE: Ahora validamos que sea mayor a cero para evitar conflictos en BD
         $sqlDetalle = "SELECT d.id,
-                              COALESCE(CONCAT('ITEM-', d.id_item), CONCAT('PACK-', d.id_presentacion)) AS id_item,
+                              CASE 
+                                  WHEN d.id_item > 0 THEN CONCAT('ITEM-', d.id_item)
+                                  WHEN d.id_presentacion > 0 THEN CONCAT('PACK-', d.id_presentacion)
+                                  ELSE 'DESCONOCIDO'
+                              END AS id_item,
                               COALESCE(i.sku, 'SIN-SKU') AS sku,
                               COALESCE(i.nombre, pp.nombre) AS item_nombre,
                               d.cantidad,
@@ -87,7 +91,7 @@ class VentasDocumentoModel extends Modelo
                               d.cantidad_despachada,
                               COALESCE(i.peso_kg, 0) AS peso_kg,
                               CASE 
-                                  WHEN d.id_item IS NOT NULL THEN (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item)
+                                  WHEN d.id_item > 0 THEN (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item)
                                   ELSE {$stockSqlPacksTotal}
                               END AS stock_actual
                        FROM ventas_documentos_detalle d
@@ -263,10 +267,11 @@ class VentasDocumentoModel extends Modelo
                     }
                 }
 
+                // BLINDAJE: Forzamos a que si es 0 pase como nulo
                 $stmtDet->execute([
                     'id_documento' => $idDocumento,
-                    'id_item' => $idItemDB,
-                    'id_presentacion' => $idPresentacionDB,
+                    'id_item' => $idItemDB > 0 ? $idItemDB : null,
+                    'id_presentacion' => $idPresentacionDB > 0 ? $idPresentacionDB : null,
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
                     'total_linea' => round($cantidad * $precio, 2), 
@@ -398,12 +403,10 @@ class VentasDocumentoModel extends Modelo
         $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
         $subqueryPrecioPresentacion = $this->resolverSubqueryPrecioPresentacion('i.id');
         
-        // STOCK FÍSICO
         $stockSqlItems = $idAlmacen > 0 
             ? "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = " . (int)$idAlmacen . " LIMIT 1)" 
             : "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
 
-        // STOCK DINÁMICO DE COMBOS
         $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
 
         if ($acuerdo['tiene_acuerdo']) {
@@ -428,13 +431,11 @@ class VentasDocumentoModel extends Modelo
             $params[] = $cantidad;
         }
 
-        // QUERY COMBOS CON EL CÁLCULO MÁGICO DE STOCK
         $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
                             'combo' AS tipo_item, {$stockSqlPacks} AS stock_actual
                      FROM precios_presentaciones pp
                      WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
 
-        // UNIMOS AMBAS
         $sql = "SELECT * FROM ( ($sqlItems) UNION ALL ($sqlPacks) ) AS catalogo WHERE 1=1";
 
         if ($q !== '') {
@@ -693,11 +694,8 @@ class VentasDocumentoModel extends Modelo
         return '0';
     }
 
-    // --- NUEVO HELPER PARA CALCULAR EL STOCK DE LOS COMBOS ---
     private function resolverSubqueryStockCombo(string $idPresentacionRef, int $idAlmacen = 0): string
     {
-        // Esta maravilla divide el stock disponible entre la cantidad requerida por el combo.
-        // Y el 'MIN' se asegura de que el factor limitante sea el componente del que tengas menos.
         if ($idAlmacen > 0) {
             return "(SELECT COALESCE(MIN(FLOOR(COALESCE(s.stock_actual, 0) / NULLIF(ppd.cantidad, 0))), 0)
                      FROM precios_presentaciones_detalle ppd
