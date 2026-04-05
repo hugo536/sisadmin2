@@ -109,7 +109,7 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                             <div class="col-md-6">
                                 <label class="form-label text-muted small fw-bold mb-1">Buscar Componente <span class="text-danger">*</span></label>
                                 <select class="form-select shadow-none" id="selectComponente" required>
-                                    <option value="">Buscar producto, envase o insumo...</option>
+                                    <option value=""></option>
                                 </select>
                             </div>
                             
