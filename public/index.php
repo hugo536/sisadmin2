@@ -28,6 +28,33 @@ if ($sessionCookieLifetime === false || $sessionCookieLifetime <= 0) {
     $sessionCookieLifetime = 28800; // 8 horas
 }
 
+$sessionCookieName = trim((string) ($_ENV['SESSION_COOKIE_NAME'] ?? getenv('SESSION_COOKIE_NAME') ?: ''));
+if ($sessionCookieName === '') {
+    $projectSlug = strtoupper((string) preg_replace('/[^A-Z0-9]/i', '_', basename(BASE_PATH)));
+    if ($projectSlug === '') {
+        $projectSlug = 'SISADMIN';
+    }
+    $sessionCookieName = $projectSlug . '_SESSID';
+}
+
+$rawScriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '/');
+$sessionCookiePath = rtrim(str_replace('\\', '/', dirname($rawScriptName)), '/');
+if ($sessionCookiePath === '' || $sessionCookiePath === '.') {
+    $sessionCookiePath = '/';
+}
+
+$sessionSameSite = strtoupper(trim((string) ($_ENV['SESSION_COOKIE_SAMESITE'] ?? getenv('SESSION_COOKIE_SAMESITE') ?: 'LAX')));
+if (!in_array($sessionSameSite, ['LAX', 'STRICT', 'NONE'], true)) {
+    $sessionSameSite = 'LAX';
+}
+if ($sessionSameSite === 'NONE') {
+    $sessionSameSite = 'None';
+} elseif ($sessionSameSite === 'STRICT') {
+    $sessionSameSite = 'Strict';
+} else {
+    $sessionSameSite = 'Lax';
+}
+
 // 2. CONFIGURACIÓN DE SESIÓN
 if (session_status() === PHP_SESSION_NONE) {
     // Detectar HTTPS
@@ -40,10 +67,10 @@ if (session_status() === PHP_SESSION_NONE) {
 
     $cookieParams = [
         'lifetime' => $sessionCookieLifetime,
-        'path'     => '/',
+        'path'     => $sessionCookiePath,
         'secure'   => $isSecure,
         'httponly' => true,
-        'samesite' => 'Strict',
+        'samesite' => $sessionSameSite,
     ];
 
     // Solo asignar dominio si no es localhost/IP para evitar problemas locales
@@ -51,6 +78,7 @@ if (session_status() === PHP_SESSION_NONE) {
         $cookieParams['domain'] = $host;
     }
 
+    session_name($sessionCookieName);
     ini_set('session.gc_maxlifetime', (string) $sessionCookieLifetime);
     session_set_cookie_params($cookieParams);
     session_start();
