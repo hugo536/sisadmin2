@@ -73,15 +73,15 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('La suma a despachar excede el pendiente del ítem: ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
-                // MODIFICACIÓN: Lógica de validación de stock para Combos vs Productos Físicos
+                // Lógica de validación de stock para Combos vs Productos Físicos
                 if (!empty($detalle['id_presentacion'])) {
-                    // Validar stock de cada componente
+                    // Validar stock GLOBAL de cada componente (permite combos virtuales/multi-almacén)
                     $componentes = $this->obtenerComponentesCombo($db, (int) $detalle['id_presentacion']);
                     foreach ($componentes as $comp) {
-                        $stockComp = $this->obtenerStockItem($db, (int) $comp['id_item'], $idAlmacenLinea);
+                        $stockComp = $this->obtenerStockGlobalItem($db, (int) $comp['id_item']);
                         $cantRequerida = $comp['cantidad'] * $cantidad;
                         if ($cantRequerida > $stockComp) {
-                            throw new RuntimeException('Stock insuficiente para un componente del combo en el almacén seleccionado.');
+                            throw new RuntimeException('Stock insuficiente para un componente del combo en el stock global de almacenes.');
                         }
                     }
                 } else {
@@ -169,24 +169,37 @@ class VentasDespachoModel extends Modelo
                         'id_detalle' => $lineaValida['id_documento_detalle']
                     ]);
 
-                    // MODIFICACIÓN: Descontar Inventario
+                    // Descontar Inventario
                     if ($esCombo) {
                         $componentes = $this->obtenerComponentesCombo($db, (int) $lineaValida['id_presentacion']);
                         foreach ($componentes as $comp) {
                             $cantFisica = $comp['cantidad'] * $lineaValida['cantidad'];
-                            
-                            $stmtStock->execute(['id_item' => $comp['id_item'], 'id_almacen' => $idAlmacenFisico]);
-                            $stmtDescuento->execute(['cantidad' => $cantFisica, 'id_item' => $comp['id_item'], 'id_almacen' => $idAlmacenFisico]);
-                            $stmtMov->execute([
-                                'id_item' => $comp['id_item'],
-                                'id_almacen_origen' => $idAlmacenFisico,
-                                'tipo' => 'VEN', 
-                                'cantidad' => $cantFisica,
-                                'referencia' => 'Despacho ' . $codigoDespacho . ' (Combo)',
-                                'created_by' => $userId,
-                                'fecha_documento' => $fechaDocumento,
-                            ]);
-                            
+
+                            $distribucion = $this->distribuirSalidaItemEnAlmacenes(
+                                $db,
+                                (int) $comp['id_item'],
+                                (float) $cantFisica,
+                                (int) $idAlmacenFisico
+                            );
+
+                            foreach ($distribucion as $salida) {
+                                $stmtStock->execute(['id_item' => $comp['id_item'], 'id_almacen' => $salida['id_almacen']]);
+                                $stmtDescuento->execute([
+                                    'cantidad' => $salida['cantidad'],
+                                    'id_item' => $comp['id_item'],
+                                    'id_almacen' => $salida['id_almacen']
+                                ]);
+                                $stmtMov->execute([
+                                    'id_item' => $comp['id_item'],
+                                    'id_almacen_origen' => $salida['id_almacen'],
+                                    'tipo' => 'VEN',
+                                    'cantidad' => $salida['cantidad'],
+                                    'referencia' => 'Despacho ' . $codigoDespacho . ' (Combo)',
+                                    'created_by' => $userId,
+                                    'fecha_documento' => $fechaDocumento,
+                                ]);
+                            }
+
                             $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica];
                         }
                     } else {
@@ -301,6 +314,69 @@ class VentasDespachoModel extends Modelo
         ]);
 
         return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    private function obtenerStockGlobalItem(PDO $db, int $idItem): float
+    {
+        $stmt = $db->prepare('SELECT COALESCE(SUM(s.stock_actual), 0)
+                              FROM inventario_stock s
+                              INNER JOIN almacenes a ON a.id = s.id_almacen
+                              WHERE s.id_item = :id_item
+                                AND a.estado = 1
+                                AND a.deleted_at IS NULL');
+        $stmt->execute(['id_item' => $idItem]);
+        return (float) ($stmt->fetchColumn() ?: 0);
+    }
+
+    private function distribuirSalidaItemEnAlmacenes(PDO $db, int $idItem, float $cantidadRequerida, int $idAlmacenPreferido = 0): array
+    {
+        if ($cantidadRequerida <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT s.id_almacen, COALESCE(s.stock_actual, 0) AS stock_actual
+                FROM inventario_stock s
+                INNER JOIN almacenes a ON a.id = s.id_almacen
+                WHERE s.id_item = :id_item
+                  AND s.stock_actual > 0
+                  AND a.estado = 1
+                  AND a.deleted_at IS NULL
+                ORDER BY CASE WHEN s.id_almacen = :id_preferido THEN 0 ELSE 1 END ASC,
+                         s.stock_actual DESC,
+                         s.id_almacen ASC';
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'id_preferido' => $idAlmacenPreferido,
+        ]);
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $restante = $cantidadRequerida;
+        $distribucion = [];
+        foreach ($filas as $fila) {
+            if ($restante <= 0.000001) {
+                break;
+            }
+            $disponible = (float) ($fila['stock_actual'] ?? 0);
+            if ($disponible <= 0) {
+                continue;
+            }
+            $toma = min($disponible, $restante);
+            if ($toma <= 0) {
+                continue;
+            }
+            $distribucion[] = [
+                'id_almacen' => (int) $fila['id_almacen'],
+                'cantidad' => $toma,
+            ];
+            $restante -= $toma;
+        }
+
+        if ($restante > 0.000001) {
+            throw new RuntimeException('Stock insuficiente para completar la salida del combo en los almacenes activos.');
+        }
+
+        return $distribucion;
     }
 
     private function obtenerPendienteTotal(PDO $db, int $idDocumento): float
