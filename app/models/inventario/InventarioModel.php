@@ -1261,22 +1261,61 @@ class InventarioModel extends Modelo
 
     public function obtenerAlmacenesConStockPorPack(int $idPack): array
     {
-        // Esta consulta busca qué almacenes tienen TODOS los componentes para armar el pack
+        // 1) Caso ideal: un mismo almacén tiene todos los componentes del combo.
         $sql = "SELECT a.id, a.nombre,
                        MIN(FLOOR(COALESCE(s.stock_actual, 0) / ppd.cantidad)) AS stock_actual
                 FROM almacenes a
                 CROSS JOIN precios_presentaciones_detalle ppd
                 LEFT JOIN inventario_stock s ON s.id_item = ppd.id_item AND s.id_almacen = a.id
                 WHERE ppd.id_presentacion = :id_pack
-                  AND a.estado = 1 
+                  AND a.estado = 1
                   AND a.deleted_at IS NULL
                 GROUP BY a.id, a.nombre
                 HAVING stock_actual > 0
                 ORDER BY stock_actual DESC, a.nombre ASC";
-        
+
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_pack' => $idPack]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $disponibles = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($disponibles !== []) {
+            return $disponibles;
+        }
+
+        // 2) Fallback: stock distribuido entre varios almacenes.
+        // Si globalmente alcanza, devolvemos un almacén "ancla" para permitir el despacho.
+        // El descuento real por componentes se resuelve en VentasDespachoModel (multi-almacén).
+        $sqlGlobal = "SELECT COALESCE(MIN(FLOOR(COALESCE(st.stock_total, 0) / NULLIF(ppd.cantidad, 0))), 0) AS stock_global
+                      FROM precios_presentaciones_detalle ppd
+                      LEFT JOIN (
+                          SELECT id_item, SUM(stock_actual) AS stock_total
+                          FROM inventario_stock
+                          GROUP BY id_item
+                      ) st ON st.id_item = ppd.id_item
+                      WHERE ppd.id_presentacion = :id_pack";
+        $stmtGlobal = $this->db()->prepare($sqlGlobal);
+        $stmtGlobal->execute(['id_pack' => $idPack]);
+        $stockGlobal = (float) ($stmtGlobal->fetchColumn() ?: 0);
+
+        if ($stockGlobal <= 0) {
+            return [];
+        }
+
+        $stmtAncla = $this->db()->query("SELECT id, nombre
+                                         FROM almacenes
+                                         WHERE estado = 1
+                                           AND deleted_at IS NULL
+                                         ORDER BY id ASC
+                                         LIMIT 1");
+        $ancla = $stmtAncla->fetch(PDO::FETCH_ASSOC);
+        if (!$ancla) {
+            return [];
+        }
+
+        return [[
+            'id' => (int) $ancla['id'],
+            'nombre' => (string) $ancla['nombre'] . ' (Auto Multi-Almacén)',
+            'stock_actual' => $stockGlobal,
+        ]];
     }
 
     public function registrarDevolucion(int $idOrden, string $motivo, string $resolucion, array $detalle, int $userId): void
