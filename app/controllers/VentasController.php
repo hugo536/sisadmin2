@@ -50,8 +50,15 @@ class VentasController extends Controlador
             // Anexar almacenes con stock a cada línea del detalle
             if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
                 foreach ($venta['detalle'] as &$linea) {
-                    $idItem = (int) ($linea['id_item'] ?? 0);
-                    $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItem);
+                    // MODIFICACIÓN 1: Extraer el número real del ITEM para buscar su almacén
+                    $rawId = (string) ($linea['id_item'] ?? '');
+                    if (strpos($rawId, 'ITEM-') === 0) {
+                        $idItemFisico = (int) str_replace('ITEM-', '', $rawId);
+                        $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItemFisico);
+                    } else {
+                        // Es un combo/pack, no tiene almacén directo
+                        $linea['almacenes_disponibles'] = [];
+                    }
                 }
             }
 
@@ -112,12 +119,13 @@ class VentasController extends Controlador
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {
             $idCliente = (int) ($_GET['id_cliente'] ?? 0);
-            $idItem = (int) ($_GET['id_item'] ?? 0);
+            // MODIFICACIÓN 2: Recibimos el ID como string (Ej: 'PACK-1' o 'ITEM-36')
+            $idItemRaw = (string) ($_GET['id_item'] ?? '');
             $cantidad = (float) ($_GET['cantidad'] ?? 1);
 
             json_response([
                 'ok' => true,
-                'data' => $this->documentoModel->obtenerPrecioUnitario($idCliente, $idItem, $cantidad),
+                'data' => $this->documentoModel->obtenerPrecioUnitario($idCliente, $idItemRaw, $cantidad),
             ]);
             return;
         }
@@ -127,7 +135,7 @@ class VentasController extends Controlador
         // --- Generar PDF (Profesional) ---
         if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
             $id = (int) ($_GET['id'] ?? 0);
-            $paginas = (int) ($_GET['paginas'] ?? 1); // Pasamos esta variable a la vista
+            $paginas = (int) ($_GET['paginas'] ?? 1); 
             
             if ($paginas < 1) {
                 $paginas = 1;
@@ -161,7 +169,7 @@ class VentasController extends Controlador
             $options->set(array('isRemoteEnabled' => true));
             $dompdf->setOptions($options);
 
-            // 1. Capturamos el HTML (Ahora la vista se encarga de crear las copias)
+            // 1. Capturamos el HTML
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_pedido.php';
             $html = (string) ob_get_clean();
@@ -222,18 +230,19 @@ class VentasController extends Controlador
             $itemsUnicos = [];
 
             foreach ($detalle as $linea) {
-                $idItem = (int) ($linea['id_item'] ?? 0);
+                // MODIFICACIÓN 3: Validamos como texto
+                $rawId = trim((string) ($linea['id_item'] ?? ''));
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
 
-                if ($idItem <= 0) {
+                if ($rawId === '' || $rawId === '0') {
                     throw new RuntimeException('Hay líneas sin producto válido.');
                 }
 
-                if (isset($itemsUnicos[$idItem])) {
+                if (isset($itemsUnicos[$rawId])) {
                     throw new RuntimeException('No se permiten productos repetidos en el pedido.');
                 }
-                $itemsUnicos[$idItem] = true;
+                $itemsUnicos[$rawId] = true;
                 
                 if ($cantidad <= 0) {
                     throw new RuntimeException('La cantidad de los ítems debe ser mayor a 0.');
@@ -351,9 +360,14 @@ class VentasController extends Controlador
                 throw new RuntimeException('No hay ítems para despachar');
             }
 
+            // MODIFICACIÓN 4: Permitir que si es un Combo pase, incluso si no se elige un almacén (pues sus componentes se descontarán internamente)
             foreach ($detalle as $linea) {
-                if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {
-                    throw new RuntimeException('Error: Hay filas sin almacén seleccionado.');
+                $rawId = (string) ($linea['id_item'] ?? '');
+                // Solo validamos que se requiera almacén si es un producto físico (ITEM)
+                if (strpos($rawId, 'ITEM-') === 0) {
+                    if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {
+                        throw new RuntimeException('Error: Hay filas de productos físicos sin almacén seleccionado.');
+                    }
                 }
             }
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 class VentasDespachoModel extends Modelo
 {
-    // 1. ELIMINAMOS $idAlmacen de los parámetros. Ahora viene dentro de $lineas.
     public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId): void
     {
         if ($idDocumento <= 0) {
@@ -32,7 +31,6 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('Solo se puede despachar pedidos aprobados.');
             }
 
-            // Usamos la fecha del pedido para el Kardex
             $fechaDocumento = $documento['fecha_emision'] ?? date('Y-m-d');
 
             $detalles = $this->obtenerDetallePendiente($db, $idDocumento);
@@ -45,7 +43,6 @@ class VentasDespachoModel extends Modelo
                 $mapaDetalle[(int) $d['id']] = $d;
             }
 
-            // 2. AGRUPAR LÍNEAS POR ALMACÉN
             $despachosAgrupados = [];
             $cantidadesAcumuladasItem = []; 
 
@@ -54,7 +51,7 @@ class VentasDespachoModel extends Modelo
                 $idAlmacenLinea = (int) ($linea['id_almacen'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
 
-                if ($idDetalle <= 0 || $idAlmacenLinea <= 0 || $cantidad <= 0) {
+                if ($idDetalle <= 0 || $cantidad <= 0) {
                     continue; 
                 }
 
@@ -64,21 +61,41 @@ class VentasDespachoModel extends Modelo
 
                 $detalle = $mapaDetalle[$idDetalle];
                 
+                // MODIFICACIÓN: Si es un producto físico, obligamos a enviar el almacén. Si es combo, el frontend podría no mandarlo, pero asumimos el almacén general si es necesario, o lo exigimos igual.
+                if (empty($detalle['id_presentacion']) && $idAlmacenLinea <= 0) {
+                    throw new RuntimeException('Debe seleccionar un almacén para los productos físicos.');
+                }
+
                 $cantidadesAcumuladasItem[$idDetalle] = ($cantidadesAcumuladasItem[$idDetalle] ?? 0) + $cantidad;
                 $pendiente = (float) ($detalle['cantidad_pendiente'] ?? 0);
                 
                 if ($cantidadesAcumuladasItem[$idDetalle] > ($pendiente + 0.0001)) {
-                    throw new RuntimeException('La suma de cantidades a despachar excede el pendiente del ítem ' . ($detalle['item_nombre'] ?? '')); 
+                    throw new RuntimeException('La suma a despachar excede el pendiente del ítem: ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
-                $stockActual = $this->obtenerStockItem($db, (int) $detalle['id_item'], $idAlmacenLinea);
-                if ($cantidad > $stockActual) {
-                    throw new RuntimeException('Stock insuficiente para ' . ($detalle['item_nombre'] ?? '') . ' en el almacén seleccionado. Disponible: ' . number_format($stockActual, 2));
+                // MODIFICACIÓN: Lógica de validación de stock para Combos vs Productos Físicos
+                if (!empty($detalle['id_presentacion'])) {
+                    // Validar stock de cada componente
+                    $componentes = $this->obtenerComponentesCombo($db, (int) $detalle['id_presentacion']);
+                    foreach ($componentes as $comp) {
+                        $stockComp = $this->obtenerStockItem($db, (int) $comp['id_item'], $idAlmacenLinea);
+                        $cantRequerida = $comp['cantidad'] * $cantidad;
+                        if ($cantRequerida > $stockComp) {
+                            throw new RuntimeException('Stock insuficiente para un componente del combo en el almacén seleccionado.');
+                        }
+                    }
+                } else {
+                    // Validar stock del producto normal
+                    $stockActual = $this->obtenerStockItem($db, (int) $detalle['id_item'], $idAlmacenLinea);
+                    if ($cantidad > $stockActual) {
+                        throw new RuntimeException('Stock insuficiente para ' . ($detalle['item_nombre'] ?? '') . ' en el almacén seleccionado. Disponible: ' . number_format($stockActual, 2));
+                    }
                 }
 
                 $despachosAgrupados[$idAlmacenLinea][] = [
                     'id_documento_detalle' => $idDetalle,
-                    'id_item' => (int) $detalle['id_item'],
+                    'id_item' => !empty($detalle['id_item']) ? (int) $detalle['id_item'] : null,
+                    'id_presentacion' => !empty($detalle['id_presentacion']) ? (int) $detalle['id_presentacion'] : null,
                     'cantidad' => $cantidad,
                     'id_almacen' => $idAlmacenLinea 
                 ];
@@ -94,10 +111,11 @@ class VentasDespachoModel extends Modelo
                                             :codigo, :id_documento, :id_almacen, NOW(), :observaciones, :created_by, NOW()
                                         )');
 
+            // MODIFICACIÓN: Agregado id_presentacion al insert
             $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
-                                            id_despacho, id_item, cantidad_despachada, created_at
+                                            id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
                                          ) VALUES (
-                                            :id_despacho, :id_item, :cantidad, NOW()
+                                            :id_despacho, :id_item, :id_presentacion, :cantidad, NOW()
                                          )');
 
             $stmtUpdateDocDetalle = $db->prepare('UPDATE ventas_documentos_detalle 
@@ -115,13 +133,11 @@ class VentasDespachoModel extends Modelo
                                            WHERE id_item = :id_item
                                              AND id_almacen = :id_almacen');
 
-            // --- AÑADIMOS fecha_documento AL COMANDO SQL DEL KARDEX ---
             $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
                                         (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
                                      VALUES
                                         (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, NOW(), :fecha_documento)');
 
-            // 3. PROCESAR CADA ALMACÉN Y SUS LÍNEAS
             foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
                 $codigoDespacho = $this->generarCodigo($db);
                 
@@ -134,53 +150,73 @@ class VentasDespachoModel extends Modelo
                 ]);
 
                 $idDespacho = (int) $db->lastInsertId();
+                $lineasParaEnvases = [];
 
                 foreach ($lineasAlmacen as $lineaValida) {
+                    $esCombo = !empty($lineaValida['id_presentacion']);
+
+                    // Guardamos la línea despachada (Con id_item o id_presentacion según corresponda)
                     $stmtDetalle->execute([
                         'id_despacho' => $idDespacho,
-                        'id_item' => $lineaValida['id_item'],
+                        'id_item' => $esCombo ? null : $lineaValida['id_item'],
+                        'id_presentacion' => $esCombo ? $lineaValida['id_presentacion'] : null,
                         'cantidad' => $lineaValida['cantidad'],
                     ]);
 
+                    // Actualizamos el pedido original
                     $stmtUpdateDocDetalle->execute([
                         'cantidad' => $lineaValida['cantidad'],
                         'id_detalle' => $lineaValida['id_documento_detalle']
                     ]);
 
-                    $stmtStock->execute([
-                        'id_item' => $lineaValida['id_item'],
-                        'id_almacen' => $idAlmacenFisico,
-                    ]);
-
-                    $stmtDescuento->execute([
-                        'cantidad' => $lineaValida['cantidad'],
-                        'id_item' => $lineaValida['id_item'],
-                        'id_almacen' => $idAlmacenFisico,
-                    ]);
-
-                    // --- PASAMOS LA FECHA REAL AL KARDEX ---
-                    $stmtMov->execute([
-                        'id_item' => $lineaValida['id_item'],
-                        'id_almacen_origen' => $idAlmacenFisico,
-                        'tipo' => 'VEN', 
-                        'cantidad' => $lineaValida['cantidad'],
-                        'referencia' => 'Despacho ' . $codigoDespacho,
-                        'created_by' => $userId,
-                        'fecha_documento' => $fechaDocumento, // <--- MAGIA AQUÍ
-                    ]);
+                    // MODIFICACIÓN: Descontar Inventario
+                    if ($esCombo) {
+                        $componentes = $this->obtenerComponentesCombo($db, (int) $lineaValida['id_presentacion']);
+                        foreach ($componentes as $comp) {
+                            $cantFisica = $comp['cantidad'] * $lineaValida['cantidad'];
+                            
+                            $stmtStock->execute(['id_item' => $comp['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                            $stmtDescuento->execute(['cantidad' => $cantFisica, 'id_item' => $comp['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                            $stmtMov->execute([
+                                'id_item' => $comp['id_item'],
+                                'id_almacen_origen' => $idAlmacenFisico,
+                                'tipo' => 'VEN', 
+                                'cantidad' => $cantFisica,
+                                'referencia' => 'Despacho ' . $codigoDespacho . ' (Combo)',
+                                'created_by' => $userId,
+                                'fecha_documento' => $fechaDocumento,
+                            ]);
+                            
+                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica];
+                        }
+                    } else {
+                        $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                        $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                        $stmtMov->execute([
+                            'id_item' => $lineaValida['id_item'],
+                            'id_almacen_origen' => $idAlmacenFisico,
+                            'tipo' => 'VEN', 
+                            'cantidad' => $lineaValida['cantidad'],
+                            'referencia' => 'Despacho ' . $codigoDespacho,
+                            'created_by' => $userId,
+                            'fecha_documento' => $fechaDocumento,
+                        ]);
+                        
+                        $lineasParaEnvases[] = $lineaValida;
+                    }
                 }
+
+                // Ajustamos envases pasando los productos físicos (ya desarmados si era combo)
                 $this->registrarAjusteEnvasesPorDespacho(
                     $db,
                     $idDocumento,
                     (int) ($documento['id_cliente'] ?? 0),
-                    $lineasAlmacen,
+                    $lineasParaEnvases,
                     $codigoDespacho
                 );
             }
 
-            // 4. Verificar si se completó todo el pedido
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
-            
             $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
 
             $sqlUpdateDocumento = 'UPDATE ventas_documentos
@@ -203,9 +239,7 @@ class VentasDespachoModel extends Modelo
                 $paramsUpdateDocumento['nota_cierre'] = $notaCierre;
             }
 
-            $sqlUpdateDocumento .= ' WHERE id = :id
-                                      AND deleted_at IS NULL';
-
+            $sqlUpdateDocumento .= ' WHERE id = :id AND deleted_at IS NULL';
             $db->prepare($sqlUpdateDocumento)->execute($paramsUpdateDocumento);
 
             if ($cerrarForzado && $pendienteTotal > 0.001) {
@@ -221,9 +255,16 @@ class VentasDespachoModel extends Modelo
         }
     }
 
+    // MODIFICACIÓN: Helper para obtener receta del combo
+    private function obtenerComponentesCombo(PDO $db, int $idPresentacion): array
+    {
+        $stmt = $db->prepare('SELECT id_item, cantidad FROM precios_presentaciones_detalle WHERE id_presentacion = :id_presentacion');
+        $stmt->execute(['id_presentacion' => $idPresentacion]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function obtenerDocumento(PDO $db, int $idDocumento): array
     {
-        // Añadimos fecha_emision a la consulta
         $stmt = $db->prepare('SELECT id, id_cliente, estado, fecha_emision FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmt->execute(['id' => $idDocumento]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -231,14 +272,17 @@ class VentasDespachoModel extends Modelo
 
     private function obtenerDetallePendiente(PDO $db, int $idDocumento): array
     {
+        // MODIFICACIÓN: Leer id_presentacion y nombre dinámico
         $sql = 'SELECT d.id,
                        d.id_item,
-                       i.nombre AS item_nombre,
+                       d.id_presentacion,
+                       COALESCE(i.nombre, pp.nombre) AS item_nombre,
                        d.cantidad,
                        d.cantidad_despachada,
                        (d.cantidad - d.cantidad_despachada) AS cantidad_pendiente
                 FROM ventas_documentos_detalle d
-                INNER JOIN items i ON i.id = d.id_item
+                LEFT JOIN items i ON i.id = d.id_item
+                LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion
                 WHERE d.id_documento_venta = :id_documento
                   AND d.deleted_at IS NULL
                   AND (d.cantidad - d.cantidad_despachada) > 0';
@@ -370,7 +414,6 @@ class VentasDespachoModel extends Modelo
             ]);
     }
 
-
     private function registrarAjusteEnvasesPorDespacho(PDO $db, int $idDocumento, int $idCliente, array $lineasDespachadas, string $codigoDespacho): void
     {
         if ($idCliente <= 0 || empty($lineasDespachadas)) {
@@ -379,7 +422,6 @@ class VentasDespachoModel extends Modelo
 
         $ajustesPorEnvase = [];
 
-        // 1. Identificar cuántos envases vacíos requiere esta venta
         foreach ($lineasDespachadas as $linea) {
             $idProducto = (int) ($linea['id_item'] ?? 0);
             $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
@@ -388,7 +430,6 @@ class VentasDespachoModel extends Modelo
                 continue;
             }
 
-            // Buscamos si el producto vendido tiene un envase retornable en su receta
             $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
 
             if ($envasesReceta === []) {
@@ -419,9 +460,7 @@ class VentasDespachoModel extends Modelo
             return;
         }
 
-        // 2. Preparar SOLO la consulta de Cuenta Corriente (No tocamos el Kardex físico aquí)
         $operacionUuid = bin2hex(random_bytes(8));
-        
         $usaFechaMovimiento = $this->ctaCteEnvasesTieneColumna($db, 'fecha_movimiento');
         $sqlCtaCte = 'INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones';
         $sqlCtaCte .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
@@ -430,11 +469,9 @@ class VentasDespachoModel extends Modelo
         $sqlCtaCte .= ')';
         $stmtCtaCte = $db->prepare($sqlCtaCte);
         
-        // 3. Ejecutar las salidas (Cuenta Corriente) por cada envase identificado
         foreach ($ajustesPorEnvase as $idItemEnvase => $cantidadAjuste) {
             $obsFinal = 'Salida automática por despacho ' . $codigoDespacho . ' | OP:' . $operacionUuid;
             
-            // Registramos la ENTREGA_LLENO en envases (Afecta el saldo del cliente, pero NO el Kardex físico)
             $stmtCtaCte->execute([
                 'id_tercero' => $idCliente,
                 'id_item_envase' => $idItemEnvase,
@@ -461,9 +498,7 @@ class VentasDespachoModel extends Modelo
                                 AND i.deleted_at IS NULL
                                 AND i.es_envase_retornable = 1
                                 AND r.deleted_at IS NULL
-
                                 AND r.estado = 1
-
                                 AND d.id_receta = (
                                     SELECT r2.id
                                     FROM produccion_recetas r2
@@ -477,8 +512,6 @@ class VentasDespachoModel extends Modelo
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
-
-
 
     private function obtenerEnvasesRetornablesDesdeHistoricoProduccion(PDO $db, int $idProducto): array
     {
@@ -556,7 +589,6 @@ class VentasDespachoModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // AÑADIMOS fecha_emision
             $stmtDoc = $db->prepare('SELECT id, codigo, id_cliente, estado, fecha_emision
                                      FROM ventas_documentos
                                      WHERE id = :id
@@ -574,7 +606,6 @@ class VentasDespachoModel extends Modelo
             $idCliente = (int) ($documento['id_cliente'] ?? 0);
             if ($idCliente <= 0) throw new RuntimeException('El pedido no tiene cliente válido.');
 
-            // Usamos la fecha del pedido
             $fechaDocumento = $documento['fecha_emision'] ?? date('Y-m-d');
 
             $stmtAlm = $db->prepare('SELECT id_almacen
@@ -605,16 +636,19 @@ class VentasDespachoModel extends Modelo
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            $stmtDetVenta = $db->prepare('SELECT id, id_item, cantidad_despachada
+            // MODIFICACIÓN: Obtener datos de la base de datos para no confiar solo en el frontend y usar id_presentacion si existe
+            $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada
                                           FROM ventas_documentos_detalle
                                           WHERE id = :id_detalle
                                             AND id_documento_venta = :id_documento
                                             AND deleted_at IS NULL
                                           LIMIT 1');
+                                          
             $stmtInsDet = $db->prepare('INSERT INTO ventas_devoluciones_detalle
-                (id_devolucion, id_documento_detalle, id_item, cantidad, costo_unitario, subtotal, created_at)
+                (id_devolucion, id_documento_detalle, id_item, id_presentacion, cantidad, costo_unitario, subtotal, created_at)
                 VALUES
-                (:id_devolucion, :id_documento_detalle, :id_item, :cantidad, :costo_unitario, :subtotal, NOW())');
+                (:id_devolucion, :id_documento_detalle, :id_item, :id_presentacion, :cantidad, :costo_unitario, :subtotal, NOW())');
+                
             $stmtUpdDet = $db->prepare('UPDATE ventas_documentos_detalle
                                         SET cantidad_despachada = GREATEST(cantidad_despachada - :cantidad, 0),
                                             updated_at = NOW()
@@ -624,11 +658,10 @@ class VentasDespachoModel extends Modelo
             $totalDevuelto = 0.0;
             foreach ($detalle as $linea) {
                 $idDetalle = (int) ($linea['id_documento_detalle'] ?? 0);
-                $idItem = (int) ($linea['id_item'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $costo = max(0.0, (float) ($linea['costo_unitario'] ?? 0));
 
-                if ($idDetalle <= 0 || $idItem <= 0 || $cantidad <= 0) {
+                if ($idDetalle <= 0 || $cantidad <= 0) {
                     throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
                 }
 
@@ -637,10 +670,11 @@ class VentasDespachoModel extends Modelo
                     'id_documento' => $idDocumento,
                 ]);
                 $detVenta = $stmtDetVenta->fetch(PDO::FETCH_ASSOC);
+                
                 if (!$detVenta) throw new RuntimeException('No se encontró una línea del pedido asociada a la devolución.');
-                if ((int) ($detVenta['id_item'] ?? 0) !== $idItem) {
-                    throw new RuntimeException('El ítem de la devolución no coincide con el detalle del pedido.');
-                }
+
+                $idItemDB = !empty($detVenta['id_item']) ? (int) $detVenta['id_item'] : null;
+                $idPresentacionDB = !empty($detVenta['id_presentacion']) ? (int) $detVenta['id_presentacion'] : null;
 
                 $acumulado[$idDetalle] = ($acumulado[$idDetalle] ?? 0.0) + $cantidad;
                 $despachado = (float) ($detVenta['cantidad_despachada'] ?? 0);
@@ -654,7 +688,8 @@ class VentasDespachoModel extends Modelo
                 $stmtInsDet->execute([
                     'id_devolucion' => $idDevolucion,
                     'id_documento_detalle' => $idDetalle,
-                    'id_item' => $idItem,
+                    'id_item' => $idItemDB,
+                    'id_presentacion' => $idPresentacionDB,
                     'cantidad' => $cantidad,
                     'costo_unitario' => $costo,
                     'subtotal' => $subtotal,
@@ -665,17 +700,35 @@ class VentasDespachoModel extends Modelo
                     'id_detalle' => $idDetalle,
                 ]);
 
-                $inventarioModel->registrarMovimiento([
-                    'tipo_movimiento' => 'AJ+',
-                    'tipo_registro' => 'item',
-                    'id_item' => $idItem,
-                    'id_almacen_destino' => $idAlmacenDestino,
-                    'cantidad' => $cantidad,
-                    'costo_unitario' => $costo,
-                    'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . trim($motivo),
-                    'created_by' => $userId,
-                    'fecha_documento' => $fechaDocumento // <-- AQUÍ PASAMOS LA FECHA REAL
-                ]);
+                // MODIFICACIÓN: Retornar inventario según si es físico o combo
+                if ($idPresentacionDB !== null) {
+                    $componentes = $this->obtenerComponentesCombo($db, $idPresentacionDB);
+                    foreach ($componentes as $comp) {
+                        $inventarioModel->registrarMovimiento([
+                            'tipo_movimiento' => 'AJ+',
+                            'tipo_registro' => 'item',
+                            'id_item' => $comp['id_item'],
+                            'id_almacen_destino' => $idAlmacenDestino,
+                            'cantidad' => $comp['cantidad'] * $cantidad,
+                            'costo_unitario' => 0, // Se asume 0 para componentes en devolución simple, o aplicar reglas contables
+                            'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' (Combo) | ' . trim($motivo),
+                            'created_by' => $userId,
+                            'fecha_documento' => $fechaDocumento
+                        ]);
+                    }
+                } else {
+                    $inventarioModel->registrarMovimiento([
+                        'tipo_movimiento' => 'AJ+',
+                        'tipo_registro' => 'item',
+                        'id_item' => $idItemDB,
+                        'id_almacen_destino' => $idAlmacenDestino,
+                        'cantidad' => $cantidad,
+                        'costo_unitario' => $costo,
+                        'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . trim($motivo),
+                        'created_by' => $userId,
+                        'fecha_documento' => $fechaDocumento
+                    ]);
+                }
             }
 
             $db->prepare('UPDATE ventas_devoluciones
@@ -776,7 +829,8 @@ class VentasDespachoModel extends Modelo
             id INT AUTO_INCREMENT PRIMARY KEY,
             id_devolucion INT NOT NULL,
             id_documento_detalle INT NOT NULL,
-            id_item INT NOT NULL,
+            id_item INT NULL,
+            id_presentacion INT NULL,
             cantidad DECIMAL(14,4) NOT NULL,
             costo_unitario DECIMAL(14,4) NOT NULL DEFAULT 0,
             subtotal DECIMAL(14,4) NOT NULL DEFAULT 0,
@@ -786,7 +840,8 @@ class VentasDespachoModel extends Modelo
             INDEX idx_vdevd_item (id_item),
             CONSTRAINT fk_vdevd_devolucion FOREIGN KEY (id_devolucion) REFERENCES ventas_devoluciones(id),
             CONSTRAINT fk_vdevd_doc_detalle FOREIGN KEY (id_documento_detalle) REFERENCES ventas_documentos_detalle(id),
-            CONSTRAINT fk_vdevd_item FOREIGN KEY (id_item) REFERENCES items(id)
+            CONSTRAINT fk_vdevd_item FOREIGN KEY (id_item) REFERENCES items(id),
+            CONSTRAINT fk_vdevd_presentacion FOREIGN KEY (id_presentacion) REFERENCES precios_presentaciones(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
 

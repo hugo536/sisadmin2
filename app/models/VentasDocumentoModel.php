@@ -74,21 +74,28 @@ class VentasDocumentoModel extends Modelo
             return [];
         }
 
-        $sqlDetalle = 'SELECT d.id,
-                              d.id_item,
-                              i.sku,
-                              i.nombre AS item_nombre,
+        // Calculamos el stock dinámico de los packs en caso estén editando un pedido
+        $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
+
+        $sqlDetalle = "SELECT d.id,
+                              COALESCE(CONCAT('ITEM-', d.id_item), CONCAT('PACK-', d.id_presentacion)) AS id_item,
+                              COALESCE(i.sku, 'SIN-SKU') AS sku,
+                              COALESCE(i.nombre, pp.nombre) AS item_nombre,
                               d.cantidad,
                               d.precio_unitario,
                               d.total_linea AS subtotal,
                               d.cantidad_despachada,
-                              i.peso_kg,
-                              (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item) AS stock_actual
+                              COALESCE(i.peso_kg, 0) AS peso_kg,
+                              CASE 
+                                  WHEN d.id_item IS NOT NULL THEN (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item)
+                                  ELSE {$stockSqlPacksTotal}
+                              END AS stock_actual
                        FROM ventas_documentos_detalle d
-                       INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
+                       LEFT JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
+                       LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion AND pp.deleted_at IS NULL
                        WHERE d.id_documento_venta = :id_documento
                          AND d.deleted_at IS NULL
-                       ORDER BY d.id ASC';
+                       ORDER BY d.id ASC";
 
         $stmtDetalle = $this->db()->prepare($sqlDetalle);
         $stmtDetalle->execute(['id_documento' => $idDocumento]);
@@ -121,11 +128,9 @@ class VentasDocumentoModel extends Modelo
             $idDocumento = (int) ($cabecera['id'] ?? 0);
             $fechaEmision = !empty($cabecera['fecha_emision']) ? $cabecera['fecha_emision'] : date('Y-m-d');
             
-            // MODIFICACIÓN: Aquí aseguramos el fallback a 'exonerado'
             $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'exonerado'));
             $tipoOperacion = trim((string) ($cabecera['tipo_operacion'] ?? 'VENTA'));
 
-            // 1. RECALCULAR TOTALES POR SEGURIDAD
             $sumaLineas = 0.0;
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
@@ -136,13 +141,11 @@ class VentasDocumentoModel extends Modelo
                 $sumaLineas += ($cantidad * $precio);
             }
 
-            // 2. LÓGICA DE IMPUESTOS EN BACKEND
             $subtotal = 0.0;
             $igvMonto = 0.0;
             $totalFinal = 0.0;
 
             if ($tipoOperacion === 'DONACION') {
-                // BLINDAJE: Si es donación, la cabecera siempre es cero.
                 $subtotal = 0.0;
                 $igvMonto = 0.0;
                 $totalFinal = 0.0;
@@ -156,7 +159,7 @@ class VentasDocumentoModel extends Modelo
                     $subtotal = $sumaLineas;
                     $igvMonto = $subtotal * 0.18;
                     $totalFinal = $subtotal + $igvMonto;
-                } else { // exonerado
+                } else { 
                     $subtotal = $sumaLineas;
                     $igvMonto = 0.0;
                     $totalFinal = $subtotal;
@@ -235,10 +238,10 @@ class VentasDocumentoModel extends Modelo
             }
 
             $sqlDet = 'INSERT INTO ventas_documentos_detalle (
-                            id_documento_venta, id_item, cantidad, precio_unitario, total_linea,
+                            id_documento_venta, id_item, id_presentacion, cantidad, precio_unitario, total_linea,
                             created_by, updated_by, created_at, updated_at
                         ) VALUES (
-                            :id_documento, :id_item, :cantidad, :precio_unitario, :total_linea,
+                            :id_documento, :id_item, :id_presentacion, :cantidad, :precio_unitario, :total_linea,
                             :created_by, :updated_by, NOW(), NOW()
                         )';
 
@@ -247,9 +250,23 @@ class VentasDocumentoModel extends Modelo
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
 
+                $rawId = (string) ($linea['id_item'] ?? '');
+                $idItemDB = null;
+                $idPresentacionDB = null;
+
+                if (strpos($rawId, 'PACK-') === 0) {
+                    $idPresentacionDB = (int) str_replace('PACK-', '', $rawId);
+                } else {
+                    $idItemDB = (int) str_replace('ITEM-', '', $rawId);
+                    if ($idItemDB === 0 && is_numeric($rawId)) {
+                        $idItemDB = (int) $rawId;
+                    }
+                }
+
                 $stmtDet->execute([
                     'id_documento' => $idDocumento,
-                    'id_item' => (int) ($linea['id_item'] ?? 0),
+                    'id_item' => $idItemDB,
+                    'id_presentacion' => $idPresentacionDB,
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
                     'total_linea' => round($cantidad * $precio, 2), 
@@ -381,62 +398,53 @@ class VentasDocumentoModel extends Modelo
         $acuerdo = $this->obtenerAcuerdoActivoCliente($idCliente);
         $subqueryPrecioPresentacion = $this->resolverSubqueryPrecioPresentacion('i.id');
         
-        if ($idAlmacen > 0) {
-            $stockSql = "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = ? LIMIT 1)";
-            $params[] = $idAlmacen;
-        } else {
-            $stockSql = "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
-        }
+        // STOCK FÍSICO
+        $stockSqlItems = $idAlmacen > 0 
+            ? "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = " . (int)$idAlmacen . " LIMIT 1)" 
+            : "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
+
+        // STOCK DINÁMICO DE COMBOS
+        $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
 
         if ($acuerdo['tiene_acuerdo']) {
-            $sql = "SELECT i.id,
-                        i.sku,
-                        i.nombre,
-                        cap.precio_pactado AS precio_venta,
-                        i.tipo_item,
-                        COALESCE($stockSql, 0) AS stock_actual
-                    FROM comercial_acuerdos_precios cap
-                    INNER JOIN items i ON i.id = cap.id_presentacion
-                    WHERE cap.id_acuerdo = ?
-                      AND cap.estado = 1
-                      AND i.estado = 1
-                      AND i.deleted_at IS NULL
-                      AND i.tipo_item IN ('producto', 'producto_terminado')";
+            $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
+                                COALESCE($stockSqlItems, 0) AS stock_actual
+                         FROM comercial_acuerdos_precios cap
+                         INNER JOIN items i ON i.id = cap.id_presentacion
+                         WHERE cap.id_acuerdo = ? AND cap.estado = 1 AND i.estado = 1 AND i.deleted_at IS NULL
+                           AND i.tipo_item IN ('producto', 'producto_terminado')";
             $params[] = $acuerdo['id_acuerdo'];
         } else {
-            $sql = "SELECT i.id,
-                        i.sku,
-                        i.nombre,
-                        COALESCE(
-                            (
-                                SELECT ipv.precio_unitario
-                                FROM item_precios_volumen ipv
-                                WHERE ipv.id_item = i.id
-                                  AND ipv.cantidad_minima <= ?
-                                ORDER BY ipv.cantidad_minima DESC
-                                LIMIT 1
-                            ),
-                            {$subqueryPrecioPresentacion},
-                            i.precio_venta,
-                            0
-                        ) AS precio_venta,
-                        i.tipo_item,
-                        COALESCE($stockSql, 0) AS stock_actual
-                    FROM items i
-                    WHERE i.estado = 1
-                      AND i.deleted_at IS NULL
-                      AND i.tipo_item IN ('producto', 'producto_terminado')";
+            $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre,
+                                COALESCE(
+                                    (SELECT ipv.precio_unitario FROM item_precios_volumen ipv WHERE ipv.id_item = i.id AND ipv.cantidad_minima <= ? ORDER BY ipv.cantidad_minima DESC LIMIT 1),
+                                    {$subqueryPrecioPresentacion}, i.precio_venta, 0
+                                ) AS precio_venta,
+                                i.tipo_item,
+                                COALESCE($stockSqlItems, 0) AS stock_actual
+                         FROM items i
+                         WHERE i.estado = 1 AND i.deleted_at IS NULL
+                           AND i.tipo_item IN ('producto', 'producto_terminado')";
             $params[] = $cantidad;
         }
 
+        // QUERY COMBOS CON EL CÁLCULO MÁGICO DE STOCK
+        $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
+                            'combo' AS tipo_item, {$stockSqlPacks} AS stock_actual
+                     FROM precios_presentaciones pp
+                     WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
+
+        // UNIMOS AMBAS
+        $sql = "SELECT * FROM ( ($sqlItems) UNION ALL ($sqlPacks) ) AS catalogo WHERE 1=1";
+
         if ($q !== '') {
-            $sql .= ' AND (i.nombre LIKE ? OR i.sku LIKE ?)';
+            $sql .= ' AND (nombre LIKE ? OR sku LIKE ?)';
             $term = '%' . $q . '%';
             $params[] = $term;
             $params[] = $term;
         }
 
-        $sql .= ' ORDER BY i.nombre ASC LIMIT ' . (int)$limit;
+        $sql .= ' ORDER BY nombre ASC LIMIT ' . (int)$limit;
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
@@ -444,8 +452,24 @@ class VentasDocumentoModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function obtenerPrecioUnitario(int $idCliente, int $idItem, float $cantidad): array
+    public function obtenerPrecioUnitario(int $idCliente, string|int $idItemRaw, float $cantidad): array
     {
+        $idItemRaw = (string) $idItemRaw;
+        
+        if (strpos($idItemRaw, 'PACK-') === 0) {
+            $idPresentacion = (int) str_replace('PACK-', '', $idItemRaw);
+            $stmt = $this->db()->prepare("SELECT precio_venta FROM precios_presentaciones WHERE id = :id LIMIT 1");
+            $stmt->execute(['id' => $idPresentacion]);
+            $precioCombo = $stmt->fetchColumn();
+            
+            return [
+                'precio' => $precioCombo !== false ? (float) $precioCombo : 0.0,
+                'origen' => 'combo'
+            ];
+        }
+
+        $idItem = (int) str_replace('ITEM-', '', $idItemRaw);
+        
         if ($idItem <= 0) {
             return ['precio' => 0.0, 'origen' => 'none'];
         }
@@ -495,7 +519,8 @@ class VentasDocumentoModel extends Modelo
         if ($this->tablaExiste('precios_presentaciones')) {
             $sqlPresentacion = 'SELECT ' . $this->resolverCampoPrecioPresentacion('pp') . '
                                 FROM precios_presentaciones pp
-                                WHERE pp.id_item = :id_item
+                                INNER JOIN precios_presentaciones_detalle ppd ON pp.id = ppd.id_presentacion
+                                WHERE ppd.id_item = :id_item
                                   AND pp.estado = 1
                                   AND pp.deleted_at IS NULL
                                 ORDER BY pp.id DESC
@@ -503,6 +528,7 @@ class VentasDocumentoModel extends Modelo
             $stmtPresentacion = $this->db()->prepare($sqlPresentacion);
             $stmtPresentacion->execute(['id_item' => $idItem]);
             $precioPresentacion = $stmtPresentacion->fetchColumn();
+            
             if ($precioPresentacion !== false) {
                 return [
                     'precio' => (float) $precioPresentacion,
@@ -536,89 +562,6 @@ class VentasDocumentoModel extends Modelo
         ];
     }
 
-    private function obtenerAcuerdoActivoCliente(int $idCliente): array
-    {
-        if ($idCliente <= 0 || !$this->tablaExiste('comercial_acuerdos') || !$this->tablaExiste('comercial_acuerdos_precios')) {
-            return ['tiene_acuerdo' => false, 'id_acuerdo' => 0];
-        }
-
-        $stmt = $this->db()->prepare('SELECT id FROM comercial_acuerdos WHERE id_tercero = :id_cliente AND estado = 1 ORDER BY id DESC LIMIT 1');
-        $stmt->execute(['id_cliente' => $idCliente]);
-        $idAcuerdo = (int) $stmt->fetchColumn();
-
-        return [
-            'tiene_acuerdo' => $idAcuerdo > 0,
-            'id_acuerdo' => $idAcuerdo,
-        ];
-    }
-
-    private function tablaExiste(string $tabla): bool
-    {
-        static $cache = [];
-
-        if (isset($cache[$tabla])) {
-            return $cache[$tabla];
-        }
-
-        $stmt = $this->db()->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :tabla LIMIT 1');
-        $stmt->execute(['tabla' => $tabla]);
-        $cache[$tabla] = (bool) $stmt->fetchColumn();
-
-        return $cache[$tabla];
-    }
-
-    private function resolverSubqueryPrecioPresentacion(string $itemIdSql): string
-    {
-        if (!$this->tablaExiste('precios_presentaciones')) {
-            return 'NULL';
-        }
-
-        $campoPrecio = $this->resolverCampoPrecioPresentacion('pp');
-
-        return "(SELECT {$campoPrecio}
-                 FROM precios_presentaciones pp
-                 WHERE pp.id_item = {$itemIdSql}
-                   AND pp.estado = 1
-                   AND pp.deleted_at IS NULL
-                 ORDER BY pp.id DESC
-                 LIMIT 1)";
-    }
-
-    private function resolverCampoPrecioPresentacion(string $alias): string
-    {
-        if ($this->columnaExiste('precios_presentaciones', 'precio_venta')) {
-            return "COALESCE({$alias}.precio_venta, 0)";
-        }
-        if ($this->columnaExiste('precios_presentaciones', 'precio_x_menor')) {
-            return "COALESCE({$alias}.precio_x_menor, 0)";
-        }
-
-        return '0';
-    }
-
-    private function columnaExiste(string $tabla, string $columna): bool
-    {
-        static $cache = [];
-        $key = $tabla . '.' . $columna;
-        if (isset($cache[$key])) {
-            return $cache[$key];
-        }
-
-        $stmt = $this->db()->prepare('SELECT 1
-                                      FROM information_schema.columns
-                                      WHERE table_schema = DATABASE()
-                                        AND table_name = :tabla
-                                        AND column_name = :columna
-                                      LIMIT 1');
-        $stmt->execute([
-            'tabla' => $tabla,
-            'columna' => $columna,
-        ]);
-        $cache[$key] = (bool) $stmt->fetchColumn();
-
-        return $cache[$key];
-    }
-
     public function listarAlmacenesActivos(): array
     {
         $sql = 'SELECT id, nombre
@@ -650,17 +593,125 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    private function generarCodigo(PDO $db): string
-    {
-        $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_documentos')->fetchColumn() + 1;
-        return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
-    }
-
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
         $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId);
+    }
+
+    // --- Helpers Privados ---
+
+    private function obtenerAcuerdoActivoCliente(int $idCliente): array
+    {
+        if ($idCliente <= 0 || !$this->tablaExiste('comercial_acuerdos') || !$this->tablaExiste('comercial_acuerdos_precios')) {
+            return ['tiene_acuerdo' => false, 'id_acuerdo' => 0];
+        }
+
+        $stmt = $this->db()->prepare('SELECT id FROM comercial_acuerdos WHERE id_tercero = :id_cliente AND estado = 1 ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id_cliente' => $idCliente]);
+        $idAcuerdo = (int) $stmt->fetchColumn();
+
+        return [
+            'tiene_acuerdo' => $idAcuerdo > 0,
+            'id_acuerdo' => $idAcuerdo,
+        ];
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        static $cache = [];
+
+        if (isset($cache[$tabla])) {
+            return $cache[$tabla];
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :tabla LIMIT 1');
+        $stmt->execute(['tabla' => $tabla]);
+        $cache[$tabla] = (bool) $stmt->fetchColumn();
+
+        return $cache[$tabla];
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        static $cache = [];
+        $key = $tabla . '.' . $columna;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+
+        $stmt = $this->db()->prepare('SELECT 1
+                                      FROM information_schema.columns
+                                      WHERE table_schema = DATABASE()
+                                        AND table_name = :tabla
+                                        AND column_name = :columna
+                                      LIMIT 1');
+        $stmt->execute([
+            'tabla' => $tabla,
+            'columna' => $columna,
+        ]);
+        $cache[$key] = (bool) $stmt->fetchColumn();
+
+        return $cache[$key];
+    }
+
+    private function generarCodigo(PDO $db): string
+    {
+        $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_documentos')->fetchColumn() + 1;
+        return 'PED-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function resolverSubqueryPrecioPresentacion(string $itemIdSql): string
+    {
+        if (!$this->tablaExiste('precios_presentaciones')) {
+            return 'NULL';
+        }
+
+        $campoPrecio = $this->resolverCampoPrecioPresentacion('pp');
+
+        return "(SELECT {$campoPrecio}
+                 FROM precios_presentaciones pp
+                 INNER JOIN precios_presentaciones_detalle ppd ON pp.id = ppd.id_presentacion
+                 WHERE ppd.id_item = {$itemIdSql}
+                   AND pp.estado = 1
+                   AND pp.deleted_at IS NULL
+                 ORDER BY pp.id DESC
+                 LIMIT 1)";
+    }
+
+    private function resolverCampoPrecioPresentacion(string $alias): string
+    {
+        if ($this->columnaExiste('precios_presentaciones', 'precio_venta')) {
+            return "COALESCE({$alias}.precio_venta, 0)";
+        }
+        if ($this->columnaExiste('precios_presentaciones', 'precio_x_menor')) {
+            return "COALESCE({$alias}.precio_x_menor, 0)";
+        }
+
+        return '0';
+    }
+
+    // --- NUEVO HELPER PARA CALCULAR EL STOCK DE LOS COMBOS ---
+    private function resolverSubqueryStockCombo(string $idPresentacionRef, int $idAlmacen = 0): string
+    {
+        // Esta maravilla divide el stock disponible entre la cantidad requerida por el combo.
+        // Y el 'MIN' se asegura de que el factor limitante sea el componente del que tengas menos.
+        if ($idAlmacen > 0) {
+            return "(SELECT COALESCE(MIN(FLOOR(COALESCE(s.stock_actual, 0) / NULLIF(ppd.cantidad, 0))), 0)
+                     FROM precios_presentaciones_detalle ppd
+                     LEFT JOIN inventario_stock s ON s.id_item = ppd.id_item AND s.id_almacen = {$idAlmacen}
+                     WHERE ppd.id_presentacion = {$idPresentacionRef})";
+        }
+        
+        return "(SELECT COALESCE(MIN(FLOOR(COALESCE(st.stock_total, 0) / NULLIF(ppd.cantidad, 0))), 0)
+                 FROM precios_presentaciones_detalle ppd
+                 LEFT JOIN (
+                     SELECT id_item, SUM(stock_actual) AS stock_total 
+                     FROM inventario_stock 
+                     GROUP BY id_item
+                 ) st ON st.id_item = ppd.id_item
+                 WHERE ppd.id_presentacion = {$idPresentacionRef})";
     }
 }
