@@ -21,12 +21,23 @@ class InventarioKardexModel extends InventarioModel
                        i.nombre AS item_nombre,
                        ao.nombre AS almacen_origen,
                        ad.nombre AS almacen_destino,
-                       u.nombre_completo AS usuario
+                       u.nombre_completo AS usuario,
+                       t.nombre_completo AS tercero_nombre,
+                       CASE
+                           WHEN d.id_tercero IS NULL THEN \'CLIENTE\'
+                           ELSE \'DISTRIBUIDOR\'
+                       END AS tercero_tipo
                 FROM inventario_movimientos m
                 INNER JOIN items i ON i.id = m.id_item
                 LEFT JOIN almacenes ao ON ao.id = m.id_almacen_origen
                 LEFT JOIN almacenes ad ON ad.id = m.id_almacen_destino
                 LEFT JOIN usuarios u ON u.id = m.created_by
+                LEFT JOIN ventas_despachos vd
+                       ON m.tipo_movimiento = \'VEN\'
+                      AND m.referencia LIKE CONCAT(\'Despacho \', vd.codigo, \'%\')
+                LEFT JOIN ventas_documentos v ON v.id = vd.id_documento_venta
+                LEFT JOIN terceros t ON t.id = v.id_cliente
+                LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 WHERE 1=1';
 
         $params = [];

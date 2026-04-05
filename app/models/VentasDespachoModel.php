@@ -194,7 +194,7 @@ class VentasDespachoModel extends Modelo
                                     'id_almacen_origen' => $salida['id_almacen'],
                                     'tipo' => 'VEN',
                                     'cantidad' => $salida['cantidad'],
-                                    'referencia' => 'Despacho ' . $codigoDespacho . ' (Combo)',
+                                    'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, true),
                                     'created_by' => $userId,
                                     'fecha_documento' => $fechaDocumento,
                                 ]);
@@ -210,7 +210,7 @@ class VentasDespachoModel extends Modelo
                             'id_almacen_origen' => $idAlmacenFisico,
                             'tipo' => 'VEN', 
                             'cantidad' => $lineaValida['cantidad'],
-                            'referencia' => 'Despacho ' . $codigoDespacho,
+                            'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, false),
                             'created_by' => $userId,
                             'fecha_documento' => $fechaDocumento,
                         ]);
@@ -278,9 +278,34 @@ class VentasDespachoModel extends Modelo
 
     private function obtenerDocumento(PDO $db, int $idDocumento): array
     {
-        $stmt = $db->prepare('SELECT id, id_cliente, estado, fecha_emision FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmt = $db->prepare('SELECT v.id,
+                                    v.id_cliente,
+                                    v.estado,
+                                    v.fecha_emision,
+                                    t.nombre_completo AS cliente_nombre,
+                                    CASE WHEN d.id_tercero IS NULL THEN "CLIENTE" ELSE "DISTRIBUIDOR" END AS cliente_tipo
+                             FROM ventas_documentos v
+                             LEFT JOIN terceros t ON t.id = v.id_cliente
+                             LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+                             WHERE v.id = :id AND v.deleted_at IS NULL
+                             LIMIT 1');
         $stmt->execute(['id' => $idDocumento]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function construirReferenciaDespacho(string $codigoDespacho, array $documento, bool $esCombo): string
+    {
+        $base = 'Despacho ' . $codigoDespacho . ($esCombo ? ' (Combo)' : '');
+        $clienteNombre = trim((string) ($documento['cliente_nombre'] ?? ''));
+        if ($clienteNombre === '') {
+            return $base;
+        }
+
+        $etiqueta = strtoupper(trim((string) ($documento['cliente_tipo'] ?? 'CLIENTE'))) === 'DISTRIBUIDOR'
+            ? 'Distribuidor'
+            : 'Cliente';
+
+        return $base . ' | ' . $etiqueta . ': ' . $clienteNombre;
     }
 
     private function obtenerDetallePendiente(PDO $db, int $idDocumento): array

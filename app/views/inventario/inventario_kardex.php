@@ -107,8 +107,19 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                             // Si hay fecha de documento, usamos esa. Si no, usamos la del sistema.
                             $fechaMostrar = !empty($fechaDocumento) ? $fechaDocumento : $fechaCreacion;
                             
+                            $referenciaMostrar = (string) ($mov['referencia'] ?? '-');
+                            $terceroNombre = trim((string) ($mov['tercero_nombre'] ?? ''));
+                            $terceroTipo = strtoupper(trim((string) ($mov['tercero_tipo'] ?? 'CLIENTE')));
+                            if ($tipoMov === 'VEN' && $terceroNombre !== '') {
+                                $yaIncluyeDestino = stripos($referenciaMostrar, 'Cliente:') !== false || stripos($referenciaMostrar, 'Distribuidor:') !== false;
+                                if (!$yaIncluyeDestino) {
+                                    $etiqueta = $terceroTipo === 'DISTRIBUIDOR' ? 'Distribuidor' : 'Cliente';
+                                    $referenciaMostrar .= ' | ' . $etiqueta . ': ' . $terceroNombre;
+                                }
+                            }
+
                             // Creamos la cadena para que el buscador funcione usando la nueva fecha
-                            $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['sku'] ?? '') . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . ($mov['referencia'] ?? ''));
+                            $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . $referenciaMostrar . ' ' . $terceroNombre);
                         ?>
                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                             <td class="ps-4 text-muted align-top pt-3">
@@ -124,7 +135,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                 <?php endif; ?>
                             </td>
                             <td class="fw-bold text-dark align-top pt-3">
-                                <?php echo e((string) ($mov['sku'] ?? '') . ' - ' . (string) ($mov['item_nombre'] ?? '')); ?>
+                                <?php echo e((string) ($mov['item_nombre'] ?? '')); ?>
                             </td>
                             <td class="align-top pt-3">
                                 <?php if(!empty($mov['almacen_origen'])): ?>
@@ -161,7 +172,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                 <i class="bi bi-person-circle me-1 opacity-50"></i><?php echo e((string) ($mov['usuario'] ?? '-')); ?>
                             </td>
                             <td class="pe-4 align-top pt-3 small text-muted">
-                                <?php echo e((string) ($mov['referencia'] ?? '-')); ?>
+                                <?php echo e($referenciaMostrar); ?>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>
