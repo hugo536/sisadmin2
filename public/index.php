@@ -57,9 +57,19 @@ if ($sessionSameSite === 'NONE') {
 
 // 2. CONFIGURACIÓN DE SESIÓN
 if (session_status() === PHP_SESSION_NONE) {
-    // Detectar HTTPS
+    // Detectar HTTPS (incluyendo proxies/reverse proxies)
+    $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    $forwardedSsl = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? ''));
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || str_contains($forwardedProto, 'https')
+        || $forwardedSsl === 'on';
+
+    // En HTTP, SameSite=None es rechazado por los navegadores modernos
+    $cookieSameSite = $sessionSameSite;
+    if ($cookieSameSite === 'None' && !$isSecure) {
+        $cookieSameSite = 'Lax';
+    }
 
     // Limpiar host para cookie domain
     $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
@@ -70,7 +80,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'path'     => $sessionCookiePath,
         'secure'   => $isSecure,
         'httponly' => true,
-        'samesite' => $sessionSameSite,
+        'samesite' => $cookieSameSite,
     ];
 
     // Solo asignar dominio si no es localhost/IP para evitar problemas locales
