@@ -34,6 +34,7 @@ class VentasController extends Controlador
             'estado' => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
             'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
+            'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'pedido')),
         ];
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {

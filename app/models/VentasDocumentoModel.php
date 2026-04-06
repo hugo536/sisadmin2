@@ -6,11 +6,12 @@ class VentasDocumentoModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        $sql = 'SELECT v.id,
+                $sql = 'SELECT v.id,
                        v.codigo,
                        v.tipo_operacion,
                        v.id_cliente,
                        t.nombre_completo AS cliente,
+                       DATE(v.created_at) AS fecha_pedido,
                        v.fecha_emision,
                        v.total,
                        v.estado,
@@ -43,7 +44,12 @@ class VentasDocumentoModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
+        $ordenFecha = (string) ($filtros['orden_fecha'] ?? 'pedido');
+        if ($ordenFecha === 'emision') {
+            $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
+        } else {
+            $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
+        }
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);

@@ -11,6 +11,18 @@ $estadoLabels = [
     3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
     9 => ['texto' => 'Anulado', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
 ];
+
+$formatearFechaDMY = static function ($fecha): string {
+    $texto = trim((string) $fecha);
+    if ($texto === '') {
+        return '-';
+    }
+    $timestamp = strtotime($texto);
+    if ($timestamp === false) {
+        return $texto;
+    }
+    return date('d/m/Y', $timestamp);
+};
 ?>
 
 
@@ -58,6 +70,12 @@ $estadoLabels = [
                 <div class="col-6 col-md-3">
                     <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>" title="Fecha Hasta">
                 </div>
+                <div class="col-12 col-md-3">
+                    <select class="form-select bg-light" id="filtroOrdenFecha" title="Ordenar por fecha">
+                        <option value="pedido" <?php echo (($filtros['orden_fecha'] ?? 'pedido') === 'pedido') ? 'selected' : ''; ?>>Ordenar por fecha de pedido</option>
+                        <option value="emision" <?php echo (($filtros['orden_fecha'] ?? '') === 'emision') ? 'selected' : ''; ?>>Ordenar por fecha de emisión</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -75,7 +93,7 @@ $estadoLabels = [
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Cliente</th>
-                            <th class="text-secondary fw-semibold">Fecha Emisión</th>
+                            <th class="text-secondary fw-semibold">Fecha Pedido</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
@@ -91,7 +109,10 @@ $estadoLabels = [
                                 <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($venta['codigo'] ?? '') . ' ' . (string) ($venta['cliente'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
-                                    <td><?php echo e((string) ($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?></td>
+                                    <td>
+                                        <div class="fw-semibold"><?php echo e($formatearFechaDMY($venta['fecha_pedido'] ?? $venta['created_at'] ?? '')); ?></div>
+                                        <small class="text-muted">Emisión: <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?></small>
+                                    </td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
