@@ -200,7 +200,7 @@ class VentasDespachoModel extends Modelo
                                 ]);
                             }
 
-                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $consumo, 'id_presentacion' => $lineaValida['id_presentacion']];
+                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica, 'id_presentacion' => $lineaValida['id_presentacion']];
                         }
                     } else {
                         $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
