@@ -87,6 +87,7 @@ class PacksModel
         $sql = "SELECT id, nombre, sku, unidad_base, tipo_item
                 FROM items
                 WHERE estado = 1 
+                  AND deleted_at IS NULL
                   AND LOWER(tipo_item) != 'pack'";
                 
         if ($termino !== '') {
