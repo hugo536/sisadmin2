@@ -94,7 +94,10 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                                 <label class="form-label text-muted small fw-bold mb-1">Precio Público (S/) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control fw-bold text-success shadow-none border-success-subtle" id="inputPrecioPack" step="0.01" min="0" placeholder="25.00" required>
                             </div>
-                            <div class="col-md-3 d-flex align-items-end">
+                            <div class="col-md-3 d-flex align-items-end gap-2">
+                                <button type="button" class="btn btn-outline-danger shadow-sm d-none" id="btnEliminarPack" title="Eliminar combo">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
                                 <button type="submit" class="btn btn-primary fw-bold w-100 shadow-sm" id="btnGuardarPack">
                                     <i class="bi bi-save me-1"></i>Guardar
                                 </button>

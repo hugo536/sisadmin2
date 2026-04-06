@@ -16,6 +16,7 @@
     const inputNombrePack = document.getElementById('inputNombrePack');
     const inputPrecioPack = document.getElementById('inputPrecioPack');
     const lblEstadoPack = document.getElementById('lblEstadoPack');
+    const btnEliminarPack = document.getElementById('btnEliminarPack');
     
     const seccionComponentes = document.getElementById('seccionComponentes');
     const formAgregar = document.getElementById('formAgregarComponente');
@@ -59,6 +60,12 @@
 
     function toastSuccess(message) {
         if (window.Swal) return window.Swal.fire({ icon: 'success', title: 'Correcto', text: message, timer: 1500, showConfirmButton: false });
+    }
+
+    function setEstadoBotonEliminar(idPack) {
+        if (!btnEliminarPack) return;
+        const visible = Number(idPack || 0) > 0;
+        btnEliminarPack.classList.toggle('d-none', !visible);
     }
 
     function refrescarUI_Tabla() {
@@ -253,6 +260,7 @@
             inputPrecioPack.value = '';
             lblEstadoPack.textContent = 'Nuevo Combo';
             lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle mb-2';
+            setEstadoBotonEliminar(0);
 
             seccionComponentes.style.opacity = '1';
             seccionComponentes.style.pointerEvents = 'auto';
@@ -277,6 +285,7 @@
             
             lblEstadoPack.textContent = 'Editando Combo';
             lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
+            setEstadoBotonEliminar(idPackSeleccionadoInput.value);
 
             seccionComponentes.style.opacity = '1';
             seccionComponentes.style.pointerEvents = 'auto';
@@ -442,6 +451,7 @@
                     inputPrecioPack.value = Number(btnLista.dataset.precio || 0).toFixed(2);
                     lblEstadoPack.textContent = 'Editando Combo';
                     lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
+                    setEstadoBotonEliminar(idPackSeleccionadoInput.value);
                     seccionComponentes.style.opacity = '1';
                     seccionComponentes.style.pointerEvents = 'auto';
                     panelVacio.classList.add('d-none');
@@ -460,6 +470,64 @@
             toastError(error.message);
         }
     });
+
+    if (btnEliminarPack) {
+        btnEliminarPack.addEventListener('click', async () => {
+            const idPack = Number(idPackSeleccionadoInput.value || 0);
+            if (idPack <= 0) return;
+
+            let confirmado = false;
+            if (window.Swal) {
+                const result = await window.Swal.fire({
+                    icon: 'warning',
+                    title: '¿Eliminar combo?',
+                    text: 'Se ocultará del catálogo y de buscar producto. Esta acción no borra físicamente la BD.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                });
+                confirmado = !!result.isConfirmed;
+            } else {
+                confirmado = window.confirm('¿Eliminar combo? Se ocultará del catálogo.');
+            }
+            if (!confirmado) return;
+
+            try {
+                const body = new URLSearchParams({
+                    id_pack: String(idPack),
+                    csrf_token: csrfToken,
+                });
+
+                const response = await fetch(buildUrl('eliminar_pack'), {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: body.toString(),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo eliminar el combo.');
+
+                const idx = listaPacks.findIndex((btn) => Number(btn.dataset.id || 0) === idPack);
+                if (idx >= 0) {
+                    listaPacks[idx].remove();
+                    listaPacks.splice(idx, 1);
+                }
+
+                idPackSeleccionadoInput.value = '0';
+                inputNombrePack.value = '';
+                inputPrecioPack.value = '';
+                panelConfiguracion.classList.add('d-none');
+                panelConfiguracion.classList.remove('d-flex');
+                panelVacio.classList.remove('d-none');
+                setEstadoBotonEliminar(0);
+                renderFilaVacia('Guarda el Combo primero para añadir componentes.');
+
+                toastSuccess(data.mensaje || 'Combo eliminado correctamente.');
+            } catch (error) {
+                toastError(error.message);
+            }
+        });
+    }
 
     // --- LÓGICA DE TOM SELECT ---
     if (selectComponente) {
@@ -502,4 +570,5 @@
     }
 
     cargarComponentesDisponibles('');
+    setEstadoBotonEliminar(idPackSeleccionadoInput?.value || 0);
 })();
