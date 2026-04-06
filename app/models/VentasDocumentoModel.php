@@ -6,12 +6,11 @@ class VentasDocumentoModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-                $sql = 'SELECT v.id,
+        $sql = 'SELECT v.id,
                        v.codigo,
                        v.tipo_operacion,
                        v.id_cliente,
                        t.nombre_completo AS cliente,
-                       DATE(v.created_at) AS fecha_pedido,
                        v.fecha_emision,
                        v.total,
                        v.estado,
@@ -34,18 +33,23 @@ class VentasDocumentoModel extends Modelo
             $params['estado'] = (int) $filtros['estado'];
         }
 
+        // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
+        $campoFecha = 'DATE(v.created_at)'; // Por defecto (Fecha Pedido)
+        if (isset($filtros['orden_fecha']) && $filtros['orden_fecha'] === 'emision') {
+            $campoFecha = 'v.fecha_emision';
+        }
+
         if (!empty($filtros['fecha_desde'])) {
-            $sql .= ' AND v.fecha_emision >= :fecha_desde';
+            $sql .= " AND {$campoFecha} >= :fecha_desde";
             $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND v.fecha_emision <= :fecha_hasta';
+            $sql .= " AND {$campoFecha} <= :fecha_hasta";
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $ordenFecha = (string) ($filtros['orden_fecha'] ?? 'pedido');
-        if ($ordenFecha === 'emision') {
+        if (isset($filtros['orden_fecha']) && $filtros['orden_fecha'] === 'emision') {
             $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
         } else {
             $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
@@ -65,7 +69,7 @@ class VentasDocumentoModel extends Modelo
                        t.tipo_documento AS cliente_doc_tipo,
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
-                       v.fecha_emision, v.observaciones, v.subtotal, v.total, v.estado
+                       v.fecha_emision, v.observaciones, v.subtotal, v.total, v.estado, v.created_at
                 FROM ventas_documentos v
                 LEFT JOIN terceros t ON t.id = v.id_cliente
                 WHERE v.id = :id
@@ -82,7 +86,6 @@ class VentasDocumentoModel extends Modelo
 
         $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
 
-        // BLINDAJE: Ahora validamos que sea mayor a cero para evitar conflictos en BD
         $sqlDetalle = "SELECT d.id,
                               CASE 
                                   WHEN d.id_item > 0 THEN CONCAT('ITEM-', d.id_item)
@@ -273,7 +276,6 @@ class VentasDocumentoModel extends Modelo
                     }
                 }
 
-                // BLINDAJE: Forzamos a que si es 0 pase como nulo
                 $stmtDet->execute([
                     'id_documento' => $idDocumento,
                     'id_item' => $idItemDB > 0 ? $idItemDB : null,
@@ -413,8 +415,6 @@ class VentasDocumentoModel extends Modelo
             ? "(SELECT s.stock_actual FROM inventario_stock s WHERE s.id_item = i.id AND s.id_almacen = " . (int)$idAlmacen . " LIMIT 1)" 
             : "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
 
-        $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
-
         if ($acuerdo['tiene_acuerdo']) {
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
                                 COALESCE($stockSqlItems, 0) AS stock_actual
@@ -424,9 +424,16 @@ class VentasDocumentoModel extends Modelo
                            AND " . $this->condicionTipoItemVenta('i') . "";
             $params[] = $acuerdo['id_acuerdo'];
         } else {
+            $tieneVolumen = $this->tablaExiste('item_precios_volumen');
+            $subqueryVolumen = "NULL";
+            
+            if ($tieneVolumen) {
+                $subqueryVolumen = "(SELECT ipv.precio_unitario FROM item_precios_volumen ipv WHERE ipv.id_item = i.id AND ipv.cantidad_minima <= ? ORDER BY ipv.cantidad_minima DESC LIMIT 1)";
+            }
+
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre,
                                 COALESCE(
-                                    (SELECT ipv.precio_unitario FROM item_precios_volumen ipv WHERE ipv.id_item = i.id AND ipv.cantidad_minima <= ? ORDER BY ipv.cantidad_minima DESC LIMIT 1),
+                                    {$subqueryVolumen},
                                     {$subqueryPrecioPresentacion}, i.precio_venta, 0
                                 ) AS precio_venta,
                                 i.tipo_item,
@@ -434,15 +441,24 @@ class VentasDocumentoModel extends Modelo
                          FROM items i
                          WHERE i.estado = 1 AND i.deleted_at IS NULL
                            AND " . $this->condicionTipoItemVenta('i') . "";
-            $params[] = $cantidad;
+            
+            if ($tieneVolumen) {
+                $params[] = $cantidad;
+            }
         }
 
-        $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
-                            'combo' AS tipo_item, {$stockSqlPacks} AS stock_actual
-                     FROM precios_presentaciones pp
-                     WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
+        $consultas = ["($sqlItems)"];
 
-        $sql = "SELECT * FROM ( ($sqlItems) UNION ALL ($sqlPacks) ) AS catalogo WHERE 1=1";
+        if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
+            $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
+            $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
+                                'combo' AS tipo_item, {$stockSqlPacks} AS stock_actual
+                         FROM precios_presentaciones pp
+                         WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
+            $consultas[] = "($sqlPacks)";
+        }
+
+        $sql = "SELECT * FROM ( " . implode(" UNION ALL ", $consultas) . " ) AS catalogo WHERE 1=1";
 
         if ($q !== '') {
             $sql .= ' AND (nombre LIKE ? OR sku LIKE ?)';
@@ -504,23 +520,25 @@ class VentasDocumentoModel extends Modelo
             ];
         }
 
-        $sqlVolumen = 'SELECT ipv.precio_unitario
-                       FROM item_precios_volumen ipv
-                       WHERE ipv.id_item = :id_item
-                         AND ipv.cantidad_minima <= :cantidad
-                       ORDER BY ipv.cantidad_minima DESC
-                       LIMIT 1';
-        $stmtVolumen = $this->db()->prepare($sqlVolumen);
-        $stmtVolumen->execute([
-            'id_item' => $idItem,
-            'cantidad' => $cantidad,
-        ]);
-        $precioVolumen = $stmtVolumen->fetchColumn();
-        if ($precioVolumen !== false) {
-            return [
-                'precio' => (float) $precioVolumen,
-                'origen' => 'volumen',
-            ];
+        if ($this->tablaExiste('item_precios_volumen')) {
+            $sqlVolumen = 'SELECT ipv.precio_unitario
+                           FROM item_precios_volumen ipv
+                           WHERE ipv.id_item = :id_item
+                             AND ipv.cantidad_minima <= :cantidad
+                           ORDER BY ipv.cantidad_minima DESC
+                           LIMIT 1';
+            $stmtVolumen = $this->db()->prepare($sqlVolumen);
+            $stmtVolumen->execute([
+                'id_item' => $idItem,
+                'cantidad' => $cantidad,
+            ]);
+            $precioVolumen = $stmtVolumen->fetchColumn();
+            if ($precioVolumen !== false) {
+                return [
+                    'precio' => (float) $precioVolumen,
+                    'origen' => 'volumen',
+                ];
+            }
         }
 
         if ($this->tablaExiste('precios_presentaciones')) {
@@ -644,7 +662,7 @@ class VentasDocumentoModel extends Modelo
     private function condicionTipoItemVenta(string $alias = 'i'): string
     {
         $campo = $alias . '.tipo_item';
-        return "LOWER(REPLACE(TRIM(COALESCE($campo, '')), ' ', '_')) IN ('producto', 'producto_terminado')";
+        return "(LOWER(COALESCE($campo, '')) LIKE '%producto%' OR LOWER(COALESCE($campo, '')) LIKE '%terminado%')";
     }
 
     private function columnaExiste(string $tabla, string $columna): bool

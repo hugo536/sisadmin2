@@ -29,14 +29,17 @@ class VentasController extends Controlador
         AuthMiddleware::handle();
         require_permiso('ventas.ver');
 
+        // Capturamos los filtros de la URL (GET)
         $filtros = [
-            'q' => trim((string) ($_GET['q'] ?? '')),
-            'estado' => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
+            'q'           => trim((string) ($_GET['q'] ?? '')),
+            'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
             'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
+            // LÍNEA CLAVE: Captura la elección del nuevo select del frontend
             'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'pedido')),
         ];
 
+        // Respuesta para AJAX (Cuando se filtra o busca sin recargar)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response(['ok' => true, 'data' => $this->documentoModel->listar($filtros)]);
             return;
@@ -159,11 +162,12 @@ class VentasController extends Controlador
             return;
         }
 
+        // Carga inicial de la página (pasamos los filtros para que el HTML sepa qué mostrar)
         $this->render('ventas', [
             'ruta_actual' => 'ventas',
-            'ventas' => $this->documentoModel->listar($filtros),
-            'filtros' => $filtros,
-            'almacenes' => $this->documentoModel->listarAlmacenesActivos(),
+            'ventas'      => $this->documentoModel->listar($filtros),
+            'filtros'     => $filtros,
+            'almacenes'   => $this->documentoModel->listarAlmacenesActivos(),
         ]);
     }
 

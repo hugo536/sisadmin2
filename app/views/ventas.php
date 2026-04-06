@@ -110,8 +110,12 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
                                     <td>
-                                        <div class="fw-semibold"><?php echo e($formatearFechaDMY($venta['fecha_pedido'] ?? $venta['created_at'] ?? '')); ?></div>
-                                        <small class="text-muted">Emisión: <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?></small>
+                                        <div class="fw-semibold text-dark" title="Fecha en la que se registró el pedido en el sistema">
+                                            <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>
+                                        </div>
+                                        <small class="text-muted" title="Fecha comercial del documento">
+                                            Emisión: <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>
+                                        </small>
                                     </td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
