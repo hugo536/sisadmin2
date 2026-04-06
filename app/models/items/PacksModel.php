@@ -172,4 +172,33 @@ class PacksModel
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
+
+    /**
+     * 7. Eliminado lógico de pack/combo.
+     *    No borra físicamente, solo lo oculta del catálogo y búsquedas.
+     */
+    public function eliminarPack(int $idPack): bool
+    {
+        if ($idPack <= 0) {
+            return false;
+        }
+
+        $usuarioId = (int) ($_SESSION['id'] ?? $_SESSION['usuario_id'] ?? 1);
+        $sql = 'UPDATE precios_presentaciones
+                SET estado = 0,
+                    deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    updated_by = :updated_by,
+                    updated_at = NOW()
+                WHERE id = :id
+                  AND deleted_at IS NULL';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'id' => $idPack,
+            'deleted_by' => $usuarioId,
+            'updated_by' => $usuarioId,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
 }

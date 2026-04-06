@@ -165,4 +165,33 @@ class PacksController extends Controlador
             'mensaje' => $ok ? 'Componente eliminado.' : 'No se pudo eliminar el componente.',
         ], $ok ? 200 : 422);
     }
+
+    public function eliminar_pack(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('items.editar');
+
+        if (!es_ajax() || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            json_response(['ok' => false, 'mensaje' => 'Petición inválida.'], 400);
+            return;
+        }
+
+        $csrf = (string) ($_POST['csrf_token'] ?? '');
+        if (!hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $csrf)) {
+            json_response(['ok' => false, 'mensaje' => 'Error de seguridad (CSRF).'], 403);
+            return;
+        }
+
+        $idPack = (int) ($_POST['id_pack'] ?? 0);
+        if ($idPack <= 0) {
+            json_response(['ok' => false, 'mensaje' => 'Pack inválido.'], 422);
+            return;
+        }
+
+        $ok = $this->packsModel->eliminarPack($idPack);
+        json_response([
+            'ok' => $ok,
+            'mensaje' => $ok ? 'Combo eliminado correctamente.' : 'No se pudo eliminar el combo.',
+        ], $ok ? 200 : 422);
+    }
 }
