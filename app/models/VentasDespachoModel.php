@@ -200,7 +200,7 @@ class VentasDespachoModel extends Modelo
                                 ]);
                             }
 
-                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica];
+                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $consumo, 'id_presentacion' => $lineaValida['id_presentacion']];
                         }
                     } else {
                         $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
@@ -526,11 +526,21 @@ class VentasDespachoModel extends Modelo
         foreach ($lineasDespachadas as $linea) {
             $idProducto = (int) ($linea['id_item'] ?? 0);
             $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
+            // MODIFICACIÓN CLAVE: Leemos si el producto vino de un Combo
+            $idPresentacionOrigen = isset($linea['id_presentacion']) ? (int) $linea['id_presentacion'] : 0;
 
             if ($idProducto <= 0 || $cantidadDespachada <= 0) {
                 continue;
             }
 
+            // Si el producto que está saliendo pertenece a un PACK/COMBO,
+            // asumimos que el cliente está PAGANDO por el pack entero (líquido + envase).
+            // Por lo tanto, NO es un préstamo. Nos saltamos este ítem para que no vaya a la Cuenta Corriente.
+            if ($idPresentacionOrigen > 0) {
+                continue;
+            }
+
+            // Si no es un combo, validamos si el producto normal tiene envases retornables
             $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
 
             if ($envasesReceta === []) {
@@ -558,7 +568,7 @@ class VentasDespachoModel extends Modelo
         }
 
         if (empty($ajustesPorEnvase)) {
-            return;
+            return; // Si todo se vendió en combo, el arreglo estará vacío y no hará nada. ¡Perfecto!
         }
 
         $operacionUuid = bin2hex(random_bytes(8));
