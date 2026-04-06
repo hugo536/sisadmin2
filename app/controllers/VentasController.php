@@ -162,6 +162,37 @@ class VentasController extends Controlador
             return;
         }
 
+        // NUEVA RUTA PARA PROFORMAS
+        if ((string) ($_GET['accion'] ?? '') === 'imprimir_proforma') {
+            $id = (int) ($_GET['id'] ?? 0);
+            
+            if ($id <= 0) die('ID de pedido inválido.');
+
+            $venta = $this->documentoModel->obtener($id);
+            if (empty($venta)) die('El pedido no existe.');
+
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php'; 
+            $empresaModel = new EmpresaModel();
+            $config = $empresaModel->obtener();
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(array('isRemoteEnabled' => true));
+            $dompdf->setOptions($options);
+
+            ob_start();
+            // AQUI ESTA LA MAGIA: Llamamos a un diseño diferente llamado pdf_proforma.php
+            require BASE_PATH . '/app/views/reportes/pdf_proforma.php';
+            $html = (string) ob_get_clean();
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('Proforma_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
+            return;
+        }
+
         // Carga inicial de la página (pasamos los filtros para que el HTML sepa qué mostrar)
         $this->render('ventas', [
             'ruta_actual' => 'ventas',

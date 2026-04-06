@@ -129,15 +129,19 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Editar Pedido"><i class="bi bi-pencil-square fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-bs-toggle="tooltip" title="Aprobar Pedido"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
+                                                
                                             <?php elseif ($estado === 2): ?> 
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
+                                                
                                             <?php elseif ($estado === 3): ?>
                                                 <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
+                                                
                                             <?php else: ?> 
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
@@ -421,25 +425,83 @@ $formatearFechaDMY = static function ($fecha): string {
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white border-bottom-0">
                 <h5 class="modal-title fw-bold" id="modalImpresionPedidoLabel">
-                    <i class="bi bi-printer me-2"></i>Imprimir pedido
+                    <i class="bi bi-printer me-2"></i>Imprimir Documento
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <p class="text-muted mb-3">¿Cuántas hojas/copias del pedido deseas generar en el PDF?</p>
-                <label for="cantidadPaginasPedido" class="form-label fw-semibold">Cantidad de hojas</label>
-                <input type="number" class="form-control shadow-none" id="cantidadPaginasPedido" min="1" max="20" step="1" value="1">
-                <small class="text-muted d-block mt-2">Mínimo 1 y máximo 20 hojas.</small>
+            <div class="modal-body p-4">
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Tipo de Documento</label>
+                    <select class="form-select shadow-none border-primary-subtle" id="tipoDocumentoImprimir">
+                        <option value="imprimir">Pedido Interno (Despacho / Almacén)</option>
+                        <option value="imprimir_proforma">Proforma / Cotización (Para el Cliente)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="cantidadPaginasPedido" class="form-label fw-bold text-dark">Cantidad de copias por hoja</label>
+                    <input type="number" class="form-control shadow-none" id="cantidadPaginasPedido" min="1" max="20" step="1" value="1">
+                    <small class="text-muted d-block mt-1">Se imprimirán esta cantidad de copias en el PDF.</small>
+                </div>
             </div>
-            <div class="modal-footer border-top-0">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary fw-semibold" id="btnConfirmarImpresionPedido">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>Generar PDF
+            <div class="modal-footer bg-light border-top-0">
+                <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmarImpresionPedido">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF
                 </button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    window.pedidoIdPendienteImpresion = window.pedidoIdPendienteImpresion || 0;
+
+    window.imprimirPedido = function(id) {
+        const app = document.getElementById('ventasApp');
+        if (!app) return;
+
+        window.pedidoIdPendienteImpresion = Number(id) || 0;
+
+        const inputPaginas = document.getElementById('cantidadPaginasPedido');
+        const selectTipo = document.getElementById('tipoDocumentoImprimir');
+        if (inputPaginas) inputPaginas.value = 1;
+        if (selectTipo) selectTipo.value = 'imprimir'; // Por defecto Pedido Interno
+
+        const modalEl = document.getElementById('modalImpresionPedido');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }; 
+
+    (function() {
+        const btnConfirmar = document.getElementById('btnConfirmarImpresionPedido');
+        if (!btnConfirmar) return;
+
+        const nuevoBtnConfirmar = btnConfirmar.cloneNode(true);
+        btnConfirmar.parentNode.replaceChild(nuevoBtnConfirmar, btnConfirmar);
+
+        nuevoBtnConfirmar.addEventListener('click', () => {
+            const app = document.getElementById('ventasApp');
+            const inputPaginas = document.getElementById('cantidadPaginasPedido');
+            const selectTipo = document.getElementById('tipoDocumentoImprimir'); // Capturamos el tipo
+            
+            if (!app || !inputPaginas || window.pedidoIdPendienteImpresion <= 0) return;
+
+            const baseUrl = app.dataset.urlIndex;
+            const paginas = Math.max(1, Math.min(20, Number(inputPaginas.value) || 1));
+            const accionImpresion = selectTipo ? selectTipo.value : 'imprimir';
+
+            const modalEl = document.getElementById('modalImpresionPedido');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+
+            // Pasamos la acción dinámica (imprimir vs imprimir_proforma)
+            window.open(`${baseUrl}&accion=${accionImpresion}&id=${window.pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
+        });
+    })();
+</script>
 
 <template id="templateFilaVenta">
     <tr class="border-bottom">
